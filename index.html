@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link href="./src/assets/circular_logo.png" rel="icon" type="image"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iPawcus</title>
+    <script>
+      // TODO: pang restrict ng INSPECTION KELANGAN MATANGAL PAG OKAY NA
+      // THE REST IS ADDITION NALANG
+      // // Disable right-click with an alert
+      // document.addEventListener('contextmenu', function(e) {
+      //   e.preventDefault();
+      // });
+
+      // Disable specific keyboard shortcuts
+      document.onkeydown = function(e) {
+        if (e.keyCode == 123) { // Disable F12
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { // Disable Ctrl+Shift+I
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { // Disable Ctrl+Shift+C
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { // Disable Ctrl+Shift+J
+          return false;
+        }
+        if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { // Disable Ctrl+U
+          return false;
+        }
+        if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) { // Disable Ctrl+S
+          return false;
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

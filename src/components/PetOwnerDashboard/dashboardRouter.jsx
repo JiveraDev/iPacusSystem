@@ -25,6 +25,7 @@ const routePatterns = [
   { pattern: "/dashboard/my-pets" },
   { pattern: "/dashboard/todos" },
   { pattern: "/dashboard/profile" },
+  { pattern: "/dashboard/pet-register" },
   { pattern: "/dashboard" },
 ];
 
@@ -89,5 +90,15 @@ function useParams() {
   return context.params;
 }
 
-export { DashboardRouterProvider, getRouteMatch, normalizePath, useNavigate, useParams };
+export {
+  DashboardRouterProvider,
+  // eslint-disable-next-line react-refresh/only-export-components
+  getRouteMatch,
+  // eslint-disable-next-line react-refresh/only-export-components
+  normalizePath,
+  // eslint-disable-next-line react-refresh/only-export-components
+  useNavigate,
+  // eslint-disable-next-line react-refresh/only-export-components
+  useParams
+};
 

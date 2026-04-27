@@ -16,13 +16,15 @@ const routes = {
 };
 
 function getViewFromPath(pathname) {
+  if (pathname.startsWith('/dashboard')) {
+    return 'dashboard';
+  }
+
   switch (pathname) {
     case '/':
       return 'landing';
     case routes.login:
       return 'login';
-    case routes.dashboard:
-      return 'dashboard';
     case routes.register:
       return 'register';
     case routes.registerProfile:

@@ -13,7 +13,6 @@
 #
 #
 select * from users;
-
-UPDATE users
-SET role = 'Pet Owner'
-WHERE role = 'pet_owner';
+# UPDATE users
+# SET role = 'Pet Owner'
+# WHERE role = 'pet_owner';

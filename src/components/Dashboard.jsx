@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   PawPrint,
+  Plus,
   User,
   Video,
   X,
@@ -38,12 +39,14 @@ import MedicalRecordsScreen from "./PetOwnerDashboard/MedicalRecords.jsx";
 import RequestUpdateRecordScreen from "./PetOwnerDashboard/RequestUpdateRecord.jsx";
 import TodosScreen from "./PetOwnerDashboard/Todos.jsx";
 import ProfileScreen from "./PetOwnerDashboard/Profile.jsx";
+import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
 
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard" },
   { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult" },
   { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services" },
   { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets" },
+  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ["Pet Owner", "pet_owner"] },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos" },
   { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" },
 ];
@@ -70,6 +73,7 @@ const screenMap = {
   "/dashboard/my-pets/:petId": PetProfileScreen,
   "/dashboard/my-pets/:petId/medical-records": MedicalRecordsScreen,
   "/dashboard/my-pets/:petId/request-update": RequestUpdateRecordScreen,
+  "/dashboard/pet-register": PetRegister,
   "/dashboard/todos": TodosScreen,
   "/dashboard/profile": ProfileScreen,
 };
@@ -117,6 +121,9 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/my-pets")) {
     return "pets";
   }
+  if (path.startsWith("/dashboard/pet-register")) {
+    return "pet-register";
+  }
   if (path.startsWith("/dashboard/todos")) {
     return "todos";
   }
@@ -127,9 +134,45 @@ function getActiveTab(path) {
 }
 
 export default function Dashboard({ user, onLogout }) {
-  const [historyStack, setHistoryStack] = useState(["/dashboard"]);
+  const [historyStack, setHistoryStack] = useState(() => [normalizePath(window.location.pathname)]);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth < 960);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setHistoryStack((current) => {
+        const nextPath = normalizePath(window.location.pathname);
+        if (current[current.length - 1] === nextPath) {
+          return current;
+        }
+        return [...current, nextPath];
+      });
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (target) => {
+    if (typeof target === "number") {
+      window.history.go(target);
+      return;
+    }
+
+    const nextPath = normalizePath(target);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+    
+    setHistoryStack((current) => {
+      if (current[current.length - 1] === nextPath) {
+        return current;
+      }
+
+      return [...current, nextPath];
+    });
+    setIsMobileNavOpen(false);
+  };
 
   useEffect(() => {
     const storedUser = buildStoredUser(user);
@@ -169,8 +212,42 @@ export default function Dashboard({ user, onLogout }) {
 
   const currentPath = historyStack[historyStack.length - 1];
   const routeMatch = getRouteMatch(currentPath);
-  const ScreenComponent = screenMap[routeMatch.path] ?? HomeScreen;
   const activeTab = getActiveTab(currentPath);
+
+  const userRole = getUserValue(user, ["role"]);
+
+  // Filter nav items based on roles if specified
+  const filteredNavItems = useMemo(() => {
+    return navItems.filter(item => {
+      if (!item.roles) return true;
+      return item.roles.includes(userRole);
+    });
+  }, [userRole]);
+
+  // Authorization check for the current route
+  const ScreenComponent = useMemo(() => {
+    const Component = screenMap[routeMatch.path] ?? HomeScreen;
+    
+    // Check if the current route has a corresponding nav item with role restrictions
+    const navItem = navItems.find(item => item.path === routeMatch.path);
+    if (navItem?.roles && !navItem.roles.includes(userRole)) {
+      return () => (
+        <div className="flex flex-col items-center justify-center h-full text-center p-10">
+          <X className="size-12 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
+          <p className="text-slate-600 mb-6">You do not have permission to access this page.</p>
+          <button 
+            onClick={() => navigate("/dashboard")}
+            className="bg-[#155dfc] text-white px-6 py-2 rounded-xl font-medium"
+          >
+            Go to Home
+          </button>
+        </div>
+      );
+    }
+    
+    return Component;
+  }, [routeMatch.path, userRole, navigate]);
 
   const displayName = useMemo(() => {
     const firstName = getUserValue(user, ["firstName", "FirstName", "first_name"]);
@@ -178,31 +255,6 @@ export default function Dashboard({ user, onLogout }) {
     const fullName = `${firstName} ${lastName}`.trim();
     return fullName || getUserValue(user, ["email"], "Pet Owner");
   }, [user]);
-
-  const navigate = (target) => {
-    if (typeof target === "number") {
-      setHistoryStack((current) => {
-        if (target >= 0 || current.length <= 1) {
-          return current;
-        }
-
-        const nextLength = Math.max(1, current.length + target);
-        return current.slice(0, nextLength);
-      });
-      setIsMobileNavOpen(false);
-      return;
-    }
-
-    const nextPath = normalizePath(target);
-    setHistoryStack((current) => {
-      if (current[current.length - 1] === nextPath) {
-        return current;
-      }
-
-      return [...current, nextPath];
-    });
-    setIsMobileNavOpen(false);
-  };
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
@@ -218,7 +270,7 @@ export default function Dashboard({ user, onLogout }) {
 
       <div className="flex h-full flex-col p-4">
         <nav className="space-y-2">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab;
 
@@ -306,6 +358,7 @@ export default function Dashboard({ user, onLogout }) {
           )}
 
           <main className="flex-1 p-4 sm:p-6 lg:p-10">
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <ScreenComponent />
           </main>
         </div>

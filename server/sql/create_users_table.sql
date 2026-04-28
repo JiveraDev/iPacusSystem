@@ -16,3 +16,11 @@ select * from users;
 # UPDATE users
 # SET role = 'Pet Owner'
 # WHERE role = 'pet_owner';
+
+
+alter table  users
+add column if not exists setProfilePic_url varchar(250) null;
+
+alter table  users
+    add column if not exists birthdate date default null;
+

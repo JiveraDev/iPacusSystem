@@ -10,6 +10,7 @@ export async function loginUser(req, res) {
     }
 
     try {
+        // console.log(`[LOGIN] Attempting login for email: ${email}`);
         const [rows] = await pool.query(
             `SELECT
                 user_id,
@@ -20,6 +21,8 @@ export async function loginUser(req, res) {
                 personal_Address,
                 phoneNumber,
                 emergencyNumber,
+                birthdate,
+                setProfilePic_url,
                 user_password
              FROM users
              WHERE mail_Address = ?
@@ -30,17 +33,21 @@ export async function loginUser(req, res) {
         const user = rows[0];
 
         if (!user) {
+            // console.warn(`[LOGIN] No user found with email: ${email}`);
             res.status(401).json({ message: "Invalid email or password." });
             return;
         }
 
+        // console.log(`[LOGIN] User found, comparing password...`);
         const passwordMatches = await bcrypt.compare(password, user.user_password);
 
         if (!passwordMatches) {
+            // console.warn(`[LOGIN] Password mismatch for email: ${email}`);
             res.status(401).json({ message: "Invalid email or password." });
             return;
         }
 
+        // console.log(`[LOGIN] Login successful for: ${email}`);
         res.json({
             message: "Login successful.",
             user: {
@@ -52,6 +59,8 @@ export async function loginUser(req, res) {
                 address: user.personal_Address,
                 phoneNumber: user.phoneNumber,
                 emergencyNumber: user.emergencyNumber,
+                dateOfBirth: user.birthdate,
+                profileImage: user.setProfilePic_url,
             },
         });
     } catch (error) {

@@ -8,7 +8,7 @@ import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Checkbox } from "../../ui/checkbox";
-import { toast } from "./toast";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Hotel, Home, Check, X, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 

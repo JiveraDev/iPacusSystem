@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { Checkbox } from "../../ui/checkbox";
-import { toast } from "./toast";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Bath, Scissors, Syringe, Heart, Stethoscope, Pill, Check } from "lucide-react";
 
 export default function HomeServices() {

@@ -15,7 +15,7 @@ import {
 
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./PetOwnerDashboard/dashboardRouter.jsx";
-import { ToastViewport } from "./PetOwnerDashboard/toast.jsx";
+import { ToastViewport } from "../reusecomponent/toast.jsx";
 import HomeScreen from "./PetOwnerDashboard/Home.jsx";
 import ConsultScreen from "./PetOwnerDashboard/Consult.jsx";
 import ConsultBookingScreen from "./PetOwnerDashboard/ConsultBooking.jsx";
@@ -38,7 +38,7 @@ import PetProfileScreen from "./PetOwnerDashboard/PetProfile.jsx";
 import MedicalRecordsScreen from "./PetOwnerDashboard/MedicalRecords.jsx";
 import RequestUpdateRecordScreen from "./PetOwnerDashboard/RequestUpdateRecord.jsx";
 import TodosScreen from "./PetOwnerDashboard/Todos.jsx";
-import ProfileScreen from "./PetOwnerDashboard/Profile.jsx";
+import PetOwnerProfileScreen from "./PetOwnerDashboard/PetOwnerProfile.jsx";
 import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
 
 const navItems = [
@@ -75,7 +75,7 @@ const screenMap = {
   "/dashboard/my-pets/:petId/request-update": RequestUpdateRecordScreen,
   "/dashboard/pet-register": PetRegister,
   "/dashboard/todos": TodosScreen,
-  "/dashboard/profile": ProfileScreen,
+  "/dashboard/profile": PetOwnerProfileScreen,
 };
 
 function getUserValue(user, keys, fallback = "") {
@@ -134,6 +134,14 @@ function getActiveTab(path) {
 }
 
 export default function Dashboard({ user, onLogout }) {
+  // Session control check
+  useEffect(() => {
+    const storedUser = localStorage.getItem("currentUser");
+    if (!storedUser && !user) {
+      window.location.href = "/landing/login";
+    }
+  }, [user]);
+
   const [historyStack, setHistoryStack] = useState(() => [normalizePath(window.location.pathname)]);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth < 960);
@@ -228,14 +236,14 @@ export default function Dashboard({ user, onLogout }) {
   const ScreenComponent = useMemo(() => {
     const Component = screenMap[routeMatch.path] ?? HomeScreen;
     
-    // Check if the current route has a corresponding nav item with role restrictions
-    const navItem = navItems.find(item => item.path === routeMatch.path);
-    if (navItem?.roles && !navItem.roles.includes(userRole)) {
+    // Check if the current user role is allowed for this route
+    if (routeMatch.allowedRoles && !routeMatch.allowedRoles.includes(userRole)) {
       return () => (
         <div className="flex flex-col items-center justify-center h-full text-center p-10">
           <X className="size-12 text-red-500 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
           <p className="text-slate-600 mb-6">You do not have permission to access this page.</p>
+          <p className="text-xs text-slate-400 mb-6">Required: {routeMatch.allowedRoles.join(", ")} | Your Role: {userRole}</p>
           <button 
             onClick={() => navigate("/dashboard")}
             className="bg-[#155dfc] text-white px-6 py-2 rounded-xl font-medium"
@@ -247,7 +255,7 @@ export default function Dashboard({ user, onLogout }) {
     }
     
     return Component;
-  }, [routeMatch.path, userRole, navigate]);
+  }, [routeMatch.path, routeMatch.allowedRoles, userRole, navigate]);
 
   const displayName = useMemo(() => {
     const firstName = getUserValue(user, ["firstName", "FirstName", "first_name"]);

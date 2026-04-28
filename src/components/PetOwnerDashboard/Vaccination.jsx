@@ -6,6 +6,7 @@ import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Syringe, ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { toast } from "../../reusecomponent/toast.jsx";
 
 export default function Vaccination() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export default function Vaccination() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert("Booking submitted! Awaiting admin approval.");
+    toast.success("Booking submitted! Awaiting admin approval.");
     navigate("/dashboard/services");
   };
 

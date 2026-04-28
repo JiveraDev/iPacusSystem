@@ -6,6 +6,7 @@ import Dashboard from "./components/Dashboard.jsx";
 import { RegistrationForm } from "./components/Registration.jsx";
 import { PetOwnerProfileForm } from "./components/petownerprofileRegistration.jsx";
 import { registerUser } from "./services/registerUser.js";
+import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
 
 const routes = {
   landing: '/landing',
@@ -66,6 +67,13 @@ function App() {
         setView('login');
         return;
       }
+      
+      if ((nextView === 'login' || nextView === 'landing' || nextView === 'register') && storedUser) {
+        window.history.replaceState({}, '', routes.dashboard);
+        setView('dashboard');
+        setCurrentUser(JSON.parse(storedUser));
+        return;
+      }
 
       setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
       setView(nextView);
@@ -73,7 +81,19 @@ function App() {
 
     window.addEventListener('popstate', handlePopState);
 
-    if (window.location.pathname === '/') {
+    // Initial check for authenticated user on public routes
+    const storedUser = localStorage.getItem('currentUser');
+    const currentView = getViewFromPath(window.location.pathname);
+    
+    if (storedUser && (currentView === 'landing' || currentView === 'login' || currentView === 'register')) {
+      window.history.replaceState({}, '', routes.dashboard);
+      setView('dashboard');
+    } else if (!storedUser && currentView === 'dashboard') {
+      window.history.replaceState({}, '', routes.login);
+      setView('login');
+    }
+
+    if (window.location.pathname === '/' && !storedUser) {
       window.history.replaceState({}, '', routes.landing);
     }
 
@@ -142,17 +162,18 @@ function App() {
 
     try {
       await registerUser(completedRegistration);
-      alert('Registration completed successfully!');
+      toast.success('Registration completed successfully!');
       resetRegistrationFlow();
       navigateTo(routes.login);
     } catch (error) {
       console.error('Registration failed:', error);
-      alert(error.message || 'Registration failed.');
+      toast.error(error.message || 'Registration failed.');
     }
   };
 
   return (
       <div className="min-h-screen">
+        <ToastViewport />
         {view === 'landing' && (
             <LandingPage
                 onLogin={() => navigateTo(routes.login)}

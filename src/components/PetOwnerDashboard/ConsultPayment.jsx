@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { toast } from "./toast";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ConsultPayment() {

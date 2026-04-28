@@ -3,7 +3,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { PawPrint, FileText, Plus, Copy, CheckCircle2, ListTodo } from 'lucide-react';
+import { PawPrint, FileText, Plus, Copy, CheckCircle2, ListTodo, Camera, Loader2 } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -13,6 +13,7 @@ import {
 } from "../../ui/dialog";
 import { addPetService } from '../../services/addPet';
 import { calculateAge } from '../../lib/date';
+import { toast } from "../../reusecomponent/toast.jsx";
 
 const emptyPetProfile = {
     id: '',
@@ -31,7 +32,9 @@ const emptyPetProfile = {
     medications: '',
     medicalHistory: '',
     lastVisit: '',
-    vetNotes: ''
+    vetNotes: '',
+    profileImage: null,
+    imagePreview: null
 };
 
 export default function PetRegister() {
@@ -89,16 +92,51 @@ export default function PetRegister() {
                 setRegisteredPets(prev => prev.map(pet => 
                     pet.id === petId ? { ...pet, status: newStatus } : pet
                 ));
+                toast.success(`Pet status updated to ${newStatus}`);
+            } else {
+                throw new Error("Failed to update status");
             }
         } catch (error) {
             console.error('Failed to update status:', error);
+            toast.error("Error updating pet status");
+        }
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setFormData(prev => ({
+                ...prev,
+                profileImage: file,
+                imagePreview: URL.createObjectURL(file)
+            }));
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        let profileImageUrl = "";
 
         try {
+            // 1. Upload image if exists
+            if (formData.profileImage) {
+                setIsUploading(true);
+                const uploadData = new FormData();
+                uploadData.append('image', formData.profileImage);
+                
+                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+                const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
+                    method: 'POST',
+                    body: uploadData
+                });
+
+                if (!uploadRes.ok) throw new Error("Failed to upload image");
+                const uploadResult = await uploadRes.json();
+                profileImageUrl = uploadResult.url;
+            }
+
+            // 2. Submit pet data
             const petPayload = {
                 petName: formData.petName,
                 species: formData.species,
@@ -114,18 +152,22 @@ export default function PetRegister() {
                 colorMarkings: formData.colorMarkings || null,
                 currentMedication: formData.medications || null,
                 veterinarianNotes: formData.vetNotes || null,
-                lastVisitDate: formData.lastVisit || null
+                lastVisitDate: formData.lastVisit || null,
+                profileImage: profileImageUrl
             };
 
             const result = await addPetService(petPayload);
             
+            toast.success("Pet registered successfully!");
             setRegisteredPetName(formData.petName);
-            setGeneratedPetId(result.sharableId); // Use ID from server
+            setGeneratedPetId(result.sharableId);
             setFormData({ ...emptyPetProfile });
             setShowSuccessDialog(true);
-            fetchPets(); // Refresh the list
+            fetchPets(); 
         } catch (error) {
-            alert('Failed to register pet: ' + error.message);
+            toast.error('Failed to register pet: ' + error.message);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -144,12 +186,13 @@ export default function PetRegister() {
             document.execCommand('copy');
             textArea.remove();
             setCopiedPetId(true);
+            toast.success("Pet ID copied to clipboard!");
             setTimeout(() => setCopiedPetId(false), 2000);
         } catch (err) {
             console.error('Failed to copy:', err);
             textArea.remove();
-            // Fallback: show alert with the ID
-            alert(`Copy this Pet ID: ${generatedPetId}`);
+            // Fallback: show toast with the ID
+            toast.success(`Pet ID: ${generatedPetId}`);
         }
     };
 
@@ -180,6 +223,43 @@ export default function PetRegister() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2 flex flex-col items-center justify-center mb-4 pt-2">
+                                    <Label className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#0a0a0a] mb-4 w-full">
+                                        Pet Profile Picture
+                                    </Label>
+                                    <div className="relative group">
+                                        <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center transition-all group-hover:border-[#155dfc]">
+                                            {formData.imagePreview ? (
+                                                <img 
+                                                    src={formData.imagePreview} 
+                                                    alt="Preview" 
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <PawPrint className="size-12 text-slate-300" />
+                                            )}
+                                        </div>
+                                        <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl">
+                                            <div className="flex flex-col items-center text-white text-xs gap-1">
+                                                <Camera className="size-6" />
+                                                <span>{formData.imagePreview ? "Change" : "Upload"}</span>
+                                            </div>
+                                            <input 
+                                                type="file" 
+                                                className="hidden" 
+                                                accept="image/*" 
+                                                onChange={handleImageChange}
+                                            />
+                                        </label>
+                                    </div>
+                                    {isUploading && (
+                                        <div className="mt-2 flex items-center gap-2 text-xs text-[#155dfc]">
+                                            <Loader2 className="size-3 animate-spin" />
+                                            <span>Uploading image...</span>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="col-span-2">
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Pet Name *
@@ -534,7 +614,7 @@ export default function PetRegister() {
                                             <p className="text-xs text-slate-400">{pet.age}</p>
                                         </td>
                                         <td className="py-3 px-4">
-                                            <p className="text-sm text-slate-600">{pet.tempOwnerName || 'N/A'}</p>
+                                            <p className="text-sm font-medium text-blue-600">{pet.tempOwnerName || 'Unlinked'}</p>
                                         </td>
                                         <td className="py-3 px-4">
                                             <code className="text-xs bg-slate-100 px-2 py-1 rounded text-[#155dfc] font-mono">

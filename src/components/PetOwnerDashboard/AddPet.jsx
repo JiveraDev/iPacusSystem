@@ -4,15 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { toast } from "./toast";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, PawPrint, AlertCircle } from "lucide-react";
+import { linkPetService } from "../../services/ConnectOwnership";
 
 export default function AddPet() {
   const navigate = useNavigate();
   const [petId, setPetId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!petId.trim()) {
@@ -22,62 +23,25 @@ export default function AddPet() {
 
     setIsLoading(true);
 
-    // Simulate API call to verify pet ID exists in clinic system
-    setTimeout(() => {
-      // TODO: Replace with actual API call to verify pet ID
-      // For now, we'll just accept any pet ID and link it to the user
-      
+    try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const userIndex = users.findIndex((u) => u.id === currentUser.id);
+      const userId = currentUser.id;
 
-      if (userIndex !== -1) {
-        // Check if pet ID already linked to this user
-        const existingPet = users[userIndex].pets?.find((p) => p.registrationId === petId.trim());
-        
-        if (existingPet) {
-          toast.error("This pet is already linked to your account");
-          setIsLoading(false);
-          return;
-        }
-
-        // Create a placeholder pet record that will be populated by the clinic
-        const linkedPet = {
-          id: Date.now().toString(),
-          registrationId: petId.trim(),
-          name: "Pending Clinic Registration",
-          species: "",
-          breed: "",
-          age: "",
-          gender: "",
-          weight: "",
-          color: "",
-          dateOfBirth: "",
-          microchipId: "",
-          status: "Pending",
-          profileImage: "",
-          vaccinations: [],
-          allergies: [],
-          medicalRecords: {
-            organized: [],
-            unorganized: []
-          },
-          createdAt: new Date().toISOString(),
-        };
-
-        if (!users[userIndex].pets) {
-          users[userIndex].pets = [];
-        }
-        users[userIndex].pets.push(linkedPet);
-        localStorage.setItem("users", JSON.stringify(users));
-        localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
-
-        toast.success("Pet ID linked successfully! The clinic will complete the registration.");
-        navigate("/dashboard/my-pets");
+      if (!userId) {
+        toast.error("User session not found. Please log in again.");
+        navigate("/login");
+        return;
       }
+
+      await linkPetService(userId, petId.trim());
       
+      toast.success("Pet ID linked successfully!");
+      navigate("/dashboard/my-pets");
+    } catch (error) {
+      toast.error(error.message || "Failed to link pet");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -106,9 +70,9 @@ export default function AddPet() {
               <p className="font-semibold mb-1">How to link your pet:</p>
               <ol className="list-decimal list-inside space-y-1 ml-2">
                 <li>Visit our clinic or have your pet registered by our staff</li>
-                <li>Receive a unique Pet Registration ID from the veterinarian</li>
+                <li>Receive a unique Pet Registration ID (e.g., PET-1-IPAWCUS)</li>
                 <li>Enter the ID below to link your pet to your account</li>
-                <li>The clinic will complete your pet's profile with medical information</li>
+                <li>You will then be able to view your pet's medical records</li>
               </ol>
             </div>
           </div>
@@ -120,7 +84,7 @@ export default function AddPet() {
               </Label>
               <Input
                 id="petId"
-                placeholder="Enter the ID provided by the clinic (e.g., PET-2024-001234)"
+                placeholder="Enter the ID provided by the clinic (e.g., PET-1-IPAWCUS)"
                 value={petId}
                 onChange={(e) => setPetId(e.target.value)}
                 className="text-lg h-12"
@@ -183,4 +147,3 @@ export default function AddPet() {
     </div>
   );
 }
-

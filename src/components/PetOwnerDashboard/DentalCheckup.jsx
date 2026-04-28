@@ -1,10 +1,11 @@
 import { useNavigate } from "./dashboardRouter";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { Heart, ArrowLeft } from "lucide-react";
+import { ShieldAlert as Tooth, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
 export default function DentalCheckup() {
@@ -14,12 +15,11 @@ export default function DentalCheckup() {
     date: "",
     time: "",
     notes: "",
-    files: [],
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert("Booking submitted! Awaiting admin approval.");
+    toast.success("Booking submitted! Awaiting admin approval.");
     navigate("/dashboard/services");
   };
 

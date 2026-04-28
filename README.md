@@ -1,16 +1,54 @@
-# React + Vite
+# Pet EMR - Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A comprehensive React + Node.js system for pet medical records and owner management.
 
-Currently, two official plugins are available:
+## 🚀 Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Prerequisites
+- Node.js (v18+)
+- MySQL Database
 
-## React Compiler
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Set up your `.env` file (see `.env.example`)
+4. Start the server:
+   ```bash
+   npm run server
+   ```
+5. Start the frontend:
+   ```bash
+   npm run dev
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🏗️ Core Features
 
-## Expanding the ESLint configuration
+### 🔐 Session & Role Control
+- **Protected Routes:** Automatic redirection to login for unauthenticated users.
+- **Role-Based Access (RBAC):** Dashboard components are restricted by user role (Standard: `Pet Owner`).
+- **Persistent Sessions:** State is maintained via `localStorage` and verified by the backend.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 🐾 Pet Management
+- **Registration:** Clinics can register pets with full medical history.
+- **One-Pet-One-Owner:** Strict database constraint ensures each pet is linked to exactly one account.
+- **Smart Linking:** Owners link pets using a hashed Registration ID (e.g., `PET-1-IPAWCUS`).
+- **Lazy Age Updates:** The system automatically calculates and updates pet ages in the database whenever a record is fetched.
+
+### 🖼️ Media & Security
+- **Secure Uploads:** Pet profile pictures are hashed using SHA-256 to hide original filenames.
+- **Storage:** Images are stored in `server/uploads/profile/` and served statically.
+- **Optional Workflow:** Image upload is optional during registration to ensure zero friction.
+
+## 📁 Project Structure
+- `/src/components/PetOwnerDashboard`: Protected dashboard views.
+- `/src/services`: Centralized API logic (Linking, Finding, Registration).
+- `/server`: Node.js API logic and Database Pool.
+- `/server/uploads/profile`: Secure storage for hashed profile images.
+
+## 🛠️ Tech Stack
+- **Frontend:** React, Tailwind CSS, Lucide Icons, Shadcn/UI
+- **Backend:** Node.js, Express, Multer
+- **Database:** MySQL

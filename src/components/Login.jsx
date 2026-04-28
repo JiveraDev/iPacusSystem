@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import imgImageVfcLogo from "../assets/circular_logo.png";
 import { loginUser } from "../services/userLogin";
+import { toast } from "../reusecomponent/toast.jsx";
 
 export function Login({ onLogin, onBack, onRegister, embedded = false }) {
     const [email, setEmail] = useState("");
@@ -18,9 +19,12 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
         try {
             const user = await loginUser({ email, password });
             localStorage.setItem("currentUser", JSON.stringify(user));
+            toast.success(`Welcome back, ${user.firstName || 'User'}!`);
             onLogin(user);
         } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : "Login failed.");
+            const msg = error instanceof Error ? error.message : "Login failed.";
+            setErrorMessage(msg);
+            toast.error(msg);
         } finally {
             setIsSubmitting(false);
         }
@@ -52,7 +56,7 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
 
                 <form onSubmit={handleSubmit} className="px-6 pt-4 pb-6 space-y-4">
                     <div className="space-y-2">
-                        <label className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
+                        <label aria-autocomplete={"list"} className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
                             Email
                         </label>
                         <input

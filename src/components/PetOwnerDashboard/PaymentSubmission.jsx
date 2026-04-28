@@ -1,4 +1,5 @@
 import { useNavigate } from "./dashboardRouter";
+import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -21,14 +22,14 @@ export default function PaymentSubmission() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.paymentMethod) {
-      alert("Please select a payment method");
+      toast.error("Please select a payment method");
       return;
     }
     if (!formData.receiptFile) {
-      alert("Please upload proof of payment");
+      toast.error("Please upload proof of payment");
       return;
     }
-    alert("Payment submitted successfully! Awaiting verification from our team.");
+    toast.success("Payment submitted successfully! Awaiting verification from our team.");
     navigate("/dashboard/services");
   };
 

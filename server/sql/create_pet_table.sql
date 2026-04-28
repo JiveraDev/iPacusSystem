@@ -15,14 +15,14 @@ create table if not exists pets_information (
     pet_sharable_ID VARCHAR(250) unique
 
 );
-# create table history_before_registration(
-#   current_medication varchar(250),
-#     veterinarian_notes varchar(250),
-#     pet_id int,
-#     last_visit_Date date,
-#     foreign key (pet_id) references  pets_information(pet_id)
-# );
-CREATE TABLE Pet_Ownership (
+create table history_before_registration(
+  current_medication varchar(250),
+    veterinarian_notes varchar(250),
+    pet_id int,
+    last_visit_Date date,
+    foreign key (pet_id) references  pets_information(pet_id)
+);
+CREATE TABLE if not exists Pet_Ownership (
                                link_id INT AUTO_INCREMENT PRIMARY KEY,
                                user_id INT,
                                pet_id INT,
@@ -33,8 +33,15 @@ CREATE TABLE Pet_Ownership (
 );
 
 
-alter table pets_information
-add column  age varchar (250);
-
-select * from pets_information;
-
+# alter table pets_information
+# add column  age varchar (250);
+#
+# select * from pets_information;
+# SELECT * FROM Pet_Ownership;
+#
+#
+#
+# DELETE FROM Pet_Ownership
+# WHERE link_id = 5;
+#
+#  ALTER TABLE Pet_Ownership ADD UNIQUE (pet_id);

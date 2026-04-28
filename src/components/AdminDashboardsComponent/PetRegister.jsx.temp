@@ -1,0 +1,37 @@
+import { useState, useEffect } from 'react';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Textarea } from '../../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { PawPrint, FileText, Plus, Copy, CheckCircle2, ListTodo, Camera, Loader2 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "../../ui/dialog";
+import { addPetService } from '../../services/addPet';
+import { calculateAge } from '../../lib/date';
+
+const emptyPetProfile = {
+    id: '',
+    petName: '',
+    species: '',
+    breed: '',
+    birthDate: '',
+    age: '',
+    gender: '',
+    weight: '',
+    colorMarkings: '',
+    microchipNumber: '',
+    tempOwnerName: '',
+    status: 'Healthy',
+    allergies: '',
+    medications: '',
+    medicalHistory: '',
+    lastVisit: '',
+    vetNotes: '',
+    profileImage: null,
+    imagePreview: null
+};

@@ -2,31 +2,34 @@ import { createContext, useContext } from "react";
 
 const DashboardRouterContext = createContext(null);
 
+// Centralized role definitions for easy reconfiguration later
+const DEFAULT_ROLES = ["Pet Owner", "pet_owner"];
+
 const routePatterns = [
-  { pattern: "/dashboard/consult/video/:consultationId" },
-  { pattern: "/dashboard/consult/confirmation/:bookingId" },
-  { pattern: "/dashboard/my-pets/:petId/request-update" },
-  { pattern: "/dashboard/my-pets/:petId/medical-records" },
-  { pattern: "/dashboard/my-pets/:petId" },
-  { pattern: "/dashboard/consult/payment" },
-  { pattern: "/dashboard/consult/booking" },
-  { pattern: "/dashboard/consult" },
-  { pattern: "/dashboard/services/general-checkup" },
-  { pattern: "/dashboard/services/parasite-control" },
-  { pattern: "/dashboard/services/surgery" },
-  { pattern: "/dashboard/services/vaccination" },
-  { pattern: "/dashboard/services/grooming" },
-  { pattern: "/dashboard/services/dental-checkup" },
-  { pattern: "/dashboard/services/home-services" },
-  { pattern: "/dashboard/services/pet-hotel" },
-  { pattern: "/dashboard/services/special-services" },
-  { pattern: "/dashboard/services" },
-  { pattern: "/dashboard/my-pets/add" },
-  { pattern: "/dashboard/my-pets" },
-  { pattern: "/dashboard/todos" },
-  { pattern: "/dashboard/profile" },
-  { pattern: "/dashboard/pet-register" },
-  { pattern: "/dashboard" },
+  { pattern: "/dashboard/consult/video/:consultationId", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/consult/confirmation/:bookingId", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/my-pets/add", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/my-pets/:petId/request-update", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/my-pets/:petId/medical-records", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/my-pets/:petId", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/my-pets", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/consult/payment", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/consult/booking", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/consult", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/general-checkup", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/parasite-control", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/surgery", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/vaccination", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/grooming", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/dental-checkup", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/home-services", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/pet-hotel", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services/special-services", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/services", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/todos", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/profile", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/pet-register", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard", allowedRoles: DEFAULT_ROLES },
 ];
 
 function normalizePath(path) {
@@ -69,11 +72,15 @@ function getRouteMatch(path) {
     const params = matchPattern(path, route.pattern);
 
     if (params) {
-      return { path: route.pattern, params };
+      return { 
+        path: route.pattern, 
+        params, 
+        allowedRoles: route.allowedRoles || DEFAULT_ROLES 
+      };
     }
   }
 
-  return { path: "/dashboard", params: {} };
+  return { path: "/dashboard", params: {}, allowedRoles: DEFAULT_ROLES };
 }
 
 function DashboardRouterProvider({ value, children }) {
@@ -101,4 +108,3 @@ export {
   // eslint-disable-next-line react-refresh/only-export-components
   useParams
 };
-

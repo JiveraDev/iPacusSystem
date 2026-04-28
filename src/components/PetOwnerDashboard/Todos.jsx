@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "../../ui/badge";
 import { format, isSameDay } from "../../lib/date";
 import { Calendar, Trash2 } from "lucide-react";
-import { toast } from "./toast";
+import { toast } from "../../reusecomponent/toast.jsx";
 
 export default function Todos() {
   const [todos, setTodos] = useState([]);

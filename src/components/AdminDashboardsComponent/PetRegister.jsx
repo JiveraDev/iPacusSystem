@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PawPrint, FileText, Plus, Copy, CheckCircle2, ListTodo, Camera, Loader2 } from 'lucide-react';
@@ -41,6 +42,7 @@ export default function PetRegister() {
     const [formData, setFormData] = useState(emptyPetProfile);
     const [registeredPets, setRegisteredPets] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
@@ -124,6 +126,7 @@ export default function PetRegister() {
                 setIsUploading(true);
                 const uploadData = new FormData();
                 uploadData.append('image', formData.profileImage);
+                uploadData.append('type', 'pet');
                 
                 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                 const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
@@ -697,7 +700,7 @@ export default function PetRegister() {
                             </div>
                             <Button
                                 onClick={handleCopyPetId}
-                                className="bg-white text-[#000] hover:bg-white/90 font-['Arimo:Bold',sans-serif] h-[40px]"
+                                className="bg-white text-[#000]  font-['Arimo:Bold',sans-serif] h-[40px]"
                             >
                                 {copiedPetId ? (
                                     <>

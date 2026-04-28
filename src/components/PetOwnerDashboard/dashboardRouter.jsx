@@ -97,6 +97,16 @@ function useParams() {
   return context.params;
 }
 
+function useUserUpdate() {
+  const context = useContext(DashboardRouterContext);
+  return context.onUserUpdate;
+}
+
+function useDashboardUser() {
+  const context = useContext(DashboardRouterContext);
+  return context.user;
+}
+
 export {
   DashboardRouterProvider,
   // eslint-disable-next-line react-refresh/only-export-components
@@ -106,5 +116,7 @@ export {
   // eslint-disable-next-line react-refresh/only-export-components
   useNavigate,
   // eslint-disable-next-line react-refresh/only-export-components
-  useParams
+  useParams,
+  useUserUpdate,
+  useDashboardUser
 };

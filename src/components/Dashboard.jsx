@@ -133,7 +133,7 @@ function getActiveTab(path) {
   return "home";
 }
 
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout, onUserUpdate }) {
   // Session control check
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser");
@@ -183,25 +183,18 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    const storedUser = buildStoredUser(user);
-    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
-    const existingIndex = existingUsers.findIndex((entry) => entry.id === storedUser.id);
+    // Ensure the initial user exists in the local 'users' array for compatibility,
+    // but don't constantly overwrite the 'currentUser' from that list.
+    if (user) {
+      const storedUser = buildStoredUser(user);
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      const existingIndex = existingUsers.findIndex((entry) => (entry.id === storedUser.id || entry.user_id === storedUser.id));
 
-    if (existingIndex === -1) {
-      existingUsers.push(storedUser);
-    } else {
-      existingUsers[existingIndex] = {
-        ...existingUsers[existingIndex],
-        ...storedUser,
-        pets: existingUsers[existingIndex].pets ?? storedUser.pets,
-        todos: existingUsers[existingIndex].todos ?? storedUser.todos,
-        consultations: existingUsers[existingIndex].consultations ?? storedUser.consultations,
-        serviceBookings: existingUsers[existingIndex].serviceBookings ?? storedUser.serviceBookings,
-      };
+      if (existingIndex === -1) {
+        existingUsers.push(storedUser);
+        localStorage.setItem("users", JSON.stringify(existingUsers));
+      }
     }
-
-    localStorage.setItem("users", JSON.stringify(existingUsers));
-    localStorage.setItem("currentUser", JSON.stringify(existingUsers.find((entry) => entry.id === storedUser.id)));
   }, [user]);
 
   useEffect(() => {
@@ -319,7 +312,7 @@ export default function Dashboard({ user, onLogout }) {
   );
 
   return (
-    <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params }}>
+    <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <ToastViewport />
         <div

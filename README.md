@@ -52,3 +52,28 @@ A comprehensive React + Node.js system for pet medical records and owner managem
 - **Frontend:** React, Tailwind CSS, Lucide Icons, Shadcn/UI
 - **Backend:** Node.js, Express, Multer
 - **Database:** MySQL
+
+## SHIFTING FROM NODE/EXPRESS TO LARAVEL
+
+✦ To start the backend server in the future, follow these steps:
+
+1. Open your terminal.
+2. Navigate to the project folder:
+
+1     cd C:\Users\Admin\WebstormProjects\untitled1\laravel-api
+3. Run the server command:
+   1     php artisan serve --port=3001
+
+Pro Tip: You can keep this terminal window open in the background while you work on
+the frontend. If you ever need to stop the server, just press Ctrl + C in that
+terminal window.
+
+## php artisan  config:clear 
+command is used in Laravel applications to
+remove the cached configuration files.
+
+When Laravel is running, it often caches its configuration to improve
+performance. However, if you update your .env file or change configuration
+files directly, these changes won't be reflected until the cache is cleared.
+Running config:clear deletes this cache, forcing Laravel to re-read your
+configuration and .env file the next time it needs them.

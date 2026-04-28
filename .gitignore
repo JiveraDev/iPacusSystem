@@ -25,3 +25,4 @@ GEMINI.md
 *.sln
 *.sw?
 *.env
+*.sql

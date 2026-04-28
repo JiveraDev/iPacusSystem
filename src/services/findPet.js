@@ -7,15 +7,32 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
  */
 export async function findPetService(petId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/pet_information/${petId}`);
+        const token = localStorage.getItem("authToken"); // Get token from local storage
+        if (!token) {
+            throw new Error("Authentication token not found.");
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/pet_information/${petId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}` // Add Authorization header
+            }
+        });
         
         if (!response.ok) {
             let errorMessage = 'Failed to fetch pet details';
             try {
                 const errorData = await response.json();
-                errorMessage = errorData.message || errorMessage;
+                // Try to get a specific error message from the backend
+                errorMessage = errorData.message || (errorData.errors ? Object.values(errorData.errors).flat()[0] : errorMessage);
             } catch (e) {
-                // Ignore parsing errors
+                // If it's not JSON, try text
+                try {
+                    const textError = await response.text();
+                    console.error('Server returned non-JSON error:', textError);
+                    errorMessage = textError || errorMessage; // Use text error if available
+                } catch (textErr) {
+                    console.error('Could not read error response');
+                }
             }
             throw new Error(errorMessage);
         }

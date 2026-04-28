@@ -84,10 +84,11 @@ export default function AddPet() {
               </Label>
               <Input
                 id="petId"
+
                 placeholder="Enter the ID provided by the clinic (e.g., PET-1-IPAWCUS)"
                 value={petId}
                 onChange={(e) => setPetId(e.target.value)}
-                className="text-lg h-12"
+                className="text-lg h-12 uppercase"
                 required
                 disabled={isLoading}
               />

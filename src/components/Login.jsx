@@ -17,9 +17,10 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
         setErrorMessage("");
 
         try {
-            const user = await loginUser({ email, password });
+            const { user, token } = await loginUser({ email, password });
             localStorage.setItem("currentUser", JSON.stringify(user));
-            toast.success(`Welcome back, ${user.firstName || 'User'}!`);
+            localStorage.setItem("authToken", token);
+            toast.success(`Welcome back, ${user.first_Name || 'User'}!`);
             onLogin(user);
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Login failed.";

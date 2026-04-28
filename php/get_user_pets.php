@@ -1,0 +1,46 @@
+<?php
+require_once __DIR__ . '/db.php';
+
+$userId = $_GET['userId'] ?? null;
+
+if (!$userId) {
+    http_response_code(400);
+    echo json_encode(['message' => 'User ID is required.']);
+    exit;
+}
+
+try {
+    $sql = "SELECT p.* 
+            FROM pets_information p 
+            JOIN pet_ownership o ON p.pet_id = o.pet_id 
+            WHERE o.user_id = ? 
+            ORDER BY p.pet_id DESC";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$userId]);
+    $pets = $stmt->fetchAll();
+
+    $formattedPets = array_map(function($pet) {
+        return [
+            'id' => $pet['pet_sharable_ID'],
+            'db_id' => $pet['pet_id'],
+            'name' => $pet['pet_name'],
+            'petName' => $pet['pet_name'], // Compatibility for Admin
+            'species' => $pet['pet_species'],
+            'breed' => $pet['pet_breed'],
+            'birthDate' => $pet['pet_BDAY'],
+            'gender' => $pet['pet_gender'],
+            'status' => $pet['pet_status'],
+            'age' => $pet['pet_age'],
+            'weight' => $pet['pet_weight'],
+            'color' => $pet['pet_color_marking'],
+            'profileImage' => $pet['setpetImage_url']
+        ];
+    }, $pets);
+
+    echo json_encode($formattedPets);
+
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['message' => 'Failed to fetch user pets: ' . $e->getMessage()]);
+}

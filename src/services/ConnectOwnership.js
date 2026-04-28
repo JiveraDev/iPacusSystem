@@ -2,10 +2,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export async function linkPetService(userId, sharableId) {
     try {
+        const token = localStorage.getItem("authToken");
         const response = await fetch(`${API_BASE_URL}/api/pet_ownership/link`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ userId, sharableId }),
         });
@@ -30,7 +32,12 @@ export async function linkPetService(userId, sharableId) {
 
 export async function getUserPetsService(userId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users/${userId}/pets`);
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${API_BASE_URL}/api/users/${userId}/pets`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
         if (!response.ok) {
             throw new Error('Failed to fetch user pets');

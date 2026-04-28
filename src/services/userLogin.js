@@ -20,5 +20,9 @@ export async function loginUser(payload) {
         throw new Error(data.message || `Login failed with status ${response.status}`);
     }
 
-    return data.user;
+    // Return both user and token
+    return {
+        user: data.user,
+        token: data.access_token
+    };
 }

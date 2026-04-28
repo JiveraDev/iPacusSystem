@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 import { LandingPage } from "./components/landingpage.jsx";
 import { Login } from "./components/Login.jsx";
@@ -140,14 +140,28 @@ function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
+    localStorage.setItem('currentUser', JSON.stringify(user));
     navigateTo(routes.dashboard);
   };
 
-  const handleLogout = () => {
+  const handleUserUpdate = useCallback((updatedUser) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    
+    // Also update in the 'users' list if it exists
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const index = users.findIndex(u => (u.id === updatedUser.id || u.user_id === updatedUser.id));
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updatedUser };
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+  }, []);
+
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('currentUser');
     setCurrentUser(null);
     navigateTo(routes.login);
-  };
+  }, []);
 
   const handleRegistrationContinue = (accountData) => {
     setRegistrationData(accountData);
@@ -190,7 +204,7 @@ function App() {
         )}
 
         {view === 'dashboard' && currentUser && (
-            <Dashboard user={currentUser} onLogout={handleLogout} />
+            <Dashboard user={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
         )}
 
         {view === 'register' && (

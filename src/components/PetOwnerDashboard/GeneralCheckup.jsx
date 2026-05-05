@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { ClipboardCheck, ArrowLeft } from "lucide-react";
+import { ClipboardCheck, ArrowLeft, Stethoscope } from "lucide-react";
 import { useState } from "react";
 
 export default function GeneralCheckup() {

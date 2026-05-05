@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
 import PetInfoModal from './PetInfoModal';
+import { PhotoViewer } from '../../ui/photo-viewer';
 
 const veterinarians = [
     { id: 'v1', name: 'Dr. Sarah Wilson' },
@@ -18,7 +19,7 @@ const veterinarians = [
 ];
 
 export default function BookingsManagement() {
-    const [bookings, setBookings] = useState(mockBookings);
+    const [bookings, setBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -26,13 +27,40 @@ export default function BookingsManagement() {
     const [currentRescheduleBooking, setCurrentRescheduleBooking] = useState(null);
     const [newDate, setNewDate] = useState('');
     const [newTime, setNewTime] = useState('');
+    const [viewerImage, setViewerImage] = useState(null);
 
-    const updateBookingStatus = (id, newStatus) => {
-        setBookings(bookings =>
-            bookings.map(booking =>
-                booking.id === id ? { ...booking, status: newStatus } : booking
-            )
-        );
+    useEffect(() => {
+        async function fetchBookings() {
+            try {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`);
+                if (!response.ok) throw new Error('Failed to fetch bookings');
+                const data = await response.json();
+                setBookings(data);
+            } catch (error) {
+                console.error('Error fetching bookings:', error);
+            }
+        }
+        fetchBookings();
+    }, []);
+
+    const updateBookingStatus = async (id, newStatus) => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            
+            if (response.ok) {
+                setBookings(bookings =>
+                    bookings.map(booking =>
+                        booking.id === id ? { ...booking, status: newStatus } : booking
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+        }
     };
 
     const handleReschedule = (booking) => {
@@ -52,6 +80,7 @@ export default function BookingsManagement() {
                 )
             );
             setRescheduleDialogOpen(false);
+            toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${newDate} at ${newTime}`);
             setCurrentRescheduleBooking(null);
             setNewDate('');
             setNewTime('');
@@ -60,14 +89,38 @@ export default function BookingsManagement() {
 
     const getStatusBadge = (status) => {
         const variants = {
-            'pending': { variant: 'outline', text: 'Pending' },
-            'confirmed': { variant: 'default', text: 'Confirmed' },
-            'completed': { variant: 'default', text: 'Completed' },
-            'cancelled': { variant: 'destructive', text: 'Cancelled' }
+            'pending': { 
+                bg: 'bg-amber-50', 
+                text: 'text-amber-700', 
+                border: 'border-amber-200',
+                label: 'Pending' 
+            },
+            'confirmed': { 
+                bg: 'bg-blue-50', 
+                text: 'text-blue-700', 
+                border: 'border-blue-200',
+                label: 'Confirmed' 
+            },
+            'completed': { 
+                bg: 'bg-green-50', 
+                text: 'text-green-700', 
+                border: 'border-green-200',
+                label: 'Completed' 
+            },
+            'cancelled': { 
+                bg: 'bg-red-50', 
+                text: 'text-red-700', 
+                border: 'border-red-200',
+                label: 'Cancelled' 
+            }
         };
 
-        const { variant, text } = variants[status];
-        return <Badge variant={variant}>{text}</Badge>;
+        const { bg, text, border, label } = variants[status] || variants['pending'];
+        return (
+            <Badge className={`${bg} ${text} ${border} border px-2.5 py-0.5 rounded-full font-medium`}>
+                {label}
+            </Badge>
+        );
     };
 
     const getTypeBadge = (type, isHomeService) => {
@@ -92,11 +145,9 @@ export default function BookingsManagement() {
     };
 
     const getPriceBadge = (service, price) => {
-        // For Online Consultation, show "Paid" badge
         if (service === 'Online Consultation') {
             return <Badge className="bg-[#e0f2e9] text-[#0c6a3c] hover:bg-[#e0f2e9]">Paid</Badge>;
         }
-        // For others, show "Pending" badge
         return <Badge className="bg-[#fff4e6] text-[#b54708] hover:bg-[#fff4e6]">Pending</Badge>;
     };
 
@@ -110,11 +161,14 @@ export default function BookingsManagement() {
         const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
 
         return matchesSearch && matchesType && matchesStatus;
+    }).sort((a, b) => {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return 0;
     });
 
     return (
-        <div className="space-y-6">
-            {/* Page Header */}
+        <div className="w-full space-y-6">
             <div>
                 <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
                     Bookings Management
@@ -124,23 +178,21 @@ export default function BookingsManagement() {
                 </p>
             </div>
 
-            {/* Stats */}
             <div className="flex gap-6">
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Total Bookings:</span>
                     <span className="bg-[#eff6ff] text-[#155dfc] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-            {bookings.length}
-          </span>
+                        {bookings.length}
+                    </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Confirmed:</span>
                     <span className="bg-[#e0f2e9] text-[#0c6a3c] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-            {bookings.filter(item => item.status === 'confirmed').length}
-          </span>
+                        {bookings.filter(item => item.status === 'confirmed').length}
+                    </span>
                 </div>
             </div>
 
-            {/* Filters and Search */}
             <div className="mb-6 flex flex-wrap gap-4">
                 <div className="flex-1 min-w-[300px]">
                     <div className="relative">
@@ -154,42 +206,43 @@ export default function BookingsManagement() {
                     </div>
                 </div>
 
-                <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-[180px]">
-                        <Filter className="size-4 mr-2" />
-                        <SelectValue placeholder="Filter by type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="consultation">Consultation</SelectItem>
-                        <SelectItem value="vaccination">Vaccination</SelectItem>
-                        <SelectItem value="grooming">Grooming</SelectItem>
-                        <SelectItem value="dental">Dental</SelectItem>
-                        <SelectItem value="wellness">Wellness</SelectItem>
-                        <SelectItem value="surgery">Surgery</SelectItem>
-                        <SelectItem value="lab-testing">Lab Testing</SelectItem>
-                        <SelectItem value="parasite-control">Parasite Control</SelectItem>
-                        <SelectItem value="boarding">Boarding</SelectItem>
-                        <SelectItem value="home-service">Home Service</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="hidden min-[850px]:flex gap-4">
+                    <Select value={filterType} onValueChange={setFilterType}>
+                        <SelectTrigger className="w-[180px]">
+                            <Filter className="size-4 mr-2" />
+                            <SelectValue placeholder="Filter by type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="consultation">Consultation</SelectItem>
+                            <SelectItem value="vaccination">Vaccination</SelectItem>
+                            <SelectItem value="grooming">Grooming</SelectItem>
+                            <SelectItem value="dental">Dental</SelectItem>
+                            <SelectItem value="wellness">Wellness</SelectItem>
+                            <SelectItem value="surgery">Surgery</SelectItem>
+                            <SelectItem value="lab-testing">Lab Testing</SelectItem>
+                            <SelectItem value="parasite-control">Parasite Control</SelectItem>
+                            <SelectItem value="boarding">Boarding</SelectItem>
+                            <SelectItem value="home-service">Home Service</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[180px]">
-                        <Filter className="size-4 mr-2" />
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                </Select>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className="w-[180px]">
+                            <Filter className="size-4 mr-2" />
+                            <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
-            {/* Table */}
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -206,41 +259,23 @@ export default function BookingsManagement() {
                 <TableBody>
                     {filteredBookings.map((booking) => (
                         <TableRow key={booking.id}>
-                            <TableCell className="font-['Arimo:Bold',sans-serif]">
-                                {booking.bookingNumber}
-                            </TableCell>
-                            <TableCell>
-                                {getTypeBadge(booking.type, booking.isHomeService)}
-                            </TableCell>
+                            <TableCell className="font-['Arimo:Bold',sans-serif]">{booking.bookingNumber}</TableCell>
+                            <TableCell>{getTypeBadge(booking.type, booking.isHomeService)}</TableCell>
                             <TableCell>
                                 <div>
-                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                                        {booking.petName}
-                                    </p>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                                        {booking.ownerName}
-                                    </p>
+                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px]">{booking.petName}</p>
+                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
                                 </div>
                             </TableCell>
-                            <TableCell className="font-['Arimo:Regular',sans-serif]">
-                                {booking.service}
-                            </TableCell>
+                            <TableCell>{booking.service}</TableCell>
                             <TableCell>
                                 <div>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                        {booking.date}
-                                    </p>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                                        {booking.time}
-                                    </p>
+                                    <p className="font-['Arimo:Regular',sans-serif] text-[14px]">{booking.date}</p>
+                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.time}</p>
                                 </div>
                             </TableCell>
-                            <TableCell>
-                                {getPriceBadge(booking.service, booking.price)}
-                            </TableCell>
-                            <TableCell>
-                                {getStatusBadge(booking.status)}
-                            </TableCell>
+                            <TableCell>{getPriceBadge(booking.service, booking.price)}</TableCell>
+                            <TableCell>{getStatusBadge(booking.status)}</TableCell>
                             <TableCell>
                                 <div className="flex gap-2">
                                     <Sheet>
@@ -281,9 +316,6 @@ export default function BookingsManagement() {
                                                                 <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
                                                                     Pet Owner Profile
                                                                 </DialogTitle>
-                                                                <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                                                    View pet owner's personal information and contact details
-                                                                </DialogDescription>
                                                             </DialogHeader>
                                                             <PetOwnerProfileModal
                                                                 ownerName={booking.ownerName}
@@ -309,9 +341,6 @@ export default function BookingsManagement() {
                                                                 <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
                                                                     Pet Information
                                                                 </DialogTitle>
-                                                                <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                                                    View complete pet profile and medical history
-                                                                </DialogDescription>
                                                             </DialogHeader>
                                                             <PetInfoModal petName={booking.petName} />
                                                         </DialogContent>
@@ -340,6 +369,22 @@ export default function BookingsManagement() {
                                                         </p>
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                             {booking.petName}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                            Pet Breed / Type
+                                                        </p>
+                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                                                            {booking.petBreed || 'Not Specified'} / {booking.petSpecies || 'N/A'}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                            Registration Status
+                                                        </p>
+                                                        <p className={`font-['Arimo:Bold',sans-serif] text-[16px] ${booking.isRegistered ? 'text-green-600' : 'text-amber-600'}`}>
+                                                            {booking.isRegistered ? 'Registered' : 'Not Registered'}
                                                         </p>
                                                     </div>
                                                     <div>
@@ -416,113 +461,103 @@ export default function BookingsManagement() {
                                                     </div>
                                                 )}
 
+                                                {/* Pet Profile Image Section */}
+                                                <div className="border-t pt-4">
+                                                    <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
+                                                       Picture of Concern
+                                                    </p>
+                                                    {booking.image_Booking_Concern_Path ? (
+                                                        <div 
+                                                            className="w-32 h-32 mx-auto mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                                            onClick={() => setViewerImage({ src: booking.image_Booking_Concern_Path, alt: booking.petName })}
+                                                        >
+                                                            <img
+                                                                src={booking.image_Booking_Concern_Path}
+                                                                alt={booking.petName}
+                                                                className="w-full h-full object-cover rounded-2xl border border-[rgba(0,0,0,0.1)]"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-32 h-32 mx-auto mb-3 flex items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                                                            <p className="text-[12px] text-gray-400 text-center px-2">No image available</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                                 {/* Payment Proof Section */}
-                                                {booking.paymentProof && (
-                                                    <div className="border-t pt-4">
-                                                        <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
-                                                            Payment Proof
-                                                        </p>
-                                                        <Dialog>
-                                                            <DialogTrigger asChild>
-                                                                <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 cursor-pointer hover:bg-[#f3f4f6] transition-colors">
-                                                                    <img
-                                                                        src={booking.paymentProof}
-                                                                        alt="Payment Proof"
-                                                                        className="w-full h-auto object-cover rounded-[8px] border border-[rgba(0,0,0,0.1)]"
-                                                                    />
-                                                                    <p className="text-center text-[12px] text-[#4a5565] mt-2">
-                                                                        Click to view full size
-                                                                    </p>
-                                                                </div>
-                                                            </DialogTrigger>
-                                                            <DialogContent className="max-w-4xl w-[90vw]">
-                                                                <DialogHeader>
-                                                                    <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
-                                                                        Payment Proof - Full View
-                                                                    </DialogTitle>
-                                                                    <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                                                        Inspect payment proof image
-                                                                    </DialogDescription>
-                                                                </DialogHeader>
-                                                                <div className="max-h-[70vh] overflow-auto">
-                                                                    <img
-                                                                        src={booking.paymentProof}
-                                                                        alt="Payment Proof Full Size"
-                                                                        className="w-full h-auto rounded-[8px] border border-[rgba(0,0,0,0.1)]"
-                                                                    />
-                                                                </div>
-                                                            </DialogContent>
-                                                        </Dialog>
-                                                    </div>
-                                                )}
+                                                <div className="border-t pt-4">
+                                                    <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
+                                                        Payment Proof
+                                                    </p>
+                                                    {booking.paymentProof ? (
+                                                        <div 
+                                                            className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 cursor-pointer hover:bg-[#f3f4f6] transition-colors"
+                                                            onClick={() => setViewerImage({ src: booking.paymentProof, alt: "Payment Proof" })}
+                                                        >
+                                                            <img
+                                                                src={booking.paymentProof}
+                                                                alt="Payment Proof"
+                                                                className="w-full h-auto object-cover rounded-[8px] border border-[rgba(0,0,0,0.1)]"
+                                                            />
+                                                            <p className="text-center text-[12px] text-[#4a5565] mt-2">
+                                                                Click to view full size
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-gray-50 border border-dashed border-gray-300 rounded-[14px] p-6 text-center">
+                                                            <p className="text-[14px] text-gray-400">No Proof of Payment</p>
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                                {/* Online Consultation Review Section */}
-                                                {booking.isOnlineConsultation && booking.status === 'pending' && (
-                                                    <div className="border-t pt-4">
-                                                        <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
-                                                            Review Booking
-                                                        </h4>
-                                                        <div className="flex flex-col gap-3">
+                                                {/* Review Booking Section */}
+                                                <div className="border-t pt-4">
+                                                    <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
+                                                        Review Booking
+                                                    </h4>
+                                                    <div className="flex flex-col gap-3">
+                                                        {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                             <Button
-                                                                onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                                                                onClick={() => {
+                                                                    updateBookingStatus(booking.id, 'confirmed');
+                                                                    toast.success(`Booking ${booking.bookingNumber} for ${booking.petName} confirmed successfully`);
+                                                                }}
                                                                 className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"
                                                             >
                                                                 <CheckCircle className="size-4 mr-2" />
                                                                 Confirm Booking
                                                             </Button>
+                                                        )}
+                                                        
+                                                        {booking.status !== 'cancelled' && (
                                                             <Button
                                                                 variant="outline"
-                                                                onClick={() => handleReschedule(booking)}
+                                                                onClick={() => {
+                                                                    handleReschedule(booking);
+                                                                    toast.info(`Rescheduling booking ${booking.bookingNumber}...`);
+                                                                }}
                                                                 className="border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff] w-full"
                                                             >
                                                                 <CalendarClock className="size-4 mr-2" />
                                                                 Reschedule
                                                             </Button>
-                                                            <Button
-                                                                variant="destructive"
-                                                                onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                                                                className="w-full"
-                                                            >
-                                                                <XCircle className="size-4 mr-2" />
-                                                                Reject
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                        )}
 
-                                                {/* Review Booking Section for All Other Bookings */}
-                                                {!(booking.isOnlineConsultation && booking.status === 'pending') && (
-                                                    <div className="border-t pt-4">
-                                                        <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
-                                                            Review Booking
-                                                        </h4>
-                                                        <div className="flex flex-col gap-3">
-                                                            <Button
-                                                                onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                                                                className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"
-                                                            >
-                                                                <CheckCircle className="size-4 mr-2" />
-                                                                Confirm Booking
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => handleReschedule(booking)}
-                                                                className="border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff] w-full"
-                                                            >
-                                                                <CalendarClock className="size-4 mr-2" />
-                                                                Reschedule
-                                                            </Button>
+                                                        {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                             <Button
                                                                 variant="destructive"
-                                                                onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                                                                onClick={() => {
+                                                                    updateBookingStatus(booking.id, 'cancelled');
+                                                                    toast.success(`Booking ${booking.bookingNumber} for ${booking.petName} rejected`);
+                                                                }}
                                                                 className="w-full"
                                                             >
                                                                 <XCircle className="size-4 mr-2" />
                                                                 Reject
                                                             </Button>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
                                         </SheetContent>
                                     </Sheet>
@@ -532,73 +567,31 @@ export default function BookingsManagement() {
                     ))}
                 </TableBody>
             </Table>
-
-            {filteredBookings.length === 0 && (
-                <div className="py-12 text-center">
-                    <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                        No bookings found
-                    </p>
-                </div>
-            )}
+            <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
 
             {/* Reschedule Dialog */}
             <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
-                <DialogContent className="max-w-none w-[90vw]">
+                <DialogContent className="max-w-xl">
                     <DialogHeader>
                         <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
                             Reschedule Booking
                         </DialogTitle>
                         <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                            Change the date and time of the booking
+                            Select a new date and time for the booking
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Booking Number
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking?.bookingNumber}
-                                </p>
+                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">Booking Number</p>
+                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">{currentRescheduleBooking?.bookingNumber}</p>
                             </div>
                             <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Type
-                                </p>
-                                {currentRescheduleBooking && getTypeBadge(currentRescheduleBooking.type, currentRescheduleBooking.isHomeService)}
+                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">Pet Name</p>
+                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">{currentRescheduleBooking?.petName}</p>
                             </div>
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Pet Name
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking?.petName}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Owner
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking?.ownerName}
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                                    {currentRescheduleBooking?.ownerEmail}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Service
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking?.service}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    New Date & Time
-                                </p>
+                            <div className="col-span-2">
+                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">New Date & Time</p>
                                 <div className="flex gap-2">
                                     <Input
                                         type="date"
@@ -614,53 +607,20 @@ export default function BookingsManagement() {
                                     />
                                 </div>
                             </div>
-                            {currentRescheduleBooking?.isHomeService && currentRescheduleBooking?.address && (
-                                <div className="col-span-2">
-                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                        Service Address
-                                    </p>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                        {currentRescheduleBooking.address}
-                                    </p>
-                                </div>
-                            )}
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Price
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking?.price}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Status
-                                </p>
-                                {currentRescheduleBooking && getStatusBadge(currentRescheduleBooking.status)}
-                            </div>
                         </div>
-                        {currentRescheduleBooking?.notes && (
-                            <div>
-                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                    Notes
-                                </p>
-                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                    {currentRescheduleBooking.notes}
-                                </p>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                         <Button
                             variant="default"
-                            size="sm"
-                            onClick={confirmReschedule}
+                            onClick={() => {
+                                confirmReschedule();
+                                toast.success('Booking rescheduled successfully');
+                            }}
                         >
-                            Reschedule
+                            Confirm Reschedule
                         </Button>
                         <Button
                             variant="outline"
-                            size="sm"
                             onClick={() => setRescheduleDialogOpen(false)}
                         >
                             Cancel
@@ -671,118 +631,3 @@ export default function BookingsManagement() {
         </div>
     );
 }
-
-const mockBookings = [
-    {
-        id: '1',
-        bookingNumber: 'BK-2026-001',
-        petName: 'Max',
-        ownerName: 'Test User',
-        ownerEmail: 'test@vetfocus.com',
-        type: 'consultation',
-        service: 'Online Consultation',
-        date: '2026-03-05',
-        time: '2:00 PM',
-        status: 'pending',
-        price: '₱500',
-        notes: 'Pet has been showing signs of lethargy. Owner requests consultation regarding recent behavioral changes.',
-        isHomeService: false,
-        paymentProof: 'https://images.unsplash.com/photo-1607609972246-a14762f20d3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYXltZW50JTIwcmVjZWlwdCUyMG1vYmlsZSUyMHBob25lfGVufDF8fHx8MTc3MjI3NTQ5MHww&ixlib=rb-4.1.0&q=80&w=1080',
-        isOnlineConsultation: true,
-        veterinarian: 'Dr. Sarah Wilson'
-    },
-    {
-        id: '6',
-        bookingNumber: 'BK-2026-006',
-        petName: 'Buddy',
-        ownerName: 'Maria Santos',
-        ownerEmail: 'maria@email.com',
-        type: 'consultation',
-        service: 'Online Consultation',
-        date: '2026-03-08',
-        time: '10:00 AM',
-        status: 'pending',
-        price: '₱500',
-        notes: 'Follow-up consultation for vaccination schedule and dietary concerns.',
-        isHomeService: false,
-        paymentProof: 'https://images.unsplash.com/photo-1656189368832-43a6dd24f18f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5rJTIwdHJhbnNmZXIlMjBzY3JlZW5zaG90JTIwcHJvb2Z8ZW58MXx8fHwxNzcyMjc1NDkzfDA&ixlib=rb-4.1.0&q=80&w=1080',
-        isOnlineConsultation: true,
-        veterinarian: 'Dr. James Chen'
-    },
-    {
-        id: '7',
-        bookingNumber: 'BK-2026-007',
-        petName: 'Coco',
-        ownerName: 'Robert Lee',
-        ownerEmail: 'robert@email.com',
-        type: 'consultation',
-        service: 'Online Consultation',
-        date: '2026-03-12',
-        time: '4:00 PM',
-        status: 'confirmed',
-        price: '₱500',
-        notes: 'Confirmed consultation regarding skin allergies.',
-        isHomeService: false,
-        paymentProof: 'https://images.unsplash.com/photo-1607609972246-a14762f20d3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYXltZW50JTIwcmVjZWlwdCUyMG1vYmlsZSUyMHBob25lfGVufDF8fHx8MTc3MjI3NTQ5MHww&ixlib=rb-4.1.0&q=80&w=1080',
-        isOnlineConsultation: true,
-        veterinarian: 'Dr. Emily Parker'
-    },
-    {
-        id: '2',
-        bookingNumber: 'BK-2026-002',
-        petName: 'Luna',
-        ownerName: 'Jane Smith',
-        ownerEmail: 'jane@email.com',
-        type: 'grooming',
-        service: 'Grooming (Home Service)',
-        date: '2026-02-09',
-        time: '2:00 PM',
-        status: 'pending',
-        price: '₱800 - ₱1,500',
-        isHomeService: true,
-        address: '123 Main Street, Barangay San Isidro, Quezon City, Metro Manila 1100'
-    },
-    {
-        id: '3',
-        bookingNumber: 'BK-2026-003',
-        petName: 'Charlie',
-        ownerName: 'John Doe',
-        ownerEmail: 'john@email.com',
-        type: 'boarding',
-        service: 'Pet Hotel - 3 days',
-        date: '2026-02-15',
-        time: 'Check-in 9:00 AM',
-        status: 'confirmed',
-        price: '₱2,400',
-        isHomeService: false
-    },
-    {
-        id: '4',
-        bookingNumber: 'BK-2026-004',
-        petName: 'Bella',
-        ownerName: 'Sarah Johnson',
-        ownerEmail: 'sarah@email.com',
-        type: 'surgery',
-        service: 'Kapon (Spay/Neuter)',
-        date: '2026-02-12',
-        time: '8:00 AM',
-        status: 'pending',
-        price: '₱3,000 - ₱5,000',
-        isHomeService: false
-    },
-    {
-        id: '5',
-        bookingNumber: 'BK-2026-005',
-        petName: 'Rocky',
-        ownerName: 'Mike Brown',
-        ownerEmail: 'mike@email.com',
-        type: 'vaccination',
-        service: 'Vaccination (Home Service)',
-        date: '2026-02-08',
-        time: '11:00 AM',
-        status: 'completed',
-        price: '₱300 - ₱1,000',
-        isHomeService: true,
-        address: '456 Rizal Avenue, Barangay Poblacion, Makati City, Metro Manila 1210'
-    }
-];

@@ -8,21 +8,7 @@ A comprehensive React + Node.js system for pet medical records and owner managem
 - Node.js (v18+)
 - MySQL Database
 
-### Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your `.env` file (see `.env.example`)
-4. Start the server:
-   ```bash
-   npm run server
-   ```
-5. Start the frontend:
-   ```bash
-   npm run dev
-   ```
+
 
 ## 🏗️ Core Features
 
@@ -48,32 +34,42 @@ A comprehensive React + Node.js system for pet medical records and owner managem
 - `/server`: Node.js API logic and Database Pool.
 - `/server/uploads/profile`: Secure storage for hashed profile images.
 
-## 🛠️ Tech Stack
-- **Frontend:** React, Tailwind CSS, Lucide Icons, Shadcn/UI
-- **Backend:** Node.js, Express, Multer
-- **Database:** MySQL
 
-## SHIFTING FROM NODE/EXPRESS TO LARAVEL
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
 
-✦ To start the backend server in the future, follow these steps:
 
-1. Open your terminal.
-2. Navigate to the project folder:
+## Test Command
 
-1     cd C:\Users\Admin\WebstormProjects\untitled1\laravel-api
-3. Run the server command:
-   1     php artisan serve --port=3001
+   ```
+     php -S localhost:8000 php/index.php 
+     //for server 
+     
+     npm run dev 
+     // for pages react vite to work.... 
+   ```
 
-Pro Tip: You can keep this terminal window open in the background while you work on
-the frontend. If you ever need to stop the server, just press Ctrl + C in that
-terminal window.
 
-## php artisan  config:clear 
-command is used in Laravel applications to
-remove the cached configuration files.
+How to test it locally right now:
 
-When Laravel is running, it often caches its configuration to improve
-performance. However, if you update your .env file or change configuration
-files directly, these changes won't be reflected until the cache is cleared.
-Running config:clear deletes this cache, forcing Laravel to re-read your
-configuration and .env file the next time it needs them.
+To verify this works before you upload it to Hostinger, follow these steps:
+
+1. Start the PHP Backend:
+   Open a new terminal and run this command:
+   1     php -S localhost:8000 php/index.php
+   (This starts a tiny PHP server on port 8000).
+
+2. Update your .env file:
+   Change your VITE_API_BASE_URL to point to the new PHP server:
+
+       VITE_API_BASE_URL=http://localhost:8000
+
+3. Run your Frontend:
+   In your usual terminal, run:
+   1     npm run dev
+
+4. Test:
+   Go to your browser and try to log in or register. The frontend will now be talking to your PHP code instead of Node.js.
+
+When you are ready for Hostinger:
+You just need to upload the php/ folder, the .htaccess file, and your built frontend files (dist/ folder) to your Hostinger public_html directory.
+

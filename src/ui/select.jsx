@@ -74,7 +74,7 @@ function SelectContent({ children, className }) {
   return (
     <div
       className={cn(
-        "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-md animate-in fade-in zoom-in-95",
+        "absolute z-50 mt-1 max-h-60 min-w-max overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-md animate-in fade-in zoom-in-95",
         className
       )}
     >

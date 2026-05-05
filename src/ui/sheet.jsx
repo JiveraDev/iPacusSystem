@@ -1,24 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from './utils';
 
-const Sheet = ({ open, onOpenChange, children }) => (
-  <div style={{ display: open ? 'block' : 'none' }}>
-    <div className="fixed inset-0 z-50 bg-black/50" onClick={() => onOpenChange(false)} />
-    <div className="fixed inset-y-0 right-0 z-50 h-full w-full max-w-sm border-l bg-white p-6 shadow-lg">
-      {children}
-    </div>
-  </div>
-);
+const SheetContext = React.createContext(null);
 
-const SheetTrigger = ({ asChild, children, onClick }) => {
-  return React.cloneElement(children, { onClick });
+const Sheet = ({ children }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <SheetContext.Provider value={{ open, setOpen }}>
+      {children}
+    </SheetContext.Provider>
+  );
 };
 
-const SheetContent = ({ children, className, ...props }) => (
-  <div className={cn("h-full", className)} {...props}>
-    {children}
-  </div>
-);
+const SheetTrigger = ({ asChild, children }) => {
+  const { setOpen } = React.useContext(SheetContext);
+  return React.cloneElement(children, {
+    onClick: (e) => {
+      children.props.onClick?.(e);
+      setOpen(true);
+    },
+  });
+};
+
+const SheetContent = ({ children, side = "right", className, ...props }) => {
+  const { open, setOpen } = React.useContext(SheetContext);
+  if (!open) return null;
+  
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setOpen(false)} />
+      <div className={`fixed inset-y-0 ${side}-0 z-50 h-full w-full max-w-sm border-l bg-white p-6 shadow-lg ${className}`}>
+        <div className="absolute top-4 right-4">
+            <button onClick={() => setOpen(false)}>Close</button>
+        </div>
+        {children}
+      </div>
+    </>
+  );
+};
 
 const SheetHeader = ({ className, ...props }) => (
   <div className={cn("mb-4", className)} {...props} />

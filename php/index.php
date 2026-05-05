@@ -61,6 +61,9 @@ switch ($path) {
     case '/upload':
         require_once __DIR__ . '/upload.php';
         break;
+    case '/bookings':
+        require_once __DIR__ . '/get_bookings.php';
+        break;
     case '/health':
         echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
         break;
@@ -76,6 +79,9 @@ switch ($path) {
             } else {
                 require_once __DIR__ . '/get_user.php';
             }
+        } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/update_booking_status.php';
         } elseif (preg_match('/^\/pet_information\/([^\/]+)\/status$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/update_pet_status.php';

@@ -55,9 +55,7 @@ export default function SpecialServices() {
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const user = users.find((u) => u.id === currentUser.id);
     
-    if (user && user.pets) {
-      setPets(user.pets);
-    }
+
   }, []);
 
   const handlePetToggle = (petId) => {
@@ -166,33 +164,6 @@ export default function SpecialServices() {
       navigate("/dashboard/services");
     }
   };
-
-  if (pets.length === 0) {
-    return (
-      <div className="space-y-6 lg:space-y-8 max-w-4xl">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Services
-        </Button>
-        <Card>
-          <CardContent className="pt-6 text-center py-12">
-            <h3 className="font-semibold text-lg mb-2">No Pets Registered</h3>
-            <p className="text-gray-600 mb-4">
-              You can add your first pet or book a service for a new unregistered pet.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate("/dashboard/my-pets/add")}>
-                Add Your First Pet
-              </Button>
-              <Button variant="outline" onClick={() => setIsNewPet(true)}>
-                🐾 Book for New Pet
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const selectedService = specialServices.find(s => s.id === serviceType);
 

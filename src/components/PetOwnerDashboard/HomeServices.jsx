@@ -230,28 +230,6 @@ export default function HomeServices() {
     }
   };
 
-  if (pets.length === 0) {
-    return (
-      <div className="space-y-6 lg:space-y-8">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Services
-        </Button>
-        <Card>
-          <CardContent className="pt-6 text-center py-12">
-            <h3 className="font-semibold text-lg mb-2">No Pets Registered</h3>
-            <p className="text-gray-600 mb-4">
-              You need to register at least one pet before booking home services.
-            </p>
-            <Button onClick={() => navigate("/dashboard/my-pets/add")}>
-              Add Your First Pet
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 lg:space-y-8 max-w-4xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">

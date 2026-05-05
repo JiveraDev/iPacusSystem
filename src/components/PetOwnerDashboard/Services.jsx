@@ -1,10 +1,15 @@
 import { useNavigate } from "./dashboardRouter";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Home as HomeIcon, Hotel, Sparkles, Scissors, Bath, Syringe, Heart, Stethoscope, Bug, ScissorsIcon, Activity, PawPrint } from "lucide-react";
+import { Home as HomeIcon, Hotel, Sparkles, Scissors, Syringe, Heart, Stethoscope, Bug, Activity } from "lucide-react";
+import { toast } from "../../reusecomponent/toast.jsx";
 
 export default function Services() {
   const navigate = useNavigate();
+
+  const handleBookService = (path) => {
+    navigate(path);
+  };
 
   const services = [
     {
@@ -95,7 +100,7 @@ export default function Services() {
             <Card 
               key={service.id}
               className="cursor-pointer hover:shadow-lg transition-all hover:scale-105"
-              onClick={() => navigate(service.path)}
+              onClick={() => handleBookService(service.path)}
             >
               <CardContent className="pt-6">
                 <div className="text-center">
@@ -142,4 +147,3 @@ export default function Services() {
     </div>
   );
 }
-

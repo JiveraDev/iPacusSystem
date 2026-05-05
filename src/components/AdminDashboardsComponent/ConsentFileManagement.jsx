@@ -4,17 +4,17 @@ import { Input } from '../../ui/input';
 import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Upload, FileText, Trash2, Download, Eye, Search } from 'lucide-react';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '../../ui/dialog'; // Assuming AlertDialog is in dialog or separate, but let's use dialog.jsx if alert-dialog is missing
+    // import {
+    //     AlertDialog,
+    //     AlertDialogAction,
+    //     AlertDialogCancel,
+    //     AlertDialogContent,
+    //     AlertDialogDescription,
+    //     AlertDialogFooter,
+    //     AlertDialogHeader,
+    //     AlertDialogTitle,
+    //     AlertDialogTrigger,
+    // } from '../../ui/dialog'; // Assuming AlertDialog is in dialog or separate, but let's use dialog.jsx if alert-dialog is missing
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState(mockFiles);

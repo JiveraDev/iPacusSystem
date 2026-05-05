@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "./dashboardRouter";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 
@@ -119,28 +119,80 @@ export default function PetProfile() {
         <CardContent className="relative pt-0 pb-8 px-8">
           <div className="flex flex-col md:flex-row gap-8 items-end -mt-16">
             <div className="relative">
-              <div className="h-40 w-40 rounded-3xl overflow-hidden border-[6px] border-white shadow-2xl bg-slate-100 ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100">
-                {pet.profileImage ? (
-                    <img
-                        src={resolveImageUrl(pet.profileImage)}
-                        alt={pet.name}
-                        className="h-full w-full object-cover"
-                    />
-                ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-                        <PawPrint className="h-20 w-20 text-blue-200" />
-                    </div>
-                )}
+                {/* Pet Image with Upload Option */}
+              <div className="relative group">
+                <div className="h-40 w-40 rounded-3xl overflow-hidden border-[6px] border-white shadow-2xl bg-slate-100 ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100">
+                  {pet.profileImage ? (
+                      <img
+                          src={resolveImageUrl(pet.profileImage)}
+                          alt={pet.name}
+                          className="h-full w-full object-cover"
+                      />
+                  ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
+                          <PawPrint className="h-20 w-20 text-blue-200" />
+                      </div>
+                  )}
+                </div>
+
+                {/* Status Badge at Top-Left */}
+                <Badge className={`absolute -top-3 -left-3 px-4 py-1.5 shadow-xl border-2 border-white rounded-full text-xs font-black uppercase tracking-widest ${
+                  pet.status === 'Healthy' 
+                    ? 'bg-green-500 hover:bg-green-600' 
+                    : pet.status === 'Emergency'
+                    ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                }`}>
+                  {pet.status}
+                </Badge>
+
+                {/* Upload Button at Bottom-Right */}
+                <input
+                    type="file"
+                    id="pet-pic-upload"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append('image', file);
+                        formData.append('type', 'pet');
+
+                        try {
+                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const result = await res.json();
+                            
+                            // Update the pet with the new URL
+                            const updateRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information/${pet.db_id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ setpetImage_url: result.relative_url })
+                            });
+
+                            if (updateRes.ok) {
+                                toast.success("Profile picture updated!");
+                                setPet(prev => ({ ...prev, profileImage: result.relative_url }));
+                            } else {
+                                toast.error("Failed to update profile picture.");
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            toast.error("Upload failed.");
+                        }
+                    }}
+                />
+                <label 
+                  htmlFor="pet-pic-upload" 
+                  className="absolute bottom-2 right-2 p-2 bg-blue-600 rounded-full text-white shadow-lg cursor-pointer hover:bg-blue-700 transition-colors"
+                >
+                  <Camera className="h-5 w-5" />
+                </label>
               </div>
-              <Badge className={`absolute -bottom-3 -right-3 px-4 py-1.5 shadow-xl border-2 border-white rounded-full text-xs font-black uppercase tracking-widest ${
-                pet.status === 'Healthy' 
-                  ? 'bg-green-500 hover:bg-green-600' 
-                  : pet.status === 'Emergency'
-                  ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                  : 'bg-amber-500 hover:bg-amber-600 text-white'
-              }`}>
-                {pet.status}
-              </Badge>
             </div>
             
             <div className="flex-1 space-y-2 pb-2 text-center md:text-left">
@@ -178,6 +230,10 @@ export default function PetProfile() {
               <div className="flex justify-between items-center py-1">
                 <span className="text-slate-500 font-medium">Primary Breed</span>
                 <span className="font-bold text-slate-900">{pet.breed || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-500 font-medium">Owner Name</span>
+                <span className="font-bold text-slate-900">{pet.ownerName || 'N/A'}</span>
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-slate-500 font-medium">Estimated Age</span>

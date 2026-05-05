@@ -11,12 +11,14 @@ if (!$petId) {
 
 try {
     // Check if it's a sharable ID or numeric ID
-    if (strpos($petId, 'PET-') === 0) {
-        $stmt = $pdo->prepare("SELECT * FROM pets_information WHERE pet_sharable_ID = ? LIMIT 1");
-    } else {
-        $stmt = $pdo->prepare("SELECT * FROM pets_information WHERE pet_id = ? LIMIT 1");
-    }
-    
+    $sql = "SELECT p.*, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name 
+            FROM pets_information p
+            LEFT JOIN pet_ownership po ON p.pet_id = po.pet_id
+            LEFT JOIN users u ON po.user_id = u.user_id
+            WHERE " . (strpos($petId, 'PET-') === 0 ? "p.pet_sharable_ID" : "p.pet_id") . " = ? 
+            LIMIT 1";
+
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([$petId]);
     $pet = $stmt->fetch();
 
@@ -41,7 +43,7 @@ try {
         'weight' => $pet['pet_weight'],
         'color' => $pet['pet_color_marking'],
         'microchipId' => $pet['pet_microchip'],
-        'ownerName' => $pet['pet_Temp_owner'],
+        'ownerName' => $pet['owner_name'] ?: $pet['pet_Temp_owner'],
         'profileImage' => $pet['setpetImage_url'],
         'allergies_raw' => $pet['pet_allergies'],
         // Mocking vaccinations/allergies arrays for UI compatibility if they are just text in DB

@@ -1,6 +1,3 @@
-import imgImageMax from "figma:asset/f22a8e5a5c2f5504ca488f5d1fca1867a9607afe.png";
-import imgImageLuna from "figma:asset/3f952f97a6be5b2ff3312d366d72e040be17c79a.png";
-import imgImageCharlie from "figma:asset/234d640ebb39f2f48828c9f568c124f89a319f61.png";
 import { Badge } from '../../ui/badge';
 
 export default function PetInfoModal({ petName }) {

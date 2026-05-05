@@ -41,8 +41,25 @@ function DialogTitle({ className, ...props }) {
   return <h2 className={cn("text-lg font-semibold text-slate-900", className)} {...props} />;
 }
 
+function DialogTrigger({ asChild, children, ...props }) {
+  const context = React.useContext(DialogContext);
+  const child = React.Children.only(children);
+
+  return React.cloneElement(child, {
+    onClick: (e) => {
+      child.props.onClick?.(e);
+      context.onOpenChange?.(true);
+    },
+    ...props,
+  });
+}
+
 function DialogDescription({ className, ...props }) {
   return <p className={cn("text-sm text-slate-600", className)} {...props} />;
 }
 
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription };
+function DialogFooter({ className, ...props }) {
+  return <div className={cn("flex justify-end gap-2 mt-4", className)} {...props} />;
+}
+
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger };

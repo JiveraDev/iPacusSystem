@@ -28,6 +28,10 @@ const routePatterns = [
   { pattern: "/dashboard/services", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard/todos", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard/profile", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/bookings", allowedRoles: DEFAULT_ROLES },
+  // { pattern: "/dashboard/bookings", allowedRoles: ["admin"]  }, TODO: add this to make all the component content not accesible to certain users rolse based
+  { pattern: "/dashboard/queue", allowedRoles:  DEFAULT_ROLES},
+  { pattern: "/dashboard/consent", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard", allowedRoles: DEFAULT_ROLES },
 ];
@@ -117,6 +121,8 @@ export {
   useNavigate,
   // eslint-disable-next-line react-refresh/only-export-components
   useParams,
+
   useUserUpdate,
+
   useDashboardUser
 };

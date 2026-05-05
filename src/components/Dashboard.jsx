@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
-  Heart,
   Home,
   ListTodo,
   LogOut,
@@ -11,6 +10,7 @@ import {
   User,
   Video,
   X,
+  FileText,
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
@@ -39,6 +39,9 @@ import MedicalRecordsScreen from "./PetOwnerDashboard/MedicalRecords.jsx";
 import RequestUpdateRecordScreen from "./PetOwnerDashboard/RequestUpdateRecord.jsx";
 import TodosScreen from "./PetOwnerDashboard/Todos.jsx";
 import PetOwnerProfileScreen from "./PetOwnerDashboard/PetOwnerProfile.jsx";
+import BookingManagement from "./AdminDashboardsComponent/BookingManagement.jsx";
+import QueueManagement from "./AdminDashboardsComponent/QueueManagement.jsx";
+import ConsentFilesManagement from "./AdminDashboardsComponent/ConsentFileManagement.jsx";
 import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
 
 const navItems = [
@@ -46,7 +49,11 @@ const navItems = [
   { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult" },
   { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services" },
   { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets" },
-  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ["Pet Owner", "pet_owner"] },
+  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register" },
+  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings" },
+  // { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ["admin"] }, TODO: this is how to reduece the nav list ADD the roles: ["admin"] or Veterinarian or Owner pag wala it means default == pet owner (YOU CANN TRY)
+  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue" },
+  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos" },
   { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" },
 ];
@@ -74,6 +81,9 @@ const screenMap = {
   "/dashboard/my-pets/:petId/medical-records": MedicalRecordsScreen,
   "/dashboard/my-pets/:petId/request-update": RequestUpdateRecordScreen,
   "/dashboard/pet-register": PetRegister,
+  "/dashboard/bookings": BookingManagement,
+  "/dashboard/queue": QueueManagement,
+  "/dashboard/consent": ConsentFilesManagement,
   "/dashboard/todos": TodosScreen,
   "/dashboard/profile": PetOwnerProfileScreen,
 };
@@ -123,6 +133,15 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/pet-register")) {
     return "pet-register";
+  }
+  if (path.startsWith("/dashboard/bookings")) {
+    return "bookings";
+  }
+  if (path.startsWith("/dashboard/queue")) {
+    return "queue";
+  }
+  if (path.startsWith("/dashboard/consent")) {
+    return "consent";
   }
   if (path.startsWith("/dashboard/todos")) {
     return "todos";
@@ -269,29 +288,31 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         </div>
       )}
 
-      <div className="flex h-full flex-col p-4">
-        <nav className="space-y-2">
-          {filteredNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.id === activeTab;
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex-1 p-4 overflow-y-auto">
+          <nav className="space-y-2">
+            {filteredNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.id === activeTab;
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => navigate(item.path)}
-                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
-                  isActive ? "bg-[#155dfc] text-white" : "text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="font-medium">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
+                    isActive ? "bg-[#155dfc] text-white" : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-        <div className="mt-auto pt-6">
+        <div className="p-4 border-t border-slate-200 bg-white">
           <div className="mb-4 rounded-2xl bg-slate-100 p-4">
             <p className="text-sm text-slate-500">Signed in as</p>
             <p className="font-semibold">{displayName}</p>

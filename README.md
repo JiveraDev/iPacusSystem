@@ -5,9 +5,9 @@ A comprehensive React + Node.js system for pet medical records and owner managem
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
+- NPMs 
 - MySQL Database
-
+- PHP 8.3
 
 
 ## 🏗️ Core Features
@@ -21,12 +21,9 @@ A comprehensive React + Node.js system for pet medical records and owner managem
 - **Registration:** Clinics can register pets with full medical history.
 - **One-Pet-One-Owner:** Strict database constraint ensures each pet is linked to exactly one account.
 - **Smart Linking:** Owners link pets using a hashed Registration ID (e.g., `PET-1-IPAWCUS`).
-- **Lazy Age Updates:** The system automatically calculates and updates pet ages in the database whenever a record is fetched.
 
 ### 🖼️ Media & Security
 - **Secure Uploads:** Pet profile pictures are hashed using SHA-256 to hide original filenames.
-- **Storage:** Images are stored in `server/uploads/profile/` and served statically.
-- **Optional Workflow:** Image upload is optional during registration to ensure zero friction.
 
 ## 📁 Project Structure
 - `/src/components/PetOwnerDashboard`: Protected dashboard views.

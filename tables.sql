@@ -159,6 +159,7 @@ create table users
 
 # ???????????????????????????????
 -- auto-generated definition
+
 create table admin_profiles
 (
     id                int auto_increment
@@ -183,25 +184,31 @@ create table admin_profiles
 create index user_id
     on admin_profiles (user_id);
 
+
+
 # ??????????????????????????????
 
-
-CREATE TABLE veterinarian_profiles (
-                                       id INT AUTO_INCREMENT PRIMARY KEY,
-                                       user_id INT NOT NULL,
-
-                                       veterinarian_id VARCHAR(50) UNIQUE,
-                                       prc_license_number VARCHAR(50),
-                                       specialization TEXT,
-                                       consultation_rate DECIMAL(10,2),
-
-                                       years_of_experience INT,
-                                       hire_date DATE,
-
-                                       is_accepting_patients BOOLEAN DEFAULT TRUE,
-                                       is_active BOOLEAN DEFAULT FALSE,
-
-                                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-                                       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+-- auto-generated definition
+create table veterinarian_profiles
+(
+    id                    int auto_increment
+        primary key,
+    user_id               int                                    not null,
+    veterinarian_id       varchar(50)                            null,
+    prc_license_number    varchar(50)                            null,
+    specialization        text                                   null,
+    consultation_rate     decimal(10, 2)                         null,
+    years_of_experience   int                                    null,
+    hire_date             date                                   null,
+    is_accepting_patients tinyint(1) default 1                   null,
+    is_active             tinyint(1) default 0                   null,
+    created_at            timestamp  default current_timestamp() not null,
+    constraint veterinarian_id
+        unique (veterinarian_id),
+    constraint veterinarian_profiles_ibfk_1
+        foreign key (user_id) references users (user_id)
+            on delete cascade
 );
+
+create index user_id
+    on veterinarian_profiles (user_id);

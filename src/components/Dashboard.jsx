@@ -43,6 +43,7 @@ import BookingManagement from "./AdminDashboardsComponent/BookingManagement.jsx"
 import QueueManagement from "./AdminDashboardsComponent/QueueManagement.jsx";
 import ConsentFilesManagement from "./AdminDashboardsComponent/ConsentFileManagement.jsx";
 import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
+import AccountManagement from "./SuperAdminDashboardComponent/AccountManagement.jsx";
 
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard" },
@@ -54,6 +55,7 @@ const navItems = [
   // { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ["admin"] }, TODO: this is how to reduece the nav list ADD the roles: ["admin"] or Veterinarian or Owner pag wala it means default == pet owner (YOU CANN TRY)
   { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue" },
   { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" },
+  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts" },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos" },
   { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" },
 ];
@@ -84,6 +86,7 @@ const screenMap = {
   "/dashboard/bookings": BookingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/consent": ConsentFilesManagement,
+  "/dashboard/accounts": AccountManagement,
   "/dashboard/todos": TodosScreen,
   "/dashboard/profile": PetOwnerProfileScreen,
 };
@@ -142,6 +145,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/consent")) {
     return "consent";
+  }
+  if (path.startsWith("/dashboard/accounts")) {
+    return "accounts";
   }
   if (path.startsWith("/dashboard/todos")) {
     return "todos";

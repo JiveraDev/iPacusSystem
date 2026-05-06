@@ -3,24 +3,24 @@ create table bookings
 (
     booking_id                 int auto_increment
         primary key,
-    user_id                    int                                                                                                                                              not null,
-    pet_id                     int                                                                                                                                              not null,
-    booking_number             varchar(20)                                                                                                                                      not null,
-    service_type               enum ('consultation', 'vaccination', 'grooming', 'dental', 'wellness', 'surgery', 'lab-testing', 'parasite-control', 'boarding', 'home-service') not null,
-    booking_date               date                                                                                                                                             not null,
-    booking_time               time                                                                                                                                             not null,
-    status                     enum ('pending', 'confirmed', 'completed', 'cancelled') default 'pending'                                                                        null,
-    price                      decimal(10, 2)                                                                                                                                   null,
-    notes                      text                                                                                                                                             null,
-    is_home_service            tinyint(1)                                              default 0                                                                                null,
-    address                    text                                                                                                                                             null,
-    payment_proof_url          varchar(255)                                                                                                                                     null,
-    is_online_consultation     tinyint(1)                                              default 0                                                                                null,
-    veterinarian_id            varchar(50)                                                                                                                                      null,
-    created_at                 timestamp                                               default current_timestamp()                                                              not null,
-    Image_Booking_Concern_Path text                                                                                                                                             null,
-    registered_status          enum ('Registered', 'Not Registered')                                                                                                            null,
-    petType                    varchar(250)                                                                                                                                     null,
+    user_id                    int                                                                                                                                                                           not null,
+    pet_id                     int                                                                                                                                                                           null,
+    booking_number             varchar(20)                                                                                                                                                                   not null,
+    service_type               enum ('consultation', 'vaccination', 'grooming', 'dental', 'wellness', 'surgery', 'kapon', 'lab-testing', 'parasite-control', 'boarding', 'home-service', 'special services') not null,
+    booking_date               date                                                                                                                                                                          not null,
+    booking_time               time                                                                                                                                                                          not null,
+    status                     enum ('pending', 'confirmed', 'completed', 'cancelled') default 'pending'                                                                                                     null,
+    price                      decimal(10, 2)                                                                                                                                                                null,
+    notes                      text                                                                                                                                                                          null,
+    is_home_service            tinyint(1)                                              default 0                                                                                                             null,
+    address                    text                                                                                                                                                                          null,
+    payment_proof_url          varchar(255)                                                                                                                                                                  null,
+    is_online_consultation     tinyint(1)                                              default 0                                                                                                             null,
+    veterinarian_id            varchar(50)                                                                                                                                                                   null,
+    created_at                 timestamp                                               default current_timestamp()                                                                                           not null,
+    Image_Booking_Concern_Path text                                                                                                                                                                          null,
+    registered_status          enum ('Registered', 'Not Registered')                                                                                                                                         null,
+    petType                    varchar(250)                                                                                                                                                                  null,
     constraint booking_number
         unique (booking_number),
     constraint bookings_ibfk_1
@@ -36,8 +36,8 @@ create index user_id
     on bookings (user_id);
 
 
-#llllllllllllllllllllllllllllll
 
+#llllllllllllllllllllllllllllll
 -- auto-generated definition
 create table consent_files
 (
@@ -46,10 +46,11 @@ create table consent_files
     file_name   varchar(255)                          not null,
     file_type   varchar(10)                           not null,
     file_size   varchar(20)                           null,
-    file_url    varchar(255)                          not null,
+    content     longtext                              null,
     category    varchar(50)                           null,
     uploaded_at timestamp default current_timestamp() not null
 );
+
 
 #  llllllllllllllllllll
 -- auto-generated definition
@@ -156,3 +157,51 @@ create table users
     birthdate         date                                  null
 );
 
+# ???????????????????????????????
+-- auto-generated definition
+create table admin_profiles
+(
+    id                int auto_increment
+        primary key,
+    user_id           int                                         not null,
+    employee_id       varchar(50)                                 null,
+    hire_date         date                                        null,
+    employment_status enum ('full-time', 'part-time', 'contract') null,
+    sss_number        varchar(50)                                 null,
+    philhealth_number varchar(50)                                 null,
+    tin_number        varchar(50)                                 null,
+    pagibig_number    varchar(50)                                 null,
+    created_at        timestamp default current_timestamp()       not null,
+    postionn          varchar(250)                                null,
+    constraint employee_id
+        unique (employee_id),
+    constraint admin_profiles_ibfk_1
+        foreign key (user_id) references users (user_id)
+            on delete cascade
+);
+
+create index user_id
+    on admin_profiles (user_id);
+
+# ??????????????????????????????
+
+
+CREATE TABLE veterinarian_profiles (
+                                       id INT AUTO_INCREMENT PRIMARY KEY,
+                                       user_id INT NOT NULL,
+
+                                       veterinarian_id VARCHAR(50) UNIQUE,
+                                       prc_license_number VARCHAR(50),
+                                       specialization TEXT,
+                                       consultation_rate DECIMAL(10,2),
+
+                                       years_of_experience INT,
+                                       hire_date DATE,
+
+                                       is_accepting_patients BOOLEAN DEFAULT TRUE,
+                                       is_active BOOLEAN DEFAULT FALSE,
+
+                                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                                       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

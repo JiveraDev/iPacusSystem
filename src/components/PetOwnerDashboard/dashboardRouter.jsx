@@ -33,6 +33,7 @@ const routePatterns = [
   { pattern: "/dashboard/queue", allowedRoles:  DEFAULT_ROLES},
   { pattern: "/dashboard/consent", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/accounts", allowedRoles: DEFAULT_ROLES },
   { pattern: "/dashboard", allowedRoles: DEFAULT_ROLES },
 ];
 

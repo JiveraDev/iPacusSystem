@@ -68,6 +68,16 @@ switch ($path) {
             require_once __DIR__ . '/get_bookings.php';
         }
         break;
+    case '/accounts':
+        require_once __DIR__ . '/get_accounts.php';
+        break;
+    case '/accounts/create':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/create_account.php';
+        } else {
+            http_response_code(405);
+        }
+        break;
     case '/consent_files':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/add_consent_file.php';

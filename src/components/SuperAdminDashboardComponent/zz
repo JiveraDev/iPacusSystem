@@ -1,0 +1,267 @@
+import { useState, useEffect } from 'react';
+import { Card } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import { Badge } from '../../ui/badge';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { UserCheck, UserCog, Mail, Phone, MapPin, Award, Ban, CheckCircle, UserPlus, Key, Plus, AlertTriangle, Stethoscope, Briefcase, Calendar } from 'lucide-react';
+import { toast } from '../../reusecomponent/toast.jsx';
+
+export default function AccountManagement() {
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [showDetails, setShowDetails] = useState(false);
+    const [showCreateAccount, setShowCreateAccount] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [accounts, setAccounts] = useState({ veterinarians: [], staff: [] });
+
+    const [createForm, setCreateForm] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        role: 'Veterinarian',
+        hireDate: new Date().toISOString().split('T')[0],
+        licenseNumber: '',
+        specialization: '',
+        position: 'Nurse',
+        employmentStatus: 'full-time',
+        masterKey: ''
+    });
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        fetchAccounts();
+    }, []);
+
+    const fetchAccounts = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts`);
+            if (response.ok) {
+                const data = await response.json();
+                setAccounts(data);
+            }
+        } catch (error) {
+            toast.error("Failed to load accounts");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCreateAccount = async (e) => {
+        e.preventDefault();
+
+        if (createForm.masterKey !== import.meta.env.VITE_MASTER_KEY) {
+            toast.error("Invalid Master Key.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(createForm)
+            });
+
+            if (response.ok) {
+                toast.success(`${createForm.role} created`);
+                setShowCreateAccount(false);
+                fetchAccounts();
+            } else {
+                toast.error("Creation failed");
+            }
+        } catch {
+            toast.error("Error creating account");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const getStatusBadge = (status) => {
+        return status === 'active' || status === 1
+            ? <Badge className="bg-green-500 text-white">Active</Badge>
+            : <Badge className="bg-gray-400 text-white">Inactive</Badge>;
+    };
+
+    const getInitials = (user) => {
+        return `${user.first_Name?.[0] || ''}${user.last_Name?.[0] || ''}`.toUpperCase();
+    };
+
+    const UserCard = ({ user, type }) => (
+        <Card className="p-5 rounded-2xl border hover:shadow-xl transition-all duration-300 bg-white">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                        type === 'vet' ? 'bg-blue-500' : 'bg-purple-500'
+                    }`}>
+                        {getInitials(user)}
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900">
+                            {user.first_Name} {user.last_Name}
+                        </h3>
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">
+                            {type === 'vet' ? 'Veterinarian' : 'Staff'}
+                        </p>
+                    </div>
+                </div>
+                {getStatusBadge(user.is_active)}
+            </div>
+
+            <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    <span>{user.mail_Address}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4" />
+                    <span>
+                        {type === 'vet'
+                            ? user.specialization || 'General'
+                            : user.position || 'Staff'}
+                    </span>
+                </div>
+            </div>
+
+            <Button
+                onClick={() => {
+                    setSelectedUser({ ...user, type });
+                    setShowDetails(true);
+                }}
+                className="w-full mt-4"
+                variant="outline"
+            >
+                View Profile
+            </Button>
+        </Card>
+    );
+
+    return (
+        <div className="space-y-8">
+
+            {/* HEADER */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Account Management</h1>
+                    <p className="text-sm text-gray-500">Manage staff and veterinarians</p>
+                </div>
+
+                <Button onClick={() => setShowCreateAccount(true)} className="bg-blue-600 text-white">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create Account
+                </Button>
+            </div>
+
+            {/* STAFF */}
+            <div>
+                <h2 className="text-lg font-semibold mb-4">Staff & Nurses</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {accounts.staff.map((u) => (
+                        <UserCard key={u.user_id} user={u} type="staff" />
+                    ))}
+                </div>
+            </div>
+
+            {/* VETS */}
+            <div>
+                <h2 className="text-lg font-semibold mb-4">Veterinarians</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {accounts.veterinarians.map((u) => (
+                        <UserCard key={u.user_id} user={u} type="vet" />
+                    ))}
+                </div>
+            </div>
+
+            {/* DETAILS MODAL */}
+            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+                <DialogContent className="max-w-xl">
+                    {selectedUser && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Profile Overview</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-xl font-bold">
+                                        {getInitials(selectedUser)}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold">
+                                            {selectedUser.first_Name} {selectedUser.last_Name}
+                                        </h3>
+                                        <p className="text-sm text-gray-500">{selectedUser.role}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-gray-400">Email</p>
+                                        <p>{selectedUser.mail_Address}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-400">Hire Date</p>
+                                        <p>{selectedUser.hire_date}</p>
+                                    </div>
+                                </div>
+
+                                {selectedUser.type === 'vet' && (
+                                    <div>
+                                        <p className="text-gray-400">License</p>
+                                        <p>{selectedUser.prc_license_number}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* CREATE MODAL (same logic, cleaner UI) */}
+            <Dialog open={showCreateAccount} onOpenChange={setShowCreateAccount}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Create Account</DialogTitle>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateAccount} className="space-y-4">
+
+                        <Input placeholder="First Name"
+                            value={createForm.firstName}
+                            onChange={(e) => setCreateForm({...createForm, firstName: e.target.value})}
+                        />
+
+                        <Input placeholder="Last Name"
+                            value={createForm.lastName}
+                            onChange={(e) => setCreateForm({...createForm, lastName: e.target.value})}
+                        />
+
+                        <Input placeholder="Email"
+                            value={createForm.email}
+                            onChange={(e) => setCreateForm({...createForm, email: e.target.value})}
+                        />
+
+                        <Input type="password" placeholder="Password"
+                            value={createForm.password}
+                            onChange={(e) => setCreateForm({...createForm, password: e.target.value})}
+                        />
+
+                        <Input type="password" placeholder="Master Key"
+                            value={createForm.masterKey}
+                            onChange={(e) => setCreateForm({...createForm, masterKey: e.target.value})}
+                        />
+
+                        <Button type="submit" className="w-full">
+                            {isSubmitting ? "Creating..." : "Create Account"}
+                        </Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+        </div>
+    );
+}

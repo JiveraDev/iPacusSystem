@@ -53,8 +53,9 @@ export default function MyPets() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">My Pets</h1>
         {/*{pets.length > 0 && (*/}
-        TODO: wag mo to gagalawin aahhah hindi sya importante trip ko lang talaga ahaahhahah
-        {/*  <Button */}
+         {/*  <Button */}
+        {/*TODO: wag mo to gagalawin aahhah hindi sya importante trip ko lang talaga ahaahhahah*/}
+
         {/*    onClick={() => navigate("/dashboard/my-pets/add")}*/}
         {/*    className="bg-[#155dfc] hover:bg-blue-700"*/}
         {/*  >*/}

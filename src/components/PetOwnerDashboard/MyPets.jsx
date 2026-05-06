@@ -64,6 +64,11 @@ export default function MyPets() {
         {/*/!*)}*!/ Hide this shit  hahahha */}
       </div>
 
+
+
+
+
+
       {pets.length === 0 ? (
         <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
           <CardContent className="pt-10 pb-10 text-center">

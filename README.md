@@ -52,7 +52,8 @@ To verify this works before you upload it to Hostinger, follow these steps:
 
 1. Start the PHP Backend:
    Open a new terminal and run this command:
-   1     php -S localhost:8000 php/index.php
+ 
+2. localhost:8000 php/index.php
    (This starts a tiny PHP server on port 8000).
 
 2. Update your .env file:

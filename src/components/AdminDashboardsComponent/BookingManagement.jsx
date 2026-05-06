@@ -123,24 +123,32 @@ export default function BookingsManagement() {
         );
     };
 
-    const getTypeBadge = (type, isHomeService) => {
+    const getTypeBadge = (booking) => {
+        // 1. Home Service takes priority
+        if (booking.isHomeService) {
+            return <Badge className="bg-[#ffec99] text-[#8a6500] hover:bg-[#ffec99]">Home Service</Badge>;
+        }
+
+        // 2. Online Consultation check
+        if (booking.isOnlineConsultation) {
+            return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Online Consultation</Badge>;
+        }
+
+        // 3. Specific Service mapping
         const labels = {
             'consultation': 'Consultation',
             'vaccination': 'Vaccination',
             'grooming': 'Grooming',
-            'dental': 'Dental',
-            'wellness': 'Wellness',
+            'dental': 'Dental Check-up',
+            'wellness': 'General Check-up',
             'surgery': 'Surgery',
+            'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
             'parasite-control': 'Parasite Control',
-            'boarding': 'Boarding',
-            'home-service': 'Home Service'
+            'boarding': 'Pet Hotel & Boarding'
         };
 
-        const label = labels[type];
-        if (isHomeService) {
-            return <Badge className="bg-[#ffec99] text-[#8a6500] hover:bg-[#ffec99]">Home {label}</Badge>;
-        }
+        const label = labels[booking.type] || 'Consultation';
         return <Badge variant="secondary">{label}</Badge>;
     };
 
@@ -284,7 +292,7 @@ export default function BookingsManagement() {
                                                 <Eye className="size-4" />
                                             </Button>
                                         </SheetTrigger>
-                                        <SheetContent side="right" className="w-[800px] sm:max-w-none overflow-y-auto p-0">
+                                        <SheetContent side="right" className="sm:max-w-xl">
                                             <div className="sticky top-0 bg-white z-10 border-b p-6">
                                                 <SheetHeader>
                                                     <SheetTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
@@ -342,7 +350,7 @@ export default function BookingsManagement() {
                                                                     Pet Information
                                                                 </DialogTitle>
                                                             </DialogHeader>
-                                                            <PetInfoModal petName={booking.petName} />
+                                                            <PetInfoModal petId={booking.petId} petName={booking.petName} />
                                                         </DialogContent>
                                                     </Dialog>
                                                 </div>
@@ -464,22 +472,27 @@ export default function BookingsManagement() {
                                                 {/* Pet Profile Image Section */}
                                                 <div className="border-t pt-4">
                                                     <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
-                                                       Picture of Concern
+                                                       Pictures of Concern
                                                     </p>
                                                     {booking.image_Booking_Concern_Path ? (
-                                                        <div 
-                                                            className="w-32 h-32 mx-auto mb-3 cursor-pointer hover:opacity-80 transition-opacity"
-                                                            onClick={() => setViewerImage({ src: booking.image_Booking_Concern_Path, alt: booking.petName })}
-                                                        >
-                                                            <img
-                                                                src={booking.image_Booking_Concern_Path}
-                                                                alt={booking.petName}
-                                                                className="w-full h-full object-cover rounded-2xl border border-[rgba(0,0,0,0.1)]"
-                                                            />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {booking.image_Booking_Concern_Path.split(',').filter(path => path.trim() !== "").map((path, idx) => (
+                                                                <div 
+                                                                    key={idx}
+                                                                    className="w-full aspect-square cursor-pointer hover:opacity-80 transition-opacity"
+                                                                    onClick={() => setViewerImage({ src: path.trim(), alt: `${booking.petName} concern ${idx + 1}` })}
+                                                                >
+                                                                    <img
+                                                                        src={path.trim()}
+                                                                        alt={`${booking.petName} concern ${idx + 1}`}
+                                                                        className="w-full h-full object-cover rounded-xl border border-[rgba(0,0,0,0.1)]"
+                                                                    />
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     ) : (
-                                                        <div className="w-32 h-32 mx-auto mb-3 flex items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-                                                            <p className="text-[12px] text-gray-400 text-center px-2">No image available</p>
+                                                        <div className="w-full h-32 flex items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                                                            <p className="text-[12px] text-gray-400 text-center px-2">No images available</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -534,7 +547,7 @@ export default function BookingsManagement() {
                                                                 variant="outline"
                                                                 onClick={() => {
                                                                     handleReschedule(booking);
-                                                                    toast.info(`Rescheduling booking ${booking.bookingNumber}...`);
+                                                                    toast.success(`Rescheduling booking ${booking.bookingNumber}...`);
                                                                 }}
                                                                 className="border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff] w-full"
                                                             >

@@ -62,7 +62,18 @@ switch ($path) {
         require_once __DIR__ . '/upload.php';
         break;
     case '/bookings':
-        require_once __DIR__ . '/get_bookings.php';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/add_booking.php';
+        } else {
+            require_once __DIR__ . '/get_bookings.php';
+        }
+        break;
+    case '/consent_files':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/add_consent_file.php';
+        } else {
+            require_once __DIR__ . '/get_consent_files.php';
+        }
         break;
     case '/health':
         echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
@@ -82,6 +93,13 @@ switch ($path) {
         } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_status.php';
+        } elseif (preg_match('/^\/consent_files\/(\d+)$/', $path, $matches)) {
+            $_GET['fileId'] = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+                require_once __DIR__ . '/update_consent_file.php';
+            } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+                require_once __DIR__ . '/delete_consent_file.php';
+            }
         } elseif (preg_match('/^\/pet_information\/([^\/]+)\/status$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/update_pet_status.php';

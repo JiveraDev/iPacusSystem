@@ -1,23 +1,26 @@
 -- auto-generated definition
 create table bookings
 (
-    booking_id             int auto_increment
+    booking_id                 int auto_increment
         primary key,
-    user_id                int                                                                                                                                              not null,
-    pet_id                 int                                                                                                                                              not null,
-    booking_number         varchar(20)                                                                                                                                      not null,
-    service_type           enum ('consultation', 'vaccination', 'grooming', 'dental', 'wellness', 'surgery', 'lab-testing', 'parasite-control', 'boarding', 'home-service') not null,
-    booking_date           date                                                                                                                                             not null,
-    booking_time           time                                                                                                                                             not null,
-    status                 enum ('pending', 'confirmed', 'completed', 'cancelled') default 'pending'                                                                        null,
-    price                  decimal(10, 2)                                                                                                                                   null,
-    notes                  text                                                                                                                                             null,
-    is_home_service        tinyint(1)                                              default 0                                                                                null,
-    address                text                                                                                                                                             null,
-    payment_proof_url      varchar(255)                                                                                                                                     null,
-    is_online_consultation tinyint(1)                                              default 0                                                                                null,
-    veterinarian_id        varchar(50)                                                                                                                                      null,
-    created_at             timestamp                                               default current_timestamp()                                                              not null,
+    user_id                    int                                                                                                                                              not null,
+    pet_id                     int                                                                                                                                              not null,
+    booking_number             varchar(20)                                                                                                                                      not null,
+    service_type               enum ('consultation', 'vaccination', 'grooming', 'dental', 'wellness', 'surgery', 'lab-testing', 'parasite-control', 'boarding', 'home-service') not null,
+    booking_date               date                                                                                                                                             not null,
+    booking_time               time                                                                                                                                             not null,
+    status                     enum ('pending', 'confirmed', 'completed', 'cancelled') default 'pending'                                                                        null,
+    price                      decimal(10, 2)                                                                                                                                   null,
+    notes                      text                                                                                                                                             null,
+    is_home_service            tinyint(1)                                              default 0                                                                                null,
+    address                    text                                                                                                                                             null,
+    payment_proof_url          varchar(255)                                                                                                                                     null,
+    is_online_consultation     tinyint(1)                                              default 0                                                                                null,
+    veterinarian_id            varchar(50)                                                                                                                                      null,
+    created_at                 timestamp                                               default current_timestamp()                                                              not null,
+    Image_Booking_Concern_Path text                                                                                                                                             null,
+    registered_status          enum ('Registered', 'Not Registered')                                                                                                            null,
+    petType                    varchar(250)                                                                                                                                     null,
     constraint booking_number
         unique (booking_number),
     constraint bookings_ibfk_1
@@ -31,6 +34,7 @@ create index pet_id
 
 create index user_id
     on bookings (user_id);
+
 
 #llllllllllllllllllllllllllllll
 

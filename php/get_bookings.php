@@ -20,6 +20,7 @@ try {
         return [
             'id' => $b['booking_id'],
             'bookingNumber' => $b['booking_number'],
+            'petId' => $b['pet_id'],
             'petName' => $b['pet_name'],
             'petSpecies' => $b['pet_species'],
             'petBreed' => $b['pet_breed'],

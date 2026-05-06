@@ -52,15 +52,16 @@ export default function MyPets() {
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">My Pets</h1>
-        {pets.length > 0 && (
-          <Button 
-            onClick={() => navigate("/dashboard/my-pets/add")}
-            className="bg-[#155dfc] hover:bg-blue-700"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Link Pet
-          </Button>
-        )}
+        {/*{pets.length > 0 && (*/}
+        TODO: wag mo to gagalawin aahhah hindi sya importante trip ko lang talaga ahaahhahah
+        {/*  <Button */}
+        {/*    onClick={() => navigate("/dashboard/my-pets/add")}*/}
+        {/*    className="bg-[#155dfc] hover:bg-blue-700"*/}
+        {/*  >*/}
+        {/*    <Plus className="h-5 w-5 mr-2" />*/}
+        {/*    Link Pet*/}
+        {/*  </Button>*/}
+        {/*/!*)}*!/ Hide this shit  hahahha */}
       </div>
 
       {pets.length === 0 ? (

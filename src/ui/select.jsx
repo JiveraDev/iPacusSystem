@@ -52,14 +52,12 @@ function SelectTrigger({ className, children }) {
 
 SelectTrigger.displayName = "SelectTrigger";
 
-function SelectValue({ placeholder }) {
+function SelectValue({ placeholder, displayValue }) {
   const { value } = React.useContext(SelectContext);
   
-  // We'll capture the label from SelectItem children if matched
-  // For simplicity in this implementation, we assume the children of SelectItem is the label
   return (
     <span className="block truncate">
-      {value || <span className="text-slate-500">{placeholder}</span>}
+      {displayValue || value || <span className="text-slate-500">{placeholder}</span>}
     </span>
   );
 }

@@ -25,6 +25,15 @@ $fileName = time() . '_' . basename($file['name']);
 if ($type === 'pet') {
     $targetDir = __DIR__ . '/../public/pet_profile_images/';
     $urlPath = "pet_profile_images/";
+} elseif ($type === 'booking_signature') {
+    $targetDir = __DIR__ . '/../public/signatures/';
+    $urlPath = "signatures/";
+} elseif ($type === 'booking_payment') {
+    $targetDir = __DIR__ . '/../public/payments/';
+    $urlPath = "payments/";
+} elseif ($type === 'booking_concern') {
+    $targetDir = __DIR__ . '/../public/concerns/';
+    $urlPath = "concerns/";
 } else {
     $targetDir = __DIR__ . '/../public/uploads/';
     $urlPath = "uploads/";

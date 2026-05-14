@@ -30,13 +30,16 @@ if (!$firstName || !$lastName || !$email || !$password || !$role) {
 try {
     $pdo->beginTransaction();
 
+    // Hash the password for security
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
     // 1. Insert into users table
     // Using default/test values for fields not provided in the admin creation form
     $userStmt = $pdo->prepare("
         INSERT INTO users (first_Name, last_Name, mail_Address, personal_Address, user_password, phoneNumber, role, created_at) 
         VALUES (?, ?, ?, 'Clinic Address Placeholder', ?, '000-000-0000', ?, NOW())
     ");
-    $userStmt->execute([$firstName, $lastName, $email, $password, $role]);
+    $userStmt->execute([$firstName, $lastName, $email, $hashedPassword, $role]);
     $userId = $pdo->lastInsertId();
 
     if ($role === 'Veterinarian') {

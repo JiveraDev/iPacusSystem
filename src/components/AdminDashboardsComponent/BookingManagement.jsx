@@ -4,12 +4,16 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Calendar, Search, Filter, Eye, CheckCircle, XCircle, User, PawPrint, CalendarClock } from 'lucide-react';
+import { Calendar, Search, Filter, Eye, CheckCircle, XCircle, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
 import PetInfoModal from './PetInfoModal';
 import { PhotoViewer } from '../../ui/photo-viewer';
+import { toast } from "../../reusecomponent/toast.jsx";
+import { addPetService } from '../../services/addPet';
+import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
 
 const veterinarians = [
     { id: 'v1', name: 'Dr. Sarah Wilson' },
@@ -29,17 +33,34 @@ export default function BookingsManagement() {
     const [newTime, setNewTime] = useState('');
     const [viewerImage, setViewerImage] = useState(null);
 
-    useEffect(() => {
-        async function fetchBookings() {
-            try {
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`);
-                if (!response.ok) throw new Error('Failed to fetch bookings');
-                const data = await response.json();
-                setBookings(data);
-            } catch (error) {
-                console.error('Error fetching bookings:', error);
-            }
+    // Registration states
+    const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [registrationData, setRegistrationData] = useState({
+        petName: '',
+        species: 'Dog',
+        breed: '',
+        birthDate: '',
+        gender: 'Male',
+        weight: '',
+        tempOwnerName: '',
+        status: 'Healthy',
+        bookingId: null,
+        ownerId: null
+    });
+
+    const fetchBookings = async () => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`);
+            if (!response.ok) throw new Error('Failed to fetch bookings');
+            const data = await response.json();
+            setBookings(data);
+        } catch (error) {
+            console.error('Error fetching bookings:', error);
         }
+    };
+
+    useEffect(() => {
         fetchBookings();
     }, []);
 
@@ -87,6 +108,64 @@ export default function BookingsManagement() {
         }
     };
 
+    const handleOpenRegistration = (booking) => {
+        const normalizedOwnerId = Number(booking.userId ?? booking.user_id);
+        const today = new Date().toISOString().split('T')[0];
+        setRegistrationData({
+            petName: booking.petName || '',
+            species: booking.petSpecies || 'Dog',
+            breed: booking.petBreed || '',
+            birthDate: today,
+            gender: 'Male',
+            weight: booking.petWeight || '',
+            tempOwnerName: booking.ownerName, // As requested: temp owner to be directly the pet owner
+            status: 'Healthy',
+            bookingId: booking.id,
+            ownerId: Number.isFinite(normalizedOwnerId) && normalizedOwnerId > 0 ? normalizedOwnerId : null
+        });
+        setIsRegisterModalOpen(true);
+    };
+
+    const handleRegisterPet = async () => {
+        if (!registrationData.petName || !registrationData.species || !registrationData.breed || !registrationData.birthDate || !registrationData.gender) {
+            toast.error("Please fill in all required fields (Name, Species, Breed, Birth Date, Gender)");
+            return;
+        }
+        if (!registrationData.ownerId) {
+            toast.error("Cannot register: booking owner is missing. Please refresh bookings and try again.");
+            return;
+        }
+
+        setIsRegistering(true);
+        try {
+            const result = await addPetService({
+                ...registrationData,
+                petName: registrationData.petName,
+                species: registrationData.species,
+                breed: registrationData.breed,
+                birthDate: registrationData.birthDate,
+                gender: registrationData.gender,
+                weight: registrationData.weight,
+                tempOwnerName: registrationData.tempOwnerName,
+                status: registrationData.status,
+                userId: Number(registrationData.ownerId) // Pass the ownerId for auto-linking
+            });
+
+            // After registration, update the booking to link to the new pet and mark as registered
+            // In a real app, you might have an endpoint to link a booking to a pet
+            // For now, let's just update the local state and inform the user
+            toast.success(`${registrationData.petName} registered and linked to ${registrationData.tempOwnerName} successfully!`);
+            
+            // Re-fetch bookings to show updated status
+            fetchBookings();
+            setIsRegisterModalOpen(false);
+        } catch (error) {
+            toast.error('Failed to register pet: ' + error.message);
+        } finally {
+            setIsRegistering(false);
+        }
+    };
+
     const getStatusBadge = (status) => {
         const variants = {
             'pending': { 
@@ -123,14 +202,14 @@ export default function BookingsManagement() {
         );
     };
 
-    const getTypeBadge = (booking) => {
+    const getTypeBadge = (type, isHomeService, isOnlineConsultation) => {
         // 1. Home Service takes priority
-        if (booking.isHomeService) {
+        if (isHomeService) {
             return <Badge className="bg-[#ffec99] text-[#8a6500] hover:bg-[#ffec99]">Home Service</Badge>;
         }
 
         // 2. Online Consultation check
-        if (booking.isOnlineConsultation) {
+        if (isOnlineConsultation) {
             return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Online Consultation</Badge>;
         }
 
@@ -148,7 +227,7 @@ export default function BookingsManagement() {
             'boarding': 'Pet Hotel & Boarding'
         };
 
-        const label = labels[booking.type] || 'Consultation';
+        const label = labels[type] || 'Consultation';
         return <Badge variant="secondary">{label}</Badge>;
     };
 
@@ -160,19 +239,40 @@ export default function BookingsManagement() {
     };
 
     const filteredBookings = bookings.filter(booking => {
+        // Fallback for names to prevent crashes
+        const petName = booking.petName || `Unregistered ${booking.petSpecies || 'Pet'}`;
+        const ownerName = booking.ownerName || 'Unknown Owner';
+        const bookingNumber = booking.bookingNumber || '';
+
         const matchesSearch =
-            booking.petName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            booking.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            booking.bookingNumber.toLowerCase().includes(searchQuery.toLowerCase());
+            petName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            bookingNumber.toLowerCase().includes(searchQuery.toLowerCase());
+
+        // 7-day filter logic: if not searching, hide confirmed/cancelled older than 7 days since CREATION
+        if (searchQuery === '') {
+            if (booking.status === 'confirmed' || booking.status === 'cancelled') {
+                const createdDate = new Date(booking.createdAt);
+                const now = new Date();
+                const diffTime = now - createdDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays > 7) return false;
+            }
+        }
 
         const matchesType = filterType === 'all' || booking.type === filterType;
         const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
 
         return matchesSearch && matchesType && matchesStatus;
     }).sort((a, b) => {
-        if (a.status === 'pending' && b.status !== 'pending') return -1;
-        if (a.status !== 'pending' && b.status === 'pending') return 1;
-        return 0;
+        const statusOrder = {
+            'pending': 1,
+            'confirmed': 2,
+            'completed': 3,
+            'cancelled': 4
+        };
+        return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
     });
 
     return (
@@ -268,10 +368,15 @@ export default function BookingsManagement() {
                     {filteredBookings.map((booking) => (
                         <TableRow key={booking.id}>
                             <TableCell className="font-['Arimo:Bold',sans-serif]">{booking.bookingNumber}</TableCell>
-                            <TableCell>{getTypeBadge(booking.type, booking.isHomeService)}</TableCell>
+                            <TableCell>{getTypeBadge(booking.type, booking.isHomeService, booking.isOnlineConsultation)}</TableCell>
                             <TableCell>
                                 <div>
-                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px]">{booking.petName}</p>
+                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px]">
+                                        {booking.petName} 
+                                        {!booking.isRegistered && (
+                                            <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Unregistered</span>
+                                        )}
+                                    </p>
                                     <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
                                 </div>
                             </TableCell>
@@ -292,7 +397,7 @@ export default function BookingsManagement() {
                                                 <Eye className="size-4" />
                                             </Button>
                                         </SheetTrigger>
-                                        <SheetContent side="right" className="sm:max-w-xl">
+                                        <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
                                             <div className="sticky top-0 bg-white z-10 border-b p-6">
                                                 <SheetHeader>
                                                     <SheetTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
@@ -306,7 +411,7 @@ export default function BookingsManagement() {
 
                                             <div className="p-6 space-y-6">
                                                 {/* Quick Action Buttons */}
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className={`grid ${!booking.isRegistered ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
                                                     <Dialog>
                                                         <DialogTrigger asChild>
                                                             <Button
@@ -314,9 +419,9 @@ export default function BookingsManagement() {
                                                                 className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
                                                             >
                                                                 <User className="size-6 text-[#155dfc]" />
-                                                                <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">
-                                  View Pet Owner Profile
-                                </span>
+                                                                <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
+                                                                  View Pet Owner
+                                                                </span>
                                                             </Button>
                                                         </DialogTrigger>
                                                         <DialogContent className="max-w-2xl">
@@ -332,27 +437,40 @@ export default function BookingsManagement() {
                                                         </DialogContent>
                                                     </Dialog>
 
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
-                                                            >
-                                                                <PawPrint className="size-6 text-[#155dfc]" />
-                                                                <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">
-                                  View Pet Info
-                                </span>
-                                                            </Button>
-                                                        </DialogTrigger>
-                                                        <DialogContent className="max-w-2xl">
-                                                            <DialogHeader>
-                                                                <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
-                                                                    Pet Information
-                                                                </DialogTitle>
-                                                            </DialogHeader>
-                                                            <PetInfoModal petId={booking.petId} petName={booking.petName} />
-                                                        </DialogContent>
-                                                    </Dialog>
+                                                    {booking.isRegistered ? (
+                                                        <Dialog>
+                                                            <DialogTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
+                                                                >
+                                                                    <PawPrint className="size-6 text-[#155dfc]" />
+                                                                    <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
+                                                                      View Pet Info
+                                                                    </span>
+                                                                </Button>
+                                                            </DialogTrigger>
+                                                            <DialogContent className="max-w-2xl">
+                                                                <DialogHeader>
+                                                                    <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                                                                        Pet Information
+                                                                    </DialogTitle>
+                                                                </DialogHeader>
+                                                                <PetInfoModal petId={booking.petId} petName={booking.petName} />
+                                                            </DialogContent>
+                                                        </Dialog>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => handleOpenRegistration(booking)}
+                                                            className="w-full h-auto py-4 flex flex-col gap-2 border-amber-500 hover:bg-amber-50"
+                                                        >
+                                                            <UserPlus className="size-6 text-amber-500" />
+                                                            <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-amber-500">
+                                                              Register Pet
+                                                            </span>
+                                                        </Button>
+                                                    )}
                                                 </div>
 
                                                 {/* Basic Info */}
@@ -369,7 +487,7 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                             Type
                                                         </p>
-                                                        {getTypeBadge(booking.type, booking.isHomeService)}
+                                                        {getTypeBadge(booking.type, booking.isHomeService, booking.isOnlineConsultation)}
                                                     </div>
                                                     <div>
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
@@ -442,14 +560,16 @@ export default function BookingsManagement() {
                                                             </p>
                                                         </div>
                                                     )}
-                                                    <div>
-                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                                            Price
-                                                        </p>
-                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                                            {booking.price}
-                                                        </p>
-                                                    </div>
+                                                    {booking.isHomeService && booking.price > 0 && (
+                                                        <div>
+                                                            <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                Paid Transport Fee
+                                                            </p>
+                                                            <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
+                                                                ₱{booking.price}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                             Status
@@ -466,6 +586,22 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                             {booking.notes}
                                                         </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Signature Section for Home Services */}
+                                                {booking.isHomeService && booking.signaturePath && (
+                                                    <div className="border-t pt-4">
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
+                                                            Client Signature (Home Service)
+                                                        </p>
+                                                        <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 flex items-center justify-center">
+                                                            <img
+                                                                src={booking.signaturePath}
+                                                                alt="Client Signature"
+                                                                className="max-h-24 object-contain"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -627,7 +763,6 @@ export default function BookingsManagement() {
                             variant="default"
                             onClick={() => {
                                 confirmReschedule();
-                                toast.success('Booking rescheduled successfully');
                             }}
                         >
                             Confirm Reschedule
@@ -635,6 +770,132 @@ export default function BookingsManagement() {
                         <Button
                             variant="outline"
                             onClick={() => setRescheduleDialogOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Register Pet Dialog */}
+            <Dialog open={isRegisterModalOpen} onOpenChange={setIsRegisterModalOpen}>
+                <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                            Register New Pet
+                        </DialogTitle>
+                        <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                            Register {registrationData.petName} to the system to track progress.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Pet Name *</Label>
+                            <Input 
+                                value={registrationData.petName} 
+                                onChange={(e) => setRegistrationData({...registrationData, petName: e.target.value})}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Species *</Label>
+                            <Select 
+                                value={registrationData.species} 
+                                onValueChange={(value) => setRegistrationData({...registrationData, species: value})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select species" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Dog">Dog</SelectItem>
+                                    <SelectItem value="Cat">Cat</SelectItem>
+                                    <SelectItem value="Bird">Bird</SelectItem>
+                                    <SelectItem value="Rabbit">Rabbit</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Breed *</Label>
+                            <Input 
+                                value={registrationData.breed} 
+                                onChange={(e) => setRegistrationData({...registrationData, breed: e.target.value})}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Birth Date *</Label>
+                            <Input 
+                                type="date"
+                                value={registrationData.birthDate} 
+                                onChange={(e) => setRegistrationData({...registrationData, birthDate: e.target.value})}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Gender *</Label>
+                            <Select 
+                                value={registrationData.gender} 
+                                onValueChange={(value) => setRegistrationData({...registrationData, gender: value})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                    <SelectItem value="Neutered Male">Neutered Male</SelectItem>
+                                    <SelectItem value="Spayed Female">Spayed Female</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Weight (kg)</Label>
+                            <Input 
+                                value={registrationData.weight} 
+                                onChange={(e) => setRegistrationData({...registrationData, weight: e.target.value})}
+                            />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                            <Label>Temporary Owner Name</Label>
+                            <Input 
+                                value={registrationData.tempOwnerName} 
+                                readOnly
+                                className="bg-slate-50"
+                            />
+                            <p className="text-[12px] text-gray-500">Automatically set to the person who booked the appointment.</p>
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                            <Label>Initial Health Status</Label>
+                            <Select 
+                                value={registrationData.status} 
+                                onValueChange={(value) => setRegistrationData({...registrationData, status: value})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Healthy">Healthy</SelectItem>
+                                    <SelectItem value="Emergency">Emergency</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button 
+                            onClick={handleRegisterPet} 
+                            disabled={isRegistering}
+                            className="bg-[#155dfc] hover:bg-[#0d4acf]"
+                        >
+                            {isRegistering ? (
+                                <><Loader2 className="size-4 mr-2 animate-spin" /> Registering...</>
+                            ) : (
+                                "Confirm Registration"
+                            )}
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsRegisterModalOpen(false)}
+                            disabled={isRegistering}
                         >
                             Cancel
                         </Button>

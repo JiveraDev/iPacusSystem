@@ -13,7 +13,7 @@ export default function PetInfoModal({ petId, petName }) {
                 return;
             }
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/get_pet.php?petId=${petId}`);
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information/${petId}`);
                 if (response.ok) {
                     const data = await response.json();
                     setPet(data);

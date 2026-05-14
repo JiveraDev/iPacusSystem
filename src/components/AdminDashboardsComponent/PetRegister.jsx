@@ -51,6 +51,7 @@ export default function PetRegister() {
     const [generatedPetId, setGeneratedPetId] = useState('');
     const [copiedPetId, setCopiedPetId] = useState(false);
     const [registeredPetName, setRegisteredPetName] = useState('');
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
     useEffect(() => {
         fetchPets();
@@ -58,7 +59,6 @@ export default function PetRegister() {
 
     const fetchPets = async () => {
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
             const response = await fetch(`${API_BASE_URL}/api/pet_information`);
             if (response.ok) {
                 const data = await response.json();
@@ -83,7 +83,6 @@ export default function PetRegister() {
 
     const handleStatusChange = async (petId, newStatus) => {
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
             const response = await fetch(`${API_BASE_URL}/api/pet_information/${petId}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -119,6 +118,14 @@ export default function PetRegister() {
         e.preventDefault();
         
         let profileImageUrl = "";
+        const complaintFromMedicalInfo = [
+            `Medical Information:`,
+            `Known Allergies: ${formData.allergies || 'N/A'}`,
+            `Current Medications: ${formData.medications || 'N/A'}`,
+            `Medical History: ${formData.medicalHistory || 'N/A'}`,
+            `Last Visit Date: ${formData.lastVisit || 'N/A'}`,
+            `Veterinary Notes: ${formData.vetNotes || 'N/A'}`
+        ].join('\n');
 
         try {
             // 1. Upload image if exists
@@ -128,7 +135,6 @@ export default function PetRegister() {
                 uploadData.append('image', formData.profileImage);
                 uploadData.append('type', 'pet');
                 
-                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                 const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
                     method: 'POST',
                     body: uploadData
@@ -160,6 +166,35 @@ export default function PetRegister() {
             };
 
             const result = await addPetService(petPayload);
+            const registeredPetId = Number(result?.id);
+
+            // Post newly registered pet into queue as Consultation source=register.
+            // If this secondary step fails, keep the successful pet registration intact.
+            if (Number.isFinite(registeredPetId) && registeredPetId > 0) {
+                try {
+                    const queueResponse = await fetch(`${API_BASE_URL}/queues`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pet_id: registeredPetId,
+                            user_id: null,
+                            service_name: 'Consultation',
+                            priority: 'normal',
+                            complaint: complaintFromMedicalInfo,
+                            queue_source: 'register'
+                        })
+                    });
+                    if (!queueResponse.ok) {
+                        const queueErrorData = await queueResponse.json().catch(() => ({}));
+                        throw new Error(queueErrorData.message || 'Queue POST failed');
+                    }
+                } catch (queueError) {
+                    console.error('Failed to auto-add registered pet to queue:', queueError);
+                    toast.error('Pet registered, but failed to add to queue automatically.');
+                }
+            } else {
+                toast.error('Pet registered, but missing pet ID for queue auto-add.');
+            }
             
             toast.success("Pet registered successfully!");
             setRegisteredPetName(formData.petName);

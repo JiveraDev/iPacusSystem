@@ -3,38 +3,39 @@ import { createContext, useContext } from "react";
 const DashboardRouterContext = createContext(null);
 
 // Centralized role definitions for easy reconfiguration later
-const DEFAULT_ROLES = ["Pet Owner", "pet_owner"];
+const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
 const routePatterns = [
-  { pattern: "/dashboard/consult/video/:consultationId", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/consult/confirmation/:bookingId", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/my-pets/add", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/my-pets/:petId/request-update", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/my-pets/:petId/medical-records", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/my-pets/:petId", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/my-pets", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/consult/payment", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/consult/booking", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/consult", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/general-checkup", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/parasite-control", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/surgery", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/vaccination", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/grooming", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/dental-checkup", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/home-services", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/pet-hotel", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services/special-services", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/services", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/todos", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/profile", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/bookings", allowedRoles: DEFAULT_ROLES },
-  // { pattern: "/dashboard/bookings", allowedRoles: ["admin"]  }, TODO: add this to make all the component content not accesible to certain users rolse based
-  { pattern: "/dashboard/queue", allowedRoles:  DEFAULT_ROLES},
-  { pattern: "/dashboard/consent", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/pet-register", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard/accounts", allowedRoles: DEFAULT_ROLES },
-  { pattern: "/dashboard", allowedRoles: DEFAULT_ROLES },
+  { pattern: "/dashboard/consult/confirmation/home-service", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consult/video/:consultationId", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consult/confirmation/:bookingId", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/my-pets/add", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/my-pets/:petId/request-update", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/my-pets/:petId/medical-records", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/my-pets/:petId", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/my-pets", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consult/payment", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consult/booking", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consult", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/general-checkup", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/parasite-control", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/surgery", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/vaccination", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/grooming", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/dental-checkup", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/home-services", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/pet-hotel", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/special-services", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/todos", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/profile", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/bookings", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/queue", allowedRoles:  ALL_ROLES},
+  { pattern: "/dashboard/self-service-queue", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/pet-register", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/accounts", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard", allowedRoles: ALL_ROLES },
 ];
 
 function normalizePath(path) {
@@ -80,12 +81,12 @@ function getRouteMatch(path) {
       return { 
         path: route.pattern, 
         params, 
-        allowedRoles: route.allowedRoles || DEFAULT_ROLES 
+        allowedRoles: route.allowedRoles || ALL_ROLES 
       };
     }
   }
 
-  return { path: "/dashboard", params: {}, allowedRoles: DEFAULT_ROLES };
+  return { path: "/dashboard", params: {}, allowedRoles: ALL_ROLES };
 }
 
 function DashboardRouterProvider({ value, children }) {

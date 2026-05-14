@@ -62,6 +62,23 @@ try {
         $input['lastVisitDate'] ?? null
     ]);
 
+    // 5. Auto-link to user if userId is provided
+    $userId = $input['userId'] ?? null;
+    if ($userId) {
+        $stmtOwnership = $pdo->prepare("INSERT INTO pet_ownership (user_id, pet_id) VALUES (?, ?)");
+        $stmtOwnership->execute([$userId, $petId]);
+
+        // Update pet_Temp_owner to the actual owner's name
+        $stmtUser = $pdo->prepare("SELECT first_Name, last_Name FROM users WHERE user_id = ? LIMIT 1");
+        $stmtUser->execute([$userId]);
+        $user = $stmtUser->fetch();
+        if ($user) {
+            $fullName = trim($user['first_Name'] . ' ' . $user['last_Name']);
+            $stmtUpdatePet = $pdo->prepare("UPDATE pets_information SET pet_Temp_owner = ? WHERE pet_id = ?");
+            $stmtUpdatePet->execute([$fullName, $petId]);
+        }
+    }
+
     $pdo->commit();
 
     http_response_code(201);

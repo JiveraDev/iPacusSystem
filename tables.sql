@@ -21,6 +21,10 @@ create table bookings
     Image_Booking_Concern_Path text                                                                                                                                                                          null,
     registered_status          enum ('Registered', 'Not Registered')                                                                                                                                         null,
     petType                    varchar(250)                                                                                                                                                                  null,
+    unregistered_pet_name      varchar(250)                                                                                                                                                                  null,
+    unregistered_pet_breed     varchar(250)                                                                                                                                                                  null,
+    unregistered_pet_age       varchar(250)                                                                                                                                                                  null,
+    unregistered_pet_weight    varchar(250)                                                                                                                                                                  null,
     constraint booking_number
         unique (booking_number),
     constraint bookings_ibfk_1

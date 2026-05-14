@@ -9,7 +9,7 @@ try {
                    p.pet_name, p.pet_species, p.pet_breed, 
                    u.first_Name, u.last_Name, u.mail_Address
             FROM bookings b
-            JOIN pets_information p ON b.pet_id = p.pet_id
+            LEFT JOIN pets_information p ON b.pet_id = p.pet_id
             JOIN users u ON b.user_id = u.user_id
             ORDER BY b.created_at DESC";
     
@@ -17,29 +17,48 @@ try {
     $bookings = $stmt->fetchAll();
 
     $formattedBookings = array_map(function($b) {
+        $isRegistered = $b['registered_status'] === 'Registered';
+        $isHomeService = (bool)$b['is_home_service'];
+        $isOnlineConsultation = (bool)$b['is_online_consultation'];
+        
+        // Extract services/topics from notes
+        $serviceName = $b['service_type'];
+        if ($b['notes']) {
+            if ($isHomeService && preg_match('/\[Services: (.*?)\]/', $b['notes'], $matches)) {
+                $serviceName = $matches[1];
+            } elseif ($isOnlineConsultation && preg_match('/\[Topic: (.*?)\]/', $b['notes'], $matches)) {
+                $serviceName = $matches[1];
+            }
+        }
+
         return [
             'id' => $b['booking_id'],
+            'userId' => $b['user_id'],
             'bookingNumber' => $b['booking_number'],
             'petId' => $b['pet_id'],
-            'petName' => $b['pet_name'],
-            'petSpecies' => $b['pet_species'],
-            'petBreed' => $b['pet_breed'],
+            'petName' => $isRegistered ? $b['pet_name'] : $b['unregistered_pet_name'],
+            'petSpecies' => $isRegistered ? $b['pet_species'] : $b['petType'],
+            'petBreed' => $isRegistered ? $b['pet_breed'] : $b['unregistered_pet_breed'],
+            'petAge' => $b['unregistered_pet_age'],
+            'petWeight' => $b['unregistered_pet_weight'],
             'ownerName' => $b['first_Name'] . ' ' . $b['last_Name'],
             'ownerEmail' => $b['mail_Address'],
             'type' => $b['service_type'],
-            'service' => $b['service_type'], // Mapping service_type to service
+            'service' => $serviceName,
             'date' => $b['booking_date'],
             'time' => $b['booking_time'],
             'status' => $b['status'],
             'price' => $b['price'],
             'notes' => $b['notes'],
-            'isHomeService' => (bool)$b['is_home_service'],
+            'isHomeService' => $isHomeService,
             'address' => $b['address'],
             'paymentProof' => $b['payment_proof_url'],
-            'isOnlineConsultation' => (bool)$b['is_online_consultation'],
+            'isOnlineConsultation' => $isOnlineConsultation,
             'veterinarian' => $b['veterinarian_id'],
             'image_Booking_Concern_Path' => $b['Image_Booking_Concern_Path'],
-            'isRegistered' => $b['registered_status'] === 'Registered'
+            'signaturePath' => $b['signature_path'],
+            'isRegistered' => $isRegistered,
+            'createdAt' => $b['created_at']
         ];
     }, $bookings);
 

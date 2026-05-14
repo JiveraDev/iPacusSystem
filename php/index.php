@@ -2,7 +2,7 @@
 // 1. Force CORS headers immediately (Essential for local testing)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE, PATCH");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Client-Public-IP");
 
 // 2. Handle OPTIONS preflight request immediately
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -85,6 +85,28 @@ switch ($path) {
             require_once __DIR__ . '/get_consent_files.php';
         }
         break;
+    case '/queues/debug':
+        require_once __DIR__ . '/debug_queues.php';
+        break;
+    case '/queues':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/add_to_queue.php';
+        } else {
+            require_once __DIR__ . '/get_queues.php';
+        }
+        break;
+    case '/queues/pets':
+        require_once __DIR__ . '/get_pets_for_queue.php';
+        break;
+    case '/queues/status':
+        require_once __DIR__ . '/update_queue_status.php';
+        break;
+    case '/queues/reenter':
+        require_once __DIR__ . '/reenter_queue.php';
+        break;
+    case '/self-service/access':
+        require_once __DIR__ . '/check_self_service_access.php';
+        break;
     case '/health':
         echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
         break;
@@ -115,7 +137,11 @@ switch ($path) {
             require_once __DIR__ . '/update_pet_status.php';
         } elseif (preg_match('/^\/pet_information\/([^\/]+)$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
-            require_once __DIR__ . '/get_pet.php';
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+                require_once __DIR__ . '/update_pet.php';
+            } else {
+                require_once __DIR__ . '/get_pet.php';
+            }
         } else {
             http_response_code(404);
             echo json_encode(['message' => 'Route not found: ' . $path, 'uri' => $requestUri]);

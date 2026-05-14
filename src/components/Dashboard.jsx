@@ -30,6 +30,7 @@ import VaccinationScreen from "./PetOwnerDashboard/Vaccination.jsx";
 import GroomingScreen from "./PetOwnerDashboard/Grooming.jsx";
 import DentalCheckupScreen from "./PetOwnerDashboard/DentalCheckup.jsx";
 import HomeServicesScreen from "./PetOwnerDashboard/HomeServices.jsx";
+import HomeServiceConfirmationScreen from "./PetOwnerDashboard/HomeServiceConfirmation.jsx";
 import PetHotelScreen from "./PetOwnerDashboard/PetHotel.jsx";
 import SpecialServicesScreen from "./PetOwnerDashboard/SpecialServices.jsx";
 import MyPetsScreen from "./PetOwnerDashboard/MyPets.jsx";
@@ -44,20 +45,23 @@ import QueueManagement from "./AdminDashboardsComponent/QueueManagement.jsx";
 import ConsentFilesManagement from "./AdminDashboardsComponent/ConsentFileManagement.jsx";
 import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
 import AccountManagement from "./SuperAdminDashboardComponent/AccountManagement.jsx";
+import QueueDashboard from "./PetOwnerDashboard/Self-Service_QUEUE.jsx";
+
+const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
 const navItems = [
-  { id: "home", label: "Home", icon: Home, path: "/dashboard" },
-  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult" },
-  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services" },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets" },
-  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register" },
-  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings" },
-  // { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ["admin"] }, TODO: this is how to reduece the nav list ADD the roles: ["admin"] or Veterinarian or Owner pag wala it means default == pet owner (YOU CANN TRY)
-  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue" },
-  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" },
-  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts" },
-  { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos" },
-  { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" },
+  { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
+  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: ALL_ROLES },
+  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: ALL_ROLES },
+  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES },
+  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ALL_ROLES },
+  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ALL_ROLES },
+  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ALL_ROLES },
+  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: ALL_ROLES },
+  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ALL_ROLES },
+  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: ALL_ROLES },
+  { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: ALL_ROLES },
+  { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" , roles: ALL_ROLES },
 ];
 
 const screenMap = {
@@ -75,6 +79,7 @@ const screenMap = {
   "/dashboard/services/grooming": GroomingScreen,
   "/dashboard/services/dental-checkup": DentalCheckupScreen,
   "/dashboard/services/home-services": HomeServicesScreen,
+  "/dashboard/consult/confirmation/home-service": HomeServiceConfirmationScreen,
   "/dashboard/services/pet-hotel": PetHotelScreen,
   "/dashboard/services/special-services": SpecialServicesScreen,
   "/dashboard/my-pets": MyPetsScreen,
@@ -87,6 +92,7 @@ const screenMap = {
   "/dashboard/queue": QueueManagement,
   "/dashboard/consent": ConsentFilesManagement,
   "/dashboard/accounts": AccountManagement,
+  "/dashboard/self-service-queue": QueueDashboard,
   "/dashboard/todos": TodosScreen,
   "/dashboard/profile": PetOwnerProfileScreen,
 };
@@ -125,6 +131,9 @@ function buildStoredUser(user) {
 }
 
 function getActiveTab(path) {
+  if (path.startsWith("/dashboard/consult/confirmation/home-service")) {
+    return "services";
+  }
   if (path.startsWith("/dashboard/consult")) {
     return "consult";
   }
@@ -142,6 +151,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/queue")) {
     return "queue";
+  }
+  if (path.startsWith("/dashboard/self-service-queue")) {
+    return "self-service-queue";
   }
   if (path.startsWith("/dashboard/consent")) {
     return "consent";

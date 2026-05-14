@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, X } from "lucide-react";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
@@ -28,7 +28,22 @@ export default function ConsultPayment() {
     setBookingData(JSON.parse(pending));
   }, [navigate]);
 
-  const handleSubmit = (e) => {
+  const uploadFile = async (file, type = "booking_payment") => {
+    const data = new FormData();
+    data.append("image", file);
+    data.append("type", type);
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
+      method: "POST",
+      body: data,
+    });
+
+    if (!response.ok) throw new Error("Failed to upload image");
+    const result = await response.json();
+    return result.url;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.paymentMethod) {
@@ -42,43 +57,59 @@ export default function ConsultPayment() {
     
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
-      // Create consultation booking
-      const consultationId = Date.now().toString();
-      const consultation = {
-        id: consultationId,
-        ...bookingData,
-        status: "pending_verification",
-        paymentStatus: "pending_verification",
-        paymentMethod: formData.paymentMethod,
-        referenceNumber: formData.referenceNumber,
-        amount: formData.amount,
-        bookedAt: new Date().toISOString(),
-        consultationLink: `https://meet.vetfocuscare.com/${consultationId}`,
-      };
-
-      // Save to user's consultations
+    try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const userIndex = users.findIndex((u) => u.id === currentUser.id);
-
-      if (userIndex !== -1) {
-        if (!users[userIndex].consultations) {
-          users[userIndex].consultations = [];
-        }
-        users[userIndex].consultations.push(consultation);
-        localStorage.setItem("users", JSON.stringify(users));
-        localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
+      
+      // 1. Upload Receipt if available
+      let receiptUrl = null;
+      if (formData.receiptFile) {
+        receiptUrl = await uploadFile(formData.receiptFile, "booking_payment");
       }
 
-      // Clear pending booking
-      sessionStorage.removeItem("pendingBooking");
+      // 2. Prepare Final Booking Data
+      const finalBookingData = {
+        user_id: currentUser.id,
+        pet_id: bookingData.petId === "new-pet" ? null : bookingData.petId,
+        service_type: "consultation",
+        booking_date: bookingData.date,
+        booking_time: bookingData.time,
+        notes: `[Topic: ${bookingData.discussionTopic}] ${bookingData.notes}`,
+        petType: bookingData.petSpecies,
+        registered_status: bookingData.petId === "new-pet" ? "Not Registered" : "Registered",
+        new_pet_name: bookingData.petId === "new-pet" ? bookingData.petName : null,
+        new_pet_breed: bookingData.petId === "new-pet" ? bookingData.petBreed : null,
+        new_pet_age: bookingData.petId === "new-pet" ? bookingData.petAge : null,
+        new_pet_weight: bookingData.petId === "new-pet" ? bookingData.petWeight : null,
+        is_online_consultation: 1,
+        veterinarian_id: bookingData.veterinarianId,
+        payment_proof_url: receiptUrl,
+        payment_method: formData.paymentMethod,
+        payment_reference: formData.referenceNumber,
+        price: formData.amount || "500"
+      };
 
+      // 3. Submit to DB
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalBookingData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success("Consultation booking submitted successfully!");
+        sessionStorage.removeItem("pendingBooking");
+        navigate(`/dashboard/consult/confirmation/${result.booking_id || "success"}`);
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create consultation booking");
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error(error.message || "An error occurred during submission");
+    } finally {
       setIsProcessing(false);
-      toast.success("Payment submitted successfully! Awaiting verification from our team.");
-      navigate(`/dashboard/consult/confirmation/${consultationId}`);
-    }, 2000);
+    }
   };
 
   const handleReceiptChange = (e) => {
@@ -224,23 +255,45 @@ export default function ConsultPayment() {
             {/* Receipt Upload */}
             <div className="space-y-2">
               <Label htmlFor="receipt">Upload Payment Proof/Receipt *</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <Input
-                  id="receipt"
-                  type="file"
-                  required={formData.paymentMethod !== "cash"}
-                  accept="image/*,.pdf"
-                  onChange={handleReceiptChange}
-                  className="max-w-xs mx-auto"
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  Upload screenshot or photo of your receipt/transaction
-                </p>
-                {formData.receiptFile && (
-                  <p className="text-sm text-green-600 mt-2">
-                    ✓ File selected: {formData.receiptFile.name}
-                  </p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
+                {formData.receiptFile ? (
+                  <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
+                    <div className="relative group">
+                      <img 
+                        src={URL.createObjectURL(formData.receiptFile)} 
+                        alt="Receipt Preview" 
+                        className="max-h-[250px] w-auto max-w-full object-contain rounded-lg shadow-md border border-gray-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, receiptFile: null})}
+                        className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-all transform hover:scale-110 z-10"
+                        title="Remove receipt"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                      <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                        {formData.receiptFile.name}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer w-full h-full py-8 flex flex-col items-center justify-center">
+                    <Upload className="h-10 w-10 text-gray-400 mb-3" />
+                    <span className="text-sm font-semibold text-blue-600">Click to upload receipt</span>
+                    <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
+                    <Input
+                      id="receipt"
+                      type="file"
+                      required={formData.paymentMethod !== "cash"}
+                      accept="image/*,.pdf"
+                      onChange={handleReceiptChange}
+                      className="hidden"
+                    />
+                  </label>
                 )}
               </div>
             </div>

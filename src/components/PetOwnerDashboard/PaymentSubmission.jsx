@@ -5,11 +5,13 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, ExternalLink, Loader2, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
+  const [paymentData, setPaymentData] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
@@ -19,7 +21,45 @@ export default function PaymentSubmission() {
     additionalImages: [],
   });
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    const details = sessionStorage.getItem("paymentDetails");
+    if (details) {
+      const parsed = JSON.parse(details);
+      setPaymentData(parsed);
+      setFormData(prev => ({ ...prev, amount: parsed.amount || "" }));
+    }
+  }, []);
+
+  const dataURLtoFile = (dataurl, filename) => {
+    let arr = dataurl.split(','),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), 
+        n = bstr.length, 
+        u8arr = new Uint8Array(n);
+        
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    
+    return new File([u8arr], filename, {type:mime});
+  };
+
+  const uploadFile = async (file, type = "booking_payment") => {
+    const data = new FormData();
+    data.append("image", file);
+    data.append("type", type);
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
+      method: "POST",
+      body: data,
+    });
+
+    if (!response.ok) throw new Error("Failed to upload image");
+    const result = await response.json();
+    return result.url;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.paymentMethod) {
       toast.error("Please select a payment method");
@@ -29,8 +69,78 @@ export default function PaymentSubmission() {
       toast.error("Please upload proof of payment");
       return;
     }
-    toast.success("Payment submitted successfully! Awaiting verification from our team.");
-    navigate("/dashboard/services");
+
+    setIsSubmitting(true);
+    try {
+      // 1. Upload Receipt
+      const receiptUrl = await uploadFile(formData.receiptFile);
+
+      // 2. Handle Signature if it exists (base64)
+      let signatureUrl = paymentData.bookingData.signature;
+      if (signatureUrl && signatureUrl.startsWith('data:image')) {
+        try {
+          const signatureFile = dataURLtoFile(signatureUrl, `signature_${Date.now()}.png`);
+          signatureUrl = await uploadFile(signatureFile, "booking_signature");
+        } catch (sigError) {
+          console.error("Signature upload failed:", sigError);
+        }
+      }
+
+      // 3. Handle additional images if they exist (base64 array)
+      let uploadedImageUrls = [];
+      if (paymentData.bookingData.images && Array.isArray(paymentData.bookingData.images)) {
+        for (let i = 0; i < paymentData.bookingData.images.length; i++) {
+          const img = paymentData.bookingData.images[i];
+          if (img.startsWith('data:image')) {
+            try {
+              const imgFile = dataURLtoFile(img, `concern_${Date.now()}_${i}.png`);
+              const url = await uploadFile(imgFile, "booking_concern");
+              uploadedImageUrls.push(url);
+            } catch (imgError) {
+              console.error("Concern image upload failed:", imgError);
+            }
+          } else {
+            uploadedImageUrls.push(img);
+          }
+        }
+      }
+
+      // 4. Prepare Booking Data (Generic structure)
+      const bookingData = {
+        ...paymentData.bookingData,
+        payment_proof_url: receiptUrl,
+        payment_method: formData.paymentMethod,
+        payment_reference: formData.referenceNumber,
+        price: formData.amount,
+        signature: signatureUrl, // Map to signature_path in PHP
+        Image_Booking_Concern_Path: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : null, // PHP expects single path
+        // You might want to store all images in a JSON field if the DB supports it, 
+        // but for now let's use the first one as per add_booking.php
+      };
+
+      // 5. Submit Booking to DB
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+      });
+
+      if (response.ok) {
+        toast.success("Booking and payment submitted successfully!");
+        sessionStorage.removeItem("paymentDetails");
+        sessionStorage.removeItem("pendingHomeBooking");
+        // Redirect based on the booking type
+        navigate("/dashboard/services"); 
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create booking");
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error(error.message || "An error occurred during submission");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReceiptChange = (e) => {
@@ -76,14 +186,14 @@ export default function PaymentSubmission() {
   const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
 
   return (
-    <div className="space-y-6 lg:space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-6 lg:space-y-8 max-w-4xl mx-auto pb-10">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate(-1)}>
+        <Button variant="ghost" onClick={() => navigate(-1)} disabled={isSubmitting}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Complete Payment</h1>
-          <p className="text-gray-600 mt-1">Submit your payment details for verification</p>
+          <p className="text-gray-600 mt-1">Submit your payment details to finalize your {paymentData?.type || "Booking"}</p>
         </div>
       </div>
 
@@ -99,7 +209,7 @@ export default function PaymentSubmission() {
                 <li>• Upload clear photo/screenshot of your payment receipt</li>
                 <li>• Include reference number if applicable</li>
                 <li>• Our team will verify your payment within 24 hours</li>
-                <li>• You will receive a confirmation email once verified</li>
+                <li>• You will receive a confirmation once verified</li>
               </ul>
             </div>
           </div>
@@ -123,6 +233,7 @@ export default function PaymentSubmission() {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                disabled={isSubmitting}
               >
                 <option value="">Select payment method</option>
                 {paymentMethods.map((method) => (
@@ -150,15 +261,23 @@ export default function PaymentSubmission() {
 
             {/* Amount */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount Paid *</Label>
-              <Input
-                id="amount"
-                type="number"
-                required
-                placeholder="Enter amount (e.g., 500.00)"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              />
+              <Label htmlFor="amount">Amount to Pay *</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-gray-500 font-semibold">₱</span>
+                <Input
+                  id="amount"
+                  type="number"
+                  required
+                  readOnly={!!paymentData?.amount}
+                  className="pl-8 bg-gray-50 font-bold text-lg text-blue-600"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  disabled={isSubmitting}
+                />
+              </div>
+              {paymentData?.amount && (
+                  <p className="text-[10px] text-amber-600 font-medium italic">* This is the fixed transport fee for Home Service.</p>
+              )}
             </div>
 
             {/* Reference Number */}
@@ -169,6 +288,7 @@ export default function PaymentSubmission() {
                 placeholder="Enter reference number (if applicable)"
                 value={formData.referenceNumber}
                 onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
+                disabled={isSubmitting}
               />
               <p className="text-xs text-gray-500">
                 For digital payments (Maya, GCash, Bank Transfer), please include the transaction reference number
@@ -178,47 +298,46 @@ export default function PaymentSubmission() {
             {/* Receipt Upload */}
             <div className="space-y-2">
               <Label htmlFor="receipt">Upload Payment Proof/Receipt *</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <Input
-                  id="receipt"
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={handleReceiptChange}
-                  className="max-w-xs mx-auto"
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  Upload screenshot or photo of your receipt/transaction
-                </p>
-                {formData.receiptFile && (
-                  <p className="text-sm text-green-600 mt-2">
-                    ✓ File selected: {formData.receiptFile.name}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Additional Images */}
-            <div className="space-y-2">
-              <Label htmlFor="images">Additional Images (Optional)</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <Input
-                  id="images"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImagesChange}
-                  className="max-w-xs mx-auto"
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  Upload any additional supporting images
-                </p>
-                {formData.additionalImages.length > 0 && (
-                  <p className="text-sm text-green-600 mt-2">
-                    ✓ {formData.additionalImages.length} file(s) selected
-                  </p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
+                {formData.receiptFile ? (
+                  <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
+                    <div className="relative group">
+                      <img 
+                        src={URL.createObjectURL(formData.receiptFile)} 
+                        alt="Receipt Preview" 
+                        className="max-h-[250px] w-auto max-w-full object-contain rounded-lg shadow-md border border-gray-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, receiptFile: null})}
+                        className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-all transform hover:scale-110 z-10"
+                        title="Remove receipt"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                      <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                        {formData.receiptFile.name}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer w-full h-full py-8 flex flex-col items-center justify-center">
+                    <Upload className="h-10 w-10 text-gray-400 mb-3" />
+                    <span className="text-sm font-semibold text-blue-600">Click to upload receipt</span>
+                    <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
+                    <Input
+                      id="receipt"
+                      type="file"
+                      required
+                      accept="image/*,.pdf"
+                      onChange={handleReceiptChange}
+                      disabled={isSubmitting}
+                      className="hidden"
+                    />
+                  </label>
                 )}
               </div>
             </div>
@@ -232,35 +351,23 @@ export default function PaymentSubmission() {
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
+                disabled={isSubmitting}
               />
             </div>
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full h-12 text-base">
-              Submit Payment for Verification
+            <Button type="submit" className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
+              {isSubmitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Booking...</>
+              ) : (
+                  "Confirm and Submit Booking"
+              )}
             </Button>
           </form>
         </CardContent>
       </Card>
-
-      {/* Maya Payment Integration Info (for reference) */}
-      {formData.paymentMethod === "maya" && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex gap-3">
-              <ExternalLink className="h-5 w-5 text-blue-600 shrink-0" />
-              <div className="text-sm text-gray-700">
-                <p className="font-semibold mb-1">Maya Payment Integration</p>
-                <p>
-                  In a live environment, you would be redirected to Maya's secure checkout page to complete your
-                  payment.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
+
 

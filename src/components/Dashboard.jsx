@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import {
   Calendar,
   Home,
@@ -16,36 +16,38 @@ import {
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./PetOwnerDashboard/dashboardRouter.jsx";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
-import HomeScreen from "./PetOwnerDashboard/Home.jsx";
-import ConsultScreen from "./PetOwnerDashboard/Consult.jsx";
-import ConsultBookingScreen from "./PetOwnerDashboard/ConsultBooking.jsx";
-import ConsultPaymentScreen from "./PetOwnerDashboard/ConsultPayment.jsx";
-import ConsultConfirmationScreen from "./PetOwnerDashboard/ConsultConfirmation.jsx";
-import VideoConsultationScreen from "./PetOwnerDashboard/VideoConsultation.jsx";
-import ServicesScreen from "./PetOwnerDashboard/Services.jsx";
-import GeneralCheckupScreen from "./PetOwnerDashboard/GeneralCheckup.jsx";
-import ParasiteControlScreen from "./PetOwnerDashboard/ParasiteControl.jsx";
-import SurgeryScreen from "./PetOwnerDashboard/Surgery.jsx";
-import VaccinationScreen from "./PetOwnerDashboard/Vaccination.jsx";
-import GroomingScreen from "./PetOwnerDashboard/Grooming.jsx";
-import DentalCheckupScreen from "./PetOwnerDashboard/DentalCheckup.jsx";
-import HomeServicesScreen from "./PetOwnerDashboard/HomeServices.jsx";
-import HomeServiceConfirmationScreen from "./PetOwnerDashboard/HomeServiceConfirmation.jsx";
-import PetHotelScreen from "./PetOwnerDashboard/PetHotel.jsx";
-import SpecialServicesScreen from "./PetOwnerDashboard/SpecialServices.jsx";
-import MyPetsScreen from "./PetOwnerDashboard/MyPets.jsx";
-import AddPetScreen from "./PetOwnerDashboard/AddPet.jsx";
-import PetProfileScreen from "./PetOwnerDashboard/PetProfile.jsx";
-import MedicalRecordsScreen from "./PetOwnerDashboard/MedicalRecords.jsx";
-import RequestUpdateRecordScreen from "./PetOwnerDashboard/RequestUpdateRecord.jsx";
-import TodosScreen from "./PetOwnerDashboard/Todos.jsx";
-import PetOwnerProfileScreen from "./PetOwnerDashboard/PetOwnerProfile.jsx";
-import BookingManagement from "./AdminDashboardsComponent/BookingManagement.jsx";
-import QueueManagement from "./AdminDashboardsComponent/QueueManagement.jsx";
-import ConsentFilesManagement from "./AdminDashboardsComponent/ConsentFileManagement.jsx";
-import PetRegister from "./AdminDashboardsComponent/PetRegister.jsx";
-import AccountManagement from "./SuperAdminDashboardComponent/AccountManagement.jsx";
-import QueueDashboard from "./PetOwnerDashboard/Self-Service_QUEUE.jsx";
+
+// Lazy load screens
+const HomeScreen = lazy(() => import("./PetOwnerDashboard/Home.jsx"));
+const ConsultScreen = lazy(() => import("./PetOwnerDashboard/Consult.jsx"));
+const ConsultBookingScreen = lazy(() => import("./PetOwnerDashboard/ConsultBooking.jsx"));
+const ConsultPaymentScreen = lazy(() => import("./PetOwnerDashboard/ConsultPayment.jsx"));
+const ConsultConfirmationScreen = lazy(() => import("./PetOwnerDashboard/ConsultConfirmation.jsx"));
+const VideoConsultationScreen = lazy(() => import("./PetOwnerDashboard/VideoConsultation.jsx"));
+const ServicesScreen = lazy(() => import("./PetOwnerDashboard/Services.jsx"));
+const GeneralCheckupScreen = lazy(() => import("./PetOwnerDashboard/GeneralCheckup.jsx"));
+const ParasiteControlScreen = lazy(() => import("./PetOwnerDashboard/ParasiteControl.jsx"));
+const SurgeryScreen = lazy(() => import("./PetOwnerDashboard/Surgery.jsx"));
+const VaccinationScreen = lazy(() => import("./PetOwnerDashboard/Vaccination.jsx"));
+const GroomingScreen = lazy(() => import("./PetOwnerDashboard/Grooming.jsx"));
+const DentalCheckupScreen = lazy(() => import("./PetOwnerDashboard/DentalCheckup.jsx"));
+const HomeServicesScreen = lazy(() => import("./PetOwnerDashboard/HomeServices.jsx"));
+const HomeServiceConfirmationScreen = lazy(() => import("./PetOwnerDashboard/HomeServiceConfirmation.jsx"));
+const PetHotelScreen = lazy(() => import("./PetOwnerDashboard/PetHotel.jsx"));
+const SpecialServicesScreen = lazy(() => import("./PetOwnerDashboard/SpecialServices.jsx"));
+const MyPetsScreen = lazy(() => import("./PetOwnerDashboard/MyPets.jsx"));
+const AddPetScreen = lazy(() => import("./PetOwnerDashboard/AddPet.jsx"));
+const PetProfileScreen = lazy(() => import("./PetOwnerDashboard/PetProfile.jsx"));
+const MedicalRecordsScreen = lazy(() => import("./PetOwnerDashboard/MedicalRecords.jsx"));
+const RequestUpdateRecordScreen = lazy(() => import("./PetOwnerDashboard/RequestUpdateRecord.jsx"));
+const TodosScreen = lazy(() => import("./PetOwnerDashboard/Todos.jsx"));
+const PetOwnerProfileScreen = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
+const BookingManagement = lazy(() => import("./AdminDashboardsComponent/BookingManagement.jsx"));
+const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
+const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
+const PetRegister = lazy(() => import("./AdminDashboardsComponent/PetRegister.jsx"));
+const AccountManagement = lazy(() => import("./SuperAdminDashboardComponent/AccountManagement.jsx"));
+const QueueDashboard = lazy(() => import("./PetOwnerDashboard/Self-Service_QUEUE.jsx"));
 
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
@@ -398,8 +400,17 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           )}
 
           <main className="flex-1 p-4 sm:p-6 lg:p-10">
-            {/* eslint-disable-next-line react-hooks/static-components */}
-            <ScreenComponent />
+            <Suspense fallback={
+              <div className="flex h-64 w-full items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+                  <p className="text-sm font-medium text-slate-500">Loading page...</p>
+                </div>
+              </div>
+            }>
+              {/* eslint-disable-next-line react-hooks/static-components */}
+              <ScreenComponent />
+            </Suspense>
           </main>
         </div>
       </div>

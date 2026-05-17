@@ -1,12 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 
-import { LandingPage } from "./components/landingpage.jsx";
-import { Login } from "./components/Login.jsx";
-import Dashboard from "./components/Dashboard.jsx";
-import { RegistrationForm } from "./components/Registration.jsx";
-import { PetOwnerProfileForm } from "./components/petownerprofileRegistration.jsx";
 import { registerUser } from "./services/registerUser.js";
 import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
+
+// Lazy load components
+const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
+const Login = lazy(() => import("./components/Login.jsx").then(module => ({ default: module.Login })));
+const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
+const RegistrationForm = lazy(() => import("./components/Registration.jsx").then(module => ({ default: module.RegistrationForm })));
+const PetOwnerProfileForm = lazy(() => import("./components/petownerprofileRegistration.jsx").then(module => ({ default: module.PetOwnerProfileForm })));
 
 const routes = {
   landing: '/landing',
@@ -186,6 +188,14 @@ function App() {
   };
 
   return (
+    <Suspense fallback={
+      <div className="flex h-screen w-screen items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+          <p className="text-lg font-medium text-slate-600">Loading iPawcus...</p>
+        </div>
+      </div>
+    }>
       <div className="min-h-screen">
         <ToastViewport />
         {view === 'landing' && (
@@ -226,6 +236,7 @@ function App() {
             />
         )}
       </div>
+    </Suspense>
   );
 }
 

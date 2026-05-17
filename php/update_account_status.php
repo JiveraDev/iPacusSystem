@@ -1,4 +1,6 @@
 <?php
+
+/** @var PDO $pdo */
 require_once __DIR__ . '/db.php';
 
 $userId = $_GET['userId'] ?? null;
@@ -16,9 +18,9 @@ try {
     if ($type === 'vet') {
         $stmt = $pdo->prepare("UPDATE veterinarian_profiles SET is_active = ? WHERE user_id = ?");
     } else {
-        // We'll use employment_status or a new is_active column for admin_profiles if needed, 
+        // We'll use employment_status or a new is_active column for admin_profiles if needed,
         // but let's assume we update the users table or the profile table is_active
-        // For now, based on your schema, veterinarians have is_active. 
+        // For now, based on your schema, veterinarians have is_active.
         // If admins don't have it, we could add it, but I'll stick to the profiles provided.
         // Assuming veterinarian_profiles has is_active as per your SQL.
         $stmt = $pdo->prepare("UPDATE veterinarian_profiles SET is_active = ? WHERE user_id = ?");

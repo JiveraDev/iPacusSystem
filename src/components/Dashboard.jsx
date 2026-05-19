@@ -12,6 +12,8 @@ import {
   X,
   FileText,
   Package,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
@@ -214,6 +216,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const [historyStack, setHistoryStack] = useState(() => [normalizePath(window.location.pathname)]);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth < 960);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -329,17 +332,38 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {!isCompactLayout && (
-        <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
-          <img src={logo} alt="iPawcus logo" className="h-12 w-12 object-contain" />
-          <div>
-            <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
-            <p className="text-sm text-slate-500">Pet owner dashboard</p>
+        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-300 ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}>
+          <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"}`}>
+            <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
+            <div className="whitespace-nowrap">
+              <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
+              <p className="text-xs text-slate-500">Dashboard</p>
+            </div>
           </div>
+          
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0"
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
         </div>
       )}
 
+      {isCompactLayout && (
+         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
+           <img src={logo} alt="iPawcus logo" className="h-12 w-12 object-contain" />
+           <div>
+             <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
+             <p className="text-sm text-slate-500">Pet owner dashboard</p>
+           </div>
+         </div>
+      )}
+
       <div className="flex h-full flex-col overflow-hidden">
-        <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden scrollbar-hide">
           <nav className="space-y-2">
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
@@ -351,16 +375,25 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   <button
                     type="button"
                     onClick={() => navigate(item.path)}
-                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
-                      isActive ? "bg-[#155dfc] text-white" : "text-slate-700 hover:bg-slate-100"
+                    title={isSidebarCollapsed ? item.label : ""}
+                    className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
+                      isSidebarCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
+                    } ${
+                      isActive ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="font-medium">{item.label}</span>
+                    <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
+                    <span className={`font-medium whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden ${
+                      isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none ml-0" : "w-auto opacity-100 ml-3"
+                    }`}>
+                      {item.label}
+                    </span>
                   </button>
                   
-                  {isActive && hasSubItems && (
-                    <div className="ml-9 space-y-1">
+                  {hasSubItems && !isSidebarCollapsed && (
+                    <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-300 ${
+                      isActive ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+                    }`}>
                       {item.subItems.map((subItem) => {
                         const isSubActive = currentPath === normalizePath(subItem.path);
                         return (
@@ -368,13 +401,13 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                             key={subItem.id}
                             type="button"
                             onClick={() => navigate(subItem.path)}
-                            className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition ${
+                            className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors duration-200 ${
                               isSubActive 
                                 ? "bg-blue-50 text-[#155dfc] font-bold" 
                                 : "text-slate-600 hover:bg-slate-50"
                             }`}
                           >
-                            <span>{subItem.label}</span>
+                            <span className="truncate">{subItem.label}</span>
                           </button>
                         );
                       })}
@@ -387,19 +420,54 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         </div>
 
         <div className="p-4 border-t border-slate-200 bg-white">
-          <div className="mb-4 rounded-2xl bg-slate-100 p-4">
-            <p className="text-sm text-slate-500">Signed in as</p>
-            <p className="font-semibold">{displayName}</p>
-            <p className="text-sm text-slate-600">{getUserValue(user, ["role"])}</p>
+          <div className={`mb-4 transition-all duration-300 ease-in-out ${
+            isSidebarCollapsed ? "w-12 mx-auto bg-transparent" : "rounded-2xl bg-slate-100 p-4 w-full"
+          }`}>
+            <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : ""}`}>
+              <div className="relative flex-shrink-0">
+                {getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]) ? (
+                  <img 
+                    src={getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"])} 
+                    alt={displayName}
+                    className={`rounded-full object-cover border-2 transition-all duration-300 shadow-sm ${
+                      isSidebarCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"
+                    }`}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155dfc&color=fff`;
+                    }}
+                  />
+                ) : (
+                  <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-300 ${
+                    isSidebarCollapsed ? "h-10 w-10 text-base" : "h-12 w-12 text-lg"
+                  }`}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              
+              <div className={`min-w-0 transition-all duration-300 overflow-hidden whitespace-nowrap ${
+                isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none ml-0" : "w-auto opacity-100 ml-3 flex-1"
+              }`}>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Signed in as</p>
+                <p className="font-bold truncate text-slate-900">{displayName}</p>
+                <p className="text-xs font-medium text-[#155dfc] truncate">{getUserValue(user, ["role"])}</p>
+              </div>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-xl border border-red-200 px-4 py-3 text-left text-red-600 transition hover:bg-red-50 hover:text-red-700 active:bg-red-100"
+            title={isSidebarCollapsed ? "Log Out" : ""}
+            className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-300 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
           >
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Log Out</span>
+            <LogOut className="h-5 w-5 min-w-5 flex-shrink-0" />
+            <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ml-3 ${
+              isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
+            }`}>
+              Log Out
+            </span>
           </button>
         </div>
       </div>
@@ -410,30 +478,30 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <ToastViewport />
-        <div
-          className={`mx-auto flex min-h-screen max-w-7xl ${isCompactLayout ? "" : "pl-72"}`}
-          style={{ flexDirection: isCompactLayout ? "column" : "row" }}
-        >
+        
+        {isCompactLayout && (
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="iPawcus logo" className="h-10 w-10 object-contain" />
+              <div>
+                <p className="text-base font-bold text-[#155dfc]">iPawcus</p>
+                <p className="text-xs text-slate-500">Dashboard</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen((current) => !current)}
+              className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
+              aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
+            >
+              {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </header>
+        )}
+
+        <div className="flex min-h-screen">
           {isCompactLayout ? (
             <>
-              <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <img src={logo} alt="iPawcus logo" className="h-10 w-10 object-contain" />
-                  <div>
-                    <p className="text-base font-bold text-[#155dfc]">iPawcus</p>
-                    <p className="text-xs text-slate-500">Dashboard</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileNavOpen((current) => !current)}
-                  className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
-                  aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
-                >
-                  {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </button>
-              </header>
-
               <div
                 className={`fixed inset-0 z-40 bg-slate-950/25 transition-opacity duration-300 ${
                   isMobileNavOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
@@ -442,30 +510,42 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               />
 
               <aside
-                className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl ${
-                  isMobileNavOpen ? "open" : ""
+                className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 ${
+                  isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
                 }`}
               >
                 {sidebarContent}
               </aside>
             </>
           ) : (
-            <aside className="fixed left-0 top-0 h-screen w-72 border-r border-slate-200 bg-white">{sidebarContent}</aside>
+            <aside 
+              className={`fixed left-0 top-0 h-screen transition-all duration-300 border-r border-slate-200 bg-white z-40 ${
+                isSidebarCollapsed ? "w-20" : "w-72"
+              }`}
+            >
+              {sidebarContent}
+            </aside>
           )}
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-10">
-            <Suspense fallback={
-              <div className="flex h-64 w-full items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
-                  <p className="text-sm font-medium text-slate-500">Loading page...</p>
+          <div 
+            className={`flex-1 transition-all duration-300 ${
+              !isCompactLayout ? (isSidebarCollapsed ? "pl-20" : "pl-72") : ""
+            }`}
+          >
+            <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
+              <Suspense fallback={
+                <div className="flex h-64 w-full items-center justify-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+                    <p className="text-sm font-medium text-slate-500">Loading page...</p>
+                  </div>
                 </div>
-              </div>
-            }>
-              {/* eslint-disable-next-line react-hooks/static-components */}
-              <ScreenComponent />
-            </Suspense>
-          </main>
+              }>
+                {/* eslint-disable-next-line react-hooks/static-components */}
+                <ScreenComponent />
+              </Suspense>
+            </main>
+          </div>
         </div>
       </div>
     </DashboardRouterProvider>

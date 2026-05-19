@@ -32,3 +32,14 @@
 .hide-native-password-toggle::-webkit-textfield-decoration-container {
   display: none;
 }
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+

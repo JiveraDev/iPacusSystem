@@ -68,6 +68,26 @@ switch ($path) {
             require_once __DIR__ . '/get_bookings.php';
         }
         break;
+    case '/inventory':
+        $_GET['action'] = 'list';
+        require_once __DIR__ . '/inventory.php';
+        break;
+    case '/inventory/meta':
+        $_GET['action'] = 'meta';
+        require_once __DIR__ . '/inventory.php';
+        break;
+    case '/inventory/items':
+        $_GET['action'] = 'create-item';
+        require_once __DIR__ . '/inventory.php';
+        break;
+    case '/inventory/stock-in':
+        $_GET['action'] = 'stock-in';
+        require_once __DIR__ . '/inventory.php';
+        break;
+    case '/inventory/stock-out':
+        $_GET['action'] = 'stock-out';
+        require_once __DIR__ . '/inventory.php';
+        break;
     case '/accounts':
         require_once __DIR__ . '/get_accounts.php';
         break;

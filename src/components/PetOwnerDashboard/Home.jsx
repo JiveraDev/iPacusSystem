@@ -1,7 +1,7 @@
 import { useNavigate } from "./dashboardRouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Heart, Clock, Calendar, Stethoscope, Video, FileText, PawPrint, ListTodo } from "lucide-react";
+import { Heart, Clock, Calendar, Stethoscope, Video, FileText, PawPrint, ListTodo, Package, Plus } from "lucide-react";
 
 export default function Home() {
   const navigate = useNavigate();

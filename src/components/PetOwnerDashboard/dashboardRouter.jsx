@@ -35,6 +35,12 @@ const routePatterns = [
   { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/accounts", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory/add", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory/stock-in", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory/low-stock", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory/near-expiry", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory/disposal", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/inventory", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard", allowedRoles: ALL_ROLES },
 ];
 

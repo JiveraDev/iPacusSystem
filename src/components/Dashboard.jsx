@@ -11,6 +11,7 @@ import {
   Video,
   X,
   FileText,
+  Package,
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
@@ -49,7 +50,16 @@ const PetRegister = lazy(() => import("./AdminDashboardsComponent/PetRegister.js
 const AccountManagement = lazy(() => import("./SuperAdminDashboardComponent/AccountManagement.jsx"));
 const QueueDashboard = lazy(() => import("./PetOwnerDashboard/Self-Service_QUEUE.jsx"));
 
+// Inventory Components
+const AllItemsPage = lazy(() => import("./AdminDashboardsComponent/AllItemsPage.jsx"));
+const AddNewItemPage = lazy(() => import("./AdminDashboardsComponent/AddNewItemPage.jsx"));
+const StockInPage = lazy(() => import("./AdminDashboardsComponent/StockInPage.jsx"));
+const LowStockPage = lazy(() => import("./AdminDashboardsComponent/LowStockPage.jsx"));
+const NearExpiryPage = lazy(() => import("./AdminDashboardsComponent/NearExpiryPage.jsx"));
+const DisposalLogsPage = lazy(() => import("./AdminDashboardsComponent/DisposalLogsPage.jsx"));
+
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
+const ADMIN_ROLES = ["Admin", "Super Admin"];
 
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
@@ -59,6 +69,17 @@ const navItems = [
   { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ALL_ROLES },
   { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ALL_ROLES },
   { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ALL_ROLES },
+  { 
+    id: "inventory", 
+    label: "Inventory", 
+    icon: Package, 
+    path: "/dashboard/inventory",
+    subItems: [
+      { id: "all-items", label: "All Items", path: "/dashboard/inventory" },
+      { id: "add-item", label: "Add New Item", path: "/dashboard/inventory/add" },
+      { id: "stock-in", label: "Stock In", path: "/dashboard/inventory/stock-in" },
+    ]
+  },
   { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: ALL_ROLES },
   { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ALL_ROLES },
   { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: ALL_ROLES },
@@ -97,6 +118,12 @@ const screenMap = {
   "/dashboard/self-service-queue": QueueDashboard,
   "/dashboard/todos": TodosScreen,
   "/dashboard/profile": PetOwnerProfileScreen,
+  "/dashboard/inventory": AllItemsPage,
+  "/dashboard/inventory/add": AddNewItemPage,
+  "/dashboard/inventory/stock-in": StockInPage,
+  "/dashboard/inventory/low-stock": LowStockPage,
+  "/dashboard/inventory/near-expiry": NearExpiryPage,
+  "/dashboard/inventory/disposal": DisposalLogsPage,
 };
 
 function getUserValue(user, keys, fallback = "") {
@@ -168,6 +195,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/profile")) {
     return "profile";
+  }
+  if (path.startsWith("/dashboard/inventory")) {
+    return "inventory";
   }
   return "home";
 }
@@ -314,19 +344,43 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
 
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
-                    isActive ? "bg-[#155dfc] text-white" : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
+                <div key={item.id} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate(item.path)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition ${
+                      isActive ? "bg-[#155dfc] text-white" : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                  
+                  {isActive && hasSubItems && (
+                    <div className="ml-9 space-y-1">
+                      {item.subItems.map((subItem) => {
+                        const isSubActive = currentPath === normalizePath(subItem.path);
+                        return (
+                          <button
+                            key={subItem.id}
+                            type="button"
+                            onClick={() => navigate(subItem.path)}
+                            className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition ${
+                              isSubActive 
+                                ? "bg-blue-50 text-[#155dfc] font-bold" 
+                                : "text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span>{subItem.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>

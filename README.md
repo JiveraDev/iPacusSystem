@@ -1,73 +1,100 @@
-# Pet EMR - Management System
+# iPawcus - Pet Electronic Medical Record (EMR) & Management System
 
-A comprehensive React + Node.js system for pet medical records and owner management.
+iPawcus is a comprehensive management system designed for veterinary clinics and pet owners. It facilitates pet registration, medical record management, appointment bookings, and real-time queue tracking.
 
-## 🚀 Getting Started
+## 🚀 Tech Stack
 
-### Prerequisites
-- NPMs 
-- MySQL Database
-- PHP 8.3
-
+- **Frontend:** React 19, Vite, Tailwind CSS, Lucide Icons
+- **Backend:** PHP 8.x
+- **Database:** MySQL
+- **State Management:** React Hooks & LocalStorage
+- **Authentication:** Custom JWT-like session management (Token-based)
 
 ## 🏗️ Core Features
 
-### 🔐 Session & Role Control
-- **Protected Routes:** Automatic redirection to login for unauthenticated users.
-- **Role-Based Access (RBAC):** Dashboard components are restricted by user role (Standard: `Pet Owner`).
-- **Persistent Sessions:** State is maintained via `localStorage` and verified by the backend.
+### 🔐 Authentication & Role-Based Access
+- **Multi-Role Support:** Specific dashboards for Pet Owners, Administrators, and Super Admins.
+- **Secure Login:** Password hashing using `password_verify` in PHP.
+- **Protected Routes:** Automatic redirection for unauthenticated users.
 
 ### 🐾 Pet Management
-- **Registration:** Clinics can register pets with full medical history.
-- **One-Pet-One-Owner:** Strict database constraint ensures each pet is linked to exactly one account.
-- **Smart Linking:** Owners link pets using a hashed Registration ID (e.g., `PET-1-IPAWCUS`).
+- **Centralized Registry:** Clinics can register pets with detailed profiles including species, breed, microchip, and allergies.
+- **Ownership Linking:** Securely link pets to owner accounts using unique sharable IDs.
+- **Medical History:** Track pet status and history before and after registration.
 
-### 🖼️ Media & Security
-- **Secure Uploads:** Pet profile pictures are hashed using SHA-256 to hide original filenames.
+### 📅 Booking & Appointments
+- **Service Variety:** Support for Consultations, Vaccinations, Grooming, Surgery, and more.
+- **Home Services:** Option to book veterinary visits at home.
+- **Payment Verification:** Integrated payment proof upload for booking confirmations.
+
+### 🚶 Queue Management
+- **Real-time Tracking:** Monitor pet status in the clinic queue (Waiting, In-Progress, Completed).
+- **Priority System:** Handle urgent cases with a priority-based queue.
+
+### 📄 Document Management
+- **Consent Forms:** Manage and store digital consent files for various procedures.
+- **Media Uploads:** Secure storage for pet profile images, booking concerns, and signatures.
 
 ## 📁 Project Structure
-- `/src/components/PetOwnerDashboard`: Protected dashboard views.
-- `/src/services`: Centralized API logic (Linking, Finding, Registration).
-- `/server`: Node.js API logic and Database Pool.
-- `/server/uploads/profile`: Secure storage for hashed profile images.
 
+```text
+├── php/                        # PHP Backend API scripts
+│   ├── config.php              # Database configuration
+│   ├── db.php                  # PDO database connection
+│   ├── login.php               # Authentication logic
+│   └── ...                     # Feature-specific API endpoints
+├── src/
+│   ├── components/
+│   │   ├── AdminDashboards/    # Admin-specific views
+│   │   ├── PetOwnerDashboard/  # Owner-specific views
+│   │   └── SuperAdminDashboard/# Super Admin views
+│   ├── services/               # Frontend API service layer
+│   ├── ui/                     # Reusable UI components (shadcn-like)
+│   └── App.jsx                 # Main application routing
+├── public/                     # Static assets and uploaded media
+└── tables.sql                  # Database schema definitions
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Getting Started
 
+### Prerequisites
+- PHP 8.1 or higher
+- MySQL 8.0 or higher
+- Node.js & npm (for frontend development)
 
-## Test Command
+### Local Setup
 
+1. **Database Configuration:**
+   - Create a MySQL database.
+   - Import the schema from `tables.sql`.
+   - Update `php/config.php` (or where database credentials are stored) with your local settings.
+
+2. **Backend Setup:**
+   - You can use the built-in PHP server for development:
+     ```bash
+     php -S localhost:8000 -t .
+     ```
+   - Ensure your `.env` file in the root has:
+     ```env
+     VITE_API_BASE_URL=http://localhost:8000/php
+     ```
+
+3. **Frontend Setup:**
+   ```bash
+   npm install
+   npm run dev
    ```
-     php -S localhost:8000 php/index.php 
-     //for server 
-     
-     npm run dev 
-     // for pages react vite to work.... 
+
+## 🚢 Deployment
+
+1. **Build the Frontend:**
+   ```bash
+   npm run build
    ```
+2. **Transfer Files:**
+   - Upload the `dist/` directory contents to your web server's public directory.
+   - Upload the `php/` directory to the server.
+   - Configure your web server (Apache/Nginx) to point to the `index.html` from the `dist` folder and handle PHP requests.
 
-
-How to test it locally right now:
-
-To verify this works before you upload it to Hostinger, follow these steps:
-
-1. Start the PHP Backend:
-   Open a new terminal and run this command:
- 
-2. localhost:8000 php/index.php
-   (This starts a tiny PHP server on port 8000).
-
-2. Update your .env file:
-   Change your VITE_API_BASE_URL to point to the new PHP server:
-
-       VITE_API_BASE_URL=http://localhost:8000
-
-3. Run your Frontend:
-   In your usual terminal, run:
-   1     npm run dev
-
-4. Test:
-   Go to your browser and try to log in or register. The frontend will now be talking to your PHP code instead of Node.js.
-
-When you are ready for Hostinger:
-You just need to upload the php/ folder, the .htaccess file, and your built frontend files (dist/ folder) to your Hostinger public_html directory.
-
+## 📄 License
+This project is private and intended for specific clinic use.

@@ -332,8 +332,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {!isCompactLayout && (
-        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-300 ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"}`}>
+        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-500 ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}>
+          <div className={`flex items-center transition-all duration-500 ease-in-out overflow-hidden ${isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none" : "max-w-xs opacity-100 gap-3"}`}>
             <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
             <div className="whitespace-nowrap">
               <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
@@ -353,7 +353,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
       )}
 
       {isCompactLayout && (
-         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
+         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 flex-shrink-0">
            <img src={logo} alt="iPawcus logo" className="h-12 w-12 object-contain" />
            <div>
              <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
@@ -362,7 +362,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
          </div>
       )}
 
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden scrollbar-hide">
           <nav className="space-y-2">
             {filteredNavItems.map((item) => {
@@ -383,15 +383,15 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                     }`}
                   >
                     <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
-                    <span className={`font-medium whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden ${
-                      isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none ml-0" : "w-auto opacity-100 ml-3"
+                    <span className={`font-medium whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden ${
+                      isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
                     }`}>
                       {item.label}
                     </span>
                   </button>
                   
                   {hasSubItems && !isSidebarCollapsed && (
-                    <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-300 ${
+                    <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-500 ${
                       isActive ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
                     }`}>
                       {item.subItems.map((subItem) => {
@@ -420,7 +420,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         </div>
 
         <div className="p-4 border-t border-slate-200 bg-white">
-          <div className={`mb-4 transition-all duration-300 ease-in-out ${
+          <div className={`mb-4 transition-all duration-500 ease-in-out ${
             isSidebarCollapsed ? "w-12 mx-auto bg-transparent" : "rounded-2xl bg-slate-100 p-4 w-full"
           }`}>
             <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : ""}`}>
@@ -429,7 +429,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   <img 
                     src={getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"])} 
                     alt={displayName}
-                    className={`rounded-full object-cover border-2 transition-all duration-300 shadow-sm ${
+                    className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
                       isSidebarCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"
                     }`}
                     onError={(e) => {
@@ -438,7 +438,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                     }}
                   />
                 ) : (
-                  <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-300 ${
+                  <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-500 ${
                     isSidebarCollapsed ? "h-10 w-10 text-base" : "h-12 w-12 text-lg"
                   }`}>
                     {displayName.charAt(0).toUpperCase()}
@@ -446,8 +446,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 )}
               </div>
               
-              <div className={`min-w-0 transition-all duration-300 overflow-hidden whitespace-nowrap ${
-                isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none ml-0" : "w-auto opacity-100 ml-3 flex-1"
+              <div className={`min-w-0 transition-all duration-500 overflow-hidden whitespace-nowrap ${
+                isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3 flex-1"
               }`}>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Signed in as</p>
                 <p className="font-bold truncate text-slate-900">{displayName}</p>
@@ -460,11 +460,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             type="button"
             onClick={onLogout}
             title={isSidebarCollapsed ? "Log Out" : ""}
-            className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-300 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
+            className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
           >
             <LogOut className="h-5 w-5 min-w-5 flex-shrink-0" />
-            <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ml-3 ${
-              isSidebarCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
+            <span className={`font-medium whitespace-nowrap transition-all duration-500 overflow-hidden ${
+              isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
             }`}>
               Log Out
             </span>
@@ -510,8 +510,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               />
 
               <aside
-                className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 ${
-                  isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
+                className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 flex flex-col ${
+                  isMobileNavOpen ? "open" : ""
                 }`}
               >
                 {sidebarContent}

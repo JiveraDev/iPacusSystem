@@ -26,6 +26,20 @@ async function request(path, options = {}) {
   return data;
 }
 
+async function upload(path, formData) {
+  const response = await fetch(getApiUrl(path), {
+    method: "POST",
+    body: formData
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || `Upload failed with status ${response.status}`);
+  }
+
+  return data;
+}
+
 export function getCurrentUser() {
   return JSON.parse(localStorage.getItem("currentUser") || "null");
 }
@@ -57,4 +71,12 @@ export function createStockOut(payload) {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export function uploadInventoryFile(file, type = "inventory_item") {
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("type", type);
+
+  return upload("/upload", formData);
 }

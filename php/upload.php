@@ -34,6 +34,12 @@ if ($type === 'pet') {
 } elseif ($type === 'booking_concern') {
     $targetDir = __DIR__ . '/../public/concerns/';
     $urlPath = "concerns/";
+} elseif ($type === 'inventory_item') {
+    $targetDir = __DIR__ . '/../public/inventory_items/';
+    $urlPath = "inventory_items/";
+} elseif ($type === 'inventory_receipt') {
+    $targetDir = __DIR__ . '/../public/inventory_receipts/';
+    $urlPath = "inventory_receipts/";
 } else {
     $targetDir = __DIR__ . '/../public/uploads/';
     $urlPath = "uploads/";

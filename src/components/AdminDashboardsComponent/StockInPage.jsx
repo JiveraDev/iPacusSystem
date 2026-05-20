@@ -5,20 +5,53 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { PhotoViewer } from '../../ui/photo-viewer';
 import { useNavigate } from '../PetOwnerDashboard/dashboardRouter';
-import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser } from '../../services/inventoryApi';
+import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
+
+const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
+
+const emptyStockInItem = () => ({
+  productId: '',
+  productName: '',
+  supplier: '',
+  location: '',
+  quantity: 0,
+  batchNumber: '',
+  expiryDate: ''
+});
+
+function getItemLocationOptions(inventoryItem) {
+  if (!inventoryItem) return [];
+
+  const locationsById = new Map();
+  const addLocation = (id, name) => {
+    if (!id || !name) return;
+    locationsById.set(String(id), { id: String(id), name });
+  };
+
+  addLocation(inventoryItem.locationId, inventoryItem.location);
+  (inventoryItem.batches || []).forEach((batch) => addLocation(batch.locationId, batch.location));
+
+  return Array.from(locationsById.values());
+}
+
+function formatFileSize(size) {
+  if (!size) return '0 KB';
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function StockInPage() {
   const navigate = useNavigate();
-  const [items, setItems] = useState([
-    { productId: '', productName: '', supplier: '', location: '', quantity: 0, batchNumber: '', expiryDate: '' }
-  ]);
+  const [items, setItems] = useState([emptyStockInItem()]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [locations, setLocations] = useState([]);
   const [receivingDate, setReceivingDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [notes, setNotes] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [viewerImage, setViewerImage] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,13 +60,18 @@ export default function StockInPage() {
       .then(([itemsData, metaData]) => {
         setInventoryItems(itemsData.items || []);
         setSuppliers(metaData.suppliers || []);
-        setLocations(metaData.locations || []);
       })
       .catch((error) => setErrorMessage(error.message || 'Failed to load stock-in data.'));
   }, []);
 
+  useEffect(() => () => {
+    if (receiptFile?.previewUrl) {
+      URL.revokeObjectURL(receiptFile.previewUrl);
+    }
+  }, [receiptFile?.previewUrl]);
+
   const handleAddItem = () => {
-    setItems([...items, { productId: '', productName: '', supplier: '', location: '', quantity: 0, batchNumber: '', expiryDate: '' }]);
+    setItems([...items, emptyStockInItem()]);
   };
 
   const handleRemoveItem = (index) => {
@@ -43,9 +81,61 @@ export default function StockInPage() {
   };
 
   const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+    setItems((currentItems) => currentItems.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const getInventoryItem = (productId) => (
+    inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(productId))
+  );
+
+  const handleProductSelect = (index, value) => {
+    const selectedItem = getInventoryItem(value);
+    const defaultLocation = getItemLocationOptions(selectedItem)[0]?.id || '';
+
+    setItems((currentItems) => currentItems.map((item, itemIndex) => (
+      itemIndex === index
+        ? {
+          ...item,
+          productId: value,
+          productName: selectedItem?.name || '',
+          location: defaultLocation
+        }
+      : item
+    )));
+  };
+
+  const handleReceiptFiles = (files) => {
+    const [file] = Array.from(files || []);
+    if (!file) return;
+
+    setErrorMessage('');
+
+    const isSupportedType = file.type.startsWith('image/') || file.type === 'application/pdf';
+    if (!isSupportedType) {
+      setErrorMessage('Invoice / receipt must be an image or PDF file.');
+      return;
+    }
+
+    if (file.size > MAX_RECEIPT_FILE_SIZE) {
+      setErrorMessage('Invoice / receipt must be 10MB or smaller.');
+      return;
+    }
+
+    const isImage = file.type.startsWith('image/');
+    setReceiptFile({
+      file,
+      name: file.name,
+      size: file.size,
+      isImage,
+      previewUrl: isImage ? URL.createObjectURL(file) : ''
+    });
+  };
+
+  const handleRemoveReceiptFile = () => {
+    setReceiptFile(null);
+    setViewerImage(null);
   };
 
   const handleSubmit = async (event) => {
@@ -54,12 +144,31 @@ export default function StockInPage() {
     setIsSubmitting(true);
 
     try {
+      const incompleteIndex = items.findIndex((item) => (
+        !item.productId ||
+        !item.supplier ||
+        !item.location ||
+        item.quantity <= 0 ||
+        !item.batchNumber ||
+        !item.expiryDate
+      ));
+
+      if (incompleteIndex >= 0) {
+        throw new Error(`Complete all required fields for Item #${incompleteIndex + 1}.`);
+      }
+
       const currentUser = getCurrentUser();
+      let proofImagePath = '';
+      if (receiptFile?.file) {
+        const uploadResult = await uploadInventoryFile(receiptFile.file, 'inventory_receipt');
+        proofImagePath = uploadResult.relative_url || uploadResult.url || '';
+      }
+
       await createStockReceipt({
         user_id: currentUser?.id || currentUser?.user_id,
         receiving_date: receivingDate,
         delivery_note_number: deliveryNote,
-        proof_image_path: '',
+        proof_image_path: proofImagePath,
         notes,
         items: items.map((item) => {
           const selectedItem = inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(item.productId));
@@ -198,7 +307,12 @@ export default function StockInPage() {
           </div>
 
           <div className="space-y-4">
-            {displayedItems.map(({ item, index }) => (
+            {displayedItems.map(({ item, index }) => {
+              const selectedInventoryItem = getInventoryItem(item.productId);
+              const itemLocationOptions = getItemLocationOptions(selectedInventoryItem);
+              const selectedLocationName = itemLocationOptions.find((location) => String(location.id) === String(item.location))?.name;
+
+              return (
               <div
                 key={index}
                 className="bg-[#f9fafb] rounded-[10px] p-4 space-y-4"
@@ -220,7 +334,7 @@ export default function StockInPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {/* Product Selection */}
                   <div className="md:col-span-2">
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
@@ -228,26 +342,39 @@ export default function StockInPage() {
                     </Label>
                     <Select
                       value={item.productId}
-                      onValueChange={(value) => {
-                        handleItemChange(index, 'productId', value);
-                        // In a real app, this would fetch product details
-                        const selectedItem = inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(value));
-                        handleItemChange(index, 'productName', selectedItem?.name || '');
-                        handleItemChange(index, 'location', selectedItem?.locationId ? String(selectedItem.locationId) : '');
-                      }}
+                      onValueChange={(value) => handleProductSelect(index, value)}
                       required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select product" />
+                        <SelectValue
+                          placeholder="Select product"
+                          displayValue={selectedInventoryItem ? `${selectedInventoryItem.name} - ${selectedInventoryItem.sku}` : undefined}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {inventoryItems.map((inventoryItem) => (
                           <SelectItem key={inventoryItem.itemId} value={String(inventoryItem.itemId)}>
-                            {inventoryItem.name}
+                            <div className="flex flex-col">
+                              <span>{inventoryItem.name}</span>
+                              <span className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
+                                {[inventoryItem.brand || 'No brand', inventoryItem.sku, inventoryItem.location].filter(Boolean).join(' - ')}
+                              </span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Item Brand */}
+                  <div>
+                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
+                      Brand
+                    </Label>
+                    <Input
+                      value={selectedInventoryItem ? (selectedInventoryItem.brand || 'No brand') : 'Select product first'}
+                      readOnly
+                    />
                   </div>
 
                   {/* Supplier */}
@@ -261,7 +388,10 @@ export default function StockInPage() {
                       required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select supplier" />
+                        <SelectValue
+                          placeholder="Select supplier"
+                          displayValue={suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {suppliers.map((supplier) => (
@@ -276,20 +406,27 @@ export default function StockInPage() {
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                       Inventory Location *
                     </Label>
-                    <Select
-                      value={item.location}
-                      onValueChange={(value) => handleItemChange(index, 'location', value)}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locations.map((location) => (
-                          <SelectItem key={location.id} value={String(location.id)}>{location.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {selectedInventoryItem ? (
+                      <Select
+                        value={item.location}
+                        onValueChange={(value) => handleItemChange(index, 'location', value)}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder="Select location"
+                            displayValue={selectedLocationName}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {itemLocationOptions.map((location) => (
+                            <SelectItem key={location.id} value={String(location.id)}>{location.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value="Select product first" readOnly />
+                    )}
                   </div>
 
                   {/* Quantity */}
@@ -334,7 +471,8 @@ export default function StockInPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -350,7 +488,15 @@ export default function StockInPage() {
               <Label htmlFor="invoice" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                 Invoice / Receipt
               </Label>
-              <div className="border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-6 text-center hover:border-[#155dfc] transition-colors cursor-pointer">
+              <label
+                htmlFor="invoice"
+                className="block border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-6 text-center hover:border-[#155dfc] transition-colors cursor-pointer"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleReceiptFiles(event.dataTransfer.files);
+                }}
+              >
                 <Upload className="size-6 text-[#4a5565] mx-auto mb-2" />
                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-1">
                   Click to upload invoice
@@ -358,8 +504,50 @@ export default function StockInPage() {
                 <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                   PDF, JPG, PNG up to 10MB
                 </p>
-                <input type="file" id="invoice" accept=".pdf,.jpg,.jpeg,.png" className="hidden" />
-              </div>
+                <input
+                  type="file"
+                  id="invoice"
+                  accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                  className="hidden"
+                  onChange={(event) => {
+                    handleReceiptFiles(event.target.files);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+
+              {receiptFile && (
+                <div className="mt-4 flex flex-col gap-3 rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[#f9fafb] p-3 sm:flex-row sm:items-center">
+                  {receiptFile.isImage ? (
+                    <button
+                      type="button"
+                      className="h-24 w-24 shrink-0 overflow-hidden rounded-[8px] border border-[rgba(0,0,0,0.1)] bg-white"
+                      onClick={() => setViewerImage({ src: receiptFile.previewUrl, alt: receiptFile.name })}
+                    >
+                      <img src={receiptFile.previewUrl} alt={receiptFile.name} className="size-full object-cover" />
+                    </button>
+                  ) : (
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(0,0,0,0.1)] bg-white font-['Arimo:Bold',sans-serif] text-[13px] text-[#4a5565]">
+                      PDF
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{receiptFile.name}</p>
+                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{formatFileSize(receiptFile.size)}</p>
+                    {receiptFile.isImage && (
+                      <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#155dfc]">Click thumbnail to view full image.</p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveReceiptFile}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -411,30 +599,39 @@ export default function StockInPage() {
             </div>
 
             <div className="rounded-[10px] border border-[rgba(0,0,0,0.08)] overflow-x-auto">
-              <div className="min-w-[620px]">
-                <div className="grid grid-cols-[1fr_100px_150px_150px] gap-3 bg-[#f9fafb] px-4 py-2">
+              <div className="min-w-[760px]">
+                <div className="grid grid-cols-[1fr_140px_100px_150px_150px] gap-3 bg-[#f9fafb] px-4 py-2">
                   <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#4a5565]">Product</p>
+                  <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#4a5565]">Brand</p>
                   <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#4a5565] text-right">Quantity</p>
                   <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#4a5565]">Supplier</p>
                   <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#4a5565]">Location</p>
                 </div>
                 <div className="divide-y divide-[rgba(0,0,0,0.06)]">
-                  {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-[1fr_100px_150px_150px] gap-3 px-4 py-3">
-                      <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] truncate">
-                        {item.productName || `Item #${index + 1}`}
-                      </p>
-                      <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#101828] text-right">
-                        {item.quantity || 0}
-                      </p>
-                      <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
-                      {suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name || 'Not selected'}
-                      </p>
-                      <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
-                      {locations.find((location) => String(location.id) === String(item.location))?.name || 'Not selected'}
-                      </p>
-                    </div>
-                  ))}
+                  {items.map((item, index) => {
+                    const selectedInventoryItem = getInventoryItem(item.productId);
+                    const selectedLocation = getItemLocationOptions(selectedInventoryItem).find((location) => String(location.id) === String(item.location));
+
+                    return (
+                      <div key={index} className="grid grid-cols-[1fr_140px_100px_150px_150px] gap-3 px-4 py-3">
+                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] truncate">
+                          {item.productName || `Item #${index + 1}`}
+                        </p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
+                          {selectedInventoryItem?.brand || 'No brand'}
+                        </p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#101828] text-right">
+                          {item.quantity || 0}
+                        </p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
+                          {suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name || 'Not selected'}
+                        </p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
+                          {selectedLocation?.name || 'Not selected'}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -459,6 +656,12 @@ export default function StockInPage() {
           </Button>
         </div>
       </form>
+      <PhotoViewer
+        src={viewerImage?.src}
+        alt={viewerImage?.alt}
+        open={!!viewerImage}
+        onOpenChange={() => setViewerImage(null)}
+      />
     </div>
   );
 }

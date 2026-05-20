@@ -45,6 +45,126 @@ function inventoryStatus(int $quantity, int $reorderLevel, ?string $expiryDate, 
     return 'in-stock';
 }
 
+function inventoryText($value): string
+{
+    return trim((string)($value ?? ''));
+}
+
+function inventoryOptionalText($value): ?string
+{
+    $text = inventoryText($value);
+    return $text === '' ? null : $text;
+}
+
+function inventoryCodePart($value, int $length, string $fallback): string
+{
+    $clean = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', inventoryText($value)));
+    if ($clean === '') {
+        $clean = $fallback;
+    }
+
+    return substr(str_pad($clean, $length, $fallback), 0, $length);
+}
+
+function inventorySkuExists(PDO $pdo, string $sku): bool
+{
+    $stmt = $pdo->prepare("SELECT 1 FROM inventory_items WHERE sku = ? LIMIT 1");
+    $stmt->execute([$sku]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function inventoryBatchExists(PDO $pdo, int $itemId, string $batchNumber): bool
+{
+    $stmt = $pdo->prepare("SELECT 1 FROM inventory_batches WHERE item_id = ? AND batch_number = ? LIMIT 1");
+    $stmt->execute([$itemId, $batchNumber]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function inventoryGenerateSku(PDO $pdo, string $itemName, string $category, ?string $brand): string
+{
+    $base = implode('-', [
+        inventoryCodePart($category, 3, 'INV'),
+        inventoryCodePart($brand ?: $itemName, 3, 'GEN'),
+        inventoryCodePart($itemName, 4, 'ITEM'),
+        date('ymd')
+    ]);
+
+    $counter = 1;
+    do {
+        $sku = sprintf('%s-%03d', $base, $counter);
+        $counter++;
+    } while (inventorySkuExists($pdo, $sku));
+
+    return $sku;
+}
+
+function inventoryGenerateBatchNumber(PDO $pdo, int $itemId, string $itemName): string
+{
+    $base = implode('-', [
+        'BCH',
+        inventoryCodePart($itemName, 4, 'ITEM'),
+        date('ymd')
+    ]);
+
+    $counter = 1;
+    do {
+        $batchNumber = sprintf('%s-%03d', $base, $counter);
+        $counter++;
+    } while (inventoryBatchExists($pdo, $itemId, $batchNumber));
+
+    return $batchNumber;
+}
+
+function inventoryResolveLocationId(PDO $pdo, array $input): int
+{
+    $locationId = (int)($input['location_id'] ?? 0);
+    if ($locationId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT location_id
+            FROM inventory_locations
+            WHERE location_id = ? AND status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$locationId]);
+        $existingId = $stmt->fetchColumn();
+        if ($existingId) {
+            return (int)$existingId;
+        }
+
+        throw new Exception('Inventory location was not found.');
+    }
+
+    $locationName = inventoryOptionalText($input['location_name'] ?? null);
+    if (!$locationName) {
+        throw new Exception('Inventory location is required.');
+    }
+
+    $lookup = $pdo->prepare("
+        SELECT location_id
+        FROM inventory_locations
+        WHERE LOWER(location_name) = LOWER(?)
+        LIMIT 1
+    ");
+    $lookup->execute([$locationName]);
+    $existingId = $lookup->fetchColumn();
+    if ($existingId) {
+        return (int)$existingId;
+    }
+
+    try {
+        $insert = $pdo->prepare("INSERT INTO inventory_locations (location_name) VALUES (?)");
+        $insert->execute([$locationName]);
+        return (int)$pdo->lastInsertId();
+    } catch (PDOException $e) {
+        $lookup->execute([$locationName]);
+        $existingId = $lookup->fetchColumn();
+        if ($existingId) {
+            return (int)$existingId;
+        }
+        throw $e;
+    }
+}
+
 function getInventoryItems(PDO $pdo): void
 {
     $stmt = $pdo->query("
@@ -152,7 +272,26 @@ function getInventoryMeta(PDO $pdo): void
         ORDER BY location_name
     ")->fetchAll();
 
-    echo json_encode(['suppliers' => $suppliers, 'locations' => $locations]);
+    $brands = $pdo->query("
+        SELECT DISTINCT brand AS name
+        FROM inventory_items
+        WHERE status = 'active' AND brand IS NOT NULL AND TRIM(brand) <> ''
+        ORDER BY brand
+    ")->fetchAll();
+
+    $units = $pdo->query("
+        SELECT DISTINCT unit AS name
+        FROM inventory_items
+        WHERE status = 'active' AND unit IS NOT NULL AND TRIM(unit) <> ''
+        ORDER BY unit
+    ")->fetchAll();
+
+    echo json_encode([
+        'suppliers' => $suppliers,
+        'locations' => $locations,
+        'brands' => $brands,
+        'units' => $units
+    ]);
 }
 
 function createInventoryItem(PDO $pdo): void
@@ -160,17 +299,33 @@ function createInventoryItem(PDO $pdo): void
     $input = inventoryInput();
     $user = inventoryUser($pdo, $input['user_id'] ?? null);
 
-    $required = ['item_name', 'sku', 'category', 'unit', 'location_id'];
+    $required = ['item_name', 'category', 'unit'];
     foreach ($required as $field) {
-        if (empty($input[$field])) {
+        if (!inventoryOptionalText($input[$field] ?? null)) {
             http_response_code(400);
             echo json_encode(['message' => "$field is required."]);
             return;
         }
     }
 
+    if ((int)($input['location_id'] ?? 0) <= 0 && !inventoryOptionalText($input['location_name'] ?? null)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Inventory location is required.']);
+        return;
+    }
+
     $pdo->beginTransaction();
     try {
+        $itemName = inventoryText($input['item_name']);
+        $category = inventoryText($input['category']);
+        $unit = inventoryText($input['unit']);
+        $brand = inventoryOptionalText($input['brand'] ?? null);
+        $locationId = inventoryResolveLocationId($pdo, $input);
+        $sku = inventoryOptionalText($input['sku'] ?? null);
+        if (!$sku || inventorySkuExists($pdo, $sku)) {
+            $sku = inventoryGenerateSku($pdo, $itemName, $category, $brand);
+        }
+
         $stmt = $pdo->prepare("
             INSERT INTO inventory_items (
                 item_name, generic_name, sku, barcode, description, category, brand, unit,
@@ -179,30 +334,35 @@ function createInventoryItem(PDO $pdo): void
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $input['item_name'],
-            $input['generic_name'] ?? null,
-            $input['sku'],
-            $input['barcode'] ?? null,
-            $input['description'] ?? null,
-            $input['category'],
-            $input['brand'] ?? null,
-            $input['unit'],
-            (int)$input['location_id'],
+            $itemName,
+            inventoryOptionalText($input['generic_name'] ?? null),
+            $sku,
+            inventoryOptionalText($input['barcode'] ?? null),
+            inventoryOptionalText($input['description'] ?? null),
+            $category,
+            $brand,
+            $unit,
+            $locationId,
             (int)($input['reorder_level'] ?? 0),
             (float)($input['unit_cost'] ?? 0),
             (int)($input['expiry_warning_days'] ?? 90),
-            $input['profile_image_path'] ?? null,
+            inventoryOptionalText($input['profile_image_path'] ?? null),
             (int)$user['user_id'],
             $user['full_name']
         ]);
 
         $itemId = (int)$pdo->lastInsertId();
         $quantity = (int)($input['quantity'] ?? 0);
+        if ($quantity < 0) {
+            throw new Exception('Initial quantity cannot be negative.');
+        }
         $batchId = null;
+        $batchNumber = null;
 
         if ($quantity > 0) {
-            if (empty($input['batch_number'])) {
-                throw new Exception('Batch number is required when initial quantity is greater than 0.');
+            $batchNumber = inventoryOptionalText($input['batch_number'] ?? null);
+            if (!$batchNumber || inventoryBatchExists($pdo, $itemId, $batchNumber)) {
+                $batchNumber = inventoryGenerateBatchNumber($pdo, $itemId, $itemName);
             }
 
             $batchStmt = $pdo->prepare("
@@ -212,10 +372,10 @@ function createInventoryItem(PDO $pdo): void
             ");
             $batchStmt->execute([
                 $itemId,
-                (int)$input['location_id'],
-                $input['batch_number'],
+                $locationId,
+                $batchNumber,
                 $quantity,
-                $input['expiry_date'] ?? null,
+                inventoryOptionalText($input['expiry_date'] ?? null),
                 (float)($input['unit_cost'] ?? 0)
             ]);
             $batchId = (int)$pdo->lastInsertId();
@@ -240,7 +400,13 @@ function createInventoryItem(PDO $pdo): void
 
         $pdo->commit();
         http_response_code(201);
-        echo json_encode(['message' => 'Inventory item created.', 'item_id' => $itemId]);
+        echo json_encode([
+            'message' => 'Inventory item created.',
+            'item_id' => $itemId,
+            'sku' => $sku,
+            'batch_number' => $batchNumber,
+            'location_id' => $locationId
+        ]);
     } catch (Exception $e) {
         $pdo->rollBack();
         http_response_code(500);
@@ -270,9 +436,9 @@ function createStockIn(PDO $pdo): void
         ");
         $receiptStmt->execute([
             $input['receiving_date'] ?? date('Y-m-d'),
-            $input['delivery_note_number'] ?? null,
-            $input['proof_image_path'] ?? null,
-            $input['notes'] ?? null,
+            inventoryOptionalText($input['delivery_note_number'] ?? null),
+            inventoryOptionalText($input['proof_image_path'] ?? null),
+            inventoryOptionalText($input['notes'] ?? null),
             (int)$user['user_id'],
             $user['full_name']
         ]);
@@ -287,21 +453,26 @@ function createStockIn(PDO $pdo): void
 
             $itemId = (int)$line['item_id'];
             $locationId = (int)$line['location_id'];
+            $batchNumber = inventoryText($line['batch_number']);
             $quantity = (int)$line['quantity_received'];
             if ($quantity <= 0) {
                 throw new Exception('Quantity received must be greater than 0.');
             }
 
             $batchLookup = $pdo->prepare("
-                SELECT batch_id, quantity
+                SELECT batch_id, quantity, location_id
                 FROM inventory_batches
-                WHERE item_id = ? AND batch_number = ? AND location_id = ?
+                WHERE item_id = ? AND batch_number = ?
                 LIMIT 1
             ");
-            $batchLookup->execute([$itemId, $line['batch_number'], $locationId]);
+            $batchLookup->execute([$itemId, $batchNumber]);
             $batch = $batchLookup->fetch();
 
             if ($batch) {
+                if ((int)$batch['location_id'] !== $locationId) {
+                    throw new Exception('This batch already exists for the selected item at a different location.');
+                }
+
                 $batchId = (int)$batch['batch_id'];
                 $before = (int)$batch['quantity'];
                 $after = $before + $quantity;
@@ -312,7 +483,7 @@ function createStockIn(PDO $pdo): void
                 ");
                 $updateBatch->execute([
                     $after,
-                    $line['expiry_date'] ?? null,
+                    inventoryOptionalText($line['expiry_date'] ?? null),
                     (float)($line['unit_cost'] ?? 0),
                     $batchId
                 ]);
@@ -327,9 +498,9 @@ function createStockIn(PDO $pdo): void
                 $insertBatch->execute([
                     $itemId,
                     $locationId,
-                    $line['batch_number'],
+                    $batchNumber,
                     $quantity,
-                    $line['expiry_date'] ?? null,
+                    inventoryOptionalText($line['expiry_date'] ?? null),
                     (float)($line['unit_cost'] ?? 0)
                 ]);
                 $batchId = (int)$pdo->lastInsertId();
@@ -347,9 +518,9 @@ function createStockIn(PDO $pdo): void
                 (int)$line['supplier_id'],
                 $locationId,
                 $batchId,
-                $line['batch_number'],
+                $batchNumber,
                 $quantity,
-                $line['expiry_date'] ?? null,
+                inventoryOptionalText($line['expiry_date'] ?? null),
                 (float)($line['unit_cost'] ?? 0)
             ]);
 

@@ -214,7 +214,8 @@ function getInventoryItems(PDO $pdo): void
             'expiryDate' => $batch['expiry_date'] ?: 'No expiry',
             'locationId' => (int)$batch['location_id'],
             'location' => $batch['location_name'],
-            'unitCost' => (float)$batch['unit_cost']
+            'unitCost' => (float)$batch['unit_cost'],
+            'createdAt' => $batch['created_at']
         ];
     }
 
@@ -617,6 +618,79 @@ function createStockOut(PDO $pdo): void
     }
 }
 
+function updateInventoryItem(PDO $pdo): void
+{
+    $input = inventoryInput();
+    inventoryUser($pdo, $input['user_id'] ?? null);
+
+    $itemId = (int)($input['item_id'] ?? 0);
+    if ($itemId <= 0) {
+        http_response_code(400);
+        echo json_encode(['message' => 'item_id is required.']);
+        return;
+    }
+
+    $fields = [];
+    $values = [];
+
+    if (array_key_exists('unit_cost', $input)) {
+        $unitCost = (float)$input['unit_cost'];
+        if ($unitCost < 0) {
+            http_response_code(400);
+            echo json_encode(['message' => 'Unit cost cannot be negative.']);
+            return;
+        }
+
+        $fields[] = 'unit_cost = ?';
+        $values[] = $unitCost;
+    }
+
+    if (array_key_exists('location_id', $input)) {
+        $locationId = (int)$input['location_id'];
+        if ($locationId <= 0) {
+            http_response_code(400);
+            echo json_encode(['message' => 'location_id is required.']);
+            return;
+        }
+
+        $locationStmt = $pdo->prepare("
+            SELECT location_id
+            FROM inventory_locations
+            WHERE location_id = ? AND status = 'active'
+            LIMIT 1
+        ");
+        $locationStmt->execute([$locationId]);
+        if (!$locationStmt->fetchColumn()) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Inventory location was not found.']);
+            return;
+        }
+
+        $fields[] = 'location_id = ?';
+        $values[] = $locationId;
+    }
+
+    if (empty($fields)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Nothing to update.']);
+        return;
+    }
+
+    $existsStmt = $pdo->prepare("SELECT item_id FROM inventory_items WHERE item_id = ? LIMIT 1");
+    $existsStmt->execute([$itemId]);
+    if (!$existsStmt->fetchColumn()) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Inventory item was not found.']);
+        return;
+    }
+
+    $values[] = $itemId;
+    $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $fields) . " WHERE item_id = ?");
+    $stmt->execute($values);
+
+    echo json_encode(['message' => 'Inventory item updated.']);
+}
+
 $action = $_GET['action'] ?? 'list';
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -626,6 +700,8 @@ if ($method === 'GET' && $action === 'meta') {
     getInventoryItems($pdo);
 } elseif ($method === 'POST' && $action === 'create-item') {
     createInventoryItem($pdo);
+} elseif ($method === 'PATCH' && $action === 'update-item') {
+    updateInventoryItem($pdo);
 } elseif ($method === 'POST' && $action === 'stock-in') {
     createStockIn($pdo);
 } elseif ($method === 'POST' && $action === 'stock-out') {

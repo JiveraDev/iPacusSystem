@@ -77,7 +77,7 @@ switch ($path) {
         require_once __DIR__ . '/inventory.php';
         break;
     case '/inventory/items':
-        $_GET['action'] = 'create-item';
+        $_GET['action'] = $_SERVER['REQUEST_METHOD'] === 'PATCH' ? 'update-item' : 'create-item';
         require_once __DIR__ . '/inventory.php';
         break;
     case '/inventory/stock-in':

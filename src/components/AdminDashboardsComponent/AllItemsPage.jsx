@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle } from 'lucide-react';
+import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
 import { useNavigate } from '../PetOwnerDashboard/dashboardRouter';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -9,7 +9,7 @@ import { Checkbox } from '../../ui/checkbox';
 import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
 import InventoryStatusBadge from './InventoryStatusBadge';
-import { createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser } from '../../services/inventoryApi';
+import { createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, updateInventoryItem } from '../../services/inventoryApi';
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
@@ -28,6 +28,10 @@ export default function AllItemsPage() {
   const [stockOutItem, setStockOutItem] = useState(null);
   const [stockOutBatchId, setStockOutBatchId] = useState('');
   const [stockOutQuantity, setStockOutQuantity] = useState('');
+  const [batchSort, setBatchSort] = useState('newest');
+  const [isEditingItem, setIsEditingItem] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [editItemForm, setEditItemForm] = useState({ unitCost: '', locationId: '' });
 
   const loadInventory = async () => {
     setIsLoading(true);
@@ -37,10 +41,13 @@ export default function AllItemsPage() {
         fetchInventoryItems(),
         fetchInventoryMeta()
       ]);
-      setInventoryItems(itemsData.items || []);
+      const loadedItems = itemsData.items || [];
+      setInventoryItems(loadedItems);
       setLocations(metaData.locations || []);
+      return loadedItems;
     } catch (error) {
       setErrorMessage(error.message || 'Failed to load inventory.');
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -68,11 +75,16 @@ export default function AllItemsPage() {
 
   const handleItemClick = (item) => {
     setSelectedItem(item);
+    setEditItemForm({
+      unitCost: String(item.costPrice ?? ''),
+      locationId: String(item.locationId ?? '')
+    });
+    setIsEditingItem(false);
     setIsDetailModalOpen(true);
   };
 
   const openStockOutModal = (item) => {
-    const batches = getItemBatches(item);
+    const batches = getItemBatches(item, 'newest');
     setStockOutItem(item);
     setStockOutBatchId(batches[0]?.id || '');
     setStockOutQuantity('');
@@ -80,8 +92,14 @@ export default function AllItemsPage() {
 
   const handleStockOut = async () => {
     const quantityToRemove = Number(stockOutQuantity);
+    const selectedBatch = getItemBatches(stockOutItem, 'newest').find((batch) => String(batch.id) === String(stockOutBatchId));
 
-    if (!stockOutItem || !stockOutBatchId || !Number.isFinite(quantityToRemove) || quantityToRemove <= 0) {
+    if (!stockOutItem || !selectedBatch || !Number.isFinite(quantityToRemove) || quantityToRemove <= 0) {
+      return;
+    }
+
+    if (quantityToRemove > Number(selectedBatch.quantity || 0)) {
+      setErrorMessage(`Stock out quantity cannot exceed ${selectedBatch.quantity} ${stockOutItem.unit} in ${selectedBatch.batchNumber}.`);
       return;
     }
 
@@ -93,12 +111,70 @@ export default function AllItemsPage() {
         batch_id: stockOutBatchId,
         quantity: quantityToRemove
       });
-      setSelectedItem(null);
-      setIsDetailModalOpen(false);
       setStockOutItem(null);
-      await loadInventory();
+      setStockOutQuantity('');
+      const updatedItems = await loadInventory();
+      const updatedItem = updatedItems.find((item) => String(item.itemId || item.id) === String(stockOutItem.itemId || stockOutItem.id));
+      if (updatedItem) {
+        setSelectedItem(updatedItem);
+        setEditItemForm({
+          unitCost: String(updatedItem.costPrice ?? ''),
+          locationId: String(updatedItem.locationId ?? '')
+        });
+      }
     } catch (error) {
       setErrorMessage(error.message || 'Failed to record stock out.');
+    }
+  };
+
+  const handleEditItem = () => {
+    if (!selectedItem) return;
+    setEditItemForm({
+      unitCost: String(selectedItem.costPrice ?? ''),
+      locationId: String(selectedItem.locationId ?? '')
+    });
+    setIsEditingItem(true);
+  };
+
+  const handleSaveItem = async () => {
+    if (!selectedItem) return;
+
+    const unitCost = Number(editItemForm.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      setErrorMessage('Enter a valid unit cost.');
+      return;
+    }
+
+    if (!editItemForm.locationId) {
+      setErrorMessage('Select an inventory location.');
+      return;
+    }
+
+    setIsSavingItem(true);
+    setErrorMessage('');
+
+    try {
+      const currentUser = getCurrentUser();
+      await updateInventoryItem({
+        user_id: currentUser?.id || currentUser?.user_id,
+        item_id: selectedItem.itemId || selectedItem.id,
+        unit_cost: unitCost,
+        location_id: editItemForm.locationId
+      });
+      const updatedItems = await loadInventory();
+      const updatedItem = updatedItems.find((item) => String(item.itemId || item.id) === String(selectedItem.itemId || selectedItem.id));
+      if (updatedItem) {
+        setSelectedItem(updatedItem);
+        setEditItemForm({
+          unitCost: String(updatedItem.costPrice ?? ''),
+          locationId: String(updatedItem.locationId ?? '')
+        });
+      }
+      setIsEditingItem(false);
+    } catch (error) {
+      setErrorMessage(error.message || 'Failed to update inventory item.');
+    } finally {
+      setIsSavingItem(false);
     }
   };
 
@@ -124,6 +200,15 @@ export default function AllItemsPage() {
     }
   };
 
+  const batchSortLabels = {
+    newest: 'Newest first',
+    oldest: 'Oldest first',
+    expiry: 'Expiry soonest'
+  };
+  const stockOutBatches = stockOutItem ? getItemBatches(stockOutItem, 'newest') : [];
+  const selectedStockOutBatch = stockOutBatches.find((batch) => String(batch.id) === String(stockOutBatchId));
+  const selectedItemBatches = selectedItem ? getItemBatches(selectedItem, batchSort) : [];
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -137,10 +222,6 @@ export default function AllItemsPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/inventory/stock-in')}>
-            <FileText className="size-4 mr-2" />
-            Stock In
-          </Button>
 
           <Button
             className="bg-[#155dfc] hover:bg-[#0d4acf]"
@@ -501,8 +582,8 @@ export default function AllItemsPage() {
                 <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828] mb-2">
                   Batch Information
                 </p>
-                <div className="space-y-2">
-                  {getItemBatches(item).slice(0, 2).map((batch) => (
+                <div className="max-h-32 space-y-2 overflow-y-auto pr-1">
+                  {getItemBatches(item, 'newest').map((batch) => (
                     <div key={batch.id} className="flex items-center justify-between gap-3 text-[12px]">
                       <div>
                         <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">{batch.batchNumber}</p>
@@ -513,9 +594,9 @@ export default function AllItemsPage() {
                       </div>
                     </div>
                   ))}
-                  {getItemBatches(item).length > 2 && (
+                  {getItemBatches(item, 'newest').length === 0 && (
                     <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                      +{getItemBatches(item).length - 2} more batch{getItemBatches(item).length - 2 > 1 ? 'es' : ''}
+                      No available batches
                     </p>
                   )}
                 </div>
@@ -565,15 +646,37 @@ export default function AllItemsPage() {
           {selectedItem && (
             <>
               <DialogHeader>
-                <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px] flex items-center gap-3">
-                  <div className="size-12 rounded-[10px] bg-[#eff6ff] flex items-center justify-center">
-                    {getCategoryIcon(selectedItem.category)}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px] flex items-center gap-3">
+                      <div className="size-12 rounded-[10px] bg-[#eff6ff] flex items-center justify-center">
+                        {getCategoryIcon(selectedItem.category)}
+                      </div>
+                      {selectedItem.name}
+                    </DialogTitle>
+                    <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                      {selectedItem.genericName || `${selectedItem.category} - ${selectedItem.brand}`}
+                    </DialogDescription>
                   </div>
-                  {selectedItem.name}
-                </DialogTitle>
-                <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                  {selectedItem.genericName || `${selectedItem.category} - ${selectedItem.brand}`}
-                </DialogDescription>
+                  <Button
+                    type="button"
+                    variant={isEditingItem ? 'ghost' : 'outline'}
+                    size="sm"
+                    onClick={isEditingItem ? () => setIsEditingItem(false) : handleEditItem}
+                  >
+                    {isEditingItem ? (
+                      <>
+                        <X className="size-4 mr-2" />
+                        Cancel Edit
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="size-4 mr-2" />
+                        Edit
+                      </>
+                    )}
+                  </Button>
+                </div>
               </DialogHeader>
 
               <div className="space-y-6 mt-4">
@@ -630,7 +733,7 @@ export default function AllItemsPage() {
                 )}
 
                 {/* Basic Information */}
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
                     <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-4">
                       Basic Information
@@ -655,7 +758,26 @@ export default function AllItemsPage() {
                       </div>
                       <div>
                         <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Inventory Location</p>
-                        <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">{selectedItem.location}</p>
+                        {isEditingItem ? (
+                          <Select
+                            value={editItemForm.locationId}
+                            onValueChange={(value) => setEditItemForm((current) => ({ ...current, locationId: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue
+                                placeholder="Select location"
+                                displayValue={locations.find((location) => String(location.id) === String(editItemForm.locationId))?.name}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locations.map((location) => (
+                                <SelectItem key={location.id} value={String(location.id)}>{location.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">{selectedItem.location}</p>
+                        )}
                       </div>
                       {selectedItem.vaccineType && (
                         <div>
@@ -697,12 +819,26 @@ export default function AllItemsPage() {
 
                 {/* Batch Information */}
                 <div className="bg-[#f9fafb] rounded-[10px] p-4">
-                  <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
-                    Batch Information
-                  </h4>
-                  <div className="space-y-3">
-                    {getItemBatches(selectedItem).map((batch) => (
-                      <div key={batch.id} className="grid grid-cols-3 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">
+                      Batch Information
+                    </h4>
+                    <div className="w-44">
+                      <Select value={batchSort} onValueChange={setBatchSort}>
+                        <SelectTrigger>
+                          <SelectValue displayValue={batchSortLabels[batchSort]} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest first</SelectItem>
+                          <SelectItem value="oldest">Oldest first</SelectItem>
+                          <SelectItem value="expiry">Expiry soonest</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+                    {selectedItemBatches.map((batch) => (
+                      <div key={batch.id} className="grid grid-cols-1 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3 sm:grid-cols-4">
                         <div>
                           <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Batch</p>
                           <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.batchNumber}</p>
@@ -715,8 +851,17 @@ export default function AllItemsPage() {
                           <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Expiry</p>
                           <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.expiryDate}</p>
                         </div>
+                        <div>
+                          <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Location</p>
+                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.location || selectedItem.location}</p>
+                        </div>
                       </div>
                     ))}
+                    {selectedItemBatches.length === 0 && (
+                      <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                        No available batches
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -736,14 +881,31 @@ export default function AllItemsPage() {
                 <div className="p-4 bg-[#f9fafb] rounded-[10px]">
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">Unit Cost</p>
+                    {isEditingItem ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editItemForm.unitCost}
+                        onChange={(event) => setEditItemForm((current) => ({ ...current, unitCost: event.target.value }))}
+                        className="max-w-xs"
+                      />
+                    ) : (
                     <p className="font-['Arimo:Bold',sans-serif] text-[20px] text-[#101828]">
                       ₱{selectedItem.costPrice.toFixed(2)}
                     </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-4 border-t">
+                  {isEditingItem && (
+                    <Button className="flex-1 bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleSaveItem} disabled={isSavingItem}>
+                      <Save className="size-4 mr-2" />
+                      {isSavingItem ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  )}
                   <Button variant="outline" className="flex-1" onClick={() => navigate('/dashboard/inventory/stock-in')}>
                     <FileText className="size-4 mr-2" />
                     Stock In
@@ -773,19 +935,33 @@ export default function AllItemsPage() {
 
               <div className="space-y-4 mt-2">
                 <div>
-                  <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-2">Batch</p>
-                  <Select value={stockOutBatchId} onValueChange={setStockOutBatchId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select batch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getItemBatches(stockOutItem).map((batch) => (
-                        <SelectItem key={batch.id} value={batch.id}>
-                          {batch.batchNumber} - {batch.quantity} {stockOutItem.unit} - expires {batch.expiryDate}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">Batch</p>
+                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
+                      {stockOutBatches.length} available
+                    </p>
+                  </div>
+                  {stockOutBatches.length > 0 ? (
+                    <Select value={stockOutBatchId} onValueChange={setStockOutBatchId}>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder="Select batch"
+                          displayValue={selectedStockOutBatch ? formatBatchOption(selectedStockOutBatch, stockOutItem.unit) : undefined}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stockOutBatches.map((batch) => (
+                          <SelectItem key={batch.id} value={String(batch.id)}>
+                            {formatBatchOption(batch, stockOutItem.unit)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="rounded-[8px] border border-[rgba(0,0,0,0.08)] bg-[#f9fafb] p-3 font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                      No available batches for this item.
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -793,15 +969,22 @@ export default function AllItemsPage() {
                   <Input
                     type="number"
                     min="1"
+                    max={selectedStockOutBatch?.quantity || undefined}
                     value={stockOutQuantity}
                     onChange={(event) => setStockOutQuantity(event.target.value)}
                     placeholder={`Enter quantity in ${stockOutItem.unit}`}
+                    disabled={!selectedStockOutBatch}
                   />
+                  {selectedStockOutBatch && (
+                    <p className="mt-1 font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
+                      Available in selected batch: {selectedStockOutBatch.quantity} {stockOutItem.unit}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={() => setStockOutItem(null)}>Cancel</Button>
-                  <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleStockOut}>
+                  <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleStockOut} disabled={!selectedStockOutBatch}>
                     Apply Stock Out
                   </Button>
                 </div>
@@ -815,16 +998,23 @@ export default function AllItemsPage() {
   );
 }
 
-function getItemBatches(item) {
-  if (item?.batches?.length) return item.batches;
+function getItemBatches(item, sortBy = 'newest') {
+  if (!item) return [];
 
-  return [{
-    id: `${item.id}-batch-1`,
-    batchNumber: item.batchNumber || 'NO-BATCH',
-    quantity: item.quantity || 0,
-    manufacturingDate: item.manufacturingDate || '',
-    expiryDate: item.expiryDate || 'No expiry'
-  }];
+  const batches = item?.batches?.length
+    ? item.batches
+    : [{
+      id: `${item.id}-batch-1`,
+      batchNumber: item.batchNumber || 'NO-BATCH',
+      quantity: item.quantity || 0,
+      manufacturingDate: item.manufacturingDate || '',
+      expiryDate: item.expiryDate || 'No expiry',
+      createdAt: item.lastUpdated || ''
+    }];
+
+  return batches
+    .filter((batch) => Number(batch.quantity || 0) > 0)
+    .sort((a, b) => compareBatches(a, b, sortBy));
 }
 
 function getTotalBatchQuantity(batches) {
@@ -832,7 +1022,32 @@ function getTotalBatchQuantity(batches) {
 }
 
 function getNearestExpiryBatch(item) {
-  return [...getItemBatches(item)].sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))[0];
+  return getItemBatches(item, 'expiry')[0];
+}
+
+function compareBatches(a, b, sortBy) {
+  if (sortBy === 'expiry') {
+    return getDateTime(a.expiryDate, Number.MAX_SAFE_INTEGER) - getDateTime(b.expiryDate, Number.MAX_SAFE_INTEGER);
+  }
+
+  const aTime = getDateTime(a.createdAt || a.manufacturingDate || a.expiryDate, 0);
+  const bTime = getDateTime(b.createdAt || b.manufacturingDate || b.expiryDate, 0);
+
+  if (sortBy === 'oldest') {
+    return aTime - bTime;
+  }
+
+  return bTime - aTime;
+}
+
+function getDateTime(value, fallback) {
+  if (!value || value === 'No expiry') return fallback;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? fallback : time;
+}
+
+function formatBatchOption(batch, unit) {
+  return `${batch.batchNumber} - ${batch.quantity} ${unit} - expires ${batch.expiryDate}`;
 }
 
 function getStockStatus(quantity, reorderLevel, currentStatus) {

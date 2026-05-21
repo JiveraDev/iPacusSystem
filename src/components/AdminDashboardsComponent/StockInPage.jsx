@@ -36,6 +36,88 @@ function getItemLocationOptions(inventoryItem) {
   return Array.from(locationsById.values());
 }
 
+function formatInventoryQuantity(inventoryItem) {
+  if (!inventoryItem) return 'Select product first';
+  return `${inventoryItem.quantity ?? 0} ${inventoryItem.unit || ''}`.trim();
+}
+
+function codePart(value, length, fallback) {
+  const cleaned = String(value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || fallback;
+  return cleaned.padEnd(length, fallback).slice(0, length);
+}
+
+function formatDateCode(date = new Date()) {
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
+function getBatchSortValue(batch) {
+  const dateTime = new Date(batch.createdAt || batch.manufacturingDate || batch.expiryDate || '').getTime();
+  if (!Number.isNaN(dateTime)) return dateTime;
+
+  const numericId = Number(batch.batchId || batch.id || 0);
+  return Number.isFinite(numericId) ? numericId : 0;
+}
+
+function getLatestBatch(inventoryItem) {
+  const batches = inventoryItem?.batches || [];
+  if (!batches.length) return null;
+
+  return [...batches].sort((a, b) => (
+    getBatchSortValue(b) - getBatchSortValue(a) ||
+    Number(b.batchId || b.id || 0) - Number(a.batchId || a.id || 0)
+  ))[0];
+}
+
+function incrementBatchNumber(batchNumber) {
+  const value = String(batchNumber || '').trim();
+  if (!value) return '';
+
+  const numericSuffix = value.match(/(\d+)$/);
+  if (!numericSuffix) {
+    return `${value}-001`;
+  }
+
+  const nextNumber = String(Number(numericSuffix[1]) + 1).padStart(numericSuffix[1].length, '0');
+  return `${value.slice(0, numericSuffix.index)}${nextNumber}`;
+}
+
+function normalizeBatchNumber(batchNumber) {
+  return String(batchNumber || '').trim().toLowerCase();
+}
+
+function createFirstBatchNumber(inventoryItem) {
+  return ['BCH', codePart(inventoryItem?.name, 4, 'ITEM'), formatDateCode(), '001'].join('-');
+}
+
+function createNextStockInBatchNumber(inventoryItem, currentItems = [], currentIndex = -1) {
+  if (!inventoryItem) return '';
+
+  const latestBatch = getLatestBatch(inventoryItem);
+  const existingBatchNumbers = new Set([
+    ...(inventoryItem.batches || []).map((batch) => normalizeBatchNumber(batch.batchNumber)),
+    ...currentItems
+      .filter((item, index) => index !== currentIndex && String(item.productId) === String(inventoryItem.itemId))
+      .map((item) => normalizeBatchNumber(item.batchNumber))
+  ].filter(Boolean));
+
+  let batchNumber = latestBatch?.batchNumber
+    ? incrementBatchNumber(latestBatch.batchNumber)
+    : createFirstBatchNumber(inventoryItem);
+  if (!batchNumber) {
+    batchNumber = createFirstBatchNumber(inventoryItem);
+  }
+
+  while (existingBatchNumbers.has(normalizeBatchNumber(batchNumber))) {
+    batchNumber = incrementBatchNumber(batchNumber);
+  }
+
+  return batchNumber;
+}
+
 function formatFileSize(size) {
   if (!size) return '0 KB';
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
@@ -100,7 +182,8 @@ export default function StockInPage() {
           ...item,
           productId: value,
           productName: selectedItem?.name || '',
-          location: defaultLocation
+          location: defaultLocation,
+          batchNumber: createNextStockInBatchNumber(selectedItem, currentItems, index)
         }
       : item
     )));
@@ -348,7 +431,7 @@ export default function StockInPage() {
                       <SelectTrigger>
                         <SelectValue
                           placeholder="Select product"
-                          displayValue={selectedInventoryItem ? `${selectedInventoryItem.name} - ${selectedInventoryItem.sku}` : undefined}
+                          displayValue={selectedInventoryItem ? `${selectedInventoryItem.name} - ${selectedInventoryItem.sku} - ${formatInventoryQuantity(selectedInventoryItem)}` : undefined}
                         />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,7 +440,7 @@ export default function StockInPage() {
                             <div className="flex flex-col">
                               <span>{inventoryItem.name}</span>
                               <span className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
-                                {[inventoryItem.brand || 'No brand', inventoryItem.sku, inventoryItem.location].filter(Boolean).join(' - ')}
+                                {[inventoryItem.brand || 'No brand', inventoryItem.sku, inventoryItem.location, `Current: ${formatInventoryQuantity(inventoryItem)}`].filter(Boolean).join(' - ')}
                               </span>
                             </div>
                           </SelectItem>
@@ -373,6 +456,17 @@ export default function StockInPage() {
                     </Label>
                     <Input
                       value={selectedInventoryItem ? (selectedInventoryItem.brand || 'No brand') : 'Select product first'}
+                      readOnly
+                    />
+                  </div>
+
+                  {/* Current Stock */}
+                  <div>
+                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
+                      Current Stock
+                    </Label>
+                    <Input
+                      value={formatInventoryQuantity(selectedInventoryItem)}
                       readOnly
                     />
                   </div>
@@ -450,9 +544,9 @@ export default function StockInPage() {
                       Batch Number *
                     </Label>
                     <Input
-                      placeholder="BATCH-2026-001"
+                      placeholder={selectedInventoryItem ? 'Auto-generated' : 'Select product first'}
                       value={item.batchNumber}
-                      onChange={(e) => handleItemChange(index, 'batchNumber', e.target.value)}
+                      readOnly
                       required
                     />
                   </div>

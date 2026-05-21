@@ -59,6 +59,13 @@ export function createInventoryItem(payload) {
   });
 }
 
+export function updateInventoryItem(payload) {
+  return request("/inventory/items", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function createStockReceipt(payload) {
   return request("/inventory/stock-in", {
     method: "POST",

@@ -80,7 +80,7 @@ const navItems = [
       { id: "all-items", label: "All Items", path: "/dashboard/inventory" },
       { id: "add-item", label: "Add New Item", path: "/dashboard/inventory/add" },
       { id: "stock-in", label: "Stock In", path: "/dashboard/inventory/stock-in" },
-    ]
+    ], roles: ALL_ROLES
   },
   { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: ALL_ROLES },
   { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ALL_ROLES },

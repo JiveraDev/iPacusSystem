@@ -377,10 +377,7 @@ export default function AllItemsPage() {
             {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="size-4 mr-2" />
-              Export Selected
-            </Button>
+
             <Button variant="destructive" size="sm" onClick={() => setSelectedItems([])}>
               <Trash2 className="size-4 mr-2" />
               Clear Selection

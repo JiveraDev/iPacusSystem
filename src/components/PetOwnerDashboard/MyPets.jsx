@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Plus, PawPrint, Loader2 } from "lucide-react";
@@ -50,7 +50,7 @@ export default function MyPets() {
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">My Pets</h1>
         {/*{pets.length > 0 && (*/}
          {/*  <Button */}

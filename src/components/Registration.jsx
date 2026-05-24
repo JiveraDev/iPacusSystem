@@ -55,7 +55,7 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
         </div>
 
             {/* Form Card */}
-            <Card className="p-6 shadow-lg border border-gray-200">
+            <Card className="p-4 shadow-lg border border-gray-200 sm:p-6">
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-1">Register - Create Account</h2>
                     <p className="text-gray-500">Step 1 of 2: Account Credentials</p>

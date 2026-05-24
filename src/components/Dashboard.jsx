@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
-import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./PetOwnerDashboard/dashboardRouter.jsx";
+import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
 
 // Lazy load screens
@@ -60,17 +60,44 @@ const LowStockPage = lazy(() => import("./AdminDashboardsComponent/LowStockPage.
 const NearExpiryPage = lazy(() => import("./AdminDashboardsComponent/NearExpiryPage.jsx"));
 const DisposalLogsPage = lazy(() => import("./AdminDashboardsComponent/DisposalLogsPage.jsx"));
 
+
+// debug bypas starts here
+
+const DEBUG_BYPASS = true;
+
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
-const ADMIN_ROLES = ["Admin", "Super Admin"];
+
+const PETOWNER_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Pet Owner", "pet_owner", "Super Admin"];
+
+const VETERINARIAN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Veterinarian", "Super Admin"];
+
+const ADMIN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Admin", "Super Admin"];
+
+const SUPERADMIN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Super Admin"];
+// const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
+// const PETOWNER_ROLES = ["Pet Owner", "pet_owner", "Super Admin"];
+// const VETERINARIAN_ROLES = ["Veterinarian", "Super Admin"];
+// const ADMIN_ROLES = ["Admin", "Super Admin"];
+// const SUPERADMIN_ROLES = [ "Super Admin"];
+
+// ends here
 
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
-  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: ALL_ROLES },
-  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: ALL_ROLES },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES },
-  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ALL_ROLES },
-  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ALL_ROLES },
-  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ALL_ROLES },
+  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES },
+  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: PETOWNER_ROLES },
+  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES },
+  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
+  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
+  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES },
   { 
     id: "inventory", 
     label: "Inventory", 
@@ -80,12 +107,12 @@ const navItems = [
       { id: "all-items", label: "All Items", path: "/dashboard/inventory" },
       { id: "add-item", label: "Add New Item", path: "/dashboard/inventory/add" },
       { id: "stock-in", label: "Stock In", path: "/dashboard/inventory/stock-in" },
-    ], roles: ALL_ROLES
+    ], roles: ADMIN_ROLES
   },
-  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: ALL_ROLES },
-  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ALL_ROLES },
-  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: ALL_ROLES },
-  { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: ALL_ROLES },
+  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES },
+  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ADMIN_ROLES },
+  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
+  { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
   { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" , roles: ALL_ROLES },
 ];
 
@@ -329,11 +356,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     return fullName || getUserValue(user, ["email"], "Pet Owner");
   }, [user]);
 
-  const sidebarContent = (
+  const renderSidebarContent = ({ isMobileDrawer = false } = {}) => {
+    const isCollapsed = !isMobileDrawer && isSidebarCollapsed;
+
+    return (
     <div className="flex h-full flex-col">
-      {!isCompactLayout && (
-        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-500 ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className={`flex items-center transition-all duration-500 ease-in-out overflow-hidden ${isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none" : "max-w-xs opacity-100 gap-3"}`}>
+      {!isMobileDrawer && (
+        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-500 ${isCollapsed ? "justify-center" : "justify-between"}`}>
+          <div className={`flex items-center transition-all duration-500 ease-in-out overflow-hidden ${isCollapsed ? "max-w-0 opacity-0 pointer-events-none" : "max-w-xs opacity-100 gap-3"}`}>
             <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
             <div className="whitespace-nowrap">
               <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
@@ -345,14 +375,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             type="button"
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0"
-            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
         </div>
       )}
 
-      {isCompactLayout && (
+      {isMobileDrawer && (
          <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 flex-shrink-0">
            <img src={logo} alt="iPawcus logo" className="h-12 w-12 object-contain" />
            <div>
@@ -375,22 +405,22 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   <button
                     type="button"
                     onClick={() => navigate(item.path)}
-                    title={isSidebarCollapsed ? item.label : ""}
+                    title={isCollapsed ? item.label : ""}
                     className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
-                      isSidebarCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
+                      isCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
                     } ${
                       isActive ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
                     <span className={`font-medium whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden ${
-                      isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
+                      isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
                     }`}>
                       {item.label}
                     </span>
                   </button>
                   
-                  {hasSubItems && !isSidebarCollapsed && (
+                  {hasSubItems && !isCollapsed && (
                     <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-500 ${
                       isActive ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
                     }`}>
@@ -421,16 +451,16 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
 
         <div className="p-4 border-t border-slate-200 bg-white">
           <div className={`mb-4 transition-all duration-500 ease-in-out ${
-            isSidebarCollapsed ? "w-12 mx-auto bg-transparent" : "rounded-2xl bg-slate-100 p-4 w-full"
+            isCollapsed ? "w-12 mx-auto bg-transparent" : "rounded-2xl bg-slate-100 p-4 w-full"
           }`}>
-            <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : ""}`}>
+            <div className={`flex items-center ${isCollapsed ? "justify-center" : ""}`}>
               <div className="relative flex-shrink-0">
                 {getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]) ? (
                   <img 
                     src={getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"])} 
                     alt={displayName}
                     className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
-                      isSidebarCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"
+                      isCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"
                     }`}
                     onError={(e) => {
                       e.target.onerror = null;
@@ -439,7 +469,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   />
                 ) : (
                   <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-500 ${
-                    isSidebarCollapsed ? "h-10 w-10 text-base" : "h-12 w-12 text-lg"
+                    isCollapsed ? "h-10 w-10 text-base" : "h-12 w-12 text-lg"
                   }`}>
                     {displayName.charAt(0).toUpperCase()}
                   </div>
@@ -447,7 +477,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               </div>
               
               <div className={`min-w-0 transition-all duration-500 overflow-hidden whitespace-nowrap ${
-                isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3 flex-1"
+                isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3 flex-1"
               }`}>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Signed in as</p>
                 <p className="font-bold truncate text-slate-900">{displayName}</p>
@@ -459,12 +489,12 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           <button
             type="button"
             onClick={onLogout}
-            title={isSidebarCollapsed ? "Log Out" : ""}
+            title={isCollapsed ? "Log Out" : ""}
             className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
           >
             <LogOut className="h-5 w-5 min-w-5 flex-shrink-0" />
             <span className={`font-medium whitespace-nowrap transition-all duration-500 overflow-hidden ${
-              isSidebarCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
+              isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
             }`}>
               Log Out
             </span>
@@ -472,11 +502,12 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
-      <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
         <ToastViewport />
         
         {isCompactLayout && (
@@ -499,7 +530,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           </header>
         )}
 
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen min-w-0">
           {isCompactLayout ? (
             <>
               <div
@@ -514,7 +545,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   isMobileNavOpen ? "open" : ""
                 }`}
               >
-                {sidebarContent}
+                {renderSidebarContent({ isMobileDrawer: true })}
               </aside>
             </>
           ) : (
@@ -523,16 +554,16 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 isSidebarCollapsed ? "w-20" : "w-72"
               }`}
             >
-              {sidebarContent}
+              {renderSidebarContent()}
             </aside>
           )}
 
           <div 
-            className={`flex-1 transition-all duration-300 ${
+            className={`min-w-0 flex-1 transition-all duration-300 ${
               !isCompactLayout ? (isSidebarCollapsed ? "pl-20" : "pl-72") : ""
             }`}
           >
-            <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
+            <main className="mx-auto w-full max-w-7xl min-w-0 p-4 sm:p-6 lg:p-10">
               <Suspense fallback={
                 <div className="flex h-64 w-full items-center justify-center">
                   <div className="flex flex-col items-center gap-3">

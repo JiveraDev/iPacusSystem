@@ -1,4 +1,4 @@
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Home as HomeIcon, Hotel, Sparkles, Scissors, Syringe, Heart, Stethoscope, Bug, Activity } from "lucide-react";

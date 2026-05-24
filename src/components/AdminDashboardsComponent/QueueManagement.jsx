@@ -16,6 +16,7 @@ export default function QueueManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
+    const [missedAgeFilter, setMissedAgeFilter] = useState('7d');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -109,13 +110,47 @@ export default function QueueManagement() {
     const todayFilteredQueue = filteredQueue.filter(item => isSameLocalDay(item.timestamp, now));
     const yesterdayFilteredQueue = filteredQueue.filter(item => isSameLocalDay(item.timestamp, yesterday));
 
-    const activeQueue = todayFilteredQueue.filter(item => item.status !== 'completed' && item.status !== 'cancelled');
-    const completedQueue = todayFilteredQueue.filter(item => item.status === 'completed');
-    const missedQueue = yesterdayFilteredQueue.filter(item => item.status === 'waiting' || item.status === 'in-progress');
+    const activeQueue = todayFilteredQueue.filter(item => item.status !== 'completed' && item.status !== 'done' && item.status !== 'cancelled');
+    const completedQueue = todayFilteredQueue.filter(item => item.status === 'completed' || item.status === 'done');
+    
+    const missedQueue = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const ageLimits = {
+            '7d': 7,
+            '14d': 14,
+            '30d': 30
+        };
+        const limitDays = ageLimits[missedAgeFilter] || 7;
+
+        const missedMap = new Map();
+
+        filteredQueue.forEach(item => {
+            const itemDate = new Date(item.timestamp);
+            if (itemDate >= today) return;
+
+            const isMissed = item.status !== 'completed' && item.status !== 'done' && item.status !== 'cancelled';
+            if (!isMissed) return;
+
+            const diffTime = Math.abs(today - itemDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= limitDays) {
+                const existing = missedMap.get(item.pet_id);
+                // Keep only the newest (latest timestamp) per pet
+                if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
+                    missedMap.set(item.pet_id, item);
+                }
+            }
+        });
+
+        return Array.from(missedMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }, [filteredQueue, missedAgeFilter]);
 
     const todayQueue = queue.filter(item => isSameLocalDay(item.timestamp, now));
-    const activeCount = todayQueue.filter(item => item.status !== 'completed' && item.status !== 'cancelled').length;
-    const completedCount = todayQueue.filter(item => item.status === 'completed').length;
+    const activeCount = todayQueue.filter(item => item.status !== 'completed' && item.status !== 'done' && item.status !== 'cancelled').length;
+    const completedCount = todayQueue.filter(item => item.status === 'completed' || item.status === 'done').length;
     const cancelledCount = todayQueue.filter(item => item.status === 'cancelled').length;
 
     const services = useMemo(() => {
@@ -128,6 +163,7 @@ export default function QueueManagement() {
             'waiting': { variant: 'outline', icon: Clock, text: 'Waiting' },
             'in-progress': { variant: 'default', icon: AlertCircle, text: 'In Progress' },
             'completed': { variant: 'default', icon: CheckCircle2, text: 'Completed' },
+            'done': { variant: 'default', icon: CheckCircle2, text: 'Done' },
             'cancelled': { variant: 'destructive', icon: XCircle, text: 'Cancelled' }
         };
 
@@ -190,7 +226,7 @@ export default function QueueManagement() {
     return (
         <div className="space-y-6">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
                         Current Queue
@@ -203,7 +239,7 @@ export default function QueueManagement() {
             </div>
 
             {/* Stats */}
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-4 sm:gap-6">
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Active Queue:</span>
                     <span className="bg-[#eff6ff] text-[#155dfc] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
@@ -225,8 +261,8 @@ export default function QueueManagement() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4 items-center bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                <div className="relative flex-1 min-w-[200px]">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[minmax(240px,1fr)_150px_200px] md:items-center">
+                <div className="relative min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
                     <Input 
                         placeholder="Search pet, owner, or queue #..." 
@@ -235,7 +271,7 @@ export default function QueueManagement() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="w-[150px]">
+                <div className="w-full">
                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                         <SelectTrigger>
                             <SelectValue placeholder="All Priorities" />
@@ -247,7 +283,7 @@ export default function QueueManagement() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-[200px]">
+                <div className="w-full">
                     <Select value={serviceFilter} onValueChange={setServiceFilter}>
                         <SelectTrigger>
                             <SelectValue placeholder="All Services" />
@@ -263,17 +299,17 @@ export default function QueueManagement() {
             </div>
 
             {/* Active Queue Table */}
-            <div className="rounded-md border">
-                <Table>
+            <div className="rounded-md border overflow-x-auto bg-white">
+                <Table className="min-w-[760px]">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="font-['Arimo:Bold',sans-serif] w-[50px]"></TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Queue #</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] w-[40px]"></TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif]">#</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Pet Name</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Owner</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Service</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Source</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Time</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Owner</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden lg:table-cell">Service</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden xl:table-cell">Source</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Time</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Priority</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
@@ -292,7 +328,7 @@ export default function QueueManagement() {
                             const isExpanded = expandedRows.has(item.queue_id);
                             const rows = [
                                 <TableRow key={item.queue_id} className="border-b-0 hover:bg-transparent">
-                                    <TableCell className="w-[50px]">
+                                    <TableCell className="w-[40px]">
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -302,24 +338,26 @@ export default function QueueManagement() {
                                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                         </Button>
                                     </TableCell>
-                                    <TableCell className="font-['Arimo:Bold',sans-serif] text-[18px]">
-                                        #{item.queue_number}
+                                    <TableCell className="font-['Arimo:Bold',sans-serif] text-[16px] sm:text-[18px]">
+                                        {item.queue_number}
                                     </TableCell>
                                     <TableCell className="font-['Arimo:Regular',sans-serif]">
-                                        {item.pet_name}
+                                        <div className="max-w-[100px] sm:max-w-none truncate sm:whitespace-normal">
+                                            {item.pet_name}
+                                        </div>
                                     </TableCell>
-                                    <TableCell className="font-['Arimo:Regular',sans-serif]">
+                                    <TableCell className="font-['Arimo:Regular',sans-serif] hidden md:table-cell">
                                         {item.owner_name
                                             ? `${item.owner_name} (${item.owner_status === 'unregistered' ? 'Unregistered' : 'Registered'})`
                                             : `${item.first_Name || ''} ${item.last_Name || ''}`.trim()}
                                     </TableCell>
-                                    <TableCell className="font-['Arimo:Regular',sans-serif]">
+                                    <TableCell className="font-['Arimo:Regular',sans-serif] hidden lg:table-cell">
                                         {item.service_name}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden xl:table-cell">
                                         {getSourceBadge(item.queue_source)}
                                     </TableCell>
-                                    <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                                    <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] hidden md:table-cell">
                                         {formatDateTime(item.timestamp)}
                                     </TableCell>
                                     <TableCell>
@@ -329,14 +367,14 @@ export default function QueueManagement() {
                                         {getStatusBadge(item.status)}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col gap-2 sm:flex-row">
                                             {item.status === 'waiting' && (
                                                 <>
                                                     <Button
                                                         size="sm"
                                                         variant="default"
                                                         onClick={() => handleApprove(item.queue_id)}
-                                                        className="bg-[#155dfc] hover:bg-[#0d4acf] h-8"
+                                                        className="bg-[#155dfc] hover:bg-[#0d4acf] h-8 px-2 sm:px-3 text-[12px] sm:text-[14px]"
                                                     >
                                                         Approve
                                                     </Button>
@@ -344,17 +382,14 @@ export default function QueueManagement() {
                                                         size="sm"
                                                         variant="destructive"
                                                         onClick={() => handleCancel(item.queue_id)}
-                                                        className="h-8"
+                                                        className="h-8 px-2 sm:px-3 text-[12px] sm:text-[14px]"
                                                     >
                                                         Cancel
                                                     </Button>
                                                 </>
                                             )}
                                             {item.status === 'in-progress' && (
-                                                <Badge variant="default" className="bg-[#155dfc]">Processing</Badge>
-                                            )}
-                                            {item.status === 'cancelled' && (
-                                                <Badge variant="destructive">Cancelled</Badge>
+                                                <Badge variant="default" className="bg-[#155dfc]">In-Progress</Badge>
                                             )}
                                         </div>
                                     </TableCell>
@@ -374,7 +409,7 @@ export default function QueueManagement() {
                                                                 {item.complaint || 'No complaint specified'}
                                                             </p>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-4">
+                                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                             <div>
                                                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-1">Contact Number</p>
                                                                 <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
@@ -396,7 +431,7 @@ export default function QueueManagement() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="border-l border-gray-200 pl-6 space-y-4">
+                                                    <div className="space-y-4 border-gray-200 md:border-l md:pl-6">
                                                         <div>
                                                             <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#6b7280] mb-1">Source</p>
                                                             <div>
@@ -501,16 +536,30 @@ export default function QueueManagement() {
             )}
 
             <div className="mt-12 space-y-4">
-                <div>
-                    <h3 className="font-['Arimo:Bold',sans-serif] font-bold text-[20px] text-[#101828] mb-2">
-                        Missed Queue (Yesterday)
-                    </h3>
-                    <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                        Yesterday's waiting/in-progress queue items. Re-enter creates a new queue record for today.
-                    </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="font-['Arimo:Bold',sans-serif] font-bold text-[20px] text-[#101828] mb-2">
+                            Missed Queue
+                        </h3>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                            Queue items from previous days that were not completed or cancelled.
+                        </p>
+                    </div>
+                    <div className="w-full md:w-[200px]">
+                        <Select value={missedAgeFilter} onValueChange={setMissedAgeFilter}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Timeframe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="7d">Last 7 Days</SelectItem>
+                                <SelectItem value="14d">Last 2 Weeks</SelectItem>
+                                <SelectItem value="30d">Last 1 Month</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -528,7 +577,7 @@ export default function QueueManagement() {
                         <TableBody>
                             {missedQueue.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="text-center py-10 text-gray-500">No missed queue items from yesterday</TableCell>
+                                    <TableCell colSpan={9} className="text-center py-10 text-gray-500">No missed queue items found for this period</TableCell>
                                 </TableRow>
                             ) : (
                                 missedQueue.map((item) => (

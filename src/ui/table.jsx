@@ -1,8 +1,8 @@
 import React from 'react';
 
 const Table = ({ children, className, ...props }) => (
-  <div className="relative w-full overflow-auto">
-    <table className={`w-full caption-bottom text-sm ${className}`} {...props}>
+  <div className="relative w-full min-w-0 overflow-x-auto overscroll-x-contain">
+    <table className={`w-max min-w-full caption-bottom text-sm ${className}`} {...props}>
       {children}
     </table>
   </div>
@@ -25,14 +25,14 @@ const TableRow = ({ className, ...props }) => (
 
 const TableHead = ({ className, ...props }) => (
   <th
-    className={`h-12 px-4 align-middle font-medium text-slate-500 [&:has([role=checkbox])]:pr-0 ${className}`}
+    className={`h-12 whitespace-nowrap px-3 text-left align-middle font-medium text-slate-500 sm:px-4 [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
   />
 );
 
 const TableCell = ({ className, ...props }) => (
   <td
-    className={`p-4 align-middle [&:has([role=checkbox])]:pr-0 ${className}`}
+    className={`px-3 py-3 align-middle sm:px-4 [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
   />
 );

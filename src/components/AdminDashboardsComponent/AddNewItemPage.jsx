@@ -6,7 +6,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PhotoViewer } from '../../ui/photo-viewer';
-import { useNavigate } from '../PetOwnerDashboard/dashboardRouter';
+import { useNavigate } from '../dashboardRouter.jsx';
 import { createInventoryItem, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 
 const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'vials', 'bags', 'kg', 'liters'];
@@ -265,7 +265,7 @@ export default function AddNewItemPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button
           variant="ghost"
           size="sm"
@@ -307,7 +307,7 @@ export default function AddNewItemPage() {
           ))}
         </datalist>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Basic Information
           </h3>
@@ -319,7 +319,7 @@ export default function AddNewItemPage() {
               </Label>
               <label
                 htmlFor="images"
-                className="block border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-8 text-center hover:border-[#155dfc] transition-colors cursor-pointer"
+                className="block border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-4 text-center hover:border-[#155dfc] transition-colors cursor-pointer sm:p-8"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
@@ -420,7 +420,7 @@ export default function AddNewItemPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Classification
           </h3>
@@ -494,7 +494,7 @@ export default function AddNewItemPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Inventory Details
           </h3>
@@ -540,7 +540,7 @@ export default function AddNewItemPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Cost
           </h3>
@@ -569,7 +569,7 @@ export default function AddNewItemPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Expiry Tracking
           </h3>
@@ -604,13 +604,13 @@ export default function AddNewItemPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Variants (Optional)
           </h3>
 
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 placeholder="e.g., 250mg, 500mg, 1g"
                 value={newVariant}
@@ -662,7 +662,7 @@ export default function AddNewItemPage() {
               </p>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="space-y-5 p-4 sm:p-6">
               {pendingItem.summary.imagePreviewUrl && (
                 <div className="flex flex-col gap-3 rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[#f9fafb] p-3 sm:flex-row sm:items-center">
                   <button
@@ -729,7 +729,7 @@ export default function AddNewItemPage() {
           </div>
         )}
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <Button
             type="button"
             variant="outline"

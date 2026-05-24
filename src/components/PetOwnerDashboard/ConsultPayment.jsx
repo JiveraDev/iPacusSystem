@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -154,7 +154,7 @@ export default function ConsultPayment() {
 
   return (
     <div className="space-y-8 max-w-4xl">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" onClick={() => navigate("/dashboard/consult/booking")} className="self-start">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -275,7 +275,7 @@ export default function ConsultPayment() {
                     </div>
                     <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
                       <CheckCircle className="h-3 w-3 text-green-500" />
-                      <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                      <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
                         {formData.receiptFile.name}
                       </span>
                     </div>

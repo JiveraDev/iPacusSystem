@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -180,7 +180,7 @@ export default function SpecialServices() {
       </div>
 
       {/* Service Options */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {specialServices.map((service) => {
           const Icon = service.icon;
           const isSpecialSurgery = service.id === "special-surgery";
@@ -239,7 +239,7 @@ export default function SpecialServices() {
               {/* New Pet Information Form */}
               {isNewPet && (
                 <div className="space-y-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-semibold text-blue-900">New Pet Information</h3>
                     <Button
                       type="button"
@@ -317,7 +317,7 @@ export default function SpecialServices() {
                     Select Pet(s) * 
                     {selectedService && ` (Max: ${selectedService.maxPets})`}
                   </Label>
-                  <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {pets.map((pet) => {
                       const isSelected = selectedPets.includes(pet.id);
                       return (
@@ -420,4 +420,3 @@ export default function SpecialServices() {
     </div>
   );
 }
-

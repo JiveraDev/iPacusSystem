@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -45,8 +45,8 @@ export default function AddPet() {
   };
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto">
-      <div className="flex items-center gap-4">
+    <div className="mx-auto max-w-2xl space-y-8">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="self-start">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -64,7 +64,7 @@ export default function AddPet() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-3">
+          <div className="mb-6 flex gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-yellow-800">
               <p className="font-semibold mb-1">How to link your pet:</p>
@@ -107,7 +107,7 @@ export default function AddPet() {
               </ul>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
               <Button 
                 type="button" 
                 variant="outline" 

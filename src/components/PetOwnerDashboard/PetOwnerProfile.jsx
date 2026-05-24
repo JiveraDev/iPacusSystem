@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock } from "lucide-react";
 import { calculateAge } from "../../lib/date";
-import { useUserUpdate, useDashboardUser } from "./dashboardRouter";
+import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -227,7 +227,7 @@ export default function PetOwnerProfile() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto px-4 sm:px-0">
+    <div className="mx-auto max-w-5xl space-y-8 px-0 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Profile Settings</h1>
@@ -244,26 +244,26 @@ export default function PetOwnerProfile() {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-100 p-1 text-slate-500 mb-8">
-          <TabsTrigger value="profile" className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-8 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm">
+        <TabsList className="mb-8 flex h-auto w-full items-center justify-start rounded-xl bg-slate-100 p-1 text-slate-500 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="profile" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
             Profile Details
           </TabsTrigger>
-          <TabsTrigger value="security" className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-8 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm">
+          <TabsTrigger value="security" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
             Security
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-8 outline-none animate-in fade-in duration-300">
           <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-8 py-6">
-              <CardTitle className="text-2xl font-bold text-slate-800">Personal Information</CardTitle>
+            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
+              <CardTitle className="text-xl font-bold text-slate-800 sm:text-2xl">Personal Information</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 sm:p-10 space-y-12">
+            <CardContent className="space-y-8 p-4 sm:space-y-12 sm:p-10">
               
               {/* Profile Image & Summary Section */}
-              <div className="flex flex-col lg:flex-row items-center lg:items-start gap-10">
+              <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:gap-10">
                 <div className="relative group">
-                  <div className="h-40 w-40 rounded-full overflow-hidden border-[6px] border-white shadow-2xl bg-slate-100 ring-2 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100">
+                  <div className="h-32 w-32 overflow-hidden rounded-full border-[6px] border-white bg-slate-100 shadow-2xl ring-2 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
                     {profileData.profileImage && !imageError ? (
                       <img
                         src={getImageSrc()}
@@ -285,23 +285,23 @@ export default function PetOwnerProfile() {
                     )}
                   </div>
                   {isEditingProfile && (
-                    <label className="absolute bottom-2 right-2 h-12 w-12 bg-[#155dfc] rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-all hover:scale-110 shadow-2xl border-[3px] border-white text-white z-10">
-                      <Camera className="h-6 w-6" />
+                    <label className="absolute bottom-1 right-1 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-[3px] border-white bg-[#155dfc] text-white shadow-2xl transition-all hover:scale-110 hover:bg-blue-700 sm:bottom-2 sm:right-2 sm:h-12 sm:w-12">
+                      <Camera className="h-5 w-5 sm:h-6 sm:w-6" />
                       <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
                     </label>
                   )}
                 </div>
                 
-                <div className="flex-1 text-center lg:text-left space-y-4">
+                <div className="min-w-0 flex-1 space-y-4 text-center lg:text-left">
                   <div>
-                    <h3 className="font-extrabold text-2xl text-slate-900">
+                    <h3 className="text-2xl font-extrabold text-slate-900">
                       {profileData.firstName || profileData.lastName ? `${profileData.firstName} ${profileData.lastName}` : "User Profile"}
                     </h3>
                     <p className="text-blue-600 font-semibold flex items-center justify-center lg:justify-start gap-2 mt-1">
                       <span className="bg-blue-50 px-3 py-1 rounded-full text-sm">Pet Owner</span>
                     </p>
                   </div>
-                  <p className="text-slate-500 text-lg leading-relaxed max-w-2xl">
+                  <p className="max-w-2xl text-base leading-relaxed text-slate-500 sm:text-lg">
                     {isEditingProfile 
                       ? "Choose a high-quality photo to help our veterinarians recognize you during appointments. Supported formats: JPG, PNG, GIF." 
                       : "Your profile details are kept secure and only shared with verified clinic staff for medical purposes."}
@@ -316,7 +316,7 @@ export default function PetOwnerProfile() {
               </div>
 
               {/* Form Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+              <div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2 md:gap-y-10">
                 <div className="space-y-3">
                   <Label htmlFor="firstName" className="text-xs font-black text-slate-500 uppercase tracking-widest">First Name</Label>
                   <Input
@@ -420,14 +420,14 @@ export default function PetOwnerProfile() {
                       setImageError(false);
                       setProfileData(normalizeUser(contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}")));
                     }}
-                    className="px-10 h-14 text-lg rounded-xl font-bold border-slate-200 hover:bg-slate-50"
+                    className="h-12 rounded-xl border-slate-200 px-8 text-base font-bold hover:bg-slate-50 sm:h-14 sm:px-10 sm:text-lg"
                   >
                     Cancel
                   </Button>
                   <Button 
                     onClick={handleSaveProfile} 
                     disabled={isSaving} 
-                    className="px-14 h-14 bg-[#155dfc] hover:bg-blue-700 shadow-xl rounded-xl text-lg font-bold transition-all transform hover:scale-[1.02]"
+                    className="h-12 rounded-xl bg-[#155dfc] px-8 text-base font-bold shadow-xl transition-all hover:scale-[1.02] hover:bg-blue-700 sm:h-14 sm:px-14 sm:text-lg"
                   >
                     {isSaving ? (
                         <>
@@ -444,15 +444,15 @@ export default function PetOwnerProfile() {
 
         <TabsContent value="security" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
           <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-8 py-6">
-              <CardTitle className="text-2xl font-bold text-slate-800">Account Security</CardTitle>
+            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
+              <CardTitle className="text-xl font-bold text-slate-800 sm:text-2xl">Account Security</CardTitle>
             </CardHeader>
-            <CardContent className="p-16 flex flex-col items-center justify-center py-24 text-center">
-              <div className="h-24 w-24 bg-blue-50 rounded-full flex items-center justify-center mb-8 border-4 border-white shadow-xl">
-                <Clock className="h-12 w-12 text-[#155dfc]" />
+            <CardContent className="flex flex-col items-center justify-center px-4 py-16 text-center sm:px-16 sm:py-24">
+              <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-blue-50 shadow-xl sm:h-24 sm:w-24">
+                <Clock className="h-10 w-10 text-[#155dfc] sm:h-12 sm:w-12" />
               </div>
-              <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">Security Features Coming Soon</h3>
-              <p className="text-slate-500 mt-4 max-w-lg text-xl leading-relaxed">
+              <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Security Features Coming Soon</h3>
+              <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-500 sm:text-xl">
                 We're developing advanced security protocols, including two-factor authentication and password encryption tools, to keep your data even safer.
               </p>
             </CardContent>

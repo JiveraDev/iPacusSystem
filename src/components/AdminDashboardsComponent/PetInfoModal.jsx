@@ -31,12 +31,12 @@ export default function PetInfoModal({ petId, petName }) {
     }, [petId]);
 
     if (isLoading) {
-        return <div className="p-8 text-center text-gray-500">Loading pet information...</div>;
+        return <div className="p-4 text-center text-gray-500 sm:p-8">Loading pet information...</div>;
     }
 
     if (!pet) {
         return (
-            <div className="p-8 text-center space-y-4">
+            <div className="space-y-4 p-4 text-center sm:p-8">
                 <div className="text-gray-500 italic">No detailed records found for this pet.</div>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
                     This pet might be unregistered or its detailed information is missing from our records.
@@ -49,7 +49,7 @@ export default function PetInfoModal({ petId, petName }) {
     return (
         <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
             {/* Pet Card */}
-            <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 text-center">
+            <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 text-center sm:p-6">
                 {/* Pet Image */}
                 <div className="flex justify-center mb-4">
                     <div className="relative size-[150px] rounded-full overflow-hidden border-4 border-[#155dfc] bg-gray-100 flex items-center justify-center">
@@ -90,43 +90,43 @@ export default function PetInfoModal({ petId, petName }) {
             </div>
 
             {/* Pet Details */}
-            <div className="bg-[#f9fafb] rounded-[14px] p-6">
+            <div className="rounded-[14px] bg-[#f9fafb] p-4 sm:p-6">
                 <h4 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-4">
                     Pet Details
                 </h4>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Species:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.species}</span>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Breed:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.breed}</span>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Birthday:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.birthDate || 'N/A'}</span>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Weight:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.weight ? `${pet.weight} kg` : 'N/A'}</span>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Color/Markings:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.color || 'N/A'}</span>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between gap-3">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Microchip ID:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.microchipId || 'None'}</span>
                     </div>
 
-                    <div className="flex justify-between items-center border-t pt-2">
+                    <div className="flex items-center justify-between gap-3 border-t pt-2">
                         <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Owner:</span>
                         <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.ownerName || 'Unknown'}</span>
                     </div>

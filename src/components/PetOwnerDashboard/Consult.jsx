@@ -1,4 +1,4 @@
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Video, Calendar, Clock, CheckCircle } from "lucide-react";
@@ -41,14 +41,14 @@ export default function Consult() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/consult/booking")}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100">
                 <Calendar className="h-6 w-6 text-blue-600" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-semibold text-lg">Book New Consultation</h3>
                 <p className="text-sm text-gray-600">Schedule an appointment with a veterinarian</p>
               </div>
@@ -59,10 +59,10 @@ export default function Consult() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-100">
                 <Video className="h-6 w-6 text-green-600" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-semibold text-lg">Upcoming Consultations</h3>
                 <p className="text-sm text-gray-600">{upcomingConsultations.length} scheduled</p>
               </div>
@@ -78,8 +78,8 @@ export default function Consult() {
             {upcomingConsultations.map((consultation) => (
               <Card key={consultation.id}>
                 <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
+                  <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+                    <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-lg">{consultation.petName}</h3>
                         <span className={`px-2 py-1 text-xs rounded-full ${
@@ -91,7 +91,7 @@ export default function Consult() {
                         </span>
                       </div>
                       <p className="text-gray-600">Topic: {consultation.discussionTopic}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
                           <span>{new Date(consultation.dateTime).toLocaleDateString()}</span>
@@ -145,4 +145,3 @@ export default function Consult() {
     </div>
   );
 }
-

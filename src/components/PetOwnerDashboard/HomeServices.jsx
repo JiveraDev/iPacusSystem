@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -299,7 +299,7 @@ export default function HomeServices() {
   };
 
   return (
-    <div className="space-y-6 lg:space-y-8 max-w-4xl pb-10">
+    <div className="w-full max-w-4xl min-w-0 space-y-6 pb-10 lg:space-y-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <Button variant="ghost" onClick={() => navigate("/dashboard/services")} className="self-start">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -311,8 +311,8 @@ export default function HomeServices() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid min-w-0 gap-8 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -376,7 +376,7 @@ export default function HomeServices() {
               {/* Service Grid */}
               <div className="space-y-3">
                 <Label>Select Services Needed *</Label>
-                <div className="grid sm:grid-cols-2 gap-3">
+                <div className="responsive-grid gap-3">
                   {homeServices.map((service) => {
                     const Icon = service.icon;
                     const isSelected = selectedServices.includes(service.id);
@@ -415,7 +415,7 @@ export default function HomeServices() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Preferred Date *</Label>
                   <Input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
@@ -494,7 +494,7 @@ export default function HomeServices() {
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <Label>Pet Photos / Concerns (Optional)</Label>
-                <div className="border-2 border-dashed rounded-xl p-8 text-center hover:border-blue-400 transition-colors bg-gray-50/50">
+                <div className="rounded-xl border-2 border-dashed bg-gray-50/50 p-4 text-center transition-colors hover:border-blue-400 sm:p-8">
                   <input type="file" id="hsImageUpload" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                   <label htmlFor="hsImageUpload" className="cursor-pointer">
                     <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
@@ -504,7 +504,7 @@ export default function HomeServices() {
                 </div>
 
                 {uploadedImages.length > 0 && (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6">
                     {uploadedImages.map((img, i) => (
                       <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
                         <img src={img} className="w-full h-full object-cover" onClick={() => setViewingImage(img)} />
@@ -528,8 +528,8 @@ export default function HomeServices() {
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card className="sticky top-4">
+        <div className="min-w-0 space-y-6">
+          <Card className="lg:sticky lg:top-4">
             <CardHeader>
               <CardTitle className="text-lg">Continue to Consent</CardTitle>
             </CardHeader>

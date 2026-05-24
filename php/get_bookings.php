@@ -6,8 +6,8 @@ header("Content-Type: application/json");
 try {
     // Fetch bookings joined with users and pets for full context
     $sql = "SELECT b.*, 
-                   p.pet_name, p.pet_species, p.pet_breed, 
-                   u.first_Name, u.last_Name, u.mail_Address
+                   p.pet_name, p.pet_species, p.pet_breed, p.setpetImage_url, 
+                   u.first_Name, u.last_Name, u.mail_Address, u.setProfilePic_url
             FROM bookings b
             LEFT JOIN pets_information p ON b.pet_id = p.pet_id
             JOIN users u ON b.user_id = u.user_id
@@ -17,7 +17,7 @@ try {
     $bookings = $stmt->fetchAll();
 
     $formattedBookings = array_map(function($b) {
-        $isRegistered = $b['registered_status'] === 'Registered';
+        $isRegistered = $b['registered_status'] === 'Registered' || (!empty($b['pet_id']) && !empty($b['pet_name']));
         $isHomeService = (bool)$b['is_home_service'];
         $isOnlineConsultation = (bool)$b['is_online_consultation'];
         
@@ -39,10 +39,12 @@ try {
             'petName' => $isRegistered ? $b['pet_name'] : $b['unregistered_pet_name'],
             'petSpecies' => $isRegistered ? $b['pet_species'] : $b['petType'],
             'petBreed' => $isRegistered ? $b['pet_breed'] : $b['unregistered_pet_breed'],
+            'petProfileImage' => $b['setpetImage_url'],
             'petAge' => $b['unregistered_pet_age'],
             'petWeight' => $b['unregistered_pet_weight'],
             'ownerName' => $b['first_Name'] . ' ' . $b['last_Name'],
             'ownerEmail' => $b['mail_Address'],
+            'ownerProfileImage' => $b['setProfilePic_url'],
             'type' => $b['service_type'],
             'service' => $serviceName,
             'date' => $b['booking_date'],

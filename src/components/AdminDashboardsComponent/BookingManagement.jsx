@@ -4,29 +4,44 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Calendar, Search, Filter, Eye, CheckCircle, XCircle, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
+import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../../ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
 import PetInfoModal from './PetInfoModal';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { toast } from "../../reusecomponent/toast.jsx";
 import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
-import { Textarea } from '../../ui/textarea';
+import { resolveImageUrl } from '../../lib/image';
 
-const veterinarians = [
-    { id: 'v1', name: 'Dr. Sarah Wilson' },
-    { id: 'v2', name: 'Dr. James Chen' },
-    { id: 'v3', name: 'Dr. Emily Parker' },
-    { id: 'v4', name: 'Dr. Michael Ross' }
-];
+function ActionButtonMedia({ image, alt, fallback }) {
+    const FallbackIcon = fallback;
+    const [hasImageError, setHasImageError] = useState(false);
+    const imageUrl = hasImageError ? null : resolveImageUrl(image);
+
+    return (
+        <span className="size-10 rounded-full border border-[#bfdbfe] bg-[#eff6ff] flex items-center justify-center overflow-hidden">
+            {imageUrl ? (
+                <img
+                    src={imageUrl}
+                    alt={alt}
+                    className="size-full object-cover"
+                    onError={() => setHasImageError(true)}
+                />
+            ) : (
+                <FallbackIcon className="size-5 text-[#155dfc]" />
+            )}
+        </span>
+    );
+}
 
 export default function BookingsManagement() {
     const [bookings, setBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterType, setFilterType] = useState('all');
-    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterType, setFilterType] = useState('Service Type');
+    const [filterStatus, setFilterStatus] = useState('Status');
+    const [filterAge, setFilterAge] = useState('7d');
     const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
     const [currentRescheduleBooking, setCurrentRescheduleBooking] = useState(null);
     const [newDate, setNewDate] = useState('');
@@ -138,7 +153,7 @@ export default function BookingsManagement() {
 
         setIsRegistering(true);
         try {
-            const result = await addPetService({
+            await addPetService({
                 ...registrationData,
                 petName: registrationData.petName,
                 species: registrationData.species,
@@ -231,13 +246,6 @@ export default function BookingsManagement() {
         return <Badge variant="secondary">{label}</Badge>;
     };
 
-    const getPriceBadge = (service, price) => {
-        if (service === 'Online Consultation') {
-            return <Badge className="bg-[#e0f2e9] text-[#0c6a3c] hover:bg-[#e0f2e9]">Paid</Badge>;
-        }
-        return <Badge className="bg-[#fff4e6] text-[#b54708] hover:bg-[#fff4e6]">Pending</Badge>;
-    };
-
     const filteredBookings = bookings.filter(booking => {
         // Fallback for names to prevent crashes
         const petName = booking.petName || `Unregistered ${booking.petSpecies || 'Pet'}`;
@@ -249,22 +257,18 @@ export default function BookingsManagement() {
             ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             bookingNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
-        // 7-day filter logic: if not searching, hide confirmed/cancelled older than 7 days since CREATION
-        if (searchQuery === '') {
-            if (booking.status === 'confirmed' || booking.status === 'cancelled') {
-                const createdDate = new Date(booking.createdAt);
-                const now = new Date();
-                const diffTime = now - createdDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays > 7) return false;
-            }
-        }
+        const matchesType = filterType === 'all' || filterType === 'Service Type' || booking.type === filterType;
+        const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
+        const ageLimitDays = {
+            '7d': 7,
+            '14d': 14,
+            '30d': 30
+        }[filterAge];
+        const createdDate = new Date(booking.createdAt || booking.date);
+        const ageInDays = Math.floor((new Date() - createdDate) / (1000 * 60 * 60 * 24));
+        const matchesAge = filterAge === 'all' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
 
-        const matchesType = filterType === 'all' || booking.type === filterType;
-        const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
-
-        return matchesSearch && matchesType && matchesStatus;
+        return matchesSearch && matchesType && matchesStatus && matchesAge;
     }).sort((a, b) => {
         const statusOrder = {
             'pending': 1,
@@ -286,7 +290,7 @@ export default function BookingsManagement() {
                 </p>
             </div>
 
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-3 sm:gap-6">
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Total Bookings:</span>
                     <span className="bg-[#eff6ff] text-[#155dfc] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
@@ -301,8 +305,8 @@ export default function BookingsManagement() {
                 </div>
             </div>
 
-            <div className="mb-6 flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[300px]">
+            <div className="mb-6 flex flex-col gap-4 min-[1100px]:flex-row min-[1100px]:items-center min-[1100px]:flex-nowrap">
+                <div className="w-full min-[1100px]:min-w-[260px] min-[1100px]:flex-1">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
                         <Input
@@ -314,14 +318,14 @@ export default function BookingsManagement() {
                     </div>
                 </div>
 
-                <div className="hidden min-[850px]:flex gap-4">
+                <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 min-[1100px]:flex min-[1100px]:w-auto min-[1100px]:flex-none min-[1100px]:flex-nowrap min-[1100px]:items-center">
                     <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full min-[1100px]:w-[180px]">
                             <Filter className="size-4 mr-2" />
-                            <SelectValue placeholder="Filter by type" />
+                            <SelectValue placeholder="Service Type" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="Service Type">Service Type</SelectItem>
                             <SelectItem value="consultation">Consultation</SelectItem>
                             <SelectItem value="vaccination">Vaccination</SelectItem>
                             <SelectItem value="grooming">Grooming</SelectItem>
@@ -336,89 +340,116 @@ export default function BookingsManagement() {
                     </Select>
 
                     <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full min-[1100px]:w-[180px]">
                             <Filter className="size-4 mr-2" />
-                            <SelectValue placeholder="Filter by status" />
+                            <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="Status">Status</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="confirmed">Confirmed</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    <Select value={filterAge} onValueChange={setFilterAge}>
+                        <SelectTrigger className="w-full min-[1100px]:w-[160px]">
+                            <CalendarClock className="size-4 mr-2" />
+                            <SelectValue placeholder="Age" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Dates</SelectItem>
+                            <SelectItem value="7d">Last 7 Days</SelectItem>
+                            <SelectItem value="14d">Last 2 Weeks</SelectItem>
+                            <SelectItem value="30d">Last 1 Month</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Booking #</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Type</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Pet / Owner</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Service</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Date & Time</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Price</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
-                        <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredBookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                            <TableCell className="font-['Arimo:Bold',sans-serif]">{booking.bookingNumber}</TableCell>
-                            <TableCell>{getTypeBadge(booking.type, booking.isHomeService, booking.isOnlineConsultation)}</TableCell>
-                            <TableCell>
-                                <div>
-                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                                        {booking.petName} 
-                                        {!booking.isRegistered && (
-                                            <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Unregistered</span>
-                                        )}
-                                    </p>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
-                                </div>
-                            </TableCell>
-                            <TableCell>{booking.service}</TableCell>
-                            <TableCell>
-                                <div>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[14px]">{booking.date}</p>
-                                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.time}</p>
-                                </div>
-                            </TableCell>
-                            <TableCell>{getPriceBadge(booking.service, booking.price)}</TableCell>
-                            <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                            <TableCell>
-                                <div className="flex gap-2">
-                                    <Sheet>
+            <div className="rounded-md border overflow-x-auto bg-white">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="font-['Arimo:Bold',sans-serif]">Booking #</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Type</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif]">Pet / Owner</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden lg:table-cell">Service</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Date & Time</TableHead>
+
+                            <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
+                            <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredBookings.map((booking) => (
+                            <TableRow key={booking.id}>
+                                <TableCell className="font-['Arimo:Bold',sans-serif]">{booking.bookingNumber}</TableCell>
+                                <TableCell className="hidden md:table-cell">{getTypeBadge(booking.type, booking.isHomeService, booking.isOnlineConsultation)}</TableCell>
+                                <TableCell>
+                                    <div>
+                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px]">
+                                            {booking.petName}
+                                            {!booking.isRegistered && (
+                                                <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Unreg</span>
+                                            )}
+                                        </p>
+                                        <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="hidden lg:table-cell">{booking.service}</TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                    <div>
+                                        <p className="font-['Arimo:Regular',sans-serif] text-[14px]">{booking.date}</p>
+                                        <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.time}</p>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                                <TableCell>
+                                    <div className="flex gap-2">
+                                        <Sheet>
                                         <SheetTrigger asChild>
                                             <Button variant="outline" size="sm">
                                                 <Eye className="size-4" />
                                             </Button>
                                         </SheetTrigger>
-                                        <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
+                                        <SheetContent side="right" showClose={false} className="sm:max-w-xl overflow-y-auto">
                                             <div className="sticky top-0 bg-white z-10 border-b p-6">
-                                                <SheetHeader>
-                                                    <SheetTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
-                                                        Booking Details
-                                                    </SheetTitle>
-                                                    <SheetDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                                        View complete booking information
-                                                    </SheetDescription>
+                                                <SheetHeader className="mb-0">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="min-w-0">
+                                                            <SheetTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                                                                Booking Details
+                                                            </SheetTitle>
+                                                            <SheetDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                                                                View complete booking information
+                                                            </SheetDescription>
+                                                        </div>
+                                                        <SheetClose
+                                                            aria-label="Close booking details"
+                                                            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                                        >
+                                                            <X className="size-4" />
+                                                        </SheetClose>
+                                                    </div>
                                                 </SheetHeader>
                                             </div>
 
-                                            <div className="p-6 space-y-6">
+                                            <div className="space-y-6 p-4 sm:p-6">
                                                 {/* Quick Action Buttons */}
-                                                <div className={`grid ${!booking.isRegistered ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
+                                                <div className={`grid ${!booking.isRegistered ? 'grid-cols-1 min-[420px]:grid-cols-3' : 'grid-cols-1 min-[420px]:grid-cols-2'} gap-3`}>
                                                     <Dialog>
                                                         <DialogTrigger asChild>
                                                             <Button
                                                                 variant="outline"
                                                                 className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
                                                             >
-                                                                <User className="size-6 text-[#155dfc]" />
+                                                                <ActionButtonMedia
+                                                                    image={booking.ownerProfileImage}
+                                                                    alt={`${booking.ownerName || 'Pet owner'} profile`}
+                                                                    fallback={User}
+                                                                />
                                                                 <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
                                                                   View Pet Owner
                                                                 </span>
@@ -444,7 +475,11 @@ export default function BookingsManagement() {
                                                                     variant="outline"
                                                                     className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
                                                                 >
-                                                                    <PawPrint className="size-6 text-[#155dfc]" />
+                                                                    <ActionButtonMedia
+                                                                        image={booking.petProfileImage}
+                                                                        alt={`${booking.petName || 'Pet'} profile`}
+                                                                        fallback={PawPrint}
+                                                                    />
                                                                     <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
                                                                       View Pet Info
                                                                     </span>
@@ -611,7 +646,7 @@ export default function BookingsManagement() {
                                                        Pictures of Concern
                                                     </p>
                                                     {booking.image_Booking_Concern_Path ? (
-                                                        <div className="grid grid-cols-2 gap-2">
+                                                        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                                                             {booking.image_Booking_Concern_Path.split(',').filter(path => path.trim() !== "").map((path, idx) => (
                                                                 <div 
                                                                     key={idx}
@@ -660,12 +695,13 @@ export default function BookingsManagement() {
                                                 </div>
 
                                                 {/* Review Booking Section */}
-                                                <div className="border-t pt-4">
-                                                    <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
-                                                        Review Booking
-                                                    </h4>
-                                                    <div className="flex flex-col gap-3">
-                                                        {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
+                                                {booking.status !== 'completed' && (
+                                                    <div className="border-t pt-4">
+                                                        <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
+                                                            Review Booking
+                                                        </h4>
+                                                        <div className="flex flex-col gap-3">
+                                                            {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                             <Button
                                                                 onClick={() => {
                                                                     updateBookingStatus(booking.id, 'confirmed');
@@ -676,9 +712,9 @@ export default function BookingsManagement() {
                                                                 <CheckCircle className="size-4 mr-2" />
                                                                 Confirm Booking
                                                             </Button>
-                                                        )}
-                                                        
-                                                        {booking.status !== 'cancelled' && (
+                                                            )}
+
+                                                            {booking.status !== 'cancelled' && (
                                                             <Button
                                                                 variant="outline"
                                                                 onClick={() => {
@@ -690,9 +726,9 @@ export default function BookingsManagement() {
                                                                 <CalendarClock className="size-4 mr-2" />
                                                                 Reschedule
                                                             </Button>
-                                                        )}
+                                                            )}
 
-                                                        {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
+                                                            {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                             <Button
                                                                 variant="destructive"
                                                                 onClick={() => {
@@ -704,9 +740,10 @@ export default function BookingsManagement() {
                                                                 <XCircle className="size-4 mr-2" />
                                                                 Reject
                                                             </Button>
-                                                        )}
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
                                         </SheetContent>
                                     </Sheet>
@@ -716,6 +753,7 @@ export default function BookingsManagement() {
                     ))}
                 </TableBody>
             </Table>
+            </div>
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
 
             {/* Reschedule Dialog */}
@@ -730,7 +768,7 @@ export default function BookingsManagement() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">Booking Number</p>
                                 <p className="font-['Arimo:Regular',sans-serif] text-[16px]">{currentRescheduleBooking?.bookingNumber}</p>
@@ -741,7 +779,7 @@ export default function BookingsManagement() {
                             </div>
                             <div className="col-span-2">
                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">New Date & Time</p>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row">
                                     <Input
                                         type="date"
                                         value={newDate}
@@ -789,7 +827,7 @@ export default function BookingsManagement() {
                         </DialogDescription>
                     </DialogHeader>
                     
-                    <div className="grid grid-cols-2 gap-4 py-4">
+                    <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <Label>Pet Name *</Label>
                             <Input 
@@ -854,7 +892,7 @@ export default function BookingsManagement() {
                                 onChange={(e) => setRegistrationData({...registrationData, weight: e.target.value})}
                             />
                         </div>
-                        <div className="col-span-2 space-y-2">
+                        <div className="space-y-2 sm:col-span-2">
                             <Label>Temporary Owner Name</Label>
                             <Input 
                                 value={registrationData.tempOwnerName} 
@@ -863,7 +901,7 @@ export default function BookingsManagement() {
                             />
                             <p className="text-[12px] text-gray-500">Automatically set to the person who booked the appointment.</p>
                         </div>
-                        <div className="col-span-2 space-y-2">
+                        <div className="space-y-2 sm:col-span-2">
                             <Label>Initial Health Status</Label>
                             <Select 
                                 value={registrationData.status} 

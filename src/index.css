@@ -7,8 +7,46 @@
     font-size: 100%;
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+  }
+
   body {
     @apply bg-white text-slate-900;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  span,
+  label,
+  td,
+  th,
+  button {
+    overflow-wrap: break-word;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
   }
 }
 
@@ -34,6 +72,52 @@
 }
 
 @layer utilities {
+  .layout-safe {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .responsive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  }
+
+  .responsive-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .responsive-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  }
+
+  .responsive-inline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), max-content));
+  }
+
+  .responsive-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 639px) {
+    .responsive-actions {
+      flex-direction: column-reverse;
+    }
+
+    .responsive-actions > * {
+      width: 100%;
+    }
+  }
+
+  .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -42,4 +126,3 @@
     scrollbar-width: none;
   }
 }
-

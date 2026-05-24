@@ -31,7 +31,7 @@ export default function NearExpiryPage() {
       {/* Critical Alert Banner */}
       {criticalCount > 0 && (
         <div className="bg-[#ffe6e6] border border-[#d92d20] rounded-[14px] p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex flex-col items-start gap-3 sm:flex-row">
             <AlertTriangle className="size-6 text-[#d92d20] mt-0.5" />
             <div className="flex-1">
               <h3 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-1">
@@ -41,7 +41,7 @@ export default function NearExpiryPage() {
                 {criticalCount} item{criticalCount > 1 ? 's' : ''} expiring within 30 days. Review and take action immediately to prevent losses.
               </p>
             </div>
-            <Button variant="destructive" size="sm">
+            <Button variant="destructive" size="sm" className="w-full sm:w-auto">
               Review Now
             </Button>
           </div>
@@ -49,7 +49,7 @@ export default function NearExpiryPage() {
       )}
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="size-12 rounded-[10px] bg-[#fff4e6] flex items-center justify-center">
@@ -117,12 +117,12 @@ export default function NearExpiryPage() {
 
       {/* Filter */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
             Filter by Urgency:
           </span>
           <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="All Items" />
             </SelectTrigger>
             <SelectContent>
@@ -213,7 +213,7 @@ export default function NearExpiryPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button variant="outline" size="sm">
                       <Archive className="size-4 mr-2" />
                       Mark for Disposal

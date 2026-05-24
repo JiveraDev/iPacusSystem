@@ -33,23 +33,58 @@ try {
         exit;
     }
 
+    $activeQueueStmt = $pdo->prepare("
+        SELECT queue_id, queue_number, status, timestamp
+        FROM queues
+        WHERE pet_id = ?
+          AND status IN ('waiting', 'in-progress')
+        ORDER BY timestamp DESC
+    ");
+    $activeQueueStmt->execute([$source['pet_id']]);
+    $activeQueues = $activeQueueStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($activeQueues as $active) {
+        $queueDate = date('Y-m-d', strtotime($active['timestamp']));
+        $todayDate = date('Y-m-d');
+
+        if ($queueDate === $todayDate && (int)$active['queue_id'] !== (int)$queue_id) {
+            // Block if another record is active for today
+            http_response_code(409);
+            echo json_encode([
+                'message' => "This pet already has an active queue entry for today (#{$active['queue_number']}).",
+                'queue_id' => $active['queue_id'],
+                'queue_number' => $active['queue_number'],
+                'status' => $active['status']
+            ]);
+            exit;
+        }
+    }
+
+    // Cancel other old records for this pet
+    $cancelOthers = $pdo->prepare("
+        UPDATE queues 
+        SET status = 'cancelled' 
+        WHERE pet_id = ? 
+          AND status IN ('waiting', 'in-progress') 
+          AND queue_id != ? 
+          AND DATE(timestamp) < CURDATE()
+    ");
+    $cancelOthers->execute([$source['pet_id'], $queue_id]);
+
     $maxStmt = $pdo->prepare("SELECT MAX(queue_number) AS max_num FROM queues WHERE DATE(timestamp) = CURDATE()");
     $maxStmt->execute();
     $maxResult = $maxStmt->fetch(PDO::FETCH_ASSOC);
     $new_queue_number = ((int)($maxResult['max_num'] ?? 0)) + 1;
 
-    $insertStmt = $pdo->prepare("
-        INSERT INTO queues (pet_id, user_id, service_name, queue_number, status, priority, complaint, timestamp)
-        VALUES (?, ?, ?, ?, 'waiting', ?, ?, NOW())
+    // Update the record to today
+    $updateStmt = $pdo->prepare("
+        UPDATE queues 
+        SET queue_number = ?, 
+            status = 'waiting', 
+            timestamp = NOW() 
+        WHERE queue_id = ?
     ");
-    $insertStmt->execute([
-        $source['pet_id'],
-        $source['user_id'],
-        $source['service_name'],
-        $new_queue_number,
-        $source['priority'] ?? 'normal',
-        $source['complaint'] ?? ''
-    ]);
+    $updateStmt->execute([$new_queue_number, $queue_id]);
 
     echo json_encode(['success' => true]);
 } catch (Exception $e) {

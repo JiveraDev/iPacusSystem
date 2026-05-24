@@ -146,7 +146,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                 </div>
 
                 {/* Form Card */}
-                <Card className="p-8 shadow-lg border border-gray-200">
+                <Card className="p-4 shadow-lg border border-gray-200 sm:p-8">
                     <div className="mb-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-1">
                             Register - Pet Owner Profile
@@ -336,19 +336,19 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                         </div>
 
                         {/* Profile Preview */}
-                        <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border-2 border-green-200">
+                        <div className="rounded-xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50 p-4 sm:p-6">
                             <h3 className="text-sm font-bold text-gray-900 mb-3">
                                 Profile Preview
                             </h3>
                             <p className="text-xs text-gray-600 mb-4">
                                 This is how your profile will appear:
                             </p>
-                            <div className="bg-white p-6 rounded-lg border border-green-200">
+                            <div className="rounded-lg border border-green-200 bg-white p-4 sm:p-6">
                                 <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-blue-600 text-xl font-bold text-white sm:h-16 sm:w-16 sm:text-2xl">
                                         {formData.firstName ? formData.firstName[0] : "P"}
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="min-w-0 flex-1">
                                         <h4 className="text-xl font-bold text-gray-900">
                                             <span className="block min-[321px]:hidden">
                                                 {formData.firstName || "Your Name"}
@@ -389,7 +389,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                         </div>
 
                         {/* Buttons */}
-                        <div className="flex gap-3">
+                        <div className="flex flex-col-reverse gap-3 sm:flex-row">
                             <Button
                                 type="button"
                                 variant="outline"

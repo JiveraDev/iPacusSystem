@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
-import { useNavigate } from '../PetOwnerDashboard/dashboardRouter';
+import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -212,7 +212,7 @@ export default function AllItemsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
             All Inventory Items
@@ -221,10 +221,10 @@ export default function AllItemsPage() {
             Manage all products, medicines, and supplies
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex w-full flex-wrap gap-3 sm:w-auto">
 
           <Button
-            className="bg-[#155dfc] hover:bg-[#0d4acf]"
+            className="w-full bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto"
             size="sm"
             onClick={() => navigate('/dashboard/inventory/add')}
           >
@@ -236,7 +236,7 @@ export default function AllItemsPage() {
 
       {/* Filters Section */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {/* Search */}
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
@@ -298,9 +298,9 @@ export default function AllItemsPage() {
       </div>
 
       {/* Summary Cards & View Toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex gap-4 flex-1">
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
               Total Products
             </p>
@@ -308,7 +308,7 @@ export default function AllItemsPage() {
               {inventoryItems.length}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
               Total Value
             </p>
@@ -316,7 +316,7 @@ export default function AllItemsPage() {
               ₱{totalValue.toLocaleString()}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
               Low Stock
             </p>
@@ -324,7 +324,7 @@ export default function AllItemsPage() {
               {lowStockCount}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
+          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
               Near Expiry
             </p>
@@ -335,12 +335,12 @@ export default function AllItemsPage() {
         </div>
 
         {/* View Mode Toggle */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-2 flex gap-2">
+        <div className="flex w-full gap-2 rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-2 sm:w-auto">
           <Button
             variant={viewMode === 'list' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('list')}
-            className={viewMode === 'list' ? 'bg-[#155dfc]' : ''}
+            className={`flex-1 sm:flex-none ${viewMode === 'list' ? 'bg-[#155dfc]' : ''}`}
           >
             <List className="size-4 mr-2" />
             List
@@ -349,7 +349,7 @@ export default function AllItemsPage() {
             variant={viewMode === 'card' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('card')}
-            className={viewMode === 'card' ? 'bg-[#155dfc]' : ''}
+            className={`flex-1 sm:flex-none ${viewMode === 'card' ? 'bg-[#155dfc]' : ''}`}
           >
             <LayoutGrid className="size-4 mr-2" />
             Card
@@ -364,7 +364,7 @@ export default function AllItemsPage() {
       )}
 
       {isLoading && (
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-12 text-center">
+        <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-10 text-[#4a5565] mx-auto mb-3" />
           <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">Loading inventory...</p>
         </div>
@@ -372,11 +372,11 @@ export default function AllItemsPage() {
 
       {/* Bulk Actions */}
       {selectedItems.length > 0 && (
-        <div className="bg-[#eff6ff] rounded-[10px] border border-[#155dfc] p-4 flex items-center justify-between">
+        <div className="flex flex-col gap-3 rounded-[10px] border border-[#155dfc] bg-[#eff6ff] p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">
             {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
 
             <Button variant="destructive" size="sm" onClick={() => setSelectedItems([])}>
               <Trash2 className="size-4 mr-2" />
@@ -390,7 +390,7 @@ export default function AllItemsPage() {
       {!isLoading && viewMode === 'list' && (
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1120px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">
@@ -478,11 +478,11 @@ export default function AllItemsPage() {
           </div>
 
           {/* Pagination */}
-          <div className="border-t border-[rgba(0,0,0,0.1)] p-4 flex items-center justify-between">
+          <div className="flex flex-col gap-3 border-t border-[rgba(0,0,0,0.1)] p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
               Showing {filteredItems.length} of {inventoryItems.length} items
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm">Previous</Button>
               <Button variant="outline" size="sm" className="bg-[#155dfc] text-white">1</Button>
               <Button variant="outline" size="sm">2</Button>
@@ -499,12 +499,12 @@ export default function AllItemsPage() {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6 hover:shadow-lg transition-shadow cursor-pointer"
+              className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 hover:shadow-lg transition-shadow cursor-pointer sm:p-6"
               onClick={() => handleItemClick(item)}
             >
               {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-1">
                     {item.name}
                   </h3>
@@ -514,7 +514,7 @@ export default function AllItemsPage() {
                     </p>
                   )}
                 </div>
-                <div className="size-12 rounded-[10px] bg-[#eff6ff] flex items-center justify-center">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff]">
                   {getCategoryIcon(item.category)}
                 </div>
               </div>
@@ -538,7 +538,7 @@ export default function AllItemsPage() {
 
               {/* Details */}
               <div className="space-y-3 mb-4">
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between gap-3">
                   <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                     Brand:
                   </span>
@@ -547,7 +547,7 @@ export default function AllItemsPage() {
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between gap-3">
                   <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                     Available:
                   </span>
@@ -556,7 +556,7 @@ export default function AllItemsPage() {
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between gap-3">
                   <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                     SKU:
                   </span>
@@ -564,7 +564,7 @@ export default function AllItemsPage() {
                     {item.sku}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between gap-3">
                   <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                     Location:
                   </span>
@@ -626,7 +626,7 @@ export default function AllItemsPage() {
 
       {/* Empty State */}
       {!isLoading && filteredItems.length === 0 && (
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-12 text-center">
+        <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-12 text-[#4a5565] mx-auto mb-4" />
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-2">
             No items found
@@ -645,8 +645,8 @@ export default function AllItemsPage() {
               <DialogHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px] flex items-center gap-3">
-                      <div className="size-12 rounded-[10px] bg-[#eff6ff] flex items-center justify-center">
+                    <DialogTitle className="flex items-center gap-3 font-['Arimo:Bold',sans-serif] text-[20px] sm:text-[24px]">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff]">
                         {getCategoryIcon(selectedItem.category)}
                       </div>
                       {selectedItem.name}
@@ -820,7 +820,7 @@ export default function AllItemsPage() {
                     <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">
                       Batch Information
                     </h4>
-                    <div className="w-44">
+                    <div className="w-full sm:w-44">
                       <Select value={batchSort} onValueChange={setBatchSort}>
                         <SelectTrigger>
                           <SelectValue displayValue={batchSortLabels[batchSort]} />
@@ -896,7 +896,7 @@ export default function AllItemsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row">
                   {isEditingItem && (
                     <Button className="flex-1 bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleSaveItem} disabled={isSavingItem}>
                       <Save className="size-4 mr-2" />
@@ -979,7 +979,7 @@ export default function AllItemsPage() {
                   )}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-col-reverse justify-end gap-3 pt-2 sm:flex-row">
                   <Button variant="outline" onClick={() => setStockOutItem(null)}>Cancel</Button>
                   <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleStockOut} disabled={!selectedStockOutBatch}>
                     Apply Stock Out

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "./dashboardRouter";
+import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -127,8 +127,8 @@ export default function RequestUpdateRecord() {
           <CardTitle>Service Fee</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <p className="text-sm text-gray-600">Veterinarian Convenience Fee</p>
               <p className="text-xs text-gray-500 mt-1">
                 Fee for reviewing and updating your pet's medical records
@@ -225,7 +225,7 @@ export default function RequestUpdateRecord() {
                         </div>
                         <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
                           <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                          <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
                             {paymentProof.name}
                           </span>
                         </div>
@@ -287,7 +287,7 @@ export default function RequestUpdateRecord() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col-reverse gap-4 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"

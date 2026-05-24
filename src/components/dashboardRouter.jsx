@@ -2,8 +2,36 @@ import { createContext, useContext } from "react";
 
 const DashboardRouterContext = createContext(null);
 
-// Centralized role definitions for easy reconfiguration later
+
+// debug bypas starts here
+
+const DEBUG_BYPASS = true;
+
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
+
+const PETOWNER_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Pet Owner", "pet_owner", "Super Admin"];
+
+const VETERINARIAN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Veterinarian", "Super Admin"];
+
+const ADMIN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Admin", "Super Admin"];
+
+const SUPERADMIN_ROLES = DEBUG_BYPASS
+    ? ALL_ROLES
+    : ["Super Admin"];
+// const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
+// const PETOWNER_ROLES = ["Pet Owner", "pet_owner", "Super Admin"];
+// const VETERINARIAN_ROLES = ["Veterinarian", "Super Admin"];
+// const ADMIN_ROLES = ["Admin", "Super Admin"];
+// const SUPERADMIN_ROLES = [ "Super Admin"];
+
+// ends here
+
 
 const routePatterns = [
   { pattern: "/dashboard/consult/confirmation/home-service", allowedRoles: ALL_ROLES },

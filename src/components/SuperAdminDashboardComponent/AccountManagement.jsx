@@ -138,18 +138,18 @@ export default function AccountManagement() {
 
     const UserCard = ({ user, type }) => (
         <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+            <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center ${
                         type === 'vet' ? 'bg-blue-100' : 'bg-purple-100'
                     }`}>
                         {type === 'vet' ? <Stethoscope className="w-6 h-6 text-blue-600" /> : <UserCog className="w-6 h-6 text-purple-600" />}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-gray-900 text-base md:text-lg">{user.first_Name} {user.last_Name}</h3>
+                            <h3 className="truncate text-base font-bold text-gray-900 md:text-lg">{user.first_Name} {user.last_Name}</h3>
                         </div>
-                        <p className="text-sm text-gray-600">{type === 'vet' ? user.specialization : user.postionn}</p>
+                        <p className="truncate text-sm text-gray-600">{type === 'vet' ? user.specialization : user.postionn}</p>
                     </div>
                 </div>
                 {getStatusBadge(user.is_active)}
@@ -181,12 +181,12 @@ export default function AccountManagement() {
 
     return (
         <div className="space-y-6 md:space-y-8">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Account Management</h1>
                     <p className="text-sm text-gray-500">Manage staff and veterinarians</p>
                 </div>
-                <Button onClick={() => setShowCreateAccount(true)} className="bg-blue-600 text-white">
+                <Button onClick={() => setShowCreateAccount(true)} className="w-full bg-blue-600 text-white sm:w-auto">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Create Account
                 </Button>
@@ -197,7 +197,7 @@ export default function AccountManagement() {
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Staff & Nurses</h2>
                     <p className="text-sm md:text-base text-gray-600">Active and approved clinic staff and nursing personnel</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="responsive-grid gap-4 md:gap-6">
                     {isLoading ? [1,2].map(i => <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />) :
                      accounts.staff.length > 0 ? accounts.staff.map((user) => (
                         <UserCard key={user.user_id} user={user} type="staff" />
@@ -212,7 +212,7 @@ export default function AccountManagement() {
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Veterinarians</h2>
                     <p className="text-sm md:text-base text-gray-600">Active and approved licensed veterinarians</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="responsive-grid gap-4 md:gap-6">
                     {isLoading ? [1,2,3].map(i => <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />) :
                      accounts.veterinarians.length > 0 ? accounts.veterinarians.map((user) => (
                         <UserCard key={user.user_id} user={user} type="vet" />
@@ -234,15 +234,15 @@ export default function AccountManagement() {
 
                             <div className="space-y-6">
                                 <div className="bg-gray-50 rounded-lg p-4">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
+                                    <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-3">
                                             <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black ${
                                                 selectedUser.type === 'vet' ? 'bg-blue-600' : 'bg-purple-600'
                                             }`}>
                                                 {selectedUser.first_Name[0]}{selectedUser.last_Name[0]}
                                             </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold text-gray-900">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
+                                            <div className="min-w-0">
+                                                <h3 className="truncate text-xl font-bold text-gray-900">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
                                                 <p className="text-sm text-gray-600">{selectedUser.role}</p>
                                             </div>
                                         </div>
@@ -313,7 +313,7 @@ export default function AccountManagement() {
 
                                 <div className="border-t pt-6">
                                     <h4 className="font-bold text-gray-900 mb-3 text-sm">Administrative Actions</h4>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col-reverse gap-3 sm:flex-row">
                                         {(selectedUser.is_active === 1 || selectedUser.is_active === '1') ? (
                                             <Button 
                                                 variant="outline" 
@@ -348,7 +348,7 @@ export default function AccountManagement() {
                     </DialogHeader>
 
                     <form onSubmit={handleCreateAccount} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Account Type</Label>
                                 <Select value={createForm.role} onValueChange={(v) => setCreateForm({...createForm, role: v})}>
@@ -367,7 +367,7 @@ export default function AccountManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label className="text-gray-900 mb-2 block">First Name</Label>
                                 <Input placeholder="First Name" required value={createForm.firstName} onChange={(e) => setCreateForm({...createForm, firstName: e.target.value})} className="bg-gray-100" />
@@ -378,7 +378,7 @@ export default function AccountManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Email</Label>
                                 <Input type="email" required placeholder="email@ipawcus.com" value={createForm.email} onChange={(e) => setCreateForm({...createForm, email: e.target.value})} className="bg-gray-100" />
@@ -390,7 +390,7 @@ export default function AccountManagement() {
                         </div>
 
                         {createForm.role === 'Veterinarian' ? (
-                            <div className="grid grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="grid grid-cols-1 gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
                                 <div>
                                     <Label className="text-blue-900">PRC License</Label>
                                     <Input placeholder="PRC-VET-00000" value={createForm.licenseNumber} onChange={(e) => setCreateForm({...createForm, licenseNumber: e.target.value})} className="bg-white" />
@@ -401,7 +401,7 @@ export default function AccountManagement() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div className="grid grid-cols-1 gap-4 rounded-lg border border-purple-200 bg-purple-50 p-4 sm:grid-cols-2">
                                 <div>
                                     <Label className="text-purple-900">Position</Label>
                                     <Select value={createForm.position} onValueChange={(v) => setCreateForm({...createForm, position: v})}>
@@ -437,7 +437,7 @@ export default function AccountManagement() {
                             <Input type="password" required placeholder="Enter Super Admin Key" value={createForm.masterKey} onChange={(e) => setCreateForm({...createForm, masterKey: e.target.value})} className="bg-red-50 border-red-200" />
                         </div>
 
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
                             <Button type="button" onClick={() => setShowCreateAccount(false)} variant="outline" className="flex-1">Cancel</Button>
                             <Button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold">
                                 {isSubmitting ? "Creating..." : "Confirm & Create"}

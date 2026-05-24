@@ -510,7 +510,7 @@ export default function Todos() {
               {tasksForSelectedDate.length > 0 ? (
                 <div className="space-y-2 mb-4">
                   {tasksForSelectedDate.map((task) => (
-                    <div key={task.id} className="flex items-start justify-between p-3 border rounded-lg bg-gray-50">
+                    <div key={task.id} className="flex flex-col items-start justify-between gap-3 rounded-lg border bg-gray-50 p-3 sm:flex-row">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-medium">{task.title}</h4>
@@ -574,14 +574,14 @@ export default function Todos() {
 
       {/* Calendar View */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
           <CardTitle>Calendar View</CardTitle>
-          <div className="text-lg font-semibold text-gray-700">March 2026</div>
+          <div className="text-base font-semibold text-gray-700 sm:text-lg">March 2026</div>
         </CardHeader>
         <CardContent>
           <div className="overflow-auto">
             {/* Calendar Grid */}
-            <div className="min-w-[700px]">
+            <div className="min-w-[540px] sm:min-w-[700px]">
               {/* Day headers */}
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -608,7 +608,7 @@ export default function Todos() {
                         setSelectedDate(currentDate);
                         setIsDialogOpen(true);
                       }}
-                      className="border rounded-lg p-2 min-h-[100px] bg-white hover:bg-gray-50 cursor-pointer"
+                      className="min-h-[84px] cursor-pointer rounded-lg border bg-white p-2 hover:bg-gray-50 sm:min-h-[100px]"
                     >
                       <div className="font-semibold text-gray-900 mb-2">{date}</div>
                       <div className="space-y-1">
@@ -724,4 +724,3 @@ export default function Todos() {
     </div>
   );
 }
-

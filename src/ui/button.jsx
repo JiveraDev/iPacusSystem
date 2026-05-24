@@ -3,7 +3,7 @@ import * as React from "react";
 import { cn } from "./utils";
 
 const baseClasses =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex max-w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50";
 
 const variantClasses = {
   default: "bg-slate-900 text-white hover:bg-slate-800",

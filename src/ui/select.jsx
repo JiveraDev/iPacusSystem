@@ -25,7 +25,7 @@ function Select({ value, onValueChange, children }) {
 
   return (
     <SelectContext.Provider value={{ value, onValueChange: handleSelect, open, setOpen }}>
-      <div ref={containerRef} className="relative w-full">
+      <div ref={containerRef} className="relative w-full min-w-0">
         {children}
       </div>
     </SelectContext.Provider>
@@ -40,7 +40,7 @@ function SelectTrigger({ className, children }) {
       type="button"
       onClick={() => setOpen(!open)}
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
     >
@@ -72,7 +72,7 @@ function SelectContent({ children, className }) {
   return (
     <div
       className={cn(
-        "absolute z-50 mt-1 max-h-60 min-w-max overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-md animate-in fade-in zoom-in-95",
+        "absolute z-50 mt-1 max-h-60 min-w-full max-w-[min(18rem,calc(100vw-2rem))] overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-md animate-in fade-in zoom-in-95",
         className
       )}
     >

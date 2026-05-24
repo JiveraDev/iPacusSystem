@@ -135,6 +135,12 @@ switch ($path) {
         if (preg_match('/^\/users\/(\d+)\/pets$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             require_once __DIR__ . '/get_user_pets.php';
+        } elseif (preg_match('/^\/pets\/([^\/]+)\/queues$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            require_once __DIR__ . '/get_pet_queues.php';
+        } elseif (preg_match('/^\/pets\/([^\/]+)\/bookings$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            require_once __DIR__ . '/get_pet_bookings.php';
         } elseif (preg_match('/^\/users\/(\d+)$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

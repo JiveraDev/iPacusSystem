@@ -1,4 +1,4 @@
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -187,7 +187,7 @@ export default function PaymentSubmission() {
 
   return (
     <div className="space-y-6 lg:space-y-8 max-w-4xl mx-auto pb-10">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" onClick={() => navigate(-1)} disabled={isSubmitting}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -318,7 +318,7 @@ export default function PaymentSubmission() {
                     </div>
                     <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
                       <CheckCircle className="h-3 w-3 text-green-500" />
-                      <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                      <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
                         {formData.receiptFile.name}
                       </span>
                     </div>

@@ -93,7 +93,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-[#155dfc]">Add to Queue</Button>
+                <Button className="w-full bg-[#155dfc] sm:w-auto">Add to Queue</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>

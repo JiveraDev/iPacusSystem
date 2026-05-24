@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Checkbox } from "../../ui/checkbox";
@@ -179,7 +179,7 @@ export default function HomeServiceConfirmation() {
 
   if (!booking) {
     return (
-      <div className="space-y-8 p-8 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-8">
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
@@ -202,7 +202,7 @@ export default function HomeServiceConfirmation() {
         <p className="text-gray-500">Please verify details, sign, and complete the transport fee payment</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-lg">Service & Pet</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -303,7 +303,7 @@ export default function HomeServiceConfirmation() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleFinalSubmit} className="space-y-6">
-                <div className="grid sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Payment Method *</Label>
@@ -360,7 +360,7 @@ export default function HomeServiceConfirmation() {
                             </div>
                             <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
                               <CheckCircle className="h-3 w-3 text-green-500" />
-                              <span className="text-xs font-medium text-gray-600 truncate max-w-[200px]">
+                              <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
                                 {paymentFormData.receiptFile.name}
                               </span>
                             </div>

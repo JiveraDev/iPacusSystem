@@ -31,7 +31,7 @@ export default function LowStockPage() {
       {/* Critical Alert Banner */}
       {criticalCount > 0 && (
         <div className="bg-[#ffe6e6] border border-[#d92d20] rounded-[14px] p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex flex-col items-start gap-3 sm:flex-row">
             <AlertTriangle className="size-6 text-[#d92d20] mt-0.5" />
             <div className="flex-1">
               <h3 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-1">
@@ -41,7 +41,7 @@ export default function LowStockPage() {
                 {criticalCount} item{criticalCount > 1 ? 's are' : ' is'} at critical stock levels. Immediate reordering recommended to avoid service disruption.
               </p>
             </div>
-            <Button variant="destructive" size="sm">
+            <Button variant="destructive" size="sm" className="w-full sm:w-auto">
               Create Bulk Order
             </Button>
           </div>
@@ -49,7 +49,7 @@ export default function LowStockPage() {
       )}
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="size-12 rounded-[10px] bg-[#fff4e6] flex items-center justify-center">
@@ -117,12 +117,12 @@ export default function LowStockPage() {
 
       {/* Filter */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
             Filter by Priority:
           </span>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="All Items" />
             </SelectTrigger>
             <SelectContent>
@@ -231,7 +231,7 @@ export default function LowStockPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button variant="outline" size="sm">
                       <ShoppingCart className="size-4 mr-2" />
                       Reorder
@@ -256,7 +256,7 @@ export default function LowStockPage() {
           </h3>
           <div className="space-y-3">
             {filteredItems.slice(0, 3).map((item, index) => (
-              <div key={item.id} className="flex items-start gap-3 p-4 bg-[#f9fafb] rounded-[10px]">
+              <div key={item.id} className="flex flex-col items-start gap-3 rounded-[10px] bg-[#f9fafb] p-4 sm:flex-row">
                 <div className="size-8 rounded-[8px] bg-[#eff6ff] flex items-center justify-center shrink-0">
                   <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">{index + 1}</span>
                 </div>
@@ -268,7 +268,7 @@ export default function LowStockPage() {
                     Suggested order: {Math.ceil(item.avgDailyUsage * 30)} {item.unit} (30-day supply)
                   </p>
                 </div>
-                <Button size="sm" className="bg-[#155dfc] hover:bg-[#0d4acf]">
+                <Button size="sm" className="w-full bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto">
                   Order Now
                 </Button>
               </div>

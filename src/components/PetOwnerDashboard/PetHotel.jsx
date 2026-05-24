@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
@@ -210,7 +210,7 @@ export default function PetHotel() {
             {/* Service Type Selection */}
             <div className="space-y-3">
               <Label>Service Type *</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div
                   className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                     serviceType === "hotel"
@@ -291,7 +291,7 @@ export default function PetHotel() {
             </div>
 
             {/* Dates, Contact, Submit */}
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="checkInDate">Check-in Date *</Label>
                 <Input type="date" value={checkInDate} onChange={(e) => setCheckInDate(e.target.value)} required min={new Date().toISOString().split('T')[0]} />

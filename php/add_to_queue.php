@@ -132,6 +132,39 @@ if (!$pet_id || !$service_name) {
 }
 
 try {
+    // Check for active queue entries
+    $activeQueueStmt = $pdo->prepare("
+        SELECT queue_id, queue_number, status, timestamp
+        FROM queues
+        WHERE pet_id = ?
+          AND status IN ('waiting', 'in-progress')
+        ORDER BY timestamp DESC
+        LIMIT 1
+    ");
+    $activeQueueStmt->execute([$pet_id]);
+    $activeQueue = $activeQueueStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($activeQueue) {
+        $queueDate = date('Y-m-d', strtotime($activeQueue['timestamp']));
+        $todayDate = date('Y-m-d');
+
+        if ($queueDate === $todayDate) {
+            // If it's from today, block it as usual
+            http_response_code(409);
+            echo json_encode([
+                'message' => "This pet already has an active queue entry for today (#{$activeQueue['queue_number']}). Please complete or cancel it before adding another queue.",
+                'queue_id' => $activeQueue['queue_id'],
+                'queue_number' => $activeQueue['queue_number'],
+                'status' => $activeQueue['status']
+            ]);
+            exit;
+        } else {
+            // If it's from a previous day (Missed), automatically cancel it
+            $cancelStmt = $pdo->prepare("UPDATE queues SET status = 'cancelled' WHERE pet_id = ? AND status IN ('waiting', 'in-progress') AND DATE(timestamp) < CURDATE()");
+            $cancelStmt->execute([$pet_id]);
+        }
+    }
+
     // Allow queueing pets without linked registered owner by using a synthetic temp-owner user row.
     if (empty($user_id)) {
         $petStmt = $pdo->prepare("SELECT pet_Temp_owner FROM pets_information WHERE pet_id = ?");

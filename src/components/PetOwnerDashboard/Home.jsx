@@ -1,4 +1,4 @@
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Heart, Clock, Calendar, Stethoscope, Video, FileText, PawPrint, ListTodo, Package, Plus } from "lucide-react";
@@ -84,7 +84,7 @@ export default function Home() {
               <p className="text-gray-600 mb-4">
                 Our clinic is equipped for essential veterinary care including professional consultations, physical examinations, surgical procedures, and laboratory diagnostics. We also provide preventative care through deworming and heartworm prevention, along with nutritional advice and prescription diets.
               </p>
-              <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="mt-6 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
                 <div className="flex items-center gap-2">
                   <Stethoscope className="h-5 w-5 text-blue-600" />
                   <span>Expert Veterinarians</span>

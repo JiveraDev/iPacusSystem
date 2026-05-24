@@ -1,4 +1,4 @@
-import { useNavigate } from "./dashboardRouter";
+import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -183,7 +183,7 @@ export default function GeneralCheckup() {
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -193,7 +193,7 @@ export default function GeneralCheckup() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         {/* Booking Form */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -293,7 +293,7 @@ export default function GeneralCheckup() {
                 </div>
               )}
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="date">Preferred Date *</Label>
                   <Input
@@ -353,7 +353,7 @@ export default function GeneralCheckup() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {formData.files.map((file, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 border rounded-md group">
-                          <span className="text-xs truncate max-w-[150px]">{file.name}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
                           <button
                             type="button"
                             onClick={() => removeFile(index)}

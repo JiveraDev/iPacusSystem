@@ -79,6 +79,27 @@ try {
         }
     }
 
+    // 6. If this pet came from an unregistered booking, link that booking now.
+    $bookingId = $input['bookingId'] ?? null;
+    if ($bookingId) {
+        $sqlBookingUpdate = "UPDATE bookings
+                             SET pet_id = ?, registered_status = 'Registered'
+                             WHERE booking_id = ?";
+        $bookingParams = [$petId, $bookingId];
+
+        if ($userId) {
+            $sqlBookingUpdate .= " AND user_id = ?";
+            $bookingParams[] = $userId;
+        }
+
+        $stmtBooking = $pdo->prepare($sqlBookingUpdate);
+        $stmtBooking->execute($bookingParams);
+
+        if ($stmtBooking->rowCount() === 0) {
+            throw new Exception('Pet was registered, but the booking could not be linked.');
+        }
+    }
+
     $pdo->commit();
 
     http_response_code(201);

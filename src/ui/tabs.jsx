@@ -30,7 +30,7 @@ function Tabs({ defaultValue, value, onValueChange, className, children, ...prop
 function TabsList({ className, ...props }) {
   return (
     <div
-      className={cn("inline-grid h-10 items-center rounded-lg bg-slate-100 p-1 text-slate-600", className)}
+      className={cn("inline-grid max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 text-slate-600", className)}
       {...props}
     />
   );
@@ -44,7 +44,7 @@ function TabsTrigger({ value, className, ...props }) {
     <button
       type="button"
       className={cn(
-        "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition",
+        "inline-flex min-w-0 shrink-0 items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition",
         isActive ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
         className,
       )}

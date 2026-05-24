@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -53,11 +53,7 @@ export default function PetRegister() {
     const [registeredPetName, setRegisteredPetName] = useState('');
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-    useEffect(() => {
-        fetchPets();
-    }, []);
-
-    const fetchPets = async () => {
+    const fetchPets = useCallback(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/pet_information`);
             if (response.ok) {
@@ -69,7 +65,11 @@ export default function PetRegister() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [API_BASE_URL]);
+
+    useEffect(() => {
+        fetchPets();
+    }, [fetchPets]);
 
     const handleInputChange = (field, value) => {
         setFormData(prev => {
@@ -234,6 +234,16 @@ export default function PetRegister() {
         }
     };
 
+    const filteredRegisteredPets = registeredPets.filter(pet => {
+        const query = searchTerm.toLowerCase();
+        const matchesSearch =
+            (pet.petName || '').toLowerCase().includes(query) ||
+            String(pet.id || '').toLowerCase().includes(query);
+        const matchesStatus = statusFilter === 'all' || pet.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -248,9 +258,9 @@ export default function PetRegister() {
 
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     {/* Left Column */}
-                    <div className="space-y-6">
+                    <div className="min-w-0 space-y-6">
                         {/* Pet Information Section */}
                         <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -260,8 +270,8 @@ export default function PetRegister() {
                                 </h3>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 flex flex-col items-center justify-center mb-4 pt-2">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="flex flex-col items-center justify-center mb-4 pt-2 sm:col-span-2">
                                     <Label className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#0a0a0a] mb-4 w-full">
                                         Pet Profile Picture
                                     </Label>
@@ -298,7 +308,7 @@ export default function PetRegister() {
                                     )}
                                 </div>
 
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Pet Name *
                                     </label>
@@ -473,7 +483,7 @@ export default function PetRegister() {
                     </div>
 
                     {/* Right Column */}
-                    <div className="space-y-6">
+                    <div className="min-w-0 space-y-6">
                         {/* Medical Information Section */}
                         <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -554,18 +564,18 @@ export default function PetRegister() {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex gap-4 justify-end">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                     <Button
                         type="button"
                         variant="outline"
                         onClick={() => setFormData({ ...emptyPetProfile })}
-                        className="w-[140px] h-[40px]"
+                        className="h-[40px] w-full sm:w-[140px]"
                     >
                         Clear Form
                     </Button>
                     <Button
                         type="submit"
-                        className="bg-[#155dfc] hover:bg-[#0d4acf] w-[180px] h-[40px]"
+                        className="h-[40px] w-full bg-[#155dfc] hover:bg-[#0d4acf] sm:w-[180px]"
                     >
                         <Plus className="size-4 mr-2" />
                         Register Pet
@@ -573,7 +583,7 @@ export default function PetRegister() {
                 </div>
             </form>
             {/* Registered Pets List */}
-            <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
+            <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 space-y-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-2">
                         <ListTodo className="size-5 text-[#155dfc]" />
@@ -582,15 +592,15 @@ export default function PetRegister() {
                         </h3>
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-[minmax(180px,250px)_140px_auto] sm:items-center">
                         <Input
                             placeholder="Search pet name or ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="h-[36px] w-full sm:w-[250px]"
+                            className="h-[36px] w-full"
                         />
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="h-[36px] w-full sm:w-[140px]">
+                            <SelectTrigger className="h-[36px] w-full">
                                 <SelectValue placeholder="All Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -600,35 +610,102 @@ export default function PetRegister() {
                                 <SelectItem value="Deceased">Deceased</SelectItem>
                             </SelectContent>
                         </Select>
-                        <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                        <span className="justify-self-start bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap sm:justify-self-auto">
                             Total: {registeredPets.length}
                         </span>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                <div className="space-y-3 sm:hidden">
+                    {isLoading ? (
+                        <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                            Loading pets...
+                        </div>
+                    ) : filteredRegisteredPets.length > 0 ? (
+                        filteredRegisteredPets.map((pet) => (
+                            <div
+                                key={pet.id}
+                                className={`rounded-[12px] border p-4 ${
+                                    pet.status === 'Emergency'
+                                        ? 'border-red-100 bg-red-50'
+                                        : pet.status === 'Deceased'
+                                        ? 'border-slate-200 bg-slate-100 opacity-75'
+                                        : 'border-slate-100 bg-white'
+                                }`}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <code className="inline-block max-w-full truncate rounded bg-slate-100 px-2 py-1 font-mono text-xs text-[#155dfc]">
+                                            {pet.id}
+                                        </code>
+                                        <p className="mt-2 truncate font-semibold text-slate-900">{pet.petName}</p>
+                                    </div>
+                                    <div className={`mt-1 size-2 rounded-full shrink-0 ${
+                                        pet.status === 'Emergency' ? 'bg-red-500 animate-pulse' :
+                                        pet.status === 'Deceased' ? 'bg-slate-400' :
+                                        'bg-green-500'
+                                    }`} />
+                                </div>
+
+                                <div className="mt-4">
+                                    <Select
+                                        value={pet.status}
+                                        onValueChange={(value) => handleStatusChange(pet.id, value)}
+                                    >
+                                        <SelectTrigger className={`h-[38px] w-full font-medium transition-colors ${
+                                            pet.status === 'Emergency'
+                                                ? 'border-red-200 bg-white text-red-600'
+                                                : pet.status === 'Deceased'
+                                                ? 'border-slate-200 bg-white text-slate-500'
+                                                : 'border-slate-200 bg-white text-slate-700'
+                                        }`}>
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Healthy">Healthy</SelectItem>
+                                            <SelectItem value="Emergency">Emergency</SelectItem>
+                                            <SelectItem value="Deceased">Deceased</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                            No pets registered yet.
+                        </div>
+                    )}
+                </div>
+
+                <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[520px] table-fixed text-left border-collapse lg:min-w-[820px] xl:min-w-[960px]">
+                        <colgroup>
+                            <col className="w-[150px]" />
+                            <col className="w-[190px]" />
+                            <col className="hidden w-[170px] lg:table-column" />
+                            <col className="hidden w-[150px] xl:table-column" />
+                            <col className="hidden w-[170px] lg:table-column" />
+                            <col className="w-[180px]" />
+                        </colgroup>
                         <thead>
                             <tr className="border-b border-slate-100">
-                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Pet Name</th>
-                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Species/Breed</th>
-                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Gender/Age</th>
-                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Owner</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Pet ID</th>
+                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Pet Name</th>
+                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden lg:table-cell">Species/Breed</th>
+                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden xl:table-cell">Gender/Age</th>
+                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden lg:table-cell">Owner</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {registeredPets.length > 0 ? (
-                                registeredPets
-                                    .filter(pet => {
-                                        const matchesSearch = 
-                                            pet.petName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                            pet.id.toLowerCase().includes(searchTerm.toLowerCase());
-                                        const matchesStatus = 
-                                            statusFilter === 'all' || pet.status === statusFilter;
-                                        return matchesSearch && matchesStatus;
-                                    })
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan="6" className="py-10 text-center text-slate-400">
+                                        Loading pets...
+                                    </td>
+                                </tr>
+                            ) : filteredRegisteredPets.length > 0 ? (
+                                filteredRegisteredPets
                                     .map((pet) => (
                                         <tr 
                                             key={pet.id} 
@@ -641,23 +718,23 @@ export default function PetRegister() {
                                             }`}
                                         >
                                         <td className="py-3 px-4">
-                                            <p className="font-semibold text-slate-900">{pet.petName}</p>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <p className="text-sm text-slate-600">{pet.species}</p>
-                                            <p className="text-xs text-slate-400">{pet.breed}</p>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <p className="text-sm text-slate-600">{pet.gender}</p>
-                                            <p className="text-xs text-slate-400">{pet.age}</p>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <p className="text-sm font-medium text-blue-600">{pet.tempOwnerName || 'Unlinked'}</p>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <code className="text-xs bg-slate-100 px-2 py-1 rounded text-[#155dfc] font-mono">
+                                            <code className="inline-block max-w-full truncate rounded bg-slate-100 px-2 py-1 font-mono text-xs text-[#155dfc]">
                                                 {pet.id}
                                             </code>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <p className="truncate font-semibold text-slate-900">{pet.petName}</p>
+                                        </td>
+                                        <td className="py-3 px-4 hidden lg:table-cell">
+                                            <p className="truncate text-sm text-slate-600">{pet.species}</p>
+                                            <p className="truncate text-xs text-slate-400">{pet.breed}</p>
+                                        </td>
+                                        <td className="py-3 px-4 hidden xl:table-cell">
+                                            <p className="truncate text-sm text-slate-600">{pet.gender}</p>
+                                            <p className="truncate text-xs text-slate-400">{pet.age}</p>
+                                        </td>
+                                        <td className="py-3 px-4 hidden lg:table-cell">
+                                            <p className="truncate text-sm font-medium text-blue-600">{pet.tempOwnerName || 'Unlinked'}</p>
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-2">
@@ -670,7 +747,7 @@ export default function PetRegister() {
                                                     value={pet.status} 
                                                     onValueChange={(value) => handleStatusChange(pet.id, value)}
                                                 >
-                                                    <SelectTrigger className={`h-[36px] w-[130px] font-medium transition-colors ${
+                                                    <SelectTrigger className={`h-[36px] w-[132px] font-medium transition-colors ${
                                                         pet.status === 'Emergency' 
                                                             ? 'border-red-200 bg-white text-red-600' 
                                                             : pet.status === 'Deceased'
@@ -691,7 +768,7 @@ export default function PetRegister() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="py-10 text-center text-slate-400">
+                                    <td colSpan="6" className="py-10 text-center text-slate-400">
                                         No pets registered yet.
                                     </td>
                                 </tr>

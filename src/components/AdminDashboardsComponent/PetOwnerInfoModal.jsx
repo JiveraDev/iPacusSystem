@@ -16,7 +16,7 @@ export default function PetOwnerProfileModal({ ownerName, ownerEmail }) {
             </div>
 
             {/* Personal Information Section */}
-            <div className="bg-[#f9fafb] rounded-[14px] p-6">
+            <div className="rounded-[14px] bg-[#f9fafb] p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <User className="size-5 text-[#155dfc]" />
                     <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">
@@ -26,7 +26,7 @@ export default function PetOwnerProfileModal({ ownerName, ownerEmail }) {
 
                 <div className="space-y-4">
                     {/* First Name & Last Name */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                 First Name
@@ -56,7 +56,7 @@ export default function PetOwnerProfileModal({ ownerName, ownerEmail }) {
                             Email
                         </p>
                         <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[8px] px-3 py-2">
-                            <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#101828]">
+                            <p className="break-anywhere font-['Arimo:Regular',sans-serif] text-[16px] text-[#101828]">
                                 {ownerEmail}
                             </p>
                         </div>

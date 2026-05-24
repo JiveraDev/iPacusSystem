@@ -1,5 +1,5 @@
 import userPhoto from "../../assets/circular_logo.png";
-import { useParams, useNavigate } from "./dashboardRouter";
+import { useParams, useNavigate } from "../dashboardRouter.jsx";
 import { useState, useEffect } from "react";
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { 
@@ -76,12 +76,12 @@ export default function VideoConsultation() {
         </div>
 
         {/* Veterinarian Name Label */}
-        <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
-          <p className="text-white font-bold text-[15px]">{consultation.veterinarian}</p>
+        <div className="absolute left-3 top-3 max-w-[calc(100%-8rem)] rounded-full bg-black/60 px-3 py-2 backdrop-blur-sm sm:left-6 sm:top-6 sm:max-w-none sm:px-4">
+          <p className="truncate text-[13px] font-bold text-white sm:text-[15px]">{consultation.veterinarian}</p>
         </div>
 
         {/* Your Video - Picture in Picture (Top Right) */}
-        <div className="absolute top-6 right-6 w-[180px] h-[240px] bg-[#2a2a2a] rounded-2xl overflow-hidden border-[1.2px] border-white/20 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
+        <div className="absolute right-3 top-3 h-[132px] w-[96px] overflow-hidden rounded-2xl border-[1.2px] border-white/20 bg-[#2a2a2a] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] sm:right-6 sm:top-6 sm:h-[240px] sm:w-[180px]">
           <ImageWithFallback
             src={userPhoto}
             alt="You"
@@ -98,11 +98,11 @@ export default function VideoConsultation() {
         </div>
 
         {/* Call Controls */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-sm rounded-full px-6 py-4 flex items-center gap-4">
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 px-4 py-3 backdrop-blur-sm sm:bottom-8 sm:gap-4 sm:px-6 sm:py-4">
           {/* Mic Button */}
           <button
             onClick={() => setIsMicOn(!isMicOn)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors ${
+            className={`flex size-11 items-center justify-center rounded-full shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors sm:size-14 ${
               isMicOn 
                 ? "bg-[#155dfc] hover:bg-[#1248d0]" 
                 : "bg-red-500 hover:bg-red-600"
@@ -115,7 +115,7 @@ export default function VideoConsultation() {
           {/* Video Button */}
           <button
             onClick={() => setIsVideoOn(!isVideoOn)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors ${
+            className={`flex size-11 items-center justify-center rounded-full shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors sm:size-14 ${
               isVideoOn 
                 ? "bg-[#155dfc] hover:bg-[#1248d0]" 
                 : "bg-red-500 hover:bg-red-600"
@@ -128,7 +128,7 @@ export default function VideoConsultation() {
           {/* End Call Button */}
           <button
             onClick={handleEndCall}
-            className="w-14 h-14 rounded-full bg-[#fb2c36] hover:bg-[#e01f29] flex items-center justify-center shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors"
+            className="flex size-11 items-center justify-center rounded-full bg-[#fb2c36] shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-colors hover:bg-[#e01f29] sm:size-14"
             aria-label="End call"
           >
             <PhoneOff className="h-5 w-5 text-white" />
@@ -136,7 +136,7 @@ export default function VideoConsultation() {
         </div>
 
         {/* Call Info Banner - Top Center */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-6 py-2 rounded-full flex items-center gap-3">
+        <div className="absolute left-1/2 top-[4.5rem] flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/60 px-4 py-2 backdrop-blur-sm sm:top-6 sm:px-6">
           <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
           <span className="text-white font-medium text-sm">{formatDuration(duration)}</span>
         </div>
@@ -144,4 +144,3 @@ export default function VideoConsultation() {
     </div>
   );
 }
-

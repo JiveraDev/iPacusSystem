@@ -72,7 +72,7 @@ export default function DisposalLogsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col items-start justify-between gap-4 lg:flex-row">
         <div>
           <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
             Disposal Logs
@@ -81,12 +81,12 @@ export default function DisposalLogsPage() {
             Complete record of all disposed inventory items for regulatory compliance
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <Download className="size-4 mr-2" />
             Export Report
           </Button>
-          <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" size="sm">
+          <Button className="w-full bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto" size="sm">
             <FileText className="size-4 mr-2" />
             Generate Compliance Report
           </Button>
@@ -109,7 +109,7 @@ export default function DisposalLogsPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="size-12 rounded-[10px] bg-[#f9fafb] flex items-center justify-center">
@@ -177,7 +177,7 @@ export default function DisposalLogsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
             <Input
@@ -343,7 +343,7 @@ export default function DisposalLogsPage() {
                 <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
                   Product Information
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Product Name</p>
                     <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{selectedLog.productName}</p>
@@ -368,7 +368,7 @@ export default function DisposalLogsPage() {
                 <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
                   Disposal Details
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Quantity Disposed</p>
                     <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
@@ -407,7 +407,7 @@ export default function DisposalLogsPage() {
                 <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
                   Authorization & Witnesses
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex items-center gap-2">
                     <User className="size-4 text-[#4a5565]" />
                     <div>
@@ -436,7 +436,7 @@ export default function DisposalLogsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 justify-end">
+              <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
                 <Button variant="outline">
                   <Download className="size-4 mr-2" />
                   Download Certificate

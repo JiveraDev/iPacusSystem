@@ -6,7 +6,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PhotoViewer } from '../../ui/photo-viewer';
-import { useNavigate } from '../PetOwnerDashboard/dashboardRouter';
+import { useNavigate } from '../dashboardRouter.jsx';
 import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
@@ -290,7 +290,7 @@ export default function StockInPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button
           variant="ghost"
           size="sm"
@@ -317,7 +317,7 @@ export default function StockInPage() {
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {/* Receiving Information */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Receiving Information
           </h3>
@@ -373,8 +373,8 @@ export default function StockInPage() {
         </div>
 
         {/* Items to Receive */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">
               Items to Receive
             </h3>
@@ -400,7 +400,7 @@ export default function StockInPage() {
                 key={index}
                 className="bg-[#f9fafb] rounded-[10px] p-4 space-y-4"
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
                     Item #{index + 1}
                   </p>
@@ -571,7 +571,7 @@ export default function StockInPage() {
         </div>
 
         {/* Invoice Upload */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
+        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
             Supporting Documents
           </h3>
@@ -584,7 +584,7 @@ export default function StockInPage() {
               </Label>
               <label
                 htmlFor="invoice"
-                className="block border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-6 text-center hover:border-[#155dfc] transition-colors cursor-pointer"
+                className="block border-2 border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px] p-4 text-center hover:border-[#155dfc] transition-colors cursor-pointer sm:p-6"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
@@ -668,8 +668,8 @@ export default function StockInPage() {
             </h3>
           </div>
 
-          <div className="p-6 space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="space-y-5 p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-5">
               <div className="rounded-[10px] border border-[rgba(0,0,0,0.08)] p-4">
                 <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565] mb-1">Line Items</p>
                 <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#101828]">{items.length}</p>
@@ -733,7 +733,7 @@ export default function StockInPage() {
         </div>
 
         {/* Form Actions */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <Button
             type="button"
             variant="outline"

@@ -5,7 +5,7 @@ import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
 
 // Lazy load components
 const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
-const Login = lazy(() => import("./components/Login.jsx").then(module => ({ default: module.Login })));
+const Login =lazy(() => import("./components/Login.jsx").then(module => ({ default: module.Login })));
 const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
 const RegistrationForm = lazy(() => import("./components/Registration.jsx").then(module => ({ default: module.RegistrationForm })));
 const PetOwnerProfileForm = lazy(() => import("./components/petownerprofileRegistration.jsx").then(module => ({ default: module.PetOwnerProfileForm })));

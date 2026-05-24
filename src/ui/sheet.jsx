@@ -22,7 +22,7 @@ const SheetTrigger = ({ asChild, children }) => {
   });
 };
 
-const SheetContent = ({ children, side = "right", className, ...props }) => {
+const SheetContent = ({ children, side = "right", className, showClose = true, ...props }) => {
   const { open, setOpen } = React.useContext(SheetContext);
   const [shouldRender, setShouldRender] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -68,12 +68,13 @@ const SheetContent = ({ children, side = "right", className, ...props }) => {
         onClick={() => setOpen(false)} 
       />
       <div className={cn(
-        "fixed z-50 bg-white p-0 shadow-2xl transition-transform duration-300 ease-in-out",
-        side === "right" || side === "left" ? "inset-y-0 w-full sm:max-w-md h-full" : "inset-x-0 h-auto w-full",
+        "fixed z-50 max-w-full overflow-hidden bg-white p-0 shadow-2xl transition-transform duration-300 ease-in-out",
+        side === "right" || side === "left" ? "inset-y-0 h-full w-full sm:max-w-md" : "inset-x-0 h-auto w-full",
         currentSide.base,
         isVisible ? currentSide.active : currentSide.inactive,
         className
       )} {...props}>
+        {showClose && (
         <div className="absolute top-4 right-4 z-10">
             <button 
               onClick={() => setOpen(false)}
@@ -82,6 +83,7 @@ const SheetContent = ({ children, side = "right", className, ...props }) => {
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 opacity-70"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
+        )}
         <div className="h-full overflow-y-auto">
           {children}
         </div>
@@ -102,4 +104,25 @@ const SheetDescription = ({ className, ...props }) => (
   <p className={cn("text-sm text-slate-500", className)} {...props} />
 );
 
-export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription };
+const SheetClose = ({ className, children, onClick, ...props }) => {
+  const { setOpen } = React.useContext(SheetContext);
+  const handleClick = (event) => {
+    onClick?.(event);
+    if (!event.defaultPrevented) {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <button
+      {...props}
+      type="button"
+      className={className}
+      onClick={handleClick}
+    >
+      {children}
+    </button>
+  );
+};
+
+export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose };

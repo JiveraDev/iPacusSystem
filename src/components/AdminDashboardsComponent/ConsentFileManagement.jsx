@@ -173,7 +173,7 @@ export default function ConsentFilesManagement() {
     };
 
     const LetterFormat = ({ title, content }) => (
-        <div className="bg-white p-8 sm:p-12 shadow-inner border border-gray-100 min-h-[600px] flex flex-col font-serif relative overflow-hidden">
+        <div className="relative flex min-h-[600px] flex-col overflow-hidden border border-gray-100 bg-white p-4 font-serif shadow-inner sm:p-8 lg:p-12">
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none rotate-12">
                 <img src={logoImg} alt="Watermark" className="w-[400px]" />
             </div>
@@ -185,10 +185,10 @@ export default function ConsentFilesManagement() {
             <div className="text-center mb-8">
                 <h2 className="text-xl font-bold underline decoration-1 underline-offset-4">{title}</h2>
             </div>
-            <div className="flex-1 whitespace-pre-wrap text-sm leading-relaxed text-gray-800 text-justify px-4">
+            <div className="flex-1 whitespace-pre-wrap px-0 text-justify text-sm leading-relaxed text-gray-800 sm:px-4">
                 {content || "No content available for this form."}
             </div>
-            <div className="mt-12 flex justify-between px-4">
+            <div className="mt-12 flex flex-col gap-10 px-0 sm:flex-row sm:justify-between sm:px-4">
                 <div className="border-t border-gray-400 pt-1 w-48 text-center">
                     <p className="text-[10px] uppercase font-sans font-bold">Owner's Signature</p>
                 </div>
@@ -205,7 +205,7 @@ export default function ConsentFilesManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
                     <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
                         Consent Files Management
@@ -221,7 +221,7 @@ export default function ConsentFilesManagement() {
             </div>
 
             {/* Upload Section */}
-            <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 shadow-sm">
+            <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 shadow-sm sm:p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <div className="p-2 bg-blue-50 rounded-lg">
                         <Upload className="size-5 text-blue-600" />
@@ -230,7 +230,7 @@ export default function ConsentFilesManagement() {
                         Upload New Consent Template
                     </h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
                     <div className="space-y-1">
                         <Label className="text-xs text-gray-500 block">Select TXT File</Label>
                         <Input
@@ -275,8 +275,8 @@ export default function ConsentFilesManagement() {
                 ) : files.map((file) => (
                     <Card key={file.file_id} className="group hover:border-blue-300 transition-all duration-300 hover:shadow-md border-gray-200 overflow-hidden">
                         <CardContent className="p-5">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="bg-[#eff6ff] rounded-xl p-3 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                                <div className="shrink-0 rounded-xl bg-[#eff6ff] p-3 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                                     <FileText className="size-7" />
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

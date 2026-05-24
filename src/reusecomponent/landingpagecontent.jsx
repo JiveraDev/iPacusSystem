@@ -66,12 +66,12 @@ const services = [
 
 export default function LandingPageContent({ onLogin }) {
   return (
-    <div className="bg-white text-slate-900">
+    <div className="min-w-0 bg-white text-slate-900">
       <header className="border-b border-black/10">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <img src={logoImage} alt="iPawcus logo" className="h-10 w-10 object-contain" />
-            <div className="font-['Montserrat:Bold',sans-serif] text-2xl font-bold text-[#155dfc]">
+            <div className="font-['Montserrat:Bold',sans-serif] text-xl font-bold text-[#155dfc] sm:text-2xl">
               iPawcus
             </div>
           </div>
@@ -80,7 +80,7 @@ export default function LandingPageContent({ onLogin }) {
             <button
               type="button"
               onClick={onLogin}
-              className="rounded-lg bg-[#1B56FD] px-4 py-2 text-sm scale-110 text-white"
+              className="rounded-lg bg-[#1B56FD] px-4 py-2 text-sm text-white"
             >
               Login
             </button>
@@ -88,15 +88,15 @@ export default function LandingPageContent({ onLogin }) {
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-16 text-center">
+      <section className="mx-auto w-full max-w-6xl px-4 py-10 text-center sm:px-6 sm:py-16">
         <div
-            className="mx-auto mb-6 inline-flex items-center rounded-full bg-[#dbeafe] px-4 py-2 text-sm font-bold text-[#1447e6]">
+            className="mx-auto mb-6 inline-flex max-w-full items-center rounded-full bg-[#dbeafe] px-4 py-2 text-xs font-bold text-[#1447e6] sm:text-sm">
           * 4.4 Rating - Trusted by Pet Owners in Lucena City
         </div>
-        <h1 className="mx-auto max-w-3xl text-4xl font-bold text-[#101828] md:text-5xl">
+        <h1 className="mx-auto max-w-3xl text-3xl font-bold text-[#101828] sm:text-4xl md:text-5xl">
           Professional Pet Healthcare in Lucena City
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-[#4a5565]">
+        <p className="mx-auto mt-6 max-w-2xl text-base text-[#4a5565] sm:text-lg">
           Vetfocus Care Animal Clinic - Your trusted partner for comprehensive veterinary services, grooming, and pet
           wellness
         </p>
@@ -111,9 +111,9 @@ export default function LandingPageContent({ onLogin }) {
       </section>
 
       <section className="bg-white">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-2 lg:gap-10">
           <div>
-            <h2 className="text-3xl font-bold text-[#101828]">
+            <h2 className="text-2xl font-bold text-[#101828] sm:text-3xl">
               About Vetfocus Care Animal Clinic
             </h2>
             <p className="mt-4 text-[#4a5565]">
@@ -146,8 +146,8 @@ export default function LandingPageContent({ onLogin }) {
       </section>
 
       <section className="bg-[#eff6ff]">
-        <div className="mx-auto w-full max-w-6xl px-6 py-16">
-          <h2 className="text-center text-3xl font-bold text-[#101828]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+          <h2 className="text-center text-2xl font-bold text-[#101828] sm:text-3xl">
             Latest Announcements
           </h2>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -181,8 +181,8 @@ export default function LandingPageContent({ onLogin }) {
       </section>
 
       <section className="bg-white">
-        <div className="mx-auto w-full max-w-6xl px-6 py-16">
-          <h2 className="text-center text-3xl font-bold text-[#101828]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+          <h2 className="text-center text-2xl font-bold text-[#101828] sm:text-3xl">
             How to Book an Online Consultation
           </h2>
           <div className="mt-10 grid gap-10 lg:grid-cols-2">
@@ -213,8 +213,8 @@ export default function LandingPageContent({ onLogin }) {
       </section>
 
       <section className="bg-[#f9fafb]">
-        <div className="mx-auto w-full max-w-6xl px-6 py-16">
-          <h2 className="text-center text-3xl font-bold text-[#101828]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+          <h2 className="text-center text-2xl font-bold text-[#101828] sm:text-3xl">
             Clinic Information & Guidelines
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -253,7 +253,7 @@ export default function LandingPageContent({ onLogin }) {
       </section>
 
       <footer className="bg-[#f9fafb]">
-        <div className="mx-auto w-full max-w-6xl px-6 py-12 text-[#99a1af]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 text-[#99a1af] sm:px-6 sm:py-12">
           <div className="grid gap-8 lg:grid-cols-3">
             <div>
               <div className="flex items-center gap-2 text-black">

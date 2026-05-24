@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "./dashboardRouter";
+import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
@@ -69,7 +69,7 @@ export default function MedicalRecords() {
   return (
     <div className="space-y-8 max-w-6xl">
       {/* Back Button */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to {pet.name}'s Profile

@@ -4,6 +4,7 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { formatDisplayDate } from '../../lib/date';
 
 export default function NearExpiryPage() {
   const [urgencyFilter, setUrgencyFilter] = useState('all');
@@ -167,7 +168,7 @@ export default function NearExpiryPage() {
                   {item.quantity} {item.unit}
                 </TableCell>
                 <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                  {item.expiryDate}
+                  {formatDisplayDate(item.expiryDate, { compact: true })}
                 </TableCell>
                 <TableCell>
                   <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-[8px] ${

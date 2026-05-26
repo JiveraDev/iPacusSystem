@@ -1,150 +1,224 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from 'react';
+import { AlertCircle, Calendar, Check, PawPrint, User } from 'lucide-react';
 import { Badge } from '../../ui/badge';
-import { toast } from "../../reusecomponent/toast.jsx";
+import { calculateAge, formatDisplayDate } from '../../lib/date';
+import { resolveImageUrl } from '../../lib/image';
 
-export default function PetInfoModal({ petId, petName }) {
-    const [pet, setPet] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+function normalizePet(data = {}) {
+    const isRegistered = data.isRegistered ?? Boolean(data.db_id || data.petId || data.petShareableId || data.id);
+
+    return {
+        id: data.id || data.petShareableId || '',
+        dbId: data.db_id || data.petId || '',
+        name: data.name || data.petName || '',
+        species: data.species || data.petSpecies || '',
+        breed: data.breed || data.petBreed || '',
+        birthDate: data.birthDate || data.petBirthDate || '',
+        gender: data.gender || data.petGender || '',
+        status: data.status || data.petStatus || (isRegistered ? 'Registered' : 'Not Registered'),
+        age: data.age || data.petAge || '',
+        weight: data.weight || data.petWeight || '',
+        color: data.color || data.petColor || '',
+        microchipId: data.microchipId || data.petMicrochipId || '',
+        ownerName: data.ownerName || data.petTempOwner || '',
+        profileImage: data.profileImage || data.petProfileImage || '',
+        allergiesRaw: data.allergies_raw || data.petAllergies || '',
+        allergies: Array.isArray(data.allergies) ? data.allergies : [],
+        isRegistered
+    };
+}
+
+function getBookingFallbackPets(booking, petName) {
+    if (!booking) {
+        return petName ? [normalizePet({ petName, isRegistered: false })] : [];
+    }
+
+    return [normalizePet({
+        ...booking,
+        petName: booking.petName || petName,
+        isRegistered: booking.isRegistered
+    })];
+}
+
+export default function PetInfoModal({ petId, petName, booking }) {
+    const [pets, setPets] = useState(() => getBookingFallbackPets(booking, petName));
+    const [isLoading, setIsLoading] = useState(Boolean(petId || booking?.petIds?.length));
 
     useEffect(() => {
-        const fetchPetData = async () => {
-            if (!petId) {
+        let isMounted = true;
+
+        const fetchPets = async () => {
+            const ids = Array.isArray(booking?.petIds) && booking.petIds.length > 0
+                ? booking.petIds
+                : petId
+                    ? [petId]
+                    : [];
+
+            if (ids.length === 0 || booking?.isRegistered === false) {
+                setPets(getBookingFallbackPets(booking, petName));
                 setIsLoading(false);
                 return;
             }
+
+            setIsLoading(true);
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information/${petId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setPet(data);
-                } else {
-                    toast.error("Failed to load pet details");
+                const fetchedPets = await Promise.all(ids.map(async (id) => {
+                    const response = await fetch(`${API_BASE}/api/pet_information/${id}`);
+                    if (!response.ok) {
+                        return null;
+                    }
+                    return response.json();
+                }));
+                const normalizedPets = fetchedPets.filter(Boolean).map(normalizePet);
+
+                if (isMounted) {
+                    setPets(normalizedPets.length > 0 ? normalizedPets : getBookingFallbackPets(booking, petName));
                 }
             } catch (error) {
-                console.error("Error fetching pet data:", error);
+                console.error('Error fetching pet data:', error);
+                if (isMounted) {
+                    setPets(getBookingFallbackPets(booking, petName));
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
-        fetchPetData();
-    }, [petId]);
+        fetchPets();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [petId, petName, booking]);
 
     if (isLoading) {
-        return <div className="p-4 text-center text-gray-500 sm:p-8">Loading pet information...</div>;
+        return <div className="p-6 text-center text-slate-500">Loading pet information...</div>;
     }
 
-    if (!pet) {
+    if (pets.length === 0) {
         return (
-            <div className="space-y-4 p-4 text-center sm:p-8">
-                <div className="text-gray-500 italic">No detailed records found for this pet.</div>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                    This pet might be unregistered or its detailed information is missing from our records.
-                    Pet Name: {petName}
-                </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800">
+                No pet details were found for this booking.
             </div>
         );
     }
 
     return (
-        <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
-            {/* Pet Card */}
-            <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 text-center sm:p-6">
-                {/* Pet Image */}
-                <div className="flex justify-center mb-4">
-                    <div className="relative size-[150px] rounded-full overflow-hidden border-4 border-[#155dfc] bg-gray-100 flex items-center justify-center">
-                        {pet.profileImage ? (
+        <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-2">
+            {pets.map((pet, index) => (
+                <PetDetails key={pet.dbId || pet.id || `${pet.name}-${index}`} pet={pet} />
+            ))}
+        </div>
+    );
+}
+
+function PetDetails({ pet }) {
+    const [imageError, setImageError] = useState(false);
+    const imageUrl = imageError ? null : resolveImageUrl(pet.profileImage);
+    const displayAge = pet.birthDate ? calculateAge(pet.birthDate) : pet.age;
+    const allergies = pet.allergies.length > 0
+        ? pet.allergies
+        : pet.allergiesRaw
+            ? [{ allergen: pet.allergiesRaw, severity: 'Known' }]
+            : [];
+
+    return (
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                <div className="relative">
+                    <div className="size-28 overflow-hidden rounded-3xl border-4 border-white bg-slate-100 shadow-xl ring-1 ring-slate-100">
+                        {imageUrl ? (
                             <img
-                                alt={pet.name}
-                                className="absolute inset-0 size-full object-cover"
-                                src={pet.profileImage}
+                                src={imageUrl}
+                                alt={pet.name || 'Pet'}
+                                className="size-full object-cover"
+                                onError={() => setImageError(true)}
                             />
                         ) : (
-                            <span className="text-4xl">🐾</span>
+                            <div className="flex size-full items-center justify-center bg-blue-50">
+                                <PawPrint className="size-14 text-[#155dfc]" />
+                            </div>
                         )}
                     </div>
+                    <Badge className={`absolute -left-2 -top-2 border-2 border-white ${
+                        pet.isRegistered
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-amber-50 text-amber-700'
+                    }`}>
+                        {pet.isRegistered ? 'Registered' : 'Not Registered'}
+                    </Badge>
                 </div>
 
-                {/* Pet Name */}
-                <h3 className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#101828] mb-2">
-                    {pet.name}
-                </h3>
-
-                {/* Species and Breed */}
-                <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565] mb-1">
-                    {pet.species} • {pet.breed}
-                </p>
-
-                {/* Age and Gender */}
-                <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-3">
-                    {pet.age || 'Age Unknown'} • {pet.gender}
-                </p>
-
-                {/* Health Status Badge */}
-                <Badge className={`${
-                    pet.status === 'Healthy' ? 'bg-[#e0f2e9] text-[#0c6a3c]' : 
-                    pet.status === 'Emergency' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'
-                } hover:opacity-80`}>
-                    {pet.status}
-                </Badge>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Pet Profile</p>
+                    <h3 className="mt-1 break-words text-2xl font-black text-slate-900">{pet.name || 'Unnamed Pet'}</h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {[pet.species, pet.breed].filter(Boolean).join(' - ') || 'Species not set'}
+                    </p>
+                    {pet.id && (
+                        <code className="mt-3 inline-block max-w-full truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-[#155dfc]">
+                            {pet.id}
+                        </code>
+                    )}
+                </div>
             </div>
 
-            {/* Pet Details */}
-            <div className="rounded-[14px] bg-[#f9fafb] p-4 sm:p-6">
-                <h4 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-4">
-                    Pet Details
+            <section className="rounded-2xl bg-slate-50 p-4 sm:p-5">
+                <h4 className="mb-4 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Biological Profile
                 </h4>
-
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Species:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.species}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Breed:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.breed}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Birthday:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.birthDate || 'N/A'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Weight:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.weight ? `${pet.weight} kg` : 'N/A'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Color/Markings:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.color || 'N/A'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Microchip ID:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.microchipId || 'None'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 border-t pt-2">
-                        <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Owner:</span>
-                        <span className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">{pet.ownerName || 'Unknown'}</span>
-                    </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <BioField label="Species" value={pet.species} />
+                    <BioField label="Primary Breed" value={pet.breed} />
+                    <BioField icon={Calendar} label="Birth Date" value={pet.birthDate ? formatDisplayDate(pet.birthDate) : ''} />
+                    <BioField label="Estimated Age" value={displayAge} />
+                    <BioField label="Sex / Gender" value={pet.gender} />
+                    <BioField label="Body Weight" value={pet.weight ? `${pet.weight} kg` : ''} />
+                    <BioField label="Coloration" value={pet.color} />
+                    <BioField label="Health Status" value={pet.status} />
+                    <BioField icon={Check} label="Microchip ID" value={pet.microchipId} />
+                    <BioField icon={User} label="Owner Name" value={pet.ownerName} />
                 </div>
+            </section>
+
+            <section className={`rounded-2xl p-4 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
+                <div className="mb-3 flex items-center gap-2">
+                    <AlertCircle className={`size-5 ${allergies.length > 0 ? 'text-red-500' : 'text-slate-400'}`} />
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Critical Allergies</h4>
+                </div>
+                {allergies.length > 0 ? (
+                    <div className="space-y-2">
+                        {allergies.map((allergy, index) => (
+                            <div key={`${allergy.allergen}-${index}`} className="rounded-xl border border-red-100 bg-white p-3">
+                                <p className="text-sm font-black uppercase text-red-600">{allergy.allergen}</p>
+                                <p className="mt-1 text-xs font-semibold text-red-400">{allergy.severity || 'Known'} reaction type</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm font-medium text-slate-400">No known clinical allergies recorded.</p>
+                )}
+            </section>
+        </div>
+    );
+}
+
+function BioField({ label, value, icon: Icon }) {
+    return (
+        <div className="space-y-1.5">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+                {Icon && <Icon className="size-4 text-slate-400" />}
+                {label}
+            </p>
+            <div className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                <p className="break-words text-sm font-semibold text-slate-900 sm:text-base">
+                    {value || 'Not set'}
+                </p>
             </div>
-
-            {/* Medical Info */}
-            {pet.allergies_raw && (
-                <div className="bg-[#f9fafb] rounded-[14px] p-6">
-                    <h4 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-4">
-                        Medical Alerts
-                    </h4>
-                    <div className="bg-red-50 border border-red-100 rounded-[8px] p-3">
-                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-red-700 mb-1">Allergies</p>
-                        <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-red-600">{pet.allergies_raw}</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

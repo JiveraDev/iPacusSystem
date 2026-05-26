@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createElement, useState, useEffect } from 'react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
@@ -6,8 +6,10 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Phone, MapPin, Award, Ban, CheckCircle, UserPlus, Key, Plus, AlertTriangle, Stethoscope, Briefcase, Calendar } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
+import { formatDisplayDate } from '../../lib/date';
+import PasswordInput from '../shared/PasswordInput.jsx';
 
 export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
@@ -122,12 +124,12 @@ export default function AccountManagement() {
         return <Badge className="bg-gray-500 text-white">Disabled</Badge>;
     };
 
-    const EmptyCard = ({ title, description, icon: Icon }) => (
+    const EmptyCard = ({ title, description, icon }) => (
         <Card className="border-dashed border-2 border-slate-200 bg-slate-50/10 flex flex-col justify-center min-h-[250px] shadow-none pointer-events-none">
             <CardContent className="flex items-center justify-center p-6">
                 <div className="text-center">
                     <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        <Icon className="h-8 w-8 text-slate-200" />
+                        {createElement(icon, { className: 'h-8 w-8 text-slate-200' })}
                     </div>
                     <h3 className="text-lg font-bold text-slate-400 uppercase tracking-tight">{title}</h3>
                     <p className="text-slate-300 text-sm mt-1">{description}</p>
@@ -265,7 +267,7 @@ export default function AccountManagement() {
                                                 <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
                                                 <div>
                                                     <p className="text-xs text-gray-500">Hire Date</p>
-                                                    <p className="font-medium text-gray-900">{selectedUser.hire_date}</p>
+                                                    <p className="font-medium text-gray-900">{formatDisplayDate(selectedUser.hire_date)}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -385,7 +387,7 @@ export default function AccountManagement() {
                             </div>
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Password</Label>
-                                <Input type="password" required placeholder="Password" value={createForm.password} onChange={(e) => setCreateForm({...createForm, password: e.target.value})} className="bg-gray-100" />
+                                <PasswordInput required placeholder="Password" value={createForm.password} onChange={(e) => setCreateForm({...createForm, password: e.target.value})} inputClassName="bg-gray-100" />
                             </div>
                         </div>
 
@@ -434,7 +436,7 @@ export default function AccountManagement() {
 
                         <div className="pt-4 border-t">
                             <Label className="text-red-600 flex items-center gap-2"><Key className="size-4" /> Master Key Verification</Label>
-                            <Input type="password" required placeholder="Enter Super Admin Key" value={createForm.masterKey} onChange={(e) => setCreateForm({...createForm, masterKey: e.target.value})} className="bg-red-50 border-red-200" />
+                            <PasswordInput required placeholder="Enter Super Admin Key" value={createForm.masterKey} onChange={(e) => setCreateForm({...createForm, masterKey: e.target.value})} inputClassName="bg-red-50 border-red-200" />
                         </div>
 
                         <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">

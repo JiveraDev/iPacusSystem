@@ -8,6 +8,7 @@ import { CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Sear
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
+import { formatDisplayDateTime } from '../../lib/date';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -177,14 +178,7 @@ export default function QueueManagement() {
         return <Badge variant="secondary">Admin</Badge>;
     };
 
-    const formatDateTime = (value) =>
-        new Date(value).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+    const formatDateTime = (value) => formatDisplayDateTime(value);
 
     const handleReEnterQueue = async (queueId) => {
         try {
@@ -200,7 +194,7 @@ export default function QueueManagement() {
             } else {
                 toast.error(data.message || 'Failed to re-enter');
             }
-        } catch (error) {
+        } catch {
             toast.error('Error re-entering queue');
         }
     };

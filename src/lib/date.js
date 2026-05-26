@@ -4,6 +4,11 @@ function pad(value) {
 }
 
 function ensureDate(value) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
   return value instanceof Date ? value : new Date(value);
 }
 
@@ -36,6 +41,7 @@ function isSameDay(left, right) {
 
 function format(date, pattern) {
   const value = ensureDate(date);
+  if (Number.isNaN(value.getTime())) return "";
 
   if (pattern === "yyyy-MM-dd") {
     return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
@@ -46,7 +52,7 @@ function format(date, pattern) {
   }
 
   if (pattern === "PPP") {
-    return value.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+    return formatDisplayDate(value);
   }
 
   if (pattern === "PPPP") {
@@ -59,6 +65,52 @@ function format(date, pattern) {
   }
 
   return value.toLocaleString();
+}
+
+function formatDisplayDate(value, options = {}) {
+  if (!value) return options.fallback || "Not set";
+
+  const date = value instanceof Date ? ensureDate(value) : ensureDate(String(value).split(" ")[0]);
+  if (Number.isNaN(date.getTime())) return options.fallback || "Not set";
+
+  if (options.compact) {
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${String(date.getFullYear()).slice(-2)}`;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function formatDisplayDateTime(dateValue, timeValue, options = {}) {
+  if (!dateValue) return options.fallback || "Not scheduled";
+
+  const date = timeValue
+    ? new Date(`${String(dateValue).split(" ")[0]}T${timeValue}`)
+    : dateValue instanceof Date
+      ? new Date(dateValue)
+      : new Date(String(dateValue).replace(" ", "T"));
+
+  if (Number.isNaN(date.getTime())) return options.fallback || "Not scheduled";
+
+  const datePart = formatDisplayDate(date, options);
+  const timePart = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return `${datePart} at ${timePart}`;
+}
+
+function formatDisplayDateRange(startDate, endDate, options = {}) {
+  if (!startDate && !endDate) return options.fallback || "Not set";
+  if (!endDate) return formatDisplayDate(startDate, options);
+  if (!startDate) return formatDisplayDate(endDate, options);
+
+  return `${formatDisplayDate(startDate, options)} to ${formatDisplayDate(endDate, options)}`;
 }
 
 function calculateAge(birthDate) {
@@ -109,4 +161,4 @@ function calculateAge(birthDate) {
   return totalDays > 0 ? plural(totalDays, "day") : "Newborn";
 }
 
-export { addDays, differenceInDays, format, isSameDay, parseISO, calculateAge };
+export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, isSameDay, parseISO, calculateAge };

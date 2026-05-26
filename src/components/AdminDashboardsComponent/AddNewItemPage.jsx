@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { createInventoryItem, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
+import { formatDisplayDate } from '../../lib/date';
 
 const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'vials', 'bags', 'kg', 'liters'];
 const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -691,7 +692,7 @@ export default function AddNewItemPage() {
                 <SummaryValue label="Unit Cost" value={formatMoney(pendingItem.summary.unitCost)} />
                 <SummaryValue label="Reorder Level" value={pendingItem.summary.reorderLevel} />
                 <SummaryValue label="Barcode" value={pendingItem.summary.barcode || 'No barcode'} />
-                <SummaryValue label="Expiry" value={pendingItem.summary.expiryDate || 'No expiry date'} />
+                <SummaryValue label="Expiry" value={formatDisplayDate(pendingItem.summary.expiryDate, { fallback: 'No expiry date' })} />
               </div>
 
               <div className="rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] p-4 font-['Arimo:Regular',sans-serif] text-[13px] text-[#1e3a8a]">

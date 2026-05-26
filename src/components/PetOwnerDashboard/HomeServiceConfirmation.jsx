@@ -12,6 +12,7 @@ import {
   ShieldCheck, Upload, CheckCircle, Loader2, ArrowLeft, X 
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
+import { formatDisplayDate } from "../../lib/date";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
@@ -225,7 +226,7 @@ export default function HomeServiceConfirmation() {
               <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Preferred Date</p>
-                <p className="font-semibold">{booking.booking_date}</p>
+                <p className="font-semibold">{formatDisplayDate(booking.booking_date)}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

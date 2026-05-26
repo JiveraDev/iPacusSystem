@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '../../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
 import PetInfoModal from './PetInfoModal';
@@ -14,6 +14,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
 import { resolveImageUrl } from '../../lib/image';
+import { formatDisplayDate, formatDisplayDateRange } from '../../lib/date';
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -47,6 +48,7 @@ export default function BookingsManagement() {
     const [newDate, setNewDate] = useState('');
     const [newTime, setNewTime] = useState('');
     const [viewerImage, setViewerImage] = useState(null);
+    const [infoModal, setInfoModal] = useState(null);
 
     // Registration states
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -116,7 +118,7 @@ export default function BookingsManagement() {
                 )
             );
             setRescheduleDialogOpen(false);
-            toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${newDate} at ${newTime}`);
+            toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${formatDisplayDate(newDate)} at ${newTime}`);
             setCurrentRescheduleBooking(null);
             setNewDate('');
             setNewTime('');
@@ -403,7 +405,7 @@ export default function BookingsManagement() {
                                         <p>{booking.service}</p>
                                         {booking.hotelBoardingType && booking.checkInDate && booking.checkOutDate && (
                                             <p className="text-[12px] text-[#4a5565]">
-                                                {booking.checkInDate} to {booking.checkOutDate}
+                                                {formatDisplayDateRange(booking.checkInDate, booking.checkOutDate, { compact: true })}
                                             </p>
                                         )}
                                     </div>
@@ -411,10 +413,10 @@ export default function BookingsManagement() {
                                 <TableCell className="hidden md:table-cell">
                                     <div>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                                            {booking.checkInDate || booking.date}
+                                            {formatDisplayDate(booking.checkInDate || booking.date, { compact: true })}
                                         </p>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                                            {booking.checkOutDate ? `Until ${booking.checkOutDate}` : booking.time}
+                                            {booking.checkOutDate ? `Until ${formatDisplayDate(booking.checkOutDate, { compact: true })}` : booking.time}
                                         </p>
                                     </div>
                                 </TableCell>
@@ -452,62 +454,45 @@ export default function BookingsManagement() {
                                             <div className="space-y-6 p-4 sm:p-6">
                                                 {/* Quick Action Buttons */}
                                                 <div className={`grid ${!booking.isRegistered ? 'grid-cols-1 min-[420px]:grid-cols-3' : 'grid-cols-1 min-[420px]:grid-cols-2'} gap-3`}>
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
-                                                            >
-                                                                <ActionButtonMedia
-                                                                    image={booking.ownerProfileImage}
-                                                                    alt={`${booking.ownerName || 'Pet owner'} profile`}
-                                                                    fallback={User}
-                                                                />
-                                                                <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
-                                                                  View Pet Owner
-                                                                </span>
-                                                            </Button>
-                                                        </DialogTrigger>
-                                                        <DialogContent className="max-w-2xl">
-                                                            <DialogHeader>
-                                                                <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
-                                                                    Pet Owner Profile
-                                                                </DialogTitle>
-                                                            </DialogHeader>
-                                                            <PetOwnerProfileModal
-                                                                ownerName={booking.ownerName}
-                                                                ownerEmail={booking.ownerEmail}
-                                                            />
-                                                        </DialogContent>
-                                                    </Dialog>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setInfoModal({ type: 'owner', booking })}
+                                                        className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
+                                                    >
+                                                        <ActionButtonMedia
+                                                            image={booking.ownerProfileImage}
+                                                            alt={`${booking.ownerName || 'Pet owner'} profile`}
+                                                            fallback={User}
+                                                        />
+                                                        <span className="max-w-full truncate font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
+                                                            {booking.ownerName || 'Pet Owner'} profile
+                                                        </span>
+                                                        <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
+                                                            View Pet Owner
+                                                        </span>
+                                                    </Button>
 
-                                                    {booking.isRegistered ? (
-                                                        <Dialog>
-                                                            <DialogTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
-                                                                >
-                                                                    <ActionButtonMedia
-                                                                        image={booking.petProfileImage}
-                                                                        alt={`${booking.petName || 'Pet'} profile`}
-                                                                        fallback={PawPrint}
-                                                                    />
-                                                                    <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
-                                                                      View Pet Info
-                                                                    </span>
-                                                                </Button>
-                                                            </DialogTrigger>
-                                                            <DialogContent className="max-w-2xl">
-                                                                <DialogHeader>
-                                                                    <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
-                                                                        Pet Information
-                                                                    </DialogTitle>
-                                                                </DialogHeader>
-                                                                <PetInfoModal petId={booking.petId} petName={booking.petName} />
-                                                            </DialogContent>
-                                                        </Dialog>
-                                                    ) : (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setInfoModal({ type: 'pet', booking })}
+                                                        className="w-full h-auto py-4 flex flex-col gap-2 border-[#155dfc] hover:bg-[#eff6ff]"
+                                                    >
+                                                        <ActionButtonMedia
+                                                            image={booking.petProfileImage}
+                                                            alt={`${booking.petName || 'Pet'} profile`}
+                                                            fallback={PawPrint}
+                                                        />
+                                                        <span className="max-w-full truncate font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
+                                                            {booking.petName || 'Pet'} profile
+                                                        </span>
+                                                        <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#155dfc]">
+                                                            View Pet Info
+                                                        </span>
+                                                    </Button>
+
+                                                    {!booking.isRegistered && (
                                                         <Button
                                                             variant="outline"
                                                             onClick={() => handleOpenRegistration(booking)}
@@ -515,7 +500,7 @@ export default function BookingsManagement() {
                                                         >
                                                             <UserPlus className="size-6 text-amber-500" />
                                                             <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-amber-500">
-                                                              Register Pet
+                                                                Register Pet
                                                             </span>
                                                         </Button>
                                                     )}
@@ -596,8 +581,8 @@ export default function BookingsManagement() {
                                                         </p>
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                             {booking.checkInDate && booking.checkOutDate
-                                                                ? `${booking.checkInDate} to ${booking.checkOutDate}`
-                                                                : `${booking.date} at ${booking.time}`}
+                                                                ? formatDisplayDateRange(booking.checkInDate, booking.checkOutDate)
+                                                                : `${formatDisplayDate(booking.date)} at ${booking.time}`}
                                                         </p>
                                                     </div>
                                                     {booking.hotelBoardingType && (
@@ -692,11 +677,11 @@ export default function BookingsManagement() {
                                                     </div>
                                                 )}
 
-                                                {/* Signature Section for Home Services */}
-                                                {booking.isHomeService && booking.signaturePath && (
+                                                {/* Signature Section */}
+                                                {booking.signaturePath && (
                                                     <div className="border-t pt-4">
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
-                                                            Client Signature (Home Service)
+                                                            Client Signature
                                                         </p>
                                                         <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 flex items-center justify-center">
                                                             <img
@@ -823,6 +808,49 @@ export default function BookingsManagement() {
             </Table>
             </div>
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
+
+            <Dialog
+                open={!!infoModal}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setInfoModal(null);
+                    }
+                }}
+            >
+                {infoModal && (
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                                {infoModal.type === 'owner' ? 'Pet Owner Profile' : 'Pet Information'}
+                            </DialogTitle>
+                            <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                                {infoModal.type === 'owner'
+                                    ? `Profile details for ${infoModal.booking.ownerName || 'the pet owner'}`
+                                    : `Biological details for ${infoModal.booking.petName || 'the pet'}`}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {infoModal.type === 'owner' ? (
+                            <PetOwnerProfileModal
+                                ownerId={infoModal.booking.userId}
+                                ownerName={infoModal.booking.ownerName}
+                                ownerEmail={infoModal.booking.ownerEmail}
+                                ownerPhone={infoModal.booking.ownerPhone}
+                                ownerEmergencyNumber={infoModal.booking.ownerEmergencyNumber}
+                                ownerAddress={infoModal.booking.ownerAddress}
+                                ownerBirthdate={infoModal.booking.ownerBirthdate}
+                                ownerProfileImage={infoModal.booking.ownerProfileImage}
+                            />
+                        ) : (
+                            <PetInfoModal
+                                petId={infoModal.booking.petId}
+                                petName={infoModal.booking.petName}
+                                booking={infoModal.booking}
+                            />
+                        )}
+                    </DialogContent>
+                )}
+            </Dialog>
 
             {/* Reschedule Dialog */}
             <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>

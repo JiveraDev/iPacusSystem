@@ -138,7 +138,11 @@ switch ($path) {
         }
         break;
     case '/profile':
-        require_once __DIR__ . '/get_user_profile.php';
+        if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+            require_once __DIR__ . '/update_user_profile.php';
+        } else {
+            require_once __DIR__ . '/get_user_profile.php';
+        }
         break;
     case '/health':
         echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
@@ -160,6 +164,14 @@ switch ($path) {
         } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_medical_records.php';
+        } elseif (preg_match('/^\/users\/(\d+)\/password$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH' || $_SERVER['REQUEST_METHOD'] === 'POST') {
+                require_once __DIR__ . '/update_password.php';
+            } else {
+                http_response_code(405);
+                echo json_encode(['message' => 'Method not allowed.']);
+            }
         } elseif (preg_match('/^\/users\/(\d+)$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

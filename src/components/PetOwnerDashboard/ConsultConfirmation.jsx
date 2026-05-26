@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { CheckCircle, Calendar, Clock, Video, ExternalLink, AlertCircle } from "lucide-react";
+import { CheckCircle, Calendar, Clock, Video } from "lucide-react";
+import { formatDisplayDate, formatDisplayDateTime } from "../../lib/date";
 
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
@@ -58,6 +59,22 @@ export default function ConsultConfirmation() {
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
           <p className="text-sm font-medium text-slate-500">Loading details...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!consultation) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <h1 className="text-2xl font-bold text-gray-900">Consultation Not Found</h1>
+            <p className="mt-2 text-gray-600">The consultation booking could not be loaded.</p>
+            <Button onClick={() => navigate("/dashboard/consult")} className="mt-6">
+              Back to Consultations
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -121,12 +138,7 @@ export default function ConsultConfirmation() {
                 <Calendar className="h-5 w-5 text-blue-600 mt-1" />
                 <div>
                   <p className="text-sm text-gray-600">Date</p>
-                  <p className="font-semibold">{consultDateTime.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</p>
+                  <p className="font-semibold">{formatDisplayDate(consultDateTime)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -191,7 +203,7 @@ export default function ConsultConfirmation() {
                 </Button>
                 {!canJoin && (
                   <p className="text-sm text-gray-600 mt-2">
-                    Available from: {new Date(consultDateTime.getTime() - 10 * 60000).toLocaleString()}
+                    Available from: {formatDisplayDateTime(new Date(consultDateTime.getTime() - 10 * 60000))}
                   </p>
                 )}
               </div>
@@ -247,4 +259,3 @@ export default function ConsultConfirmation() {
     </div>
   );
 }
-

@@ -15,20 +15,51 @@ function tableExists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
-function normalizePetIds($petId, $petIds): array
+function resolvePetId(PDO $pdo, $id): ?int
+{
+    if ($id === null || $id === '') {
+        return null;
+    }
+
+    $value = trim((string)$id);
+    if ($value === '') {
+        return null;
+    }
+
+    if (is_numeric($value)) {
+        $stmt = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_id = ? LIMIT 1");
+        $stmt->execute([(int)$value]);
+        $resolvedId = $stmt->fetchColumn();
+        if ($resolvedId !== false) {
+            return (int)$resolvedId;
+        }
+    }
+
+    $stmt = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_sharable_ID = ? LIMIT 1");
+    $stmt->execute([$value]);
+    $resolvedId = $stmt->fetchColumn();
+
+    return $resolvedId !== false ? (int)$resolvedId : null;
+}
+
+function normalizePetIds(PDO $pdo, $petId, $petIds): array
 {
     $normalized = [];
 
     if (is_array($petIds)) {
         foreach ($petIds as $id) {
-            if ($id !== null && $id !== '' && is_numeric($id)) {
-                $normalized[] = (int)$id;
+            $resolvedId = resolvePetId($pdo, $id);
+            if ($resolvedId !== null) {
+                $normalized[] = $resolvedId;
             }
         }
     }
 
-    if (empty($normalized) && $petId !== null && $petId !== '' && is_numeric($petId)) {
-        $normalized[] = (int)$petId;
+    if (empty($normalized)) {
+        $resolvedId = resolvePetId($pdo, $petId);
+        if ($resolvedId !== null) {
+            $normalized[] = $resolvedId;
+        }
     }
 
     return array_values(array_unique($normalized));
@@ -43,6 +74,27 @@ function normalizeSpecies(?string $species): string
     if (str_contains($value, 'bird') || str_contains($value, 'avian')) return 'bird';
 
     return $value !== '' ? $value : 'unknown';
+}
+
+function normalizeBookingTime($time): ?string
+{
+    $value = trim((string)$time);
+    if ($value === '') {
+        return null;
+    }
+
+    $formats = ['g:i A', 'h:i A', 'g:i a', 'h:i a', 'H:i:s', 'H:i'];
+    foreach ($formats as $format) {
+        $date = DateTime::createFromFormat('!' . $format, $value);
+        $errors = DateTime::getLastErrors();
+        $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+
+        if ($date && !$hasErrors) {
+            return $date->format('H:i:s');
+        }
+    }
+
+    return null;
 }
 
 function getSpeciesPetLimit(string $species): int
@@ -78,7 +130,7 @@ $input = json_decode(file_get_contents('php://input'), true) ?: [];
 
 $userId = $input['user_id'] ?? null;
 $petId = $input['pet_id'] ?? null;
-$petIds = normalizePetIds($petId, $input['pet_ids'] ?? []);
+$petIds = normalizePetIds($pdo, $petId, $input['pet_ids'] ?? []);
 $serviceType = $input['service_type'] ?? null;
 $bookingDate = $input['booking_date'] ?? null;
 $bookingTime = $input['booking_time'] ?? null;
@@ -121,9 +173,23 @@ if ($isHotelBoarding) {
     $bookingTime = $bookingTime ?: '09:00:00';
 }
 
+$bookingTime = normalizeBookingTime($bookingTime);
+
 if (!$userId || !$serviceType || !$bookingDate || !$bookingTime) {
     http_response_code(400);
     echo json_encode(['message' => 'Missing required booking information.']);
+    exit;
+}
+
+if ((int)$isOnlineConsultation === 1 && (!$veterinarianId || !is_numeric($veterinarianId))) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Please select a veterinarian for online consultation.']);
+    exit;
+}
+
+if ($registeredStatus === 'Registered' && empty($petIds)) {
+    http_response_code(400);
+    echo json_encode(['message' => 'The selected pet could not be found. Please go back and choose the pet again.']);
     exit;
 }
 
@@ -241,7 +307,7 @@ try {
     }
 
     $bookingNumber = 'BK-' . strtoupper(bin2hex(random_bytes(4)));
-    $primaryPetId = $petIds[0] ?? ($petId ?: null);
+    $primaryPetId = $petIds[0] ?? null;
     $addOnsValue = is_array($addOns) ? json_encode(array_values($addOns)) : $addOns;
 
     $stmt = $pdo->prepare("

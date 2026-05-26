@@ -7,8 +7,95 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const TIME_SLOT_ORDER = [
+  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
+  "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM"
+];
+const DEFAULT_AVAILABILITY = {
+  monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+  tuesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+  wednesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+  thursday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+  friday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+  saturday: ["09:00 AM", "10:00 AM", "11:00 AM"],
+  sunday: []
+};
+
+function toId(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function getPetId(pet) {
+  return toId(pet?.db_id ?? pet?.pet_id ?? pet?.id);
+}
+
+function getPetName(pet) {
+  return pet?.name || pet?.pet_name || pet?.petName || "";
+}
+
+function getPetSpecies(pet) {
+  return pet?.species || pet?.pet_species || "";
+}
+
+function getPetBreed(pet) {
+  return pet?.breed || pet?.pet_breed || "";
+}
+
+function getPetAge(pet) {
+  return pet?.age || pet?.pet_age || "";
+}
+
+function getPetWeight(pet) {
+  return pet?.weight || pet?.pet_weight || "";
+}
+
+function sortTimeSlots(slots) {
+  return [...new Set(slots)].sort((first, second) => {
+    const firstIndex = TIME_SLOT_ORDER.indexOf(first);
+    const secondIndex = TIME_SLOT_ORDER.indexOf(second);
+
+    if (firstIndex === -1 && secondIndex === -1) return first.localeCompare(second);
+    if (firstIndex === -1) return 1;
+    if (secondIndex === -1) return -1;
+    return firstIndex - secondIndex;
+  });
+}
+
+function isAvailableSchedule(schedule) {
+  return Number(schedule?.is_available) === 1 || schedule?.is_available === true;
+}
+
+function buildAvailabilityFromSchedules(schedules) {
+  return schedules.reduce((availability, schedule) => {
+    if (!isAvailableSchedule(schedule) || !schedule.time_slot) {
+      return availability;
+    }
+
+    const day = String(schedule.day_of_week || "").trim().toLowerCase();
+    if (!day) {
+      return availability;
+    }
+
+    return {
+      ...availability,
+      [day]: sortTimeSlots([...(availability[day] || []), schedule.time_slot])
+    };
+  }, {});
+}
+
+function getVetLabel(vet) {
+  return vet ? `${vet.name} - ${vet.specialization}` : "";
+}
+
+function parseDateInput(value) {
+  const [year, month, day] = String(value).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 
 export default function ConsultBooking() {
   const navigate = useNavigate();
@@ -21,6 +108,7 @@ export default function ConsultBooking() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedVet, setSelectedVet] = useState("");
+  const [concernImages, setConcernImages] = useState([]);
 
   // New Pet Information (for anonymous booking)
   const [isNewPet, setIsNewPet] = useState(false);
@@ -31,18 +119,9 @@ export default function ConsultBooking() {
   const [newPetWeight, setNewPetWeight] = useState("");
   const [newPetMedicalConditions, setNewPetMedicalConditions] = useState("");
 
-  // Fallback availability for veterinarians
-  const defaultAvailability = {
-    monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-    tuesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-    wednesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-    thursday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-    friday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-    saturday: ["09:00 AM", "10:00 AM", "11:00 AM"],
-    sunday: []
-  };
-
   const discussionTopics = ["Weight Issues", "Symptoms/Illness", "Behavior", "Nutrition", "Other"];
+  const selectedPetData = pets.find((pet) => getPetId(pet) === selectedPet);
+  const selectedVetData = veterinarians.find((vet) => vet.id === selectedVet);
 
   // Get available time slots for selected vet and date
   const getAvailableTimeSlots = () => {
@@ -51,11 +130,10 @@ export default function ConsultBooking() {
     const vet = veterinarians.find(v => v.id === selectedVet);
     if (!vet) return [];
 
-    const date = new Date(selectedDate);
+    const date = parseDateInput(selectedDate);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     
-    // Use vet-specific availability if it exists, otherwise use default
-    return (vet.availability && vet.availability[dayName]) || defaultAvailability[dayName] || [];
+    return (vet.availability && vet.availability[dayName]) || [];
   };
 
   useEffect(() => {
@@ -64,22 +142,65 @@ export default function ConsultBooking() {
         const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
         const userId = currentUser.id || currentUser.user_id;
 
+        if (!userId) {
+          toast.error("Session error. Please log in again.");
+          return;
+        }
+
         // Fetch Pets
-        const petsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/pets`);
+        const petsResponse = await fetch(`${API_BASE}/api/users/${userId}/pets`);
+        if (!petsResponse.ok) {
+          throw new Error("Failed to load pets");
+        }
         const petsData = await petsResponse.json();
         setPets(Array.isArray(petsData) ? petsData : []);
 
         // Fetch Veterinarians
-        const vetsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`);
+        const vetsResponse = await fetch(`${API_BASE}/api/accounts`);
+        if (!vetsResponse.ok) {
+          throw new Error("Failed to load veterinarians");
+        }
         const vetsData = await vetsResponse.json();
+        const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
+        const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
+          const vetId = toId(vet.user_id);
+
+          try {
+            const scheduleResponse = await fetch(`${API_BASE}/api/vet_schedules?userId=${encodeURIComponent(vetId)}`);
+            if (!scheduleResponse.ok) {
+              throw new Error("Schedule request failed");
+            }
+
+            const schedules = await scheduleResponse.json();
+            return {
+              vetId,
+              hasScheduleRows: Array.isArray(schedules) && schedules.length > 0,
+              availability: Array.isArray(schedules) ? buildAvailabilityFromSchedules(schedules) : {}
+            };
+          } catch (error) {
+            console.error(`Failed to load schedule for veterinarian ${vetId}:`, error);
+            return {
+              vetId,
+              hasScheduleRows: false,
+              availability: {}
+            };
+          }
+        }));
+        const schedulesByVet = new Map(scheduleResults.map((result) => [result.vetId, result]));
         
-        if (vetsData && vetsData.veterinarians) {
-          const formattedVets = vetsData.veterinarians.map(v => ({
-            id: v.user_id,
-            name: `Dr. ${v.first_Name} ${v.last_Name}`,
-            specialization: v.specialization || "General Practice",
-            availability: defaultAvailability // Currently the DB doesn't store availability, so use default
-          }));
+        if (vetAccounts.length > 0) {
+          const formattedVets = vetAccounts.map(v => {
+            const vetId = toId(v.user_id);
+            const schedule = schedulesByVet.get(vetId);
+
+            return {
+              id: vetId,
+              userId: v.user_id,
+              name: `Dr. ${v.first_Name} ${v.last_Name}`,
+              specialization: v.specialization || "General Practice",
+              availability: schedule?.hasScheduleRows ? schedule.availability : DEFAULT_AVAILABILITY
+            };
+          });
           setVeterinarians(formattedVets);
         }
       } catch (error) {
@@ -112,6 +233,27 @@ export default function ConsultBooking() {
   const handleDateChange = (date) => {
     setSelectedDate(date);
     setSelectedTime("");
+  };
+
+  const handleConcernImageUpload = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        if (loadEvent.target?.result) {
+          setConcernImages((prev) => [...prev, loadEvent.target.result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    event.target.value = "";
+  };
+
+  const handleRemoveConcernImage = (index) => {
+    setConcernImages((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   };
 
   const handleSubmit = (e) => {
@@ -158,23 +300,30 @@ export default function ConsultBooking() {
       toast.error("Please select a time");
       return;
     }
+    if (!getAvailableTimeSlots().includes(selectedTime)) {
+      toast.error("Please select an available time slot");
+      return;
+    }
 
     // Store booking data in session storage
     const bookingData = {
       petId: isNewPet ? "new-pet" : selectedPet,
-      petName: isNewPet ? newPetName : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.name || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_name,
-      petSpecies: isNewPet ? newPetSpecies : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.species || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_species,
-      petBreed: isNewPet ? newPetBreed : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.breed || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_breed,
-      petAge: isNewPet ? newPetAge : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.age || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_age,
-      petWeight: isNewPet ? newPetWeight : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.weight || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_weight,
+      petDbId: isNewPet ? null : getPetId(selectedPetData),
+      petShareableId: isNewPet ? null : selectedPetData?.id || selectedPetData?.pet_sharable_ID || "",
+      petName: isNewPet ? newPetName : getPetName(selectedPetData),
+      petSpecies: isNewPet ? newPetSpecies : getPetSpecies(selectedPetData),
+      petBreed: isNewPet ? newPetBreed : getPetBreed(selectedPetData),
+      petAge: isNewPet ? newPetAge : getPetAge(selectedPetData),
+      petWeight: isNewPet ? newPetWeight : getPetWeight(selectedPetData),
       petMedicalConditions: isNewPet ? newPetMedicalConditions : "",
       discussionTopic: discussionTopic.join(", "),
       notes,
-      date: format(new Date(selectedDate), "yyyy-MM-dd"),
+      date: format(selectedDate, "yyyy-MM-dd"),
       time: selectedTime,
       veterinarianId: selectedVet,
-      veterinarian: veterinarians.find(v => v.id === selectedVet)?.name,
-      dateTime: `${format(new Date(selectedDate), "yyyy-MM-dd")} ${selectedTime}`,
+      veterinarian: selectedVetData?.name,
+      dateTime: `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`,
+      concernImages,
     };
 
     sessionStorage.setItem("pendingBooking", JSON.stringify(bookingData));
@@ -252,12 +401,15 @@ export default function ConsultBooking() {
                 }
               }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose your pet" />
+                  <SelectValue
+                    placeholder="Choose your pet"
+                    displayValue={isNewPet ? "New Pet (Not Registered)" : getPetName(selectedPetData)}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {pets.map((pet) => (
-                    <SelectItem key={pet.id || pet.pet_id} value={pet.id || pet.pet_id}>
-                      {pet.name || pet.pet_name} ({pet.species || pet.pet_species} - {pet.breed || pet.pet_breed})
+                    <SelectItem key={getPetId(pet)} value={getPetId(pet)}>
+                      {getPetName(pet)} ({getPetSpecies(pet)} - {getPetBreed(pet)})
                     </SelectItem>
                   ))}
                   <SelectItem value="new-pet">
@@ -367,7 +519,7 @@ export default function ConsultBooking() {
               <Label>Select Veterinarian</Label>
               <Select value={selectedVet} onValueChange={handleVetChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a veterinarian" />
+                  <SelectValue placeholder="Choose a veterinarian" displayValue={getVetLabel(selectedVetData)} />
                 </SelectTrigger>
                 <SelectContent>
                   {veterinarians.map((vet) => (
@@ -379,7 +531,7 @@ export default function ConsultBooking() {
               </Select>
               {selectedVet && (
                 <p className="text-sm text-gray-600">
-                  View {veterinarians.find(v => v.id === selectedVet)?.name}'s available time slots below
+                  View {selectedVetData?.name}'s available time slots below
                 </p>
               )}
             </div>
@@ -392,7 +544,7 @@ export default function ConsultBooking() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
-                min={addDays(new Date(), 1).toISOString().split('T')[0]}
+                min={format(addDays(new Date(), 1), "yyyy-MM-dd")}
                 disabled={!selectedVet}
               />
               <p className="text-sm text-gray-600">
@@ -448,6 +600,57 @@ export default function ConsultBooking() {
             </div>
 
             {/* Additional Notes */}
+            <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <ImageIcon className="size-5" />
+                </div>
+                <div>
+                  <Label htmlFor="consultConcernImages" className="font-semibold text-slate-900">
+                    Pictures of Concern (Optional)
+                  </Label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Upload clear photos of symptoms, wounds, skin issues, or other visible concerns.
+                  </p>
+                </div>
+              </div>
+
+              <label
+                htmlFor="consultConcernImages"
+                className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white px-4 py-8 text-center transition-colors hover:border-blue-400"
+              >
+                <Upload className="mb-3 size-10 text-slate-400" />
+                <span className="text-sm font-semibold text-blue-600">Click to upload concern photos</span>
+                <span className="mt-1 text-xs text-slate-400">PNG or JPG images only</span>
+                <Input
+                  id="consultConcernImages"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleConcernImageUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {concernImages.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-4">
+                  {concernImages.map((image, index) => (
+                    <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <img src={image} alt={`Concern ${index + 1}`} className="size-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveConcernImage(index)}
+                        className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
+                        aria-label="Remove concern photo"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="notes">Additional Notes (Optional)</Label>
               <Textarea
@@ -474,4 +677,3 @@ export default function ConsultBooking() {
     </div>
   );
 }
-

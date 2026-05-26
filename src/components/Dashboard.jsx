@@ -592,7 +592,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 </div>
               }>
                 {/* eslint-disable-next-line react-hooks/static-components */}
-                <ScreenComponent user={user} onUserUpdate={onUserUpdate} />
+                <ScreenComponent user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
               </Suspense>
             </main>
           </div>

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
-import { calculateAge } from "../../lib/date";
+import { calculateAge, formatDisplayDate } from "../../lib/date";
 
 import { findPetService } from "../../services/findPet";
 
@@ -122,7 +122,7 @@ export default function PetProfileEdit() {
       } else {
         toast.error(result.message || "Failed to update profile");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred during save");
     } finally {
       setIsEditing(false);
@@ -147,7 +147,7 @@ export default function PetProfileEdit() {
         setNewVax({ name: "", date: "", nextDue: "", applicator: "", status: "completed" });
         toast.success("Vaccination record added");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to add vaccination");
     }
   };
@@ -164,7 +164,7 @@ export default function PetProfileEdit() {
         setVaccinations(prev => prev.filter(v => v.id !== id));
         toast.success("Record deleted");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete record");
     }
   };
@@ -184,7 +184,7 @@ export default function PetProfileEdit() {
         setNewAllergy({ allergen: "", severity: "Known" });
         toast.success("Allergy added");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to add allergy");
     }
   };
@@ -197,11 +197,10 @@ export default function PetProfileEdit() {
         body: JSON.stringify({ type: 'allergy', action: 'delete', id })
       });
       if (res.ok) {
-        setAllergies(prev => prev.filter(a => v.id !== id)); // Wait, typo fixed below
         setAllergies(prev => prev.filter(a => a.id !== id));
         toast.success("Allergy removed");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to remove allergy");
     }
   };
@@ -279,7 +278,7 @@ export default function PetProfileEdit() {
                       });
                       toast.success("Profile picture updated!");
                       setPet(prev => ({ ...prev, profileImage: result.relative_url }));
-                  } catch (err) { toast.error("Upload failed."); }
+                  } catch { toast.error("Upload failed."); }
               }}/>
               <label htmlFor="pet-pic-upload" className="absolute bottom-2 right-2 p-2 bg-blue-600 rounded-full text-white shadow-lg cursor-pointer hover:bg-blue-700 transition-colors">
                 <Camera className="h-5 w-5" />
@@ -419,11 +418,11 @@ export default function PetProfileEdit() {
                       <div className="grid grid-cols-2 gap-8 border-t border-slate-100 pt-4">
                         <div>
                           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Last Date</p>
-                          <p className="font-bold text-slate-700">{vax.date}</p>
+                          <p className="font-bold text-slate-700">{formatDisplayDate(vax.date)}</p>
                         </div>
                         <div>
                           <p className="text-[#155dfc] text-[10px] font-black uppercase tracking-widest mb-1">Booster Due</p>
-                          <p className="font-bold text-[#155dfc]">{vax.nextDue}</p>
+                          <p className="font-bold text-[#155dfc]">{formatDisplayDate(vax.nextDue)}</p>
                         </div>
                       </div>
                       <Button onClick={() => handleDeleteVaccination(vax.id)} variant="ghost" className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
@@ -522,7 +521,9 @@ function BioField({ label, value, isEdit, name, onChange, type = "text", isSelec
           <Input type={type} name={name} value={value || ""} onChange={onChange} className="h-9" />
         )
       ) : (
-        <span className="min-w-0 truncate font-bold text-slate-900">{value || <span className="text-slate-300 font-normal">N/A</span>}</span>
+        <span className="min-w-0 truncate font-bold text-slate-900">
+          {value ? (type === "date" ? formatDisplayDate(value) : value) : <span className="text-slate-300 font-normal">N/A</span>}
+        </span>
       )}
     </div>
   );

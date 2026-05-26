@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, User } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
-import { calculateAge } from "../../lib/date";
+import { calculateAge, formatDisplayDate, formatDisplayDateTime } from "../../lib/date";
 
 import { findPetService } from "../../services/findPet";
 
@@ -98,17 +98,7 @@ export default function PetProfile() {
   };
 
   const formatDateTime = (dateValue, timeValue) => {
-    if (!dateValue) return "Not scheduled";
-    const normalizedDateValue = String(dateValue).replace(" ", "T");
-    const date = timeValue ? new Date(`${dateValue}T${timeValue}`) : new Date(normalizedDateValue);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true
-    });
+    return formatDisplayDateTime(dateValue, timeValue);
   };
 
   const getQueueStatusBadge = (status) => {
@@ -537,11 +527,11 @@ export default function PetProfile() {
                       <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2 sm:gap-8">
                         <div>
                           <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Last Administration</p>
-                          <p className="font-extrabold text-slate-700 text-lg">{new Date(vax.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          <p className="font-extrabold text-slate-700 text-lg">{formatDisplayDate(vax.date)}</p>
                         </div>
                         <div>
                           <p className="text-[#155dfc] text-xs font-black uppercase tracking-widest mb-1">Booster Due Date</p>
-                          <p className="font-extrabold text-[#155dfc] text-lg">{new Date(vax.nextDue).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          <p className="font-extrabold text-[#155dfc] text-lg">{formatDisplayDate(vax.nextDue)}</p>
                         </div>
                       </div>
                     </div>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Archive, FileText, Download, Calendar, Search, Filter, CheckCircle, AlertCircle, User } from 'lucide-react';
+import { Archive, FileText, Download, Search, CheckCircle, AlertCircle, User } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
+import { formatDisplayDate } from '../../lib/date';
 
 export default function DisposalLogsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -262,7 +263,7 @@ export default function DisposalLogsPage() {
                   {getMethodLabel(log.disposalMethod)}
                 </TableCell>
                 <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                  {log.disposalDate}
+                  {formatDisplayDate(log.disposalDate, { compact: true })}
                 </TableCell>
                 <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px]">
                   {log.authorizedBy}
@@ -393,7 +394,7 @@ export default function DisposalLogsPage() {
                   </div>
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Disposal Date</p>
-                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{selectedLog.disposalDate}</p>
+                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{formatDisplayDate(selectedLog.disposalDate)}</p>
                   </div>
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Status</p>

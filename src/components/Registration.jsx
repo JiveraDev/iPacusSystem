@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import imgImageVfcLogo from "../assets/circular_logo.png";
 import { Card } from '../ui/card.jsx';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ArrowLeft } from 'lucide-react';
+import PasswordInput from './shared/PasswordInput.jsx';
 
 export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = false, initialValues }) {
     const [email, setEmail] = useState(initialValues?.email ?? '');
@@ -83,13 +84,12 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                         <Label htmlFor="password" className="text-gray-900 mb-2 block">
                             Password
                         </Label>
-                        <Input
+                        <PasswordInput
                             id="password"
-                            type="password"
                             placeholder="At least 6 characters"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className={`bg-gray-100 border-gray-300 ${errors.password ? 'border-red-500' : ''}`}
+                            inputClassName={`bg-gray-100 border-gray-300 ${errors.password ? 'border-red-500' : ''}`}
                         />
                         {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                     </div>
@@ -99,13 +99,12 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                         <Label htmlFor="confirmPassword" className="text-gray-900 mb-2 block">
                             Confirm Password
                         </Label>
-                        <Input
+                        <PasswordInput
                             id="confirmPassword"
-                            type="password"
                             placeholder="Re-enter your password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className={`bg-gray-100 border-gray-300 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                            inputClassName={`bg-gray-100 border-gray-300 ${errors.confirmPassword ? 'border-red-500' : ''}`}
                         />
                         {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
                     </div>

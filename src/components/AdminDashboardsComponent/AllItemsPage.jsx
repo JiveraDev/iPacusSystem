@@ -10,6 +10,7 @@ import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
 import InventoryStatusBadge from './InventoryStatusBadge';
 import { createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, updateInventoryItem } from '../../services/inventoryApi';
+import { formatDisplayDate } from '../../lib/date';
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
@@ -460,7 +461,7 @@ export default function AllItemsPage() {
                       ₱{item.costPrice.toFixed(2)}
                     </TableCell>
                     <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                      {getNearestExpiryBatch(item)?.batchNumber || 'No batch'} - {getNearestExpiryBatch(item)?.expiryDate || 'No expiry'}
+                      {getNearestExpiryBatch(item)?.batchNumber || 'No batch'} - {formatInventoryDate(getNearestExpiryBatch(item)?.expiryDate, { compact: true })}
                     </TableCell>
                     <TableCell>
                       <InventoryStatusBadge status={item.status} />
@@ -584,7 +585,7 @@ export default function AllItemsPage() {
                     <div key={batch.id} className="flex items-center justify-between gap-3 text-[12px]">
                       <div>
                         <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">{batch.batchNumber}</p>
-                        <p className="font-['Arimo:Regular',sans-serif] text-[#4a5565]">Expires {batch.expiryDate}</p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[#4a5565]">Expires {formatInventoryDate(batch.expiryDate, { compact: true })}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">{batch.quantity} {item.unit}</p>
@@ -846,7 +847,7 @@ export default function AllItemsPage() {
                         </div>
                         <div>
                           <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Expiry</p>
-                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.expiryDate}</p>
+                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{formatInventoryDate(batch.expiryDate)}</p>
                         </div>
                         <div>
                           <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Location</p>
@@ -1014,7 +1015,7 @@ function getItemBatches(item, sortBy = 'newest') {
     .sort((a, b) => compareBatches(a, b, sortBy));
 }
 
-function getTotalBatchQuantity(batches) {
+function GET_TOTAL_BATCH_QUANTITY(batches) {
   return batches.reduce((sum, batch) => sum + Number(batch.quantity || 0), 0);
 }
 
@@ -1044,10 +1045,15 @@ function getDateTime(value, fallback) {
 }
 
 function formatBatchOption(batch, unit) {
-  return `${batch.batchNumber} - ${batch.quantity} ${unit} - expires ${batch.expiryDate}`;
+  return `${batch.batchNumber} - ${batch.quantity} ${unit} - expires ${formatInventoryDate(batch.expiryDate, { compact: true })}`;
 }
 
-function getStockStatus(quantity, reorderLevel, currentStatus) {
+function formatInventoryDate(value, options = {}) {
+  if (!value || value === 'No expiry') return 'No expiry';
+  return formatDisplayDate(value, options);
+}
+
+function GET_STOCK_STATUS(quantity, reorderLevel, currentStatus) {
   if (quantity <= 0) return 'out-of-stock';
   if (reorderLevel && quantity <= reorderLevel) return 'low-stock';
   if (currentStatus === 'near-expiry') return 'near-expiry';
@@ -1055,7 +1061,7 @@ function getStockStatus(quantity, reorderLevel, currentStatus) {
 }
 
 // Enhanced mock data with all fields
-const initialInventoryItems = [
+const INITIAL_INVENTORY_ITEMS = [
   {
     id: '1',
     image: '',

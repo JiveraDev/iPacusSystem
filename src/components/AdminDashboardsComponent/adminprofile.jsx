@@ -1,55 +1,101 @@
-import { useState, useEffect } from 'react';
+import { createElement, useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { User, Save } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
+import { User, Save, Mail, Phone, MapPin, Briefcase, Calendar, BadgeCheck, Camera, Loader2, IdCard } from 'lucide-react';
+import { toast } from '../../reusecomponent/toast.jsx';
+import { resolveImageUrl } from '../../lib/image';
+import { formatDisplayDate } from '../../lib/date';
+import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
+import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
+import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
+import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 
-export default function ProfileManagement() {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+const emptyProfile = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    employeeId: '',
+    position: '',
+    hireDate: '',
+    employmentStatus: 'full-time',
+    sssNumber: '',
+    philhealthNumber: '',
+    tinNumber: '',
+    pagibigNumber: '',
+    yearsOfExperience: '',
+    profileImage: '',
+    educationHistory: [],
+    experienceHistory: []
+};
+
+function normalizeDate(value) {
+    return value ? String(value).split(' ')[0] : '';
+}
+
+function getFullName(profile) {
+    return `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Admin Profile';
+}
+
+export default function ProfileManagement({ onLogout }) {
+    const contextUser = useDashboardUser();
+    const onUserUpdate = useUserUpdate();
+    const currentUser = contextUser || JSON.parse(localStorage.getItem('currentUser') || '{}');
     const userId = currentUser.id || currentUser.user_id;
-    const role = currentUser.role;
+    const role = currentUser.role || 'Admin';
 
     const [isLoading, setIsLoading] = useState(true);
-    const [profile, setProfile] = useState({
-        salutation: 'Ms.',
-        firstName: '',
-        lastName: '',
-        extension: 'none',
-        position: '',
-        email: '',
-        phone: '',
-        licenseNumber: '',
-        sssNumber: '',
-        philhealthNumber: '',
-        tinNumber: '',
-        pagibigNumber: ''
-    });
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [profile, setProfile] = useState(emptyProfile);
+    const [savedProfile, setSavedProfile] = useState(emptyProfile);
+    const [imageFile, setImageFile] = useState(null);
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/profile?userId=${userId}&role=${role}`);
+                if (!userId) return;
+
+                const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role || '')}`);
                 const data = await response.json();
-                if (response.ok) {
-                    setProfile({
-                        salutation: 'Ms.',
-                        firstName: data.first_Name || '',
-                        lastName: data.last_Name || '',
-                        extension: 'none',
-                        position: data.postionn || 'Admin',
-                        email: data.mail_Address || '',
-                        phone: data.phoneNumber || '',
-                        licenseNumber: data.employee_id || '',
-                        sssNumber: data.sss_number || '',
-                        philhealthNumber: data.philhealth_number || '',
-                        tinNumber: data.tin_number || '',
-                        pagibigNumber: data.pagibig_number || ''
-                    });
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to load profile');
                 }
+
+                const normalized = {
+                    firstName: data.first_Name || '',
+                    lastName: data.last_Name || '',
+                    email: data.mail_Address || '',
+                    phone: data.phoneNumber || '',
+                    address: data.personal_Address || '',
+                    employeeId: data.employee_id || '',
+                    position: data.postionn || 'Admin',
+                    hireDate: normalizeDate(data.hire_date),
+                    employmentStatus: data.employment_status || 'full-time',
+                    sssNumber: data.sss_number || '',
+                    philhealthNumber: data.philhealth_number || '',
+                    tinNumber: data.tin_number || '',
+                    pagibigNumber: data.pagibig_number || '',
+                    yearsOfExperience: data.years_of_experience ?? '',
+                    profileImage: data.setProfilePic_url || '',
+                    educationHistory: parseProfileHistory(data.education_history),
+                    experienceHistory: parseProfileHistory(data.experience_history)
+                };
+
+                setProfile(normalized);
+                setSavedProfile(normalized);
+                setImageError(false);
             } catch (error) {
-                console.error("Failed to load profile:", error);
+                console.error('Failed to load profile:', error);
+                toast.error(error.message || 'Failed to load profile');
             } finally {
                 setIsLoading(false);
             }
@@ -57,25 +103,117 @@ export default function ProfileManagement() {
         fetchProfile();
     }, [userId, role]);
 
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-    const handleSave = () => {
-        setIsSaving(true);
-        // Simulate save
-        setTimeout(() => {
-            setIsSaving(false);
-            setIsEditing(false);
-        }, 1000);
+        setImageFile(file);
+        setProfile(prev => ({ ...prev, profileImage: URL.createObjectURL(file) }));
+        setImageError(false);
     };
 
-    const getFullName = () => {
-        const { salutation, firstName, lastName, extension } = profile;
-        let fullName = '';
-        if (salutation) fullName += salutation + ' ';
-        fullName += firstName + ' ' + lastName;
-        if (extension && extension !== 'none') fullName += ', ' + extension;
-        return fullName;
+    const handleSave = async () => {
+        if (!userId) {
+            toast.error('Session error. Please log in again.');
+            return;
+        }
+
+        setIsSaving(true);
+        let finalImageUrl = profile.profileImage;
+
+        try {
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                formData.append('type', 'user');
+
+                const uploadResponse = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const uploadResult = await uploadResponse.json().catch(() => ({}));
+                if (!uploadResponse.ok) {
+                    throw new Error(uploadResult.message || 'Image upload failed');
+                }
+                finalImageUrl = uploadResult.url || uploadResult.relative_url || finalImageUrl;
+            }
+
+            const payload = {
+                role,
+                firstName: profile.firstName,
+                lastName: profile.lastName,
+                email: profile.email,
+                phoneNumber: profile.phone,
+                address: profile.address,
+                profileImage: finalImageUrl,
+                employeeId: profile.employeeId,
+                position: profile.position,
+                hireDate: profile.hireDate,
+                employmentStatus: profile.employmentStatus,
+                sssNumber: profile.sssNumber,
+                philhealthNumber: profile.philhealthNumber,
+                tinNumber: profile.tinNumber,
+                pagibigNumber: profile.pagibigNumber,
+                yearsOfExperience: profile.yearsOfExperience,
+                educationHistory: cleanProfileHistory(profile.educationHistory),
+                experienceHistory: cleanProfileHistory(profile.experienceHistory)
+            };
+
+            const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to save profile');
+            }
+
+            const normalized = {
+                ...profile,
+                profileImage: finalImageUrl,
+                educationHistory: cleanProfileHistory(profile.educationHistory),
+                experienceHistory: cleanProfileHistory(profile.experienceHistory)
+            };
+
+            const updatedUser = {
+                ...currentUser,
+                firstName: normalized.firstName,
+                first_Name: normalized.firstName,
+                lastName: normalized.lastName,
+                last_Name: normalized.lastName,
+                email: normalized.email,
+                mail_Address: normalized.email,
+                phoneNumber: normalized.phone,
+                phone: normalized.phone,
+                address: normalized.address,
+                personal_Address: normalized.address,
+                profileImage: finalImageUrl,
+                setProfilePic_url: finalImageUrl
+            };
+
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            onUserUpdate?.(updatedUser);
+            setProfile(normalized);
+            setSavedProfile(normalized);
+            setImageFile(null);
+            setImageError(false);
+            setIsEditing(false);
+            toast.success('Profile saved successfully!');
+        } catch (error) {
+            console.error('Save profile error:', error);
+            toast.error(error.message || 'Failed to save profile');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setProfile(savedProfile);
+        setImageFile(null);
+        setImageError(false);
+        setIsEditing(false);
     };
 
     if (isLoading) {
@@ -86,267 +224,236 @@ export default function ProfileManagement() {
         );
     }
 
+    const profileImageSrc = imageError ? null : resolveImageUrl(profile.profileImage);
+
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="font-bold text-[24px] text-[#101828] mb-2">
-                    Profile Management
-                </h2>
-                <p className="text-[16px] text-[#4a5565]">
-                    Manage your professional information and credentials
-                </p>
+        <div className="mx-auto max-w-6xl space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 className="mb-1 font-bold text-[24px] text-[#101828]">Profile Management</h2>
+                    <p className="text-[16px] text-[#4a5565]">Manage your professional information and credentials</p>
+                </div>
+                {!isEditing && (
+                    <Button onClick={() => setIsEditing(true)} className="bg-[#155dfc] hover:bg-[#1447e6]">
+                        Edit Profile
+                    </Button>
+                )}
             </div>
 
-            <Card className="bg-gradient-to-br from-[#155dfc] to-[#1447e6] text-white">
-                <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 rounded-full p-4">
-                            <User className="size-12 text-white" />
-                        </div>
-                        <div>
-                            <h3 className="text-[24px] mb-1">
-                                {getFullName()}
-                            </h3>
-                            <p className="text-[16px] text-white/90">
-                                {profile.position}
-                            </p>
-                            <p className="text-[14px] text-white/80 mt-1">
-                                {profile.email}
-                            </p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="mb-6 grid grid-cols-2 sm:inline-grid">
+                    <TabsTrigger value="profile">Profile Details</TabsTrigger>
+                    <TabsTrigger value="security">Security</TabsTrigger>
+                </TabsList>
 
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-[20px] text-[#101828]">
-                        Professional Information
-                    </CardTitle>
-                    {!isEditing && (
-                        <Button
-                            onClick={() => setIsEditing(true)}
-                            variant="outline"
-                            className="border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff]"
-                        >
-                            Edit Profile
-                        </Button>
-                    )}
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                Salutation / Title <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                                value={profile.salutation}
-                                onValueChange={(value) => setProfile({ ...profile, salutation: value })}
-                                disabled={!isEditing}
-                            >
-                                <SelectTrigger className="bg-[#f3f3f5] border-0">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Dr.">Dr.</SelectItem>
-                                    <SelectItem value="Mr.">Mr.</SelectItem>
-                                    <SelectItem value="Ms.">Ms.</SelectItem>
-                                    <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                    <SelectItem value="Prof.">Prof.</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                First Name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                type="text"
-                                value={profile.firstName}
-                                onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
-                                disabled={!isEditing}
-                                className="bg-[#f3f3f5] border-0"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                Last Name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                type="text"
-                                value={profile.lastName}
-                                onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-                                disabled={!isEditing}
-                                className="bg-[#f3f3f5] border-0"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                Professional Extension
-                            </Label>
-                            <Select
-                                value={profile.extension}
-                                onValueChange={(value) => setProfile({ ...profile, extension: value })}
-                                disabled={!isEditing}
-                            >
-                                <SelectTrigger className="bg-[#f3f3f5] border-0">
-                                    <SelectValue placeholder="Select extension" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">None</SelectItem>
-                                    <SelectItem value="DVM">DVM (Doctor of Veterinary Medicine)</SelectItem>
-                                    <SelectItem value="VMD">VMD (Veterinariae Medicinae Doctoris)</SelectItem>
-                                    <SelectItem value="PhD">PhD (Doctor of Philosophy)</SelectItem>
-                                    <SelectItem value="MVSc">MVSc (Master of Veterinary Science)</SelectItem>
-                                    <SelectItem value="RVT">RVT (Registered Veterinary Technician)</SelectItem>
-                                    <SelectItem value="CVT">CVT (Certified Veterinary Technician)</SelectItem>
-                                    <SelectItem value="LVT">LVT (Licensed Veterinary Technician)</SelectItem>
-                                    <SelectItem value="RN">RN (Registered Nurse)</SelectItem>
-                                    <SelectItem value="BSN">BSN (Bachelor of Science in Nursing)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                Position / Role <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                                value={profile.position}
-                                onValueChange={(value) => setProfile({ ...profile, position: value })}
-                                disabled={!isEditing}
-                            >
-                                <SelectTrigger className="bg-[#f3f3f5] border-0">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Veterinarian">Veterinarian</SelectItem>
-                                    <SelectItem value="Senior Veterinarian">Senior Veterinarian</SelectItem>
-                                    <SelectItem value="Chief Veterinarian">Chief Veterinarian</SelectItem>
-                                    <SelectItem value="Veterinary Surgeon">Veterinary Surgeon</SelectItem>
-                                    <SelectItem value="Veterinary Technician">Veterinary Technician</SelectItem>
-                                    <SelectItem value="Veterinary Nurse">Veterinary Nurse</SelectItem>
-                                    <SelectItem value="Clinic Administrator">Clinic Administrator</SelectItem>
-                                    <SelectItem value="Administrative Staff">Administrative Staff</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-[16px] text-[#0a0a0a]">
-                                License Number <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                type="text"
-                                value={profile.licenseNumber}
-                                onChange={(e) => setProfile({ ...profile, licenseNumber: e.target.value })}
-                                disabled={!isEditing}
-                                placeholder="e.g., VET-2024-001"
-                                className="bg-[#f3f3f5] border-0"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-6">
-                        <h4 className="font-bold text-[18px] text-[#101828] mb-4">
-                            Government Identifications
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">SSS Number</Label>
-                                <Input type="text" value={profile.sssNumber} onChange={(e) => setProfile({ ...profile, sssNumber: e.target.value })} disabled={!isEditing} className="bg-[#f3f3f5] border-0" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">PhilHealth Number</Label>
-                                <Input type="text" value={profile.philhealthNumber} onChange={(e) => setProfile({ ...profile, philhealthNumber: e.target.value })} disabled={!isEditing} className="bg-[#f3f3f5] border-0" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">TIN Number</Label>
-                                <Input type="text" value={profile.tinNumber} onChange={(e) => setProfile({ ...profile, tinNumber: e.target.value })} disabled={!isEditing} className="bg-[#f3f3f5] border-0" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">Pag-IBIG Number</Label>
-                                <Input type="text" value={profile.pagibigNumber} onChange={(e) => setProfile({ ...profile, pagibigNumber: e.target.value })} disabled={!isEditing} className="bg-[#f3f3f5] border-0" />
+                <TabsContent value="profile" className="space-y-6">
+                    <Card className="overflow-hidden border-slate-200 shadow-xl rounded-2xl bg-white">
+                        <div className="bg-gradient-to-r from-[#155dfc] to-[#0f766e] px-4 py-8 sm:px-8">
+                            <div className="flex flex-col items-center gap-6 sm:flex-row">
+                                <div className="relative">
+                                    <div className="size-32 overflow-hidden rounded-full border-4 border-white bg-white/20 shadow-xl">
+                                        {profileImageSrc ? (
+                                            <img
+                                                src={profileImageSrc}
+                                                alt={getFullName(profile)}
+                                                className="size-full object-cover"
+                                                onError={() => setImageError(true)}
+                                            />
+                                        ) : (
+                                            <div className="flex size-full items-center justify-center bg-white">
+                                                <User className="size-16 text-[#155dfc]" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    {isEditing && (
+                                        <label className="absolute bottom-1 right-1 flex size-11 cursor-pointer items-center justify-center rounded-full border-4 border-white bg-[#155dfc] text-white shadow-lg hover:bg-blue-700">
+                                            <Camera className="size-5" />
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                                        </label>
+                                    )}
+                                </div>
+                                <div className="min-w-0 text-center text-white sm:text-left">
+                                    <h3 className="break-words text-[28px] font-bold">{getFullName(profile)}</h3>
+                                    <p className="mt-1 text-[18px] text-white/90">{profile.position || 'Admin'}</p>
+                                    <p className="mt-1 text-[16px] text-white/80">Employee ID: {profile.employeeId || 'Not set'}</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="border-t pt-6">
-                        <h4 className="font-bold text-[18px] text-[#101828] mb-4">
-                            Contact Information
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">
-                                    Email Address <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    type="email"
-                                    value={profile.email}
-                                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                                    disabled={!isEditing}
-                                    className="bg-[#f3f3f5] border-0"
+
+                        <CardContent className="space-y-8 p-4 sm:p-8">
+                            <section>
+                                <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Personal Information</h3>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                    <ProfileInput label="First Name" icon={User} value={profile.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, firstName: value })} />
+                                    <ProfileInput label="Last Name" icon={User} value={profile.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, lastName: value })} />
+                                    <ProfileInput label="Email Address" icon={Mail} type="email" value={profile.email} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, email: value })} />
+                                    <ProfileInput label="Phone Number" icon={Phone} value={profile.phone} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, phone: value })} />
+                                    <ProfileInput label="Address" icon={MapPin} value={profile.address} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, address: value })} className="md:col-span-2" />
+                                </div>
+                            </section>
+
+                            <section className="border-t border-slate-100 pt-8">
+                                <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Employment Information</h3>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                    <ProfileInput label="Employee ID" icon={IdCard} value={profile.employeeId} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, employeeId: value })} />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Briefcase className="size-4" />
+                                            Position / Role
+                                        </Label>
+                                        {isEditing ? (
+                                            <Select value={profile.position} onValueChange={(value) => setProfile({ ...profile, position: value })} disabled={isSaving}>
+                                                <SelectTrigger className="h-11">
+                                                    <SelectValue placeholder="Select position" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Clinic Administrator">Clinic Administrator</SelectItem>
+                                                    <SelectItem value="Administrative Staff">Administrative Staff</SelectItem>
+                                                    <SelectItem value="Receptionist">Receptionist</SelectItem>
+                                                    <SelectItem value="Nurse">Nurse</SelectItem>
+                                                    <SelectItem value="Assistant">Assistant</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <DisplayValue value={profile.position} />
+                                        )}
+                                    </div>
+                                    <ProfileInput label="Total Years of Experience" icon={Calendar} type="number" value={profile.yearsOfExperience} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, yearsOfExperience: value })} />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <BadgeCheck className="size-4" />
+                                            Employment Status
+                                        </Label>
+                                        {isEditing ? (
+                                            <Select value={profile.employmentStatus} onValueChange={(value) => setProfile({ ...profile, employmentStatus: value })} disabled={isSaving}>
+                                                <SelectTrigger className="h-11">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="full-time">Full-time</SelectItem>
+                                                    <SelectItem value="part-time">Part-time</SelectItem>
+                                                    <SelectItem value="contract">Contract</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <DisplayValue value={profile.employmentStatus} />
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Calendar className="size-4" />
+                                            Hire Date
+                                        </Label>
+                                        {isEditing ? (
+                                            <Input type="date" value={profile.hireDate} onChange={(event) => setProfile({ ...profile, hireDate: event.target.value })} disabled={isSaving} className="h-11" />
+                                        ) : (
+                                            <DisplayValue value={formatDisplayDate(profile.hireDate)} />
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="border-t border-slate-100 pt-8">
+                                <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Government Identifications</h3>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                    <ProfileInput label="SSS Number" icon={IdCard} value={profile.sssNumber} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, sssNumber: value })} />
+                                    <ProfileInput label="PhilHealth Number" icon={IdCard} value={profile.philhealthNumber} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, philhealthNumber: value })} />
+                                    <ProfileInput label="TIN Number" icon={IdCard} value={profile.tinNumber} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, tinNumber: value })} />
+                                    <ProfileInput label="Pag-IBIG Number" icon={IdCard} value={profile.pagibigNumber} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, pagibigNumber: value })} />
+                                </div>
+                            </section>
+
+                            <section className="space-y-8 border-t border-slate-100 pt-8">
+                                <ProfileHistoryEditor
+                                    title="Education"
+                                    helperText="Add school, degree, major, description, and year range."
+                                    items={profile.educationHistory}
+                                    onChange={(items) => setProfile({ ...profile, educationHistory: items })}
+                                    isEditing={isEditing && !isSaving}
+                                    titlePlaceholder="School or degree title"
+                                    descriptionPlaceholder="Major, certification, administration training, or description"
+                                    yearsPlaceholder="e.g., 2018 - 2022"
+                                    emptyText="No education entries yet."
                                 />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-[16px] text-[#0a0a0a]">
-                                    Phone Number <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    type="tel"
-                                    value={profile.phone}
-                                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                                    disabled={!isEditing}
-                                    placeholder="(042) 373-5678"
-                                    className="bg-[#f3f3f5] border-0"
+                                <ProfileHistoryEditor
+                                    title="Professional Experience"
+                                    helperText="Add role titles, clinic/company names, responsibilities, and years."
+                                    items={profile.experienceHistory}
+                                    onChange={(items) => setProfile({ ...profile, experienceHistory: items })}
+                                    isEditing={isEditing && !isSaving}
+                                    titlePlaceholder="Role title or workplace"
+                                    descriptionPlaceholder="Responsibilities, department, or description"
+                                    yearsPlaceholder="e.g., 2022 - Present"
+                                    emptyText="No experience entries yet."
                                 />
-                            </div>
-                        </div>
-                    </div>
+                            </section>
 
-                    <div className="border-t pt-6">
-                        <h4 className="font-bold text-[18px] text-[#101828] mb-2">
-                            Full Professional Name Preview
-                        </h4>
-                        <p className="text-[16px] text-[#4a5565] mb-2">
-                            This is how your name will appear on official documents and records:
-                        </p>
-                        <div className="bg-[#eff6ff] border border-[#bedbff] rounded-lg p-4">
-                            <p className="font-bold text-[20px] text-[#155dfc]">
-                                {getFullName()}
-                            </p>
-                            <p className="text-[16px] text-[#4a5565] mt-1">
-                                {profile.position} - License: {profile.licenseNumber}
-                            </p>
-                        </div>
-                    </div>
+                            <section className="border-t border-slate-100 pt-8">
+                                <h4 className="mb-2 text-[18px] font-bold text-[#101828]">Professional Name Preview</h4>
+                                <div className="rounded-lg border border-[#bedbff] bg-[#eff6ff] p-4">
+                                    <p className="break-words text-[20px] font-bold text-[#155dfc]">{getFullName(profile)}</p>
+                                    <p className="mt-1 text-[16px] text-[#4a5565]">
+                                        {profile.position || 'Admin'} - Employee ID: {profile.employeeId || 'Not set'}
+                                    </p>
+                                </div>
+                            </section>
 
-                    {isEditing && (
-                        <div className="flex gap-4 pt-4">
-                            <Button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="bg-[#155dfc] hover:bg-[#1447e6]"
-                            >
-                                <Save className="size-4 mr-2" />
-                                {isSaving ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                            <Button
-                                onClick={() => setIsEditing(false)}
-                                variant="outline"
-                                disabled={isSaving}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                            {isEditing && (
+                                <div className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+                                    <Button onClick={handleCancel} variant="outline" disabled={isSaving} className="h-11 w-full sm:w-[140px]">
+                                        Cancel
+                                    </Button>
+                                    <Button onClick={handleSave} disabled={isSaving} className="h-11 w-full bg-[#155dfc] hover:bg-[#1447e6] sm:w-[180px]">
+                                        {isSaving ? (
+                                            <>
+                                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="mr-2 size-4" />
+                                                Save Changes
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="security">
+                    <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                </TabsContent>
+            </Tabs>
         </div>
+    );
+}
+
+function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '' }) {
+    const iconElement = icon ? createElement(icon, { className: 'size-4' }) : null;
+
+    return (
+        <div className={`space-y-2 ${className}`}>
+            <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                {iconElement}
+                {label}
+            </Label>
+            <Input
+                type={type}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                disabled={disabled}
+                className="h-11"
+            />
+        </div>
+    );
+}
+
+function DisplayValue({ value }) {
+    return (
+        <p className="flex min-h-11 items-center rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[15px] text-[#4a5565]">
+            {value || 'Not set'}
+        </p>
     );
 }

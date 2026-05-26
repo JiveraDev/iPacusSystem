@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -8,12 +8,15 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock } from "lucide-react";
 import { calculateAge } from "../../lib/date";
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
+import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export default function PetOwnerProfile() {
+export default function PetOwnerProfile({ onLogout }) {
   const onUserUpdate = useUserUpdate();
   const contextUser = useDashboardUser();
+  const passwordUser = contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const passwordUserId = passwordUser.id || passwordUser.user_id;
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -443,20 +446,7 @@ export default function PetOwnerProfile() {
         </TabsContent>
 
         <TabsContent value="security" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
-              <CardTitle className="text-xl font-bold text-slate-800 sm:text-2xl">Account Security</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center px-4 py-16 text-center sm:px-16 sm:py-24">
-              <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-blue-50 shadow-xl sm:h-24 sm:w-24">
-                <Clock className="h-10 w-10 text-[#155dfc] sm:h-12 sm:w-12" />
-              </div>
-              <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Security Features Coming Soon</h3>
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-500 sm:text-xl">
-                We're developing advanced security protocols, including two-factor authentication and password encryption tools, to keep your data even safer.
-              </p>
-            </CardContent>
-          </Card>
+          <PasswordChangeCard userId={passwordUserId} onForgotPassword={onLogout} />
         </TabsContent>
       </Tabs>
     </div>

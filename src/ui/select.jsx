@@ -4,7 +4,7 @@ import { cn } from "./utils";
 
 const SelectContext = React.createContext(null);
 
-function Select({ value, onValueChange, children }) {
+function Select({ value, onValueChange, children, disabled = false }) {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef(null);
 
@@ -19,12 +19,13 @@ function Select({ value, onValueChange, children }) {
   }, []);
 
   const handleSelect = React.useCallback((val) => {
+    if (disabled) return;
     onValueChange?.(val);
     setOpen(false);
-  }, [onValueChange]);
+  }, [disabled, onValueChange]);
 
   return (
-    <SelectContext.Provider value={{ value, onValueChange: handleSelect, open, setOpen }}>
+    <SelectContext.Provider value={{ value, onValueChange: handleSelect, open, setOpen, disabled }}>
       <div ref={containerRef} className="relative w-full min-w-0">
         {children}
       </div>
@@ -33,11 +34,12 @@ function Select({ value, onValueChange, children }) {
 }
 
 function SelectTrigger({ className, children }) {
-  const { open, setOpen } = React.useContext(SelectContext);
+  const { open, setOpen, disabled } = React.useContext(SelectContext);
   
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => setOpen(!open)}
       className={cn(
         "flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
@@ -83,13 +85,19 @@ function SelectContent({ children, className }) {
 
 SelectContent.displayName = "SelectContent";
 
-function SelectItem({ value: itemValue, children, className }) {
+function SelectItem({ value: itemValue, children, className, disabled = false }) {
   const { value: selectedValue, onValueChange } = React.useContext(SelectContext);
   const isSelected = selectedValue === itemValue;
 
   return (
     <div
-      onClick={() => onValueChange(itemValue)}
+      onClick={() => {
+        if (!disabled) {
+          onValueChange(itemValue);
+        }
+      }}
+      aria-disabled={disabled}
+      data-disabled={disabled ? "" : undefined}
       className={cn(
         "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 hover:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         isSelected && "bg-slate-50 font-medium text-[#155dfc]",

@@ -1,8 +1,9 @@
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Video, Calendar, Clock, CheckCircle } from "lucide-react";
+import { Video, Calendar, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { formatDisplayDate } from "../../lib/date";
 
 export default function Consult() {
   const navigate = useNavigate();
@@ -126,7 +127,7 @@ export default function Consult() {
                       <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          <span>{new Date(consultation.date).toLocaleDateString()}</span>
+                          <span>{formatDisplayDate(consultation.date)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />

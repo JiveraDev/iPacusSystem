@@ -23,8 +23,22 @@ if (!is_array($input)) {
     exit;
 }
 
+// Map frontend keys to DB columns
 $allowedFields = [
+    'petName' => 'pet_name',
+    'species' => 'pet_species',
+    'breed' => 'pet_breed',
+    'birthDate' => 'pet_BDAY',
+    'status' => 'pet_status',
+    'gender' => 'pet_gender',
+    'weight' => 'pet_weight',
+    'microchipId' => 'pet_microchip',
+    'color' => 'pet_color_marking',
+    'allergies' => 'pet_allergies',
+    'tempOwner' => 'pet_Temp_owner',
     'setpetImage_url' => 'setpetImage_url',
+    'profileImage' => 'setpetImage_url', // alias
+    'age' => 'pet_age'
 ];
 
 $setParts = [];
@@ -32,8 +46,17 @@ $params = [];
 
 foreach ($allowedFields as $inputKey => $dbColumn) {
     if (array_key_exists($inputKey, $input)) {
-        $setParts[] = "{$dbColumn} = ?";
-        $params[] = $input[$inputKey];
+        // Handle weight specifically if it's coming as "15 kg" string
+        $value = $input[$inputKey];
+        if ($inputKey === 'weight' && is_string($value)) {
+            $value = floatval(preg_replace('/[^0-9.]/', '', $value));
+        }
+        
+        // Avoid adding the same column twice if both aliases are used
+        if (!in_array("{$dbColumn} = ?", $setParts)) {
+            $setParts[] = "{$dbColumn} = ?";
+            $params[] = $value;
+        }
     }
 }
 
@@ -43,26 +66,17 @@ if (empty($setParts)) {
     exit;
 }
 
+// Check if it's a sharable ID or numeric ID for the WHERE clause
+$idColumn = (strpos($petId, 'PET-') === 0) ? "pet_sharable_ID" : "pet_id";
 $params[] = $petId;
 
 try {
-    $sql = "UPDATE pets_information SET " . implode(', ', $setParts) . " WHERE pet_id = ?";
+    $sql = "UPDATE pets_information SET " . implode(', ', $setParts) . " WHERE $idColumn = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    if ($stmt->rowCount() === 0) {
-        $existsStmt = $pdo->prepare("SELECT 1 FROM pets_information WHERE pet_id = ? LIMIT 1");
-        $existsStmt->execute([$petId]);
-        if (!$existsStmt->fetchColumn()) {
-            http_response_code(404);
-            echo json_encode(['message' => 'Pet not found.']);
-            exit;
-        }
-    }
-
-    echo json_encode(['message' => 'Pet updated successfully.']);
+    echo json_encode(['message' => 'Pet updated successfully.', 'success' => true]);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to update pet: ' . $e->getMessage()]);
 }
-

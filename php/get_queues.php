@@ -4,6 +4,9 @@ require_once 'db.php';
 header('Content-Type: application/json');
 
 try {
+    // Auto-cancel queues older than 2 days
+    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");
     $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
     $hasQueueSource = in_array('queue_source', $columns, true);

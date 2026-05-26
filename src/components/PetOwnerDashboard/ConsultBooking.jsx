@@ -13,6 +13,8 @@ import { addDays, format } from "../../lib/date";
 export default function ConsultBooking() {
   const navigate = useNavigate();
   const [pets, setPets] = useState([]);
+  const [veterinarians, setVeterinarians] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
   const [discussionTopic, setDiscussionTopic] = useState([]);
   const [notes, setNotes] = useState("");
@@ -29,64 +31,16 @@ export default function ConsultBooking() {
   const [newPetWeight, setNewPetWeight] = useState("");
   const [newPetMedicalConditions, setNewPetMedicalConditions] = useState("");
 
-  const veterinarians = [
-    { 
-      id: "1", 
-      name: "Dr. Maria Santos", 
-      specialization: "General Practice",
-      availability: {
-        monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM"],
-        tuesday: ["09:00 AM", "10:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-        wednesday: ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "04:00 PM"],
-        thursday: ["10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-        friday: ["09:00 AM", "10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM"],
-        saturday: ["09:00 AM", "10:00 AM", "11:00 AM"],
-        sunday: []
-      }
-    },
-    { 
-      id: "2", 
-      name: "Dr. Juan Cruz", 
-      specialization: "Surgery",
-      availability: {
-        monday: ["10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM"],
-        tuesday: ["09:00 AM", "10:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-        wednesday: ["10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM"],
-        thursday: ["09:00 AM", "10:00 AM", "11:00 AM", "03:00 PM"],
-        friday: ["10:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-        saturday: [],
-        sunday: []
-      }
-    },
-    { 
-      id: "3", 
-      name: "Dr. Lisa Reyes", 
-      specialization: "Internal Medicine",
-      availability: {
-        monday: ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
-        tuesday: ["10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM", "03:00 PM"],
-        wednesday: ["09:00 AM", "10:00 AM", "02:00 PM", "04:00 PM", "05:00 PM"],
-        thursday: ["09:00 AM", "11:00 AM", "01:00 PM", "02:00 PM", "04:00 PM"],
-        friday: ["10:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "04:00 PM"],
-        saturday: ["10:00 AM", "11:00 AM"],
-        sunday: []
-      }
-    },
-    { 
-      id: "4", 
-      name: "Dr. Mark Tan", 
-      specialization: "Dermatology",
-      availability: {
-        monday: ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"],
-        tuesday: ["09:00 AM", "10:00 AM", "11:00 AM", "03:00 PM", "04:00 PM"],
-        wednesday: ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"],
-        thursday: ["09:00 AM", "10:00 AM", "02:00 PM", "03:00 PM", "05:00 PM"],
-        friday: ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "05:00 PM"],
-        saturday: [],
-        sunday: []
-      }
-    },
-  ];
+  // Fallback availability for veterinarians
+  const defaultAvailability = {
+    monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+    tuesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+    wednesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+    thursday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+    friday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
+    saturday: ["09:00 AM", "10:00 AM", "11:00 AM"],
+    sunday: []
+  };
 
   const discussionTopics = ["Weight Issues", "Symptoms/Illness", "Behavior", "Nutrition", "Other"];
 
@@ -100,17 +54,43 @@ export default function ConsultBooking() {
     const date = new Date(selectedDate);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     
-    return vet.availability[dayName] || [];
+    // Use vet-specific availability if it exists, otherwise use default
+    return (vet.availability && vet.availability[dayName]) || defaultAvailability[dayName] || [];
   };
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.id === currentUser.id);
-    
-    if (user && user.pets) {
-      setPets(user.pets);
-    }
+    const fetchData = async () => {
+      try {
+        const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+        const userId = currentUser.id || currentUser.user_id;
+
+        // Fetch Pets
+        const petsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/pets`);
+        const petsData = await petsResponse.json();
+        setPets(Array.isArray(petsData) ? petsData : []);
+
+        // Fetch Veterinarians
+        const vetsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/accounts`);
+        const vetsData = await vetsResponse.json();
+        
+        if (vetsData && vetsData.veterinarians) {
+          const formattedVets = vetsData.veterinarians.map(v => ({
+            id: v.user_id,
+            name: `Dr. ${v.first_Name} ${v.last_Name}`,
+            specialization: v.specialization || "General Practice",
+            availability: defaultAvailability // Currently the DB doesn't store availability, so use default
+          }));
+          setVeterinarians(formattedVets);
+        }
+      } catch (error) {
+        console.error("Error fetching booking data:", error);
+        toast.error("Failed to load necessary information. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const toggleDiscussionTopic = (topic) => {
@@ -182,11 +162,11 @@ export default function ConsultBooking() {
     // Store booking data in session storage
     const bookingData = {
       petId: isNewPet ? "new-pet" : selectedPet,
-      petName: isNewPet ? newPetName : pets.find(p => p.id === selectedPet)?.name,
-      petSpecies: isNewPet ? newPetSpecies : pets.find(p => p.id === selectedPet)?.species,
-      petBreed: isNewPet ? newPetBreed : pets.find(p => p.id === selectedPet)?.breed,
-      petAge: isNewPet ? newPetAge : pets.find(p => p.id === selectedPet)?.age,
-      petWeight: isNewPet ? newPetWeight : pets.find(p => p.id === selectedPet)?.weight,
+      petName: isNewPet ? newPetName : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.name || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_name,
+      petSpecies: isNewPet ? newPetSpecies : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.species || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_species,
+      petBreed: isNewPet ? newPetBreed : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.breed || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_breed,
+      petAge: isNewPet ? newPetAge : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.age || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_age,
+      petWeight: isNewPet ? newPetWeight : pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.weight || pets.find(p => (p.id === selectedPet || p.pet_id === selectedPet))?.pet_weight,
       petMedicalConditions: isNewPet ? newPetMedicalConditions : "",
       discussionTopic: discussionTopic.join(", "),
       notes,
@@ -201,7 +181,18 @@ export default function ConsultBooking() {
     navigate("/dashboard/consult/payment");
   };
 
-  if (pets.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-500">Loading booking form...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pets.length === 0 && !isNewPet) {
     return (
       <div className="space-y-8 max-w-3xl">
         <Button variant="ghost" onClick={() => navigate("/dashboard/consult")}>
@@ -265,8 +256,8 @@ export default function ConsultBooking() {
                 </SelectTrigger>
                 <SelectContent>
                   {pets.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id}>
-                      {pet.name} ({pet.species} - {pet.breed})
+                    <SelectItem key={pet.id || pet.pet_id} value={pet.id || pet.pet_id}>
+                      {pet.name || pet.pet_name} ({pet.species || pet.pet_species} - {pet.breed || pet.pet_breed})
                     </SelectItem>
                   ))}
                   <SelectItem value="new-pet">

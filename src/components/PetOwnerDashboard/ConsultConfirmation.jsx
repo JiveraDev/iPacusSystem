@@ -9,49 +9,55 @@ export default function ConsultConfirmation() {
   const { bookingId } = useParams();
   const [consultation, setConsultation] = useState(null);
   const [canJoin, setCanJoin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.id === currentUser.id);
-
-    if (user && user.consultations) {
-      const consult = user.consultations.find((c) => c.id === bookingId);
-      if (consult) {
-        setConsultation(consult);
+    const fetchConsultation = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings?bookingId=${bookingId}`);
+        if (!response.ok) throw new Error("Failed to fetch booking");
         
-        // Check if consultation time has arrived (allow joining 10 minutes before)
-        const consultDateTime = new Date(`${consult.date} ${consult.time}`);
-        const tenMinutesBefore = new Date(consultDateTime.getTime() - 10 * 60000);
-        const now = new Date();
+        const data = await response.json();
+        // get_bookings returns an array
+        const consult = data.find(b => b.id.toString() === bookingId.toString());
         
-        setCanJoin(now >= tenMinutesBefore);
+        if (consult) {
+          setConsultation(consult);
+          
+          // Check if consultation time has arrived (allow joining 10 minutes before)
+          const consultDateTime = new Date(`${consult.date} ${consult.time}`);
+          const tenMinutesBefore = new Date(consultDateTime.getTime() - 10 * 60000);
+          const now = new Date();
+          
+          setCanJoin(now >= tenMinutesBefore);
+        }
+      } catch (error) {
+        console.error("Error fetching consultation:", error);
+      } finally {
+        setIsLoading(false);
       }
+    };
+
+    if (bookingId) {
+      fetchConsultation();
     }
   }, [bookingId]);
 
   const handleJoinConsultation = () => {
     if (consultation && canJoin) {
       // In a real app, this would open the video consultation link
-      window.open(consultation.consultationLink, "_blank");
+      // For now, navigate to the internal video page
+      navigate(`/dashboard/consult/video/${consultation.id}`);
     }
   };
 
-  if (!consultation) {
+  if (isLoading) {
     return (
-      <div className="space-y-8">
-        <Card>
-          <CardContent className="pt-6 text-center py-12">
-            <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Consultation Not Found</h3>
-            <p className="text-gray-600 mb-4">
-              We couldn't find the consultation you're looking for.
-            </p>
-            <Button onClick={() => navigate("/dashboard/consult")}>
-              Back to Consultations
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex h-64 w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-500">Loading details...</p>
+        </div>
       </div>
     );
   }
@@ -98,7 +104,7 @@ export default function ConsultConfirmation() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Discussion Topics</p>
-                <p className="font-semibold">{consultation.discussionTopic}</p>
+                <p className="font-semibold">{consultation.service || consultation.discussionTopic}</p>
               </div>
               {consultation.notes && (
                 <div>

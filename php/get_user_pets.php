@@ -10,9 +10,10 @@ if (!$userId) {
 }
 
 try {
-    $sql = "SELECT p.* 
+    $sql = "SELECT p.*, q.queue_id, q.status AS queue_status, q.queue_number
             FROM pets_information p 
             JOIN pet_ownership o ON p.pet_id = o.pet_id 
+            LEFT JOIN queues q ON p.pet_id = q.pet_id AND q.status IN ('waiting', 'in-progress')
             WHERE o.user_id = ? 
             ORDER BY p.pet_id DESC";
     
@@ -34,7 +35,12 @@ try {
             'age' => $pet['pet_age'],
             'weight' => $pet['pet_weight'],
             'color' => $pet['pet_color_marking'],
-            'profileImage' => $pet['setpetImage_url']
+            'profileImage' => $pet['setpetImage_url'],
+            'active_queue' => $pet['queue_id'] ? [
+                'queue_id' => $pet['queue_id'],
+                'status' => $pet['queue_status'],
+                'queue_number' => $pet['queue_number']
+            ] : null
         ];
     }, $pets);
 

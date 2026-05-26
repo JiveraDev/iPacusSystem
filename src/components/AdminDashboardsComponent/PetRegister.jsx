@@ -15,6 +15,7 @@ import {
 import { addPetService } from '../../services/addPet';
 import { calculateAge } from '../../lib/date';
 import { toast } from "../../reusecomponent/toast.jsx";
+import { useNavigate } from "../dashboardRouter.jsx";
 
 const emptyPetProfile = {
     id: '',
@@ -39,6 +40,7 @@ const emptyPetProfile = {
 };
 
 export default function PetRegister() {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState(emptyPetProfile);
     const [registeredPets, setRegisteredPets] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -680,12 +682,13 @@ export default function PetRegister() {
                 <div className="hidden overflow-x-auto sm:block">
                     <table className="w-full min-w-[520px] table-fixed text-left border-collapse lg:min-w-[820px] xl:min-w-[960px]">
                         <colgroup>
-                            <col className="w-[150px]" />
-                            <col className="w-[190px]" />
-                            <col className="hidden w-[170px] lg:table-column" />
-                            <col className="hidden w-[150px] xl:table-column" />
-                            <col className="hidden w-[170px] lg:table-column" />
-                            <col className="w-[180px]" />
+                            <col className="w-[140px]" />
+                            <col className="w-[160px]" />
+                            <col className="hidden w-[150px] lg:table-column" />
+                            <col className="hidden w-[130px] xl:table-column" />
+                            <col className="hidden w-[150px] lg:table-column" />
+                            <col className="w-[160px]" />
+                            <col className="w-[120px]" />
                         </colgroup>
                         <thead>
                             <tr className="border-b border-slate-100">
@@ -695,12 +698,13 @@ export default function PetRegister() {
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden xl:table-cell">Gender/Age</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden lg:table-cell">Owner</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Status</th>
+                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="6" className="py-10 text-center text-slate-400">
+                                    <td colSpan="7" className="py-10 text-center text-slate-400">
                                         Loading pets...
                                     </td>
                                 </tr>
@@ -764,11 +768,21 @@ export default function PetRegister() {
                                                 </Select>
                                             </div>
                                         </td>
+                                        <td className="py-3 px-4">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => navigate(`/dashboard/pet-register/${pet.id}`)}
+                                                className="h-8 px-3 text-xs font-bold border-[#155dfc] text-[#155dfc] hover:bg-[#155dfc] hover:text-white"
+                                            >
+                                                Edit Profile
+                                            </Button>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="6" className="py-10 text-center text-slate-400">
+                                    <td colSpan="7" className="py-10 text-center text-slate-400">
                                         No pets registered yet.
                                     </td>
                                 </tr>

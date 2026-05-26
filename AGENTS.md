@@ -46,10 +46,6 @@ No automated test framework is currently configured in `package.json`. For now, 
 
 If tests are added later, place them near the related module or in a test directory, using `*.test.jsx` or `*.spec.jsx`.
 
-## Commit & Pull Request Guidelines
-
-Recent history uses short messages such as `Update the table.sql` and `fixing errors on the inventory (current setup)`. Keep commits concise, but prefer clearer imperative messages, for example `Fix booking pet registration status`.
-
 Pull requests should include a summary, affected areas, verification commands, database/schema notes when relevant, and screenshots for visible UI changes.
 
 ## Security & Configuration Tips

@@ -19,19 +19,27 @@ export default function VideoConsultation() {
   const [duration, setDuration] = useState(0);
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.id === currentUser.id);
-    
-    if (user && user.consultations) {
-      const found = user.consultations.find((c) => c.id === consultationId);
-      if (found) {
-        setConsultation(found);
-      } else {
+    const fetchConsultation = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings?bookingId=${consultationId}`);
+        if (!response.ok) throw new Error("Failed to fetch booking");
+        
+        const data = await response.json();
+        const found = data.find(b => b.id.toString() === consultationId.toString());
+        
+        if (found) {
+          setConsultation(found);
+        } else {
+          navigate("/dashboard/consult");
+        }
+      } catch (error) {
+        console.error("Error fetching consultation:", error);
         navigate("/dashboard/consult");
       }
-    } else {
-      navigate("/dashboard/consult");
+    };
+
+    if (consultationId) {
+      fetchConsultation();
     }
   }, [consultationId, navigate]);
 

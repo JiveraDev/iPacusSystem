@@ -169,7 +169,8 @@ export default function QueueDashboard() {
                     species: pet.species || "Dog",
                     breed: pet.breed || "Unknown Breed",
                     regId: pet.id || "",
-                    profileImage: pet.profileImage || ""
+                    profileImage: pet.profileImage || "",
+                    activeQueue: pet.active_queue || null
                 })).filter((pet) => pet.id);
 
                 if (mappedPets.length > 0) {
@@ -181,7 +182,37 @@ export default function QueueDashboard() {
         };
 
         loadPets();
-    }, [API_BASE]);
+    }, [API_BASE, submitted]);
+
+    const handleCancelQueue = async (queueId, petName) => {
+        if (!window.confirm(`Are you sure you want to cancel the queue for ${petName}?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/queues/status`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    queue_id: queueId,
+                    status: "cancelled"
+                })
+            });
+
+            if (response.ok) {
+                toast.success(`Queue for ${petName} has been cancelled.`);
+                // Refresh pets list
+                setSubmitted(prev => !prev); 
+            } else {
+                toast.error("Failed to cancel queue.");
+            }
+        } catch (error) {
+            console.error("Error cancelling queue:", error);
+            toast.error("An error occurred while cancelling the queue.");
+        }
+    };
 
     const handleImageUpload = (e) => {
         const files = e.target.files;
@@ -385,12 +416,12 @@ export default function QueueDashboard() {
                                                     return (
                                                         <Card
                                                             key={pet.id}
-                                                            className={`cursor-pointer transition-all hover:shadow-md ${
+                                                            className={`relative overflow-hidden transition-all hover:shadow-md ${
                                                                 selectedPet === pet.id
                                                                     ? "ring-2 ring-blue-600 bg-blue-50"
                                                                     : "hover:border-blue-300"
-                                                            }`}
-                                                            onClick={() => setSelectedPet(pet.id)}
+                                                            } ${pet.activeQueue ? "opacity-90" : "cursor-pointer"}`}
+                                                            onClick={() => !pet.activeQueue && setSelectedPet(pet.id)}
                                                         >
                                                             <CardContent className="pt-4">
                                                                 <div className="flex items-center gap-3">
@@ -410,8 +441,31 @@ export default function QueueDashboard() {
                                                                         )}
                                                                     </div>
                                                                     <div className="flex-1">
-                                                                        <p className="font-semibold text-gray-900">{pet.name}</p>
-                                                                        <p className="text-sm text-gray-600">{pet.breed}</p>
+                                                                        <div className="flex justify-between items-start">
+                                                                            <div>
+                                                                                <p className="font-semibold text-gray-900">{pet.name}</p>
+                                                                                <p className="text-sm text-gray-600">{pet.breed}</p>
+                                                                            </div>
+                                                                            {pet.activeQueue && (
+                                                                                <div className="text-right">
+                                                                                    <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full mb-1">
+                                                                                        IN QUEUE #{pet.activeQueue.queue_number}
+                                                                                    </span>
+                                                                                    <Button 
+                                                                                        size="sm" 
+                                                                                        variant="destructive" 
+                                                                                        className="h-7 px-2 text-xs flex items-center gap-1"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleCancelQueue(pet.activeQueue.queue_id, pet.name);
+                                                                                        }}
+                                                                                    >
+                                                                                        <X className="h-3 w-3" />
+                                                                                        Cancel
+                                                                                    </Button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </CardContent>

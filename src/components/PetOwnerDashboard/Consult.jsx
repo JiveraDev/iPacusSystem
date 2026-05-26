@@ -7,19 +7,51 @@ import { useEffect, useState } from "react";
 export default function Consult() {
   const navigate = useNavigate();
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.id === currentUser.id);
-    
-    if (user && user.consultations) {
-      const upcoming = user.consultations.filter((c) => 
-        new Date(c.dateTime) >= new Date()
-      );
-      setUpcomingConsultations(upcoming);
-    }
+    const fetchConsultations = async () => {
+      try {
+        const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+        const userId = currentUser.id || currentUser.user_id;
+        
+        if (!userId) {
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/bookings`);
+        if (!response.ok) throw new Error("Failed to fetch bookings");
+        
+        const data = await response.json();
+        const consultations = data.filter(b => b.isOnlineConsultation);
+        
+        const upcoming = consultations.filter((c) => {
+          const consultDate = new Date(`${c.date} ${c.time}`);
+          return consultDate >= new Date();
+        });
+        
+        setUpcomingConsultations(upcoming);
+      } catch (error) {
+        console.error("Error fetching consultations:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConsultations();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-500">Loading consultations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -90,20 +122,20 @@ export default function Consult() {
                           {consultation.status}
                         </span>
                       </div>
-                      <p className="text-gray-600">Topic: {consultation.discussionTopic}</p>
+                      <p className="text-gray-600">Topic: {consultation.service || consultation.discussionTopic}</p>
                       <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          <span>{new Date(consultation.dateTime).toLocaleDateString()}</span>
+                          <span>{new Date(consultation.date).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          <span>{new Date(consultation.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{consultation.time}</span>
                         </div>
                       </div>
                       <p className="text-sm text-gray-600">Veterinarian: {consultation.veterinarian}</p>
                       
-                      {consultation.consultationLink && (
+                      {consultation.status === 'confirmed' && (
                         <div className="pt-2">
                           <Button 
                             variant="outline"

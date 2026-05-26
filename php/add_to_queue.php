@@ -132,7 +132,10 @@ if (!$pet_id || !$service_name) {
 }
 
 try {
-    // Check for active queue entries
+    // Auto-cancel all queues older than 2 days
+    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+
+    // Check for active queue entries for THIS specific pet
     $activeQueueStmt = $pdo->prepare("
         SELECT queue_id, queue_number, status, timestamp
         FROM queues

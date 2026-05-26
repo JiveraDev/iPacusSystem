@@ -61,6 +61,7 @@ const routePatterns = [
   { pattern: "/dashboard/queue", allowedRoles:  ALL_ROLES},
   { pattern: "/dashboard/self-service-queue", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/pet-register/:petId", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/accounts", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/inventory/add", allowedRoles: ALL_ROLES },

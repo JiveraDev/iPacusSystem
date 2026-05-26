@@ -398,11 +398,24 @@ export default function BookingsManagement() {
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
                                     </div>
                                 </TableCell>
-                                <TableCell className="hidden lg:table-cell">{booking.service}</TableCell>
+                                <TableCell className="hidden lg:table-cell">
+                                    <div>
+                                        <p>{booking.service}</p>
+                                        {booking.hotelBoardingType && booking.checkInDate && booking.checkOutDate && (
+                                            <p className="text-[12px] text-[#4a5565]">
+                                                {booking.checkInDate} to {booking.checkOutDate}
+                                            </p>
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell className="hidden md:table-cell">
                                     <div>
-                                        <p className="font-['Arimo:Regular',sans-serif] text-[14px]">{booking.date}</p>
-                                        <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.time}</p>
+                                        <p className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                                            {booking.checkInDate || booking.date}
+                                        </p>
+                                        <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
+                                            {booking.checkOutDate ? `Until ${booking.checkOutDate}` : booking.time}
+                                        </p>
                                     </div>
                                 </TableCell>
                                 <TableCell>{getStatusBadge(booking.status)}</TableCell>
@@ -582,9 +595,49 @@ export default function BookingsManagement() {
                                                             Date & Time
                                                         </p>
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                                            {booking.date} at {booking.time}
+                                                            {booking.checkInDate && booking.checkOutDate
+                                                                ? `${booking.checkInDate} to ${booking.checkOutDate}`
+                                                                : `${booking.date} at ${booking.time}`}
                                                         </p>
                                                     </div>
+                                                    {booking.hotelBoardingType && (
+                                                        <>
+                                                            <div>
+                                                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                    Stay Type
+                                                                </p>
+                                                                <p className="font-['Arimo:Regular',sans-serif] text-[16px] capitalize">
+                                                                    {booking.hotelBoardingType}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                    Room/Kennel Size
+                                                                </p>
+                                                                <p className="font-['Arimo:Regular',sans-serif] text-[16px] capitalize">
+                                                                    {booking.roomSize || 'Not set'}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                    Emergency Contact
+                                                                </p>
+                                                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                                                                    {booking.emergencyContact || 'Not provided'}
+                                                                </p>
+                                                            </div>
+                                                            {booking.price > 0 && (
+                                                                <div>
+                                                                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                        Estimated Stay Total
+                                                                    </p>
+                                                                    <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
+                                                                        PHP {Number(booking.price).toLocaleString('en-US')}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
                                                     {booking.isHomeService && booking.address && (
                                                         <div>
                                                             <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
@@ -621,6 +674,21 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                             {booking.notes}
                                                         </p>
+                                                    </div>
+                                                )}
+
+                                                {Array.isArray(booking.addOns) && booking.addOns.length > 0 && (
+                                                    <div className="border-t pt-4">
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-2">
+                                                            Add-ons
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {booking.addOns.map((addOn) => (
+                                                                <span key={addOn.id || addOn.name} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                                                                    {addOn.name || addOn.id}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
 

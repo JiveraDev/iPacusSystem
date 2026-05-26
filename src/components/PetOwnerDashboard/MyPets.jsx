@@ -6,18 +6,22 @@ import { Plus, PawPrint, Loader2 } from "lucide-react";
 import { getUserPetsService } from "../../services/ConnectOwnership";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
+import { calculateAge } from "../../lib/date";
 
 export default function MyPets() {
   const navigate = useNavigate();
   const [pets, setPets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdminView, setIsAdminView] = useState(false);
 
   useEffect(() => {
     async function fetchPets() {
       try {
         const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-        // Check for various ID keys (id, user_id, userId)
         const userId = currentUser.id || currentUser.user_id || currentUser.userId;
+        const userRole = currentUser.role || "";
+        const isAdmin = ["Admin", "Super Admin", "Veterinarian"].includes(userRole);
+        setIsAdminView(isAdmin);
 
         if (!userId) {
           toast.error("User session not found. Please log in again.");
@@ -25,12 +29,30 @@ export default function MyPets() {
           return;
         }
 
-        const userPets = await getUserPetsService(userId);
-        // userPets is now formatted correctly by the backend (mapping db_columns to frontend keys)
-        setPets(userPets);
+        let userPets = [];
+        if (isAdmin) {
+          // Administrators can see all pets
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information`);
+          if (response.ok) {
+            userPets = await response.json();
+          } else {
+            throw new Error("Failed to fetch all pets");
+          }
+        } else {
+          // Regular users see only their own pets
+          userPets = await getUserPetsService(userId);
+        }
+
+        // Standardize the name field if it's missing (get_pets.php uses petName)
+        const standardizedPets = userPets.map(p => ({
+          ...p,
+          name: p.name || p.petName || "Unnamed Pet"
+        }));
+
+        setPets(standardizedPets);
       } catch (error) {
         console.error("Failed to fetch pets:", error);
-        toast.error("Failed to load your pets");
+        toast.error("Failed to load pets");
       } finally {
         setIsLoading(false);
       }
@@ -43,7 +65,7 @@ export default function MyPets() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="h-12 w-12 text-[#155dfc] animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Loading your pets...</p>
+        <p className="text-gray-600 font-medium">{isAdminView ? "Loading pet directory..." : "Loading your pets..."}</p>
       </div>
     );
   }
@@ -51,25 +73,10 @@ export default function MyPets() {
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">My Pets</h1>
-        {/*{pets.length > 0 && (*/}
-         {/*  <Button */}
-        {/*TODO: wag mo to gagalawin aahhah hindi sya importante trip ko lang talaga ahaahhahah*/}
-
-
-        {/*    onClick={() => navigate("/dashboard/my-pets/add")}*/}
-        {/*    className="bg-[#155dfc] hover:bg-blue-700"*/}
-        {/*  >*/}
-        {/*    <Plus className="h-5 w-5 mr-2" />*/}
-        {/*    Link Pet*/}
-        {/*  </Button>*/}
-        {/*/!*)}*!/ Hide this shit  hahahha */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+          {isAdminView ? "Pet Directory" : "My Pets"}
+        </h1>
       </div>
-
-
-
-
-
 
       {pets.length === 0 ? (
         <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
@@ -77,17 +84,23 @@ export default function MyPets() {
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                 <PawPrint className="h-10 w-10 text-slate-300" />
             </div>
-            <h3 className="font-bold text-xl text-slate-900 mb-2">No Pets Linked Yet</h3>
+            <h3 className="font-bold text-xl text-slate-900 mb-2">
+              {isAdminView ? "No registered pets found" : "No Pets Linked Yet"}
+            </h3>
             <p className="text-slate-500 mb-8 max-w-sm mx-auto">
-              Link your first pet using the unique Registration ID provided by your clinic (e.g., PET-X-IPAWCUS).
+              {isAdminView 
+                ? "There are currently no pets in the system record. Go to Pet Register to add one."
+                : "Link your first pet using the unique Registration ID provided by your clinic (e.g., PET-X-IPAWCUS)."}
             </p>
-            <Button 
-              onClick={() => navigate("/dashboard/my-pets/add")}
-              className="bg-[#155dfc] hover:bg-blue-700 px-8 h-12 text-base font-semibold"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Link Your First Pet
-            </Button>
+            {!isAdminView && (
+              <Button 
+                onClick={() => navigate("/dashboard/my-pets/add")}
+                className="bg-[#155dfc] hover:bg-blue-700 px-8 h-12 text-base font-semibold"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Link Your First Pet
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -96,7 +109,7 @@ export default function MyPets() {
             <Card 
               key={pet.id || pet.db_id} 
               className="group cursor-pointer border-slate-200 hover:border-[#155dfc] hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden"
-              onClick={() => navigate(`/dashboard/my-pets/${pet.id}`)}
+              onClick={() => navigate(isAdminView ? `/dashboard/pet-register/${pet.id}` : `/dashboard/my-pets/${pet.id}`)}
             >
               <CardContent className="pt-8">
                 <div className="text-center">
@@ -128,7 +141,7 @@ export default function MyPets() {
                   <p className="text-slate-500 font-medium mb-3">{pet.species} • {pet.breed}</p>
                   
                   <div className="flex items-center justify-center gap-2 text-sm text-slate-400 font-medium mb-4">
-                    <span>{pet.age || 'N/A'}</span>
+                    <span>{calculateAge(pet.birthDate) || pet.age || 'N/A'}</span>
                     <span className="text-slate-200">•</span>
                     <span>{pet.gender || 'N/A'}</span>
                   </div>

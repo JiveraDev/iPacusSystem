@@ -44,21 +44,23 @@ const PetProfileScreen = lazy(() => import("./PetOwnerDashboard/PetProfile.jsx")
 const MedicalRecordsScreen = lazy(() => import("./PetOwnerDashboard/MedicalRecords.jsx"));
 const RequestUpdateRecordScreen = lazy(() => import("./PetOwnerDashboard/RequestUpdateRecord.jsx"));
 const TodosScreen = lazy(() => import("./PetOwnerDashboard/Todos.jsx"));
-const PetOwnerProfileScreen = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
 const BookingManagement = lazy(() => import("./AdminDashboardsComponent/BookingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
 const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
 const PetRegister = lazy(() => import("./AdminDashboardsComponent/PetRegister.jsx"));
+const PetProfileEdit = lazy(() => import("./AdminDashboardsComponent/PetProfileEdit.jsx"));
 const AccountManagement = lazy(() => import("./SuperAdminDashboardComponent/AccountManagement.jsx"));
 const QueueDashboard = lazy(() => import("./PetOwnerDashboard/Self-Service_QUEUE.jsx"));
-
-// Inventory Components
 const AllItemsPage = lazy(() => import("./AdminDashboardsComponent/AllItemsPage.jsx"));
 const AddNewItemPage = lazy(() => import("./AdminDashboardsComponent/AddNewItemPage.jsx"));
 const StockInPage = lazy(() => import("./AdminDashboardsComponent/StockInPage.jsx"));
 const LowStockPage = lazy(() => import("./AdminDashboardsComponent/LowStockPage.jsx"));
 const NearExpiryPage = lazy(() => import("./AdminDashboardsComponent/NearExpiryPage.jsx"));
 const DisposalLogsPage = lazy(() => import("./AdminDashboardsComponent/DisposalLogsPage.jsx"));
+const AdminProfile = lazy(() => import("./AdminDashboardsComponent/adminprofile.jsx"));
+const VetProfile = lazy(() => import("./VetrinarianComponents/VetProfile.jsx"));
+const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
+
 
 
 // debug bypas starts here
@@ -140,13 +142,26 @@ const screenMap = {
   "/dashboard/my-pets/:petId/medical-records": MedicalRecordsScreen,
   "/dashboard/my-pets/:petId/request-update": RequestUpdateRecordScreen,
   "/dashboard/pet-register": PetRegister,
+  "/dashboard/pet-register/:petId": PetProfileEdit,
   "/dashboard/bookings": BookingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/consent": ConsentFilesManagement,
   "/dashboard/accounts": AccountManagement,
   "/dashboard/self-service-queue": QueueDashboard,
   "/dashboard/todos": TodosScreen,
-  "/dashboard/profile": PetOwnerProfileScreen,
+  "/dashboard/profile": (props = {}) => {
+    const role = normalizeRole(getUserValue(props.user, ["role"]));
+
+    if (role === "veterinarian" || role === "vet") {
+      return <VetProfile {...props} />;
+    }
+
+    if (role === "admin" || role === "super_admin" || role === "superadmin") {
+      return <AdminProfile {...props} />;
+    }
+
+    return <PetOwnerProfile {...props} />;
+  },
   "/dashboard/inventory": AllItemsPage,
   "/dashboard/inventory/add": AddNewItemPage,
   "/dashboard/inventory/stock-in": StockInPage,
@@ -163,6 +178,10 @@ function getUserValue(user, keys, fallback = "") {
   }
 
   return fallback;
+}
+
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
 
 function buildStoredUser(user) {
@@ -573,7 +592,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 </div>
               }>
                 {/* eslint-disable-next-line react-hooks/static-components */}
-                <ScreenComponent />
+                <ScreenComponent user={user} onUserUpdate={onUserUpdate} />
               </Suspense>
             </main>
           </div>

@@ -10,13 +10,14 @@ function Dialog({ open, onOpenChange, children }) {
 
 function DialogContent({ className, children, ...props }) {
   const context = React.useContext(DialogContext);
+  const hasCustomMaxWidth = typeof className === "string" && /(?:^|\s)(?:[\w-]+:)*max-w-/.test(className);
 
   if (!context?.open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/50"
@@ -25,7 +26,8 @@ function DialogContent({ className, children, ...props }) {
       />
       <div
         className={cn(
-          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:max-w-[calc(100vw-2rem)] sm:p-6",
+          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:p-6",
+          !hasCustomMaxWidth && "max-w-lg",
           className
         )}
         {...props}
@@ -44,16 +46,29 @@ function DialogTitle({ className, ...props }) {
   return <h2 className={cn("text-lg font-semibold text-slate-900", className)} {...props} />;
 }
 
-function DialogTrigger({ asChild, children, ...props }) {
+function DialogTrigger({ asChild = false, children, onClick, ...props }) {
   const context = React.useContext(DialogContext);
-  const child = React.Children.only(children);
+  const handleClick = (event, childOnClick) => {
+    childOnClick?.(event);
+    onClick?.(event);
 
-  return React.cloneElement(child, {
-    onClick: (e) => {
-      child.props.onClick?.(e);
+    if (!event.defaultPrevented) {
       context.onOpenChange?.(true);
-    },
+    }
+  };
+
+  if (!asChild) {
+    return (
+      <button type="button" {...props} onClick={(event) => handleClick(event)}>
+        {children}
+      </button>
+    );
+  }
+
+  const child = React.Children.only(children);
+  return React.cloneElement(child, {
     ...props,
+    onClick: (event) => handleClick(event, child.props.onClick),
   });
 }
 

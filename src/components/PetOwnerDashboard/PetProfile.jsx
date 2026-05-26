@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, User } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
+import { calculateAge } from "../../lib/date";
 
 import { findPetService } from "../../services/findPet";
 
@@ -412,7 +413,7 @@ export default function PetProfile() {
               </div>
               <div className="flex items-center justify-between gap-4 py-1">
                 <span className="text-slate-500 font-medium">Estimated Age</span>
-                <span className="font-bold text-slate-900">{pet.age || 'N/A'}</span>
+                <span className="font-bold text-slate-900">{calculateAge(pet.birthDate) || pet.age || 'N/A'}</span>
               </div>
               <div className="flex items-center justify-between gap-4 py-1">
                 <span className="text-slate-500 font-medium">Sex / Gender</span>

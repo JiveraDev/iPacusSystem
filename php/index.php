@@ -68,6 +68,9 @@ switch ($path) {
             require_once __DIR__ . '/get_bookings.php';
         }
         break;
+    case '/rooms/availability':
+        require_once __DIR__ . '/get_room_availability.php';
+        break;
     case '/inventory':
         $_GET['action'] = 'list';
         require_once __DIR__ . '/inventory.php';
@@ -127,6 +130,16 @@ switch ($path) {
     case '/self-service/access':
         require_once __DIR__ . '/check_self_service_access.php';
         break;
+    case '/vet_schedules':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/update_vet_schedule.php';
+        } else {
+            require_once __DIR__ . '/get_vet_schedules.php';
+        }
+        break;
+    case '/profile':
+        require_once __DIR__ . '/get_user_profile.php';
+        break;
     case '/health':
         echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
         break;
@@ -135,12 +148,18 @@ switch ($path) {
         if (preg_match('/^\/users\/(\d+)\/pets$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             require_once __DIR__ . '/get_user_pets.php';
+        } elseif (preg_match('/^\/users\/(\d+)\/bookings$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            require_once __DIR__ . '/get_bookings.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/queues$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/get_pet_queues.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/bookings$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/get_pet_bookings.php';
+        } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            require_once __DIR__ . '/pet_medical_records.php';
         } elseif (preg_match('/^\/users\/(\d+)$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

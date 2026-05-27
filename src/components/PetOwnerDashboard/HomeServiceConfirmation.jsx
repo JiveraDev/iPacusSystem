@@ -12,7 +12,7 @@ import {
   ShieldCheck, Upload, CheckCircle, Loader2, ArrowLeft, X 
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
-import { formatDisplayDate } from "../../lib/date";
+import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
@@ -86,7 +86,7 @@ export default function HomeServiceConfirmation() {
       toast.error("Please select a payment method.");
       return;
     }
-    if (!paymentFormData.receiptFile) {
+    if (!paymentFormData.receiptFile && paymentFormData.paymentMethod !== "cash") {
       toast.error("Please upload proof of payment.");
       return;
     }
@@ -94,7 +94,9 @@ export default function HomeServiceConfirmation() {
     setIsSubmitting(true);
     try {
       // 1. Upload Receipt
-      const receiptUrl = await uploadFile(paymentFormData.receiptFile, "booking_payment");
+      const receiptUrl = paymentFormData.receiptFile
+        ? await uploadFile(paymentFormData.receiptFile, "booking_payment")
+        : null;
 
       // 2. Upload Signature
       let finalSignatureUrl = signature;
@@ -165,14 +167,9 @@ export default function HomeServiceConfirmation() {
       instructions: "Send to GCash: 0917-XXX-XXXX (iPawcus). Upload screenshot.",
     },
     {
-      value: "bank",
-      label: "Bank Transfer",
-      instructions: "BDO Account #XXXX-XXXX-XXXX (iPawcus). Upload receipt.",
-    },
-    {
       value: "cash",
       label: "Cash Payment",
-      instructions: "Pay at clinic counter. Upload reference/ID if available.",
+      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
     },
   ];
 
@@ -233,7 +230,7 @@ export default function HomeServiceConfirmation() {
                 <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
                     <p className="text-xs text-gray-500 uppercase font-bold">Preferred Time</p>
-                    <p className="font-semibold">{booking.booking_time}</p>
+                    <p className="font-semibold">{formatDisplayTime(booking.booking_time)}</p>
                 </div>
             </div>
             <div className="flex items-start gap-3 pt-2 border-t">
@@ -373,7 +370,7 @@ export default function HomeServiceConfirmation() {
                             <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
                             <Input
                               type="file"
-                              required
+                              required={paymentFormData.paymentMethod !== "cash"}
                               accept="image/*"
                               onChange={(e) => setPaymentFormData({...paymentFormData, receiptFile: e.target.files[0]})}
                               disabled={isSubmitting}

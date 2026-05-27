@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
@@ -14,7 +15,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
 import { resolveImageUrl } from '../../lib/image';
-import { formatDisplayDate, formatDisplayDateRange } from '../../lib/date';
+import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -49,6 +50,13 @@ export default function BookingsManagement() {
     const [newTime, setNewTime] = useState('');
     const [viewerImage, setViewerImage] = useState(null);
     const [infoModal, setInfoModal] = useState(null);
+    const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
+    const [currentCancellationBooking, setCurrentCancellationBooking] = useState(null);
+    const [cancellationData, setCancellationData] = useState({
+        message: '',
+        walletNumber: '',
+        transactionNumber: ''
+    });
 
     // Registration states
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -81,23 +89,30 @@ export default function BookingsManagement() {
         fetchBookings();
     }, []);
 
-    const updateBookingStatus = async (id, newStatus) => {
+    const updateBookingStatus = async (id, newStatus, extraPayload = {}) => {
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({ status: newStatus, ...extraPayload })
             });
             
             if (response.ok) {
+                const result = await response.json().catch(() => ({}));
                 setBookings(bookings =>
                     bookings.map(booking =>
-                        booking.id === id ? { ...booking, status: newStatus } : booking
+                        booking.id === id ? { ...booking, status: newStatus, onlineConsultation: result.onlineConsultation || booking.onlineConsultation } : booking
                     )
                 );
+                return true;
+            } else {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || 'Failed to update booking status');
             }
         } catch (error) {
             console.error('Error updating status:', error);
+            toast.error(error.message || 'Failed to update booking status.');
+            return false;
         }
     };
 
@@ -108,20 +123,91 @@ export default function BookingsManagement() {
         setRescheduleDialogOpen(true);
     };
 
-    const confirmReschedule = () => {
+    const openCancellationRequest = (booking) => {
+        setCurrentCancellationBooking(booking);
+        setCancellationData({
+            message: '',
+            walletNumber: '',
+            transactionNumber: ''
+        });
+        setCancellationDialogOpen(true);
+    };
+
+    const confirmCancellationRequest = async () => {
+        if (!currentCancellationBooking) return;
+        if (!cancellationData.message.trim()) {
+            toast.error('Please enter a cancellation message.');
+            return;
+        }
+
+        if (currentCancellationBooking.paymentProof && (!cancellationData.walletNumber.trim() || !cancellationData.transactionNumber.trim())) {
+            toast.error('Please provide the wallet number and transaction number for the manual return process.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${currentCancellationBooking.id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'cancelled',
+                    cancellation_message: cancellationData.message.trim(),
+                    wallet_number: cancellationData.walletNumber.trim(),
+                    transaction_number: cancellationData.transactionNumber.trim()
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || 'Failed to request cancellation');
+            }
+
+            toast.success(`Cancellation request recorded for ${currentCancellationBooking.bookingNumber}.`);
+            setCancellationDialogOpen(false);
+            setCurrentCancellationBooking(null);
+            fetchBookings();
+        } catch (error) {
+            console.error('Error requesting cancellation:', error);
+            toast.error(error.message || 'Failed to request cancellation.');
+        }
+    };
+
+    const confirmReschedule = async () => {
         if (currentRescheduleBooking && newDate && newTime) {
-            setBookings(bookings =>
-                bookings.map(booking =>
-                    booking.id === currentRescheduleBooking.id
-                        ? { ...booking, date: newDate, time: newTime }
-                        : booking
-                )
-            );
-            setRescheduleDialogOpen(false);
-            toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${formatDisplayDate(newDate)} at ${newTime}`);
-            setCurrentRescheduleBooking(null);
-            setNewDate('');
-            setNewTime('');
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${currentRescheduleBooking.id}/schedule`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        booking_date: newDate,
+                        booking_time: newTime,
+                        changed_by_user_id: storedUser.id || storedUser.user_id || null,
+                        reason: 'Admin reschedule'
+                    })
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to reschedule booking');
+                }
+
+                setBookings(bookings =>
+                    bookings.map(booking =>
+                        booking.id === currentRescheduleBooking.id
+                            ? { ...booking, date: newDate, time: newTime, onlineConsultation: result.onlineConsultation || booking.onlineConsultation }
+                            : booking
+                    )
+                );
+                setRescheduleDialogOpen(false);
+                toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${formatDisplayDate(newDate)} at ${newTime}`);
+                setCurrentRescheduleBooking(null);
+                setNewDate('');
+                setNewTime('');
+            } catch (error) {
+                console.error('Error rescheduling booking:', error);
+                toast.error(error.message || 'Failed to reschedule booking.');
+            }
         }
     };
 
@@ -241,7 +327,8 @@ export default function BookingsManagement() {
             'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
             'parasite-control': 'Parasite Control',
-            'boarding': 'Pet Hotel & Boarding'
+            'boarding': 'Pet Hotel & Boarding',
+            'special services': 'Special Services'
         };
 
         const label = labels[type] || 'Consultation';
@@ -268,7 +355,7 @@ export default function BookingsManagement() {
         }[filterAge];
         const createdDate = new Date(booking.createdAt || booking.date);
         const ageInDays = Math.floor((new Date() - createdDate) / (1000 * 60 * 60 * 24));
-        const matchesAge = filterAge === 'all' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
+        const matchesAge = filterAge === 'all' || booking.status === 'cancelled' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
 
         return matchesSearch && matchesType && matchesStatus && matchesAge;
     }).sort((a, b) => {
@@ -338,6 +425,7 @@ export default function BookingsManagement() {
                             <SelectItem value="parasite-control">Parasite Control</SelectItem>
                             <SelectItem value="boarding">Boarding</SelectItem>
                             <SelectItem value="home-service">Home Service</SelectItem>
+                            <SelectItem value="special services">Special Services</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -377,9 +465,7 @@ export default function BookingsManagement() {
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Booking #</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Type</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Pet / Owner</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif] hidden lg:table-cell">Service</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Date & Time</TableHead>
-
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
                         </TableRow>
@@ -400,27 +486,27 @@ export default function BookingsManagement() {
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
                                     </div>
                                 </TableCell>
-                                <TableCell className="hidden lg:table-cell">
-                                    <div>
-                                        <p>{booking.service}</p>
-                                        {booking.hotelBoardingType && booking.checkInDate && booking.checkOutDate && (
-                                            <p className="text-[12px] text-[#4a5565]">
-                                                {formatDisplayDateRange(booking.checkInDate, booking.checkOutDate, { compact: true })}
-                                            </p>
-                                        )}
-                                    </div>
-                                </TableCell>
                                 <TableCell className="hidden md:table-cell">
                                     <div>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[14px]">
                                             {formatDisplayDate(booking.checkInDate || booking.date, { compact: true })}
                                         </p>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                                            {booking.checkOutDate ? `Until ${formatDisplayDate(booking.checkOutDate, { compact: true })}` : booking.time}
+                                            {booking.checkOutDate ? `Until ${formatDisplayDate(booking.checkOutDate, { compact: true })}` : formatDisplayTime(booking.time)}
                                         </p>
                                     </div>
                                 </TableCell>
-                                <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {booking.hasCancellationRequest ? (
+                                            <Badge className="bg-red-100 text-red-700 border-red-200 border px-2.5 py-0.5 rounded-full font-medium">
+                                                Cancellation Requested
+                                            </Badge>
+                                        ) : (
+                                            getStatusBadge(booking.status)
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex gap-2">
                                         <Sheet>
@@ -507,7 +593,7 @@ export default function BookingsManagement() {
                                                 </div>
 
                                                 {/* Basic Info */}
-                                                <div className="space-y-3">
+                                            <div className="space-y-3">
                                                     <div>
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                             Booking Number
@@ -582,7 +668,7 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                             {booking.checkInDate && booking.checkOutDate
                                                                 ? formatDisplayDateRange(booking.checkInDate, booking.checkOutDate)
-                                                                : `${formatDisplayDate(booking.date)} at ${booking.time}`}
+                                                                : `${formatDisplayDate(booking.date)} at ${formatDisplayTime(booking.time)}`}
                                                         </p>
                                                     </div>
                                                     {booking.hotelBoardingType && (
@@ -647,7 +733,15 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                             Status
                                                         </p>
-                                                        {getStatusBadge(booking.status)}
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            {booking.hasCancellationRequest ? (
+                                                                <Badge className="bg-red-100 text-red-700 border-red-200 border px-2.5 py-0.5 rounded-full font-medium">
+                                                                    Cancellation Requested
+                                                                </Badge>
+                                                            ) : (
+                                                                getStatusBadge(booking.status)
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -656,9 +750,49 @@ export default function BookingsManagement() {
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                             Notes
                                                         </p>
-                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                                                        {String(booking.notes).includes('[Cancellation Request]') && (
+                                                            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                                                                Cancellation request submitted by the pet owner. Review the wallet and transaction details before processing any return.
+                                                            </div>
+                                                        )}
+                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px] whitespace-pre-wrap">
                                                             {booking.notes}
                                                         </p>
+                                                    </div>
+                                                )}
+
+                                                {booking.type === 'special services' && Array.isArray(booking.specialServiceItems) && booking.specialServiceItems.length > 0 && (
+                                                    <div className="border-t pt-4">
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-2">
+                                                            Special Service Items
+                                                        </p>
+                                                        <div className="space-y-3">
+                                                            {booking.specialServiceItems.map((item, index) => (
+                                                                <div key={`${item.id || item.sequenceNo || index}`} className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                                                                    <div className="flex items-start justify-between gap-3">
+                                                                        <div>
+                                                                            <p className="font-semibold text-slate-900">{item.serviceTitle || 'Special Service'}</p>
+                                                                            {item.serviceDescription && (
+                                                                                <p className="mt-1 text-sm text-slate-600">{item.serviceDescription}</p>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                                                                            #{item.sequenceNo || index + 1}
+                                                                        </span>
+                                                                    </div>
+                                                                    {(item.priceLabel || item.durationLabel || item.maxPets) && (
+                                                                        <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                                                                            {item.priceLabel && <p><span className="font-semibold">Price:</span> {item.priceLabel}</p>}
+                                                                            {item.durationLabel && <p><span className="font-semibold">Duration:</span> {item.durationLabel}</p>}
+                                                                            {item.maxPets && <p><span className="font-semibold">Max Pets:</span> {item.maxPets}</p>}
+                                                                        </div>
+                                                                    )}
+                                                                    {item.serviceDetails && (
+                                                                        <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{item.serviceDetails}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -755,16 +889,18 @@ export default function BookingsManagement() {
                                                         </h4>
                                                         <div className="flex flex-col gap-3">
                                                             {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
-                                                            <Button
-                                                                onClick={() => {
-                                                                    updateBookingStatus(booking.id, 'confirmed');
-                                                                    toast.success(`Booking ${booking.bookingNumber} for ${booking.petName} confirmed successfully`);
-                                                                }}
-                                                                className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"
-                                                            >
-                                                                <CheckCircle className="size-4 mr-2" />
-                                                                Confirm Booking
-                                                            </Button>
+                                                                <Button
+                                                                    onClick={async () => {
+                                                                        const updated = await updateBookingStatus(booking.id, 'confirmed');
+                                                                        if (updated) {
+                                                                            toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully`);
+                                                                        }
+                                                                    }}
+                                                                    className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"
+                                                                >
+                                                                    <CheckCircle className="size-4 mr-2" />
+                                                                    {booking.isOnlineConsultation ? 'Approve Online Consultation' : 'Confirm Booking'}
+                                                                </Button>
                                                             )}
 
                                                             {booking.status !== 'cancelled' && (
@@ -781,17 +917,14 @@ export default function BookingsManagement() {
                                                             </Button>
                                                             )}
 
-                                                            {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
+                                                            {booking.status !== 'cancelled' && (
                                                             <Button
                                                                 variant="destructive"
-                                                                onClick={() => {
-                                                                    updateBookingStatus(booking.id, 'cancelled');
-                                                                    toast.success(`Booking ${booking.bookingNumber} for ${booking.petName} rejected`);
-                                                                }}
+                                                                onClick={() => openCancellationRequest(booking)}
                                                                 className="w-full"
                                                             >
                                                                 <XCircle className="size-4 mr-2" />
-                                                                Reject
+                                                                Request Cancellation
                                                             </Button>
                                                             )}
                                                         </div>
@@ -850,6 +983,97 @@ export default function BookingsManagement() {
                         )}
                     </DialogContent>
                 )}
+            </Dialog>
+
+            <Dialog
+                open={cancellationDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setCancellationDialogOpen(false);
+                        setCurrentCancellationBooking(null);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                            Request Cancellation
+                        </DialogTitle>
+                        <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                            Record the cancellation reason and any manual return details for this booking.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">Booking Number</p>
+                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">{currentCancellationBooking?.bookingNumber}</p>
+                            </div>
+                            <div>
+                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">Pet / Owner</p>
+                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">{currentCancellationBooking?.petName} / {currentCancellationBooking?.ownerName}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="cancellationMessage">Cancellation Message *</Label>
+                            <Textarea
+                                id="cancellationMessage"
+                                value={cancellationData.message}
+                                onChange={(event) => setCancellationData({ ...cancellationData, message: event.target.value })}
+                                placeholder="Explain why the booking is being cancelled and what the admin should communicate to the client."
+                                rows={4}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="walletNumber">
+                                    Wallet Number {currentCancellationBooking?.paymentProof ? '*' : '(optional)'}
+                                </Label>
+                                <Input
+                                    id="walletNumber"
+                                    value={cancellationData.walletNumber}
+                                    onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: event.target.value })}
+                                    placeholder="Wallet number used for the return process"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="transactionNumber">
+                                    Transaction Number {currentCancellationBooking?.paymentProof ? '*' : '(optional)'}
+                                </Label>
+                                <Input
+                                    id="transactionNumber"
+                                    value={cancellationData.transactionNumber}
+                                    onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: event.target.value })}
+                                    placeholder="Manual return transaction reference"
+                                />
+                            </div>
+                        </div>
+
+                        {currentCancellationBooking?.paymentProof && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                This booking has payment proof on file. Wallet and transaction details are required so the return process can be handled manually.
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setCancellationDialogOpen(false)}
+                        >
+                            Close
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmCancellationRequest}
+                        >
+                            Submit Cancellation Request
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
             </Dialog>
 
             {/* Reschedule Dialog */}

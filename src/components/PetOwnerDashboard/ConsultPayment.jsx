@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
+import { Textarea } from "../../ui/textarea";
 import { Checkbox } from "../../ui/checkbox";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
@@ -22,6 +23,7 @@ export default function ConsultPayment() {
   const [formData, setFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
+    senderNumber: "",
     amount: "",
     receiptFile: null,
   });
@@ -123,7 +125,12 @@ export default function ConsultPayment() {
         service_type: "consultation",
         booking_date: bookingData.date,
         booking_time: bookingData.time,
-        notes: `[Topic: ${bookingData.discussionTopic}] ${bookingData.notes}`,
+        notes: [
+          `[Topic: ${bookingData.discussionTopic}]`,
+          bookingData.notes ? bookingData.notes : "",
+          formData.senderNumber ? `[Sender Number: ${formData.senderNumber}]` : "",
+          formData.referenceNumber ? `[Transaction Reference: ${formData.referenceNumber}]` : ""
+        ].filter(Boolean).join("\n"),
         petType: bookingData.petSpecies,
         registered_status: bookingData.petId === "new-pet" ? "Not Registered" : "Registered",
         new_pet_name: bookingData.petId === "new-pet" ? bookingData.petName : null,
@@ -182,14 +189,9 @@ export default function ConsultPayment() {
       instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
     },
     {
-      value: "bank",
-      label: "Bank Transfer",
-      instructions: "Transfer to: BDO Account #XXXX-XXXX-XXXX, Account Name: iPawcus Veterinary Clinic. Upload bank receipt or screenshot.",
-    },
-    {
       value: "cash",
       label: "Cash Payment",
-      instructions: "Pay at our clinic counter. Please bring this booking reference and obtain an official receipt.",
+      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
     },
     {
       value: "other",
@@ -368,7 +370,22 @@ export default function ConsultPayment() {
                 onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
               />
               <p className="text-xs text-gray-500">
-                For digital payments (Maya, GCash, Bank Transfer), please include the transaction reference number
+                For digital payments (Maya, GCash), please include the transaction reference number
+              </p>
+            </div>
+
+            {/* Sender Number */}
+            <div className="space-y-2">
+              <Label htmlFor="senderNumber">Sender Number / Account Details</Label>
+              <Textarea
+                id="senderNumber"
+                placeholder="Enter the sender's number or account name used for payment"
+                value={formData.senderNumber}
+                onChange={(e) => setFormData({ ...formData, senderNumber: e.target.value })}
+                rows={3}
+              />
+              <p className="text-xs text-gray-500">
+                Required for online payments so the admin can match the payment to the correct sender.
               </p>
             </div>
 

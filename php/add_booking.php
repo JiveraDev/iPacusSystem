@@ -15,6 +15,27 @@ function tableExists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function columnExists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function specialServiceDateColumnsExist(PDO $pdo): bool
+{
+    return columnExists($pdo, 'special_service_catalog', 'date_restriction_type')
+        && columnExists($pdo, 'special_service_catalog', 'date_start')
+        && columnExists($pdo, 'special_service_catalog', 'date_end');
+}
+
 function resolvePetId(PDO $pdo, $id): ?int
 {
     if ($id === null || $id === '') {
@@ -126,6 +147,161 @@ function getSpeciesLabel(string $species): string
     };
 }
 
+function hasActiveOnlineConsultation(PDO $pdo, int $petId): bool
+{
+    if ($petId <= 0) {
+        return false;
+    }
+
+    if (tableExists($pdo, 'booking_pets')) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM bookings b
+            LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id
+            WHERE b.is_online_consultation = 1
+              AND bp.pet_id = ?
+              AND b.status IN ('pending', 'confirmed')
+        ");
+        $stmt->execute([$petId]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE is_online_consultation = 1
+          AND pet_id = ?
+          AND status IN ('pending', 'confirmed')
+    ");
+    $stmt->execute([$petId]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function getSpecialServiceBookedPetCount(PDO $pdo, int $specialServiceId): int
+{
+    if (!tableExists($pdo, 'special_service_booking_items')) {
+        return 0;
+    }
+
+    $hasBookingPets = tableExists($pdo, 'booking_pets');
+    $bookingPetsJoin = $hasBookingPets
+        ? "LEFT JOIN (
+                SELECT booking_id, COUNT(*) AS pet_count
+                FROM booking_pets
+                GROUP BY booking_id
+           ) bp ON bp.booking_id = b.booking_id"
+        : '';
+    $petCountExpression = $hasBookingPets
+        ? "CASE
+                WHEN COALESCE(bp.pet_count, 0) > 0 THEN bp.pet_count
+                WHEN b.unregistered_pet_name IS NOT NULL AND TRIM(b.unregistered_pet_name) <> '' THEN 1
+                WHEN b.pet_id IS NOT NULL THEN 1
+                ELSE 0
+           END"
+        : "CASE
+                WHEN b.unregistered_pet_name IS NOT NULL AND TRIM(b.unregistered_pet_name) <> '' THEN 1
+                WHEN b.pet_id IS NOT NULL THEN 1
+                ELSE 0
+           END";
+
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM({$petCountExpression}), 0)
+        FROM special_service_booking_items sbi
+        JOIN bookings b ON b.booking_id = sbi.booking_id
+        {$bookingPetsJoin}
+        WHERE sbi.special_service_id = ?
+          AND b.status <> 'cancelled'
+    ");
+    $stmt->execute([$specialServiceId]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function isSpecialServiceDateAllowed(array $service, string $bookingDate): bool
+{
+    $restrictionType = $service['date_restriction_type'] ?? 'none';
+    $dateStart = $service['date_start'] ?? null;
+    $dateEnd = $service['date_end'] ?? null;
+
+    if ($restrictionType === 'none' || $restrictionType === '' || $restrictionType === null) {
+        return true;
+    }
+
+    if ($restrictionType === 'single') {
+        return $dateStart && $bookingDate === $dateStart;
+    }
+
+    if ($restrictionType === 'range') {
+        return $dateStart && $dateEnd && $bookingDate >= $dateStart && $bookingDate <= $dateEnd;
+    }
+
+    return true;
+}
+
+function getSpecialServiceDateRestrictionMessage(array $service): string
+{
+    $title = $service['service_title'] ?? 'This special service';
+    $restrictionType = $service['date_restriction_type'] ?? 'none';
+    $dateStart = $service['date_start'] ?? null;
+    $dateEnd = $service['date_end'] ?? null;
+
+    if ($restrictionType === 'single' && $dateStart) {
+        return "{$title} is only available on {$dateStart}.";
+    }
+
+    if ($restrictionType === 'range' && $dateStart && $dateEnd) {
+        return "{$title} is only available from {$dateStart} to {$dateEnd}.";
+    }
+
+    return "{$title} is not available on the selected date.";
+}
+
+function hasVetSlotConflict(PDO $pdo, int $veterinarianId, string $bookingDate, string $bookingTime): bool
+{
+    if ($veterinarianId <= 0 || $bookingDate === '' || $bookingTime === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE is_online_consultation = 1
+          AND veterinarian_id = ?
+          AND booking_date = ?
+          AND booking_time = ?
+          AND status IN ('pending', 'confirmed')
+    ");
+    $stmt->execute([$veterinarianId, $bookingDate, $bookingTime]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function normalizeSpecialServiceItemIds($items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        $candidate = $item;
+        if (is_array($item)) {
+            $candidate = $item['special_service_id'] ?? $item['id'] ?? $item['service_id'] ?? null;
+        }
+
+        if ($candidate === null || $candidate === '') {
+            continue;
+        }
+
+        if (is_numeric($candidate)) {
+            $normalized[] = (int)$candidate;
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 
 $userId = $input['user_id'] ?? null;
@@ -138,6 +314,7 @@ $notes = $input['notes'] ?? null;
 $imagePath = $input['Image_Booking_Concern_Path'] ?? null;
 $registeredStatus = $input['registered_status'] ?? null;
 $petType = $input['petType'] ?? null;
+$specialServiceItemIds = normalizeSpecialServiceItemIds($input['special_service_items'] ?? []);
 
 $newPetName = $input['new_pet_name'] ?? null;
 $newPetBreed = $input['new_pet_breed'] ?? null;
@@ -187,10 +364,111 @@ if ((int)$isOnlineConsultation === 1 && (!$veterinarianId || !is_numeric($veteri
     exit;
 }
 
+if ((int)$isOnlineConsultation === 1 && is_numeric($veterinarianId)) {
+    $normalizedVetId = (int)$veterinarianId;
+    if (hasVetSlotConflict($pdo, $normalizedVetId, (string)$bookingDate, (string)$bookingTime)) {
+        http_response_code(409);
+        echo json_encode(['message' => 'The selected consultation date and time is already booked. Please choose another available slot.']);
+        exit;
+    }
+}
+
 if ($registeredStatus === 'Registered' && empty($petIds)) {
     http_response_code(400);
     echo json_encode(['message' => 'The selected pet could not be found. Please go back and choose the pet again.']);
     exit;
+}
+
+if ((int)$isOnlineConsultation === 1 && !empty($petIds)) {
+    $consultPetId = (int)$petIds[0];
+
+    if (hasActiveOnlineConsultation($pdo, $consultPetId)) {
+        http_response_code(409);
+        echo json_encode(['message' => 'This pet already has an active online consultation booking. Please cancel or complete the existing booking first.']);
+        exit;
+    }
+}
+
+if ($serviceType === 'special services') {
+    if (!tableExists($pdo, 'special_service_catalog')) {
+        http_response_code(500);
+        echo json_encode(['message' => 'Special service catalog is missing.']);
+        exit;
+    }
+
+    if (empty($specialServiceItemIds)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Please select at least one special service.']);
+        exit;
+    }
+
+    $bookingPetCount = !empty($petIds) ? count($petIds) : ((!empty($newPetName) && $registeredStatus === 'Not Registered') ? 1 : 0);
+    if ($bookingPetCount <= 0) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Please select a pet or add new pet information for special services booking.']);
+        exit;
+    }
+
+    $dateColumnsAvailable = specialServiceDateColumnsExist($pdo);
+    $dateSelect = $dateColumnsAvailable
+        ? ', date_restriction_type, date_start, date_end'
+        : ", 'none' AS date_restriction_type, NULL AS date_start, NULL AS date_end";
+    $placeholderList = implode(',', array_fill(0, count($specialServiceItemIds), '?'));
+    $catalogStmt = $pdo->prepare("
+        SELECT special_service_id, service_title, max_pets, is_active{$dateSelect}
+        FROM special_service_catalog
+        WHERE special_service_id IN ({$placeholderList})
+    ");
+    $catalogStmt->execute($specialServiceItemIds);
+    $selectedSpecialServices = $catalogStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (count($selectedSpecialServices) !== count($specialServiceItemIds)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'One or more special service selections are invalid.']);
+        exit;
+    }
+
+    foreach ($selectedSpecialServices as $selectedService) {
+        if ((int)$selectedService['is_active'] !== 1) {
+            http_response_code(400);
+            echo json_encode(['message' => 'One or more selected special services is inactive.']);
+            exit;
+        }
+
+        if (!isSpecialServiceDateAllowed($selectedService, $bookingDate)) {
+            http_response_code(400);
+            echo json_encode(['message' => getSpecialServiceDateRestrictionMessage($selectedService)]);
+            exit;
+        }
+    }
+
+    $maxAllowedPets = min(array_map(function ($item) {
+        return max(1, (int)($item['max_pets'] ?? 1));
+    }, $selectedSpecialServices));
+
+    if ($bookingPetCount > $maxAllowedPets) {
+        http_response_code(400);
+        echo json_encode(['message' => "The selected special services allow only {$maxAllowedPets} pet" . ($maxAllowedPets === 1 ? '' : 's') . " per booking."]);
+        exit;
+    }
+
+    foreach ($selectedSpecialServices as $selectedService) {
+        $capacity = max(1, (int)($selectedService['max_pets'] ?? 1));
+        $bookedPets = getSpecialServiceBookedPetCount($pdo, (int)$selectedService['special_service_id']);
+        $remainingSlots = max(0, $capacity - $bookedPets);
+
+        if ($remainingSlots <= 0) {
+            http_response_code(409);
+            echo json_encode(['message' => "{$selectedService['service_title']} is fully booked."]);
+            exit;
+        }
+
+        if ($bookingPetCount > $remainingSlots) {
+            http_response_code(409);
+            echo json_encode(['message' => "{$selectedService['service_title']} has only {$remainingSlots} remaining pet slot" . ($remainingSlots === 1 ? '' : 's') . "."]);
+            exit;
+        }
+    }
 }
 
 if ($isHotelBoarding) {
@@ -387,6 +665,26 @@ try {
 
         foreach ($petIds as $selectedPetId) {
             $petStmt->execute([$bookingId, $selectedPetId]);
+        }
+    }
+
+    if ($serviceType === 'special services') {
+        if (!tableExists($pdo, 'special_service_booking_items')) {
+            throw new Exception('Special service booking items table is missing.');
+        }
+
+        $bookingSpecialServiceStmt = $pdo->prepare("
+            INSERT INTO special_service_booking_items
+                (booking_id, special_service_id, sequence_no)
+            VALUES (?, ?, ?)
+        ");
+
+        foreach ($specialServiceItemIds as $index => $specialServiceId) {
+            $bookingSpecialServiceStmt->execute([
+                $bookingId,
+                $specialServiceId,
+                $index + 1,
+            ]);
         }
     }
 

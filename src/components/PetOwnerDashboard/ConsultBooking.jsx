@@ -66,6 +66,21 @@ function sortTimeSlots(slots) {
   });
 }
 
+function formatBookingTimeSlot(timeValue) {
+  const value = String(timeValue || "").trim();
+  if (!value) return "";
+
+  const [hourValue, minuteValue = "0"] = value.split(":");
+  const hours = Number(hourValue);
+  const minutes = Number(minuteValue);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "";
+
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const displayHour = hours % 12 || 12;
+  return `${String(displayHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
 function isAvailableSchedule(schedule) {
   return Number(schedule?.is_available) === 1 || schedule?.is_available === true;
 }
@@ -109,6 +124,7 @@ export default function ConsultBooking() {
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedVet, setSelectedVet] = useState("");
   const [concernImages, setConcernImages] = useState([]);
+  const [existingConsultBookings, setExistingConsultBookings] = useState([]);
 
   // New Pet Information (for anonymous booking)
   const [isNewPet, setIsNewPet] = useState(false);
@@ -132,8 +148,19 @@ export default function ConsultBooking() {
 
     const date = parseDateInput(selectedDate);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    
-    return (vet.availability && vet.availability[dayName]) || [];
+    const baseSlots = (vet.availability && vet.availability[dayName]) || [];
+    const occupiedSlots = existingConsultBookings
+      .filter((booking) => (
+        booking &&
+        booking.isOnlineConsultation &&
+        String(booking.veterinarianId) === String(selectedVet) &&
+        String(booking.date) === String(selectedDate) &&
+        ["pending", "confirmed"].includes(String(booking.status || "").toLowerCase())
+      ))
+      .map((booking) => formatBookingTimeSlot(booking.time))
+      .filter(Boolean);
+
+    return baseSlots.filter((slot) => !occupiedSlots.includes(slot));
   };
 
   useEffect(() => {
@@ -203,6 +230,14 @@ export default function ConsultBooking() {
           });
           setVeterinarians(formattedVets);
         }
+
+        const bookingsResponse = await fetch(`${API_BASE}/api/bookings`);
+        if (bookingsResponse.ok) {
+          const bookingsData = await bookingsResponse.json();
+          setExistingConsultBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        } else {
+          setExistingConsultBookings([]);
+        }
       } catch (error) {
         console.error("Error fetching booking data:", error);
         toast.error("Failed to load necessary information. Please try again.");
@@ -234,6 +269,32 @@ export default function ConsultBooking() {
     setSelectedDate(date);
     setSelectedTime("");
   };
+
+  useEffect(() => {
+    if (!selectedTime || !selectedVet || !selectedDate) return;
+
+    const vet = veterinarians.find(v => v.id === selectedVet);
+    if (!vet) return;
+
+    const date = parseDateInput(selectedDate);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const baseSlots = (vet.availability && vet.availability[dayName]) || [];
+    const occupiedSlots = existingConsultBookings
+      .filter((booking) => (
+        booking &&
+        booking.isOnlineConsultation &&
+        String(booking.veterinarianId) === String(selectedVet) &&
+        String(booking.date) === String(selectedDate) &&
+        ["pending", "confirmed"].includes(String(booking.status || "").toLowerCase())
+      ))
+      .map((booking) => formatBookingTimeSlot(booking.time))
+      .filter(Boolean);
+    const currentAvailableSlots = baseSlots.filter((slot) => !occupiedSlots.includes(slot));
+
+    if (!currentAvailableSlots.includes(selectedTime)) {
+      setSelectedTime("");
+    }
+  }, [existingConsultBookings, selectedVet, selectedDate, selectedTime, veterinarians]);
 
   const handleConcernImageUpload = (event) => {
     const files = Array.from(event.target.files || []);

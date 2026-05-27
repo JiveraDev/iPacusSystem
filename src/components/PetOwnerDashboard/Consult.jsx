@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../ui/button";
 import { Video, Calendar, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatDisplayDate } from "../../lib/date";
+import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 
 export default function Consult() {
   const navigate = useNavigate();
@@ -131,7 +131,7 @@ export default function Consult() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          <span>{consultation.time}</span>
+                          <span>{formatDisplayTime(consultation.time)}</span>
                         </div>
                       </div>
                       <p className="text-sm text-gray-600">Veterinarian: {consultation.veterinarian}</p>

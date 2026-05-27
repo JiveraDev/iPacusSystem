@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -42,7 +42,6 @@ export default function HomeServices() {
   const [newPetBreed, setNewPetBreed] = useState("");
   const [newPetAge, setNewPetAge] = useState("");
   const [newPetWeight, setNewPetWeight] = useState("");
-  const [newPetMedicalConditions, setNewPetMedicalConditions] = useState("");
 
   const homeServices = [
     {
@@ -153,15 +152,6 @@ export default function HomeServices() {
 
     fetchPets();
   }, []);
-
-  const handlePetChange = (value) => {
-    setSelectedPet(value);
-    if (value === "new-pet") {
-      setIsNewPet(true);
-    } else {
-      setIsNewPet(false);
-    }
-  };
 
   // Address Autocomplete Logic
   useEffect(() => {
@@ -276,7 +266,10 @@ export default function HomeServices() {
       service_type: "home-service",
       booking_date: preferredDate,
       booking_time: preferredTime,
-      notes: `[Services: ${serviceNames}] ${notes}`,
+      notes: [
+        `[Services: ${serviceNames}]`,
+        notes.trim(),
+      ].filter(Boolean).join("\n"),
       registered_status: isNewPet ? "Not Registered" : "Registered",
       petType: isNewPet ? newPetSpecies : pets.find(p => p.db_id?.toString() === selectedPet)?.species,
       new_pet_name: isNewPet ? newPetName : null,

@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, User } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, User, Eye } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
-import { calculateAge, formatDisplayDate, formatDisplayDateTime } from "../../lib/date";
+import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 
 import { findPetService } from "../../services/findPet";
 
@@ -24,6 +24,7 @@ export default function PetProfile() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [detailModal, setDetailModal] = useState(null);
 
   useEffect(() => {
     async function fetchPet() {
@@ -182,6 +183,10 @@ export default function PetProfile() {
     });
   };
 
+  const openRecordDetails = (type, record) => {
+    setDetailModal({ type, record });
+  };
+
   const handleConfirmCancel = async () => {
     if (!confirmAction) return;
 
@@ -222,6 +227,227 @@ export default function PetProfile() {
     } finally {
       setIsCancelling(false);
     }
+  };
+
+  const renderRecordDetails = () => {
+    if (!detailModal) return null;
+
+    if (detailModal.type === "queue") {
+      const queue = detailModal.record;
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Queue Number</p>
+              <p className="font-semibold text-lg">#{queue.queue_number}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Status</p>
+              {getQueueStatusBadge(queue.status)}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Service</p>
+              <p className="font-semibold">{queue.service_name || "Queue"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Priority</p>
+              <p className="font-semibold capitalize">{queue.priority || "normal"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Date & Time</p>
+              <p className="font-semibold">{formatDateTime(queue.timestamp)}</p>
+            </div>
+          </div>
+          {queue.complaint && (
+            <div className="border-t pt-4">
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Complaint / Notes</p>
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{queue.complaint}</p>
+            </div>
+          )}
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Queue Source</p>
+            <p className="text-sm text-slate-700 capitalize">{queue.queue_source || "admin"}</p>
+          </div>
+        </div>
+      );
+    }
+
+    const booking = detailModal.record;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Booking Number</p>
+            <p className="font-semibold text-lg">{booking.bookingNumber}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Status</p>
+            {getBookingStatusBadge(booking.status)}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Service Type</p>
+            <p className="font-semibold">{booking.service}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Date & Time</p>
+            <p className="font-semibold">{formatDisplayDate(booking.date)} at {formatDisplayTime(booking.time)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Type</p>
+            <p className="font-semibold capitalize">{booking.type}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Price</p>
+            <p className="font-semibold text-blue-600">PHP {Number(booking.price || 0).toLocaleString("en-US")}</p>
+          </div>
+        </div>
+
+        {booking.address && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Service Address</p>
+            <p className="font-semibold">{booking.address}</p>
+            {booking.emergencyContact && (
+              <p className="mt-2 text-sm text-slate-600">Emergency Contact: {booking.emergencyContact}</p>
+            )}
+          </div>
+        )}
+
+        {booking.isOnlineConsultation && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Consultation Details</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Veterinarian</p>
+                <p className="font-semibold">{booking.veterinarian || "Unassigned"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Consult Time</p>
+                <p className="font-semibold">{formatDisplayTime(booking.time)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {booking.specialServiceItems?.length > 0 && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Special Service Items</p>
+            <div className="space-y-3">
+              {booking.specialServiceItems.map((item, index) => (
+                <div key={`${item.id || item.sequenceNo || index}`} className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{item.serviceTitle || "Special Service"}</p>
+                      {item.serviceDescription && <p className="mt-1 text-sm text-slate-600">{item.serviceDescription}</p>}
+                    </div>
+                    <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                      #{item.sequenceNo || index + 1}
+                    </span>
+                  </div>
+                  {item.serviceDetails && (
+                    <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{item.serviceDetails}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {booking.hotelBoardingType && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Stay Details</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Stay Type</p>
+                <p className="font-semibold capitalize">{booking.hotelBoardingType}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Room / Kennel Size</p>
+                <p className="font-semibold capitalize">{booking.roomSize || "Not set"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Check-in</p>
+                <p className="font-semibold">{formatDisplayDate(booking.checkInDate)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Check-out</p>
+                <p className="font-semibold">{formatDisplayDate(booking.checkOutDate)}</p>
+              </div>
+              {booking.emergencyContact && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Emergency Contact</p>
+                  <p className="font-semibold">{booking.emergencyContact}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {booking.isHomeService && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Home Service Details</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Address</p>
+                <p className="font-semibold">{booking.address || "Not set"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Date & Time</p>
+                <p className="font-semibold">{formatDisplayDate(booking.date)} at {formatDisplayTime(booking.time)}</p>
+              </div>
+              {booking.emergencyContact && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Emergency Contact</p>
+                  <p className="font-semibold">{booking.emergencyContact}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {booking.addOns?.length > 0 && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Add-ons</p>
+            <div className="flex flex-wrap gap-2">
+              {booking.addOns.map((addOn) => (
+                <span key={addOn.id || addOn.name} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                  {addOn.name || addOn.id}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {booking.image_Booking_Concern_Path && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Pictures of Concern</p>
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+              {String(booking.image_Booking_Concern_Path)
+                .split(',')
+                .map((path) => path.trim())
+                .filter(Boolean)
+                .map((path, index) => (
+                  <a
+                    key={`${path}-${index}`}
+                    href={path}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                  >
+                    <img src={resolveImageUrl(path)} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
+                  </a>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {booking.notes && (
+          <div className="border-t pt-4">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Notes</p>
+            <p className="whitespace-pre-wrap text-sm text-slate-700">{booking.notes}</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -576,16 +802,26 @@ export default function PetProfile() {
                       {displayedQueue.service_name} - {formatDateTime(displayedQueue.timestamp)}
                     </p>
                   </div>
-                  {activeQueue && (
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="destructive"
-                      onClick={openQueueCancelDialog}
+                      variant="outline"
+                      onClick={() => openRecordDetails("queue", displayedQueue)}
                       className="sm:w-auto"
                     >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Cancel Queue
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
                     </Button>
-                  )}
+                    {activeQueue && (
+                      <Button
+                        variant="destructive"
+                        onClick={openQueueCancelDialog}
+                        className="sm:w-auto"
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Cancel Queue
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-6">
@@ -615,23 +851,34 @@ export default function PetProfile() {
                     const canCancelBooking = booking.status !== "completed" && booking.status !== "cancelled";
                     return (
                       <div key={booking.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-6">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-3 mb-2">
-                            <p className="font-black text-slate-900">{booking.bookingNumber}</p>
-                            {getBookingStatusBadge(booking.status)}
+                        <button
+                          type="button"
+                          onClick={() => openRecordDetails("booking", booking)}
+                          className="min-w-0 flex-1 text-left rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#155dfc]/30"
+                        >
+                          <div className="p-2">
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <p className="font-black text-slate-900">{booking.bookingNumber}</p>
+                              {getBookingStatusBadge(booking.status)}
+                            </div>
+                            <p className="text-sm font-semibold text-slate-700">{booking.service}</p>
+                            <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
                           </div>
-                          <p className="text-sm font-semibold text-slate-700">{booking.service}</p>
-                          <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
+                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          {canCancelBooking && (
+                            <Button
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openBookingCancelDialog(booking);
+                              }}
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              Cancel
+                            </Button>
+                          )}
                         </div>
-                        {canCancelBooking && (
-                          <Button
-                            variant="outline"
-                            onClick={() => openBookingCancelDialog(booking)}
-                            className="border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            Cancel
-                          </Button>
-                        )}
                       </div>
                     );
                   })}
@@ -684,6 +931,31 @@ export default function PetProfile() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!detailModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailModal(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {detailModal?.type === "queue" ? <ClipboardList className="h-5 w-5 text-[#155dfc]" /> : <CalendarClock className="h-5 w-5 text-[#155dfc]" />}
+              {detailModal?.type === "queue" ? "Queue Details" : "Booking Details"}
+            </DialogTitle>
+            <DialogDescription>
+              {detailModal?.type === "queue"
+                ? "View the queue entry information recorded for this pet."
+                : "View the booking details recorded for this pet. Payment proof is intentionally hidden here."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {renderRecordDetails()}
         </DialogContent>
       </Dialog>
     </div>

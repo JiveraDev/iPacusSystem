@@ -68,6 +68,12 @@ switch ($path) {
             require_once __DIR__ . '/get_bookings.php';
         }
         break;
+    case '/online-consultations':
+        require_once __DIR__ . '/online_consultations.php';
+        break;
+    case '/special_services':
+        require_once __DIR__ . '/special_services.php';
+        break;
     case '/rooms/availability':
         require_once __DIR__ . '/get_room_availability.php';
         break;
@@ -179,9 +185,35 @@ switch ($path) {
             } else {
                 require_once __DIR__ . '/get_user.php';
             }
+        } elseif (preg_match('/^\/accounts\/(\d+)\/status$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+                require_once __DIR__ . '/update_account_status.php';
+            } else {
+                http_response_code(405);
+                echo json_encode(['message' => 'Method not allowed.']);
+            }
         } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_status.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/schedule$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/update_booking_schedule.php';
+        } elseif (preg_match('/^\/special_services\/(\d+)$/', $path, $matches)) {
+            $_GET['specialServiceId'] = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+                require_once __DIR__ . '/special_services.php';
+            } else {
+                http_response_code(405);
+                echo json_encode(['message' => 'Method not allowed.']);
+            }
+        } elseif (preg_match('/^\/online-consultations\/(\d+)$/', $path, $matches)) {
+            $_GET['onlineConsultationId'] = $matches[1];
+            require_once __DIR__ . '/online_consultations.php';
+        } elseif (preg_match('/^\/online-consultations\/(\d+)\/(start|join|end|diagnosis)$/', $path, $matches)) {
+            $_GET['onlineConsultationId'] = $matches[1];
+            $_GET['action'] = $matches[2];
+            require_once __DIR__ . '/online_consultations.php';
         } elseif (preg_match('/^\/consent_files\/(\d+)$/', $path, $matches)) {
             $_GET['fileId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

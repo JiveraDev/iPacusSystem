@@ -1,11 +1,15 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/account_status_helpers.php';
 
 header("Content-Type: application/json");
 
 try {
+    $adminHasActiveColumn = ensureAdminAccountStatusColumn($pdo);
+    $staffActiveSelect = $adminHasActiveColumn ? 'a.is_active AS is_active' : '1 AS is_active';
+
     // 1. Fetch Veterinarians
-    $vetSql = "SELECT u.*, v.* 
+    $vetSql = "SELECT u.*, v.*, v.is_active AS is_active
                FROM users u 
                JOIN veterinarian_profiles v ON u.user_id = v.user_id 
                WHERE u.role = 'Veterinarian'";
@@ -13,7 +17,7 @@ try {
     $veterinarians = $vetStmt->fetchAll();
 
     // 2. Fetch Admin/Staff
-    $staffSql = "SELECT u.*, a.* 
+    $staffSql = "SELECT u.*, a.*, {$staffActiveSelect}
                  FROM users u 
                  JOIN admin_profiles a ON u.user_id = a.user_id 
                  WHERE u.role = 'Admin'";

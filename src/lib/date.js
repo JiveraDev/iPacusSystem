@@ -105,6 +105,31 @@ function formatDisplayDateTime(dateValue, timeValue, options = {}) {
   return `${datePart} at ${timePart}`;
 }
 
+function formatDisplayTime(value, options = {}) {
+  if (!value) return options.fallback || "Not set";
+
+  const normalized = String(value).trim();
+  if (!normalized) return options.fallback || "Not set";
+
+  const formats = [
+    normalized,
+    `1970-01-01T${normalized}`,
+  ];
+
+  for (const candidate of formats) {
+    const date = new Date(candidate);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+  }
+
+  return options.fallback || normalized;
+}
+
 function formatDisplayDateRange(startDate, endDate, options = {}) {
   if (!startDate && !endDate) return options.fallback || "Not set";
   if (!endDate) return formatDisplayDate(startDate, options);
@@ -161,4 +186,4 @@ function calculateAge(birthDate) {
   return totalDays > 0 ? plural(totalDays, "day") : "Newborn";
 }
 
-export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, isSameDay, parseISO, calculateAge };
+export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, formatDisplayTime, isSameDay, parseISO, calculateAge };

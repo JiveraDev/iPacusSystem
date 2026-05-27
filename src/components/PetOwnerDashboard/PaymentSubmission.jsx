@@ -65,7 +65,7 @@ export default function PaymentSubmission() {
       toast.error("Please select a payment method");
       return;
     }
-    if (!formData.receiptFile) {
+    if (!formData.receiptFile && formData.paymentMethod !== "cash") {
       toast.error("Please upload proof of payment");
       return;
     }
@@ -73,7 +73,7 @@ export default function PaymentSubmission() {
     setIsSubmitting(true);
     try {
       // 1. Upload Receipt
-      const receiptUrl = await uploadFile(formData.receiptFile);
+      const receiptUrl = formData.receiptFile ? await uploadFile(formData.receiptFile) : null;
 
       // 2. Handle Signature if it exists (base64)
       let signatureUrl = paymentData.bookingData.signature;
@@ -149,12 +149,6 @@ export default function PaymentSubmission() {
     }
   };
 
-  const handleImagesChange = (e) => {
-    if (e.target.files) {
-      setFormData({ ...formData, additionalImages: Array.from(e.target.files) });
-    }
-  };
-
   const paymentMethods = [
     {
       value: "maya",
@@ -167,14 +161,9 @@ export default function PaymentSubmission() {
       instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
     },
     {
-      value: "bank",
-      label: "Bank Transfer",
-      instructions: "Transfer to: BDO Account #XXXX-XXXX-XXXX, Account Name: iPawcus Veterinary Clinic. Upload bank receipt or screenshot.",
-    },
-    {
       value: "cash",
       label: "Cash Payment",
-      instructions: "Pay at our clinic counter. Please bring this booking reference and obtain an official receipt.",
+      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
     },
     {
       value: "other",
@@ -291,7 +280,7 @@ export default function PaymentSubmission() {
                 disabled={isSubmitting}
               />
               <p className="text-xs text-gray-500">
-                For digital payments (Maya, GCash, Bank Transfer), please include the transaction reference number
+                For digital payments (Maya, GCash), please include the transaction reference number
               </p>
             </div>
 
@@ -331,7 +320,7 @@ export default function PaymentSubmission() {
                     <Input
                       id="receipt"
                       type="file"
-                      required
+                      required={formData.paymentMethod !== "cash"}
                       accept="image/*,.pdf"
                       onChange={handleReceiptChange}
                       disabled={isSubmitting}

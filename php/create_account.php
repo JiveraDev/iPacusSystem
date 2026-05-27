@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/account_status_helpers.php';
 
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
@@ -28,6 +29,8 @@ if (!$firstName || !$lastName || !$email || !$password || !$role) {
 }
 
 try {
+    $adminHasActiveColumn = $role === 'Veterinarian' ? false : ensureAdminAccountStatusColumn($pdo);
+
     $pdo->beginTransaction();
 
     // Hash the password for security
@@ -53,11 +56,19 @@ try {
     } else {
         // 3. Insert into admin_profiles
         $empId = 'EMP-' . strtoupper(bin2hex(random_bytes(3)));
-        $adminStmt = $pdo->prepare("
-            INSERT INTO admin_profiles (user_id, employee_id, hire_date, employment_status, postionn) 
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $adminStmt->execute([$userId, $empId, $hireDate, $employmentStatus, $position]);
+        if ($adminHasActiveColumn) {
+            $adminStmt = $pdo->prepare("
+                INSERT INTO admin_profiles (user_id, employee_id, hire_date, employment_status, postionn, is_active) 
+                VALUES (?, ?, ?, ?, ?, 1)
+            ");
+            $adminStmt->execute([$userId, $empId, $hireDate, $employmentStatus, $position]);
+        } else {
+            $adminStmt = $pdo->prepare("
+                INSERT INTO admin_profiles (user_id, employee_id, hire_date, employment_status, postionn) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $adminStmt->execute([$userId, $empId, $hireDate, $employmentStatus, $position]);
+        }
     }
 
     $pdo->commit();

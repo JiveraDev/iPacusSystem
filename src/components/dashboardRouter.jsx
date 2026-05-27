@@ -32,6 +32,7 @@ const SUPERADMIN_ROLES = DEBUG_BYPASS
 
 // ends here
 
+const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
 
 const routePatterns = [
   { pattern: "/dashboard/consult/confirmation/home-service", allowedRoles: ALL_ROLES },
@@ -45,22 +46,24 @@ const routePatterns = [
   { pattern: "/dashboard/consult/payment", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consult/booking", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consult", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/general-checkup", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/parasite-control", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/surgery", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/vaccination", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/grooming", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/dental-checkup", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/home-services", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/pet-hotel", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services/special-services", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/services", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/services/general-checkup", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/parasite-control", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/surgery", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/vaccination", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/grooming", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/dental-checkup", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/home-services", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/pet-hotel", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/special-services", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/todos", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/profile", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/bookings", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/queue", allowedRoles:  ALL_ROLES},
   { pattern: "/dashboard/self-service-queue", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
+  { pattern: "/dashboard/vet/online-consultations/:onlineConsultationId/diagnosis", allowedRoles: VETERINARIAN_ROLES },
+  { pattern: "/dashboard/vet/online-consultations", allowedRoles: VETERINARIAN_ROLES },
   { pattern: "/dashboard/pet-register/:petId", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/accounts", allowedRoles: ALL_ROLES },
@@ -159,7 +162,8 @@ export {
   // eslint-disable-next-line react-refresh/only-export-components
   useParams,
 
+  // eslint-disable-next-line react-refresh/only-export-components
   useUserUpdate,
-
+  // eslint-disable-next-line react-refresh/only-export-components
   useDashboardUser
 };

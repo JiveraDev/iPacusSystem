@@ -178,6 +178,7 @@ create table admin_profiles
     pagibig_number    varchar(50)                                 null,
     created_at        timestamp default current_timestamp()       not null,
     postionn          varchar(250)                                null,
+    is_active         tinyint(1) default 1                        null,
     constraint employee_id
         unique (employee_id),
     constraint admin_profiles_ibfk_1

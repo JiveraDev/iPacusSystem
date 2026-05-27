@@ -37,14 +37,9 @@ export default function RequestUpdateRecord() {
       instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
     },
     {
-      value: "bank",
-      label: "Bank Transfer",
-      instructions: "Transfer to: BDO Account #XXXX-XXXX-XXXX, Account Name: iPawcus Veterinary Clinic. Upload bank receipt or screenshot.",
-    },
-    {
       value: "cash",
       label: "Cash",
-      instructions: "Visit the clinic to pay in cash. Upload receipt after payment.",
+      instructions: "Our personnel will verify your payment and call you for identification before the update request is confirmed.",
     },
   ];
 

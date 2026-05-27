@@ -59,6 +59,8 @@ const NearExpiryPage = lazy(() => import("./AdminDashboardsComponent/NearExpiryP
 const DisposalLogsPage = lazy(() => import("./AdminDashboardsComponent/DisposalLogsPage.jsx"));
 const AdminProfile = lazy(() => import("./AdminDashboardsComponent/adminprofile.jsx"));
 const VetProfile = lazy(() => import("./VetrinarianComponents/VetProfile.jsx"));
+const ApprovedOnlineConsultation = lazy(() => import("./VetrinarianComponents/ApprovedOnlineConsultation.jsx"));
+const VetOnlineConsultDiagnosis = lazy(() => import("./VetrinarianComponents/VetOnlineConsultDiagnosis.jsx"));
 const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
 
 
@@ -92,10 +94,12 @@ const SUPERADMIN_ROLES = DEBUG_BYPASS
 
 // ends here
 
+const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
+
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
   { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES },
-  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: PETOWNER_ROLES },
+  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES },
   { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES },
   { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
   { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
@@ -113,6 +117,7 @@ const navItems = [
   },
   { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES },
   { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ADMIN_ROLES },
+  { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES },
   { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
   { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" , roles: ALL_ROLES },
@@ -146,6 +151,8 @@ const screenMap = {
   "/dashboard/bookings": BookingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/consent": ConsentFilesManagement,
+  "/dashboard/vet/online-consultations/:onlineConsultationId/diagnosis": VetOnlineConsultDiagnosis,
+  "/dashboard/vet/online-consultations": ApprovedOnlineConsultation,
   "/dashboard/accounts": AccountManagement,
   "/dashboard/self-service-queue": QueueDashboard,
   "/dashboard/todos": TodosScreen,
@@ -234,6 +241,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/consent")) {
     return "consent";
+  }
+  if (path.startsWith("/dashboard/vet/online-consultations")) {
+    return "vet-online-consults";
   }
   if (path.startsWith("/dashboard/accounts")) {
     return "accounts";

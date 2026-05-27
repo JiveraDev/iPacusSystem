@@ -85,6 +85,38 @@ iPawcus is a comprehensive management system designed for veterinary clinics and
    npm run dev
    ```
 
+4. **Self-hosted Jitsi for online consultations:**
+   - Install and start Docker Desktop first.
+   - The local Jitsi Docker project is located at:
+     ```text
+     C:\Users\Admin\WebstormProjects\untitled1\Jitsi\docker-jitsi-meet
+     ```
+   - Important local Jitsi settings in `Jitsi/docker-jitsi-meet/.env`:
+     ```env
+     CONFIG=../.jitsi-meet-cfg
+     HTTP_PORT=8080
+     HTTPS_PORT=8443
+     PUBLIC_URL=https://localhost:${HTTPS_PORT}
+     ENABLE_AUTH=0
+     ENABLE_GUESTS=1
+     AUTH_TYPE=internal
+     ```
+   - Start Jitsi:
+     ```powershell
+     cd C:\Users\Admin\WebstormProjects\untitled1\Jitsi\docker-jitsi-meet
+     docker compose up -d
+     ```
+   - Open:
+     ```text
+     https://localhost:8443
+     ```
+   - The browser may show a local certificate warning. Continue for local development.
+   - Root app `.env` should include:
+     ```env
+     JITSI_BASE_URL=https://localhost:8443
+     ```
+   - Approve a new online consultation after changing `JITSI_BASE_URL`; old consultation rows keep their existing `meeting_url`.
+
 ## 🚢 Deployment
 
 1. **Build the Frontend:**
@@ -98,3 +130,75 @@ iPawcus is a comprehensive management system designed for veterinary clinics and
 
 ## 📄 License
 This project is private and intended for specific clinic use.
+
+
+
+
+
+› FRONTEND_ORIGIN=https://ipawcus.com
+VITE_API_BASE_URL=https://api.ipawcus.com
+JITSI_BASE_URL=https://meet.ipawcus.com
+
+also im confuse...... meand i need 3 domains???
+
+
+• Not necessarily 3 domains. That was just a clean production example.
+
+You have 3 services, but they can share one domain using subdomains or paths.
+
+Services
+
+Frontend React app
+PHP API/backend
+Jitsi server
+
+Option A: 3 subdomains, cleanest
+
+FRONTEND_ORIGIN=https://ipawcus.com
+VITE_API_BASE_URL=https://api.ipawcus.com
+JITSI_BASE_URL=https://meet.ipawcus.com
+
+Option B: 2 domains/subdomains
+
+FRONTEND_ORIGIN=https://ipawcus.com
+VITE_API_BASE_URL=https://ipawcus.com/api
+JITSI_BASE_URL=https://meet.ipawcus.com
+
+Option C: 1 domain with paths, harder
+
+FRONTEND_ORIGIN=https://ipawcus.com
+VITE_API_BASE_URL=https://ipawcus.com/api
+JITSI_BASE_URL=https://ipawcus.com/meet
+
+I do not recommend Option C for Jitsi unless you know reverse proxy config well. Jitsi uses WebSocket, BOSH, media bridge ports, HTTPS, and special routing, so it is much easier
+as a subdomain.
+
+Best practical setup:
+
+ipawcus.com        -> React frontend
+api.ipawcus.com    -> PHP backend
+meet.ipawcus.com   -> Jitsi
+
+But you do not buy 3 domains. You buy/use one domain:
+
+ipawcus.com
+
+Then create DNS subdomains:
+
+api.ipawcus.com
+meet.ipawcus.com
+
+So the answer is:
+
+You need 1 domain, with subdomains for API and Jitsi.
+
+For local development, it is just:
+
+FRONTEND_ORIGIN=http://localhost:5173
+VITE_API_BASE_URL=http://localhost:8000
+JITSI_BASE_URL=https://localhost:8443
+
+
+› Find and fix a bug in @filename
+
+gpt-5.5 xhigh · ~\WebstormProjects\untitled1

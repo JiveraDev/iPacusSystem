@@ -9,6 +9,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Check, Home, Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
+import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -195,6 +196,7 @@ export default function PetHotel() {
           name: pet.name || pet.petName || "Unnamed Pet",
           species: pet.species || "",
           breed: pet.breed || "",
+          status: getPetStatus(pet),
           profileImage: pet.profileImage || pet.setpetImage_url || ""
         })).filter((pet) => pet.id) : []);
       } catch (error) {
@@ -264,6 +266,11 @@ export default function PetHotel() {
       const nextPet = pets.find((pet) => pet.id === petId);
       if (!nextPet) return current;
 
+      if (isPetDeceased(nextPet)) {
+        toast.error(DECEASED_PET_BOOKING_MESSAGE);
+        return current;
+      }
+
       const nextSpecies = normalizeSpecies(nextPet.species);
       const currentPetData = current
         .map((id) => pets.find((pet) => pet.id === id))
@@ -312,6 +319,11 @@ export default function PetHotel() {
 
     if (selectedPets.length === 0) {
       toast.error("Please select at least one pet.");
+      return;
+    }
+
+    if (selectedPetData.some((pet) => isPetDeceased(pet))) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
       return;
     }
 
@@ -508,18 +520,19 @@ export default function PetHotel() {
                     const isSelected = selectedPets.includes(pet.id);
                     const petSpecies = normalizeSpecies(pet.species);
                     const isBlockedBySpecies = Boolean(selectedSpecies) && !isSelected && petSpecies !== selectedSpecies;
+                    const isDeceased = isPetDeceased(pet);
                     const petImage = resolveImageUrl(pet.profileImage);
 
                     return (
                       <button
                         key={pet.id}
                         type="button"
-                        disabled={isBlockedBySpecies}
+                        disabled={isBlockedBySpecies || isDeceased}
                         onClick={() => togglePet(pet.id)}
                         className={`rounded-lg border-2 p-4 text-center transition-all ${
                           isSelected
                             ? "border-blue-600 bg-blue-50"
-                            : isBlockedBySpecies
+                            : isBlockedBySpecies || isDeceased
                               ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
                               : "border-gray-200 hover:border-gray-300"
                         }`}
@@ -542,6 +555,9 @@ export default function PetHotel() {
                         </div>
                         <h3 className="font-bold text-gray-900">{pet.name}</h3>
                         <p className="mt-1 text-xs text-gray-500">{[pet.species, pet.breed].filter(Boolean).join(" - ")}</p>
+                        {isDeceased && (
+                          <p className="mt-2 text-xs font-semibold text-slate-500">Deceased - cannot book</p>
+                        )}
                       </button>
                     );
                   })}

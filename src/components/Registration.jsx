@@ -36,6 +36,8 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
+            setPassword('');
+            setConfirmPassword('');
             return;
         }
 

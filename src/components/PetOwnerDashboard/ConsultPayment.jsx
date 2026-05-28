@@ -9,6 +9,7 @@ import { Checkbox } from "../../ui/checkbox";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
+import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
@@ -69,6 +70,12 @@ export default function ConsultPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isDeceasedPetStatus(bookingData?.petStatus)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      navigate("/dashboard/consult/booking");
+      return;
+    }
     
     if (!consents.terms || !consents.privacy || !consents.teleconsult) {
       toast.error("Please agree to all consultation consent items");

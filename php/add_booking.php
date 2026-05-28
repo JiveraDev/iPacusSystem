@@ -86,6 +86,36 @@ function normalizePetIds(PDO $pdo, $petId, $petIds): array
     return array_values(array_unique($normalized));
 }
 
+function isDeceasedPetStatus(?string $status): bool
+{
+    $normalized = strtolower(trim((string)$status));
+    return in_array($normalized, ['deceased', 'dead'], true);
+}
+
+function getDeceasedPetNames(PDO $pdo, array $petIds): array
+{
+    if (empty($petIds)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT pet_name, pet_status
+        FROM pets_information
+        WHERE pet_id IN ({$placeholders})
+    ");
+    $stmt->execute($petIds);
+
+    $deceasedPets = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $pet) {
+        if (isDeceasedPetStatus($pet['pet_status'] ?? null)) {
+            $deceasedPets[] = $pet['pet_name'] ?: 'Selected pet';
+        }
+    }
+
+    return $deceasedPets;
+}
+
 function normalizeSpecies(?string $species): string
 {
     $value = strtolower(trim((string)$species));
@@ -376,6 +406,15 @@ if ((int)$isOnlineConsultation === 1 && is_numeric($veterinarianId)) {
 if ($registeredStatus === 'Registered' && empty($petIds)) {
     http_response_code(400);
     echo json_encode(['message' => 'The selected pet could not be found. Please go back and choose the pet again.']);
+    exit;
+}
+
+$deceasedPetNames = getDeceasedPetNames($pdo, $petIds);
+if (!empty($deceasedPetNames)) {
+    http_response_code(400);
+    $uniqueDeceasedPetNames = array_unique($deceasedPetNames);
+    $petList = implode(', ', $uniqueDeceasedPetNames);
+    echo json_encode(['message' => "Cannot create booking for deceased pet" . (count($uniqueDeceasedPetNames) === 1 ? "" : "s") . ": {$petList}."]);
     exit;
 }
 

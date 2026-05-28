@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
+import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
@@ -73,6 +74,12 @@ export default function HomeServiceConfirmation() {
 
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
+
+    if (isDeceasedPetStatus(booking?.petStatus)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      navigate("/dashboard/services/home-services");
+      return;
+    }
     
     if (!consents.terms || !consents.privacy || !consents.visit) {
       toast.error("Please agree to all terms and conditions.");

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import {
   Calendar,
   Home,
@@ -121,7 +121,6 @@ const navItems = [
   { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES },
   { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
-  { id: "profile", label: "Profile", icon: User, path: "/dashboard/profile" , roles: ALL_ROLES },
 ];
 
 const screenMap = {
@@ -290,7 +289,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigate = (target) => {
+  const navigate = useCallback((target) => {
     if (typeof target === "number") {
       window.history.go(target);
       return;
@@ -309,7 +308,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
       return [...current, nextPath];
     });
     setIsMobileNavOpen(false);
-  };
+  }, []);
 
   useEffect(() => {
     // Ensure the initial user exists in the local 'users' array for compatibility,
@@ -484,9 +483,16 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         </div>
 
         <div className="p-4 border-t border-slate-200 bg-white">
-          <div className={`mb-4 transition-all duration-500 ease-in-out ${
-            isCollapsed ? "w-12 mx-auto bg-transparent" : "rounded-2xl bg-slate-100 p-4 w-full"
-          }`}>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/profile")}
+            title={isCollapsed ? "Profile" : ""}
+            className={`mb-4 block text-left transition-all duration-500 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 ${
+              isCollapsed
+                ? `w-12 mx-auto rounded-full ${activeTab === "profile" ? "ring-2 ring-[#155dfc] ring-offset-2" : ""}`
+                : `rounded-2xl p-4 w-full ${activeTab === "profile" ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`
+            }`}
+          >
             <div className={`flex items-center ${isCollapsed ? "justify-center" : ""}`}>
               <div className="relative flex-shrink-0">
                 {profileImageSrc ? (
@@ -494,7 +500,9 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                     src={profileImageSrc} 
                     alt={displayName}
                     className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
-                      isCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"
+                      isCollapsed
+                        ? "h-10 w-10 border-[#155dfc]"
+                        : activeTab === "profile" ? "h-12 w-12 border-blue-200" : "h-12 w-12 border-white"
                     }`}
                     onError={(e) => {
                       e.target.onerror = null;
@@ -503,7 +511,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   />
                 ) : (
                   <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-500 ${
-                    isCollapsed ? "h-10 w-10 text-base" : "h-12 w-12 text-lg"
+                    isCollapsed ? "h-10 w-10 text-base" : activeTab === "profile" ? "h-12 w-12 text-lg bg-white text-[#155dfc]" : "h-12 w-12 text-lg"
                   }`}>
                     {displayName.charAt(0).toUpperCase()}
                   </div>
@@ -513,12 +521,12 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               <div className={`min-w-0 transition-all duration-500 overflow-hidden whitespace-nowrap ${
                 isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3 flex-1"
               }`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Signed in as</p>
-                <p className="font-bold truncate text-slate-900">{displayName}</p>
-                <p className="text-xs font-medium text-[#155dfc] truncate">{getUserValue(user, ["role"])}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${activeTab === "profile" ? "text-blue-100" : "text-slate-400"}`}>Signed in as</p>
+                <p className={`font-bold truncate ${activeTab === "profile" ? "text-white" : "text-slate-900"}`}>{displayName}</p>
+                <p className={`text-xs font-medium truncate ${activeTab === "profile" ? "text-blue-100" : "text-[#155dfc]"}`}>{getUserValue(user, ["role"])}</p>
               </div>
             </div>
-          </div>
+          </button>
 
           <button
             type="button"

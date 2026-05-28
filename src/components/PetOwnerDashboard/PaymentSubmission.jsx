@@ -5,8 +5,9 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, ExternalLink, Loader2, X } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
@@ -61,6 +62,10 @@ export default function PaymentSubmission() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isDeceasedPetStatus(paymentData?.bookingData?.petStatus)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      return;
+    }
     if (!formData.paymentMethod) {
       toast.error("Please select a payment method");
       return;

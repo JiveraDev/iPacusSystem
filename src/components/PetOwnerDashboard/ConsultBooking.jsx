@@ -9,6 +9,7 @@ import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Image as ImageIcon, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
+import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const TIME_SLOT_ORDER = [
@@ -324,6 +325,11 @@ export default function ConsultBooking() {
       toast.error("Please select a pet");
       return;
     }
+
+    if (!isNewPet && isPetDeceased(selectedPetData)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      return;
+    }
     
     // Validate new pet information if "New Pet" is selected
     if (isNewPet) {
@@ -376,6 +382,7 @@ export default function ConsultBooking() {
       petBreed: isNewPet ? newPetBreed : getPetBreed(selectedPetData),
       petAge: isNewPet ? newPetAge : getPetAge(selectedPetData),
       petWeight: isNewPet ? newPetWeight : getPetWeight(selectedPetData),
+      petStatus: isNewPet ? "" : getPetStatus(selectedPetData),
       petMedicalConditions: isNewPet ? newPetMedicalConditions : "",
       discussionTopic: discussionTopic.join(", "),
       notes,
@@ -454,6 +461,12 @@ export default function ConsultBooking() {
             <div className="space-y-2">
               <Label>Select Pet</Label>
               <Select value={selectedPet} onValueChange={(value) => {
+                const nextPet = pets.find((pet) => getPetId(pet) === value);
+                if (value !== "new-pet" && isPetDeceased(nextPet)) {
+                  toast.error(DECEASED_PET_BOOKING_MESSAGE);
+                  return;
+                }
+
                 setSelectedPet(value);
                 if (value === "new-pet") {
                   setIsNewPet(true);
@@ -469,8 +482,8 @@ export default function ConsultBooking() {
                 </SelectTrigger>
                 <SelectContent>
                   {pets.map((pet) => (
-                    <SelectItem key={getPetId(pet)} value={getPetId(pet)}>
-                      {getPetName(pet)} ({getPetSpecies(pet)} - {getPetBreed(pet)})
+                    <SelectItem key={getPetId(pet)} value={getPetId(pet)} disabled={isPetDeceased(pet)}>
+                      {getPetSelectLabel(pet)}
                     </SelectItem>
                   ))}
                   <SelectItem value="new-pet">

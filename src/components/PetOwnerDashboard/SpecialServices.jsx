@@ -20,6 +20,7 @@ import {
     ShieldCheck,
     Check,
 } from "lucide-react";
+import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -289,6 +290,7 @@ export default function SpecialServices({ user }) {
                 breed: pet.breed || "",
                 age: pet.age || "",
                 weight: pet.weight || "",
+                status: getPetStatus(pet),
                 profileImage: pet.profileImage || pet.setpetImage_url || "",
             })).filter((pet) => pet.id) : []);
         } catch (error) {
@@ -353,6 +355,12 @@ export default function SpecialServices({ user }) {
         setSelectedPetIds((current) => {
             if (current.includes(petKey)) {
                 return current.filter((id) => id !== petKey);
+            }
+
+            const selectedPet = pets.find((pet) => String(pet.id) === petKey);
+            if (isPetDeceased(selectedPet)) {
+                toast.error(DECEASED_PET_BOOKING_MESSAGE);
+                return current;
             }
 
             if (selectedServiceLimit !== null && current.length >= selectedServiceLimit) {
@@ -543,6 +551,11 @@ export default function SpecialServices({ user }) {
             }
         } else if (selectedPetIds.length === 0) {
             toast.error("Please select at least one pet.");
+            return;
+        }
+
+        if (!isNewPet && selectedPetIds.some((petId) => isPetDeceased(pets.find((pet) => String(pet.id) === String(petId))))) {
+            toast.error(DECEASED_PET_BOOKING_MESSAGE);
             return;
         }
 
@@ -1162,13 +1175,19 @@ export default function SpecialServices({ user }) {
                                     ) : (
                                         pets.map((pet) => {
                                             const isSelected = selectedPetIds.includes(String(pet.id));
+                                            const isDeceased = isPetDeceased(pet);
                                             return (
                                                 <button
                                                     key={pet.id}
                                                     type="button"
+                                                    disabled={isDeceased}
                                                     onClick={() => togglePet(pet.id)}
                                                     className={`rounded-xl border p-4 text-left transition-all ${
-                                                        isSelected ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-white hover:border-gray-300"
+                                                        isSelected
+                                                            ? "border-blue-600 bg-blue-50"
+                                                            : isDeceased
+                                                                ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
+                                                                : "border-gray-200 bg-white hover:border-gray-300"
                                                     }`}
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -1180,6 +1199,9 @@ export default function SpecialServices({ user }) {
                                                             <p className="text-sm text-gray-600">
                                                                 {pet.species || "Unknown"} {pet.breed ? `- ${pet.breed}` : ""}
                                                             </p>
+                                                            {isDeceased && (
+                                                                <p className="mt-1 text-xs font-semibold text-slate-500">Deceased - cannot book</p>
+                                                            )}
                                                         </div>
                                                         <div className="flex h-5 w-5 items-center justify-center rounded border border-gray-300">
                                                             {isSelected && <Check className="h-3.5 w-3.5 text-blue-600" />}

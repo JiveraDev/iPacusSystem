@@ -183,7 +183,14 @@ function App() {
       navigateTo(routes.login);
     } catch (error) {
       console.error('Registration failed:', error);
+      setRegistrationData((currentData) => ({
+        ...currentData,
+        password: '',
+        confirmPassword: '',
+      }));
+      setRegistrationFlowKey((currentValue) => currentValue + 1);
       toast.error(error.message || 'Registration failed.');
+      navigateTo(routes.register, { preserveRegistration: true });
     }
   };
 

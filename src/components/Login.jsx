@@ -24,6 +24,8 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
             onLogin(user);
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Login failed.";
+            setPassword("");
+            setShowPassword(false);
             setErrorMessage(msg);
             toast.error(msg);
         } finally {

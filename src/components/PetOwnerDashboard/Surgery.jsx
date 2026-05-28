@@ -8,6 +8,7 @@ import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Activity, ArrowLeft, Upload, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
 
 export default function Surgery() {
   const navigate = useNavigate();
@@ -68,6 +69,15 @@ export default function Surgery() {
       return;
     }
 
+    const selectedRegisteredPet = !isNewPet
+      ? pets.find(p => p.db_id?.toString() === formData.petId)
+      : null;
+
+    if (isPetDeceased(selectedRegisteredPet)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      return;
+    }
+
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
       const userId = currentUser.user_id || currentUser.id;
@@ -108,7 +118,7 @@ export default function Surgery() {
         notes: formData.notes,
         Image_Booking_Concern_Path: uploadedFileUrls.join(','),
         registered_status: isNewPet ? 'Not Registered' : 'Registered',
-        petType: isNewPet ? formData.newPetSpecies : (pets.find(p => p.db_id.toString() === formData.petId)?.species || ''),
+        petType: isNewPet ? formData.newPetSpecies : (selectedRegisteredPet?.species || ''),
         new_pet_name: formData.petName,
         new_pet_breed: formData.newPetBreed,
         new_pet_age: formData.newPetAge,
@@ -159,7 +169,11 @@ export default function Surgery() {
       setFormData(prev => ({ ...prev, petId: "new-pet", petName: "" }));
     } else {
       setIsNewPet(false);
-      const selectedPet = pets.find(p => p.db_id.toString() === value);
+      const selectedPet = pets.find(p => p.db_id?.toString() === value);
+      if (isPetDeceased(selectedPet)) {
+        toast.error(DECEASED_PET_BOOKING_MESSAGE);
+        return;
+      }
       setFormData(prev => ({ 
         ...prev, 
         petId: value, 
@@ -198,14 +212,14 @@ export default function Surgery() {
                       displayValue={
                         formData.petId === "new-pet" 
                           ? "🐾 New Pet (Not Registered)" 
-                          : pets.find(p => p.db_id.toString() === formData.petId)?.name
+                          : pets.find(p => p.db_id?.toString() === formData.petId)?.name
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
                     {pets.map((pet) => (
-                      <SelectItem key={pet.db_id} value={pet.db_id.toString()}>
-                        {pet.name} ({pet.species} - {pet.breed})
+                      <SelectItem key={pet.db_id} value={pet.db_id?.toString()} disabled={isPetDeceased(pet)}>
+                        {getPetSelectLabel(pet)}
                       </SelectItem>
                     ))}
                     <SelectItem value="new-pet">

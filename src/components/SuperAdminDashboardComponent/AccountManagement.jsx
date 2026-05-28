@@ -6,7 +6,7 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2 } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
@@ -15,6 +15,8 @@ export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showCreateAccount, setShowCreateAccount] = useState(false);
+    const [pendingStatusAction, setPendingStatusAction] = useState(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [accounts, setAccounts] = useState({ veterinarians: [], staff: [] });
 
@@ -34,6 +36,14 @@ export default function AccountManagement() {
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const clearCreatePasswordFields = () => {
+        setCreateForm((currentForm) => ({
+            ...currentForm,
+            password: '',
+            masterKey: ''
+        }));
+    };
 
     useEffect(() => {
         fetchAccounts();
@@ -60,6 +70,7 @@ export default function AccountManagement() {
 
         if (createForm.masterKey !== import.meta.env.VITE_MASTER_KEY) {
             toast.error("Invalid Master Key. Authorization denied.");
+            clearCreatePasswordFields();
             return;
         }
 
@@ -83,20 +94,44 @@ export default function AccountManagement() {
                 });
             } else {
                 const data = await response.json();
+                clearCreatePasswordFields();
                 toast.error(data.message || "Failed to create account");
             }
         } catch (error) {
             console.error("Creation error:", error);
+            clearCreatePasswordFields();
             toast.error("An error occurred during account creation");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleToggleStatus = async (userId, currentStatus, type) => {
-        const action = currentStatus ? 'deactivate' : 'activate';
-        if (!window.confirm(`Are you sure you want to ${action} this account?`)) return;
+    const isAccountActive = (status) => status === true || status === 1 || status === '1' || status === 'active';
 
+    const openStatusConfirmation = (user) => {
+        const currentStatus = isAccountActive(user.is_active);
+        setPendingStatusAction({
+            userId: user.user_id,
+            currentStatus,
+            type: user.type,
+            name: `${user.first_Name || ''} ${user.last_Name || ''}`.trim() || 'this account',
+            role: user.role || (user.type === 'vet' ? 'Veterinarian' : 'Admin')
+        });
+    };
+
+    const closeStatusConfirmation = () => {
+        if (!isUpdatingStatus) {
+            setPendingStatusAction(null);
+        }
+    };
+
+    const handleToggleStatus = async () => {
+        if (!pendingStatusAction) return;
+
+        const { userId, currentStatus, type } = pendingStatusAction;
+        const action = currentStatus ? 'deactivate' : 'activate';
+
+        setIsUpdatingStatus(true);
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts/${userId}/status`, {
                 method: 'PATCH',
@@ -107,6 +142,7 @@ export default function AccountManagement() {
             if (response.ok) {
                 toast.success(`Account ${action}d successfully`);
                 fetchAccounts();
+                setPendingStatusAction(null);
                 setShowDetails(false);
             } else {
                 toast.error(`Failed to ${action} account`);
@@ -114,11 +150,13 @@ export default function AccountManagement() {
         } catch (error) {
             console.error("Status update error:", error);
             toast.error("An error occurred");
+        } finally {
+            setIsUpdatingStatus(false);
         }
     };
 
     const getStatusBadge = (status) => {
-        if (status === 'active' || status === 1 || status === '1') {
+        if (isAccountActive(status)) {
             return <Badge className="bg-green-500 text-white">Active</Badge>;
         }
         return <Badge className="bg-gray-500 text-white">Disabled</Badge>;
@@ -320,14 +358,14 @@ export default function AccountManagement() {
                                             <Button 
                                                 variant="outline" 
                                                 className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                                                onClick={() => handleToggleStatus(selectedUser.user_id, true, selectedUser.type)}
+                                                onClick={() => openStatusConfirmation(selectedUser)}
                                             >
                                                 <Ban className="size-4 mr-2" /> Deactivate Account
                                             </Button>
                                         ) : (
                                             <Button 
                                                 className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                                                onClick={() => handleToggleStatus(selectedUser.user_id, false, selectedUser.type)}
+                                                onClick={() => openStatusConfirmation(selectedUser)}
                                             >
                                                 <CheckCircle className="size-4 mr-2" /> Activate Account
                                             </Button>
@@ -336,6 +374,59 @@ export default function AccountManagement() {
                                     </div>
                                 </div>
                             </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Status Confirmation Modal */}
+            <Dialog open={Boolean(pendingStatusAction)} onOpenChange={(open) => !open && closeStatusConfirmation()}>
+                <DialogContent className="max-w-md">
+                    {pendingStatusAction && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {pendingStatusAction.currentStatus ? 'Deactivate Account' : 'Activate Account'}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Confirm this account status change before it is applied.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-sm text-slate-600">Account</p>
+                                <p className="mt-1 font-semibold text-slate-900">{pendingStatusAction.name}</p>
+                                <p className="text-sm text-slate-500">{pendingStatusAction.role}</p>
+                            </div>
+
+                            <p className="text-sm text-slate-700">
+                                {pendingStatusAction.currentStatus
+                                    ? 'This user will no longer be able to log in until the account is activated again.'
+                                    : 'This user will regain access and can log in again.'}
+                            </p>
+
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={closeStatusConfirmation} disabled={isUpdatingStatus}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    disabled={isUpdatingStatus}
+                                    onClick={handleToggleStatus}
+                                    className={pendingStatusAction.currentStatus ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}
+                                >
+                                    {isUpdatingStatus ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Updating...
+                                        </>
+                                    ) : pendingStatusAction.currentStatus ? (
+                                        'Deactivate Account'
+                                    ) : (
+                                        'Activate Account'
+                                    )}
+                                </Button>
+                            </DialogFooter>
                         </>
                     )}
                 </DialogContent>

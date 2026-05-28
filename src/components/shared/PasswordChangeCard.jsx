@@ -20,21 +20,28 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
+    const clearPasswordFields = () => {
+        setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
         if (!userId) {
             toast.error('Session error. Please log in again.');
+            clearPasswordFields();
             return;
         }
 
         if (form.newPassword.length < 8) {
             toast.error('New password must be at least 8 characters.');
+            clearPasswordFields();
             return;
         }
 
         if (form.newPassword !== form.confirmPassword) {
             toast.error('New password and confirmation do not match.');
+            clearPasswordFields();
             return;
         }
 
@@ -57,6 +64,7 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
             setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
             toast.success('Password changed successfully.');
         } catch (error) {
+            clearPasswordFields();
             toast.error(error.message || 'Failed to change password.');
         } finally {
             setIsSaving(false);

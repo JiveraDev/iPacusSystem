@@ -12,8 +12,8 @@ import {
   ArrowLeft, Bath, Scissors, Syringe, Heart, Stethoscope, Pill, Check, 
   Upload, X, Image as ImageIcon, MapPin, Search, Loader2 
 } from "lucide-react";
-import SignatureCapture from "../SignatureCapture";
 import { searchAddresses } from "../../services/addressAutocomplete";
+import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 
 export default function HomeServices() {
   const navigate = useNavigate();
@@ -235,6 +235,15 @@ export default function HomeServices() {
         return;
       }
     }
+
+    const selectedRegisteredPet = !isNewPet
+      ? pets.find(p => p.db_id?.toString() === selectedPet)
+      : null;
+
+    if (isPetDeceased(selectedRegisteredPet)) {
+      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      return;
+    }
     
     if (selectedServices.length === 0) {
       toast.error("Please select at least one service");
@@ -261,8 +270,9 @@ export default function HomeServices() {
     const bookingData = {
       user_id: currentUser.id,
       pet_id: isNewPet ? null : selectedPet, // This matches db_id
-      petName: isNewPet ? newPetName : pets.find(p => p.db_id?.toString() === selectedPet)?.name,
-      petBreed: isNewPet ? newPetBreed : pets.find(p => p.db_id?.toString() === selectedPet)?.breed,
+      petName: isNewPet ? newPetName : selectedRegisteredPet?.name,
+      petBreed: isNewPet ? newPetBreed : selectedRegisteredPet?.breed,
+      petStatus: isNewPet ? "" : getPetStatus(selectedRegisteredPet),
       service_type: "home-service",
       booking_date: preferredDate,
       booking_time: preferredTime,
@@ -271,7 +281,7 @@ export default function HomeServices() {
         notes.trim(),
       ].filter(Boolean).join("\n"),
       registered_status: isNewPet ? "Not Registered" : "Registered",
-      petType: isNewPet ? newPetSpecies : pets.find(p => p.db_id?.toString() === selectedPet)?.species,
+      petType: isNewPet ? newPetSpecies : selectedRegisteredPet?.species,
       new_pet_name: isNewPet ? newPetName : null,
       new_pet_breed: isNewPet ? newPetBreed : null,
       new_pet_age: isNewPet ? newPetAge : null,
@@ -318,6 +328,12 @@ export default function HomeServices() {
               <div className="space-y-2">
                 <Label htmlFor="petSelect">Select Pet *</Label>
                 <Select value={selectedPet} onValueChange={(value) => {
+                  const nextPet = pets.find(p => p.db_id?.toString() === value);
+                  if (value !== "new-pet" && isPetDeceased(nextPet)) {
+                    toast.error(DECEASED_PET_BOOKING_MESSAGE);
+                    return;
+                  }
+
                   setSelectedPet(value);
                   setIsNewPet(value === "new-pet");
                 }}>
@@ -333,8 +349,8 @@ export default function HomeServices() {
                   </SelectTrigger>
                   <SelectContent>
                     {pets.map((pet) => (
-                      <SelectItem key={pet.db_id} value={pet.db_id?.toString()}>
-                        {pet.name} ({pet.species} - {pet.breed})
+                      <SelectItem key={pet.db_id} value={pet.db_id?.toString()} disabled={isPetDeceased(pet)}>
+                        {getPetSelectLabel(pet)}
                       </SelectItem>
                     ))}
                     <SelectItem value="new-pet">

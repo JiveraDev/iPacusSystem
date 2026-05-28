@@ -18,6 +18,7 @@ import {
 
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
+import { resolveImageUrl } from "../lib/image";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
 
 // Lazy load screens
@@ -385,6 +386,10 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     return fullName || getUserValue(user, ["email"], "Pet Owner");
   }, [user]);
 
+  const profileImageSrc = useMemo(() => {
+    return resolveImageUrl(getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]));
+  }, [user]);
+
   const renderSidebarContent = ({ isMobileDrawer = false } = {}) => {
     const isCollapsed = !isMobileDrawer && isSidebarCollapsed;
 
@@ -484,9 +489,9 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           }`}>
             <div className={`flex items-center ${isCollapsed ? "justify-center" : ""}`}>
               <div className="relative flex-shrink-0">
-                {getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]) ? (
+                {profileImageSrc ? (
                   <img 
-                    src={getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"])} 
+                    src={profileImageSrc} 
                     alt={displayName}
                     className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
                       isCollapsed ? "h-10 w-10 border-[#155dfc]" : "h-12 w-12 border-white"

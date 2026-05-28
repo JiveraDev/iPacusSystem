@@ -5,6 +5,36 @@ import { Video, Calendar, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 
+function parseConsultDateTime(consultation) {
+  if (!consultation?.date) {
+    return null;
+  }
+
+  const datePart = String(consultation.date).split(" ")[0];
+  const timePart = consultation.time ? String(consultation.time) : "00:00:00";
+  const consultDate = new Date(`${datePart}T${timePart}`);
+
+  return Number.isNaN(consultDate.getTime()) ? null : consultDate;
+}
+
+function isWithinConsultDisplayWindow(consultation) {
+  const consultDate = parseConsultDateTime(consultation);
+  if (!consultDate) {
+    return false;
+  }
+
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  oneMonthAgo.setHours(0, 0, 0, 0);
+
+  return consultDate >= oneMonthAgo;
+}
+
+function isUpcomingConsultation(consultation) {
+  const consultDate = parseConsultDateTime(consultation);
+  return Boolean(consultDate && consultDate >= new Date());
+}
+
 export default function Consult() {
   const navigate = useNavigate();
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
@@ -27,10 +57,14 @@ export default function Consult() {
         const data = await response.json();
         const consultations = data.filter(b => b.isOnlineConsultation);
         
-        const upcoming = consultations.filter((c) => {
-          const consultDate = new Date(`${c.date} ${c.time}`);
-          return consultDate >= new Date();
-        });
+        const upcoming = consultations
+          .filter(isWithinConsultDisplayWindow)
+          .sort((left, right) => {
+            const leftDate = parseConsultDateTime(left);
+            const rightDate = parseConsultDateTime(right);
+
+            return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
+          });
         
         setUpcomingConsultations(upcoming);
       } catch (error) {
@@ -96,7 +130,7 @@ export default function Consult() {
                 <Video className="h-6 w-6 text-green-600" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-semibold text-lg">Upcoming Consultations</h3>
+                <h3 className="font-semibold text-lg">Recent Consultations</h3>
                 <p className="text-sm text-gray-600">{upcomingConsultations.length} scheduled</p>
               </div>
             </div>
@@ -106,59 +140,63 @@ export default function Consult() {
 
       {upcomingConsultations.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Your Upcoming Consultations</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Your Recent Consultations</h2>
           <div className="space-y-4">
-            {upcomingConsultations.map((consultation) => (
-              <Card key={consultation.id}>
-                <CardContent className="pt-6">
-                  <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg">{consultation.petName}</h3>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          consultation.status === 'confirmed' 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {consultation.status}
-                        </span>
+            {upcomingConsultations.map((consultation) => {
+              const canJoinConsultation = consultation.status === 'confirmed' && isUpcomingConsultation(consultation);
+
+              return (
+                <Card key={consultation.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{consultation.petName}</h3>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            consultation.status === 'confirmed' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {consultation.status}
+                          </span>
+                        </div>
+                        <p className="text-gray-600">Topic: {consultation.service || consultation.discussionTopic}</p>
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{formatDisplayDate(consultation.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            <span>{formatDisplayTime(consultation.time)}</span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600">Veterinarian: {consultation.veterinarian}</p>
+                        
+                        {canJoinConsultation && (
+                          <div className="pt-2">
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/dashboard/consult/video/${consultation.id}`)}
+                              className="inline-flex items-center gap-2"
+                            >
+                              <Video className="h-4 w-4" />
+                              Join Consultation
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-600">Topic: {consultation.service || consultation.discussionTopic}</p>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDisplayDate(consultation.date)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{formatDisplayTime(consultation.time)}</span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600">Veterinarian: {consultation.veterinarian}</p>
-                      
-                      {consultation.status === 'confirmed' && (
-                        <div className="pt-2">
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/dashboard/consult/video/${consultation.id}`)}
-                            className="inline-flex items-center gap-2"
-                          >
-                            <Video className="h-4 w-4" />
-                            Join Consultation
-                          </Button>
-                        </div>
-                      )}
+                      <Button 
+                        onClick={() => navigate(`/dashboard/consult/confirmation/${consultation.id}`)}
+                      >
+                        View Details
+                      </Button>
                     </div>
-                    <Button 
-                      onClick={() => navigate(`/dashboard/consult/confirmation/${consultation.id}`)}
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -167,8 +205,8 @@ export default function Consult() {
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No Upcoming Consultations</h3>
-            <p className="text-gray-600 mb-4">You don't have any scheduled consultations yet.</p>
+            <h3 className="font-semibold text-lg mb-2">No Recent Consultations</h3>
+            <p className="text-gray-600 mb-4">You don't have any consultations scheduled within the last month.</p>
             <Button onClick={() => navigate("/dashboard/consult/booking")}>
               Book Your First Consultation
             </Button>

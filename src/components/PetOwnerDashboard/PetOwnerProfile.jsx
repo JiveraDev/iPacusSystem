@@ -9,6 +9,7 @@ import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock } from "luc
 import { calculateAge } from "../../lib/date";
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
+import ThemeToggle from "../shared/ThemeToggle.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -254,6 +255,9 @@ export default function PetOwnerProfile({ onLogout }) {
           <TabsTrigger value="security" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
             Security
           </TabsTrigger>
+          <TabsTrigger value="appearance" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
+            Appearance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-8 outline-none animate-in fade-in duration-300">
@@ -447,6 +451,10 @@ export default function PetOwnerProfile({ onLogout }) {
 
         <TabsContent value="security" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
           <PasswordChangeCard userId={passwordUserId} onForgotPassword={onLogout} />
+        </TabsContent>
+
+        <TabsContent value="appearance" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <ThemeToggle />
         </TabsContent>
       </Tabs>
     </div>

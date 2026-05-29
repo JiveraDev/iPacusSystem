@@ -403,7 +403,7 @@ export default function ParasiteControl() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-orange-600">$40-$70</p>
+                  <p className="text-lg font-bold text-orange-600">PHP 40 - PHP 70</p>
                 </div>
               </div>
             </CardContent>

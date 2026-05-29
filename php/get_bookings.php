@@ -16,6 +16,27 @@ function tableExists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function normalizePriceLabel(?string $value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $label = trim($value);
+    if ($label === '') {
+        return null;
+    }
+
+    $pesoSign = html_entity_decode('&#8369;', ENT_QUOTES, 'UTF-8');
+    $label = str_replace([$pesoSign, '$'], 'PHP ', $label);
+    $label = preg_replace('/\bphp\b/i', 'PHP', $label) ?? $label;
+    $label = preg_replace('/\s*-\s*/', ' - ', $label) ?? $label;
+    $label = preg_replace('/\s+/', ' ', $label) ?? $label;
+    $label = trim($label);
+
+    return $label !== '' ? $label : null;
+}
+
 try {
     autoCancelOverdueBookings($pdo);
 
@@ -126,7 +147,7 @@ try {
                     'serviceTitle' => $item['service_title'] ?? $item['custom_service_title'] ?? 'Special Service',
                     'serviceDescription' => $item['service_description'] ?? $item['custom_service_description'] ?? null,
                     'serviceDetails' => $item['service_details'] ?? $item['custom_service_details'] ?? null,
-                    'priceLabel' => $item['price_label'] ?? null,
+                    'priceLabel' => normalizePriceLabel($item['price_label'] ?? null),
                     'durationLabel' => $item['duration_label'] ?? null,
                     'maxPets' => $item['max_pets'] !== null ? (int)$item['max_pets'] : null,
                     'sequenceNo' => (int)$item['sequence_no'],

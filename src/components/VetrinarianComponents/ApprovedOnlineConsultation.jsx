@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Calendar, Clock, Loader2, MessageSquare, RefreshCw, User, Video } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -6,6 +6,7 @@ import { Card, CardContent } from '../../ui/card';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -52,13 +53,15 @@ export default function ApprovedOnlineConsultation() {
     const [isLoading, setIsLoading] = useState(true);
     const [actionId, setActionId] = useState(null);
 
-    const loadConsultations = useCallback(async () => {
+    const loadConsultations = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!vetId) {
             setIsLoading(false);
             return;
         }
 
-        setIsLoading(true);
+        if (!isAutoRefresh) {
+            setIsLoading(true);
+        }
         try {
             const response = await fetch(`${API_BASE}/online-consultations?vetId=${encodeURIComponent(vetId)}`);
             const data = await response.json().catch(() => []);
@@ -76,9 +79,10 @@ export default function ApprovedOnlineConsultation() {
         }
     }, [vetId]);
 
-    useEffect(() => {
-        loadConsultations();
-    }, [loadConsultations]);
+    useAutoRefresh(loadConsultations, {
+        enabled: Boolean(vetId),
+        refreshKey: vetId
+    });
 
     const scheduledConsultations = consultations.filter((consultation) => !['completed', 'cancelled'].includes(consultation.status));
     const completedConsultations = consultations.filter((consultation) => consultation.status === 'completed');

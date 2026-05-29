@@ -403,7 +403,7 @@ export default function Grooming() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-pink-600">$45-$120</p>
+                  <p className="text-lg font-bold text-pink-600">PHP 45 - PHP 120</p>
                 </div>
               </div>
             </CardContent>

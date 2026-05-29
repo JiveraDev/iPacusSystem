@@ -230,7 +230,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                Online consultations are priced at <span className="font-bold text-blue-600">₱500 per session</span>. This includes a 30-minute video call with our experienced veterinarians and a follow-up summary report.
+                Online consultations are priced at <span className="font-bold text-blue-600">PHP 500 per session</span>. This includes a 30-minute video call with our experienced veterinarians and a follow-up summary report.
               </p>
             </CardContent>
           </Card>

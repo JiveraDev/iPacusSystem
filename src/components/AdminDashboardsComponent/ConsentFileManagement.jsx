@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Card, CardContent } from '../../ui/card';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Upload, FileText, Trash2, Edit3, Eye, Plus, Copyright, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import logoImg from '../../assets/logo-no-bg.png';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState([]);
@@ -43,12 +44,10 @@ export default function ConsentFilesManagement() {
         { value: 'lab-testing', label: 'Lab Testing' }
     ];
 
-    useEffect(() => {
-        fetchConsentFiles();
-    }, []);
-
-    const fetchConsentFiles = async () => {
-        setIsLoading(true);
+    const fetchConsentFiles = async ({ isAutoRefresh = false } = {}) => {
+        if (!isAutoRefresh) {
+            setIsLoading(true);
+        }
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/consent_files`);
             if (response.ok) {
@@ -57,11 +56,15 @@ export default function ConsentFilesManagement() {
             }
         } catch (error) {
             console.error("Error fetching consent files:", error);
-            toast.error("Failed to load consent forms");
+            if (!isAutoRefresh) {
+                toast.error("Failed to load consent forms");
+            }
         } finally {
             setIsLoading(false);
         }
     };
+
+    useAutoRefresh(fetchConsentFiles);
 
     const handleFileChange = (e) => {
         const file = e.target.files?.[0];
@@ -138,7 +141,7 @@ export default function ConsentFilesManagement() {
                 setEditModalOpen(false);
                 fetchConsentFiles();
             }
-        } catch (error) {
+        } catch {
             toast.error("Update failed");
         }
     };
@@ -159,7 +162,7 @@ export default function ConsentFilesManagement() {
             } else {
                 toast.error("Failed to delete form");
             }
-        } catch (error) {
+        } catch {
             toast.error("Error deleting form");
         }
     };

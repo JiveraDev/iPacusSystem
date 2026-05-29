@@ -257,13 +257,13 @@ export default function PaymentSubmission() {
             <div className="space-y-2">
               <Label htmlFor="amount">Amount to Pay *</Label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500 font-semibold">₱</span>
+                <span className="absolute left-3 top-2.5 text-gray-500 font-semibold">PHP</span>
                 <Input
                   id="amount"
                   type="number"
                   required
                   readOnly={!!paymentData?.amount}
-                  className="pl-8 bg-gray-50 font-bold text-lg text-blue-600"
+                  className="pl-14 bg-gray-50 font-bold text-lg text-blue-600"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   disabled={isSubmitting}

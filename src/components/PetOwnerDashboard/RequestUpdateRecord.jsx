@@ -17,7 +17,7 @@ export default function RequestUpdateRecord() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const convenienceFee = 200; // ₱200 convenience fee
+  const convenienceFee = 200; // PHP 200 convenience fee
 
   const paymentMethods = [
     {
@@ -129,7 +129,7 @@ export default function RequestUpdateRecord() {
                 Fee for reviewing and updating your pet's medical records
               </p>
             </div>
-            <p className="text-2xl font-bold text-blue-600">₱{convenienceFee.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-blue-600">PHP {convenienceFee.toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>
@@ -183,7 +183,7 @@ export default function RequestUpdateRecord() {
                     </div>
                     <div className="mt-4 text-center">
                       <p className="font-semibold text-gray-900">iPawcus Veterinary Clinic</p>
-                      <p className="text-sm text-gray-600 mt-1">Amount: ₱{convenienceFee.toLocaleString()}</p>
+                      <p className="text-sm text-gray-600 mt-1">Amount: PHP {convenienceFee.toLocaleString()}</p>
                       <p className="text-xs text-gray-500 mt-2">Scan using any QRPH-enabled banking app</p>
                     </div>
                   </div>

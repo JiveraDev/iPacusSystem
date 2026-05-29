@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Badge } from "../../ui/badge";
 import { ArrowLeft, FileText, Calendar, Pill, Activity, Loader2 } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 import { findPetService } from "../../services/findPet";
 
@@ -15,23 +16,24 @@ export default function MedicalRecords() {
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchPetRecords() {
-      try {
-        const data = await findPetService(petId);
-        setPet(data);
-      } catch (error) {
-        console.error("Error fetching pet records:", error);
+  const fetchPetRecords = async ({ isAutoRefresh = false } = {}) => {
+    try {
+      const data = await findPetService(petId);
+      setPet(data);
+    } catch (error) {
+      console.error("Error fetching pet records:", error);
+      if (!isAutoRefresh) {
         toast.error("Could not load medical records");
-      } finally {
-        setIsLoading(false);
       }
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    if (petId) {
-      fetchPetRecords();
-    }
-  }, [petId]);
+  useAutoRefresh(fetchPetRecords, {
+    enabled: Boolean(petId),
+    refreshKey: petId
+  });
 
   if (isLoading) {
     return (

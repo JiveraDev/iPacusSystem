@@ -1,4 +1,4 @@
-import { createElement, useState, useEffect } from 'react';
+import { createElement, useState } from 'react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
@@ -10,6 +10,7 @@ import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Bri
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
@@ -45,12 +46,10 @@ export default function AccountManagement() {
         }));
     };
 
-    useEffect(() => {
-        fetchAccounts();
-    }, []);
-
-    const fetchAccounts = async () => {
-        setIsLoading(true);
+    const fetchAccounts = async ({ isAutoRefresh = false } = {}) => {
+        if (!isAutoRefresh) {
+            setIsLoading(true);
+        }
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts`);
             if (response.ok) {
@@ -64,6 +63,8 @@ export default function AccountManagement() {
             setIsLoading(false);
         }
     };
+
+    useAutoRefresh(fetchAccounts);
 
     const handleCreateAccount = async (e) => {
         e.preventDefault();

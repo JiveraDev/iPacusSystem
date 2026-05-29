@@ -403,7 +403,7 @@ export default function DentalCheckup() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-cyan-600">$80-$150</p>
+                  <p className="text-lg font-bold text-cyan-600">PHP 80 - PHP 150</p>
                 </div>
               </div>
             </CardContent>

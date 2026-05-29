@@ -14,6 +14,7 @@ import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHisto
 import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
+import ThemeToggle from '../shared/ThemeToggle.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const TIME_SLOTS = [
@@ -347,9 +348,10 @@ export default function VetProfile({ onLogout }) {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="mb-6 grid grid-cols-2 sm:inline-grid">
+                <TabsList className="mb-6 grid grid-cols-3 sm:inline-grid">
                     <TabsTrigger value="profile">Profile Details</TabsTrigger>
                     <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile" className="space-y-6">
@@ -535,6 +537,10 @@ export default function VetProfile({ onLogout }) {
 
                 <TabsContent value="security">
                     <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                </TabsContent>
+
+                <TabsContent value="appearance">
+                    <ThemeToggle />
                 </TabsContent>
             </Tabs>
         </div>

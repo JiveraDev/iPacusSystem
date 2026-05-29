@@ -16,6 +16,7 @@ import {
 import SignatureCapture from "../SignatureCapture";
 import { resolveImageUrl } from "../../lib/image";
 import { toast } from "../../reusecomponent/toast.jsx";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const SERVICES = [
     "General Check-Up",
@@ -150,39 +151,37 @@ export default function QueueDashboard() {
         checkAccess();
     }, [API_BASE]);
 
-    useEffect(() => {
-        const loadPets = async () => {
-            try {
-                const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-                const userId = currentUser.id || currentUser.user_id || currentUser.userId;
-                if (!userId) return;
+    const loadPets = async () => {
+        try {
+            const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+            const userId = currentUser.id || currentUser.user_id || currentUser.userId;
+            if (!userId) return;
 
-                const response = await fetch(`${API_BASE}/users/${userId}/pets`);
-                if (!response.ok) return;
+            const response = await fetch(`${API_BASE}/users/${userId}/pets`);
+            if (!response.ok) return;
 
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) return;
+            const data = await response.json();
+            if (!Array.isArray(data) || data.length === 0) return;
 
-                const mappedPets = data.map((pet) => ({
-                    id: String(pet.db_id ?? pet.id ?? ""),
-                    name: pet.name || pet.petName || "Unnamed Pet",
-                    species: pet.species || "Dog",
-                    breed: pet.breed || "Unknown Breed",
-                    regId: pet.id || "",
-                    profileImage: pet.profileImage || "",
-                    activeQueue: pet.active_queue || null
-                })).filter((pet) => pet.id);
+            const mappedPets = data.map((pet) => ({
+                id: String(pet.db_id ?? pet.id ?? ""),
+                name: pet.name || pet.petName || "Unnamed Pet",
+                species: pet.species || "Dog",
+                breed: pet.breed || "Unknown Breed",
+                regId: pet.id || "",
+                profileImage: pet.profileImage || "",
+                activeQueue: pet.active_queue || null
+            })).filter((pet) => pet.id);
 
-                if (mappedPets.length > 0) {
-                    setPets(mappedPets);
-                }
-            } catch (error) {
-                console.error("Failed to load pets for self-service queue:", error);
+            if (mappedPets.length > 0) {
+                setPets(mappedPets);
             }
-        };
+        } catch (error) {
+            console.error("Failed to load pets for self-service queue:", error);
+        }
+    };
 
-        loadPets();
-    }, [API_BASE, submitted]);
+    useAutoRefresh(loadPets, { refreshKey: submitted });
 
     const handleCancelQueue = async (queueId, petName) => {
         if (!window.confirm(`Are you sure you want to cancel the queue for ${petName}?`)) {
@@ -204,7 +203,8 @@ export default function QueueDashboard() {
             if (response.ok) {
                 toast.success(`Queue for ${petName} has been cancelled.`);
                 // Refresh pets list
-                setSubmitted(prev => !prev); 
+                setSubmitted(prev => !prev);
+                loadPets();
             } else {
                 toast.error("Failed to cancel queue.");
             }
@@ -312,6 +312,7 @@ export default function QueueDashboard() {
 
             toast.success("Successfully added to queue.");
             setSubmitted(true);
+            loadPets();
             setTimeout(() => {
                 setSubmitted(false);
                 setSelectedPet(null);

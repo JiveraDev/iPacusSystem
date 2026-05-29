@@ -268,7 +268,7 @@ export default function HomeServiceConfirmation() {
                         <Checkbox id="terms" checked={consents.terms} onCheckedChange={(v) => setConsents({...consents, terms: v})} />
                         <div className="grid gap-1.5 leading-none">
                             <Label htmlFor="terms" className="text-sm font-medium">I agree to the service fees and terms</Label>
-                            <p className="text-xs text-gray-500">I understand the ₱50 transport fee is non-refundable.</p>
+                            <p className="text-xs text-gray-500">I understand the PHP 50 transport fee is non-refundable.</p>
                         </div>
                     </div>
                     <div className="flex items-start space-x-3">
@@ -302,7 +302,7 @@ export default function HomeServiceConfirmation() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
                 <CheckCircle className="h-5 w-5 text-blue-600" />
-                Transport Fee Payment (₱50)
+                Transport Fee Payment (PHP 50)
               </CardTitle>
               <CardDescription>Finalize your booking by submitting the transport fee</CardDescription>
             </CardHeader>
@@ -390,7 +390,7 @@ export default function HomeServiceConfirmation() {
 
                     <div className="space-y-2">
                       <Label>Amount</Label>
-                      <Input value="₱50.00" readOnly className="bg-gray-100 font-bold text-blue-600" />
+                      <Input value="PHP 50.00" readOnly className="bg-gray-100 font-bold text-blue-600" />
                     </div>
                   </div>
                 </div>

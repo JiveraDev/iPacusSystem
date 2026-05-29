@@ -403,7 +403,7 @@ export default function Vaccination() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-green-600">$30-$60 per vaccine</p>
+                  <p className="text-lg font-bold text-green-600">PHP 30 - PHP 60 per vaccine</p>
                 </div>
               </div>
             </CardContent>

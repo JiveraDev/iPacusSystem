@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -16,6 +16,7 @@ import { addPetService } from '../../services/addPet';
 import { calculateAge } from '../../lib/date';
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useNavigate } from "../dashboardRouter.jsx";
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const emptyPetProfile = {
     id: '',
@@ -69,9 +70,7 @@ export default function PetRegister() {
         }
     }, [API_BASE_URL]);
 
-    useEffect(() => {
-        fetchPets();
-    }, [fetchPets]);
+    useAutoRefresh(fetchPets, { refreshKey: API_BASE_URL });
 
     const handleInputChange = (field, value) => {
         setFormData(prev => {

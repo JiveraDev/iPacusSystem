@@ -8,6 +8,8 @@ import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, 
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
+import { formatPhpCurrency } from "../../lib/currency";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 import { findPetService } from "../../services/findPet";
 
@@ -45,35 +47,40 @@ export default function PetProfile() {
     }
   }, [petId]);
 
-  useEffect(() => {
-    async function fetchPetActivity() {
-      if (!pet?.db_id) return;
+  const fetchPetActivity = async ({ isAutoRefresh = false } = {}) => {
+    if (!pet?.db_id) return;
 
+    if (!isAutoRefresh) {
       setIsActivityLoading(true);
-      try {
-        const [queuesResponse, bookingsResponse] = await Promise.all([
-          fetch(`${API_BASE}/pets/${pet.db_id}/queues`),
-          fetch(`${API_BASE}/pets/${pet.db_id}/bookings`)
-        ]);
-
-        const [queuesData, bookingsData] = await Promise.all([
-          queuesResponse.ok ? queuesResponse.json() : [],
-          bookingsResponse.ok ? bookingsResponse.json() : []
-        ]);
-
-        setQueueRecords(Array.isArray(queuesData) ? queuesData : []);
-        setBookingRecords(Array.isArray(bookingsData) ? bookingsData : []);
-        setActivityReferenceTime(Date.now());
-      } catch (error) {
-        console.error("Error fetching pet activity:", error);
-        toast.error("Could not load queue and booking activity");
-      } finally {
-        setIsActivityLoading(false);
-      }
     }
+    try {
+      const [queuesResponse, bookingsResponse] = await Promise.all([
+        fetch(`${API_BASE}/pets/${pet.db_id}/queues`),
+        fetch(`${API_BASE}/pets/${pet.db_id}/bookings`)
+      ]);
 
-    fetchPetActivity();
-  }, [API_BASE, pet?.db_id]);
+      const [queuesData, bookingsData] = await Promise.all([
+        queuesResponse.ok ? queuesResponse.json() : [],
+        bookingsResponse.ok ? bookingsResponse.json() : []
+      ]);
+
+      setQueueRecords(Array.isArray(queuesData) ? queuesData : []);
+      setBookingRecords(Array.isArray(bookingsData) ? bookingsData : []);
+      setActivityReferenceTime(Date.now());
+    } catch (error) {
+      console.error("Error fetching pet activity:", error);
+      if (!isAutoRefresh) {
+        toast.error("Could not load queue and booking activity");
+      }
+    } finally {
+      setIsActivityLoading(false);
+    }
+  };
+
+  useAutoRefresh(fetchPetActivity, {
+    enabled: Boolean(pet?.db_id),
+    refreshKey: pet?.db_id
+  });
 
   const copyToClipboard = () => {
     if (pet?.id) {
@@ -298,7 +305,7 @@ export default function PetProfile() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Price</p>
-            <p className="font-semibold text-blue-600">PHP {Number(booking.price || 0).toLocaleString("en-US")}</p>
+            <p className="font-semibold text-blue-600">{formatPhpCurrency(booking.price || 0)}</p>
           </div>
         </div>
 

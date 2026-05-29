@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -137,14 +138,23 @@ export default function StockInPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    Promise.all([fetchInventoryItems(), fetchInventoryMeta()])
-      .then(([itemsData, metaData]) => {
-        setInventoryItems(itemsData.items || []);
-        setSuppliers(metaData.suppliers || []);
-      })
-      .catch((error) => setErrorMessage(error.message || 'Failed to load stock-in data.'));
-  }, []);
+  const loadStockInData = async ({ isAutoRefresh = false } = {}) => {
+    if (!isAutoRefresh) {
+      setErrorMessage('');
+    }
+
+    try {
+      const [itemsData, metaData] = await Promise.all([fetchInventoryItems(), fetchInventoryMeta()]);
+      setInventoryItems(itemsData.items || []);
+      setSuppliers(metaData.suppliers || []);
+    } catch (error) {
+      if (!isAutoRefresh) {
+        setErrorMessage(error.message || 'Failed to load stock-in data.');
+      }
+    }
+  };
+
+  useAutoRefresh(loadStockInData);
 
   useEffect(() => () => {
     if (receiptFile?.previewUrl) {

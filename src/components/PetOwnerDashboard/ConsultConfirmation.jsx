@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -8,6 +8,9 @@ import { Textarea } from "../../ui/textarea";
 import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2 } from "lucide-react";
 import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { toast } from "../../reusecomponent/toast.jsx";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+
+const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
 
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
@@ -24,57 +27,58 @@ export default function ConsultConfirmation() {
     transactionNumber: ""
   });
 
-  useEffect(() => {
-    const fetchConsultation = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings?bookingId=${bookingId}`);
-        if (!response.ok) throw new Error("Failed to fetch booking");
-        
-        const data = await response.json();
-        // get_bookings returns an array
-        const consult = data.find(b => b.id.toString() === bookingId.toString());
-        
-        if (consult) {
-          setConsultation(consult);
+  const fetchConsultation = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings?bookingId=${bookingId}`);
+      if (!response.ok) throw new Error("Failed to fetch booking");
+
+      const data = await response.json();
+      // get_bookings returns an array
+      const consult = data.find(b => b.id.toString() === bookingId.toString());
+
+      if (consult) {
+        setConsultation(consult);
+        if (!cancelDialogOpen) {
           const senderNumberMatch = String(consult.notes || "").match(/\[Sender Number:\s*(.*?)\]/i);
           setCancellationData((current) => ({
             ...current,
             walletNumber: senderNumberMatch?.[1] || ""
           }));
-          const onlineResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations?bookingId=${consult.id}`);
-          const onlineData = onlineResponse.ok ? await onlineResponse.json() : [];
-          const online = Array.isArray(onlineData) ? onlineData[0] : null;
-          setOnlineConsultation(online || null);
-
-          const scheduledStart = online?.scheduledStart
-            ? new Date(String(online.scheduledStart).replace(" ", "T"))
-            : new Date(`${consult.date} ${consult.time}`);
-          const scheduledEnd = online?.scheduledEnd
-            ? new Date(String(online.scheduledEnd).replace(" ", "T"))
-            : new Date(scheduledStart.getTime() + 60 * 60000);
-          const tenMinutesBefore = new Date(scheduledStart.getTime() - 10 * 60000);
-          const now = new Date();
-          const vetHasStarted = ["vet_ready", "in_progress"].includes(String(online?.status || ""));
-
-          setCanJoin(
-            consult.status === "confirmed" &&
-            Boolean(online?.meetingUrl) &&
-            vetHasStarted &&
-            now >= tenMinutesBefore &&
-            now <= scheduledEnd
-          );
         }
-      } catch (error) {
-        console.error("Error fetching consultation:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        const onlineResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations?bookingId=${consult.id}`);
+        const onlineData = onlineResponse.ok ? await onlineResponse.json() : [];
+        const online = Array.isArray(onlineData) ? onlineData[0] : null;
+        setOnlineConsultation(online || null);
 
-    if (bookingId) {
-      fetchConsultation();
+        const scheduledStart = online?.scheduledStart
+          ? new Date(String(online.scheduledStart).replace(" ", "T"))
+          : new Date(`${consult.date} ${consult.time}`);
+        const scheduledEnd = online?.scheduledEnd
+          ? new Date(String(online.scheduledEnd).replace(" ", "T"))
+          : new Date(scheduledStart.getTime() + 60 * 60000);
+        const tenMinutesBefore = new Date(scheduledStart.getTime() - 10 * 60000);
+        const now = new Date();
+        const vetHasStarted = ["vet_ready", "in_progress"].includes(String(online?.status || ""));
+        const withinScheduledJoinWindow = now >= tenMinutesBefore && now <= scheduledEnd;
+
+        setCanJoin(
+          consult.status === "confirmed" &&
+          Boolean(online?.meetingUrl) &&
+          vetHasStarted &&
+          (DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE || withinScheduledJoinWindow)
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching consultation:", error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [bookingId]);
+  };
+
+  useAutoRefresh(fetchConsultation, {
+    enabled: Boolean(bookingId),
+    refreshKey: bookingId
+  });
 
   const handleJoinConsultation = () => {
     if (!onlineConsultation?.meetingUrl) {
@@ -180,7 +184,9 @@ export default function ConsultConfirmation() {
   const consultEndDateTime = onlineConsultation?.scheduledEnd
     ? new Date(String(onlineConsultation.scheduledEnd).replace(" ", "T"))
     : new Date(consultDateTime.getTime() + 60 * 60000);
-  const isPast = consultation.status === "completed" || new Date() > consultEndDateTime;
+  const isPast = consultation.status === "completed" || (
+    !DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE && new Date() > consultEndDateTime
+  );
   const vetHasStarted = ["vet_ready", "in_progress"].includes(String(onlineConsultation?.status || ""));
   const statusTitle =
     consultation.status === 'confirmed'
@@ -296,7 +302,7 @@ export default function ConsultConfirmation() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-gray-600">Amount Paid</span>
-              <span className="font-semibold text-lg">₱500</span>
+              <span className="font-semibold text-lg">PHP 500</span>
             </div>
           </div>
         </CardContent>

@@ -35,6 +35,14 @@ Use ES modules and React function components. Component filenames use PascalCase
 
 Follow the existing style: 4-space indentation in most React/PHP files, single quotes in JSX modules, and Tailwind utility classes. Prefer UI primitives from `src/ui/` before creating new controls. ESLint checks `src/**/*.{js,jsx}` and `server/**/*.js`; unused variables are errors unless they match the uppercase ignore pattern.
 
+## Live Data Refresh
+
+GET-backed dashboard views should auto-refresh while they are open so database updates appear without a manual browser reload. Use the shared `useAutoRefresh` hook from `src/hooks/useAutoRefresh.js`; the default interval is 4 seconds. Keep refreshes quiet after the first load when possible so tables and cards update without replacing the screen with a loading state.
+
+## Theme Controller
+
+The app theme is controlled by `ThemeProvider` from `src/context/ThemeProvider.jsx` and the `useTheme` hook from `src/hooks/useTheme.js`. The selected mode is stored in `localStorage` under `ipawcus-theme` and applied by toggling the `dark` class on the document root. Profile screens should use the shared `ThemeToggle` component from `src/components/shared/ThemeToggle.jsx` instead of creating separate theme controls.
+
 ## Testing Guidelines
 
 No automated test framework is currently configured in `package.json`. For now, validate changes with:

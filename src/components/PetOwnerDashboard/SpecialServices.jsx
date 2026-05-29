@@ -21,6 +21,8 @@ import {
     Check,
 } from "lucide-react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
+import { normalizeCurrencyLabel } from "../../lib/currency";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -57,7 +59,7 @@ function getServiceIcon(service) {
 }
 
 function formatCurrencyLabel(value) {
-    return value || "To be announced";
+    return normalizeCurrencyLabel(value);
 }
 
 function formatDateLabel(value) {
@@ -105,7 +107,7 @@ function buildServiceForm(service) {
         service_title: service?.serviceTitle || "",
         service_description: service?.serviceDescription || "",
         service_details: service?.serviceDetails || "",
-        price_label: service?.priceLabel || "",
+        price_label: normalizeCurrencyLabel(service?.priceLabel, ""),
         duration_label: service?.durationLabel || "",
         max_pets: service?.maxPets || 1,
         sort_order: service?.sortOrder || 0,
@@ -113,6 +115,13 @@ function buildServiceForm(service) {
         date_restriction_type: service?.dateRestrictionType || "none",
         date_start: service?.dateStart || "",
         date_end: service?.dateEnd || "",
+    };
+}
+
+function buildServicePayload(form) {
+    return {
+        ...form,
+        price_label: normalizeCurrencyLabel(form.price_label, ""),
     };
 }
 
@@ -266,14 +275,16 @@ export default function SpecialServices({ user }) {
         return services.length === 0 || services.some((service) => service.dateRestrictionSupported !== false);
     }, [services]);
 
-    const loadPets = useCallback(async () => {
+    const loadPets = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!currentUserId) {
             setPets([]);
             setIsLoadingPets(false);
             return;
         }
 
-        setIsLoadingPets(true);
+        if (!isAutoRefresh) {
+            setIsLoadingPets(true);
+        }
         try {
             const response = await fetch(`${API_BASE}/api/users/${currentUserId}/pets`);
             const data = await response.json().catch(() => []);
@@ -295,14 +306,18 @@ export default function SpecialServices({ user }) {
             })).filter((pet) => pet.id) : []);
         } catch (error) {
             console.error("Failed to load pets for special services:", error);
-            toast.error("Could not load your pets.");
+            if (!isAutoRefresh) {
+                toast.error("Could not load your pets.");
+            }
         } finally {
             setIsLoadingPets(false);
         }
     }, [currentUserId]);
 
-    const loadServices = useCallback(async () => {
-        setIsLoadingServices(true);
+    const loadServices = useCallback(async ({ isAutoRefresh = false } = {}) => {
+        if (!isAutoRefresh) {
+            setIsLoadingServices(true);
+        }
         try {
             const response = await fetch(`${API_BASE}/api/special_services${isAdminUser ? "?includeInactive=1" : ""}`);
             const data = await response.json().catch(() => []);
@@ -314,16 +329,16 @@ export default function SpecialServices({ user }) {
             setServices(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Failed to load special services:", error);
-            toast.error("Could not load special services.");
+            if (!isAutoRefresh) {
+                toast.error("Could not load special services.");
+            }
         } finally {
             setIsLoadingServices(false);
         }
     }, [isAdminUser]);
 
-    useEffect(() => {
-        loadPets();
-        loadServices();
-    }, [loadPets, loadServices]);
+    useAutoRefresh(loadPets, { refreshKey: currentUserId || "no-user" });
+    useAutoRefresh(loadServices, { refreshKey: isAdminUser ? "admin" : "user" });
 
     useEffect(() => {
         setSelectedServiceIds((current) => current.filter((serviceId) => {
@@ -420,7 +435,7 @@ export default function SpecialServices({ user }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     created_by_user_id: currentUserId,
-                    ...serviceForm,
+                    ...buildServicePayload(serviceForm),
                 }),
             });
 
@@ -467,7 +482,7 @@ export default function SpecialServices({ user }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     updated_by_user_id: currentUserId,
-                    ...editServiceForm,
+                    ...buildServicePayload(editServiceForm),
                 }),
             });
 

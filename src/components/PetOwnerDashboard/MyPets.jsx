@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -7,6 +7,7 @@ import { getUserPetsService } from "../../services/ConnectOwnership";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge } from "../../lib/date";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 export default function MyPets() {
   const navigate = useNavigate();
@@ -14,52 +15,54 @@ export default function MyPets() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(false);
 
-  useEffect(() => {
-    async function fetchPets() {
-      try {
-        const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-        const userId = currentUser.id || currentUser.user_id || currentUser.userId;
-        const userRole = currentUser.role || "";
-        const isAdmin = ["Admin", "Super Admin", "Veterinarian"].includes(userRole);
-        setIsAdminView(isAdmin);
+  const fetchPets = async ({ isAutoRefresh = false } = {}) => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userId = currentUser.id || currentUser.user_id || currentUser.userId;
+      const userRole = currentUser.role || "";
+      const isAdmin = ["Admin", "Super Admin", "Veterinarian"].includes(userRole);
+      setIsAdminView(isAdmin);
 
-        if (!userId) {
+      if (!userId) {
+        if (!isAutoRefresh) {
           toast.error("User session not found. Please log in again.");
-          setIsLoading(false);
-          return;
         }
-
-        let userPets = [];
-        if (isAdmin) {
-          // Administrators can see all pets
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information`);
-          if (response.ok) {
-            userPets = await response.json();
-          } else {
-            throw new Error("Failed to fetch all pets");
-          }
-        } else {
-          // Regular users see only their own pets
-          userPets = await getUserPetsService(userId);
-        }
-
-        // Standardize the name field if it's missing (get_pets.php uses petName)
-        const standardizedPets = userPets.map(p => ({
-          ...p,
-          name: p.name || p.petName || "Unnamed Pet"
-        }));
-
-        setPets(standardizedPets);
-      } catch (error) {
-        console.error("Failed to fetch pets:", error);
-        toast.error("Failed to load pets");
-      } finally {
         setIsLoading(false);
+        return;
       }
-    }
 
-    fetchPets();
-  }, []);
+      let userPets = [];
+      if (isAdmin) {
+        // Administrators can see all pets
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information`);
+        if (response.ok) {
+          userPets = await response.json();
+        } else {
+          throw new Error("Failed to fetch all pets");
+        }
+      } else {
+        // Regular users see only their own pets
+        userPets = await getUserPetsService(userId);
+      }
+
+      // Standardize the name field if it's missing (get_pets.php uses petName)
+      const standardizedPets = userPets.map(p => ({
+        ...p,
+        name: p.name || p.petName || "Unnamed Pet"
+      }));
+
+      setPets(standardizedPets);
+    } catch (error) {
+      console.error("Failed to fetch pets:", error);
+      if (!isAutoRefresh) {
+        toast.error("Failed to load pets");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useAutoRefresh(fetchPets);
 
   if (isLoading) {
     return (

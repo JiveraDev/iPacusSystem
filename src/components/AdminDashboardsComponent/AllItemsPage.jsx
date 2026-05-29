@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import InventoryStatusBadge from './InventoryStatusBadge';
 import { createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, updateInventoryItem } from '../../services/inventoryApi';
 import { formatDisplayDate } from '../../lib/date';
+import { formatPhpCurrency } from '../../lib/currency';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
@@ -34,9 +36,11 @@ export default function AllItemsPage() {
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [editItemForm, setEditItemForm] = useState({ unitCost: '', locationId: '' });
 
-  const loadInventory = async () => {
-    setIsLoading(true);
-    setErrorMessage('');
+  const loadInventory = async ({ isAutoRefresh = false } = {}) => {
+    if (!isAutoRefresh) {
+      setIsLoading(true);
+      setErrorMessage('');
+    }
     try {
       const [itemsData, metaData] = await Promise.all([
         fetchInventoryItems(),
@@ -47,16 +51,16 @@ export default function AllItemsPage() {
       setLocations(metaData.locations || []);
       return loadedItems;
     } catch (error) {
-      setErrorMessage(error.message || 'Failed to load inventory.');
+      if (!isAutoRefresh) {
+        setErrorMessage(error.message || 'Failed to load inventory.');
+      }
       return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadInventory();
-  }, []);
+  useAutoRefresh(loadInventory);
 
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -314,7 +318,7 @@ export default function AllItemsPage() {
               Total Value
             </p>
             <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#155dfc]">
-              ₱{totalValue.toLocaleString()}
+              {formatPhpCurrency(totalValue)}
             </p>
           </div>
           <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
@@ -458,7 +462,7 @@ export default function AllItemsPage() {
                       {item.quantity} {item.unit}
                     </TableCell>
                     <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-                      ₱{item.costPrice.toFixed(2)}
+                      {formatPhpCurrency(item.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                       {getNearestExpiryBatch(item)?.batchNumber || 'No batch'} - {formatInventoryDate(getNearestExpiryBatch(item)?.expiryDate, { compact: true })}
@@ -607,7 +611,7 @@ export default function AllItemsPage() {
                     Unit Cost
                   </p>
                   <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-                    ₱{item.costPrice.toFixed(2)}
+                    {formatPhpCurrency(item.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -890,7 +894,7 @@ export default function AllItemsPage() {
                       />
                     ) : (
                     <p className="font-['Arimo:Bold',sans-serif] text-[20px] text-[#101828]">
-                      ₱{selectedItem.costPrice.toFixed(2)}
+                      {formatPhpCurrency(selectedItem.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     )}
                   </div>

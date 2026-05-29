@@ -10,6 +10,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Image as ImageIcon, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const TIME_SLOT_ORDER = [
@@ -164,91 +165,93 @@ export default function ConsultBooking() {
     return baseSlots.filter((slot) => !occupiedSlots.includes(slot));
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-        const userId = currentUser.id || currentUser.user_id;
+  const fetchData = async ({ isAutoRefresh = false } = {}) => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userId = currentUser.id || currentUser.user_id;
 
-        if (!userId) {
+      if (!userId) {
+        if (!isAutoRefresh) {
           toast.error("Session error. Please log in again.");
-          return;
         }
-
-        // Fetch Pets
-        const petsResponse = await fetch(`${API_BASE}/api/users/${userId}/pets`);
-        if (!petsResponse.ok) {
-          throw new Error("Failed to load pets");
-        }
-        const petsData = await petsResponse.json();
-        setPets(Array.isArray(petsData) ? petsData : []);
-
-        // Fetch Veterinarians
-        const vetsResponse = await fetch(`${API_BASE}/api/accounts`);
-        if (!vetsResponse.ok) {
-          throw new Error("Failed to load veterinarians");
-        }
-        const vetsData = await vetsResponse.json();
-        const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
-        const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
-          const vetId = toId(vet.user_id);
-
-          try {
-            const scheduleResponse = await fetch(`${API_BASE}/api/vet_schedules?userId=${encodeURIComponent(vetId)}`);
-            if (!scheduleResponse.ok) {
-              throw new Error("Schedule request failed");
-            }
-
-            const schedules = await scheduleResponse.json();
-            return {
-              vetId,
-              hasScheduleRows: Array.isArray(schedules) && schedules.length > 0,
-              availability: Array.isArray(schedules) ? buildAvailabilityFromSchedules(schedules) : {}
-            };
-          } catch (error) {
-            console.error(`Failed to load schedule for veterinarian ${vetId}:`, error);
-            return {
-              vetId,
-              hasScheduleRows: false,
-              availability: {}
-            };
-          }
-        }));
-        const schedulesByVet = new Map(scheduleResults.map((result) => [result.vetId, result]));
-        
-        if (vetAccounts.length > 0) {
-          const formattedVets = vetAccounts.map(v => {
-            const vetId = toId(v.user_id);
-            const schedule = schedulesByVet.get(vetId);
-
-            return {
-              id: vetId,
-              userId: v.user_id,
-              name: `Dr. ${v.first_Name} ${v.last_Name}`,
-              specialization: v.specialization || "General Practice",
-              availability: schedule?.hasScheduleRows ? schedule.availability : DEFAULT_AVAILABILITY
-            };
-          });
-          setVeterinarians(formattedVets);
-        }
-
-        const bookingsResponse = await fetch(`${API_BASE}/api/bookings`);
-        if (bookingsResponse.ok) {
-          const bookingsData = await bookingsResponse.json();
-          setExistingConsultBookings(Array.isArray(bookingsData) ? bookingsData : []);
-        } else {
-          setExistingConsultBookings([]);
-        }
-      } catch (error) {
-        console.error("Error fetching booking data:", error);
-        toast.error("Failed to load necessary information. Please try again.");
-      } finally {
-        setIsLoading(false);
+        return;
       }
-    };
 
-    fetchData();
-  }, []);
+      // Fetch Pets
+      const petsResponse = await fetch(`${API_BASE}/api/users/${userId}/pets`);
+      if (!petsResponse.ok) {
+        throw new Error("Failed to load pets");
+      }
+      const petsData = await petsResponse.json();
+      setPets(Array.isArray(petsData) ? petsData : []);
+
+      // Fetch Veterinarians
+      const vetsResponse = await fetch(`${API_BASE}/api/accounts`);
+      if (!vetsResponse.ok) {
+        throw new Error("Failed to load veterinarians");
+      }
+      const vetsData = await vetsResponse.json();
+      const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
+      const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
+        const vetId = toId(vet.user_id);
+
+        try {
+          const scheduleResponse = await fetch(`${API_BASE}/api/vet_schedules?userId=${encodeURIComponent(vetId)}`);
+          if (!scheduleResponse.ok) {
+            throw new Error("Schedule request failed");
+          }
+
+          const schedules = await scheduleResponse.json();
+          return {
+            vetId,
+            hasScheduleRows: Array.isArray(schedules) && schedules.length > 0,
+            availability: Array.isArray(schedules) ? buildAvailabilityFromSchedules(schedules) : {}
+          };
+        } catch (error) {
+          console.error(`Failed to load schedule for veterinarian ${vetId}:`, error);
+          return {
+            vetId,
+            hasScheduleRows: false,
+            availability: {}
+          };
+        }
+      }));
+      const schedulesByVet = new Map(scheduleResults.map((result) => [result.vetId, result]));
+
+      if (vetAccounts.length > 0) {
+        const formattedVets = vetAccounts.map(v => {
+          const vetId = toId(v.user_id);
+          const schedule = schedulesByVet.get(vetId);
+
+          return {
+            id: vetId,
+            userId: v.user_id,
+            name: `Dr. ${v.first_Name} ${v.last_Name}`,
+            specialization: v.specialization || "General Practice",
+            availability: schedule?.hasScheduleRows ? schedule.availability : DEFAULT_AVAILABILITY
+          };
+        });
+        setVeterinarians(formattedVets);
+      }
+
+      const bookingsResponse = await fetch(`${API_BASE}/api/bookings`);
+      if (bookingsResponse.ok) {
+        const bookingsData = await bookingsResponse.json();
+        setExistingConsultBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      } else {
+        setExistingConsultBookings([]);
+      }
+    } catch (error) {
+      console.error("Error fetching booking data:", error);
+      if (!isAutoRefresh) {
+        toast.error("Failed to load necessary information. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useAutoRefresh(fetchData);
 
   const toggleDiscussionTopic = (topic) => {
     setDiscussionTopic(prev => 
@@ -739,7 +742,7 @@ export default function ConsultBooking() {
             <div className="pt-4 border-t">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
                 <span className="text-lg font-semibold">Consultation Fee</span>
-                <span className="text-2xl font-bold text-blue-600">₱500</span>
+                <span className="text-2xl font-bold text-blue-600">PHP 500</span>
               </div>
               <Button type="submit" className="w-full" size="lg">
                 Continue to Payment

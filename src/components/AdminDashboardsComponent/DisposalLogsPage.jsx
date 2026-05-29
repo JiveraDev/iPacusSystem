@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
 import { formatDisplayDate } from '../../lib/date';
+import { formatPhpCurrency } from '../../lib/currency';
 
 export default function DisposalLogsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,7 +167,7 @@ export default function DisposalLogsPage() {
             </div>
             <div>
               <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#101828]">
-                ₱{totalValue.toLocaleString()}
+                {formatPhpCurrency(totalValue)}
               </h3>
               <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                 Total Loss Value
@@ -269,7 +270,7 @@ export default function DisposalLogsPage() {
                   {log.authorizedBy}
                 </TableCell>
                 <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                  ₱{log.costValue.toLocaleString()}
+                  {formatPhpCurrency(log.costValue)}
                 </TableCell>
                 <TableCell>
                   {getStatusBadge(log.status)}
@@ -308,10 +309,9 @@ export default function DisposalLogsPage() {
               Value Loss This Month
             </p>
             <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#101828]">
-              ₱{mockDisposalLogs
+              {formatPhpCurrency(mockDisposalLogs
                 .filter(l => l.disposalDate.startsWith('2026-05'))
-                .reduce((sum, log) => sum + log.costValue, 0)
-                .toLocaleString()}
+                .reduce((sum, log) => sum + log.costValue, 0))}
             </p>
           </div>
           <div className="bg-[#f9fafb] rounded-[10px] p-4">
@@ -379,7 +379,7 @@ export default function DisposalLogsPage() {
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Cost Value</p>
                     <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-                      ₱{selectedLog.costValue.toLocaleString()}
+                      {formatPhpCurrency(selectedLog.costValue)}
                     </p>
                   </div>
                   <div>

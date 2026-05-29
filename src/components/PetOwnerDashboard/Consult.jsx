@@ -1,9 +1,13 @@
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Video, Calendar, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Video, Calendar, Clock, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
+import { toast } from "../../reusecomponent/toast.jsx";
+import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+
+const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
 
 function parseConsultDateTime(consultation) {
   if (!consultation?.date) {
@@ -39,43 +43,80 @@ export default function Consult() {
   const navigate = useNavigate();
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [joiningConsultationId, setJoiningConsultationId] = useState(null);
 
-  useEffect(() => {
-    const fetchConsultations = async () => {
-      try {
-        const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-        const userId = currentUser.id || currentUser.user_id;
-        
-        if (!userId) {
-          setIsLoading(false);
-          return;
-        }
+  const fetchConsultations = async () => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userId = currentUser.id || currentUser.user_id;
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/bookings`);
-        if (!response.ok) throw new Error("Failed to fetch bookings");
-        
-        const data = await response.json();
-        const consultations = data.filter(b => b.isOnlineConsultation);
-        
-        const upcoming = consultations
-          .filter(isWithinConsultDisplayWindow)
-          .sort((left, right) => {
-            const leftDate = parseConsultDateTime(left);
-            const rightDate = parseConsultDateTime(right);
-
-            return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
-          });
-        
-        setUpcomingConsultations(upcoming);
-      } catch (error) {
-        console.error("Error fetching consultations:", error);
-      } finally {
+      if (!userId) {
         setIsLoading(false);
+        return;
       }
-    };
 
-    fetchConsultations();
-  }, []);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/bookings`);
+      if (!response.ok) throw new Error("Failed to fetch bookings");
+
+      const data = await response.json();
+      const consultations = data.filter(b => b.isOnlineConsultation);
+
+      const upcoming = consultations
+        .filter(isWithinConsultDisplayWindow)
+        .sort((left, right) => {
+          const leftDate = parseConsultDateTime(left);
+          const rightDate = parseConsultDateTime(right);
+
+          return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
+        });
+
+      setUpcomingConsultations(upcoming);
+    } catch (error) {
+      console.error("Error fetching consultations:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useAutoRefresh(fetchConsultations);
+
+  const handleJoinConsultation = async (consultation) => {
+    setJoiningConsultationId(consultation.id);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations?bookingId=${consultation.id}`);
+      const data = await response.json().catch(() => []);
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load consultation room");
+      }
+
+      const onlineConsultation = Array.isArray(data) ? data[0] : data;
+      if (!onlineConsultation?.meetingUrl) {
+        throw new Error("The consultation room is not available yet.");
+      }
+
+      const vetHasStarted = ["vet_ready", "in_progress"].includes(String(onlineConsultation.status || ""));
+      if (!vetHasStarted) {
+        throw new Error("Please wait for the veterinarian to start the consultation.");
+      }
+
+      const joinResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations/${onlineConsultation.id}/join`, {
+        method: "POST"
+      });
+      const joinedConsultation = await joinResponse.json().catch(() => null);
+
+      if (!joinResponse.ok) {
+        throw new Error(joinedConsultation?.message || "Failed to join consultation");
+      }
+
+      navigate(`/dashboard/consult/video/${onlineConsultation.id}`);
+    } catch (error) {
+      console.error("Join consultation failed:", error);
+      toast.error(error.message || "Failed to join consultation");
+    } finally {
+      setJoiningConsultationId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -102,7 +143,7 @@ export default function Consult() {
           <div className="space-y-3 text-gray-700">
             <p>• Select your pet and describe the consultation topic (weight, symptoms, behavior, etc.)</p>
             <p>• Choose an available time slot (bookings available from next day onwards)</p>
-            <p>• Complete secure payment via Maya (₱500 per session)</p>
+            <p>• Complete secure payment via Maya (PHP 500 per session)</p>
             <p>• Join the video consultation at your scheduled time</p>
           </div>
         </CardContent>
@@ -143,7 +184,10 @@ export default function Consult() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">Your Recent Consultations</h2>
           <div className="space-y-4">
             {upcomingConsultations.map((consultation) => {
-              const canJoinConsultation = consultation.status === 'confirmed' && isUpcomingConsultation(consultation);
+              const canJoinConsultation = consultation.status === 'confirmed' && (
+                DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE || isUpcomingConsultation(consultation)
+              );
+              const isJoining = joiningConsultationId === consultation.id;
 
               return (
                 <Card key={consultation.id}>
@@ -178,11 +222,12 @@ export default function Consult() {
                             <Button 
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/dashboard/consult/video/${consultation.id}`)}
+                              onClick={() => handleJoinConsultation(consultation)}
+                              disabled={isJoining}
                               className="inline-flex items-center gap-2"
                             >
-                              <Video className="h-4 w-4" />
-                              Join Consultation
+                              {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                              {isJoining ? "Joining..." : "Join Consultation"}
                             </Button>
                           </div>
                         )}

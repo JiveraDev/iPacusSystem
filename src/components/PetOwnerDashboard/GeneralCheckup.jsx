@@ -417,7 +417,7 @@ export default function GeneralCheckup() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-blue-600">$50-$80</p>
+                  <p className="text-lg font-bold text-blue-600">PHP 50 - PHP 80</p>
                 </div>
               </div>
             </CardContent>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -16,6 +16,8 @@ import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
 import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
+import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -85,9 +87,7 @@ export default function BookingsManagement() {
         }
     };
 
-    useEffect(() => {
-        fetchBookings();
-    }, []);
+    useAutoRefresh(fetchBookings);
 
     const updateBookingStatus = async (id, newStatus, extraPayload = {}) => {
         try {
@@ -703,7 +703,7 @@ export default function BookingsManagement() {
                                                                         Estimated Stay Total
                                                                     </p>
                                                                     <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
-                                                                        PHP {Number(booking.price).toLocaleString('en-US')}
+                                                                        {formatPhpCurrency(booking.price)}
                                                                     </p>
                                                                 </div>
                                                             )}
@@ -725,7 +725,7 @@ export default function BookingsManagement() {
                                                                 Paid Transport Fee
                                                             </p>
                                                             <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
-                                                                ₱{booking.price}
+                                                                {formatPhpCurrency(booking.price)}
                                                             </p>
                                                         </div>
                                                     )}
@@ -782,7 +782,7 @@ export default function BookingsManagement() {
                                                                     </div>
                                                                     {(item.priceLabel || item.durationLabel || item.maxPets) && (
                                                                         <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                                                                            {item.priceLabel && <p><span className="font-semibold">Price:</span> {item.priceLabel}</p>}
+                                                                            {item.priceLabel && <p><span className="font-semibold">Price:</span> {normalizeCurrencyLabel(item.priceLabel)}</p>}
                                                                             {item.durationLabel && <p><span className="font-semibold">Duration:</span> {item.durationLabel}</p>}
                                                                             {item.maxPets && <p><span className="font-semibold">Max Pets:</span> {item.maxPets}</p>}
                                                                         </div>

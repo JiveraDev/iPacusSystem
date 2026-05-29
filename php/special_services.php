@@ -149,6 +149,27 @@ function attachSpecialServiceUsage(array $services, PDO $pdo): array
     }, $services);
 }
 
+function normalizePriceLabel(?string $value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $label = trim($value);
+    if ($label === '') {
+        return null;
+    }
+
+    $pesoSign = html_entity_decode('&#8369;', ENT_QUOTES, 'UTF-8');
+    $label = str_replace([$pesoSign, '$'], 'PHP ', $label);
+    $label = preg_replace('/\bphp\b/i', 'PHP', $label) ?? $label;
+    $label = preg_replace('/\s*-\s*/', ' - ', $label) ?? $label;
+    $label = preg_replace('/\s+/', ' ', $label) ?? $label;
+    $label = trim($label);
+
+    return $label !== '' ? $label : null;
+}
+
 function serializeSpecialService(array $service): array
 {
     $maxPets = max(1, (int)$service['max_pets']);
@@ -161,7 +182,7 @@ function serializeSpecialService(array $service): array
         'serviceTitle' => $service['service_title'],
         'serviceDescription' => $service['service_description'],
         'serviceDetails' => $service['service_details'],
-        'priceLabel' => $service['price_label'],
+        'priceLabel' => normalizePriceLabel($service['price_label']),
         'durationLabel' => $service['duration_label'],
         'maxPets' => $maxPets,
         'bookedPets' => $bookedPets,
@@ -402,7 +423,7 @@ try {
 
         $serviceDescription = nullableTrimmedString($input, 'service_description', $currentService['service_description']);
         $serviceDetails = nullableTrimmedString($input, 'service_details', $currentService['service_details']);
-        $priceLabel = nullableTrimmedString($input, 'price_label', $currentService['price_label']);
+        $priceLabel = normalizePriceLabel(nullableTrimmedString($input, 'price_label', $currentService['price_label']));
         $durationLabel = nullableTrimmedString($input, 'duration_label', $currentService['duration_label']);
         $serviceCode = array_key_exists('service_code', $input) ? trim((string)$input['service_code']) : (string)$currentService['service_code'];
         $maxPets = array_key_exists('max_pets', $input) ? (int)$input['max_pets'] : (int)$currentService['max_pets'];
@@ -489,7 +510,7 @@ try {
     $serviceTitle = trim((string)($input['service_title'] ?? ''));
     $serviceDescription = trim((string)($input['service_description'] ?? ''));
     $serviceDetails = trim((string)($input['service_details'] ?? ''));
-    $priceLabel = trim((string)($input['price_label'] ?? ''));
+    $priceLabel = normalizePriceLabel(trim((string)($input['price_label'] ?? ''))) ?? '';
     $durationLabel = trim((string)($input['duration_label'] ?? ''));
     $serviceCode = trim((string)($input['service_code'] ?? ''));
     $maxPets = isset($input['max_pets']) ? (int)$input['max_pets'] : 1;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -9,6 +9,7 @@ import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDateTime } from '../../lib/date';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -21,10 +22,6 @@ export default function QueueManagement() {
     const [missedAgeFilter, setMissedAgeFilter] = useState('7d');
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
-
-    useEffect(() => {
-        fetchQueues();
-    }, []);
 
     const fetchQueues = async () => {
         try {
@@ -39,6 +36,8 @@ export default function QueueManagement() {
             setLoading(false);
         }
     };
+
+    useAutoRefresh(fetchQueues);
 
     const toggleRow = (id) => {
         setExpandedRows(prev => {

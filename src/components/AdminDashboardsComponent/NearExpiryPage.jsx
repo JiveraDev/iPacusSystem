@@ -5,6 +5,7 @@ import { Badge } from '../../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { formatDisplayDate } from '../../lib/date';
+import { formatPhpCurrency } from '../../lib/currency';
 
 export default function NearExpiryPage() {
   const [urgencyFilter, setUrgencyFilter] = useState('all');
@@ -106,7 +107,7 @@ export default function NearExpiryPage() {
             </div>
             <div>
               <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#101828]">
-                ₱{totalValue.toLocaleString()}
+                {formatPhpCurrency(totalValue)}
               </h3>
               <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                 Total Value at Risk
@@ -197,7 +198,7 @@ export default function NearExpiryPage() {
                   </div>
                 </TableCell>
                 <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                  ₱{item.costValue.toLocaleString()}
+                  {formatPhpCurrency(item.costValue)}
                 </TableCell>
                 <TableCell>
                   <Badge

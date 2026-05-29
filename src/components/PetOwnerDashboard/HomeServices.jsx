@@ -48,7 +48,7 @@ export default function HomeServices() {
       id: "grooming-full",
       name: "Grooming",
       description: "Bath, haircut, nail trim, ear cleaning",
-      price: "₱800 - ₱1,500",
+      price: "PHP 800 - PHP 1,500",
       icon: Scissors,
       color: "text-blue-600",
       includes: ["nail-trim"]
@@ -57,7 +57,7 @@ export default function HomeServices() {
       id: "nail-trim",
       name: "Nail Trimming",
       description: "Nail care and filing",
-      price: "₱200 - ₱400",
+      price: "PHP 200 - PHP 400",
       icon: Scissors,
       color: "text-orange-600",
       isSubService: true
@@ -66,7 +66,7 @@ export default function HomeServices() {
       id: "bathing",
       name: "Bathing & Blow Dry",
       description: "Bath with quality products",
-      price: "₱400 - ₱800",
+      price: "PHP 400 - PHP 800",
       icon: Bath,
       color: "text-cyan-600"
     },
@@ -74,7 +74,7 @@ export default function HomeServices() {
       id: "wellness-check",
       name: "Wellness Check-up",
       description: "Complete physical examination",
-      price: "₱500 - ₱800",
+      price: "PHP 500 - PHP 800",
       icon: Stethoscope,
       color: "text-purple-600",
       includes: ["vaccination", "medication"]
@@ -83,7 +83,7 @@ export default function HomeServices() {
       id: "vaccination",
       name: "Vaccinations",
       description: "Core vaccines, rabies, and boosters",
-      price: "₱300 - ₱1,000",
+      price: "PHP 300 - PHP 1,000",
       icon: Syringe,
       color: "text-green-600",
       isSubService: true
@@ -92,7 +92,7 @@ export default function HomeServices() {
       id: "medication",
       name: "Medication Administration",
       description: "Medication delivery",
-      price: "₱300 - ₱500",
+      price: "PHP 300 - PHP 500",
       icon: Pill,
       color: "text-red-600",
       isSubService: true
@@ -101,7 +101,7 @@ export default function HomeServices() {
       id: "wound-care",
       name: "Wound Care",
       description: "Cleaning and dressing of minor wounds",
-      price: "₱500 - ₱1,000",
+      price: "PHP 500 - PHP 1,000",
       icon: Heart,
       color: "text-pink-600"
     },
@@ -109,7 +109,7 @@ export default function HomeServices() {
       id: "ear-cleaning",
       name: "Ear Cleaning",
       description: "Ear hygiene service",
-      price: "₱200 - ₱400",
+      price: "PHP 200 - PHP 400",
       icon: Stethoscope,
       color: "text-indigo-600"
     }
@@ -546,7 +546,7 @@ export default function HomeServices() {
               <div className="pt-4 border-t space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Base Home Fee</span>
-                  <span className="font-semibold">₱200</span>
+                  <span className="font-semibold">PHP 200</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Services</span>

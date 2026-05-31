@@ -18,7 +18,7 @@ const announcements = [
   },
   {
     title: "Free Health Checkup Week",
-    text: "Join us for our annual Free Health Checkup Week from Feb 10-16. Book your appointment online to ensure your pet's wellness!",
+    text: "Join us for our annual Free Health Checkup Week from Feb 10-16. Book your appointment online to support your pet's health!",
     date: "Posted: Jan 28, 2026",
   },
   {
@@ -98,7 +98,7 @@ export default function LandingPageContent({ onLogin }) {
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-base text-[#4a5565] sm:text-lg">
           Vetfocus Care Animal Clinic - Your trusted partner for comprehensive veterinary services, grooming, and pet
-          wellness
+          health
         </p>
 
         <button
@@ -120,7 +120,7 @@ export default function LandingPageContent({ onLogin }) {
               Vetfocus Care Animal Clinic is a highly-rated veterinary facility known for providing reliable medical attention for pets with a focus on comprehensive care. With a strong 4.4 star rating, we are well-regarded by pet owners for our professional staff and quality medical services.
             </p>
             <p className="mt-4 text-[#4a5565]">
-              Our clinic is equipped for essential veterinary care including professional consultations, physical examinations, surgical procedures, and laboratory diagnostics. We also provide preventative care, wellness programs, and a complete on-site pharmacy with prescription medications and pet care essentials.
+              Our clinic is equipped for essential veterinary care including professional consultations, physical examinations, surgical procedures, and laboratory diagnostics. We also provide preventative care programs and a complete on-site pharmacy with prescription medications and pet care essentials.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {features.map((item) => (

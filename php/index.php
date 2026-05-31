@@ -61,6 +61,9 @@ switch ($path) {
     case '/upload':
         require_once __DIR__ . '/upload.php';
         break;
+    case '/upload/delete':
+        require_once __DIR__ . '/delete_upload.php';
+        break;
     case '/bookings':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/add_booking.php';
@@ -130,8 +133,17 @@ switch ($path) {
     case '/queues/status':
         require_once __DIR__ . '/update_queue_status.php';
         break;
+    case '/queues/receive':
+        require_once __DIR__ . '/receive_queue.php';
+        break;
+    case '/queues/return':
+        require_once __DIR__ . '/return_queue.php';
+        break;
     case '/queues/reenter':
         require_once __DIR__ . '/reenter_queue.php';
+        break;
+    case '/vet-diagnoses':
+        require_once __DIR__ . '/vet_diagnoses.php';
         break;
     case '/self-service/access':
         require_once __DIR__ . '/check_self_service_access.php';
@@ -170,6 +182,9 @@ switch ($path) {
         } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_medical_records.php';
+        } elseif (preg_match('/^\/vet-diagnoses\/(\d+)$/', $path, $matches)) {
+            $_GET['diagnosisId'] = $matches[1];
+            require_once __DIR__ . '/vet_diagnoses.php';
         } elseif (preg_match('/^\/users\/(\d+)\/password$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH' || $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -196,6 +211,9 @@ switch ($path) {
         } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_status.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/receive$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/receive_booking.php';
         } elseif (preg_match('/^\/bookings\/(\d+)\/schedule$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_schedule.php';

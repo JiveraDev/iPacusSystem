@@ -9,6 +9,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { formatPhpCurrency } from "../../lib/currency";
+import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 import { findPetService } from "../../services/findPet";
@@ -254,7 +255,7 @@ export default function PetProfile() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Service</p>
-              <p className="font-semibold">{queue.service_name || "Queue"}</p>
+              <p className="font-semibold">{getServiceDisplayName(queue.service_name, "Queue")}</p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Priority</p>
@@ -293,7 +294,7 @@ export default function PetProfile() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Service Type</p>
-            <p className="font-semibold">{booking.service}</p>
+            <p className="font-semibold">{getServiceDisplayName(booking.service)}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Date & Time</p>
@@ -301,7 +302,7 @@ export default function PetProfile() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Type</p>
-            <p className="font-semibold capitalize">{booking.type}</p>
+            <p className="font-semibold">{getServiceDisplayName(booking.type)}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Price</p>
@@ -672,9 +673,9 @@ export default function PetProfile() {
 
           {/* Allergies Card */}
           <Card className={`rounded-2xl shadow-sm overflow-hidden ${pet.allergies?.length > 0 ? "border-red-100" : "border-slate-200"}`}>
-            <CardHeader className={`${pet.allergies?.length > 0 ? "bg-red-50/50" : "bg-slate-50/50"} border-b border-slate-100`}>
-              <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                <AlertCircle className={`h-4 w-4 ${pet.allergies?.length > 0 ? "text-red-500" : "text-slate-400"}`} />
+            <CardHeader className="bg-red-50/50 border-b border-red-100 dark:bg-[#2a1517] dark:border-[#7f1d1d]">
+              <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">
+                <AlertCircle className="h-4 w-4 text-[#991b1b] dark:text-[#ef4444]" />
                 Critical Allergies
               </CardTitle>
             </CardHeader>
@@ -806,7 +807,7 @@ export default function PetProfile() {
                       {getQueueStatusBadge(displayedQueue.status)}
                     </div>
                     <p className="text-sm text-slate-500 mt-3">
-                      {displayedQueue.service_name} - {formatDateTime(displayedQueue.timestamp)}
+                      {getServiceDisplayName(displayedQueue.service_name, "Queue")} - {formatDateTime(displayedQueue.timestamp)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -868,7 +869,7 @@ export default function PetProfile() {
                               <p className="font-black text-slate-900">{booking.bookingNumber}</p>
                               {getBookingStatusBadge(booking.status)}
                             </div>
-                            <p className="text-sm font-semibold text-slate-700">{booking.service}</p>
+                            <p className="text-sm font-semibold text-slate-700">{getServiceDisplayName(booking.service)}</p>
                             <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
                           </div>
                         </button>

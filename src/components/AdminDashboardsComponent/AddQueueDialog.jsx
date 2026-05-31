@@ -11,7 +11,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const SERVICES = [
-    "Consultation", "Vaccination", "Grooming", "Dental", "Wellness", 
+    "Consultation", "Vaccination", "Grooming", "Dental", "General Check-Up", 
     "Surgery", "Kapon", "Lab-testing", "Parasite-control", "Boarding", "Home-service", "Special Services"
 ];
 

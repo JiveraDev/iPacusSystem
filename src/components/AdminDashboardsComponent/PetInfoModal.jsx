@@ -187,8 +187,8 @@ function PetDetails({ pet }) {
 
             <section className={`rounded-2xl p-4 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
                 <div className="mb-3 flex items-center gap-2">
-                    <AlertCircle className={`size-5 ${allergies.length > 0 ? 'text-red-500' : 'text-slate-400'}`} />
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Critical Allergies</h4>
+                    <AlertCircle className="size-5 text-[#991b1b] dark:text-[#ef4444]" />
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">Critical Allergies</h4>
                 </div>
                 {allergies.length > 0 ? (
                     <div className="space-y-2">

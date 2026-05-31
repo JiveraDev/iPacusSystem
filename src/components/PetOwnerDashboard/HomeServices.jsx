@@ -72,7 +72,7 @@ export default function HomeServices() {
     },
     {
       id: "wellness-check",
-      name: "Wellness Check-up",
+      name: "General Check-Up",
       description: "Complete physical examination",
       price: "PHP 500 - PHP 800",
       icon: Stethoscope,

@@ -18,6 +18,7 @@ import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
 import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { getServiceDisplayName } from '../../lib/serviceLabels';
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -322,7 +323,7 @@ export default function BookingsManagement() {
             'vaccination': 'Vaccination',
             'grooming': 'Grooming',
             'dental': 'Dental Check-up',
-            'wellness': 'General Check-up',
+            'wellness': 'General Check-Up',
             'surgery': 'Surgery',
             'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
@@ -419,7 +420,7 @@ export default function BookingsManagement() {
                             <SelectItem value="vaccination">Vaccination</SelectItem>
                             <SelectItem value="grooming">Grooming</SelectItem>
                             <SelectItem value="dental">Dental</SelectItem>
-                            <SelectItem value="wellness">Wellness</SelectItem>
+                            <SelectItem value="wellness">General Check-Up</SelectItem>
                             <SelectItem value="surgery">Surgery</SelectItem>
                             <SelectItem value="lab-testing">Lab Testing</SelectItem>
                             <SelectItem value="parasite-control">Parasite Control</SelectItem>
@@ -648,7 +649,7 @@ export default function BookingsManagement() {
                                                             Service
                                                         </p>
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                                            {booking.service}
+                                                            {getServiceDisplayName(booking.service)}
                                                         </p>
                                                     </div>
                                                     {booking.isOnlineConsultation && (

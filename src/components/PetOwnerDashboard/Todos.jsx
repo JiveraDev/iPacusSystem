@@ -23,7 +23,7 @@ export default function Todos() {
   // Helper function to get category color
   const getCategoryColor = (category) => {
     const colors = {
-      'General Check-up': { bg: 'bg-blue-500', text: 'text-blue-700', badge: 'bg-blue-100' },
+      'General Check-Up': { bg: 'bg-blue-500', text: 'text-blue-700', badge: 'bg-blue-100' },
       'Parasite Control': { bg: 'bg-orange-500', text: 'text-orange-700', badge: 'bg-orange-100' },
       'Surgery': { bg: 'bg-red-600', text: 'text-red-700', badge: 'bg-red-100' },
       'Vaccination': { bg: 'bg-green-600', text: 'text-green-700', badge: 'bg-green-100' },
@@ -83,7 +83,7 @@ export default function Todos() {
         {
           id: "4",
           title: "General Health Consultation",
-          details: "Annual wellness check for Bella with Dr. Smith",
+          details: "Annual General Check-Up for Bella with Dr. Smith",
           start: new Date(2026, 2, 5, 14, 0),
           end: new Date(2026, 2, 5, 15, 0),
           category: "Consultation",
@@ -692,7 +692,7 @@ export default function Todos() {
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-500 rounded"></div>
-              <span className="text-sm">General Check-up</span>
+              <span className="text-sm">General Check-Up</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-orange-500 rounded"></div>

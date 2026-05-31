@@ -6,10 +6,10 @@ import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Upload, FileText, Trash2, Edit3, Eye, Plus, Copyright, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, Trash2, Edit3, Eye, Plus, AlertTriangle } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
-import logoImg from '../../assets/logo-no-bg.png';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import ConsentDocument from '../shared/ConsentDocument.jsx';
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState([]);
@@ -26,11 +26,12 @@ export default function ConsentFilesManagement() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [fileToDelete, setFileToDelete] = useState(null);
+    const [editTitle, setEditTitle] = useState('');
     const [editContent, setEditContent] = useState('');
     const [editCategory, setEditCategory] = useState('');
 
     const categories = [
-        { value: 'wellness', label: 'General Check-up' },
+        { value: 'wellness', label: 'General Check-Up' },
         { value: 'vaccination', label: 'Vaccination' },
         { value: 'grooming', label: 'Grooming' },
         { value: 'dental', label: 'Dental Check-up' },
@@ -131,6 +132,7 @@ export default function ConsentFilesManagement() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
+                    file_name: editTitle,
                     content: editContent,
                     category: editCategory
                 })
@@ -174,37 +176,6 @@ export default function ConsentFilesManagement() {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
     };
-
-    const LetterFormat = ({ title, content }) => (
-        <div className="relative flex min-h-[600px] flex-col overflow-hidden border border-gray-100 bg-white p-4 font-serif shadow-inner sm:p-8 lg:p-12">
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none rotate-12">
-                <img src={logoImg} alt="Watermark" className="w-[400px]" />
-            </div>
-            <div className="flex flex-col items-center text-center border-b-2 border-gray-900 pb-6 mb-8">
-                <img src={logoImg} alt="iPawcus Logo" className="h-16 mb-2" />
-                <h1 className="text-2xl font-bold uppercase tracking-widest text-gray-900">iPawcus Veterinary Clinic</h1>
-                <p className="text-xs uppercase tracking-wider text-gray-600 mt-1">Excellence in Pet Healthcare & Specialized Surgery</p>
-            </div>
-            <div className="text-center mb-8">
-                <h2 className="text-xl font-bold underline decoration-1 underline-offset-4">{title}</h2>
-            </div>
-            <div className="flex-1 whitespace-pre-wrap px-0 text-justify text-sm leading-relaxed text-gray-800 sm:px-4">
-                {content || "No content available for this form."}
-            </div>
-            <div className="mt-12 flex flex-col gap-10 px-0 sm:flex-row sm:justify-between sm:px-4">
-                <div className="border-t border-gray-400 pt-1 w-48 text-center">
-                    <p className="text-[10px] uppercase font-sans font-bold">Owner's Signature</p>
-                </div>
-                <div className="border-t border-gray-400 pt-1 w-48 text-center">
-                    <p className="text-[10px] uppercase font-sans font-bold">Veterinarian License #</p>
-                </div>
-            </div>
-            <div className="mt-12 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-gray-400">
-                <Copyright className="size-3" />
-                <span className="text-[10px] font-sans tracking-wide">2026 iPawcus Veterinary Clinic. All rights reserved.</span>
-            </div>
-        </div>
-    );
 
     return (
         <div className="space-y-6">
@@ -289,6 +260,7 @@ export default function ConsentFilesManagement() {
                                         className="size-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                         onClick={() => {
                                             setSelectedFile(file);
+                                            setEditTitle(file.file_name || '');
                                             setEditContent(file.content || '');
                                             setEditCategory(file.category || '');
                                             setEditModalOpen(true);
@@ -352,7 +324,7 @@ export default function ConsentFilesManagement() {
                 <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden bg-slate-50 border-none shadow-2xl">
                     <div className="overflow-y-auto p-4 sm:p-8">
                         {selectedFile && (
-                            <LetterFormat title={selectedFile.file_name} content={selectedFile.content} />
+                            <ConsentDocument title={selectedFile.file_name} content={selectedFile.content} />
                         )}
                     </div>
                 </DialogContent>
@@ -365,6 +337,14 @@ export default function ConsentFilesManagement() {
                         <DialogTitle>Edit Consent Template</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Document Title</Label>
+                            <Input
+                                value={editTitle}
+                                onChange={(event) => setEditTitle(event.target.value)}
+                                placeholder="Consent document title"
+                            />
+                        </div>
                         <div className="space-y-2">
                             <Label className="text-xs text-gray-500">Document Category</Label>
                             <Select value={editCategory} onValueChange={setEditCategory}>

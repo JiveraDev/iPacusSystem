@@ -2,7 +2,6 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Home as HomeIcon, Hotel, Sparkles, Scissors, Syringe, Heart, Stethoscope, Bug, Activity } from "lucide-react";
-import { toast } from "../../reusecomponent/toast.jsx";
 
 export default function Services() {
   const navigate = useNavigate();
@@ -14,7 +13,7 @@ export default function Services() {
   const services = [
     {
       id: "general-checkup",
-      title: "General Check-up",
+      title: "General Check-Up",
       description: "Comprehensive health examination",
       icon: Stethoscope,
       color: "bg-blue-100 text-blue-600",

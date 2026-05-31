@@ -350,9 +350,9 @@ export default function PetProfileEdit() {
 
           {/* Allergies Card */}
           <Card className="rounded-2xl shadow-sm overflow-hidden border-slate-200">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between py-3">
-              <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                <AlertCircle className="h-4 w-4" />
+            <CardHeader className="bg-red-50/50 border-b border-red-100 flex flex-row items-center justify-between py-3 dark:bg-[#2a1517] dark:border-[#7f1d1d]">
+              <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">
+                <AlertCircle className="h-4 w-4 text-[#991b1b] dark:text-[#ef4444]" />
                 Critical Allergies
               </CardTitle>
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowAddAllergy(true)}>

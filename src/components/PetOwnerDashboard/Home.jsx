@@ -140,7 +140,7 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">
-                  Join us for our annual Free Health Checkup Week from Feb 10-16. Book your appointment online to ensure your pet's wellness!
+                  Join us for our annual Free Health Checkup Week from Feb 10-16. Book your appointment online to support your pet's health!
                 </p>
                 <p className="text-sm text-gray-500 mt-2">Posted: Jan 28, 2026</p>
               </CardContent>

@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-#### dont change any of the debug bypass in the dashboard and dashboardrouter
+#### don't change any of the debug bypass in the dashboard and dashboardrouter
 ## Project Structure & Module Organization
 
 - `src/` holds frontend source code.

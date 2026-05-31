@@ -1,27 +1,64 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Plus, PawPrint, Loader2 } from "lucide-react";
+import { LayoutGrid, List, Loader2, PawPrint, Plus, Search } from "lucide-react";
+import { Input } from "../../ui/input";
+import { Badge } from "../../ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 import { getUserPetsService } from "../../services/ConnectOwnership";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge } from "../../lib/date";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
+const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
+
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function petKey(pet) {
+  return pet.db_id || pet.id || pet.pet_id || pet.pet_sharable_ID || pet.name;
+}
+
+function petAge(pet) {
+  return calculateAge(pet.birthDate) || pet.age || "N/A";
+}
+
+function petType(pet) {
+  return [pet.species, pet.breed].filter(Boolean).join(" - ") || "No type details";
+}
+
+function getStatusTone(status) {
+  if (status === "Healthy") return "bg-green-50 text-green-700";
+  if (status === "Emergency") return "bg-red-50 text-red-700";
+  return "bg-amber-50 text-amber-700";
+}
+
+function StatusBadge({ status }) {
+  if (!status) {
+    return <Badge className="border-0 bg-slate-100 text-slate-600"><span className="truncate">N/A</span></Badge>;
+  }
+
+  return <Badge className={`border-0 ${getStatusTone(status)}`}><span className="truncate">{status}</span></Badge>;
+}
+
 export default function MyPets() {
   const navigate = useNavigate();
   const [pets, setPets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [directoryView, setDirectoryView] = useState("card");
 
   const fetchPets = async ({ isAutoRefresh = false } = {}) => {
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
       const userId = currentUser.id || currentUser.user_id || currentUser.userId;
       const userRole = currentUser.role || "";
-      const isAdmin = ["Admin", "Super Admin", "Veterinarian"].includes(userRole);
-      setIsAdminView(isAdmin);
+      const isDirectoryUser = DIRECTORY_ROLES.includes(userRole);
+      setIsAdminView(isDirectoryUser);
 
       if (!userId) {
         if (!isAutoRefresh) {
@@ -32,8 +69,7 @@ export default function MyPets() {
       }
 
       let userPets = [];
-      if (isAdmin) {
-        // Administrators can see all pets
+      if (isDirectoryUser) {
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information`);
         if (response.ok) {
           userPets = await response.json();
@@ -41,14 +77,12 @@ export default function MyPets() {
           throw new Error("Failed to fetch all pets");
         }
       } else {
-        // Regular users see only their own pets
         userPets = await getUserPetsService(userId);
       }
 
-      // Standardize the name field if it's missing (get_pets.php uses petName)
-      const standardizedPets = userPets.map(p => ({
-        ...p,
-        name: p.name || p.petName || "Unnamed Pet"
+      const standardizedPets = userPets.map(pet => ({
+        ...pet,
+        name: pet.name || pet.petName || "Unnamed Pet"
       }));
 
       setPets(standardizedPets);
@@ -64,124 +98,311 @@ export default function MyPets() {
 
   useAutoRefresh(fetchPets);
 
+  const filteredPets = useMemo(() => {
+    if (!isAdminView) return pets;
+
+    const query = normalize(directorySearch);
+    if (!query) return pets;
+
+    return pets.filter(pet => {
+      const searchableText = [
+        pet.name,
+        pet.id,
+        pet.db_id,
+        pet.species,
+        pet.breed,
+        pet.gender,
+        pet.status,
+        pet.tempOwnerName
+      ].join(" ");
+
+      return normalize(searchableText).includes(query);
+    });
+  }, [directorySearch, isAdminView, pets]);
+
+  const openPet = (pet) => {
+    navigate(isAdminView ? `/dashboard/pet-register/${pet.id}` : `/dashboard/my-pets/${pet.id}`);
+  };
+
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Loader2 className="h-12 w-12 text-[#155dfc] animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">{isAdminView ? "Loading pet directory..." : "Loading your pets..."}</p>
+      <div className="flex min-h-[400px] flex-col items-center justify-center">
+        <Loader2 className="mb-4 h-12 w-12 animate-spin text-[#155dfc]" />
+        <p className="font-medium text-gray-600">{isAdminView ? "Loading pet directory..." : "Loading your pets..."}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+    <div className="animate-in fade-in space-y-6 duration-500 lg:space-y-8">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
           {isAdminView ? "Pet Directory" : "My Pets"}
         </h1>
       </div>
 
-      {pets.length === 0 ? (
-        <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
-          <CardContent className="pt-10 pb-10 text-center">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <PawPrint className="h-10 w-10 text-slate-300" />
+      {isAdminView && (
+        <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-xl">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={directorySearch}
+                onChange={(event) => setDirectorySearch(event.target.value)}
+                placeholder="Search pet, owner, species, breed, status, or clinic ID"
+                className="h-10 pl-10"
+              />
             </div>
-            <h3 className="font-bold text-xl text-slate-900 mb-2">
-              {isAdminView ? "No registered pets found" : "No Pets Linked Yet"}
-            </h3>
-            <p className="text-slate-500 mb-8 max-w-sm mx-auto">
-              {isAdminView 
-                ? "There are currently no pets in the system record. Go to Pet Register to add one."
-                : "Link your first pet using the unique Registration ID provided by your clinic (e.g., PET-X-IPAWCUS)."}
-            </p>
-            {!isAdminView && (
-              <Button 
-                onClick={() => navigate("/dashboard/my-pets/add")}
-                className="bg-[#155dfc] hover:bg-blue-700 px-8 h-12 text-base font-semibold"
+            <div className="flex w-full gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
+              <Button
+                type="button"
+                variant={directoryView === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDirectoryView("list")}
+                className={`flex-1 sm:flex-none ${directoryView === "list" ? "bg-[#155dfc]" : ""}`}
               >
-                <Plus className="h-5 w-5 mr-2" />
-                Link Your First Pet
+                <List className="mr-2 size-4" />
+                List
               </Button>
-            )}
-          </CardContent>
-        </Card>
+              <Button
+                type="button"
+                variant={directoryView === "card" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDirectoryView("card")}
+                className={`flex-1 sm:flex-none ${directoryView === "card" ? "bg-[#155dfc]" : ""}`}
+              >
+                <LayoutGrid className="mr-2 size-4" />
+                Card
+              </Button>
+            </div>
+          </div>
+          <p className="mt-3 text-sm font-semibold text-slate-500">
+            Showing {filteredPets.length} of {pets.length} registered pets
+          </p>
+        </div>
+      )}
+
+      {pets.length === 0 ? (
+        <EmptyPetsState isAdminView={isAdminView} navigate={navigate} />
+      ) : isAdminView && filteredPets.length === 0 ? (
+        <NoDirectoryMatches />
+      ) : isAdminView && directoryView === "list" ? (
+        <PetDirectoryTable pets={filteredPets} onOpenPet={openPet} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {pets.map((pet) => (
-            <Card 
-              key={pet.id || pet.db_id} 
-              className="group cursor-pointer border-slate-200 hover:border-[#155dfc] hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden"
-              onClick={() => navigate(isAdminView ? `/dashboard/pet-register/${pet.id}` : `/dashboard/my-pets/${pet.id}`)}
-            >
-              <CardContent className="pt-8">
-                <div className="text-center">
-                  <div className="relative inline-block mb-6">
-                    {pet.profileImage ? (
-                        <img
-                            src={resolveImageUrl(pet.profileImage)}
-                            alt={pet.name}
-                            className="w-32 h-32 rounded-full object-cover mx-auto border-4 border-white shadow-md group-hover:scale-105 transition-transform duration-300"
-                        />
-                    ) : (
-                        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#155dfc] to-blue-600 flex items-center justify-center mx-auto shadow-md">
-                            <PawPrint className="h-14 w-14 text-white opacity-90" />
-                        </div>
-                    )}
-                    
-                    {pet.status && (
-                        <span className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
-                            pet.status === 'Healthy' ? 'bg-green-500' : 
-                            pet.status === 'Emergency' ? 'bg-red-500 animate-pulse' : 
-                            'bg-amber-500'
-                        }`} />
-                    )}
-                  </div>
-
-                  <h3 className="text-xl font-extrabold text-slate-900 mb-1 group-hover:text-[#155dfc] transition-colors">
-                    {pet.name}
-                  </h3>
-                  <p className="text-slate-500 font-medium mb-3">{pet.species} • {pet.breed}</p>
-                  
-                  <div className="flex items-center justify-center gap-2 text-sm text-slate-400 font-medium mb-4">
-                    <span>{calculateAge(pet.birthDate) || pet.age || 'N/A'}</span>
-                    <span className="text-slate-200">•</span>
-                    <span>{pet.gender || 'N/A'}</span>
-                  </div>
-
-                  {pet.status && (
-                    <div className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm bg-white border border-slate-100">
-                      <span className={
-                        pet.status === 'Healthy' ? 'text-green-600' : 
-                        pet.status === 'Emergency' ? 'text-red-600' : 
-                        'text-amber-600'
-                      }>
-                        {pet.status}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <div className={isAdminView ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"}>
+          {filteredPets.map((pet) => (
+            <PetCard key={petKey(pet)} pet={pet} compact={isAdminView} onOpen={() => openPet(pet)} />
           ))}
-          
-          {/* Add Pet Card */}
-          <Card 
-            className="cursor-pointer border-dashed border-2 border-slate-200 bg-slate-50/30 hover:bg-blue-50/30 hover:border-[#155dfc] transition-all group flex flex-col justify-center min-h-[300px]"
-            onClick={() => navigate("/dashboard/my-pets/add")}
-          >
-            <CardContent className="pt-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                  <Plus className="h-10 w-10 text-slate-300 group-hover:text-[#155dfc]" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-700 group-hover:text-[#155dfc]">Link New Pet</h3>
-                <p className="text-slate-400 text-sm mt-1">Register another clinic ID</p>
-              </div>
-            </CardContent>
-          </Card>
+
+          {!isAdminView && <LinkPetCard navigate={navigate} />}
         </div>
       )}
     </div>
+  );
+}
+
+function EmptyPetsState({ isAdminView, navigate }) {
+  return (
+    <Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
+      <CardContent className="pb-10 pt-10 text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm">
+          <PawPrint className="h-10 w-10 text-slate-300" />
+        </div>
+        <h3 className="mb-2 text-xl font-bold text-slate-900">
+          {isAdminView ? "No registered pets found" : "No Pets Linked Yet"}
+        </h3>
+        <p className="mx-auto mb-8 max-w-sm text-slate-500">
+          {isAdminView
+            ? "There are currently no pets in the system record. Go to Pet Register to add one."
+            : "Link your first pet using the unique Registration ID provided by your clinic."}
+        </p>
+        {!isAdminView && (
+          <Button
+            onClick={() => navigate("/dashboard/my-pets/add")}
+            className="h-12 bg-[#155dfc] px-8 text-base font-semibold hover:bg-blue-700"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Link Your First Pet
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function NoDirectoryMatches() {
+  return (
+    <Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
+      <CardContent className="py-10 text-center">
+        <PawPrint className="mx-auto mb-3 size-10 text-slate-300" />
+        <h3 className="mb-1 text-lg font-bold text-slate-900">No matching pets found</h3>
+        <p className="text-sm font-medium text-slate-500">Try another pet name, owner, species, breed, status, or clinic ID.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PetDirectoryTable({ pets, onOpenPet }) {
+  return (
+    <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">
+      <Table className="w-full min-w-0 table-fixed text-xs sm:text-sm">
+        <TableHeader className="bg-slate-50/80">
+          <TableRow>
+            <TableHead className="w-[64%] px-2 font-bold text-slate-700 sm:w-[62%] md:w-[48%] lg:w-[34%] xl:w-[26%] sm:px-3">Pet</TableHead>
+            <TableHead className="hidden w-[24%] px-2 font-bold text-slate-700 md:table-cell lg:w-[18%] xl:w-[15%] sm:px-3">Age / Sex</TableHead>
+            <TableHead className="hidden w-[30%] px-2 font-bold text-slate-700 lg:table-cell xl:w-[22%] sm:px-3">Owner</TableHead>
+            <TableHead className="hidden w-[22%] px-2 font-bold text-slate-700 xl:table-cell sm:px-3">Clinic ID</TableHead>
+            <TableHead className="w-[36%] px-2 font-bold text-slate-700 sm:w-[38%] md:w-[28%] lg:w-[18%] xl:w-[15%] sm:px-3">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pets.map((pet) => (
+            <TableRow key={petKey(pet)} className="cursor-pointer" onClick={() => onOpenPet(pet)}>
+              <TableCell className="min-w-0 px-2 sm:px-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                  {pet.profileImage ? (
+                    <img
+                      src={resolveImageUrl(pet.profileImage)}
+                      alt={pet.name}
+                      className="size-8 shrink-0 rounded-full border border-slate-200 object-cover sm:size-10"
+                    />
+                  ) : (
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#155dfc] sm:size-10">
+                      <PawPrint className="size-4 sm:size-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-slate-900">{pet.name}</p>
+                    <p className="truncate text-xs font-medium text-slate-500">{petType(pet)}</p>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell className="hidden min-w-0 px-2 md:table-cell sm:px-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-700">{petAge(pet)}</p>
+                  <p className="truncate text-xs font-medium text-slate-500">{pet.gender || "N/A"}</p>
+                </div>
+              </TableCell>
+              <TableCell className="hidden min-w-0 px-2 lg:table-cell sm:px-3">
+                <p className="truncate font-semibold text-slate-700">{pet.tempOwnerName || "N/A"}</p>
+              </TableCell>
+              <TableCell className="hidden min-w-0 px-2 xl:table-cell sm:px-3">
+                <span className="inline-flex max-w-full rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-bold text-slate-700">
+                  <span className="truncate">{pet.id || "N/A"}</span>
+                </span>
+              </TableCell>
+              <TableCell className="min-w-0 px-2 sm:px-3"><StatusBadge status={pet.status} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function PetCard({ pet, compact, onOpen }) {
+  return (
+    <Card
+      className={`group min-w-0 cursor-pointer overflow-hidden border-slate-200 transition-all duration-300 hover:-translate-y-1 hover:border-[#155dfc] hover:shadow-xl ${compact ? "rounded-[12px]" : ""}`}
+      onClick={onOpen}
+    >
+      <CardContent className={compact ? "min-w-0 p-4" : "min-w-0 pt-8"}>
+        <div className="min-w-0 text-center">
+          <div className={compact ? "relative mb-3 inline-block" : "relative mb-6 inline-block"}>
+            {pet.profileImage ? (
+              <img
+                src={resolveImageUrl(pet.profileImage)}
+                alt={pet.name}
+                className={`${compact ? "h-20 w-20" : "h-32 w-32"} mx-auto rounded-full border-4 border-white object-cover shadow-md transition-transform duration-300 group-hover:scale-105`}
+              />
+            ) : (
+              <div className={`${compact ? "h-20 w-20" : "h-32 w-32"} mx-auto flex items-center justify-center rounded-full bg-gradient-to-br from-[#155dfc] to-blue-600 shadow-md`}>
+                <PawPrint className={`${compact ? "h-9 w-9" : "h-14 w-14"} text-white opacity-90`} />
+              </div>
+            )}
+
+            {pet.status && (
+              <span
+                className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
+                  pet.status === "Healthy"
+                    ? "bg-green-500"
+                    : pet.status === "Emergency"
+                      ? "animate-pulse bg-red-500"
+                      : "bg-amber-500"
+                }`}
+              />
+            )}
+          </div>
+
+          <h3 className={`${compact ? "text-lg" : "text-xl"} mx-auto mb-1 max-w-full truncate px-1 font-extrabold text-slate-900 transition-colors group-hover:text-[#155dfc]`}>
+            {pet.name}
+          </h3>
+          <p className={`${compact ? "mb-2 text-sm" : "mb-3"} mx-auto max-w-full truncate px-1 font-medium text-slate-500`}>{petType(pet)}</p>
+
+          {compact && pet.status && (
+            <div className="mb-3 inline-block max-w-full rounded-full border border-slate-100 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-wider shadow-sm">
+              <span
+                className={`block truncate ${
+                  pet.status === "Healthy"
+                    ? "text-green-600"
+                    : pet.status === "Emergency"
+                      ? "text-red-600"
+                      : "text-amber-600"
+                }`}
+              >
+                {pet.status}
+              </span>
+            </div>
+          )}
+
+          <div className={`${compact ? "mb-3 text-xs" : "mb-4 text-sm"} flex min-w-0 items-center justify-center gap-2 overflow-hidden px-1 font-medium text-slate-400`}>
+            <span className="min-w-0 truncate">{petAge(pet)}</span>
+            <span className="shrink-0 text-slate-200">|</span>
+            <span className="min-w-0 truncate">{pet.gender || "N/A"}</span>
+          </div>
+
+          {compact && (
+            <p className="-mt-2 mb-3 max-w-full truncate px-1 text-xs font-semibold text-slate-400">
+              ID: {pet.id || "N/A"}
+            </p>
+          )}
+
+          {!compact && pet.status && (
+            <div className="inline-block max-w-full rounded-full border border-slate-100 bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider shadow-sm">
+              <span
+                className={`block truncate ${
+                  pet.status === "Healthy"
+                    ? "text-green-600"
+                    : pet.status === "Emergency"
+                      ? "text-red-600"
+                      : "text-amber-600"
+                }`}
+              >
+                {pet.status}
+              </span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LinkPetCard({ navigate }) {
+  return (
+    <Card
+      className="group flex min-h-[300px] cursor-pointer flex-col justify-center border-2 border-dashed border-slate-200 bg-slate-50/30 transition-all hover:border-[#155dfc] hover:bg-blue-50/30"
+      onClick={() => navigate("/dashboard/my-pets/add")}
+    >
+      <CardContent className="flex items-center justify-center pt-0">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm transition-transform group-hover:scale-110">
+            <Plus className="h-10 w-10 text-slate-300 group-hover:text-[#155dfc]" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-700 group-hover:text-[#155dfc]">Link New Pet</h3>
+          <p className="mt-1 text-sm text-slate-400">Register another clinic ID</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

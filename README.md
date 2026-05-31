@@ -52,7 +52,6 @@ iPawcus is a comprehensive management system designed for veterinary clinics and
 │   ├── ui/                     # Reusable UI components (shadcn-like)
 │   └── App.jsx                 # Main application routing
 ├── public/                     # Static assets and uploaded media
-└── tables.sql                  # Database schema definitions
 ```
 
 ## 🛠️ Getting Started

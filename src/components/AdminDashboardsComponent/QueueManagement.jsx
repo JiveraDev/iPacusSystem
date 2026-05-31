@@ -9,6 +9,7 @@ import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDateTime } from '../../lib/date';
+import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -245,7 +246,7 @@ export default function QueueManagement() {
                     <SelectTrigger><SelectValue placeholder="All Services" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Services</SelectItem>
-                        {services.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {services.map(s => <SelectItem key={s} value={s}>{getServiceDisplayName(s)}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
@@ -294,7 +295,7 @@ export default function QueueManagement() {
                                             <div className="truncate max-w-[80px] sm:max-w-none">{item.pet_name}</div>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-slate-600 text-sm truncate max-w-[120px]">
-                                            {item.service_name}
+                                            {getServiceDisplayName(item.service_name)}
                                         </TableCell>
                                         <TableCell className="hidden lg:table-cell text-slate-500 text-xs">
                                             {formatDateTime(item.timestamp)}
@@ -386,7 +387,7 @@ export default function QueueManagement() {
                                     <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
                                         <TableCell className="text-center font-bold text-slate-500 px-1">{item.queue_number}</TableCell>
                                         <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
-                                        <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{item.service_name}</TableCell>
+                                        <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
                                         <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
                                         <TableCell className="text-right pr-4">
                                             <Badge className="bg-emerald-600 text-[10px] h-5 px-1.5 py-0">Completed</Badge>
@@ -430,7 +431,7 @@ export default function QueueManagement() {
                                 <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
                                     <TableCell className="text-center font-bold text-slate-500 px-1">{item.queue_number}</TableCell>
                                     <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
-                                    <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{item.service_name}</TableCell>
+                                    <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
                                     <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
                                     <TableCell className="text-right pr-4">
                                         <Button size="sm" onClick={() => handleReEnterQueue(item.queue_id)} className="bg-blue-600 hover:bg-blue-700 h-7 text-[11px] px-2 font-bold">Re-enter</Button>

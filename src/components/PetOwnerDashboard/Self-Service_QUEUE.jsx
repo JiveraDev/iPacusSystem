@@ -88,18 +88,10 @@ const SERVICE_CONSENTS = {
     }
 };
 
-// Mock pets data - in real app this would come from the user's account
-const MOCK_PETS = [
-    { id: "1", name: "Max", species: "Dog", breed: "Golden Retriever", regId: "REG-2024-001" },
-    { id: "2", name: "Luna", species: "Cat", breed: "Persian", regId: "REG-2024-002" },
-    { id: "3", name: "Charlie", species: "Dog", breed: "Beagle", regId: "REG-2024-003" },
-    { id: "4", name: "Tweety", species: "Bird", breed: "Canary", regId: "REG-2024-004" }
-];
-
 export default function QueueDashboard() {
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-    const [pets, setPets] = useState(MOCK_PETS);
+    const [pets, setPets] = useState([]);
     const [isAccessLoading, setIsAccessLoading] = useState(true);
     const [isAccessAllowed, setIsAccessAllowed] = useState(false);
     const [accessDebug, setAccessDebug] = useState({ client_ip: "", allowed_rules: [] });
@@ -155,13 +147,21 @@ export default function QueueDashboard() {
         try {
             const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
             const userId = currentUser.id || currentUser.user_id || currentUser.userId;
-            if (!userId) return;
+            if (!userId) {
+                setPets([]);
+                return;
+            }
 
             const response = await fetch(`${API_BASE}/users/${userId}/pets`);
-            if (!response.ok) return;
+            if (!response.ok) {
+                return;
+            }
 
             const data = await response.json();
-            if (!Array.isArray(data) || data.length === 0) return;
+            if (!Array.isArray(data) || data.length === 0) {
+                setPets([]);
+                return;
+            }
 
             const mappedPets = data.map((pet) => ({
                 id: String(pet.db_id ?? pet.id ?? ""),
@@ -173,9 +173,7 @@ export default function QueueDashboard() {
                 activeQueue: pet.active_queue || null
             })).filter((pet) => pet.id);
 
-            if (mappedPets.length > 0) {
-                setPets(mappedPets);
-            }
+            setPets(mappedPets);
         } catch (error) {
             console.error("Failed to load pets for self-service queue:", error);
         }
@@ -346,7 +344,7 @@ export default function QueueDashboard() {
 
     if (isAccessLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white flex items-center justify-center px-4">
+            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white px-4 flex items-center justify-center dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
                 <Card className="w-full max-w-xl">
                     <CardContent className="py-10 text-center text-gray-600">
                         Checking network access...
@@ -358,7 +356,7 @@ export default function QueueDashboard() {
 
     if (!isAccessAllowed) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white flex items-center justify-center px-4">
+            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white px-4 flex items-center justify-center dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
                 <Card className="w-full max-w-xl border-red-200 bg-red-50">
                     <CardHeader>
                         <CardTitle className="text-red-700">Cannot Access Self-Service Queue</CardTitle>
@@ -379,7 +377,7 @@ export default function QueueDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
             <div className="container mx-auto px-4 py-8">
                 {/* Success Message */}
                 {submitted && (
@@ -411,6 +409,14 @@ export default function QueueDashboard() {
                                         <div className="space-y-3">
                                             <Label>Select Your Pet *</Label>
                                             <div className="grid sm:grid-cols-2 gap-3">
+                                                {pets.length === 0 && (
+                                                    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center sm:col-span-2 dark:border-white/10 dark:bg-[#232428]">
+                                                        <p className="font-semibold text-gray-900">No pets found</p>
+                                                        <p className="mt-1 text-sm text-gray-600">
+                                                            Add a pet to your account before using the self-service queue.
+                                                        </p>
+                                                    </div>
+                                                )}
                                                 {pets.map((pet) => {
                                                     const Icon = getPetIcon(pet.species);
                                                     const petImage = resolveImageUrl(pet.profileImage);

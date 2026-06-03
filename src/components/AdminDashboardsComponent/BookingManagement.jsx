@@ -337,6 +337,10 @@ export default function BookingsManagement() {
     };
 
     const filteredBookings = bookings.filter(booking => {
+        if (booking.type === 'boarding' && booking.hotelBoardingType) {
+            return false;
+        }
+
         // Fallback for names to prevent crashes
         const petName = booking.petName || `Unregistered ${booking.petSpecies || 'Pet'}`;
         const ownerName = booking.ownerName || 'Unknown Owner';
@@ -349,14 +353,18 @@ export default function BookingsManagement() {
 
         const matchesType = filterType === 'all' || filterType === 'Service Type' || booking.type === filterType;
         const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
+        const createdDate = new Date(booking.createdAt || booking.date);
+        const today = new Date();
         const ageLimitDays = {
             '7d': 7,
             '14d': 14,
             '30d': 30
         }[filterAge];
-        const createdDate = new Date(booking.createdAt || booking.date);
-        const ageInDays = Math.floor((new Date() - createdDate) / (1000 * 60 * 60 * 24));
-        const matchesAge = filterAge === 'all' || booking.status === 'cancelled' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
+        const ageInDays = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+        const isToday = !Number.isNaN(createdDate.getTime()) && createdDate.toDateString() === today.toDateString();
+        const matchesAge = filterAge === 'today'
+            ? isToday
+            : filterAge === 'all' || booking.status === 'cancelled' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
 
         return matchesSearch && matchesType && matchesStatus && matchesAge;
     }).sort((a, b) => {
@@ -424,7 +432,6 @@ export default function BookingsManagement() {
                             <SelectItem value="surgery">Surgery</SelectItem>
                             <SelectItem value="lab-testing">Lab Testing</SelectItem>
                             <SelectItem value="parasite-control">Parasite Control</SelectItem>
-                            <SelectItem value="boarding">Boarding</SelectItem>
                             <SelectItem value="home-service">Home Service</SelectItem>
                             <SelectItem value="special services">Special Services</SelectItem>
                         </SelectContent>
@@ -451,6 +458,7 @@ export default function BookingsManagement() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Dates</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
                             <SelectItem value="7d">Last 7 Days</SelectItem>
                             <SelectItem value="14d">Last 2 Weeks</SelectItem>
                             <SelectItem value="30d">Last 1 Month</SelectItem>
@@ -689,6 +697,25 @@ export default function BookingsManagement() {
                                                                 <p className="font-['Arimo:Regular',sans-serif] text-[16px] capitalize">
                                                                     {booking.roomSize || 'Not set'}
                                                                 </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                    Reserved Room/Kennel
+                                                                </p>
+                                                                {booking.boardingAssignment ? (
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                                                                            {booking.boardingAssignment.roomLabel}
+                                                                        </p>
+                                                                        <Badge className="bg-blue-50 text-blue-700 capitalize">
+                                                                            {booking.boardingAssignment.status}
+                                                                        </Badge>
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-amber-600">
+                                                                        Not reserved yet
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">

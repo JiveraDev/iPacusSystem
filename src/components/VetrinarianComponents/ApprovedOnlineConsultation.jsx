@@ -8,7 +8,7 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';

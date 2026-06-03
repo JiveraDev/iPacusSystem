@@ -1,7 +1,7 @@
 -- Database DDL export
 -- Database: ipawcus_system
--- Generated: 2026-05-30T13:51:12+00:00
--- Tables: 27
+-- Generated: 2026-06-03T06:23:41+00:00
+-- Tables: 28
 -- Views: 0
 
 SET FOREIGN_KEY_CHECKS=0;
@@ -77,7 +77,7 @@ CREATE TABLE `bookings` (
   KEY `bookings_hotel_boarding_availability_idx` (`service_type`,`hotel_boarding_type`,`room_size`,`check_in_date`,`check_out_date`,`status`),
   CONSTRAINT `bookings_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
   CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: booking_pets
@@ -94,7 +94,7 @@ CREATE TABLE `booking_pets` (
   KEY `booking_pets_pet_fk` (`pet_id`),
   CONSTRAINT `booking_pets_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE,
   CONSTRAINT `booking_pets_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: consent_files
@@ -458,6 +458,7 @@ CREATE TABLE `queues` (
   `queue_id` int(11) NOT NULL AUTO_INCREMENT,
   `pet_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
+  `booking_id` int(11) DEFAULT NULL,
   `service_name` varchar(100) NOT NULL,
   `queue_number` int(11) NOT NULL,
   `status` enum('waiting','in-progress','completed','cancelled') DEFAULT 'waiting',
@@ -471,9 +472,11 @@ CREATE TABLE `queues` (
   PRIMARY KEY (`queue_id`),
   KEY `pet_id` (`pet_id`),
   KEY `user_id` (`user_id`),
+  KEY `queues_booking_idx` (`booking_id`),
+  CONSTRAINT `queues_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE SET NULL,
   CONSTRAINT `queues_ibfk_1` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`),
   CONSTRAINT `queues_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: rooms
@@ -584,6 +587,51 @@ CREATE TABLE `veterinarian_profiles` (
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- Table: vet_diagnoses
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `vet_diagnoses`;
+CREATE TABLE `vet_diagnoses` (
+  `diagnosis_id` int(11) NOT NULL AUTO_INCREMENT,
+  `queue_id` int(11) DEFAULT NULL,
+  `booking_id` int(11) DEFAULT NULL,
+  `assignment_id` int(11) DEFAULT NULL,
+  `pet_id` int(11) NOT NULL,
+  `veterinarian_user_id` int(11) NOT NULL,
+  `veterinarian_name` varchar(220) DEFAULT NULL,
+  `diagnosis_type` enum('general','custom') NOT NULL DEFAULT 'general',
+  `service_name` varchar(180) DEFAULT NULL,
+  `chief_complaint` text DEFAULT NULL,
+  `major_symptoms` text DEFAULT NULL,
+  `symptoms` text DEFAULT NULL,
+  `physical_exam` text DEFAULT NULL,
+  `diagnosis` text DEFAULT NULL,
+  `treatment` text DEFAULT NULL,
+  `lab_results` text DEFAULT NULL,
+  `follow_up_date` date DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `vital_signs` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`vital_signs`)),
+  `prescriptions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`prescriptions`)),
+  `custom_sections` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`custom_sections`)),
+  `attachments` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`attachments`)),
+  `source_uploads` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`source_uploads`)),
+  `finalized_at` datetime DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`diagnosis_id`),
+  UNIQUE KEY `vet_diagnoses_queue_unique` (`queue_id`),
+  KEY `vet_diagnoses_pet_idx` (`pet_id`),
+  KEY `vet_diagnoses_booking_idx` (`booking_id`),
+  KEY `vet_diagnoses_assignment_idx` (`assignment_id`),
+  KEY `vet_diagnoses_vet_idx` (`veterinarian_user_id`),
+  CONSTRAINT `vet_diagnoses_assignment_fk` FOREIGN KEY (`assignment_id`) REFERENCES `vet_queue_assignments` (`assignment_id`) ON DELETE SET NULL,
+  CONSTRAINT `vet_diagnoses_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE SET NULL,
+  CONSTRAINT `vet_diagnoses_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`),
+  CONSTRAINT `vet_diagnoses_queue_fk` FOREIGN KEY (`queue_id`) REFERENCES `queues` (`queue_id`) ON DELETE SET NULL,
+  CONSTRAINT `vet_diagnoses_vet_fk` FOREIGN KEY (`veterinarian_user_id`) REFERENCES `users` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 -- Table: vet_queue_assignments
 -- --------------------------------------------------------
 
@@ -606,7 +654,7 @@ CREATE TABLE `vet_queue_assignments` (
   KEY `vet_queue_assignments_status_idx` (`queue_id`,`status`),
   CONSTRAINT `vet_queue_assignments_queue_fk` FOREIGN KEY (`queue_id`) REFERENCES `queues` (`queue_id`) ON DELETE CASCADE,
   CONSTRAINT `vet_queue_assignments_vet_fk` FOREIGN KEY (`veterinarian_user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: vet_schedules

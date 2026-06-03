@@ -14,6 +14,8 @@ import {
   Package,
   Receipt,
   Stethoscope,
+  History,
+  Hotel,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -48,6 +50,7 @@ const MedicalRecordsScreen = lazy(() => import("./PetOwnerDashboard/MedicalRecor
 const RequestUpdateRecordScreen = lazy(() => import("./PetOwnerDashboard/RequestUpdateRecord.jsx"));
 const TodosScreen = lazy(() => import("./PetOwnerDashboard/Todos.jsx"));
 const BookingManagement = lazy(() => import("./AdminDashboardsComponent/BookingManagement.jsx"));
+const PetBoardingManagement = lazy(() => import("./AdminDashboardsComponent/PetBoardingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
 const POSManagement = lazy(() => import("./AdminDashboardsComponent/POSmanagement.jsx"));
 const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
@@ -66,6 +69,7 @@ const VetProfile = lazy(() => import("./VetrinarianComponents/VetProfile.jsx"));
 const ApprovedQueueList = lazy(() => import("./VetrinarianComponents/ApprovedQueueList.jsx"));
 const VetMylistinService = lazy(() => import("./VetrinarianComponents/VetMylistinService.jsx"));
 const VetDiagnosis = lazy(() => import("./VetrinarianComponents/VetDiagnosis.jsx"));
+const VetDiagnosisHistory = lazy(() => import("./VetrinarianComponents/VetDiagnosisHistory.jsx"));
 const ApprovedOnlineConsultation = lazy(() => import("./VetrinarianComponents/ApprovedOnlineConsultation.jsx"));
 const VetOnlineConsultDiagnosis = lazy(() => import("./VetrinarianComponents/VetOnlineConsultDiagnosis.jsx"));
 const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
@@ -102,6 +106,15 @@ const SUPERADMIN_ROLES = DEBUG_BYPASS
 // ends here
 
 const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
+const PETS_DIRECTORY_LABEL_ROLES = ["admin", "veterinarian", "super admin"];
+
+function getNavItemLabel(item, userRole) {
+  if (item.id === "pets" && PETS_DIRECTORY_LABEL_ROLES.includes(String(userRole || "").toLowerCase())) {
+    return "Pets Directory";
+  }
+
+  return item.label;
+}
 
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
@@ -110,6 +123,7 @@ const navItems = [
   { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES },
   { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
   { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
+  { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES },
   { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES },
   { id: "pos", label: "POS", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES },
   { 
@@ -128,6 +142,7 @@ const navItems = [
   { id: "vet-approved-queue", label: "Approved List", icon: ListTodo, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES },
   { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES },
   { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES },
+  { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES },
   { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
 ];
@@ -158,12 +173,14 @@ const screenMap = {
   "/dashboard/pet-register": PetRegister,
   "/dashboard/pet-register/:petId": PetProfileEdit,
   "/dashboard/bookings": BookingManagement,
+  "/dashboard/boarding": PetBoardingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/pos": POSManagement,
   "/dashboard/consent": ConsentFilesManagement,
   "/dashboard/vet/approved-queue": ApprovedQueueList,
   "/dashboard/vet/my-list": VetMylistinService,
   "/dashboard/vet/diagnosis": VetDiagnosis,
+  "/dashboard/vet/histories": VetDiagnosisHistory,
   "/dashboard/vet/online-consultations/:onlineConsultationId/diagnosis": VetOnlineConsultDiagnosis,
   "/dashboard/vet/online-consultations": ApprovedOnlineConsultation,
   "/dashboard/accounts": AccountManagement,
@@ -246,6 +263,9 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/bookings")) {
     return "bookings";
   }
+  if (path.startsWith("/dashboard/boarding")) {
+    return "boarding";
+  }
   if (path.startsWith("/dashboard/queue")) {
     return "queue";
   }
@@ -269,6 +289,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/vet/online-consultations")) {
     return "vet-online-consults";
+  }
+  if (path.startsWith("/dashboard/vet/histories")) {
+    return "vet-histories";
   }
   if (path.startsWith("/dashboard/accounts")) {
     return "accounts";
@@ -457,13 +480,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
               const hasSubItems = item.subItems && item.subItems.length > 0;
+              const itemLabel = getNavItemLabel(item, userRole);
 
               return (
                 <div key={item.id} className="space-y-1">
                   <button
                     type="button"
                     onClick={() => navigate(item.path)}
-                    title={isCollapsed ? item.label : ""}
+                    title={isCollapsed ? itemLabel : ""}
                     className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
                       isCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
                     } ${
@@ -474,7 +498,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                     <span className={`font-medium whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden ${
                       isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
                     }`}>
-                      {item.label}
+                      {itemLabel}
                     </span>
                   </button>
                   

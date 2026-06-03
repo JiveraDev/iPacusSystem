@@ -16,7 +16,7 @@ import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const TIME_SLOTS = [
     '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
     '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM',

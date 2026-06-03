@@ -15,7 +15,7 @@ import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const emptyProfile = {
     firstName: '',

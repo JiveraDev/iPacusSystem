@@ -80,6 +80,26 @@ switch ($path) {
     case '/rooms/availability':
         require_once __DIR__ . '/get_room_availability.php';
         break;
+    case '/boarding/rooms':
+        $_GET['action'] = 'rooms';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/direct-check-in':
+        $_GET['action'] = 'direct-check-in';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/monitoring':
+        $_GET['action'] = 'monitoring';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/observations':
+        $_GET['action'] = 'observation';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/tasks':
+        $_GET['action'] = 'task';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
     case '/inventory':
         $_GET['action'] = 'list';
         require_once __DIR__ . '/inventory.php';
@@ -135,6 +155,9 @@ switch ($path) {
         break;
     case '/queues/receive':
         require_once __DIR__ . '/receive_queue.php';
+        break;
+    case '/queues/assign':
+        require_once __DIR__ . '/assign_queue_vet.php';
         break;
     case '/queues/return':
         require_once __DIR__ . '/return_queue.php';
@@ -217,6 +240,26 @@ switch ($path) {
         } elseif (preg_match('/^\/bookings\/(\d+)\/schedule$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_schedule.php';
+        } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/assign-room$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            $_GET['action'] = 'assign-room';
+            require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/check-in$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            $_GET['action'] = 'check-in';
+            require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/check-out$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            $_GET['action'] = 'check-out';
+            require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/desired-check-out$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            $_GET['action'] = 'desired-check-out';
+            require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/tasks\/(\d+)\/complete$/', $path, $matches)) {
+            $_GET['taskId'] = $matches[1];
+            $_GET['action'] = 'task-complete';
+            require_once __DIR__ . '/boarding_management.php';
         } elseif (preg_match('/^\/special_services\/(\d+)$/', $path, $matches)) {
             $_GET['specialServiceId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

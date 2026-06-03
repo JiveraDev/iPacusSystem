@@ -12,7 +12,7 @@ import { addDays, format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const TIME_SLOT_ORDER = [
   "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
   "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",

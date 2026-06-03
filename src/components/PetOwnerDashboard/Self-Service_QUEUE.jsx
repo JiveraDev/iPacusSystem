@@ -90,7 +90,7 @@ const SERVICE_CONSENTS = {
 
 export default function QueueDashboard() {
 
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
     const [pets, setPets] = useState([]);
     const [isAccessLoading, setIsAccessLoading] = useState(true);
     const [isAccessAllowed, setIsAccessAllowed] = useState(false);

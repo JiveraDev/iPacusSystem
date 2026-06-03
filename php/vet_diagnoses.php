@@ -12,6 +12,20 @@ function vetDiagnosisTableExists(PDO $pdo): bool
     return (bool)$stmt->fetchColumn();
 }
 
+function vetDiagnosisColumnExists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function vetDiagnosisMigrationMessage(): string
 {
     return 'Missing vet_diagnoses table. Please run DDL/vet_diagnosis_migration_20260531.sql before saving diagnoses.';
@@ -78,6 +92,73 @@ function vetDiagnosisDecodeJson($value)
     return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
 }
 
+function vetDiagnosisVaccinationSelect(PDO $pdo): string
+{
+    $hasSourceDiagnosis = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'source_diagnosis_id');
+    $hasLicense = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_veterinarian_license');
+    $hasNotes = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_notes');
+    $hasVetUserId = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_veterinarian_user_id');
+
+    if (!$hasSourceDiagnosis) {
+        return "
+            NULL AS vaccination_id,
+            NULL AS vaccination_name,
+            NULL AS vaccination_date,
+            NULL AS vaccination_next_due,
+            NULL AS vaccination_applicator,
+            NULL AS vaccination_license,
+            NULL AS vaccination_notes,
+            NULL AS vaccination_veterinarian_user_id,
+            NULL AS vaccination_status,
+            NULL AS vaccination_source_diagnosis_id";
+    }
+
+    return "
+            pv.vax_id AS vaccination_id,
+            pv.vax_name AS vaccination_name,
+            pv.vax_date AS vaccination_date,
+            pv.vax_next_due AS vaccination_next_due,
+            pv.vax_applicator AS vaccination_applicator,
+            " . ($hasLicense ? "pv.vax_veterinarian_license" : "NULL") . " AS vaccination_license,
+            " . ($hasNotes ? "pv.vax_notes" : "NULL") . " AS vaccination_notes,
+            " . ($hasVetUserId ? "pv.vax_veterinarian_user_id" : "NULL") . " AS vaccination_veterinarian_user_id,
+            pv.vax_status AS vaccination_status,
+            pv.source_diagnosis_id AS vaccination_source_diagnosis_id";
+}
+
+function vetDiagnosisVaccinationJoin(PDO $pdo): string
+{
+    if (!vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'source_diagnosis_id')) {
+        return '';
+    }
+
+    return 'LEFT JOIN pet_vaccinations pv ON pv.source_diagnosis_id = vd.diagnosis_id';
+}
+
+function vetDiagnosisFormatVaccinationRecord(array $row): ?array
+{
+    if (empty($row['vaccination_id'])) {
+        return null;
+    }
+
+    return [
+        'id' => (int)$row['vaccination_id'],
+        'name' => $row['vaccination_name'] ?? '',
+        'vaccineName' => $row['vaccination_name'] ?? '',
+        'date' => $row['vaccination_date'] ?? '',
+        'dateAdministered' => $row['vaccination_date'] ?? '',
+        'nextDue' => $row['vaccination_next_due'] ?? '',
+        'nextDueDate' => $row['vaccination_next_due'] ?? '',
+        'applicator' => $row['vaccination_applicator'] ?? '',
+        'veterinarianName' => $row['vaccination_applicator'] ?? '',
+        'veterinarianLicense' => $row['vaccination_license'] ?? '',
+        'notes' => $row['vaccination_notes'] ?? '',
+        'veterinarianUserId' => $row['vaccination_veterinarian_user_id'] !== null ? (int)$row['vaccination_veterinarian_user_id'] : null,
+        'sourceDiagnosisId' => $row['vaccination_source_diagnosis_id'] !== null ? (int)$row['vaccination_source_diagnosis_id'] : null,
+        'status' => $row['vaccination_status'] ?? 'completed',
+    ];
+}
+
 function vetDiagnosisFormatRow(array $row): array
 {
     $jsonColumns = ['vital_signs', 'prescriptions', 'custom_sections', 'attachments', 'source_uploads'];
@@ -117,6 +198,7 @@ function vetDiagnosisFormatRow(array $row): array
         'customSections' => $row['custom_sections'] ?: [],
         'attachments' => $row['attachments'] ?: [],
         'sourceUploads' => $row['source_uploads'] ?: [],
+        'vaccinationRecord' => vetDiagnosisFormatVaccinationRecord($row),
         'finalizedAt' => $row['finalized_at'] ?? null,
         'createdAt' => $row['created_at'] ?? null,
         'updatedAt' => $row['updated_at'] ?? null,
@@ -296,10 +378,148 @@ function vetDiagnosisCompleteQueue(PDO $pdo, ?int $queueId, ?int $assignmentId =
     }
 
     $bookingId = bookingIdForQueue($pdo, $queue);
-    if ($bookingId) {
-        $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status <> 'cancelled'");
-        $bookingStmt->execute([$bookingId]);
+    vetDiagnosisCompleteBooking($pdo, $bookingId);
+}
+
+function vetDiagnosisCompleteBooking(PDO $pdo, ?int $bookingId): void
+{
+    if ($bookingId === null || $bookingId <= 0) {
+        return;
     }
+
+    $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status <> 'cancelled'");
+    $bookingStmt->execute([$bookingId]);
+}
+
+function vetDiagnosisSaveVaccinationRecord(PDO $pdo, int $diagnosisId, int $petId, int $veterinarianUserId, string $veterinarianName, array $input): void
+{
+    $record = $input['vaccination_record'] ?? $input['vaccinationRecord'] ?? null;
+
+    if (!is_array($record)) {
+        return;
+    }
+
+    $vaccineName = vetDiagnosisNullableText($record['vaccineName'] ?? $record['name'] ?? null);
+    $dateAdministered = vetDiagnosisDate($record['dateAdministered'] ?? $record['date'] ?? null);
+    $nextDueDate = vetDiagnosisDate($record['nextDueDate'] ?? $record['nextDue'] ?? null);
+    $licenseNumber = vetDiagnosisNullableText($record['veterinarianLicense'] ?? $record['licenseNumber'] ?? null);
+    $notes = vetDiagnosisNullableText($record['notes'] ?? null);
+    $applicator = vetDiagnosisNullableText($record['veterinarianName'] ?? $record['applicator'] ?? null) ?: $veterinarianName;
+
+    $hasAnyVaccinationData = $vaccineName !== null
+        || $dateAdministered !== null
+        || $nextDueDate !== null
+        || $licenseNumber !== null
+        || $notes !== null;
+
+    if (!$hasAnyVaccinationData) {
+        return;
+    }
+
+    if ($vaccineName === null || $dateAdministered === null || $nextDueDate === null) {
+        http_response_code(400);
+        throw new RuntimeException('Vaccine name, date administered, and next due date are required to record vaccination details.');
+    }
+
+    $hasLicense = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_veterinarian_license');
+    $hasNotes = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_notes');
+    $hasVetUserId = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_veterinarian_user_id');
+    $hasSourceDiagnosis = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'source_diagnosis_id');
+
+    $columns = [
+        'pet_id',
+        'vax_name',
+        'vax_date',
+        'vax_next_due',
+        'vax_applicator',
+        'vax_status'
+    ];
+    $values = [
+        $petId,
+        $vaccineName,
+        $dateAdministered,
+        $nextDueDate,
+        $applicator,
+        'completed'
+    ];
+    $updateColumns = [
+        'vax_name' => $vaccineName,
+        'vax_date' => $dateAdministered,
+        'vax_next_due' => $nextDueDate,
+        'vax_applicator' => $applicator,
+        'vax_status' => 'completed'
+    ];
+
+    if ($hasLicense) {
+        $columns[] = 'vax_veterinarian_license';
+        $values[] = $licenseNumber;
+        $updateColumns['vax_veterinarian_license'] = $licenseNumber;
+    }
+
+    if ($hasNotes) {
+        $columns[] = 'vax_notes';
+        $values[] = $notes;
+        $updateColumns['vax_notes'] = $notes;
+    }
+
+    if ($hasVetUserId) {
+        $columns[] = 'vax_veterinarian_user_id';
+        $values[] = $veterinarianUserId;
+        $updateColumns['vax_veterinarian_user_id'] = $veterinarianUserId;
+    }
+
+    if ($hasSourceDiagnosis) {
+        $existingStmt = $pdo->prepare("SELECT vax_id FROM pet_vaccinations WHERE source_diagnosis_id = ? LIMIT 1");
+        $existingStmt->execute([$diagnosisId]);
+        $existingVaccinationId = $existingStmt->fetchColumn();
+
+        if ($existingVaccinationId) {
+            $setParts = [];
+            $params = [];
+            foreach ($updateColumns as $column => $value) {
+                $setParts[] = "{$column} = ?";
+                $params[] = $value;
+            }
+            $params[] = $existingVaccinationId;
+
+            $updateStmt = $pdo->prepare("UPDATE pet_vaccinations SET " . implode(', ', $setParts) . " WHERE vax_id = ?");
+            $updateStmt->execute($params);
+            return;
+        }
+
+        $columns[] = 'source_diagnosis_id';
+        $values[] = $diagnosisId;
+    } else {
+        $existingStmt = $pdo->prepare("
+            SELECT vax_id
+            FROM pet_vaccinations
+            WHERE pet_id = ?
+              AND vax_name = ?
+              AND vax_date = ?
+            ORDER BY vax_id DESC
+            LIMIT 1
+        ");
+        $existingStmt->execute([$petId, $vaccineName, $dateAdministered]);
+        $existingVaccinationId = $existingStmt->fetchColumn();
+
+        if ($existingVaccinationId) {
+            $setParts = [];
+            $params = [];
+            foreach ($updateColumns as $column => $value) {
+                $setParts[] = "{$column} = ?";
+                $params[] = $value;
+            }
+            $params[] = $existingVaccinationId;
+
+            $updateStmt = $pdo->prepare("UPDATE pet_vaccinations SET " . implode(', ', $setParts) . " WHERE vax_id = ?");
+            $updateStmt->execute($params);
+            return;
+        }
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+    $insertStmt = $pdo->prepare("INSERT INTO pet_vaccinations (" . implode(', ', $columns) . ") VALUES ({$placeholders})");
+    $insertStmt->execute($values);
 }
 
 try {
@@ -357,6 +577,8 @@ try {
         }
 
         $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
+        $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
         $stmt = $pdo->prepare("
             SELECT
                 vd.*,
@@ -366,12 +588,14 @@ try {
                 p.pet_species,
                 p.pet_breed,
                 owner.first_Name AS owner_first_name,
-                owner.last_Name AS owner_last_name
+                owner.last_Name AS owner_last_name,
+                {$vaccinationSelect}
             FROM vet_diagnoses vd
             LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
             LEFT JOIN queues q ON q.queue_id = vd.queue_id
             LEFT JOIN bookings b ON b.booking_id = vd.booking_id
             LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
+            {$vaccinationJoin}
             {$whereSql}
             ORDER BY vd.finalized_at DESC, vd.created_at DESC, vd.diagnosis_id DESC
         ");
@@ -608,10 +832,21 @@ try {
     $stmt->execute($payload);
     $diagnosisId = (int)$pdo->lastInsertId();
 
+    vetDiagnosisSaveVaccinationRecord(
+        $pdo,
+        $diagnosisId,
+        $petId,
+        $veterinarianUserId,
+        $payload['veterinarian_name'] ?: 'Veterinarian',
+        $input
+    );
     vetDiagnosisCompleteQueue($pdo, $queueId, $assignmentId);
+    vetDiagnosisCompleteBooking($pdo, $bookingId);
 
     $pdo->commit();
 
+    $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
+    $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
     $recordStmt = $pdo->prepare("
         SELECT
             vd.*,
@@ -621,12 +856,14 @@ try {
             p.pet_species,
             p.pet_breed,
             owner.first_Name AS owner_first_name,
-            owner.last_Name AS owner_last_name
+            owner.last_Name AS owner_last_name,
+            {$vaccinationSelect}
         FROM vet_diagnoses vd
         LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
         LEFT JOIN queues q ON q.queue_id = vd.queue_id
         LEFT JOIN bookings b ON b.booking_id = vd.booking_id
         LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
+        {$vaccinationJoin}
         WHERE vd.diagnosis_id = ?
         LIMIT 1
     ");

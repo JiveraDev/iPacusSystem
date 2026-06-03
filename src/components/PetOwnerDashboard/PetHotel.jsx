@@ -11,7 +11,7 @@ import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const ROOM_OPTIONS = {
   hotel: [

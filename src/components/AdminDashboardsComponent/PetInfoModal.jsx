@@ -4,7 +4,7 @@ import { Badge } from '../../ui/badge';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function normalizePet(data = {}) {
     const isRegistered = data.isRegistered ?? Boolean(data.db_id || data.petId || data.petShareableId || data.id);

@@ -24,7 +24,7 @@ import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../..
 import { normalizeCurrencyLabel } from "../../lib/currency";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",

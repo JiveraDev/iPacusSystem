@@ -377,9 +377,15 @@ html.dark .hover\:text-gray-900:hover {
   display: none;
 }
 
-.hide-native-password-toggle::-webkit-credentials-auto-fill-button,
-.hide-native-password-toggle::-webkit-textfield-decoration-container {
-  display: none;
+.hide-native-password-toggle {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.hide-native-password-toggle::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @layer utilities {

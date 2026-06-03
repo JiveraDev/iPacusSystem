@@ -3,7 +3,7 @@ import { Calendar, Mail, MapPin, Phone, Shield, User } from 'lucide-react';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function normalizeOwner(data = {}) {
     const fullName = `${data.firstName || data.first_Name || ''} ${data.lastName || data.last_Name || ''}`.trim();

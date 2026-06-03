@@ -54,7 +54,7 @@ export default function PetRegister() {
     const [generatedPetId, setGeneratedPetId] = useState('');
     const [copiedPetId, setCopiedPetId] = useState(false);
     const [registeredPetName, setRegisteredPetName] = useState('');
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
     const fetchPets = useCallback(async () => {
         try {

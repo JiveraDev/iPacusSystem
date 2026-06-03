@@ -8,7 +8,7 @@ import { Label } from '../../ui/label';
 import { Checkbox } from '../../ui/checkbox';
 import { toast } from '../../reusecomponent/toast.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const SERVICES = [
     "Consultation", "Vaccination", "Grooming", "Dental", "General Check-Up", 

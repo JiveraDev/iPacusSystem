@@ -17,7 +17,7 @@ import { findPetService } from "../../services/findPet";
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
@@ -729,59 +729,7 @@ export default function PetProfile() {
             </Card>
           </div>
 
-          {/* Vaccination List */}
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
-              <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <Syringe className="h-6 w-6 text-[#155dfc]" />
-                Immunization Records
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {pet.vaccinations?.length > 0 ? (
-                <div className="divide-y divide-slate-100">
-                  {pet.vaccinations.map((vax, index) => (
-                    <div key={index} className="p-4 transition-colors hover:bg-slate-50 sm:p-8 group">
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
-                        <div>
-                          <h4 className="font-black text-slate-900 text-xl tracking-tight mb-1">{vax.name}</h4>
-                          <div className="flex items-center gap-2 text-slate-400 text-sm">
-                            <User className="h-3 w-3" />
-                            <span className="font-medium">Administrator: {vax.applicator || vax.veterinarian}</span>
-                          </div>
-                        </div>
-                        <Badge className={`px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-[0.15em] border-2 ${
-                            vax.status === 'completed' 
-                                ? 'bg-green-50 text-green-700 border-green-100' 
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                        }`}>
-                          {vax.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2 sm:gap-8">
-                        <div>
-                          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Last Administration</p>
-                          <p className="font-extrabold text-slate-700 text-lg">{formatDisplayDate(vax.date)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[#155dfc] text-xs font-black uppercase tracking-widest mb-1">Booster Due Date</p>
-                          <p className="font-extrabold text-[#155dfc] text-lg">{formatDisplayDate(vax.nextDue)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-4 py-16 text-center sm:px-8 sm:py-20">
-                  <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-lg">
-                    <Syringe className="h-10 w-10 text-slate-200" />
-                  </div>
-                  <h4 className="text-slate-900 font-bold text-lg">No Vaccination Data</h4>
-                  <p className="text-slate-400 mt-2 max-w-xs mx-auto">Clinical immunization records for this pet are currently empty or pending update.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
 
           <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
@@ -966,6 +914,80 @@ export default function PetProfile() {
           {renderRecordDetails()}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function VaccinationRecordsPanel({ vaccinations }) {
+  return (
+    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+      <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-5 sm:px-8 sm:py-6">
+        <CardTitle className="flex items-center gap-3 text-xl font-black text-slate-800">
+          <Syringe className="h-6 w-6 text-[#155dfc]" />
+          Vaccination
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {vaccinations.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {vaccinations.map((vax, index) => (
+              <div key={vax.id || index} className="p-5 transition-colors hover:bg-slate-50 sm:p-7">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Vaccine Name</p>
+                    <h4 className="mt-1 break-words text-2xl font-black tracking-tight text-slate-900">{vax.name || 'Unnamed vaccine'}</h4>
+                  </div>
+                  <Badge className={`w-fit rounded-full border-2 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                    vax.status === 'completed' ? 'border-green-100 bg-green-50 text-green-700' : 'border-amber-100 bg-amber-50 text-amber-700'
+                  }`}>
+                    {vax.status || 'completed'}
+                  </Badge>
+                </div>
+
+                <div className="mt-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+                  <VaxInfo icon={CalendarClock} label="Date Administered" value={formatDisplayDate(vax.date)} />
+                  <VaxInfo icon={CalendarClock} label="Next Due Date" value={formatDisplayDate(vax.nextDue)} highlight />
+                  <VaxInfo
+                    icon={User}
+                    label="Veterinarian"
+                    value={vax.applicator || vax.veterinarianName || vax.veterinarian || 'N/A'}
+                  />
+                  <VaxInfo label="License Number" value={vax.veterinarianLicense || vax.licenseNumber || 'N/A'} />
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-100 bg-white p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Notes</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700">
+                    {vax.notes || <span className="text-slate-300">No vaccination notes recorded.</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-16 text-center sm:px-8 sm:py-20">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-slate-50 shadow-lg">
+              <Syringe className="h-10 w-10 text-slate-200" />
+            </div>
+            <h4 className="text-lg font-bold text-slate-900">No Vaccination Data</h4>
+            <p className="mx-auto mt-2 max-w-xs text-slate-400">Clinical vaccination records for this pet are currently empty or pending update.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VaxInfo({ icon, label, value, highlight = false }) {
+  const Icon = icon;
+
+  return (
+    <div className="min-w-0">
+      <p className={`text-[10px] font-black uppercase tracking-widest ${highlight ? 'text-[#155dfc]' : 'text-slate-400'}`}>{label}</p>
+      <div className={`mt-2 flex items-start gap-2 text-sm font-bold ${highlight ? 'text-[#155dfc]' : 'text-slate-700'}`}>
+        {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0" />}
+        <span className="break-words">{value || <span className="text-slate-300">N/A</span>}</span>
+      </div>
     </div>
   );
 }

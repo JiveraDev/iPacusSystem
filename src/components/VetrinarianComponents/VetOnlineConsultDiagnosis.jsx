@@ -8,7 +8,7 @@ import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function getStatusBadge(status) {
     const normalized = String(status || '').toLowerCase();

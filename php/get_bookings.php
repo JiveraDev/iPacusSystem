@@ -44,6 +44,7 @@ try {
     $bookingId = $_GET['bookingId'] ?? null;
     $params = [];
     $hasBookingPets = tableExists($pdo, 'booking_pets');
+    $hasBoardingAssignments = tableExists($pdo, 'boarding_assignments');
     $multiPetSelect = $hasBookingPets
         ? "multi.pet_ids AS booked_pet_ids, multi.pet_names AS booked_pet_names,"
         : "NULL AS booked_pet_ids, NULL AS booked_pet_names,";
@@ -57,6 +58,34 @@ try {
                 JOIN pets_information p2 ON p2.pet_id = bp.pet_id
                 GROUP BY bp.booking_id
            ) multi ON multi.booking_id = b.booking_id"
+        : "";
+    $boardingAssignmentSelect = $hasBoardingAssignments
+        ? "board.assignment_id AS boarding_assignment_id,
+           board.room_type AS boarding_room_type,
+           board.room_number AS boarding_room_number,
+           board.status AS boarding_assignment_status,
+           board.reserved_at AS boarding_reserved_at,
+           board.actual_check_in_at AS boarding_actual_check_in_at,
+           board.actual_check_out_at AS boarding_actual_check_out_at,
+           board.desired_check_out_date AS boarding_desired_check_out_date,"
+        : "NULL AS boarding_assignment_id,
+           NULL AS boarding_room_type,
+           NULL AS boarding_room_number,
+           NULL AS boarding_assignment_status,
+           NULL AS boarding_reserved_at,
+           NULL AS boarding_actual_check_in_at,
+           NULL AS boarding_actual_check_out_at,
+           NULL AS boarding_desired_check_out_date,";
+    $boardingAssignmentJoin = $hasBoardingAssignments
+        ? "LEFT JOIN (
+                SELECT ba.*
+                FROM boarding_assignments ba
+                JOIN (
+                    SELECT booking_id, MAX(assignment_id) AS assignment_id
+                    FROM boarding_assignments
+                    GROUP BY booking_id
+                ) latest ON latest.assignment_id = ba.assignment_id
+           ) board ON board.booking_id = b.booking_id"
         : "";
 
     // Fetch bookings joined with users and pets for full context
@@ -85,12 +114,14 @@ try {
                    u.setProfilePic_url,
                    v.first_Name as vet_first_name, v.last_Name as vet_last_name,
                    {$multiPetSelect}
+                   {$boardingAssignmentSelect}
                    1 as select_marker
             FROM bookings b
             LEFT JOIN pets_information p ON b.pet_id = p.pet_id
             JOIN users u ON b.user_id = u.user_id
             LEFT JOIN users v ON b.veterinarian_id = v.user_id
-            {$multiPetJoin}";
+            {$multiPetJoin}
+            {$boardingAssignmentJoin}";
     
     if ($userId) {
         $sql .= " WHERE b.user_id = ?";
@@ -170,6 +201,29 @@ try {
             $decodedAddOns = json_decode($b['add_ons'], true);
             $addOns = json_last_error() === JSON_ERROR_NONE ? $decodedAddOns : $b['add_ons'];
         }
+        $boardingAssignment = null;
+        if (!empty($b['boarding_assignment_id'])) {
+            $roomType = (string)($b['boarding_room_type'] ?? '');
+            $roomParts = explode('-', $roomType, 2);
+            $assignmentFacility = $roomParts[0] ?? ($b['hotel_boarding_type'] ?? null);
+            $assignmentSize = $roomParts[1] ?? ($b['room_size'] ?? null);
+            $roomNumber = (int)$b['boarding_room_number'];
+            $roomLabel = trim(ucfirst((string)$assignmentSize) . ' ' . ($assignmentFacility === 'hotel' ? 'Room' : 'Kennel') . ' #' . $roomNumber);
+
+            $boardingAssignment = [
+                'assignmentId' => (int)$b['boarding_assignment_id'],
+                'roomType' => $roomType,
+                'hotelBoardingType' => $assignmentFacility,
+                'roomSize' => $assignmentSize,
+                'roomNumber' => $roomNumber,
+                'roomLabel' => $roomLabel,
+                'status' => $b['boarding_assignment_status'],
+                'reservedAt' => $b['boarding_reserved_at'],
+                'actualCheckInAt' => $b['boarding_actual_check_in_at'],
+                'actualCheckOutAt' => $b['boarding_actual_check_out_at'],
+                'desiredCheckOutDate' => $b['boarding_desired_check_out_date'] ?: ($b['check_out_date'] ?? null),
+            ];
+        }
         
         // Extract services/topics from notes
         $serviceName = $b['service_type'];
@@ -236,6 +290,7 @@ try {
             'checkInDate' => $b['check_in_date'] ?? null,
             'checkOutDate' => $b['check_out_date'] ?? null,
             'roomSize' => $b['room_size'] ?? null,
+            'boardingAssignment' => $boardingAssignment,
             'addOns' => $addOns,
             'specialServiceItems' => $specialServiceItems,
             'emergencyContact' => $b['emergency_contact'] ?? null,

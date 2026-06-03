@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Banknote,
@@ -380,6 +380,27 @@ function createCharge(item, quantity = 1) {
   };
 }
 
+function createPrefillCharge(charge, index = 0) {
+  const classificationId = charge.classificationId || 'services';
+  const classification = CLASSIFICATION_BY_ID[classificationId] || CLASSIFICATION_BY_ID.services;
+  const quantity = Number(charge.quantity);
+  const price = Number(charge.price);
+
+  return {
+    lineId: nextLineId(charge.catalogId || `prefill-${index + 1}`),
+    catalogId: charge.catalogId || null,
+    classificationId,
+    receiptType: charge.receiptType || classification.receiptType,
+    name: charge.name || 'Boarding stay',
+    group: charge.group || 'Boarding',
+    quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+    price: Number.isFinite(price) && price >= 0 ? price : 0,
+    inventoryId: charge.inventoryId || null,
+    includedMaterials: Array.isArray(charge.includedMaterials) ? charge.includedMaterials : [],
+    extraMaterials: Array.isArray(charge.extraMaterials) ? charge.extraMaterials : [],
+  };
+}
+
 function createInitialCharges(catalogMap, visit) {
   return visit.initialCharges
     .map((charge) => {
@@ -528,6 +549,36 @@ function nextInvoiceNumber(invoiceNumber) {
   return invoiceNumber.replace(/\d+$/, nextNumber);
 }
 
+function readPosPrefill() {
+  try {
+    const rawPrefill = localStorage.getItem('ipawcus-pos-prefill');
+    if (!rawPrefill) {
+      return null;
+    }
+
+    return JSON.parse(rawPrefill);
+  } catch (error) {
+    console.error('Failed to read POS prefill:', error);
+    return null;
+  }
+}
+
+function createPrefillVisit(prefill) {
+  const visit = prefill?.visit || {};
+
+  return {
+    id: visit.id || `BOARD-${Date.now()}`,
+    petName: visit.petName || 'Boarding Pet',
+    ownerName: visit.ownerName || 'Pet Owner',
+    species: visit.species || 'Pet',
+    visitType: visit.visitType || 'Pet Boarding Stay',
+    veterinarian: visit.veterinarian || 'Boarding Team',
+    complaint: visit.complaint || 'Pet hotel or boarding payment',
+    status: visit.status || 'Ready for payment',
+    initialCharges: [],
+  };
+}
+
 function getAccentClasses(accent) {
   const classes = {
     blue: 'border-blue-100 bg-blue-50 text-blue-700',
@@ -574,19 +625,33 @@ function PaymentIcon({ method }) {
 
 export default function ServicePOS() {
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const [posPrefill] = useState(() => readPosPrefill());
   const catalog = useMemo(() => buildCatalog(inventory), [inventory]);
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
-  const [selectedVisitId, setSelectedVisitId] = useState(SAMPLE_VISITS[0].id);
-  const selectedVisit = SAMPLE_VISITS.find((visit) => visit.id === selectedVisitId) || SAMPLE_VISITS[0];
-  const [charges, setCharges] = useState(() => createInitialCharges(flattenCatalog(buildCatalog(INITIAL_INVENTORY)), SAMPLE_VISITS[0]));
+  const visitOptions = useMemo(() => {
+    if (!posPrefill?.visit) {
+      return SAMPLE_VISITS;
+    }
+
+    return [createPrefillVisit(posPrefill), ...SAMPLE_VISITS];
+  }, [posPrefill]);
+  const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || SAMPLE_VISITS[0].id);
+  const selectedVisit = visitOptions.find((visit) => visit.id === selectedVisitId) || visitOptions[0];
+  const [charges, setCharges] = useState(() => (
+    Array.isArray(posPrefill?.charges) && posPrefill.charges.length > 0
+      ? posPrefill.charges.map(createPrefillCharge)
+      : createInitialCharges(flattenCatalog(buildCatalog(INITIAL_INVENTORY)), SAMPLE_VISITS[0])
+  ));
   const [activeTab, setActiveTab] = useState('services');
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [receiptPaperWidth, setReceiptPaperWidth] = useState('58mm');
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0530-001');
-  const [notification, setNotification] = useState('');
+  const [notification, setNotification] = useState(() => (
+    posPrefill ? 'Boarding payment summary loaded. Review the invoice before posting payment.' : ''
+  ));
   const [selectedChargeId, setSelectedChargeId] = useState(charges[0]?.lineId || '');
   const [extraMaterialId, setExtraMaterialId] = useState('');
   const [extraMaterialQty, setExtraMaterialQty] = useState('1');
@@ -595,6 +660,14 @@ export default function ServicePOS() {
   const [customPrice, setCustomPrice] = useState('');
   const [customMaterialId, setCustomMaterialId] = useState('');
   const [customMaterialQty, setCustomMaterialQty] = useState('1');
+
+  useEffect(() => {
+    if (!posPrefill) {
+      return;
+    }
+
+    localStorage.removeItem('ipawcus-pos-prefill');
+  }, [posPrefill]);
 
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
@@ -610,8 +683,11 @@ export default function ServicePOS() {
   });
 
   const handleVisitChange = (visitId) => {
-    const nextVisit = SAMPLE_VISITS.find((visit) => visit.id === visitId) || SAMPLE_VISITS[0];
-    const nextCharges = createInitialCharges(catalogMap, nextVisit);
+    const nextVisit = visitOptions.find((visit) => visit.id === visitId) || visitOptions[0];
+    const isPrefillVisit = posPrefill?.visit && visitId === createPrefillVisit(posPrefill).id;
+    const nextCharges = isPrefillVisit && Array.isArray(posPrefill?.charges)
+      ? posPrefill.charges.map(createPrefillCharge)
+      : createInitialCharges(catalogMap, nextVisit);
     setSelectedVisitId(visitId);
     setCharges(nextCharges);
     setSelectedChargeId(nextCharges[0]?.lineId || '');
@@ -881,7 +957,7 @@ export default function ServicePOS() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SAMPLE_VISITS.map((visit) => (
+                {visitOptions.map((visit) => (
                   <SelectItem key={visit.id} value={visit.id}>
                     {visit.id} - {visit.petName}
                   </SelectItem>

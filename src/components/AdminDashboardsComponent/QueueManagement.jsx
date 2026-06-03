@@ -4,7 +4,7 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
-import { CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Search, ImageIcon, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, Search, ImageIcon, UserCheck, Loader2 } from 'lucide-react';
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -12,7 +12,7 @@ import { formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 export default function QueueManagement() {
     const [queue, setQueue] = useState([]);
@@ -23,6 +23,9 @@ export default function QueueManagement() {
     const [missedAgeFilter, setMissedAgeFilter] = useState('7d');
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
+    const [veterinarians, setVeterinarians] = useState([]);
+    const [selectedVetByQueue, setSelectedVetByQueue] = useState({});
+    const [assigningQueueId, setAssigningQueueId] = useState(null);
 
     const fetchQueues = async () => {
         try {
@@ -40,6 +43,21 @@ export default function QueueManagement() {
 
     useAutoRefresh(fetchQueues);
 
+    const fetchVeterinarians = async () => {
+        try {
+            const response = await fetch(`${API_BASE}/accounts`);
+            const data = await response.json();
+
+            if (response.ok && Array.isArray(data.veterinarians)) {
+                setVeterinarians(data.veterinarians.filter(vet => Number(vet.is_active ?? 1) === 1));
+            }
+        } catch (error) {
+            console.error('Error fetching veterinarians:', error);
+        }
+    };
+
+    useAutoRefresh(fetchVeterinarians, { intervalMs: 15000, refreshKey: 'queue-veterinarians' });
+
     const toggleRow = (id) => {
         setExpandedRows(prev => {
             const newSet = new Set(prev);
@@ -53,7 +71,14 @@ export default function QueueManagement() {
     };
 
     const handleApprove = async (id) => {
-        await updateStatus(id, 'in-progress');
+        const selectedVetId = getSelectedVetId(id);
+
+        if (!selectedVetId) {
+            toast.error('Select a veterinarian before approving this queue.');
+            return;
+        }
+
+        await assignQueueToVet(id, selectedVetId, 'Assigned during queue approval');
     };
 
     const handleCancel = async (id) => {
@@ -78,6 +103,101 @@ export default function QueueManagement() {
         } catch (error) {
             console.error('Error updating status:', error);
         }
+    };
+
+    const getVetId = (vet) => String(vet.user_id || vet.id || vet.userId || '');
+
+    const getVetName = (vet) => {
+        if (vet?.veterinarian_name) {
+            return vet.veterinarian_name;
+        }
+
+        const fullName = [vet.first_Name || vet.firstName || vet.first_name, vet.last_Name || vet.lastName || vet.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+
+        return fullName ? `Dr. ${fullName}` : vet.mail_Address || vet.email || 'Veterinarian';
+    };
+
+    const getSelectedVetId = (queueId, item = null) => {
+        const selected = selectedVetByQueue[String(queueId)];
+
+        return selected || (item?.veterinarian_user_id ? String(item.veterinarian_user_id) : '');
+    };
+
+    const assignQueueToVet = async (queueId, veterinarianUserId, reason = 'Assigned from queue management') => {
+        const vet = veterinarians.find(item => getVetId(item) === String(veterinarianUserId));
+        const veterinarianName = vet ? getVetName(vet) : '';
+        setAssigningQueueId(queueId);
+
+        try {
+            const response = await fetch(`${API_BASE}/queues/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    queue_id: queueId,
+                    veterinarian_user_id: veterinarianUserId,
+                    veterinarian_name: veterinarianName,
+                    reason
+                })
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || 'Failed to assign veterinarian.');
+            }
+
+            const assignment = data.assignment || {};
+            setQueue(items =>
+                items.map(item =>
+                    item.queue_id === queueId
+                        ? {
+                            ...item,
+                            status: 'in-progress',
+                            assignment_id: assignment.assignment_id || item.assignment_id,
+                            assignment_status: assignment.status || 'received',
+                            veterinarian_user_id: assignment.veterinarian_user_id || veterinarianUserId,
+                            veterinarian_name: assignment.veterinarian_name || veterinarianName,
+                            received_at: assignment.received_at || new Date().toISOString(),
+                            has_active_assignment: 1
+                        }
+                        : item
+                )
+            );
+            toast.success('Queue assigned and moved to the veterinarian My List.');
+        } catch (error) {
+            toast.error(error.message || 'Failed to assign veterinarian.');
+        } finally {
+            setAssigningQueueId(null);
+        }
+    };
+
+    const renderVetSelect = (item) => {
+        const value = getSelectedVetId(item.queue_id, item);
+
+        return (
+            <Select
+                value={value}
+                onValueChange={(nextValue) => setSelectedVetByQueue(current => ({ ...current, [String(item.queue_id)]: nextValue }))}
+            >
+                <SelectTrigger className="h-8 min-w-[150px] bg-white text-xs">
+                    <SelectValue
+                        placeholder="Select vet"
+                        displayValue={value ? getVetName(veterinarians.find(vet => getVetId(vet) === String(value)) || { veterinarian_name: item.veterinarian_name }) : ''}
+                    />
+                </SelectTrigger>
+                <SelectContent>
+                    {veterinarians.length === 0 ? (
+                        <SelectItem value="none" disabled>No active vets</SelectItem>
+                    ) : veterinarians.map(vet => (
+                        <SelectItem key={getVetId(vet)} value={getVetId(vet)}>
+                            {getVetName(vet)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        );
     };
 
     const isSameLocalDay = (dateValue, referenceDate) => {
@@ -303,27 +423,49 @@ export default function QueueManagement() {
                                         <TableCell>{getPriorityBadge(item.priority)}</TableCell>
                                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                                         <TableCell className="text-right pr-4">
-                                            <div className="flex justify-end gap-1.5">
+                                            <div className="flex flex-wrap justify-end gap-1.5">
                                                 {item.status === 'waiting' ? (
                                                     <>
+                                                        {renderVetSelect(item)}
                                                         <Button 
                                                             size="sm" 
                                                             onClick={() => handleApprove(item.queue_id)} 
-                                                            className="bg-blue-600 hover:bg-blue-700 h-7 px-2 text-[11px] font-bold"
+                                                            disabled={assigningQueueId === item.queue_id}
+                                                            className="bg-blue-600 hover:bg-blue-700 h-8 px-2 text-[11px] font-bold"
                                                         >
+                                                            {assigningQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <UserCheck className="mr-1 size-3" />}
                                                             Approve
                                                         </Button>
                                                         <Button 
                                                             size="sm" 
                                                             variant="destructive" 
                                                             onClick={() => handleCancel(item.queue_id)} 
-                                                            className="h-7 px-2 text-[11px] font-bold"
+                                                            className="h-8 px-2 text-[11px] font-bold"
                                                         >
                                                             Cancel
                                                         </Button>
                                                     </>
                                                 ) : item.status === 'in-progress' && (
-                                                    <Badge className="bg-blue-600 text-[10px] px-1.5 py-0 h-5">Active</Badge>
+                                                    <>
+                                                        {renderVetSelect(item)}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                const selectedVetId = getSelectedVetId(item.queue_id, item);
+                                                                if (!selectedVetId) {
+                                                                    toast.error('Select a veterinarian before assigning this queue.');
+                                                                    return;
+                                                                }
+                                                                assignQueueToVet(item.queue_id, selectedVetId, 'Reassigned by admin from queue management');
+                                                            }}
+                                                            disabled={assigningQueueId === item.queue_id}
+                                                            className="h-8 px-2 text-[11px] font-bold"
+                                                        >
+                                                            {assigningQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <UserCheck className="mr-1 size-3" />}
+                                                            {item.has_active_assignment ? 'Reassign' : 'Assign'}
+                                                        </Button>
+                                                    </>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -339,6 +481,7 @@ export default function QueueManagement() {
                                                             <DetailItem label="Contact" value={item.contactNumber} />
                                                             <DetailItem label="Address" value={item.address} isFullWidth />
                                                             <DetailItem label="Source" value={getSourceBadge(item.queue_source)} />
+                                                            <DetailItem label="Assigned Veterinarian" value={item.veterinarian_name || 'Unassigned'} />
                                                             <DetailItem label="Registration Time" value={formatDateTime(item.timestamp)} />
                                                         </div>
                                                         {item.image_path && (

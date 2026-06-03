@@ -1,17 +1,43 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardTitle, CardDescription } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock } from "lucide-react";
-import { calculateAge } from "../../lib/date";
+import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock, Pencil, Save, X } from "lucide-react";
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+function parseProfileDate(value) {
+  if (!value) return null;
+
+  const datePart = String(value).split(" ")[0];
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
+    ? new Date(`${datePart}T00:00:00`)
+    : new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatAgeYearsOnly(value) {
+  const birthDate = parseProfileDate(value);
+  if (!birthDate) return "Not set";
+
+  const today = new Date();
+  let years = today.getFullYear() - birthDate.getFullYear();
+  const hasBirthdayPassed =
+    today.getMonth() > birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+
+  if (!hasBirthdayPassed) years -= 1;
+  if (years < 0) return "Not set";
+
+  return `${years} ${years === 1 ? "year" : "years"} old`;
+}
 
 export default function PetOwnerProfile({ onLogout }) {
   const onUserUpdate = useUserUpdate();
@@ -230,158 +256,155 @@ export default function PetOwnerProfile({ onLogout }) {
     return finalPath;
   };
 
+  const profileImageSrc = getImageSrc();
+  const displayName = profileData.firstName || profileData.lastName
+    ? `${profileData.firstName} ${profileData.lastName}`.trim()
+    : "User Profile";
+  const currentAgeLabel = formatAgeYearsOnly(profileData.dateOfBirth);
+  const inputClass = "h-11 rounded-lg border-slate-200 bg-white px-4 text-base text-slate-950 shadow-sm transition-all focus:border-blue-500 focus:ring-blue-500/20 disabled:border-slate-200 disabled:bg-white disabled:text-slate-950 disabled:opacity-100 md:text-sm";
+
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-0 sm:px-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200 pb-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Profile Settings</h1>
-          <p className="text-slate-500 mt-1 text-lg">Manage your personal information and preferences.</p>
+    <div className="mx-auto max-w-6xl space-y-6 px-0">
+      <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-blue-700">Pet Owner Account</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">Profile Settings</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Keep the owner details used for appointment records, queue updates, and clinic contact.
+          </p>
         </div>
         {!isEditingProfile && (
-          <Button 
-            onClick={() => setIsEditingProfile(true)} 
-            className="w-full sm:w-auto px-10 h-12 text-base font-semibold shadow-lg bg-[#155dfc] hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+          <Button
+            onClick={() => setIsEditingProfile(true)}
+            className="h-11 w-full rounded-lg bg-[#155dfc] px-5 text-sm font-semibold shadow-sm hover:bg-blue-700 sm:w-auto"
           >
+            <Pencil className="h-4 w-4" />
             Edit Profile
           </Button>
         )}
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="mb-8 flex h-auto w-full items-center justify-start rounded-xl bg-slate-100 p-1 text-slate-500 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="profile" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
-            Profile Details
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 rounded-lg bg-slate-100 p-1 text-slate-600 sm:inline-grid sm:w-auto">
+          <TabsTrigger value="profile" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
+            Profile
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
+          <TabsTrigger value="security" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
             Security
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:flex-none sm:px-8">
+          <TabsTrigger value="appearance" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
             Appearance
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-8 outline-none animate-in fade-in duration-300">
-          <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
-              <CardTitle className="text-xl font-bold text-slate-800 sm:text-2xl">Personal Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-8 p-4 sm:space-y-12 sm:p-10">
-              
-              {/* Profile Image & Summary Section */}
-              <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:gap-10">
-                <div className="relative group">
-                  <div className="h-32 w-32 overflow-hidden rounded-full border-[6px] border-white bg-slate-100 shadow-2xl ring-2 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
-                    {profileData.profileImage && !imageError ? (
-                      <img
-                        src={getImageSrc()}
-                        alt="Profile"
-                        onLoad={() => {
-                            console.log("SUCCESS: Image loaded from:", getImageSrc());
-                            setImageError(false);
-                        }}
-                        onError={() => {
-                          console.error("FAILURE: Image load failed for:", getImageSrc());
-                          setImageError(true);
-                        }}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-                        <User className="h-20 w-20 text-blue-200" />
-                      </div>
+        <TabsContent value="profile" className="outline-none">
+          <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+            <div className="h-16 bg-slate-950" />
+            <CardContent className="space-y-6 px-5 py-6 sm:px-6">
+              <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 md:flex-row md:items-end md:justify-between">
+                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end">
+                  <div className="relative shrink-0">
+                    <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-md ring-1 ring-slate-200">
+                      {profileImageSrc && !imageError ? (
+                        <img
+                          src={profileImageSrc}
+                          alt="Profile"
+                          onLoad={() => setImageError(false)}
+                          onError={() => setImageError(true)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                          <User className="h-12 w-12 text-slate-400" />
+                        </div>
+                      )}
+                    </div>
+                    {isEditingProfile && (
+                      <label
+                        className="absolute bottom-1 right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#155dfc] text-white shadow-sm transition hover:bg-blue-700"
+                        title="Upload profile photo"
+                      >
+                        <Camera className="h-4 w-4" />
+                        <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
+                      </label>
                     )}
                   </div>
-                  {isEditingProfile && (
-                    <label className="absolute bottom-1 right-1 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-[3px] border-white bg-[#155dfc] text-white shadow-2xl transition-all hover:scale-110 hover:bg-blue-700 sm:bottom-2 sm:right-2 sm:h-12 sm:w-12">
-                      <Camera className="h-5 w-5 sm:h-6 sm:w-6" />
-                      <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
-                    </label>
-                  )}
-                </div>
-                
-                <div className="min-w-0 flex-1 space-y-4 text-center lg:text-left">
-                  <div>
-                    <h3 className="text-2xl font-extrabold text-slate-900">
-                      {profileData.firstName || profileData.lastName ? `${profileData.firstName} ${profileData.lastName}` : "User Profile"}
-                    </h3>
-                    <p className="text-blue-600 font-semibold flex items-center justify-center lg:justify-start gap-2 mt-1">
-                      <span className="bg-blue-50 px-3 py-1 rounded-full text-sm">Pet Owner</span>
+
+                  <div className="min-w-0 sm:pb-1">
+                    <h2 className="max-w-full break-words text-xl font-bold text-slate-950">{displayName}</h2>
+                    <p className="mt-1 inline-flex rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                      Pet Owner
+                    </p>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                      {isEditingProfile
+                        ? "Update the owner contact record that clinic staff can use during service visits."
+                        : "Owner information is synced from the database and used by clinic staff for service coordination."}
                     </p>
                   </div>
-                  <p className="max-w-2xl text-base leading-relaxed text-slate-500 sm:text-lg">
-                    {isEditingProfile 
-                      ? "Choose a high-quality photo to help our veterinarians recognize you during appointments. Supported formats: JPG, PNG, GIF." 
-                      : "Your profile details are kept secure and only shared with verified clinic staff for medical purposes."}
-                  </p>
-                  {imageError && profileData.profileImage && !isEditingProfile && (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg text-sm font-medium border border-amber-100">
-                      <Clock className="h-4 w-4" /> 
-                      <span>Image path might be broken. Try re-uploading your photo.</span>
-                    </div>
-                  )}
                 </div>
+
+                {imageError && profileData.profileImage && !isEditingProfile && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 md:max-w-sm">
+                    <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Image path might be broken. Try re-uploading your photo.</span>
+                  </div>
+                )}
               </div>
 
-              {/* Form Grid */}
-              <div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2 md:gap-y-10">
-                <div className="space-y-3">
-                  <Label htmlFor="firstName" className="text-xs font-black text-slate-500 uppercase tracking-widest">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={profileData.firstName}
-                    onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
-                    disabled={!isEditingProfile || isSaving}
-                    className="h-14 px-5 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg shadow-sm transition-all"
-                    placeholder="First Name"
-                  />
-                </div>
-                
-                <div className="space-y-3">
-                  <Label htmlFor="lastName" className="text-xs font-black text-slate-500 uppercase tracking-widest">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={profileData.lastName}
-                    onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
-                    disabled={!isEditingProfile || isSaving}
-                    className="h-14 px-5 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg shadow-sm transition-all"
-                    placeholder="Last Name"
-                  />
+              <div className="space-y-6">
+                <div>
+                  <CardTitle className="text-xl font-bold text-slate-950">Profile Details</CardTitle>
+                  <CardDescription className="mt-1 text-sm text-slate-600">
+                    {isEditingProfile
+                      ? "Edit the fields below, then save the profile."
+                      : "Owner information is synced from the database and used by clinic staff for service coordination."}
+                  </CardDescription>
                 </div>
 
-                <div className="space-y-3">
-                  <Label htmlFor="email" className="text-xs font-black text-slate-500 uppercase tracking-widest">Email Address</Label>
-                  <div className="relative group">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <Input 
-                      id="email" 
-                      value={profileData.email} 
-                      disabled={true} 
-                      className="h-14 pl-14 bg-slate-50 border-slate-200 rounded-xl text-slate-500 cursor-not-allowed text-lg" 
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <ProfileField htmlFor="firstName" label="First Name" icon={<User className="h-4 w-4 text-slate-400" />}>
+                    <Input
+                      id="firstName"
+                      value={profileData.firstName}
+                      onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                      disabled={!isEditingProfile || isSaving}
+                      className={inputClass}
+                      placeholder="First Name"
                     />
-                  </div>
-                </div>
+                  </ProfileField>
 
-                <div className="space-y-3">
-                  <Label htmlFor="phone" className="text-xs font-black text-slate-500 uppercase tracking-widest">Phone Number</Label>
-                  <div className="relative group">
-                    <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500" />
+                  <ProfileField htmlFor="lastName" label="Last Name" icon={<User className="h-4 w-4 text-slate-400" />}>
+                    <Input
+                      id="lastName"
+                      value={profileData.lastName}
+                      onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                      disabled={!isEditingProfile || isSaving}
+                      className={inputClass}
+                      placeholder="Last Name"
+                    />
+                  </ProfileField>
+
+                  <ProfileField htmlFor="email" label="Email Address" icon={<Mail className="h-4 w-4 text-slate-400" />}>
+                    <Input
+                      id="email"
+                      value={profileData.email}
+                      disabled={true}
+                      className={`${inputClass} cursor-default`}
+                    />
+                  </ProfileField>
+
+                  <ProfileField htmlFor="phone" label="Phone Number" icon={<Phone className="h-4 w-4 text-slate-400" />}>
                     <Input
                       id="phone"
                       value={profileData.phone}
                       onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                       disabled={!isEditingProfile || isSaving}
-                      className="h-14 pl-14 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg shadow-sm transition-all"
+                      className={inputClass}
                       placeholder="+63 XXX XXX XXXX"
                     />
-                  </div>
-                </div>
+                  </ProfileField>
 
-                <div className="space-y-3">
-                  <Label htmlFor="dob" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                    {isEditingProfile ? "Date of Birth" : "Current Age"}
-                  </Label>
-                  <div className="relative group">
-                    <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500" />
+                  <ProfileField htmlFor="dob" label={isEditingProfile ? "Date of Birth" : "Current Age"} icon={<Calendar className="h-4 w-4 text-slate-400" />}>
                     {isEditingProfile ? (
                       <Input
                         id="dob"
@@ -389,74 +412,93 @@ export default function PetOwnerProfile({ onLogout }) {
                         value={profileData.dateOfBirth ? profileData.dateOfBirth.split(' ')[0] : ""}
                         onChange={(e) => setProfileData({ ...profileData, dateOfBirth: e.target.value })}
                         disabled={isSaving}
-                        className="h-14 pl-14 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg shadow-sm transition-all w-full"
+                        className={inputClass}
                       />
                     ) : (
-                      <div className="h-14 w-full rounded-xl border border-slate-200 bg-slate-50 px-6 py-2 pl-14 text-lg flex items-center text-slate-700 font-semibold">
-                        {profileData.dateOfBirth ? calculateAge(profileData.dateOfBirth) : "Not set"}
-                      </div>
+                      <ReadOnlyValue value={currentAgeLabel} />
                     )}
-                  </div>
-                </div>
+                  </ProfileField>
 
-                <div className="space-y-3 md:col-span-2">
-                  <Label htmlFor="address" className="text-xs font-black text-slate-500 uppercase tracking-widest">Residential Address</Label>
-                  <div className="relative group">
-                    <MapPin className="absolute left-5 top-4 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500" />
+                  <ProfileField htmlFor="address" label="Residential Address" icon={<MapPin className="h-4 w-4 text-slate-400" />} className="md:col-span-2">
                     <Input
                       id="address"
                       value={profileData.address}
                       onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                       disabled={!isEditingProfile || isSaving}
-                      className="h-14 pl-14 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg shadow-sm transition-all"
+                      className={inputClass}
                       placeholder="Street Number, Barangay, City, Province"
                     />
-                  </div>
+                  </ProfileField>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              {isEditingProfile && (
-                <div className="pt-10 flex flex-col sm:flex-row justify-end gap-4 border-t border-slate-100">
-                  <Button
-                    variant="outline"
-                    disabled={isSaving}
-                    onClick={() => {
-                      setIsEditingProfile(false);
-                      setImageFile(null);
-                      setImageError(false);
-                      setProfileData(normalizeUser(contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}")));
-                    }}
-                    className="h-12 rounded-xl border-slate-200 px-8 text-base font-bold hover:bg-slate-50 sm:h-14 sm:px-10 sm:text-lg"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveProfile} 
-                    disabled={isSaving} 
-                    className="h-12 rounded-xl bg-[#155dfc] px-8 text-base font-bold shadow-xl transition-all hover:scale-[1.02] hover:bg-blue-700 sm:h-14 sm:px-14 sm:text-lg"
-                  >
-                    {isSaving ? (
+                {isEditingProfile && (
+                  <div className="flex flex-col justify-end gap-3 border-t border-slate-100 pt-6 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() => {
+                        setIsEditingProfile(false);
+                        setImageFile(null);
+                        setImageError(false);
+                        setProfileData(normalizeUser(contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}")));
+                      }}
+                      className="h-11 rounded-lg border-slate-200 px-5 text-sm font-semibold hover:bg-slate-50"
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveProfile}
+                      disabled={isSaving}
+                      className="h-11 rounded-lg bg-[#155dfc] px-6 text-sm font-semibold shadow-sm hover:bg-blue-700"
+                    >
+                      {isSaving ? (
                         <>
-                            <Loader2 className="animate-spin h-6 w-6 mr-3" />
-                            Saving...
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
                         </>
-                    ) : "Save Changes"}
-                  </Button>
-                </div>
-              )}
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <TabsContent value="security" className="outline-none">
           <PasswordChangeCard userId={passwordUserId} onForgotPassword={onLogout} />
         </TabsContent>
 
-        <TabsContent value="appearance" className="outline-none animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <TabsContent value="appearance" className="outline-none">
           <ThemeToggle />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ProfileField({ htmlFor, label, icon, children, className = "" }) {
+  return (
+    <div className={`min-w-0 space-y-2 ${className}`}>
+      <Label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700">
+        {icon}
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function ReadOnlyValue({ value }) {
+  return (
+    <div className="flex h-11 min-w-0 items-center rounded-lg border border-slate-200 bg-white px-4 text-base font-semibold text-slate-950 md:text-sm">
+      {value || "Not set"}
     </div>
   );
 }

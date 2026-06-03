@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { formatDisplayDateTime } from "../../lib/date";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 export default function VideoConsultation() {
   const { consultationId } = useParams();

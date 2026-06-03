@@ -9,6 +9,7 @@ import {
     Plus,
     Save,
     Stethoscope,
+    Syringe,
     Trash2,
     Upload,
     X
@@ -24,7 +25,7 @@ import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 
 const MEDICINE_OPTIONS = [
@@ -62,6 +63,15 @@ const emptyDiagnosisForm = {
         weight: ''
     },
     prescription: []
+};
+
+const emptyVaccinationRecord = {
+    vaccineName: '',
+    dateAdministered: '',
+    nextDueDate: '',
+    veterinarianName: '',
+    veterinarianLicense: '',
+    notes: ''
 };
 
 function createId() {
@@ -225,7 +235,7 @@ function buildSourceUploads(context) {
 }
 
 function buildInitialChiefComplaint(context) {
-    const complaint = String(context.complaint || '').trim();
+    const complaint = removeBookingMarker(context.complaint);
     const bookingNotes = String(context.bookingNotes || '').trim();
     const parts = [];
 
@@ -248,6 +258,18 @@ function normalizeContextValue(value) {
 function extractBookingNumber(complaint) {
     const match = String(complaint || '').match(/\[Booking:\s*([^\]]+)\]/);
     return match ? match[1].trim() : '';
+}
+
+function removeBookingMarker(complaint) {
+    return String(complaint || '').replace(/\[Booking:\s*[^\]]+\]\s*/g, '').trim();
+}
+
+function isVaccinationService(serviceName) {
+    return /vaccin/i.test(String(serviceName || ''));
+}
+
+function hasVaccinationRecordContent(record) {
+    return Object.values(record || {}).some(value => String(value || '').trim() !== '');
 }
 
 function mergeQueueContext(baseContext, queueItem) {
@@ -328,10 +350,12 @@ export default function VetDiagnosis() {
     const currentUser = useMemo(() => dashboardUser || getStoredUser(), [dashboardUser]);
     const veterinarianUserId = getUserId(currentUser);
     const veterinarianName = getUserName(currentUser);
+    const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
     const generalFileInputRef = useRef(null);
     const initialContext = useMemo(readDiagnosisContext, []);
     const [context, setContext] = useState(initialContext);
     const sourceUploads = useMemo(() => buildSourceUploads(context), [context]);
+    const contextIsVaccination = useMemo(() => isVaccinationService(context.serviceName), [context.serviceName]);
 
     const [diagnosisType, setDiagnosisType] = useState('general');
     const [formData, setFormData] = useState(() => ({
@@ -347,6 +371,12 @@ export default function VetDiagnosis() {
     const [schemaWarning, setSchemaWarning] = useState('');
     const [previewImage, setPreviewImage] = useState(null);
     const [isLoadingContext, setIsLoadingContext] = useState(Boolean(initialContext.queueId || initialContext.bookingId || initialContext.bookingNumber));
+    const [shouldRecordVaccination, setShouldRecordVaccination] = useState(() => isVaccinationService(initialContext.serviceName));
+    const [vaccinationRecord, setVaccinationRecord] = useState(() => ({
+        ...emptyVaccinationRecord,
+        veterinarianName,
+        veterinarianLicense: currentUser?.licenseNumber || currentUser?.prc_license_number || ''
+    }));
 
     const hydrateDiagnosisRecord = useCallback((record) => {
         setLoadedDiagnosisId(record.diagnosisId || record.id || null);
@@ -392,7 +422,53 @@ export default function VetDiagnosis() {
             }))
             : [createCustomSection(context.serviceName)]
         );
-    }, [context]);
+
+        if (record.vaccinationRecord) {
+            setShouldRecordVaccination(true);
+            setVaccinationRecord({
+                ...emptyVaccinationRecord,
+                vaccineName: record.vaccinationRecord.vaccineName || record.vaccinationRecord.name || '',
+                dateAdministered: record.vaccinationRecord.dateAdministered || record.vaccinationRecord.date || '',
+                nextDueDate: record.vaccinationRecord.nextDueDate || record.vaccinationRecord.nextDue || '',
+                veterinarianName: record.vaccinationRecord.veterinarianName || record.vaccinationRecord.applicator || veterinarianName,
+                veterinarianLicense: record.vaccinationRecord.veterinarianLicense || veterinarianLicense,
+                notes: record.vaccinationRecord.notes || ''
+            });
+        }
+    }, [context, veterinarianLicense, veterinarianName]);
+
+    useEffect(() => {
+        const loadVetProfile = async () => {
+            if (!veterinarianUserId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/profile?userId=${veterinarianUserId}&role=${encodeURIComponent(currentUser?.role || 'Veterinarian')}`);
+                const data = await response.json().catch(() => ({}));
+
+                if (response.ok) {
+                    setVeterinarianLicense(data.prc_license_number || data.licenseNumber || '');
+                }
+            } catch {
+                setVeterinarianLicense(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
+            }
+        };
+
+        loadVetProfile();
+    }, [currentUser, veterinarianUserId]);
+
+    useEffect(() => {
+        setVaccinationRecord(current => ({
+            ...current,
+            veterinarianName: current.veterinarianName || veterinarianName,
+            veterinarianLicense: current.veterinarianLicense || veterinarianLicense
+        }));
+    }, [veterinarianLicense, veterinarianName]);
+
+    useEffect(() => {
+        if (contextIsVaccination && !loadedDiagnosisId) {
+            setShouldRecordVaccination(true);
+        }
+    }, [contextIsVaccination, loadedDiagnosisId]);
 
     useEffect(() => {
         if (!initialContext.queueId && !initialContext.bookingId && !initialContext.bookingNumber) {
@@ -761,6 +837,12 @@ export default function VetDiagnosis() {
             return;
         }
 
+        const shouldSaveVaccinationRecord = shouldRecordVaccination || hasVaccinationRecordContent(vaccinationRecord);
+        if (shouldSaveVaccinationRecord && (!vaccinationRecord.vaccineName.trim() || !vaccinationRecord.dateAdministered || !vaccinationRecord.nextDueDate)) {
+            toast.error('Vaccine name, date administered, and next due date are required for vaccination records.');
+            return;
+        }
+
         setIsSaving(true);
 
         try {
@@ -792,7 +874,14 @@ export default function VetDiagnosis() {
                     prescriptions: formData.prescription.map(cleanPrescription),
                     custom_sections: customSections,
                     attachments,
-                    source_uploads: sourceUploads
+                    source_uploads: sourceUploads,
+                    vaccination_record: shouldSaveVaccinationRecord
+                        ? {
+                            ...vaccinationRecord,
+                            veterinarianName: vaccinationRecord.veterinarianName || veterinarianName,
+                            veterinarianLicense: vaccinationRecord.veterinarianLicense || veterinarianLicense
+                        }
+                        : null
                 })
             });
             const data = await response.json().catch(() => ({}));
@@ -917,6 +1006,14 @@ export default function VetDiagnosis() {
                 />
             )}
 
+            <VaccinationRecordSection
+                enabled={shouldRecordVaccination}
+                setEnabled={setShouldRecordVaccination}
+                record={vaccinationRecord}
+                setRecord={setVaccinationRecord}
+                suggested={contextIsVaccination}
+            />
+
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -974,6 +1071,82 @@ export default function VetDiagnosis() {
     );
 }
 
+function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, suggested }) {
+    const updateRecord = (field, value) => {
+        setRecord(current => ({ ...current, [field]: value }));
+    };
+
+    return (
+        <section className={`rounded-xl border p-5 shadow-sm ${enabled ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white'}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Syringe className="size-5 text-[#155dfc]" />
+                        <h3 className="text-lg font-bold text-slate-900">Vaccination Record</h3>
+                        {suggested && (
+                            <Badge className="border-0 bg-blue-100 text-blue-700">Suggested for this service</Badge>
+                        )}
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                        Records saved here are added to the pet information vaccination section when diagnosis is saved.
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant={enabled ? 'default' : 'outline'}
+                    onClick={() => setEnabled(current => !current)}
+                    className={enabled ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
+                >
+                    {enabled ? 'Recording' : 'Record Vaccine'}
+                </Button>
+            </div>
+
+            {enabled && (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <InputBlock
+                        label="Vaccine Name"
+                        value={record.vaccineName}
+                        placeholder="Example: Rabies, 5-in-1, DHPP"
+                        onChange={(value) => updateRecord('vaccineName', value)}
+                    />
+                    <InputBlock
+                        label="Date Administered"
+                        type="date"
+                        value={record.dateAdministered}
+                        onChange={(value) => updateRecord('dateAdministered', value)}
+                    />
+                    <InputBlock
+                        label="Next Due Date"
+                        type="date"
+                        value={record.nextDueDate}
+                        onChange={(value) => updateRecord('nextDueDate', value)}
+                    />
+                    <InputBlock
+                        label="Veterinarian"
+                        value={record.veterinarianName}
+                        placeholder="Dr. Name"
+                        onChange={(value) => updateRecord('veterinarianName', value)}
+                    />
+                    <InputBlock
+                        label="License Number"
+                        value={record.veterinarianLicense}
+                        placeholder="PRC license number"
+                        onChange={(value) => updateRecord('veterinarianLicense', value)}
+                    />
+                    <Field label="Vaccination Notes">
+                        <Textarea
+                            value={record.notes}
+                            onChange={(event) => updateRecord('notes', event.target.value)}
+                            placeholder="Reaction notes, batch details, reminders, or owner instructions"
+                            className="min-h-20 bg-white"
+                        />
+                    </Field>
+                </div>
+            )}
+        </section>
+    );
+}
+
 function DiagnosisContextSidebar({ context, sourceUploads, onPreview }) {
     return (
         <Sheet>
@@ -1028,7 +1201,7 @@ function DiagnosisContextSidebar({ context, sourceUploads, onPreview }) {
                                 <SheetDetail label="Service" value={context.serviceName} />
                                 <SheetDetail label="Queue Number" value={context.queueNumber ? `#${context.queueNumber}` : ''} />
                                 <SheetDetail label="Booking Number" value={context.bookingNumber} />
-                                <SheetDetail label="Complaint" value={context.complaint} />
+                                <SheetDetail label="Complaint" value={removeBookingMarker(context.complaint)} />
                                 <SheetDetail label="Booking Notes" value={context.bookingNotes} />
                             </div>
                         </section>

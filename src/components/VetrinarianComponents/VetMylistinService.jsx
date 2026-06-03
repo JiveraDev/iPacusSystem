@@ -28,7 +28,7 @@ import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
 import { createConsentDocumentImage } from '../shared/consentDocumentImage.js';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
 const FALLBACK_CONSENT_FORMS = [
@@ -85,6 +85,24 @@ function isPastQueueDate(value) {
     today.setHours(0, 0, 0, 0);
 
     return queueDate < today;
+}
+
+function isCurrentDate(value) {
+    if (!value) return false;
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return false;
+    }
+
+    const today = new Date();
+
+    return (
+        date.getFullYear() === today.getFullYear()
+        && date.getMonth() === today.getMonth()
+        && date.getDate() === today.getDate()
+    );
 }
 
 function ownerName(item) {
@@ -288,6 +306,7 @@ export default function VetMyList() {
     const completedItems = useMemo(() => {
         return assignedQueue
             .filter(isCompleted)
+            .filter(item => isCurrentDate(item.completed_at || item.timestamp))
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     }, [assignedQueue]);
 

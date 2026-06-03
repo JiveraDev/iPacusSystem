@@ -6,7 +6,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { KeyRound, Loader2 } from 'lucide-react';
 import PasswordInput from './PasswordInput.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 export default function PasswordChangeCard({ userId, onForgotPassword }) {
     const [form, setForm] = useState({

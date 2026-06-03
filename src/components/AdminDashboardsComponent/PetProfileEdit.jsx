@@ -6,10 +6,10 @@ import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { 
   ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, 
-  Loader2, Copy, Check, Camera, Edit2, Save, X, Plus, Trash2 
+  Loader2, Copy, Check, Camera, Edit2, Save, X, Plus, Trash2, User, CalendarClock
 } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
@@ -20,7 +20,7 @@ import { findPetService } from "../../services/findPet";
 export default function PetProfileEdit() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function PetProfileEdit() {
   // Medical record dialog states
   const [showAddVax, setShowAddVax] = useState(false);
   const [showAddAllergy, setShowAddAllergy] = useState(false);
-  const [newVax, setNewVax] = useState({ name: "", date: "", nextDue: "", applicator: "", status: "completed" });
+  const [newVax, setNewVax] = useState({ name: "", date: "", nextDue: "", applicator: "", veterinarianLicense: "", notes: "", status: "completed" });
   const [newAllergy, setNewAllergy] = useState({ allergen: "", severity: "Known" });
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function PetProfileEdit() {
       if (data.success) {
         setVaccinations(prev => [{ ...newVax, id: data.id }, ...prev]);
         setShowAddVax(false);
-        setNewVax({ name: "", date: "", nextDue: "", applicator: "", status: "completed" });
+        setNewVax({ name: "", date: "", nextDue: "", applicator: "", veterinarianLicense: "", notes: "", status: "completed" });
         toast.success("Vaccination record added");
       }
     } catch {
@@ -384,61 +384,13 @@ export default function PetProfileEdit() {
 
         {/* Right Column: Immunization Records */}
         <div className="lg:col-span-2 space-y-8">
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <Syringe className="h-6 w-6 text-[#155dfc]" />
-                Immunization Records
-              </CardTitle>
-              <Button onClick={() => setShowAddVax(true)} className="bg-[#155dfc] rounded-xl h-10 px-4 font-bold shadow-md">
-                <Plus className="h-4 w-4 mr-2" /> Add Record
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isMedicalLoading ? (
-                <div className="p-12 text-center text-slate-400"><Loader2 className="animate-spin h-8 w-8 mx-auto mb-2" /> Loading records...</div>
-              ) : vaccinations.length > 0 ? (
-                <div className="divide-y divide-slate-100">
-                  {vaccinations.map((vax) => (
-                    <div key={vax.id} className="p-6 sm:p-8 hover:bg-slate-50 transition-colors group relative">
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
-                        <div>
-                          <h4 className="font-black text-slate-900 text-xl tracking-tight mb-1">{vax.name}</h4>
-                          <div className="flex items-center gap-2 text-slate-400 text-sm">
-                            <User className="h-3 w-3" />
-                            <span className="font-medium">Admin: {vax.applicator}</span>
-                          </div>
-                        </div>
-                        <Badge className={`px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest border-2 ${
-                            vax.status === 'completed' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-                        }`}>
-                          {vax.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-8 border-t border-slate-100 pt-4">
-                        <div>
-                          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Last Date</p>
-                          <p className="font-bold text-slate-700">{formatDisplayDate(vax.date)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[#155dfc] text-[10px] font-black uppercase tracking-widest mb-1">Booster Due</p>
-                          <p className="font-bold text-[#155dfc]">{formatDisplayDate(vax.nextDue)}</p>
-                        </div>
-                      </div>
-                      <Button onClick={() => handleDeleteVaccination(vax.id)} variant="ghost" className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-4 py-20 text-center">
-                  <Syringe className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-medium">No immunization records for this pet.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <VaccinationRecordsPanel
+            vaccinations={vaccinations}
+            isLoading={isMedicalLoading}
+            onAdd={() => setShowAddVax(true)}
+            onDelete={handleDeleteVaccination}
+            canEdit
+          />
         </div>
       </div>
 
@@ -464,6 +416,14 @@ export default function PetProfileEdit() {
             <div className="space-y-2">
               <Label>Administrator / Veterinarian</Label>
               <Input value={newVax.applicator} onChange={e => setNewVax({...newVax, applicator: e.target.value})} placeholder="Dr. Name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Veterinarian License Number</Label>
+              <Input value={newVax.veterinarianLicense} onChange={e => setNewVax({...newVax, veterinarianLicense: e.target.value})} placeholder="PRC license number" />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Input value={newVax.notes} onChange={e => setNewVax({...newVax, notes: e.target.value})} placeholder="Reaction notes, batch details, or reminders" />
             </div>
           </div>
           <DialogFooter>
@@ -501,6 +461,97 @@ export default function PetProfileEdit() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, canEdit = false }) {
+  return (
+    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-blue-100 bg-blue-50/50 px-6 py-4">
+        <CardTitle className="flex items-center gap-3 text-xl font-black text-slate-800">
+          <Syringe className="h-6 w-6 text-[#155dfc]" />
+          Vaccination
+        </CardTitle>
+        {canEdit && (
+          <Button onClick={onAdd} className="h-10 rounded-xl bg-[#155dfc] px-4 font-bold shadow-md hover:bg-blue-700">
+            <Plus className="h-4 w-4 mr-2" /> Add Record
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-12 text-center text-slate-400">
+            <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin" />
+            Loading records...
+          </div>
+        ) : vaccinations.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {vaccinations.map((vax) => (
+              <div key={vax.id} className="group relative p-5 transition-colors hover:bg-slate-50 sm:p-7">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Vaccine Name</p>
+                    <h4 className="mt-1 break-words text-2xl font-black tracking-tight text-slate-900">{vax.name || 'Unnamed vaccine'}</h4>
+                  </div>
+                  <Badge className={`w-fit rounded-full border-2 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                    vax.status === 'completed' ? 'border-green-100 bg-green-50 text-green-700' : 'border-amber-100 bg-amber-50 text-amber-700'
+                  }`}>
+                    {vax.status || 'completed'}
+                  </Badge>
+                </div>
+
+                <div className="mt-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+                  <VaxInfo icon={CalendarClock} label="Date Administered" value={formatDisplayDate(vax.date)} />
+                  <VaxInfo icon={CalendarClock} label="Next Due Date" value={formatDisplayDate(vax.nextDue)} highlight />
+                  <VaxInfo
+                    icon={User}
+                    label="Veterinarian"
+                    value={vax.applicator || vax.veterinarianName || vax.veterinarian || 'N/A'}
+                  />
+                  <VaxInfo label="License Number" value={vax.veterinarianLicense || vax.licenseNumber || 'N/A'} />
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-100 bg-white p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Notes</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700">
+                    {vax.notes || <span className="text-slate-300">No vaccination notes recorded.</span>}
+                  </p>
+                </div>
+
+                {canEdit && (
+                  <Button
+                    onClick={() => onDelete(vax.id)}
+                    variant="ghost"
+                    className="absolute right-4 top-4 text-slate-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-20 text-center">
+            <Syringe className="mx-auto mb-4 h-12 w-12 text-slate-200" />
+            <p className="font-medium text-slate-400">No vaccination records for this pet.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VaxInfo({ icon, label, value, highlight = false }) {
+  const Icon = icon;
+
+  return (
+    <div className="min-w-0">
+      <p className={`text-[10px] font-black uppercase tracking-widest ${highlight ? 'text-[#155dfc]' : 'text-slate-400'}`}>{label}</p>
+      <div className={`mt-2 flex items-start gap-2 text-sm font-bold ${highlight ? 'text-[#155dfc]' : 'text-slate-700'}`}>
+        {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0" />}
+        <span className="break-words">{value || <span className="text-slate-300">N/A</span>}</span>
+      </div>
     </div>
   );
 }

@@ -21,6 +21,31 @@ function parseConsultDateTime(consultation) {
   return Number.isNaN(consultDate.getTime()) ? null : consultDate;
 }
 
+function parseCreatedAt(consultation) {
+  const createdDate = consultation?.createdAt ? new Date(String(consultation.createdAt).replace(" ", "T")) : null;
+  return createdDate && !Number.isNaN(createdDate.getTime()) ? createdDate : null;
+}
+
+function sortConsultationsNewestFirst(left, right) {
+  const leftDate = parseConsultDateTime(left);
+  const rightDate = parseConsultDateTime(right);
+  const dateDifference = (rightDate?.getTime() || 0) - (leftDate?.getTime() || 0);
+
+  if (dateDifference !== 0) {
+    return dateDifference;
+  }
+
+  const leftCreatedAt = parseCreatedAt(left);
+  const rightCreatedAt = parseCreatedAt(right);
+  const createdDifference = (rightCreatedAt?.getTime() || 0) - (leftCreatedAt?.getTime() || 0);
+
+  if (createdDifference !== 0) {
+    return createdDifference;
+  }
+
+  return Number(right?.id || 0) - Number(left?.id || 0);
+}
+
 function isWithinConsultDisplayWindow(consultation) {
   const consultDate = parseConsultDateTime(consultation);
   if (!consultDate) {
@@ -63,12 +88,7 @@ export default function Consult() {
 
       const upcoming = consultations
         .filter(isWithinConsultDisplayWindow)
-        .sort((left, right) => {
-          const leftDate = parseConsultDateTime(left);
-          const rightDate = parseConsultDateTime(right);
-
-          return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
-        });
+        .sort(sortConsultationsNewestFirst);
 
       setUpcomingConsultations(upcoming);
     } catch (error) {

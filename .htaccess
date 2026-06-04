@@ -1,0 +1,16 @@
+<Files ".env">
+      Require all denied
+  </Files>
+
+  <IfModule mod_rewrite.c>
+      RewriteEngine On
+
+      RewriteRule ^php/ - [L]
+
+      RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+      RewriteRule ^(uploads|pet_profile_images|signatures|payments|concerns|diagnosis|boarding_documents|inventory_items|inventory_receipts)/(.+)$ public/$1/$2 [L]
+
+      RewriteCond %{REQUEST_FILENAME} !-f
+      RewriteCond %{REQUEST_FILENAME} !-d
+      RewriteRule . /index.html [L]
+  </IfModule>

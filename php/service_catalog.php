@@ -352,6 +352,8 @@ if ($method === 'GET') {
     service_catalog_list($pdo);
 } elseif ($method === 'POST' && $action === 'materials') {
     service_catalog_save_materials($pdo, (int)$serviceId);
+} elseif ($method === 'POST' && $serviceId !== null && $serviceId > 0) {
+    service_catalog_save($pdo, (int)$serviceId);
 } elseif ($method === 'POST') {
     service_catalog_save($pdo);
 } elseif ($method === 'PATCH') {

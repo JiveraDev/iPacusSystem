@@ -1,68 +1,31 @@
-# Hostinger deploy branch
-# This branch should match public_html, not the development project.
-
-# Ignore everything by default.
-/*
-
-# Keep Git and Hostinger routing/config files.
-!/.gitignore
-!/.htaccess
-
-# Keep the Vite build files copied from dist/.
-!/index.html
-!/favicon.svg
-!/icons.svg
-!/assets/
-!/assets/**
-
-# Keep static upload folders copied from dist/ when they contain existing files.
-!/uploads/
-!/uploads/**
-!/payments/
-!/payments/**
-!/concerns/
-!/concerns/**
-!/signatures/
-!/signatures/**
-!/pet_profile_images/
-!/pet_profile_images/**
-!/diagnosis/
-!/diagnosis/**
-!/boarding_documents/
-!/boarding_documents/**
-!/inventory_items/
-!/inventory_items/**
-!/inventory_receipts/
-!/inventory_receipts/**
-
-# Keep the PHP API.
-!/php/
-!/php/**
-
-# Never deploy secrets or local Hostinger-generated files.
-.env
-.env.*
-default.php
-
-# Never deploy local tooling, source, logs, or database dumps from this branch.
-node_modules/
-src/
-dist/
-DDL/
-docs/
-.idea/
-.junie/
-.codex/
-.agents/
+# Logs
+logs
 *.log
-*.err
-*.sql
-package.json
-package-lock.json
-vite.config.js
-eslint.config.js
-postcss.config.js
-tailwind.config.js
-README.md
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+
+node_modules
+dist
+dist-ssr
+*.local
 GEMINI.md
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
+    #*.sql
+
+
 

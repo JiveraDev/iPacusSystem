@@ -132,8 +132,10 @@ export default function ServiceCatalogManagement() {
                 if (currentId === 'new') return currentId;
                 const refreshed = nextServices.find((service) => String(service.serviceId) === String(currentId));
                 if (refreshed) {
-                    setServiceForm(serviceToForm(refreshed));
-                    setMaterials(refreshed.materials || []);
+                    if (!isServiceModalOpen && !isSaving) {
+                        setServiceForm(serviceToForm(refreshed));
+                        setMaterials(refreshed.materials || []);
+                    }
                     return currentId;
                 }
                 return 'new';
@@ -273,7 +275,7 @@ export default function ServiceCatalogManagement() {
         try {
             const isNew = selectedServiceId === 'new';
             const serviceResponse = await fetch(`${API_BASE}/service-catalog${isNew ? '' : `/${selectedServiceId}`}`, {
-                method: isNew ? 'POST' : 'PATCH',
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     serviceCode: serviceForm.serviceCode,

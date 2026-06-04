@@ -24,13 +24,13 @@ export async function findPetService(petId) {
                 const errorData = await response.json();
                 // Try to get a specific error message from the backend
                 errorMessage = errorData.message || (errorData.errors ? Object.values(errorData.errors).flat()[0] : errorMessage);
-            } catch (e) {
+            } catch {
                 // If it's not JSON, try text
                 try {
                     const textError = await response.text();
                     console.error('Server returned non-JSON error:', textError);
                     errorMessage = textError || errorMessage; // Use text error if available
-                } catch (textErr) {
+                } catch {
                     console.error('Could not read error response');
                 }
             }

@@ -634,6 +634,8 @@ export default function VetMyList() {
     };
 
     const cacheDiagnosisContext = (item, mode = 'edit') => {
+        const consentRecord = getConsentRecord(item);
+
         try {
             sessionStorage.setItem('ipawcus-vet-diagnosis-context', JSON.stringify({
                 mode,
@@ -652,6 +654,7 @@ export default function VetMyList() {
                 petAllergies: item.pet_allergies || '',
                 petColor: item.pet_color_marking || '',
                 petProfileImage: item.setpetImage_url || '',
+                ownerUserId: item.user_id ? String(item.user_id) : '',
                 ownerName: ownerName(item),
                 ownerPhone: item.contactNumber || '',
                 ownerAddress: item.address || '',
@@ -666,7 +669,10 @@ export default function VetMyList() {
                 bookingSignaturePath: item.booking_signature_path || '',
                 queueImagePath: item.image_path || '',
                 queueSignaturePath: item.signiture_self_service_path || '',
-                assignmentId: item.assignment_id ? String(item.assignment_id) : ''
+                assignmentId: item.assignment_id ? String(item.assignment_id) : '',
+                signedConsentDocumentPath: consentRecord?.signedDocumentPath || '',
+                physicalConsentPath: consentRecord?.physicalConsentPath || '',
+                physicalConsentPreview: consentRecord?.physicalConsentPreview || ''
             }));
         } catch {
             // Diagnosis can still open without cached context; the page has safe fallbacks.

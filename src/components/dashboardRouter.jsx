@@ -62,6 +62,7 @@ const routePatterns = [
   { pattern: "/dashboard/boarding", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/queue", allowedRoles:  ALL_ROLES},
   { pattern: "/dashboard/pos", allowedRoles: ADMIN_ROLES },
+  { pattern: "/dashboard/service-catalog", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/self-service-queue", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/vet/approved-queue", allowedRoles: VETERINARIAN_ROLES },

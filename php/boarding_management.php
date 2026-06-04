@@ -949,6 +949,209 @@ function fetch_assignment_for_monitoring(PDO $pdo, array $input): array
     return $assignment;
 }
 
+function boarding_documents_schema_ready(PDO $pdo): bool
+{
+    return boarding_table_exists($pdo, 'boarding_documents');
+}
+
+function boarding_document_missing_message(): string
+{
+    return 'Boarding document schema is missing. Run DDL/visit_service_payment_migration_20260604.sql first.';
+}
+
+function boarding_document_nullable_text($value): ?string
+{
+    $text = trim((string)($value ?? ''));
+    return $text === '' ? null : $text;
+}
+
+function boarding_fetch_document_subject(PDO $pdo, array $input): array
+{
+    $assignmentId = isset($input['assignment_id']) ? (int)$input['assignment_id'] : 0;
+    $bookingId = isset($input['booking_id']) ? (int)$input['booking_id'] : 0;
+
+    if ($assignmentId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT
+                ba.assignment_id,
+                ba.booking_id,
+                b.pet_id
+            FROM boarding_assignments ba
+            JOIN bookings b ON b.booking_id = ba.booking_id
+            WHERE ba.assignment_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$assignmentId]);
+        $subject = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($subject) {
+            return $subject;
+        }
+    }
+
+    if ($bookingId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT
+                ba.assignment_id,
+                b.booking_id,
+                b.pet_id
+            FROM bookings b
+            LEFT JOIN boarding_assignments ba ON ba.booking_id = b.booking_id
+            WHERE b.booking_id = ?
+            ORDER BY ba.assignment_id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$bookingId]);
+        $subject = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($subject) {
+            return $subject;
+        }
+    }
+
+    boarding_error(404, 'Boarding booking or assignment was not found.');
+}
+
+function boarding_format_document(array $document): array
+{
+    return [
+        'documentId' => (int)$document['document_id'],
+        'assignmentId' => $document['assignment_id'] !== null ? (int)$document['assignment_id'] : null,
+        'bookingId' => (int)$document['booking_id'],
+        'bookingNumber' => $document['booking_number'] ?? '',
+        'petId' => $document['pet_id'] !== null ? (int)$document['pet_id'] : null,
+        'petName' => $document['pet_name'] ?? 'Pet',
+        'ownerName' => trim((string)($document['owner_name'] ?? '')),
+        'documentType' => $document['document_type'],
+        'title' => $document['title'],
+        'documentPath' => $document['document_path'],
+        'url' => '/' . ltrim((string)$document['document_path'], '/'),
+        'fileName' => $document['file_name'] ?? '',
+        'mimeType' => $document['mime_type'] ?? '',
+        'notes' => $document['notes'] ?? '',
+        'uploadedByUserId' => $document['uploaded_by_user_id'] !== null ? (int)$document['uploaded_by_user_id'] : null,
+        'uploadedByName' => $document['uploaded_by_name'] ?? '',
+        'createdAt' => $document['created_at'],
+    ];
+}
+
+function boarding_fetch_documents(PDO $pdo, array $filters = []): array
+{
+    if (!boarding_documents_schema_ready($pdo)) {
+        return [];
+    }
+
+    $conditions = [];
+    $params = [];
+    foreach ([
+        ['assignment_id', 'bd.assignment_id'],
+        ['booking_id', 'bd.booking_id'],
+        ['pet_id', 'bd.pet_id'],
+    ] as [$key, $column]) {
+        if (isset($filters[$key]) && $filters[$key] !== '' && $filters[$key] !== null) {
+            $conditions[] = "{$column} = ?";
+            $params[] = (int)$filters[$key];
+        }
+    }
+
+    $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+    $stmt = $pdo->prepare("
+        SELECT
+            bd.*,
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+            CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name
+        FROM boarding_documents bd
+        JOIN bookings b ON b.booking_id = bd.booking_id
+        LEFT JOIN pets_information p ON p.pet_id = bd.pet_id
+        JOIN users u ON u.user_id = b.user_id
+        {$whereSql}
+        ORDER BY bd.created_at DESC, bd.document_id DESC
+        LIMIT 200
+    ");
+    $stmt->execute($params);
+
+    return array_map('boarding_format_document', $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function boarding_documents_action(PDO $pdo): void
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (!boarding_documents_schema_ready($pdo)) {
+            echo json_encode([
+                'schemaReady' => false,
+                'message' => boarding_document_missing_message(),
+                'documents' => []
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            'schemaReady' => true,
+            'documents' => boarding_fetch_documents($pdo, [
+                'assignment_id' => $_GET['assignmentId'] ?? $_GET['assignment_id'] ?? null,
+                'booking_id' => $_GET['bookingId'] ?? $_GET['booking_id'] ?? null,
+                'pet_id' => $_GET['petId'] ?? $_GET['pet_id'] ?? null,
+            ])
+        ]);
+        return;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        boarding_error(405, 'Method not allowed.');
+    }
+
+    if (!boarding_documents_schema_ready($pdo)) {
+        boarding_error(409, boarding_document_missing_message());
+    }
+
+    $input = boarding_json_input();
+    $documentPath = boarding_document_nullable_text($input['document_path'] ?? $input['documentPath'] ?? null);
+    $title = boarding_document_nullable_text($input['title'] ?? null);
+    if (!$documentPath || !$title) {
+        boarding_error(400, 'Document title and document_path are required.');
+    }
+
+    $allowedTypes = ['monitoring_report', 'boarding_history', 'checkout_summary', 'diagnosis_reference', 'other'];
+    $documentType = strtolower(trim((string)($input['document_type'] ?? $input['documentType'] ?? 'monitoring_report')));
+    if (!in_array($documentType, $allowedTypes, true)) {
+        $documentType = 'monitoring_report';
+    }
+
+    $subject = boarding_fetch_document_subject($pdo, $input);
+    $stmt = $pdo->prepare("
+        INSERT INTO boarding_documents (
+            assignment_id,
+            booking_id,
+            pet_id,
+            document_type,
+            title,
+            document_path,
+            file_name,
+            mime_type,
+            notes,
+            uploaded_by_user_id,
+            uploaded_by_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $subject['assignment_id'] !== null ? (int)$subject['assignment_id'] : null,
+        (int)$subject['booking_id'],
+        $subject['pet_id'] !== null ? (int)$subject['pet_id'] : null,
+        $documentType,
+        $title,
+        ltrim($documentPath, '/'),
+        boarding_document_nullable_text($input['file_name'] ?? $input['fileName'] ?? null),
+        boarding_document_nullable_text($input['mime_type'] ?? $input['mimeType'] ?? null),
+        boarding_document_nullable_text($input['notes'] ?? null),
+        isset($input['uploaded_by_user_id']) ? (int)$input['uploaded_by_user_id'] : (isset($input['uploadedByUserId']) ? (int)$input['uploadedByUserId'] : null),
+        boarding_document_nullable_text($input['uploaded_by_name'] ?? $input['uploadedByName'] ?? null),
+    ]);
+
+    echo json_encode([
+        'message' => 'Boarding document saved.',
+        'documentId' => (int)$pdo->lastInsertId()
+    ]);
+}
+
 function monitoring_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -1038,9 +1241,13 @@ function monitoring_action(PDO $pdo): void
         ];
     }, $observationsStmt->fetchAll(PDO::FETCH_ASSOC));
 
+    $documentSchemaReady = boarding_documents_schema_ready($pdo);
+
     echo json_encode([
         'tasks' => $tasks,
         'observations' => $observations,
+        'documentSchemaReady' => $documentSchemaReady,
+        'documents' => $documentSchemaReady ? boarding_fetch_documents($pdo) : [],
     ]);
 }
 
@@ -1202,6 +1409,9 @@ try {
             break;
         case 'monitoring':
             monitoring_action($pdo);
+            break;
+        case 'documents':
+            boarding_documents_action($pdo);
             break;
         case 'observation':
             observation_action($pdo);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Banknote,
@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   FlaskConical,
+  Loader2,
   Minus,
   Package,
   PawPrint,
@@ -34,9 +35,12 @@ import {
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const INVOICE_DATE = 'May 30, 2026';
 
 const CLASSIFICATIONS = [
@@ -579,6 +583,112 @@ function createPrefillVisit(prefill) {
   };
 }
 
+function cloneCharge(charge) {
+  return {
+    ...charge,
+    includedMaterials: (charge.includedMaterials || []).map((material) => ({ ...material })),
+    extraMaterials: (charge.extraMaterials || []).map((material) => ({ ...material })),
+  };
+}
+
+function getChargeClassification(chargeType) {
+  if (chargeType === 'diagnostic') {
+    return 'diagnostics';
+  }
+
+  if (chargeType === 'medication') {
+    return 'medications';
+  }
+
+  if (chargeType === 'retail_product') {
+    return 'products';
+  }
+
+  return 'services';
+}
+
+function createVisitCharge(charge, index = 0) {
+  const classificationId = getChargeClassification(charge.chargeType);
+  const classification = CLASSIFICATION_BY_ID[classificationId] || CLASSIFICATION_BY_ID.services;
+  const quantity = Number(charge.quantity);
+  const price = Number(charge.unitPrice);
+
+  return {
+    lineId: nextLineId(`visit-charge-${charge.chargeId || index + 1}`),
+    catalogId: charge.serviceId ? `service-${charge.serviceId}` : null,
+    classificationId,
+    receiptType: classification.receiptType,
+    name: charge.description || charge.serviceName || charge.itemName || 'Visit charge',
+    group: charge.serviceName || charge.itemName || 'Visit Billing',
+    quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+    price: Number.isFinite(price) && price >= 0 ? price : 0,
+    inventoryId: null,
+    includedMaterials: [],
+    extraMaterials: [],
+    visitChargeId: charge.chargeId || null,
+  };
+}
+
+function getVisitSourceLabel(visit) {
+  if (visit.queueNumber) {
+    return `Queue #${visit.queueNumber}`;
+  }
+
+  if (visit.bookingNumber) {
+    return `Booking ${visit.bookingNumber}`;
+  }
+
+  return `${visit.sourceType || 'manual'} visit`.replace(/_/g, ' ');
+}
+
+function formatVisitBillingStatus(status) {
+  const labels = {
+    unbilled: 'Unbilled',
+    unpaid: 'Unpaid',
+    partial: 'Partial',
+    paid: 'Paid',
+    refunded: 'Refunded',
+  };
+
+  return labels[status] || 'Ready for payment';
+}
+
+function createDatabaseVisit(visit) {
+  const charges = Array.isArray(visit.charges) ? visit.charges.map(createVisitCharge) : [];
+  const total = Number(visit.totals?.charges);
+  const paid = Number(visit.totals?.paid);
+  const balance = Number(visit.totals?.balance);
+
+  return {
+    id: `visit-${visit.visitId}`,
+    visitId: visit.visitId,
+    source: 'database',
+    petName: visit.petName || 'Patient',
+    ownerName: visit.ownerName || 'Pet Owner',
+    species: visit.petSpecies || 'Pet',
+    visitType: getVisitSourceLabel(visit),
+    veterinarian: visit.veterinarianName || 'Clinic Team',
+    complaint: charges[0]?.name || 'Diagnosis visit billing',
+    status: formatVisitBillingStatus(visit.billingStatus),
+    billingStatus: visit.billingStatus,
+    total: Number.isFinite(total) ? total : getInvoiceTotal(charges),
+    paid: Number.isFinite(paid) ? paid : 0,
+    balance: Number.isFinite(balance) ? balance : Math.max(0, getInvoiceTotal(charges)),
+    initialCharges: charges,
+  };
+}
+
+function getUserIdentifier(user) {
+  return user?.user_id || user?.userId || user?.id || null;
+}
+
+function getUserDisplayName(user) {
+  return [
+    user?.first_Name || user?.firstName || user?.first_name,
+    user?.last_Name || user?.lastName || user?.last_name,
+  ].filter(Boolean).join(' ').trim() || user?.name || user?.email || null;
+}
+
 function getAccentClasses(accent) {
   const classes = {
     blue: 'border-blue-100 bg-blue-50 text-blue-700',
@@ -616,7 +726,7 @@ function PaymentIcon({ method }) {
     return <CreditCard className="size-4" />;
   }
 
-  if (method === 'online') {
+  if (['gcash', 'maya', 'bank_transfer', 'other'].includes(method)) {
     return <FileText className="size-4" />;
   }
 
@@ -624,18 +734,22 @@ function PaymentIcon({ method }) {
 }
 
 export default function ServicePOS() {
+  const currentUser = useDashboardUser();
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const [visitBills, setVisitBills] = useState([]);
+  const [visitSchemaMessage, setVisitSchemaMessage] = useState('');
+  const [isLoadingVisits, setIsLoadingVisits] = useState(false);
+  const [isPostingPayment, setIsPostingPayment] = useState(false);
   const [posPrefill] = useState(() => readPosPrefill());
   const catalog = useMemo(() => buildCatalog(inventory), [inventory]);
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
+  const databaseVisitOptions = useMemo(() => visitBills.map(createDatabaseVisit), [visitBills]);
   const visitOptions = useMemo(() => {
-    if (!posPrefill?.visit) {
-      return SAMPLE_VISITS;
-    }
+    const prefillOptions = posPrefill?.visit ? [createPrefillVisit(posPrefill)] : [];
 
-    return [createPrefillVisit(posPrefill), ...SAMPLE_VISITS];
-  }, [posPrefill]);
+    return [...databaseVisitOptions, ...prefillOptions, ...SAMPLE_VISITS];
+  }, [databaseVisitOptions, posPrefill]);
   const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || SAMPLE_VISITS[0].id);
   const selectedVisit = visitOptions.find((visit) => visit.id === selectedVisitId) || visitOptions[0];
   const [charges, setCharges] = useState(() => (
@@ -661,6 +775,44 @@ export default function ServicePOS() {
   const [customMaterialId, setCustomMaterialId] = useState('');
   const [customMaterialQty, setCustomMaterialQty] = useState('1');
 
+  const loadVisitBills = useCallback(async ({ isAutoRefresh = false } = {}) => {
+    if (!API_BASE) {
+      return;
+    }
+
+    if (!isAutoRefresh) {
+      setIsLoadingVisits(true);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/visits`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || 'Failed to load visit bills.');
+      }
+
+      if (data.schemaReady === false) {
+        setVisitBills([]);
+        setVisitSchemaMessage(data.message || 'Visit billing schema is not ready.');
+        return;
+      }
+
+      setVisitBills(Array.isArray(data.visits) ? data.visits : []);
+      setVisitSchemaMessage('');
+    } catch (error) {
+      if (!isAutoRefresh) {
+        setVisitSchemaMessage(error.message || 'Failed to load visit bills.');
+      }
+    } finally {
+      if (!isAutoRefresh) {
+        setIsLoadingVisits(false);
+      }
+    }
+  }, []);
+
+  useAutoRefresh(loadVisitBills, { refreshKey: 'pos-visit-payments' });
+
   useEffect(() => {
     if (!posPrefill) {
       return;
@@ -671,6 +823,11 @@ export default function ServicePOS() {
 
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
+  const visitBalance = selectedVisit?.source === 'database' ? Number(selectedVisit.balance || 0) : invoiceTotal;
+  const canCreateInvoice = charges.length > 0
+    && stockProblems.length === 0
+    && !isPostingPayment
+    && (selectedVisit?.source !== 'database' || visitBalance > 0);
   const inventoryImpact = getInventoryImpact(charges, inventoryById);
   const selectedCharge = charges.find((charge) => charge.lineId === selectedChargeId);
   const materialOptions = inventory.filter((item) => item.category !== 'RETAIL');
@@ -685,9 +842,16 @@ export default function ServicePOS() {
   const handleVisitChange = (visitId) => {
     const nextVisit = visitOptions.find((visit) => visit.id === visitId) || visitOptions[0];
     const isPrefillVisit = posPrefill?.visit && visitId === createPrefillVisit(posPrefill).id;
-    const nextCharges = isPrefillVisit && Array.isArray(posPrefill?.charges)
-      ? posPrefill.charges.map(createPrefillCharge)
-      : createInitialCharges(catalogMap, nextVisit);
+    let nextCharges = [];
+
+    if (nextVisit?.source === 'database') {
+      nextCharges = (nextVisit.initialCharges || []).map(cloneCharge);
+    } else if (isPrefillVisit && Array.isArray(posPrefill?.charges)) {
+      nextCharges = posPrefill.charges.map(createPrefillCharge);
+    } else {
+      nextCharges = createInitialCharges(catalogMap, nextVisit);
+    }
+
     setSelectedVisitId(visitId);
     setCharges(nextCharges);
     setSelectedChargeId(nextCharges[0]?.lineId || '');
@@ -845,13 +1009,75 @@ export default function ServicePOS() {
       return;
     }
 
+    if (selectedVisit?.source === 'database' && visitBalance <= 0) {
+      setNotification('This visit has no remaining balance to invoice.');
+      return;
+    }
+
     setInvoiceOpen(true);
   };
 
-  const postPayment = () => {
+  const postPayment = async () => {
     const problems = getStockProblems(charges, inventoryById);
     if (problems.length > 0) {
       setNotification(problems[0]);
+      return;
+    }
+
+    if (selectedVisit?.source === 'database') {
+      if (!API_BASE || !selectedVisit.visitId) {
+        setNotification('Visit payment endpoint is not available.');
+        return;
+      }
+
+      const amountToPost = visitBalance > 0 ? visitBalance : invoiceTotal;
+      if (amountToPost <= 0) {
+        setNotification('This visit has no remaining balance to post.');
+        return;
+      }
+
+      const postedInvoiceNumber = invoiceNumber;
+      setIsPostingPayment(true);
+
+      try {
+        const response = await fetch(`${API_BASE}/visits/${selectedVisit.visitId}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: amountToPost,
+            payment_method: paymentMethod,
+            payment_status: 'verified',
+            reference_number: postedInvoiceNumber,
+            received_by_user_id: getUserIdentifier(currentUser),
+            received_by_name: getUserDisplayName(currentUser),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || data.success === false) {
+          throw new Error(data.message || 'Failed to post visit payment.');
+        }
+
+        if (data.visit) {
+          const updatedCharges = (data.visit.charges || []).map(createVisitCharge);
+          setVisitBills((currentBills) => [
+            data.visit,
+            ...currentBills.filter((visit) => visit.visitId !== data.visit.visitId),
+          ]);
+          setCharges(updatedCharges);
+          setSelectedChargeId(updatedCharges[0]?.lineId || '');
+        } else {
+          await loadVisitBills({ isAutoRefresh: true });
+        }
+
+        setInvoiceOpen(false);
+        setInvoiceNumber((current) => nextInvoiceNumber(current));
+        setNotification(`${postedInvoiceNumber} posted. Visit billing status was updated.`);
+      } catch (error) {
+        setNotification(error.message || 'Failed to post visit payment.');
+      } finally {
+        setIsPostingPayment(false);
+      }
       return;
     }
 
@@ -942,6 +1168,17 @@ export default function ServicePOS() {
         </div>
       )}
 
+      {(visitSchemaMessage || isLoadingVisits) && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+          {isLoadingVisits ? (
+            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+          ) : (
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          )}
+          <span>{isLoadingVisits ? 'Loading visit payments...' : visitSchemaMessage}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[310px_minmax(0,1fr)_390px]">
         <aside className="space-y-4">
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -959,7 +1196,7 @@ export default function ServicePOS() {
               <SelectContent>
                 {visitOptions.map((visit) => (
                   <SelectItem key={visit.id} value={visit.id}>
-                    {visit.id} - {visit.petName}
+                    {visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - {visit.petName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1228,7 +1465,10 @@ export default function ServicePOS() {
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="online">Online Payment</SelectItem>
+                  <SelectItem value="gcash">GCash</SelectItem>
+                  <SelectItem value="maya">Maya</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1237,14 +1477,27 @@ export default function ServicePOS() {
                 <span className="text-2xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
               </div>
 
+              {selectedVisit?.source === 'database' && (
+                <div className="mb-4 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Paid</span>
+                    <span>{formatPhpCurrency(selectedVisit.paid || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-900">
+                    <span>Balance</span>
+                    <span>{formatPhpCurrency(visitBalance)}</span>
+                  </div>
+                </div>
+              )}
+
               <Button
                 type="button"
                 onClick={openInvoice}
-                disabled={charges.length === 0 || stockProblems.length > 0}
+                disabled={!canCreateInvoice}
                 className="h-11 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 <FileText className="mr-2 size-5" />
-                Create Invoice Receipt
+                {isPostingPayment ? 'Posting Payment...' : 'Create Invoice Receipt'}
               </Button>
             </div>
           </section>
@@ -1398,9 +1651,18 @@ export default function ServicePOS() {
               <Printer className="mr-2 size-4" />
               Print Portable Receipt
             </Button>
-            <Button type="button" onClick={postPayment} className="bg-[#0c6a3c] text-white hover:bg-[#09522f]">
-              <CheckCircle2 className="mr-2 size-4" />
-              Post Payment
+            <Button
+              type="button"
+              onClick={postPayment}
+              disabled={!canCreateInvoice}
+              className="bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isPostingPayment ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 size-4" />
+              )}
+              {isPostingPayment ? 'Posting...' : 'Post Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

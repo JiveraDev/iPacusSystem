@@ -7,6 +7,7 @@ import {
     PanelRightOpen,
     Pill,
     Plus,
+    Receipt,
     Save,
     Stethoscope,
     Syringe,
@@ -24,26 +25,23 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
+import { formatPhpCurrency } from '../../lib/currency';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 
-const MEDICINE_OPTIONS = [
-    'Ambroxol',
-    'Amoxicillin',
-    'Carprofen',
-    'Cephalexin',
-    'Doxycycline',
-    'Enrofloxacin',
-    'Gabapentin',
-    'Ivermectin',
-    'Meloxicam',
-    'Metronidazole',
-    'Prednisone',
-    'Rimadyl',
-    'Tramadol',
-    'Vitamin B Complex',
-    'Other / Custom'
+const PRESCRIPTION_FREQUENCIES = [
+    { value: 'per day', label: 'Per day' },
+    { value: 'per week', label: 'Per week' },
+    { value: 'per month', label: 'Per month' },
+    { value: 'as needed', label: 'As needed' }
+];
+
+const PRESCRIPTION_DURATION_UNITS = [
+    { value: 'day', label: 'Day(s)' },
+    { value: 'week', label: 'Week(s)' },
+    { value: 'month', label: 'Month(s)' },
+    { value: 'as needed', label: 'As needed' }
 ];
 
 const emptyDiagnosisForm = {
@@ -81,7 +79,6 @@ function createId() {
 function createPrescriptionDraft() {
     return {
         medicine: '',
-        customMedicine: '',
         times: 1,
         frequency: 'per day',
         durationNumber: 1,
@@ -135,6 +132,7 @@ function readDiagnosisContext() {
         petAllergies: storedContext.petAllergies || '',
         petColor: storedContext.petColor || '',
         petProfileImage: storedContext.petProfileImage || '',
+        ownerUserId: storedContext.ownerUserId || '',
         ownerName: params.get('owner') || storedContext.ownerName || 'Unknown Owner',
         ownerPhone: storedContext.ownerPhone || '',
         ownerAddress: storedContext.ownerAddress || '',
@@ -146,7 +144,10 @@ function readDiagnosisContext() {
         queueImagePath: storedContext.queueImagePath || '',
         queueSignaturePath: storedContext.queueSignaturePath || '',
         bookingConcernPaths: storedContext.bookingConcernPaths || '',
-        bookingSignaturePath: storedContext.bookingSignaturePath || ''
+        bookingSignaturePath: storedContext.bookingSignaturePath || '',
+        signedConsentDocumentPath: storedContext.signedConsentDocumentPath || '',
+        physicalConsentPath: storedContext.physicalConsentPath || '',
+        physicalConsentPreview: storedContext.physicalConsentPreview || ''
     };
 }
 
@@ -221,9 +222,35 @@ function buildSourceUploads(context) {
     };
 
     appendPaths(context.queueImagePath, 'Queue complaint upload', 'queue');
-    appendPaths(context.queueSignaturePath, 'Queue signature', 'queue');
     appendPaths(context.bookingConcernPaths, 'Booking concern upload', 'booking');
-    appendPaths(context.bookingSignaturePath, 'Booking signature', 'booking');
+
+    const seen = new Set();
+    return uploads.filter(upload => {
+        const key = `${upload.label}:${upload.url}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function buildSignedConsentUploads(context) {
+    const uploads = [];
+    const appendPaths = (paths, label, source) => {
+        splitUploadPaths(paths).forEach((path, index) => {
+            uploads.push({
+                id: `${source}-${label}-${index}-${path}`,
+                label,
+                source,
+                name: pathFileName(path),
+                url: path
+            });
+        });
+    };
+
+    appendPaths(context.signedConsentDocumentPath, 'Signed consent document', 'consent');
+    appendPaths(context.physicalConsentPath || context.physicalConsentPreview, 'Physical consent image', 'consent');
+    appendPaths(context.queueSignaturePath, 'Queue signature', 'consent');
+    appendPaths(context.bookingSignaturePath, 'Booking signature', 'consent');
 
     const seen = new Set();
     return uploads.filter(upload => {
@@ -299,6 +326,7 @@ function mergeQueueContext(baseContext, queueItem) {
         petAllergies: queueItem.pet_allergies || baseContext.petAllergies || '',
         petColor: queueItem.pet_color_marking || baseContext.petColor || '',
         petProfileImage: queueItem.setpetImage_url || baseContext.petProfileImage || '',
+        ownerUserId: normalizeContextValue(queueItem.user_id || baseContext.ownerUserId),
         ownerName: queueItem.owner_name
             || [queueItem.first_Name, queueItem.last_Name].filter(Boolean).join(' ').trim()
             || baseContext.ownerName
@@ -313,21 +341,23 @@ function mergeQueueContext(baseContext, queueItem) {
         queueImagePath: queueItem.image_path || baseContext.queueImagePath || '',
         queueSignaturePath: queueItem.signiture_self_service_path || baseContext.queueSignaturePath || '',
         bookingConcernPaths: queueItem.booking_concern_paths || baseContext.bookingConcernPaths || '',
-        bookingSignaturePath: queueItem.booking_signature_path || baseContext.bookingSignaturePath || ''
+        bookingSignaturePath: queueItem.booking_signature_path || baseContext.bookingSignaturePath || '',
+        signedConsentDocumentPath: baseContext.signedConsentDocumentPath || '',
+        physicalConsentPath: baseContext.physicalConsentPath || '',
+        physicalConsentPreview: baseContext.physicalConsentPreview || ''
     };
 }
 
 function cleanPrescription(prescription) {
-    const medicine = prescription.medicine === 'Other / Custom'
-        ? prescription.customMedicine
-        : prescription.medicine;
+    const times = Number(prescription.times);
+    const durationNumber = Number(prescription.durationNumber);
 
     return {
         id: prescription.id || createId(),
-        medicine: medicine || prescription.medicine || '',
-        times: Number(prescription.times) || 1,
+        medicine: prescription.medicine || '',
+        times: Number.isFinite(times) && times >= 0 ? times : 1,
         frequency: prescription.frequency || 'per day',
-        durationNumber: Number(prescription.durationNumber) || 1,
+        durationNumber: Number.isFinite(durationNumber) && durationNumber >= 0 ? durationNumber : 0,
         durationUnit: prescription.durationUnit || 'week',
         instructions: prescription.instructions || ''
     };
@@ -340,7 +370,21 @@ function normalizeSavedAttachment(attachment) {
         url: attachment.url || attachment.relativeUrl || '',
         relativeUrl: attachment.relativeUrl || attachment.url || '',
         mimeType: attachment.mimeType || attachment.type || '',
-        uploadedAt: attachment.uploadedAt || ''
+        uploadedAt: attachment.uploadedAt || '',
+        category: attachment.category || attachment.attachmentCategory || 'diagnosis_upload'
+    };
+}
+
+function normalizeBoardingDocumentUpload(document) {
+    return {
+        id: `boarding-document-${document.documentId}`,
+        label: document.title || 'Boarding document',
+        source: 'boarding',
+        name: document.fileName || pathFileName(document.documentPath || document.url),
+        url: document.documentPath || document.url || '',
+        mimeType: document.mimeType || '',
+        bookingNumber: document.bookingNumber || '',
+        createdAt: document.createdAt || ''
     };
 }
 
@@ -352,10 +396,19 @@ export default function VetDiagnosis() {
     const veterinarianName = getUserName(currentUser);
     const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
     const generalFileInputRef = useRef(null);
+    const referenceFileInputRef = useRef(null);
     const initialContext = useMemo(readDiagnosisContext, []);
     const [context, setContext] = useState(initialContext);
     const sourceUploads = useMemo(() => buildSourceUploads(context), [context]);
+    const consentUploads = useMemo(() => buildSignedConsentUploads(context), [context]);
     const contextIsVaccination = useMemo(() => isVaccinationService(context.serviceName), [context.serviceName]);
+    const [boardingDocuments, setBoardingDocuments] = useState([]);
+    const boardingDocumentUploads = useMemo(() => boardingDocuments.map(normalizeBoardingDocumentUpload), [boardingDocuments]);
+    const allSourceUploads = useMemo(() => [
+        ...sourceUploads,
+        ...consentUploads,
+        ...boardingDocumentUploads
+    ], [boardingDocumentUploads, consentUploads, sourceUploads]);
 
     const [diagnosisType, setDiagnosisType] = useState('general');
     const [formData, setFormData] = useState(() => ({
@@ -377,6 +430,10 @@ export default function VetDiagnosis() {
         veterinarianName,
         veterinarianLicense: currentUser?.licenseNumber || currentUser?.prc_license_number || ''
     }));
+    const [serviceCatalog, setServiceCatalog] = useState([]);
+    const [selectedServiceId, setSelectedServiceId] = useState('');
+    const [visitCharges, setVisitCharges] = useState([]);
+    const [billingSchemaMessage, setBillingSchemaMessage] = useState('');
 
     const hydrateDiagnosisRecord = useCallback((record) => {
         setLoadedDiagnosisId(record.diagnosisId || record.id || null);
@@ -455,6 +512,74 @@ export default function VetDiagnosis() {
 
         loadVetProfile();
     }, [currentUser, veterinarianUserId]);
+
+    useEffect(() => {
+        let isActive = true;
+
+        const loadServiceCatalog = async () => {
+            try {
+                const response = await fetch(`${API_BASE}/service-catalog`);
+                const data = await response.json().catch(() => ({}));
+
+                if (!isActive) return;
+
+                if (data.schemaReady === false) {
+                    setBillingSchemaMessage(data.message || 'Service catalog migration is required before visit charges can be saved.');
+                    setServiceCatalog([]);
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to load service catalog.');
+                }
+
+                setBillingSchemaMessage('');
+                setServiceCatalog((Array.isArray(data.services) ? data.services : []).filter(service => service.isActive));
+            } catch (error) {
+                if (isActive) {
+                    setBillingSchemaMessage(error.message || 'Failed to load service catalog.');
+                }
+            }
+        };
+
+        loadServiceCatalog();
+
+        return () => {
+            isActive = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!context.petId) {
+            setBoardingDocuments([]);
+            return undefined;
+        }
+
+        let isActive = true;
+
+        const loadBoardingDocuments = async () => {
+            try {
+                const response = await fetch(`${API_BASE}/boarding/documents?petId=${encodeURIComponent(context.petId)}`);
+                const data = await response.json().catch(() => ({}));
+
+                if (!isActive) return;
+
+                if (response.ok && data.schemaReady !== false) {
+                    setBoardingDocuments(Array.isArray(data.documents) ? data.documents : []);
+                }
+            } catch {
+                if (isActive) {
+                    setBoardingDocuments([]);
+                }
+            }
+        };
+
+        loadBoardingDocuments();
+
+        return () => {
+            isActive = false;
+        };
+    }, [context.petId]);
 
     useEffect(() => {
         setVaccinationRecord(current => ({
@@ -689,13 +814,14 @@ export default function VetDiagnosis() {
         });
     };
 
-    const createPendingAttachments = (files) => {
+    const createPendingAttachments = (files, category = 'diagnosis_upload') => {
         return files.map(file => ({
             id: createId(),
             name: file.name,
             file,
             mimeType: file.type,
-            preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+            preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+            category
         }));
     };
 
@@ -703,7 +829,15 @@ export default function VetDiagnosis() {
         const files = Array.from(event.target.files || []);
         if (files.length === 0) return;
 
-        setUploadedImages(current => [...current, ...createPendingAttachments(files)]);
+        setUploadedImages(current => [...current, ...createPendingAttachments(files, 'diagnosis_upload')]);
+        event.target.value = '';
+    };
+
+    const handleReferenceUpload = (event) => {
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+
+        setUploadedImages(current => [...current, ...createPendingAttachments(files, 'reference_document')]);
         event.target.value = '';
     };
 
@@ -776,13 +910,23 @@ export default function VetDiagnosis() {
             url: result.relative_url || result.url || '',
             relativeUrl: result.relative_url || result.url || '',
             mimeType: attachment.mimeType || '',
-            uploadedAt: new Date().toISOString()
+            uploadedAt: new Date().toISOString(),
+            category: attachment.category || 'diagnosis_upload'
         };
     };
 
     const uploadAttachmentList = async (attachments) => {
         return Promise.all((attachments || []).map(uploadDiagnosisAttachment));
     };
+
+    const diagnosisAttachments = useMemo(
+        () => uploadedImages.filter(attachment => attachment.category !== 'reference_document'),
+        [uploadedImages]
+    );
+    const referenceAttachments = useMemo(
+        () => uploadedImages.filter(attachment => attachment.category === 'reference_document'),
+        [uploadedImages]
+    );
 
     const cleanCustomSectionsForSave = async () => {
         const sections = customFields.filter(field =>
@@ -806,6 +950,107 @@ export default function VetDiagnosis() {
         }
 
         return uploadedSections;
+    };
+
+    const selectedCatalogService = useMemo(
+        () => serviceCatalog.find(service => String(service.serviceId) === String(selectedServiceId)),
+        [selectedServiceId, serviceCatalog]
+    );
+
+    const visitChargesTotal = useMemo(() => (
+        visitCharges.reduce((total, charge) => total + ((Number(charge.quantity) || 0) * (Number(charge.unitPrice) || 0)), 0)
+    ), [visitCharges]);
+
+    const addServiceVisitCharge = () => {
+        if (!selectedCatalogService) {
+            toast.error('Select a catalog service first.');
+            return;
+        }
+
+        const serviceChargeId = createId();
+        const materialCharges = (selectedCatalogService.materials || []).map((material) => ({
+            id: createId(),
+            chargeType: 'consumable',
+            serviceId: selectedCatalogService.serviceId,
+            itemId: material.itemId,
+            description: `${material.itemName}${material.billablePolicy === 'included' ? ' (included)' : ''}`,
+            quantity: Number(material.qtyUsed) || 1,
+            unitPrice: 0,
+            billablePolicy: material.billablePolicy,
+            createdByUserId: veterinarianUserId || null
+        }));
+
+        setVisitCharges(current => [
+            ...current,
+            {
+                id: serviceChargeId,
+                chargeType: 'service',
+                serviceId: selectedCatalogService.serviceId,
+                itemId: null,
+                description: selectedCatalogService.serviceName,
+                quantity: 1,
+                unitPrice: Number(selectedCatalogService.basePrice) || 0,
+                billablePolicy: 'separate',
+                createdByUserId: veterinarianUserId || null
+            },
+            ...materialCharges
+        ]);
+        setSelectedServiceId('');
+    };
+
+    const updateVisitCharge = (id, field, value) => {
+        setVisitCharges(current =>
+            current.map(charge => charge.id === id ? { ...charge, [field]: value } : charge)
+        );
+    };
+
+    const removeVisitCharge = (id) => {
+        setVisitCharges(current => current.filter(charge => charge.id !== id));
+    };
+
+    const saveVisitBilling = async (diagnosis) => {
+        const charges = visitCharges
+            .filter(charge => String(charge.description || '').trim() !== '')
+            .map(charge => ({
+                chargeType: charge.chargeType,
+                serviceId: charge.serviceId || null,
+                itemId: charge.itemId || null,
+                description: charge.description,
+                quantity: Number(charge.quantity) || 1,
+                unitPrice: Number(charge.unitPrice) || 0,
+                createdByUserId: veterinarianUserId || null
+            }));
+
+        if (charges.length === 0) {
+            return null;
+        }
+
+        if (billingSchemaMessage) {
+            throw new Error(billingSchemaMessage);
+        }
+
+        const response = await fetch(`${API_BASE}/visits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pet_id: context.petId,
+                owner_user_id: context.ownerUserId || null,
+                veterinarian_user_id: veterinarianUserId,
+                queue_id: context.queueId || null,
+                booking_id: context.bookingId || null,
+                diagnosis_id: diagnosis?.diagnosisId || diagnosis?.id || null,
+                source_type: context.queueId ? 'queue' : (context.bookingId ? 'booking' : 'manual'),
+                visit_status: 'treatment_done',
+                charges
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+            throw new Error(result.message || 'Failed to save visit charges.');
+        }
+
+        return result.visit;
     };
 
     const handleSaveDiagnosis = async () => {
@@ -874,7 +1119,7 @@ export default function VetDiagnosis() {
                     prescriptions: formData.prescription.map(cleanPrescription),
                     custom_sections: customSections,
                     attachments,
-                    source_uploads: sourceUploads,
+                    source_uploads: allSourceUploads,
                     vaccination_record: shouldSaveVaccinationRecord
                         ? {
                             ...vaccinationRecord,
@@ -893,6 +1138,8 @@ export default function VetDiagnosis() {
             if (data.diagnosis) {
                 hydrateDiagnosisRecord(data.diagnosis);
             }
+
+            await saveVisitBilling(data.diagnosis);
 
             toast.success('Diagnosis saved and patient marked done.');
             goBackToMyList();
@@ -936,6 +1183,8 @@ export default function VetDiagnosis() {
                     <DiagnosisContextSidebar
                         context={context}
                         sourceUploads={sourceUploads}
+                        consentUploads={consentUploads}
+                        boardingDocumentUploads={boardingDocumentUploads}
                         onPreview={setPreviewImage}
                     />
                 </div>
@@ -1014,6 +1263,18 @@ export default function VetDiagnosis() {
                 suggested={contextIsVaccination}
             />
 
+            <VisitChargesSection
+                serviceCatalog={serviceCatalog}
+                selectedServiceId={selectedServiceId}
+                setSelectedServiceId={setSelectedServiceId}
+                addServiceVisitCharge={addServiceVisitCharge}
+                visitCharges={visitCharges}
+                updateVisitCharge={updateVisitCharge}
+                removeVisitCharge={removeVisitCharge}
+                total={visitChargesTotal}
+                schemaMessage={billingSchemaMessage}
+            />
+
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -1037,8 +1298,38 @@ export default function VetDiagnosis() {
                 </div>
 
                 <AttachmentGrid
-                    attachments={uploadedImages}
+                    attachments={diagnosisAttachments}
                     emptyMessage="No diagnosis uploads attached."
+                    onRemove={removeGeneralAttachment}
+                    onPreview={setPreviewImage}
+                />
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <Label className="text-sm font-bold text-slate-900">Reference Documents</Label>
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                            Attach boarding reports, monitoring documents, PDFs, or external clinic references.
+                        </p>
+                    </div>
+                    <input
+                        ref={referenceFileInputRef}
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                        multiple
+                        onChange={handleReferenceUpload}
+                        className="hidden"
+                    />
+                    <Button type="button" variant="outline" onClick={() => referenceFileInputRef.current?.click()} className="gap-2">
+                        <Upload className="size-4" />
+                        Upload Documents
+                    </Button>
+                </div>
+
+                <AttachmentGrid
+                    attachments={referenceAttachments}
+                    emptyMessage="No reference documents attached."
                     onRemove={removeGeneralAttachment}
                     onPreview={setPreviewImage}
                 />
@@ -1147,7 +1438,124 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
     );
 }
 
-function DiagnosisContextSidebar({ context, sourceUploads, onPreview }) {
+function VisitChargesSection({
+    serviceCatalog,
+    selectedServiceId,
+    setSelectedServiceId,
+    addServiceVisitCharge,
+    visitCharges,
+    updateVisitCharge,
+    removeVisitCharge,
+    total,
+    schemaMessage
+}) {
+    const selectedService = serviceCatalog.find(service => String(service.serviceId) === String(selectedServiceId));
+
+    return (
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Receipt className="size-5 text-[#155dfc]" />
+                        <h3 className="text-lg font-bold text-slate-900">Visit Charges</h3>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                        Selected catalog services become visit charge lines for payment.
+                    </p>
+                </div>
+                <Badge className="w-fit border-0 bg-blue-50 text-blue-700">{formatPhpCurrency(total)}</Badge>
+            </div>
+
+            {schemaMessage && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                    {schemaMessage}
+                </div>
+            )}
+
+            <div className="mt-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto]">
+                <Select
+                    value={selectedServiceId}
+                    onValueChange={setSelectedServiceId}
+                    disabled={serviceCatalog.length === 0 || Boolean(schemaMessage)}
+                >
+                    <SelectTrigger className="bg-white">
+                        <SelectValue
+                            placeholder="Select catalog service"
+                            displayValue={selectedService ? `${selectedService.serviceName} - ${formatPhpCurrency(selectedService.basePrice)}` : undefined}
+                        />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {serviceCatalog.map(service => (
+                            <SelectItem key={service.serviceId} value={String(service.serviceId)}>
+                                {service.serviceName} - {formatPhpCurrency(service.basePrice)}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" onClick={addServiceVisitCharge} disabled={!selectedServiceId || Boolean(schemaMessage)}>
+                    <Plus className="size-4" />
+                    Add Service
+                </Button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+                {visitCharges.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-400">
+                        No visit charges selected.
+                    </p>
+                ) : (
+                    visitCharges.map(charge => {
+                        const subtotal = (Number(charge.quantity) || 0) * (Number(charge.unitPrice) || 0);
+
+                        return (
+                            <div key={charge.id} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[minmax(220px,1fr)_100px_120px_110px_auto] lg:items-center">
+                                <div>
+                                    <Input
+                                        value={charge.description}
+                                        onChange={(event) => updateVisitCharge(charge.id, 'description', event.target.value)}
+                                        className="bg-white"
+                                    />
+                                    <p className="mt-1 text-xs font-semibold uppercase text-slate-400">
+                                        {charge.chargeType}{charge.billablePolicy ? ` / ${charge.billablePolicy}` : ''}
+                                    </p>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={charge.quantity}
+                                    onChange={(event) => updateVisitCharge(charge.id, 'quantity', event.target.value)}
+                                    className="bg-white"
+                                />
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={charge.unitPrice}
+                                    onChange={(event) => updateVisitCharge(charge.id, 'unitPrice', event.target.value)}
+                                    className="bg-white"
+                                />
+                                <p className="text-sm font-black text-[#101828]">{formatPhpCurrency(subtotal)}</p>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeVisitCharge(charge.id)}
+                                    className="w-fit text-red-600 hover:bg-red-50 hover:text-red-700"
+                                >
+                                    <Trash2 className="size-4" />
+                                    Remove
+                                </Button>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </section>
+    );
+}
+
+function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, boardingDocumentUploads, onPreview }) {
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -1219,6 +1627,52 @@ function DiagnosisContextSidebar({ context, sourceUploads, onPreview }) {
                             ) : (
                                 <div className="space-y-3">
                                     {sourceUploads.map(upload => (
+                                        <AttachmentCard
+                                            key={upload.id}
+                                            attachment={upload}
+                                            onPreview={onPreview}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Signed Consent</h3>
+                                <Badge className="border-0 bg-slate-100 text-slate-700">{consentUploads.length}</Badge>
+                            </div>
+
+                            {consentUploads.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-400">
+                                    No signed consent image found.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {consentUploads.map(upload => (
+                                        <AttachmentCard
+                                            key={upload.id}
+                                            attachment={upload}
+                                            onPreview={onPreview}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Boarding Documents</h3>
+                                <Badge className="border-0 bg-slate-100 text-slate-700">{boardingDocumentUploads.length}</Badge>
+                            </div>
+
+                            {boardingDocumentUploads.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-400">
+                                    No boarding monitoring documents found.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {boardingDocumentUploads.map(upload => (
                                         <AttachmentCard
                                             key={upload.id}
                                             attachment={upload}
@@ -1408,6 +1862,20 @@ function MajorSymptomsContainer({ value, onChange }) {
     );
 }
 
+function parseNonNegativeNumber(value, fallback = 0) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function formatPrescriptionLine(prescription) {
+    const durationUnit = prescription.durationUnit === 'as needed'
+        ? 'as needed'
+        : `${prescription.durationUnit}${Number(prescription.durationNumber) === 1 ? '' : '(s)'}`;
+
+    return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
+}
+
 function PrescriptionEditor({
     title = 'Prescription & Medications',
     currentPrescription,
@@ -1424,24 +1892,17 @@ function PrescriptionEditor({
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <Label className="text-sm font-bold text-slate-900">{title}</Label>
             <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_90px_130px_90px_130px_auto]">
-                <Select
+                <Input
                     value={currentPrescription.medicine}
-                    onValueChange={(value) => updatePrescriptionInput('medicine', value)}
-                >
-                    <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Select medicine" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {MEDICINE_OPTIONS.map(medicine => (
-                            <SelectItem key={medicine} value={medicine}>{medicine}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                    onChange={(event) => updatePrescriptionInput('medicine', event.target.value)}
+                    placeholder="Medicine / item"
+                    className="bg-white"
+                />
                 <Input
                     type="number"
-                    min="1"
+                    min="0"
                     value={currentPrescription.times}
-                    onChange={(event) => updatePrescriptionInput('times', Number(event.target.value) || 1)}
+                    onChange={(event) => updatePrescriptionInput('times', parseNonNegativeNumber(event.target.value, 1))}
                     placeholder="Times"
                     className="bg-white"
                 />
@@ -1453,17 +1914,16 @@ function PrescriptionEditor({
                         <SelectValue placeholder="Frequency" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="per day">Per day</SelectItem>
-                        <SelectItem value="per week">Per week</SelectItem>
-                        <SelectItem value="per month">Per month</SelectItem>
-                        <SelectItem value="as needed">As needed</SelectItem>
+                        {PRESCRIPTION_FREQUENCIES.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <Input
                     type="number"
-                    min="1"
+                    min="0"
                     value={currentPrescription.durationNumber}
-                    onChange={(event) => updatePrescriptionInput('durationNumber', Number(event.target.value) || 1)}
+                    onChange={(event) => updatePrescriptionInput('durationNumber', parseNonNegativeNumber(event.target.value, 0))}
                     placeholder="Duration"
                     className="bg-white"
                 />
@@ -1475,9 +1935,9 @@ function PrescriptionEditor({
                         <SelectValue placeholder="Unit" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="day">Day(s)</SelectItem>
-                        <SelectItem value="week">Week(s)</SelectItem>
-                        <SelectItem value="month">Month(s)</SelectItem>
+                        {PRESCRIPTION_DURATION_UNITS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <Button type="button" onClick={addPrescription} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
@@ -1485,15 +1945,6 @@ function PrescriptionEditor({
                     Add
                 </Button>
             </div>
-
-            {currentPrescription.medicine === 'Other / Custom' && (
-                <Input
-                    value={currentPrescription.customMedicine}
-                    onChange={(event) => updatePrescriptionInput('customMedicine', event.target.value)}
-                    placeholder="Enter custom medicine or item"
-                    className="bg-white"
-                />
-            )}
 
             <Textarea
                 value={currentPrescription.instructions}
@@ -1509,7 +1960,7 @@ function PrescriptionEditor({
                             <div className="min-w-0">
                                 <p className="text-sm font-semibold text-slate-700">
                                     <Pill className="mr-1 inline size-4 text-slate-400" />
-                                    {prescription.medicine} - {prescription.times} time(s) {prescription.frequency} for {prescription.durationNumber} {prescription.durationUnit}(s)
+                                    {formatPrescriptionLine(prescription)}
                                 </p>
                                 {prescription.instructions && (
                                     <p className="mt-1 text-xs font-medium text-slate-500">{prescription.instructions}</p>

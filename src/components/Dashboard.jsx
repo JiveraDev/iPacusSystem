@@ -53,6 +53,7 @@ const BookingManagement = lazy(() => import("./AdminDashboardsComponent/BookingM
 const PetBoardingManagement = lazy(() => import("./AdminDashboardsComponent/PetBoardingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
 const POSManagement = lazy(() => import("./AdminDashboardsComponent/POSmanagement.jsx"));
+const ServiceCatalogManagement = lazy(() => import("./AdminDashboardsComponent/ServiceCatalogManagement.jsx"));
 const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
 const PetRegister = lazy(() => import("./AdminDashboardsComponent/PetRegister.jsx"));
 const PetProfileEdit = lazy(() => import("./AdminDashboardsComponent/PetProfileEdit.jsx"));
@@ -120,12 +121,13 @@ const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
   { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES },
   { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES },
+  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES, ADMIN_ROLES, VETERINARIAN_ROLES },
   { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
   { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
   { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES },
   { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES },
   { id: "pos", label: "POS", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES },
+  { id: "service-catalog", label: "Service Catalog", icon: Stethoscope, path: "/dashboard/service-catalog", roles: ADMIN_ROLES },
   { 
     id: "inventory", 
     label: "Inventory", 
@@ -176,6 +178,7 @@ const screenMap = {
   "/dashboard/boarding": PetBoardingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/pos": POSManagement,
+  "/dashboard/service-catalog": ServiceCatalogManagement,
   "/dashboard/consent": ConsentFilesManagement,
   "/dashboard/vet/approved-queue": ApprovedQueueList,
   "/dashboard/vet/my-list": VetMylistinService,
@@ -271,6 +274,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/pos")) {
     return "pos";
+  }
+  if (path.startsWith("/dashboard/service-catalog")) {
+    return "service-catalog";
   }
   if (path.startsWith("/dashboard/self-service-queue")) {
     return "self-service-queue";

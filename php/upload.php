@@ -1,5 +1,5 @@
 <?php
-// Handle image upload
+// Handle file upload
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 
@@ -9,15 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-if (!isset($_FILES['image'])) {
+if (!isset($_FILES['image']) && !isset($_FILES['file'])) {
     http_response_code(400);
-    echo json_encode(['message' => 'No image uploaded.']);
+    echo json_encode(['message' => 'No file uploaded.']);
     exit;
 }
 
-$file = $_FILES['image'];
+$file = $_FILES['image'] ?? $_FILES['file'];
 $type = $_POST['type'] ?? 'user'; // 'user' or 'pet'
-$fileName = time() . '_' . basename($file['name']);
+$safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($file['name']));
+$fileName = time() . '_' . $safeName;
 
 // Use relative paths for better portability
 // We store them in the public folder, but for the URL, 
@@ -37,6 +38,9 @@ if ($type === 'pet') {
 } elseif ($type === 'diagnosis') {
     $targetDir = __DIR__ . '/../public/diagnosis/';
     $urlPath = "diagnosis/";
+} elseif ($type === 'boarding_document') {
+    $targetDir = __DIR__ . '/../public/boarding_documents/';
+    $urlPath = "boarding_documents/";
 } elseif ($type === 'inventory_item') {
     $targetDir = __DIR__ . '/../public/inventory_items/';
     $urlPath = "inventory_items/";
@@ -63,7 +67,7 @@ if (move_uploaded_file($file['tmp_name'], $targetFile)) {
     $relativeUrl = $urlPath . $fileName;
     
     echo json_encode([
-        'message' => 'Image uploaded successfully.',
+        'message' => 'File uploaded successfully.',
         'url' => '/' . $relativeUrl,
         'relative_url' => $relativeUrl,
         'full_url' => $protocol . "://" . $host . '/' . $relativeUrl

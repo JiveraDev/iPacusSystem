@@ -77,6 +77,12 @@ switch ($path) {
     case '/special_services':
         require_once __DIR__ . '/special_services.php';
         break;
+    case '/service-catalog':
+        require_once __DIR__ . '/service_catalog.php';
+        break;
+    case '/visits':
+        require_once __DIR__ . '/visit_billing.php';
+        break;
     case '/rooms/availability':
         require_once __DIR__ . '/get_room_availability.php';
         break;
@@ -98,6 +104,10 @@ switch ($path) {
         break;
     case '/boarding/tasks':
         $_GET['action'] = 'task';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/documents':
+        $_GET['action'] = 'documents';
         require_once __DIR__ . '/boarding_management.php';
         break;
     case '/inventory':
@@ -256,10 +266,32 @@ switch ($path) {
             $_GET['bookingId'] = $matches[1];
             $_GET['action'] = 'desired-check-out';
             require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/documents$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            $_GET['action'] = 'documents';
+            require_once __DIR__ . '/boarding_management.php';
         } elseif (preg_match('/^\/boarding\/tasks\/(\d+)\/complete$/', $path, $matches)) {
             $_GET['taskId'] = $matches[1];
             $_GET['action'] = 'task-complete';
             require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/service-catalog\/(\d+)\/materials$/', $path, $matches)) {
+            $_GET['serviceId'] = $matches[1];
+            $_GET['action'] = 'materials';
+            require_once __DIR__ . '/service_catalog.php';
+        } elseif (preg_match('/^\/service-catalog\/(\d+)$/', $path, $matches)) {
+            $_GET['serviceId'] = $matches[1];
+            require_once __DIR__ . '/service_catalog.php';
+        } elseif (preg_match('/^\/visits\/(\d+)\/charges$/', $path, $matches)) {
+            $_GET['visitId'] = $matches[1];
+            $_GET['action'] = 'charges';
+            require_once __DIR__ . '/visit_billing.php';
+        } elseif (preg_match('/^\/visits\/(\d+)\/payments$/', $path, $matches)) {
+            $_GET['visitId'] = $matches[1];
+            $_GET['action'] = 'payments';
+            require_once __DIR__ . '/visit_billing.php';
+        } elseif (preg_match('/^\/visits\/(\d+)$/', $path, $matches)) {
+            $_GET['visitId'] = $matches[1];
+            require_once __DIR__ . '/visit_billing.php';
         } elseif (preg_match('/^\/special_services\/(\d+)$/', $path, $matches)) {
             $_GET['specialServiceId'] = $matches[1];
             if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {

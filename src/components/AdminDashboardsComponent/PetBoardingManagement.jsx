@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     Bell,
@@ -10,15 +10,18 @@ import {
     CreditCard,
     Dog,
     Eye,
+    FileText,
     Home,
     Hotel,
     LayoutGrid,
     Loader2,
     PawPrint,
     Plus,
+    Printer,
     Receipt,
     Search,
     Table2,
+    Upload,
     Wrench
 } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -32,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { useNavigate } from '../dashboardRouter.jsx';
+import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
@@ -68,6 +71,14 @@ const TASK_LABELS = {
     other: 'Other'
 };
 
+const DOCUMENT_TYPE_LABELS = {
+    monitoring_report: 'Monitoring Report',
+    boarding_history: 'Boarding History',
+    checkout_summary: 'Checkout Summary',
+    diagnosis_reference: 'Diagnosis Reference',
+    other: 'Other'
+};
+
 const emptyAddRoomForm = {
     type: 'boarding',
     roomSize: 'small',
@@ -98,6 +109,16 @@ const emptyTaskForm = {
     dueAt: '',
     assignedTo: '',
     notes: ''
+};
+
+const emptyDocumentForm = {
+    assignmentId: '',
+    bookingId: '',
+    documentType: 'monitoring_report',
+    title: '',
+    notes: '',
+    file: null,
+    fileName: ''
 };
 
 function todayIso() {
@@ -291,30 +312,147 @@ async function readJsonResponse(response) {
     return data;
 }
 
+function getUserName(user) {
+    const fullName = [
+        user?.firstName || user?.FirstName || user?.first_name,
+        user?.lastName || user?.LastName || user?.last_name
+    ].filter(Boolean).join(' ').trim();
+
+    return fullName || user?.name || user?.email || 'Staff';
+}
+
+function getUserId(user) {
+    return user?.id || user?.user_id || user?.userId || '';
+}
+
+function resolveFileUrl(path) {
+    if (!path) return '';
+    const value = String(path).trim();
+    if (!value) return '';
+    if (/^(https?:|data:|blob:)/i.test(value)) return value;
+
+    return `/${value.replace(/^\/+/, '').replace(/^public\//, '')}`;
+}
+
+function documentTypeLabel(value) {
+    return DOCUMENT_TYPE_LABELS[value] || value || 'Document';
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function buildHistoryPrintHtml({ title, booking, assignment, tasks, observations, documents }) {
+    const subjectTitle = escapeHtml(title || 'Boarding Monitoring History');
+    const petName = escapeHtml(assignment?.petName || booking?.petName || 'Pet');
+    const ownerName = escapeHtml(assignment?.ownerName || booking?.ownerName || 'Owner');
+    const bookingNumber = escapeHtml(assignment?.bookingNumber || booking?.bookingNumber || '');
+    const roomLabel = escapeHtml(assignment?.roomLabel || booking?.boardingAssignment?.roomLabel || '');
+
+    const renderList = (items, renderer, emptyText) => (
+        items.length === 0
+            ? `<p class="empty">${escapeHtml(emptyText)}</p>`
+            : items.map(renderer).join('')
+    );
+
+    return `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${subjectTitle}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #101828; margin: 32px; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 24px 0 10px; font-size: 16px; border-bottom: 1px solid #d0d5dd; padding-bottom: 6px; }
+    .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    .box { border: 1px solid #d0d5dd; border-radius: 8px; padding: 10px; }
+    .label { color: #667085; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .value { margin-top: 4px; font-weight: 700; }
+    .entry { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+    .entry-title { font-weight: 700; }
+    .entry-meta { color: #667085; font-size: 12px; margin-top: 4px; }
+    .notes { white-space: pre-wrap; margin-top: 8px; font-size: 13px; }
+    .empty { color: #98a2b3; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>${subjectTitle}</h1>
+  <div class="entry-meta">Generated ${escapeHtml(new Date().toLocaleString())}</div>
+  <div class="meta">
+    <div class="box"><div class="label">Booking</div><div class="value">${bookingNumber || 'N/A'}</div></div>
+    <div class="box"><div class="label">Room</div><div class="value">${roomLabel || 'N/A'}</div></div>
+    <div class="box"><div class="label">Pet</div><div class="value">${petName}</div></div>
+    <div class="box"><div class="label">Owner</div><div class="value">${ownerName}</div></div>
+  </div>
+
+  <h2>Observations</h2>
+  ${renderList(observations, (observation) => `
+    <div class="entry">
+      <div class="entry-title">${escapeHtml(OBSERVATION_LABELS[observation.observationType] || observation.observationType)}</div>
+      <div class="entry-meta">${escapeHtml(formatDateTime(observation.observedAt))}</div>
+      <div class="notes">${escapeHtml(observation.notes)}</div>
+    </div>
+  `, 'No observations recorded.')}
+
+  <h2>Tasks</h2>
+  ${renderList(tasks, (task) => `
+    <div class="entry">
+      <div class="entry-title">${escapeHtml(TASK_LABELS[task.taskType] || task.taskType)} - ${escapeHtml(task.status)}</div>
+      <div class="entry-meta">${escapeHtml(formatDateTime(task.dueAt))}${task.completedAt ? ` / Completed ${escapeHtml(formatDateTime(task.completedAt))}` : ''}</div>
+      <div class="notes">${escapeHtml(task.notes || '')}</div>
+    </div>
+  `, 'No tasks recorded.')}
+
+  <h2>Documents</h2>
+  ${renderList(documents, (document) => `
+    <div class="entry">
+      <div class="entry-title">${escapeHtml(document.title)}</div>
+      <div class="entry-meta">${escapeHtml(documentTypeLabel(document.documentType))} / ${escapeHtml(formatDateTime(document.createdAt))}</div>
+      <div class="notes">${escapeHtml(document.notes || '')}</div>
+    </div>
+  `, 'No documents attached.')}
+</body>
+</html>`;
+}
+
 export default function PetBoardingManagement() {
     const navigate = useNavigate();
+    const dashboardUser = useDashboardUser();
+    const documentFileInputRef = useRef(null);
+    const currentUserName = getUserName(dashboardUser);
+    const currentUserId = getUserId(dashboardUser);
     const [activeTab, setActiveTab] = useState('overview');
     const [facilityView, setFacilityView] = useState('boarding');
     const [units, setUnits] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [observations, setObservations] = useState([]);
+    const [documents, setDocuments] = useState([]);
     const [pets, setPets] = useState([]);
     const [boardingBookings, setBoardingBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [roomViewMode, setRoomViewMode] = useState('cards');
     const [isLoading, setIsLoading] = useState(true);
     const [schemaMessage, setSchemaMessage] = useState('');
+    const [documentSchemaMessage, setDocumentSchemaMessage] = useState('');
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
     const [isDirectCheckInOpen, setIsDirectCheckInOpen] = useState(false);
     const [isObservationOpen, setIsObservationOpen] = useState(false);
     const [isTaskOpen, setIsTaskOpen] = useState(false);
+    const [isDocumentOpen, setIsDocumentOpen] = useState(false);
     const [isDesiredOutOpen, setIsDesiredOutOpen] = useState(false);
     const [addRoomForm, setAddRoomForm] = useState(emptyAddRoomForm);
     const [directCheckInForm, setDirectCheckInForm] = useState(emptyDirectCheckInForm);
     const [observationForm, setObservationForm] = useState(emptyObservationForm);
     const [taskForm, setTaskForm] = useState(emptyTaskForm);
+    const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
     const [desiredOutDate, setDesiredOutDate] = useState('');
     const [actionLoading, setActionLoading] = useState('');
 
@@ -341,6 +479,12 @@ export default function PetBoardingManagement() {
             if (monitoringResult.status === 'fulfilled') {
                 setTasks(Array.isArray(monitoringResult.value.tasks) ? monitoringResult.value.tasks : []);
                 setObservations(Array.isArray(monitoringResult.value.observations) ? monitoringResult.value.observations : []);
+                setDocuments(Array.isArray(monitoringResult.value.documents) ? monitoringResult.value.documents : []);
+                setDocumentSchemaMessage(
+                    monitoringResult.value.documentSchemaReady === false
+                        ? 'Run DDL/visit_service_payment_migration_20260604.sql to enable boarding document uploads.'
+                        : ''
+                );
             }
 
             if (petsResult.status === 'fulfilled') {
@@ -395,6 +539,62 @@ export default function PetBoardingManagement() {
             }))
     ), [units]);
 
+    const documentSubjects = useMemo(() => {
+        const seen = new Set();
+        const subjects = [];
+
+        activeAssignments.forEach(({ unit, assignment }) => {
+            const key = `assignment:${assignment.assignmentId}`;
+            seen.add(key);
+            subjects.push({
+                value: key,
+                assignmentId: assignment.assignmentId,
+                bookingId: assignment.bookingId,
+                petId: assignment.petId,
+                petName: assignment.petName,
+                ownerName: assignment.ownerName,
+                bookingNumber: assignment.bookingNumber,
+                roomLabel: unit.roomLabel,
+                source: 'active',
+                assignment,
+                booking: null
+            });
+        });
+
+        boardingBookings
+            .filter((booking) => booking.type === 'boarding' && booking.boardingAssignment)
+            .forEach((booking) => {
+                const assignment = booking.boardingAssignment;
+                const key = assignment.assignmentId ? `assignment:${assignment.assignmentId}` : `booking:${booking.id}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                subjects.push({
+                    value: key,
+                    assignmentId: assignment.assignmentId || null,
+                    bookingId: booking.id,
+                    petId: booking.petId,
+                    petName: booking.petName,
+                    ownerName: booking.ownerName,
+                    bookingNumber: booking.bookingNumber,
+                    roomLabel: assignment.roomLabel || '',
+                    source: booking.status === 'completed' ? 'history' : 'booking',
+                    assignment: {
+                        ...assignment,
+                        bookingId: booking.id,
+                        petId: booking.petId,
+                        petName: booking.petName,
+                        ownerName: booking.ownerName,
+                        bookingNumber: booking.bookingNumber,
+                        checkInDate: booking.checkInDate,
+                        checkOutDate: booking.checkOutDate
+                    },
+                    booking
+                });
+            });
+
+        return subjects;
+    }, [activeAssignments, boardingBookings]);
+
     const visibleBoardingBookings = useMemo(() => (
         boardingBookings
             .filter((booking) => booking.type === 'boarding' && booking.hotelBoardingType)
@@ -438,6 +638,16 @@ export default function PetBoardingManagement() {
         tasks.filter((task) => String(task.assignmentId || '') === selectedAssignmentId)
     ), [tasks, selectedAssignmentId]);
 
+    const selectedUnitDocuments = useMemo(() => (
+        documents.filter((document) => String(document.assignmentId || '') === selectedAssignmentId)
+    ), [documents, selectedAssignmentId]);
+
+    const visibleDocuments = useMemo(() => documents.slice(0, 50), [documents]);
+
+    const selectedDocumentSubject = useMemo(() => (
+        documentSubjects.find((subject) => subject.value === documentForm.assignmentId)
+    ), [documentForm.assignmentId, documentSubjects]);
+
     const openUnitDetails = (unit) => {
         setSelectedUnit(unit);
         setDesiredOutDate(unit.assignment?.desiredCheckOutDate || unit.assignment?.checkOutDate || '');
@@ -460,6 +670,30 @@ export default function PetBoardingManagement() {
             assignmentId
         });
         setIsTaskOpen(true);
+    };
+
+    const openDocumentUpload = (unit = selectedUnit) => {
+        const subject = unit?.assignment?.assignmentId
+            ? documentSubjects.find((item) => String(item.assignmentId) === String(unit.assignment.assignmentId))
+            : documentSubjects[0];
+
+        setDocumentForm({
+            ...emptyDocumentForm,
+            assignmentId: subject?.value || '',
+            bookingId: subject?.bookingId ? String(subject.bookingId) : '',
+            title: subject?.petName ? `${subject.petName} monitoring document` : ''
+        });
+        setIsDocumentOpen(true);
+    };
+
+    const handleDocumentFileSelect = (event) => {
+        const file = event.target.files?.[0] || null;
+        setDocumentForm((current) => ({
+            ...current,
+            file,
+            fileName: file?.name || ''
+        }));
+        event.target.value = '';
     };
 
     const openWalkInCheckIn = (unit = null) => {
@@ -719,6 +953,108 @@ export default function PetBoardingManagement() {
         } finally {
             setActionLoading('');
         }
+    };
+
+    const saveBoardingDocument = async () => {
+        if (documentSchemaMessage) {
+            toast.error(documentSchemaMessage);
+            return;
+        }
+
+        if (!selectedDocumentSubject) {
+            toast.error('Select a boarding stay or history.');
+            return;
+        }
+
+        if (!documentForm.title.trim()) {
+            toast.error('Document title is required.');
+            return;
+        }
+
+        if (!documentForm.file) {
+            toast.error('Choose a document to upload.');
+            return;
+        }
+
+        setActionLoading('boarding-document');
+        try {
+            const uploadData = new FormData();
+            uploadData.append('image', documentForm.file);
+            uploadData.append('type', 'boarding_document');
+
+            const uploadResponse = await fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                body: uploadData
+            });
+            const uploadResult = await uploadResponse.json().catch(() => ({}));
+            if (!uploadResponse.ok) {
+                throw new Error(uploadResult.message || 'Failed to upload boarding document.');
+            }
+
+            await fetch(`${API_BASE}/boarding/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignment_id: selectedDocumentSubject.assignmentId || null,
+                    booking_id: selectedDocumentSubject.bookingId,
+                    document_type: documentForm.documentType,
+                    title: documentForm.title,
+                    document_path: uploadResult.relative_url || uploadResult.url,
+                    file_name: documentForm.file.name,
+                    mime_type: documentForm.file.type,
+                    notes: documentForm.notes,
+                    uploaded_by_user_id: currentUserId || null,
+                    uploaded_by_name: currentUserName
+                })
+            }).then(readJsonResponse);
+
+            toast.success('Boarding document attached.');
+            setIsDocumentOpen(false);
+            setDocumentForm(emptyDocumentForm);
+            fetchBoardingData();
+        } catch (error) {
+            toast.error(error.message || 'Failed to save boarding document.');
+        } finally {
+            setActionLoading('');
+        }
+    };
+
+    const printBoardingHistory = (subject) => {
+        if (!subject) {
+            toast.error('Select a boarding stay or history to print.');
+            return;
+        }
+
+        const subjectTasks = tasks.filter((task) => (
+            String(task.assignmentId || '') === String(subject.assignmentId || '')
+            || String(task.bookingId || '') === String(subject.bookingId || '')
+        ));
+        const subjectObservations = observations.filter((observation) => (
+            String(observation.assignmentId || '') === String(subject.assignmentId || '')
+            || String(observation.bookingId || '') === String(subject.bookingId || '')
+        ));
+        const subjectDocuments = documents.filter((document) => (
+            String(document.assignmentId || '') === String(subject.assignmentId || '')
+            || String(document.bookingId || '') === String(subject.bookingId || '')
+        ));
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            toast.error('Allow popups to print the boarding history.');
+            return;
+        }
+
+        printWindow.document.write(buildHistoryPrintHtml({
+            title: `${subject.petName || 'Pet'} Boarding Monitoring History`,
+            booking: subject.booking,
+            assignment: subject.assignment,
+            tasks: subjectTasks,
+            observations: subjectObservations,
+            documents: subjectDocuments
+        }));
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
     };
 
     const goToPayment = (unit) => {
@@ -996,6 +1332,32 @@ export default function PetBoardingManagement() {
                 {activeAssignments.map(({ unit, assignment, value: optionValue }) => (
                     <SelectItem key={optionValue} value={optionValue}>
                         {assignment.petName} - {unit.roomLabel}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+
+    const renderDocumentSubjectSelect = (value, onValueChange) => (
+        <Select
+            value={value}
+            onValueChange={onValueChange}
+            disabled={documentSubjects.length === 0}
+        >
+            <SelectTrigger>
+                <SelectValue
+                    placeholder="Select boarding stay or history"
+                    displayValue={
+                        documentSubjects.find((item) => item.value === value)
+                            ? `${documentSubjects.find((item) => item.value === value).petName} - ${documentSubjects.find((item) => item.value === value).bookingNumber}`
+                            : undefined
+                    }
+                />
+            </SelectTrigger>
+            <SelectContent>
+                {documentSubjects.map((subject) => (
+                    <SelectItem key={subject.value} value={subject.value}>
+                        {subject.petName} - {subject.bookingNumber} {subject.source === 'history' ? '(History)' : ''}
                     </SelectItem>
                 ))}
             </SelectContent>
@@ -1348,6 +1710,14 @@ export default function PetBoardingManagement() {
                                     <ClipboardList className="size-4" />
                                     Add Observation
                                 </Button>
+                                <Button variant="outline" onClick={() => openDocumentUpload()} disabled={documentSubjects.length === 0 || Boolean(documentSchemaMessage)}>
+                                    <Upload className="size-4" />
+                                    Upload Document
+                                </Button>
+                                <Button variant="outline" onClick={() => printBoardingHistory(documentSubjects[0])} disabled={documentSubjects.length === 0}>
+                                    <Printer className="size-4" />
+                                    Print History
+                                </Button>
                                 <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={() => openTask()}>
                                     <CalendarClock className="size-4" />
                                     Schedule Task
@@ -1355,11 +1725,12 @@ export default function PetBoardingManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-4">
                             {[
                                 { label: 'Pending Tasks', value: stats.pending, icon: Clock, className: 'bg-amber-50 text-amber-700' },
                                 { label: 'Missed Tasks', value: stats.overdue, icon: AlertCircle, className: 'bg-red-50 text-red-700' },
-                                { label: 'Observations', value: observations.length, icon: ClipboardList, className: 'bg-blue-50 text-blue-700' }
+                                { label: 'Observations', value: observations.length, icon: ClipboardList, className: 'bg-blue-50 text-blue-700' },
+                                { label: 'Documents', value: documents.length, icon: FileText, className: 'bg-emerald-50 text-emerald-700' }
                             ].map((item) => {
                                 const Icon = item.icon;
                                 return (
@@ -1376,6 +1747,12 @@ export default function PetBoardingManagement() {
                             })}
                         </div>
                     </section>
+
+                    {documentSchemaMessage && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                            {documentSchemaMessage}
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                         <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -1457,6 +1834,65 @@ export default function PetBoardingManagement() {
                             )}
                         </section>
                     </div>
+
+                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h4 className="font-black text-[#101828]">Boarding Documents</h4>
+                                <p className="text-sm font-semibold text-slate-500">Monitoring reports, checkout summaries, and boarding history attachments.</p>
+                            </div>
+                            <Button variant="outline" onClick={() => openDocumentUpload()} disabled={documentSubjects.length === 0 || Boolean(documentSchemaMessage)}>
+                                <Upload className="size-4" />
+                                Upload Document
+                            </Button>
+                        </div>
+
+                        {visibleDocuments.length === 0 ? (
+                            <div className="flex min-h-40 flex-col items-center justify-center px-5 text-center text-slate-500">
+                                <FileText className="mb-3 size-9" />
+                                <p className="font-semibold">No boarding documents attached.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {visibleDocuments.map((document) => (
+                                    <div key={document.documentId} className="flex flex-col gap-3 p-4 transition hover:bg-slate-50 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge className="bg-emerald-50 text-emerald-700">{documentTypeLabel(document.documentType)}</Badge>
+                                                <span className="text-xs font-semibold text-slate-500">{formatDateTime(document.createdAt)}</span>
+                                            </div>
+                                            <p className="mt-2 font-black text-[#101828]">{document.title}</p>
+                                            <p className="text-sm font-semibold text-slate-500">{document.petName} - {document.bookingNumber}</p>
+                                            {document.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{document.notes}</p>}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <a
+                                                href={resolveFileUrl(document.documentPath || document.url)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                            >
+                                                <Eye className="mr-2 size-4" />
+                                                Open
+                                            </a>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => printBoardingHistory(documentSubjects.find((subject) => (
+                                                    String(subject.assignmentId || '') === String(document.assignmentId || '')
+                                                    || String(subject.bookingId || '') === String(document.bookingId || '')
+                                                )))}
+                                            >
+                                                <Printer className="size-4" />
+                                                Print
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
                 </TabsContent>
             </Tabs>
 
@@ -1508,9 +1944,21 @@ export default function PetBoardingManagement() {
                                                 <CalendarClock className="size-4" />
                                                 Schedule Task
                                             </Button>
+                                            <Button variant="outline" size="sm" onClick={() => openDocumentUpload(selectedUnit)} disabled={Boolean(documentSchemaMessage)}>
+                                                <Upload className="size-4" />
+                                                Upload Document
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => printBoardingHistory(documentSubjects.find((subject) => String(subject.assignmentId) === String(selectedUnit.assignment.assignmentId)))}
+                                            >
+                                                <Printer className="size-4" />
+                                                Print
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3">
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <p className="font-black text-slate-700">Observations</p>
@@ -1569,6 +2017,38 @@ export default function PetBoardingManagement() {
                                                                     Mark Done
                                                                 </Button>
                                                             )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="font-black text-slate-700">Documents</p>
+                                                <Badge className="bg-emerald-50 text-emerald-700">{selectedUnitDocuments.length}</Badge>
+                                            </div>
+                                            {selectedUnitDocuments.length === 0 ? (
+                                                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-500">
+                                                    No documents attached for this stay.
+                                                </p>
+                                            ) : (
+                                                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                                                    {selectedUnitDocuments.map((document) => (
+                                                        <div key={document.documentId} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                                            <Badge className="bg-emerald-50 text-emerald-700">
+                                                                {documentTypeLabel(document.documentType)}
+                                                            </Badge>
+                                                            <p className="mt-2 font-black text-[#101828]">{document.title}</p>
+                                                            <p className="text-xs font-semibold text-slate-500">{formatDateTime(document.createdAt)}</p>
+                                                            <a
+                                                                href={resolveFileUrl(document.documentPath || document.url)}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                Open
+                                                            </a>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1855,6 +2335,86 @@ export default function PetBoardingManagement() {
                         <Button onClick={addTask} disabled={actionLoading === 'task'} className="bg-[#155dfc]">
                             {actionLoading === 'task' ? <Loader2 className="size-4 animate-spin" /> : <CalendarClock className="size-4" />}
                             Save Task
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDocumentOpen} onOpenChange={setIsDocumentOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Upload Boarding Document</DialogTitle>
+                        <DialogDescription>
+                            Attach monitoring reports, checkout summaries, or boarding history files for a stay.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <input
+                            ref={documentFileInputRef}
+                            type="file"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                            onChange={handleDocumentFileSelect}
+                            className="hidden"
+                        />
+
+                        <div className="space-y-2">
+                            <Label>Stay / History *</Label>
+                            {renderDocumentSubjectSelect(documentForm.assignmentId, (value) => {
+                                const subject = documentSubjects.find((item) => item.value === value);
+                                setDocumentForm({
+                                    ...documentForm,
+                                    assignmentId: value,
+                                    bookingId: subject?.bookingId ? String(subject.bookingId) : documentForm.bookingId,
+                                    title: documentForm.title || (subject?.petName ? `${subject.petName} monitoring document` : '')
+                                });
+                            })}
+                        </div>
+
+                        <FieldSelect
+                            label="Document Type"
+                            value={documentForm.documentType}
+                            displayValue={documentTypeLabel(documentForm.documentType)}
+                            onChange={(value) => setDocumentForm({ ...documentForm, documentType: value })}
+                            options={Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                        />
+
+                        <div className="space-y-2">
+                            <Label>Title *</Label>
+                            <Input
+                                value={documentForm.title}
+                                onChange={(event) => setDocumentForm({ ...documentForm, title: event.target.value })}
+                                placeholder="Example: Daily monitoring sheet"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Document *</Label>
+                            <button
+                                type="button"
+                                onClick={() => documentFileInputRef.current?.click()}
+                                className="flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-8 text-center transition hover:border-blue-300 hover:bg-blue-50"
+                            >
+                                <Upload className="mb-3 size-9 text-slate-500" />
+                                <span className="font-bold text-slate-900">{documentForm.fileName || 'Choose file'}</span>
+                                <span className="mt-1 text-sm font-medium text-slate-500">Image, PDF, Word, or Excel</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Notes</Label>
+                            <Textarea
+                                value={documentForm.notes}
+                                onChange={(event) => setDocumentForm({ ...documentForm, notes: event.target.value })}
+                                rows={3}
+                                placeholder="Optional context for this document"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDocumentOpen(false)}>Cancel</Button>
+                        <Button onClick={saveBoardingDocument} disabled={actionLoading === 'boarding-document'} className="bg-[#155dfc]">
+                            {actionLoading === 'boarding-document' ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                            Save Document
                         </Button>
                     </DialogFooter>
                 </DialogContent>

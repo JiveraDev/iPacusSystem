@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -40,6 +40,7 @@ export default function Todos() {
   };
 
   useEffect(() => {
+    const initializeTodos = () => {
     const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const user = users.find((u) => u.id === currentUser.id);
@@ -386,6 +387,10 @@ export default function Todos() {
         localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
       }
     }
+    };
+
+    const timer = window.setTimeout(initializeTodos, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handleAddTask = () => {
@@ -450,31 +455,21 @@ export default function Todos() {
     toast.success("Task deleted");
   };
 
-  const eventStyleGetter = (event) => {
-    const categoryColors = {
-      Medication: { backgroundColor: '#3b82f6', borderColor: '#2563eb' },
-      Consultation: { backgroundColor: '#eab308', borderColor: '#ca8a04' },
-      'Follow-up': { backgroundColor: '#10b981', borderColor: '#059669' },
-      General: { backgroundColor: '#8b5cf6', borderColor: '#7c3aed' },
-    };
-
-    const style = categoryColors[event.category] || categoryColors.General;
-    return {
-      style: {
-        ...style,
-        borderRadius: '5px',
-        opacity: 0.9,
-        color: 'white',
-        border: '0px',
-        display: 'block',
-      },
-    };
-  };
+  const [upcomingRange] = useState(() => {
+    const start = new Date();
+    const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return { start, end };
+  });
 
   // Get upcoming tasks (next 7 days)
-  const upcomingTasks = todos
-    .filter(task => new Date(task.start) >= new Date() && new Date(task.start) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const upcomingTasks = useMemo(() => (
+    todos
+      .filter((task) => {
+        const taskStart = new Date(task.start);
+        return taskStart >= upcomingRange.start && taskStart <= upcomingRange.end;
+      })
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  ), [todos, upcomingRange]);
 
   // Get tasks for selected date
   const getTasksForDate = (date) => {

@@ -38,6 +38,22 @@ function getViewFromPath(pathname) {
   }
 }
 
+function getRouteRedirect(viewName, storedUser, registrationEmail = '') {
+  if (storedUser && (viewName === 'landing' || viewName === 'login' || viewName === 'register')) {
+    return { view: 'dashboard', path: routes.dashboard };
+  }
+
+  if (!storedUser && viewName === 'dashboard') {
+    return { view: 'login', path: routes.login };
+  }
+
+  if (viewName === 'registerProfile' && !registrationEmail) {
+    return { view: 'register', path: routes.register };
+  }
+
+  return { view: viewName, path: null };
+}
+
 const initialRegistrationData = {
   email: '',
   password: '',
@@ -51,7 +67,10 @@ const initialRegistrationData = {
 };
 
 function App() {
-  const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
+  const [view, setView] = useState(() => {
+    const storedUser = localStorage.getItem('currentUser');
+    return getRouteRedirect(getViewFromPath(window.location.pathname), storedUser).view;
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     const storedUser = localStorage.getItem('currentUser');
     return storedUser ? JSON.parse(storedUser) : null;
@@ -86,13 +105,10 @@ function App() {
     // Initial check for authenticated user on public routes
     const storedUser = localStorage.getItem('currentUser');
     const currentView = getViewFromPath(window.location.pathname);
+    const redirect = getRouteRedirect(currentView, storedUser);
     
-    if (storedUser && (currentView === 'landing' || currentView === 'login' || currentView === 'register')) {
-      window.history.replaceState({}, '', routes.dashboard);
-      setView('dashboard');
-    } else if (!storedUser && currentView === 'dashboard') {
-      window.history.replaceState({}, '', routes.login);
-      setView('login');
+    if (redirect.path) {
+      window.history.replaceState({}, '', redirect.path);
     }
 
     if (window.location.pathname === '/' && !storedUser) {
@@ -107,7 +123,6 @@ function App() {
   useEffect(() => {
     if (view === 'dashboard' && !currentUser) {
       window.history.replaceState({}, '', routes.login);
-      setView('login');
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
   }, [currentUser, view]);
@@ -115,17 +130,16 @@ function App() {
   useEffect(() => {
     if (view === 'registerProfile' && !registrationData.email) {
       window.history.replaceState({}, '', routes.register);
-      setView('register');
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
   }, [view, registrationData.email]);
 
-  const resetRegistrationFlow = () => {
+  const resetRegistrationFlow = useCallback(() => {
     setRegistrationData(initialRegistrationData);
     setRegistrationFlowKey((currentValue) => currentValue + 1);
-  };
+  }, []);
 
-  const navigateTo = (path, options = {}) => {
+  const navigateTo = useCallback((path, options = {}) => {
     const shouldResetRegistration = path === routes.register && !options.preserveRegistration;
 
     if (shouldResetRegistration) {
@@ -138,7 +152,7 @@ function App() {
 
     setView(getViewFromPath(path));
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [resetRegistrationFlow]);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
@@ -163,7 +177,7 @@ function App() {
     localStorage.removeItem('currentUser');
     setCurrentUser(null);
     navigateTo(routes.login);
-  }, []);
+  }, [navigateTo]);
 
   const handleRegistrationContinue = (accountData) => {
     setRegistrationData(accountData);
@@ -205,14 +219,14 @@ function App() {
     }>
       <div className="min-h-screen">
         <ToastViewport />
-        {view === 'landing' && (
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'landing' && (
             <LandingPage
                 onLogin={() => navigateTo(routes.login)}
                 onRegister={() => navigateTo(routes.register)}
             />
         )}
 
-        {view === 'login' && (
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'login' && (
             <Login
                 onLogin={handleLoginSuccess}
                 onBack={() => navigateTo(routes.landing)}
@@ -220,11 +234,11 @@ function App() {
             />
         )}
 
-        {view === 'dashboard' && currentUser && (
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'dashboard' && currentUser && (
             <Dashboard user={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
         )}
 
-        {view === 'register' && (
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'register' && (
             <RegistrationForm
                 key={`register-${registrationFlowKey}`}
                 onBackHome={() => navigateTo(routes.landing)}
@@ -234,7 +248,7 @@ function App() {
             />
         )}
 
-        {view === 'registerProfile' && (
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'registerProfile' && (
             <PetOwnerProfileForm
                 key={`register-profile-${registrationFlowKey}`}
                 email={registrationData.email}

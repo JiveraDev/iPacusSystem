@@ -1,34 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Edit, Plus } from 'lucide-react';
-
-interface EMRRecord {
-    id: string;
-    petId: string;
-    petName: string;
-    owner: string;
-    date: string;
-    diagnosis: string;
-    treatment: string;
-    medications: string;
-    notes: string;
-    followUp?: string;
-}
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
+import { Search, Edit } from 'lucide-react';
 
 export default function VetPetsEMR() {
-    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedRecord, setSelectedRecord] = useState<EMRRecord | null>(null);
+    const [selectedRecord, setSelectedRecord] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    const [emrRecords, setEmrRecords] = useState<EMRRecord[]>([
+    const [emrRecords, setEmrRecords] = useState([
         {
             id: '1',
             petId: '1',
@@ -67,7 +51,7 @@ export default function VetPetsEMR() {
         }
     ]);
 
-    const [formData, setFormData] = useState<Partial<EMRRecord>>({});
+    const [formData, setFormData] = useState({});
 
     const filteredRecords = emrRecords.filter(record =>
         record.petName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,25 +59,10 @@ export default function VetPetsEMR() {
         record.diagnosis.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleEditRecord = (record: EMRRecord) => {
+    const handleEditRecord = (record) => {
         setSelectedRecord(record);
         setFormData(record);
         setIsEditing(true);
-        setDialogOpen(true);
-    };
-
-    const handleAddRecord = () => {
-        setSelectedRecord(null);
-        setFormData({
-            id: Date.now().toString(),
-            date: new Date().toISOString().split('T')[0],
-            diagnosis: '',
-            treatment: '',
-            medications: '',
-            notes: '',
-            followUp: ''
-        });
-        setIsEditing(false);
         setDialogOpen(true);
     };
 
@@ -107,7 +76,7 @@ export default function VetPetsEMR() {
                 )
             );
         } else {
-            setEmrRecords(prev => [...prev, formData as EMRRecord]);
+            setEmrRecords(prev => [...prev, formData]);
         }
         setDialogOpen(false);
         setFormData({});
@@ -188,21 +157,7 @@ export default function VetPetsEMR() {
                                 </td>
                                 <td className="px-6 py-4">
                                     <Button
-                                        onClick={() => {
-                                            // Navigate to diagnosis page with pre-filled record data
-                                            const queryParams = new URLSearchParams({
-                                                pet: record.petName,
-                                                owner: record.owner,
-                                                edit: 'true',
-                                                recordId: record.id,
-                                                diagnosis: record.diagnosis,
-                                                treatment: record.treatment,
-                                                medications: record.medications,
-                                                notes: record.notes,
-                                                followUp: record.followUp || ''
-                                            });
-                                            navigate(`/vet/diagnosis?${queryParams.toString()}`);
-                                        }}
+                                        onClick={() => handleEditRecord(record)}
                                         variant="outline"
                                         size="sm"
                                         className="h-8"

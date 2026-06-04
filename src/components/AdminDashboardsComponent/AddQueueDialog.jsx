@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog';
 import { Input } from '../../ui/input';
@@ -18,7 +18,6 @@ const SERVICES = [
 export default function AddQueueDialog({ onAddToQueue }) {
     const [allPets, setAllPets] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
     const [selectedPet, setSelectedPet] = useState(null);
     const [service, setService] = useState('');
     const [priority, setPriority] = useState('normal');
@@ -38,17 +37,14 @@ export default function AddQueueDialog({ onAddToQueue }) {
             });
     }, []);
 
-    useEffect(() => {
-        if (searchTerm.length >= 2 && Array.isArray(allPets)) {
-            const filtered = allPets.filter(p => 
-                p.pet_name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            setSuggestions(filtered);
-            setIsMenuOpen(true);
-        } else {
-            setSuggestions([]);
-            setIsMenuOpen(false);
+    const suggestions = useMemo(() => {
+        if (searchTerm.length < 2 || !Array.isArray(allPets)) {
+            return [];
         }
+
+        return allPets.filter((pet) =>
+            pet.pet_name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
     }, [searchTerm, allPets]);
 
     const handleSelectPet = (pet) => {
@@ -105,7 +101,10 @@ export default function AddQueueDialog({ onAddToQueue }) {
                         <Input 
                             placeholder="Search pet..." 
                             value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setIsMenuOpen(e.target.value.length >= 2);
+                            }}
                             onFocus={() => searchTerm.length >= 2 && setIsMenuOpen(true)}
                         />
                         {isMenuOpen && suggestions.length > 0 && (

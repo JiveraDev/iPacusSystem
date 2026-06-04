@@ -13,10 +13,23 @@ export const Popover = ({ children, open, onOpenChange }) => {
 
 export const PopoverTrigger = ({ children, asChild }) => {
   const { open, onOpenChange } = React.useContext(PopoverContext);
+  const handleClick = () => onOpenChange(!open);
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children, {
+      onClick: (event) => {
+        children.props.onClick?.(event);
+        if (!event.defaultPrevented) {
+          handleClick();
+        }
+      },
+    });
+  }
+
   return (
-    <div onClick={() => onOpenChange(!open)} style={{ cursor: "pointer" }}>
+    <button type="button" onClick={handleClick} style={{ cursor: "pointer" }}>
       {children}
-    </div>
+    </button>
   );
 };
 

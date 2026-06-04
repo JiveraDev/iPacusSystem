@@ -56,5 +56,7 @@ function ToastViewport() {
   );
 }
 
-export { ToastViewport, toast };
+export { ToastViewport };
+// eslint-disable-next-line react-refresh/only-export-components
+export { toast };
 

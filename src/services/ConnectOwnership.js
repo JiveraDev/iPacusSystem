@@ -17,7 +17,7 @@ export async function linkPetService(userId, sharableId) {
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.message || errorMessage;
-            } catch (e) {
+            } catch {
                 console.error('Could not read error response');
             }
             throw new Error(errorMessage);

@@ -14,12 +14,27 @@ const Sheet = ({ children }) => {
 
 const SheetTrigger = ({ asChild, children }) => {
   const { setOpen } = React.useContext(SheetContext);
-  return React.cloneElement(children, {
-    onClick: (e) => {
-      children.props.onClick?.(e);
-      setOpen(true);
-    },
-  });
+  const handleClick = (event) => {
+    setOpen(true);
+    children?.props?.onClick?.(event);
+  };
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children, {
+      onClick: (e) => {
+        children.props.onClick?.(e);
+        if (!e.defaultPrevented) {
+          setOpen(true);
+        }
+      },
+    });
+  }
+
+  return (
+    <button type="button" onClick={handleClick}>
+      {children}
+    </button>
+  );
 };
 
 const SheetContent = ({ children, side = "right", className, showClose = true, ...props }) => {
@@ -28,17 +43,25 @@ const SheetContent = ({ children, side = "right", className, showClose = true, .
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    let mountTimer;
+    let visibilityTimer;
+
     if (open) {
-      setShouldRender(true);
-      // Small timeout to trigger the entry transition after mount
-      const timer = setTimeout(() => setIsVisible(true), 10);
-      return () => clearTimeout(timer);
+      mountTimer = window.setTimeout(() => {
+        setShouldRender(true);
+        visibilityTimer = window.setTimeout(() => setIsVisible(true), 10);
+      }, 0);
     } else {
-      setIsVisible(false);
-      // Wait for the transition to finish before unmounting (300ms matches duration-300)
-      const timer = setTimeout(() => setShouldRender(false), 300);
-      return () => clearTimeout(timer);
+      mountTimer = window.setTimeout(() => {
+        setIsVisible(false);
+        visibilityTimer = window.setTimeout(() => setShouldRender(false), 300);
+      }, 0);
     }
+
+    return () => {
+      window.clearTimeout(mountTimer);
+      window.clearTimeout(visibilityTimer);
+    };
   }, [open]);
 
   if (!shouldRender) return null;

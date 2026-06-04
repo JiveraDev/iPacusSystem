@@ -17,12 +17,12 @@ export async function addPetService(petData) {
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.message || errorMessage;
-            } catch (e) {
+            } catch {
                 // If it's not JSON, try text
                 try {
                     const textError = await response.text();
                     console.error('Server returned non-JSON error:', textError);
-                } catch (textErr) {
+                } catch {
                     console.error('Could not read error response');
                 }
             }

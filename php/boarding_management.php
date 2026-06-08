@@ -16,6 +16,20 @@ function boarding_table_exists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function boarding_column_exists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function boarding_json_input(): array
 {
     return json_decode(file_get_contents('php://input'), true) ?: [];
@@ -78,6 +92,21 @@ function room_type_label(string $roomType): string
     $facility = $parts['hotel_boarding_type'] === 'hotel' ? 'Hotel Room' : 'Kennel';
 
     return ucfirst($parts['room_size']) . ' ' . $facility;
+}
+
+function normalize_room_type_input(array $input): string
+{
+    $roomType = strtolower(trim((string)($input['room_type'] ?? '')));
+
+    if ($roomType !== '') {
+        $parts = split_room_type($roomType);
+        return normalize_room_type($parts['hotel_boarding_type'], $parts['room_size']);
+    }
+
+    return normalize_room_type(
+        $input['hotel_boarding_type'] ?? $input['type'] ?? null,
+        $input['room_size'] ?? $input['size'] ?? null
+    );
 }
 
 function boarding_count_stay_days(string $checkInDate, string $checkOutDate): int
@@ -705,22 +734,37 @@ function rooms_action(PDO $pdo): void
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = boarding_json_input();
-        $roomType = $input['room_type'] ?? normalize_room_type($input['hotel_boarding_type'] ?? $input['type'] ?? null, $input['room_size'] ?? $input['size'] ?? null);
-        $quantity = max(1, (int)($input['quantity'] ?? 1));
-        $description = trim((string)($input['description'] ?? room_type_label($roomType)));
+        $roomType = normalize_room_type_input($input);
+        $quantity = (int)($input['quantity'] ?? 0);
+        $description = trim((string)($input['description'] ?? ''));
+
+        if ($quantity <= 0) {
+            boarding_error(400, 'Enter a valid room quantity.');
+        }
 
         $pdo->beginTransaction();
         try {
+            $hasDescriptionColumn = boarding_column_exists($pdo, 'rooms', 'description');
             $stmt = $pdo->prepare("SELECT room_id, total_capacity FROM rooms WHERE room_type = ? ORDER BY room_id ASC LIMIT 1 FOR UPDATE");
             $stmt->execute([$roomType]);
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($room) {
-                $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ?, description = COALESCE(NULLIF(?, ''), description) WHERE room_id = ?");
-                $update->execute([$quantity, $description, (int)$room['room_id']]);
+                if ($hasDescriptionColumn) {
+                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ?, description = COALESCE(NULLIF(?, ''), description) WHERE room_id = ?");
+                    $update->execute([$quantity, $description, (int)$room['room_id']]);
+                } else {
+                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ? WHERE room_id = ?");
+                    $update->execute([$quantity, (int)$room['room_id']]);
+                }
             } else {
-                $insert = $pdo->prepare("INSERT INTO rooms (room_type, total_capacity, description) VALUES (?, ?, ?)");
-                $insert->execute([$roomType, $quantity, $description]);
+                if ($hasDescriptionColumn) {
+                    $insert = $pdo->prepare("INSERT INTO rooms (room_type, total_capacity, description) VALUES (?, ?, ?)");
+                    $insert->execute([$roomType, $quantity, $description !== '' ? $description : room_type_label($roomType)]);
+                } else {
+                    $insert = $pdo->prepare("INSERT INTO rooms (room_type, total_capacity) VALUES (?, ?)");
+                    $insert->execute([$roomType, $quantity]);
+                }
             }
 
             $pdo->commit();
@@ -741,7 +785,7 @@ function rooms_action(PDO $pdo): void
 
     if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
         $input = boarding_json_input();
-        $roomType = $input['room_type'] ?? normalize_room_type($input['hotel_boarding_type'] ?? $input['type'] ?? null, $input['room_size'] ?? $input['size'] ?? null);
+        $roomType = normalize_room_type_input($input);
         $roomNumber = (int)($input['room_number'] ?? 0);
         $status = strtolower(trim((string)($input['status'] ?? '')));
         $notes = trim((string)($input['notes'] ?? ''));

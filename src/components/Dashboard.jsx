@@ -79,7 +79,7 @@ const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.j
 
 // debug bypas starts here
 
-const DEBUG_BYPASS = true;
+const DEBUG_BYPASS = false;
 
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
@@ -121,7 +121,7 @@ const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
   { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES },
   { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: PETOWNER_ROLES, ADMIN_ROLES, VETERINARIAN_ROLES },
+  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES },
   { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
   { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
   { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES },

@@ -813,6 +813,14 @@ export default function PetBoardingManagement() {
         setIsDirectCheckInOpen(true);
     };
 
+    const openAddRoom = () => {
+        setAddRoomForm({
+            ...emptyAddRoomForm,
+            type: facilityView
+        });
+        setIsAddRoomOpen(true);
+    };
+
     const updateRoomStatus = async (unit, status) => {
         setActionLoading(`room-${unit.id}`);
         try {
@@ -867,7 +875,7 @@ export default function PetBoardingManagement() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    type: addRoomForm.type,
+                    hotel_boarding_type: addRoomForm.type,
                     room_size: addRoomForm.roomSize,
                     quantity,
                     description: addRoomForm.description
@@ -875,6 +883,7 @@ export default function PetBoardingManagement() {
             }).then(readJsonResponse);
 
             toast.success('Room capacity updated.');
+            setFacilityView(addRoomForm.type);
             setIsAddRoomOpen(false);
             setAddRoomForm(emptyAddRoomForm);
             fetchBoardingData();
@@ -1752,13 +1761,13 @@ export default function PetBoardingManagement() {
                                                 Table
                                             </button>
                                         </div>
-                                        <Button variant="outline" onClick={() => setIsAddRoomOpen(true)}>
+                                        <Button variant="outline" onClick={openAddRoom}>
                                             <Plus className="size-4" />
                                             Add Room
                                         </Button>
                                         <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={() => openWalkInCheckIn()}>
                                             <Plus className="size-4" />
-                                            Walk-in
+                                            Check-in
                                         </Button>
                                     </div>
                                     <div className="relative">
@@ -2273,7 +2282,7 @@ export default function PetBoardingManagement() {
             <Dialog open={isDirectCheckInOpen} onOpenChange={setIsDirectCheckInOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Walk-in Check-in</DialogTitle>
+                        <DialogTitle>Check-in</DialogTitle>
                         <DialogDescription>Create a boarding stay for a pet already at the clinic.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

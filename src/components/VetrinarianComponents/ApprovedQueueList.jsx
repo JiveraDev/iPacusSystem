@@ -127,6 +127,10 @@ function isConfirmedBooking(booking) {
     return normalize(booking.status) === 'confirmed';
 }
 
+function isBoardingBooking(booking) {
+    return normalize(booking.type) === 'boarding' && Boolean(booking.hotelBoardingType || booking.hotel_boarding_type);
+}
+
 function getStoredUser() {
     try {
         return JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -263,6 +267,7 @@ export default function VetQueueList() {
         return bookings
             .filter(isConfirmedBooking)
             .filter(booking => !booking.isOnlineConsultation)
+            .filter(booking => !isBoardingBooking(booking))
             .sort((a, b) => {
                 const leftDate = new Date(`${a.date || ''}T${a.time || '00:00:00'}`);
                 const rightDate = new Date(`${b.date || ''}T${b.time || '00:00:00'}`);

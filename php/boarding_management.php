@@ -80,6 +80,24 @@ function room_type_label(string $roomType): string
     return ucfirst($parts['room_size']) . ' ' . $facility;
 }
 
+function boarding_count_stay_days(string $checkInDate, string $checkOutDate): int
+{
+    try {
+        $start = new DateTime(substr($checkInDate, 0, 10));
+        $end = new DateTime(substr($checkOutDate, 0, 10));
+        $days = (int)$start->diff($end)->format('%r%a');
+
+        return $days > 0 ? $days : 1;
+    } catch (Exception $e) {
+        return 1;
+    }
+}
+
+function boarding_format_currency(float $amount): string
+{
+    return 'PHP ' . number_format($amount, 2);
+}
+
 function get_room_capacity(PDO $pdo, string $roomType): int
 {
     $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_capacity), 0) FROM rooms WHERE room_type = ?");
@@ -807,6 +825,7 @@ function direct_check_in_action(PDO $pdo): void
     $emergencyContact = trim((string)($input['emergency_contact'] ?? 'Walk-in check-in'));
     $notes = trim((string)($input['notes'] ?? ''));
     $price = isset($input['price']) ? (float)$input['price'] : 0;
+    $serviceCatalogId = isset($input['service_catalog_id']) ? (int)$input['service_catalog_id'] : 0;
     $requestedRoom = isset($input['room_number']) && $input['room_number'] !== '' ? (int)$input['room_number'] : null;
 
     if (!$petId) {
@@ -817,6 +836,40 @@ function direct_check_in_action(PDO $pdo): void
     $nowTime = (string)$pdo->query("SELECT CURTIME()")->fetchColumn();
     if (!$checkOut || strtotime((string)$checkOut) <= strtotime($today)) {
         boarding_error(400, 'Desired out date must be after today.');
+    }
+
+    if ($serviceCatalogId > 0) {
+        if (!boarding_table_exists($pdo, 'service_catalog')) {
+            boarding_error(409, 'Service catalog is missing. Add the boarding service catalog before direct check-in.');
+        }
+
+        $catalogStmt = $pdo->prepare("
+            SELECT service_id, service_code, service_name, base_price
+            FROM service_catalog
+            WHERE service_id = ?
+              AND service_type = 'boarding'
+              AND is_active = 1
+            LIMIT 1
+        ");
+        $catalogStmt->execute([$serviceCatalogId]);
+        $catalogService = $catalogStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$catalogService) {
+            boarding_error(400, 'Selected boarding catalog service was not found or is inactive.');
+        }
+
+        $stayDays = boarding_count_stay_days($today, (string)$checkOut);
+        $unitPrice = (float)$catalogService['base_price'];
+        $price = $unitPrice * $stayDays;
+        $catalogLabel = trim(($catalogService['service_name'] ?? 'Boarding service') . (($catalogService['service_code'] ?? '') !== '' ? ' (' . $catalogService['service_code'] . ')' : ''));
+        $catalogNote = sprintf(
+            '[Catalog Price] %s at %s x %d day(s) = %s',
+            $catalogLabel,
+            boarding_format_currency($unitPrice),
+            $stayDays,
+            boarding_format_currency($price)
+        );
+        $notes = trim($notes . "\n" . $catalogNote);
     }
 
     $ownerStmt = $pdo->prepare("SELECT user_id FROM pet_ownership WHERE pet_id = ? ORDER BY link_id DESC LIMIT 1");

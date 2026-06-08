@@ -17,6 +17,9 @@ $status = $input['status'] ?? null;
 $cancellationMessage = trim((string)($input['cancellation_message'] ?? ''));
 $walletNumber = trim((string)($input['wallet_number'] ?? ''));
 $transactionNumber = trim((string)($input['transaction_number'] ?? ''));
+$reviewServiceType = trim((string)($input['service_type'] ?? $input['serviceType'] ?? ''));
+$hasReviewNotes = array_key_exists('review_notes', $input) || array_key_exists('notes', $input);
+$reviewNotes = trim((string)($input['review_notes'] ?? $input['notes'] ?? ''));
 
 if (!$bookingId || !$status) {
     http_response_code(400);
@@ -29,6 +32,41 @@ try {
 
     $pdo->beginTransaction();
     $onlineConsultation = null;
+
+    $bookingStmt = $pdo->prepare("SELECT status, service_type, notes FROM bookings WHERE booking_id = ? LIMIT 1 FOR UPDATE");
+    $bookingStmt->execute([$bookingId]);
+    $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$booking) {
+        throw new Exception('Booking not found.');
+    }
+
+    $hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
+    if ($hasReviewUpdate && in_array($booking['status'], ['confirmed', 'cancelled'], true)) {
+        http_response_code(409);
+        throw new Exception('Confirmed or cancelled bookings cannot have their service review edited.');
+    }
+
+    if ($hasReviewUpdate) {
+        $fields = [];
+        $values = [];
+
+        if ($reviewServiceType !== '') {
+            $fields[] = 'service_type = ?';
+            $values[] = $reviewServiceType;
+        }
+
+        if ($hasReviewNotes) {
+            $fields[] = 'notes = ?';
+            $values[] = $reviewNotes;
+        }
+
+        if (!empty($fields)) {
+            $values[] = $bookingId;
+            $reviewStmt = $pdo->prepare("UPDATE bookings SET " . implode(', ', $fields) . " WHERE booking_id = ?");
+            $reviewStmt->execute($values);
+        }
+    }
 
     if ($status === 'cancelled' && ($cancellationMessage !== '' || $walletNumber !== '' || $transactionNumber !== '')) {
         $notesStmt = $pdo->prepare("SELECT notes FROM bookings WHERE booking_id = ? LIMIT 1");

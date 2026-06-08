@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { 
   ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, 
-  Loader2, Copy, Check, Camera, Edit2, Save, X, Plus, Trash2, User, CalendarClock
+  Loader2, Copy, Check, Camera, Edit2, Save, X, Plus, Trash2
 } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
@@ -33,6 +33,7 @@ export default function PetProfileEdit() {
   const [formData, setFormData] = useState({});
   const [vaccinations, setVaccinations] = useState([]);
   const [allergies, setAllergies] = useState([]);
+  const [prescriptionDocuments, setPrescriptionDocuments] = useState([]);
 
   // Medical record dialog states
   const [showAddVax, setShowAddVax] = useState(false);
@@ -81,6 +82,7 @@ export default function PetProfileEdit() {
           const data = await res.json();
           setVaccinations(data.vaccinations || []);
           setAllergies(data.allergies || []);
+          setPrescriptionDocuments(data.prescriptionDocuments || []);
         }
       } catch (error) {
         console.error("Failed to load medical records:", error);
@@ -336,7 +338,7 @@ export default function PetProfileEdit() {
                 Biological Profile
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="space-y-3 p-4 sm:space-y-4 sm:p-6">
               <BioField label="Species" name="species" value={formData.species} isEdit={isEditMode} onChange={handleInputChange} />
               <BioField label="Primary Breed" name="breed" value={formData.breed} isEdit={isEditMode} onChange={handleInputChange} />
               <BioField label="Owner Name" name="tempOwner" value={formData.tempOwner} isEdit={isEditMode} onChange={handleInputChange} />
@@ -391,6 +393,7 @@ export default function PetProfileEdit() {
             onDelete={handleDeleteVaccination}
             canEdit
           />
+          <PrescriptionDocumentsPanel documents={prescriptionDocuments} />
         </div>
       </div>
 
@@ -468,13 +471,13 @@ export default function PetProfileEdit() {
 function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, canEdit = false }) {
   return (
     <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between border-b border-blue-100 bg-blue-50/50 px-6 py-4">
-        <CardTitle className="flex items-center gap-3 text-xl font-black text-slate-800">
-          <Syringe className="h-6 w-6 text-[#155dfc]" />
-          Vaccination
+      <CardHeader className="flex flex-col gap-3 border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
+          <Syringe className="h-5 w-5 text-[#155dfc]" />
+          Vaccination Records
         </CardTitle>
         {canEdit && (
-          <Button onClick={onAdd} className="h-10 rounded-xl bg-[#155dfc] px-4 font-bold shadow-md hover:bg-blue-700">
+          <Button onClick={onAdd} className="h-10 w-full rounded-xl bg-[#155dfc] px-4 font-bold shadow-md hover:bg-blue-700 sm:w-auto">
             <Plus className="h-4 w-4 mr-2" /> Add Record
           </Button>
         )}
@@ -486,54 +489,26 @@ function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, can
             Loading records...
           </div>
         ) : vaccinations.length > 0 ? (
-          <div className="divide-y divide-slate-100">
+          <div>
+            <div className={`hidden gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-500 md:grid ${
+              canEdit
+                ? 'grid-cols-[minmax(0,1.15fr)_0.85fr_0.85fr_minmax(0,1fr)_0.7fr_3rem]'
+                : 'grid-cols-[minmax(0,1.15fr)_0.85fr_0.85fr_minmax(0,1fr)_0.7fr]'
+            }`}>
+              <span>Vaccine</span>
+              <span>Date Given</span>
+              <span>Next Due</span>
+              <span>Veterinarian</span>
+              <span>Status</span>
+              {canEdit && <span className="text-right">Action</span>}
+            </div>
             {vaccinations.map((vax) => (
-              <div key={vax.id} className="group relative p-5 transition-colors hover:bg-slate-50 sm:p-7">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Vaccine Name</p>
-                    <h4 className="mt-1 break-words text-2xl font-black tracking-tight text-slate-900">{vax.name || 'Unnamed vaccine'}</h4>
-                  </div>
-                  <Badge className={`w-fit rounded-full border-2 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest ${
-                    vax.status === 'completed' ? 'border-green-100 bg-green-50 text-green-700' : 'border-amber-100 bg-amber-50 text-amber-700'
-                  }`}>
-                    {vax.status || 'completed'}
-                  </Badge>
-                </div>
-
-                <div className="mt-5 grid gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
-                  <VaxInfo icon={CalendarClock} label="Date Administered" value={formatDisplayDate(vax.date)} />
-                  <VaxInfo icon={CalendarClock} label="Next Due Date" value={formatDisplayDate(vax.nextDue)} highlight />
-                  <VaxInfo
-                    icon={User}
-                    label="Veterinarian"
-                    value={vax.applicator || vax.veterinarianName || vax.veterinarian || 'N/A'}
-                  />
-                  <VaxInfo label="License Number" value={vax.veterinarianLicense || vax.licenseNumber || 'N/A'} />
-                </div>
-
-                <div className="mt-4 rounded-xl border border-slate-100 bg-white p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Notes</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700">
-                    {vax.notes || <span className="text-slate-300">No vaccination notes recorded.</span>}
-                  </p>
-                </div>
-
-                {canEdit && (
-                  <Button
-                    onClick={() => onDelete(vax.id)}
-                    variant="ghost"
-                    className="absolute right-4 top-4 text-slate-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+              <VaccinationRow key={vax.id} vax={vax} canEdit={canEdit} onDelete={onDelete} />
             ))}
           </div>
         ) : (
-          <div className="px-4 py-20 text-center">
-            <Syringe className="mx-auto mb-4 h-12 w-12 text-slate-200" />
+          <div className="px-4 py-12 text-center">
+            <Syringe className="mx-auto mb-4 h-10 w-10 text-slate-200" />
             <p className="font-medium text-slate-400">No vaccination records for this pet.</p>
           </div>
         )}
@@ -542,16 +517,94 @@ function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, can
   );
 }
 
-function VaxInfo({ icon, label, value, highlight = false }) {
-  const Icon = icon;
-
+function PrescriptionDocumentsPanel({ documents }) {
   return (
-    <div className="min-w-0">
-      <p className={`text-[10px] font-black uppercase tracking-widest ${highlight ? 'text-[#155dfc]' : 'text-slate-400'}`}>{label}</p>
-      <div className={`mt-2 flex items-start gap-2 text-sm font-bold ${highlight ? 'text-[#155dfc]' : 'text-slate-700'}`}>
-        {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0" />}
-        <span className="break-words">{value || <span className="text-slate-300">N/A</span>}</span>
+    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+      <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
+            <FileText className="h-6 w-6 text-[#155dfc]" />
+            Prescription Documents
+          </CardTitle>
+          <Badge className="w-fit border-0 bg-blue-50 text-blue-700">{documents.length}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-5">
+        {documents.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {documents.map((document) => {
+              const url = resolveImageUrl(document.url || document.relativeUrl);
+
+              return (
+                <a
+                  key={document.id || document.url}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50"
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
+                    <FileText className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-slate-900">{document.name || 'Prescription document'}</span>
+                    <span className="block text-xs font-semibold text-slate-500">
+                      {formatDisplayDate(document.createdAt)}
+                    </span>
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-400">
+            No prescription documents saved.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VaccinationRow({ vax, canEdit, onDelete }) {
+  return (
+    <div className={`grid gap-3 border-b border-slate-100 px-4 py-4 text-sm last:border-b-0 md:items-center md:px-5 ${
+      canEdit
+        ? 'md:grid-cols-[minmax(0,1.15fr)_0.85fr_0.85fr_minmax(0,1fr)_0.7fr_3rem]'
+        : 'md:grid-cols-[minmax(0,1.15fr)_0.85fr_0.85fr_minmax(0,1fr)_0.7fr]'
+    }`}>
+      <VaccinationCell label="Vaccine" value={vax.name || 'Unnamed vaccine'} strong />
+      <VaccinationCell label="Date Given" value={formatDisplayDate(vax.date)} />
+      <VaccinationCell label="Next Due" value={formatDisplayDate(vax.nextDue)} highlight />
+      <VaccinationCell label="Veterinarian" value={vax.applicator || vax.veterinarianName || vax.veterinarian || 'N/A'} />
+      <div className="flex items-center justify-between gap-3 md:block">
+        <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
+        <Badge className={`w-fit border-0 ${
+          vax.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+        }`}>
+          {vax.status || 'completed'}
+        </Badge>
       </div>
+      {canEdit && (
+        <Button
+          onClick={() => onDelete(vax.id)}
+          variant="ghost"
+          className="h-9 justify-self-start text-red-600 hover:bg-red-50 hover:text-red-700 md:justify-self-end"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function VaccinationCell({ label, value, strong = false, highlight = false }) {
+  return (
+    <div className="flex items-start justify-between gap-3 md:block">
+      <span className="shrink-0 text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">{label}</span>
+      <span className={`min-w-0 break-words text-right md:text-left ${strong ? 'font-black text-slate-900' : 'font-semibold'} ${highlight ? 'text-[#155dfc]' : 'text-slate-700'}`}>
+        {value || 'N/A'}
+      </span>
     </div>
   );
 }
@@ -572,7 +625,7 @@ function BioField({ label, value, isEdit, name, onChange, type = "text", isSelec
           <Input type={type} name={name} value={value || ""} onChange={onChange} className="h-9" />
         )
       ) : (
-        <span className="min-w-0 truncate font-bold text-slate-900">
+        <span className="min-w-0 break-words font-bold text-slate-900">
           {value ? (type === "date" ? formatDisplayDate(value) : value) : <span className="text-slate-300 font-normal">N/A</span>}
         </span>
       )}

@@ -12,6 +12,8 @@ if (!$petId) {
 }
 
 try {
+    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+
     $whereColumn = strpos((string)$petId, 'PET-') === 0 ? 'p.pet_sharable_ID' : 'p.pet_id';
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");
     $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);

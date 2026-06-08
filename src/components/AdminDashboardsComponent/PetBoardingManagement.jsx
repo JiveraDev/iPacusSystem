@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     Bell,
@@ -91,9 +91,9 @@ const emptyDirectCheckInForm = {
     type: 'boarding',
     roomSize: 'small',
     roomNumber: '',
+    serviceCatalogId: '',
     checkOutDate: '',
     emergencyContact: '',
-    price: '',
     notes: ''
 };
 
@@ -193,10 +193,10 @@ function getRoomStatusMeta(status) {
             label: 'Maintenance',
             note: 'Unavailable',
             Icon: Wrench,
-            rail: 'bg-slate-500',
-            badge: 'bg-slate-100 text-slate-600',
-            card: 'border-slate-300 bg-slate-50 hover:border-slate-400',
-            iconBox: 'bg-slate-200 text-slate-700'
+            rail: 'bg-red-500',
+            badge: 'bg-red-50 text-red-700',
+            card: 'border-red-200 bg-red-50/40 hover:border-red-400 hover:shadow-red-100',
+            iconBox: 'bg-red-50 text-red-700'
         }
     };
 
@@ -253,6 +253,55 @@ function getPetIcon(species) {
     return PawPrint;
 }
 
+function PetSpeciesIcon({ species, className }) {
+    const normalized = String(species || '').toLowerCase();
+
+    if (normalized.includes('dog')) {
+        return <Dog className={className} />;
+    }
+
+    if (normalized.includes('cat')) {
+        return <Cat className={className} />;
+    }
+
+    return <PawPrint className={className} />;
+}
+
+function getPetOptionValue(pet) {
+    return String(pet?.db_id || pet?.pet_id || pet?.id || '');
+}
+
+function getPetName(pet) {
+    return pet?.petName || pet?.pet_name || pet?.name || 'Unnamed pet';
+}
+
+function getPetOwnerName(pet) {
+    const directName = pet?.ownerName || pet?.owner_name || pet?.owner || pet?.userName;
+
+    if (directName) {
+        return String(directName).trim();
+    }
+
+    return [
+        pet?.ownerFirstName || pet?.owner_first_name,
+        pet?.ownerLastName || pet?.owner_last_name
+    ].filter(Boolean).join(' ').trim();
+}
+
+function getPetSearchLabel(pet) {
+    return [getPetName(pet), pet?.species].filter(Boolean).join(' - ');
+}
+
+function getPetSearchText(pet) {
+    return [
+        getPetOptionValue(pet),
+        getPetName(pet),
+        pet?.species,
+        pet?.breed,
+        getPetOwnerName(pet)
+    ].filter(Boolean).join(' ').toLowerCase();
+}
+
 function countStayDays(startDate, endDate) {
     if (!startDate || !endDate) return 1;
     const start = new Date(`${String(startDate).slice(0, 10)}T00:00:00`);
@@ -260,6 +309,25 @@ function countStayDays(startDate, endDate) {
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
 
     return Number.isFinite(days) && days > 0 ? days : 1;
+}
+
+function getCatalogServiceId(service) {
+    return String(service?.serviceId || service?.service_id || '');
+}
+
+function getCatalogServiceName(service) {
+    return service?.serviceName || service?.service_name || 'Boarding service';
+}
+
+function getCatalogServicePrice(service) {
+    return Number(service?.basePrice ?? service?.base_price ?? 0);
+}
+
+function getCatalogServiceLabel(service) {
+    const code = service?.serviceCode || service?.service_code;
+    const name = getCatalogServiceName(service);
+
+    return code ? `${name} (${code})` : name;
 }
 
 function buildPaymentPrefill(unit) {
@@ -435,10 +503,12 @@ export default function PetBoardingManagement() {
     const [documents, setDocuments] = useState([]);
     const [pets, setPets] = useState([]);
     const [boardingBookings, setBoardingBookings] = useState([]);
+    const [serviceCatalog, setServiceCatalog] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [roomViewMode, setRoomViewMode] = useState('cards');
     const [isLoading, setIsLoading] = useState(true);
     const [schemaMessage, setSchemaMessage] = useState('');
+    const [catalogSchemaMessage, setCatalogSchemaMessage] = useState('');
     const [documentSchemaMessage, setDocumentSchemaMessage] = useState('');
     const [selectedUnit, setSelectedUnit] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -462,11 +532,12 @@ export default function PetBoardingManagement() {
         }
 
         try {
-            const [roomsResult, monitoringResult, petsResult, bookingsResult] = await Promise.allSettled([
+            const [roomsResult, monitoringResult, petsResult, bookingsResult, catalogResult] = await Promise.allSettled([
                 fetch(`${API_BASE}/boarding/rooms`).then(readJsonResponse),
                 fetch(`${API_BASE}/boarding/monitoring`).then(readJsonResponse),
                 fetch(`${API_BASE}/api/pet_information`).then(readJsonResponse),
-                fetch(`${API_BASE}/bookings`).then(readJsonResponse)
+                fetch(`${API_BASE}/bookings`).then(readJsonResponse),
+                fetch(`${API_BASE}/service-catalog`).then(readJsonResponse)
             ]);
 
             if (roomsResult.status === 'fulfilled') {
@@ -493,6 +564,18 @@ export default function PetBoardingManagement() {
 
             if (bookingsResult.status === 'fulfilled') {
                 setBoardingBookings(Array.isArray(bookingsResult.value) ? bookingsResult.value : []);
+            }
+
+            if (catalogResult.status === 'fulfilled') {
+                if (catalogResult.value?.schemaReady === false) {
+                    setServiceCatalog([]);
+                    setCatalogSchemaMessage(catalogResult.value.message || 'Service catalog migration is required.');
+                } else {
+                    setServiceCatalog(Array.isArray(catalogResult.value?.services) ? catalogResult.value.services : []);
+                    setCatalogSchemaMessage('');
+                }
+            } else if (!isAutoRefresh) {
+                setCatalogSchemaMessage(catalogResult.reason.message || 'Failed to load service catalog.');
             }
         } catch (error) {
             if (!isAutoRefresh) {
@@ -618,6 +701,28 @@ export default function PetBoardingManagement() {
         )))
     ), [directCheckInForm.roomSize, directCheckInForm.type, units]);
 
+    const boardingCatalogServices = useMemo(() => (
+        serviceCatalog
+            .filter((service) => service.isActive !== false && service.serviceType === 'boarding')
+            .sort((a, b) => getCatalogServiceName(a).localeCompare(getCatalogServiceName(b)))
+    ), [serviceCatalog]);
+
+    const selectedBoardingCatalogService = useMemo(() => (
+        boardingCatalogServices.find((service) => getCatalogServiceId(service) === directCheckInForm.serviceCatalogId) || null
+    ), [boardingCatalogServices, directCheckInForm.serviceCatalogId]);
+
+    const directCheckInStayDays = useMemo(() => (
+        directCheckInForm.checkOutDate ? countStayDays(todayIso(), directCheckInForm.checkOutDate) : 0
+    ), [directCheckInForm.checkOutDate]);
+
+    const directCheckInUnitPrice = selectedBoardingCatalogService
+        ? getCatalogServicePrice(selectedBoardingCatalogService)
+        : 0;
+
+    const directCheckInEstimatedTotal = selectedBoardingCatalogService
+        ? directCheckInUnitPrice * Math.max(directCheckInStayDays, 1)
+        : 0;
+
     const stats = useMemo(() => ({
         total: filteredUnits.length,
         available: filteredUnits.filter((unit) => unit.status === 'available').length,
@@ -702,6 +807,7 @@ export default function PetBoardingManagement() {
             type: unit?.hotelBoardingType || facilityView,
             roomSize: unit?.roomSize || 'small',
             roomNumber: unit?.roomNumber ? String(unit.roomNumber) : '',
+            serviceCatalogId: boardingCatalogServices[0] ? getCatalogServiceId(boardingCatalogServices[0]) : '',
             checkOutDate: ''
         });
         setIsDirectCheckInOpen(true);
@@ -785,6 +891,11 @@ export default function PetBoardingManagement() {
             return;
         }
 
+        if (!selectedBoardingCatalogService) {
+            toast.error('Select a boarding service catalog price.');
+            return;
+        }
+
         setActionLoading('direct-check-in');
         try {
             await fetch(`${API_BASE}/boarding/direct-check-in`, {
@@ -797,7 +908,9 @@ export default function PetBoardingManagement() {
                     room_number: directCheckInForm.roomNumber || null,
                     check_out_date: directCheckInForm.checkOutDate,
                     emergency_contact: directCheckInForm.emergencyContact,
-                    price: directCheckInForm.price || 0,
+                    service_catalog_id: directCheckInForm.serviceCatalogId,
+                    service_catalog_name: getCatalogServiceName(selectedBoardingCatalogService),
+                    price: directCheckInEstimatedTotal,
                     notes: directCheckInForm.notes
                 })
             }).then(readJsonResponse);
@@ -2164,13 +2277,10 @@ export default function PetBoardingManagement() {
                         <DialogDescription>Create a boarding stay for a pet already at the clinic.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <FieldSelect
-                            label="Pet"
+                        <SearchablePetField
                             value={directCheckInForm.petId}
-                            displayValue={pets.find((pet) => String(pet.db_id) === directCheckInForm.petId)?.petName}
+                            pets={pets}
                             onChange={(value) => setDirectCheckInForm({ ...directCheckInForm, petId: value })}
-                            options={pets.map((pet) => ({ value: String(pet.db_id), label: `${pet.petName} - ${pet.species}` }))}
-                            placeholder="Select pet"
                         />
                         <FieldSelect
                             label="Facility"
@@ -2210,21 +2320,70 @@ export default function PetBoardingManagement() {
                                 onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, checkOutDate: event.target.value })}
                             />
                         </div>
+                        <section className="space-y-4 rounded-lg border border-blue-100 bg-blue-50/40 p-4 sm:col-span-2">
+                            <div>
+                                <h4 className="font-black text-[#101828]">Catalog Price Selection</h4>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">
+                                    Select the boarding service from the service catalog to compute the estimated total.
+                                </p>
+                            </div>
+                            {catalogSchemaMessage && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                                    {catalogSchemaMessage}
+                                </div>
+                            )}
+                            {boardingCatalogServices.length === 0 ? (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                                    No active boarding services found in the service catalog. Add a Boarding service first.
+                                </div>
+                            ) : (
+                                <FieldSelect
+                                    label="Boarding Catalog"
+                                    value={directCheckInForm.serviceCatalogId}
+                                    displayValue={
+                                        selectedBoardingCatalogService
+                                            ? `${getCatalogServiceLabel(selectedBoardingCatalogService)} - ${formatPhpCurrency(directCheckInUnitPrice)} / day`
+                                            : ''
+                                    }
+                                    onChange={(value) => setDirectCheckInForm({ ...directCheckInForm, serviceCatalogId: value })}
+                                    options={boardingCatalogServices.map((service) => ({
+                                        value: getCatalogServiceId(service),
+                                        label: `${getCatalogServiceLabel(service)} - ${formatPhpCurrency(getCatalogServicePrice(service))} / day`
+                                    }))}
+                                    placeholder="Select boarding catalog"
+                                />
+                            )}
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <InfoPanel
+                                    label="Catalog Rate"
+                                    value={selectedBoardingCatalogService ? `${formatPhpCurrency(directCheckInUnitPrice)} / day` : 'Select catalog'}
+                                    compact
+                                />
+                                <InfoPanel
+                                    label="Stay Length"
+                                    value={directCheckInStayDays > 0 ? `${directCheckInStayDays} day(s)` : 'Select out date'}
+                                    compact
+                                />
+                                <div className="rounded-lg border border-blue-200 bg-white p-2">
+                                    <p className="text-xs font-black uppercase text-slate-400">Estimated Total</p>
+                                    <p className="mt-0.5 text-base font-black text-[#155dfc]">
+                                        {selectedBoardingCatalogService && directCheckInStayDays > 0
+                                            ? formatPhpCurrency(directCheckInEstimatedTotal)
+                                            : 'Not ready'}
+                                    </p>
+                                </div>
+                            </div>
+                            {selectedBoardingCatalogService && directCheckInUnitPrice <= 0 && (
+                                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                                    This catalog service has a zero base price. Update the Boarding service in Service Catalog if this should produce a paid estimate.
+                                </p>
+                            )}
+                        </section>
                         <div className="space-y-2">
                             <Label>Emergency Contact</Label>
                             <Input
                                 value={directCheckInForm.emergencyContact}
                                 onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, emergencyContact: event.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Estimated Total</Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                value={directCheckInForm.price}
-                                onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, price: event.target.value })}
-                                placeholder="Optional"
                             />
                         </div>
                         <div className="space-y-2 sm:col-span-2">
@@ -2453,6 +2612,134 @@ function InfoPanel({ label, value, compact = false }) {
         <div className={`rounded-lg border border-slate-200 bg-white ${compact ? 'p-2' : 'p-3'}`}>
             <p className="text-xs font-black uppercase text-slate-400">{label}</p>
             <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} break-words font-semibold text-[#101828]`}>{value || 'Not set'}</p>
+        </div>
+    );
+}
+
+function SearchablePetField({ value, pets = [], onChange }) {
+    const containerRef = useRef(null);
+    const [query, setQuery] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+
+    const selectablePets = useMemo(() => (
+        pets.filter((pet) => getPetOptionValue(pet))
+    ), [pets]);
+
+    const selectedPet = useMemo(() => (
+        selectablePets.find((pet) => getPetOptionValue(pet) === value)
+    ), [selectablePets, value]);
+
+    const filteredPets = useMemo(() => {
+        const normalizedQuery = query.trim().toLowerCase();
+        const matches = normalizedQuery
+            ? selectablePets.filter((pet) => getPetSearchText(pet).includes(normalizedQuery))
+            : selectablePets;
+
+        return matches.slice(0, 8);
+    }, [query, selectablePets]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selectPet = (pet) => {
+        onChange(getPetOptionValue(pet));
+        setQuery(getPetSearchLabel(pet));
+        setIsOpen(false);
+    };
+
+    const handleQueryChange = (event) => {
+        const nextQuery = event.target.value;
+
+        setQuery(nextQuery);
+        setIsOpen(true);
+
+        if (selectedPet && nextQuery !== getPetSearchLabel(selectedPet)) {
+            onChange('');
+        }
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+            setIsOpen(false);
+            return;
+        }
+
+        if (event.key === 'Enter' && isOpen && filteredPets.length > 0) {
+            event.preventDefault();
+            selectPet(filteredPets[0]);
+        }
+    };
+
+    return (
+        <div ref={containerRef} className="relative space-y-2 sm:col-span-2">
+            <Label>Pet *</Label>
+            <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                    value={query}
+                    onChange={handleQueryChange}
+                    onFocus={() => setIsOpen(true)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search pet name, species, owner, or ID..."
+                    className="pl-9"
+                    role="combobox"
+                    aria-expanded={isOpen}
+                    aria-autocomplete="list"
+                />
+            </div>
+
+            {selectedPet && (
+                <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
+                    <PetSpeciesIcon species={selectedPet.species} className="size-4 shrink-0" />
+                    <span className="min-w-0 truncate">
+                        Selected: {getPetSearchLabel(selectedPet)}
+                    </span>
+                </div>
+            )}
+
+            {isOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
+                    {filteredPets.length === 0 ? (
+                        <div className="px-3 py-6 text-center text-sm font-semibold text-slate-500">
+                            {selectablePets.length === 0 ? 'No pet records available.' : 'No matching pets found.'}
+                        </div>
+                    ) : (
+                        filteredPets.map((pet) => {
+                            const petValue = getPetOptionValue(pet);
+                            const ownerName = getPetOwnerName(pet);
+                            const isSelected = petValue === value;
+
+                            return (
+                                <button
+                                    key={petValue}
+                                    type="button"
+                                    onClick={() => selectPet(pet)}
+                                    className={`flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition hover:bg-blue-50 ${
+                                        isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                                    }`}
+                                >
+                                    <PetSpeciesIcon species={pet.species} className="mt-0.5 size-4 shrink-0 text-slate-500" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-black text-[#101828]">{getPetSearchLabel(pet)}</span>
+                                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
+                                            {[ownerName && `Owner: ${ownerName}`, pet.breed].filter(Boolean).join(' / ') || `Pet ID: ${petValue}`}
+                                        </span>
+                                    </span>
+                                    {isSelected && <CheckCircle className="mt-0.5 size-4 shrink-0 text-blue-700" />}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+            )}
         </div>
     );
 }

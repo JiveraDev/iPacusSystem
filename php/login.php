@@ -36,6 +36,28 @@ function isStaffAccountDeactivated(PDO $pdo, array $user): bool
     return false;
 }
 
+function loginColumnExists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    static $cache = [];
+    $cacheKey = $tableName . '.' . $columnName;
+
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
+}
+
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -49,10 +71,14 @@ if (!$email || !$password) {
 }
 
 try {
+    $emailVerifiedSelect = loginColumnExists($pdo, 'users', 'email_verified_at')
+        ? 'email_verified_at,'
+        : 'NULL AS email_verified_at,';
     $stmt = $pdo->prepare("
         SELECT 
             user_id, 
             mail_Address, 
+            {$emailVerifiedSelect}
             role, 
             first_Name, 
             last_Name, 
@@ -72,6 +98,16 @@ try {
     if (!$user || !password_verify($password, $user['user_password'])) {
         http_response_code(401);
         echo json_encode(['message' => 'Invalid email or password.']);
+        exit;
+    }
+
+    if (empty($user['email_verified_at'])) {
+        http_response_code(403);
+        echo json_encode([
+            'message' => 'Please verify your email before logging in.',
+            'code' => 'EMAIL_UNVERIFIED',
+            'email' => $user['mail_Address'],
+        ]);
         exit;
     }
 

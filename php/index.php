@@ -43,6 +43,18 @@ switch ($path) {
     case '/login':
         require_once __DIR__ . '/login.php';
         break;
+    case '/auth/verify-email':
+        require_once __DIR__ . '/auth_verify_email.php';
+        break;
+    case '/auth/resend-verification':
+        require_once __DIR__ . '/auth_resend_verification.php';
+        break;
+    case '/auth/forgot-password':
+        require_once __DIR__ . '/auth_forgot_password.php';
+        break;
+    case '/auth/reset-password':
+        require_once __DIR__ . '/auth_reset_password.php';
+        break;
     case '/register':
     case '/users': // Fallback for old calls
         require_once __DIR__ . '/register.php';
@@ -73,6 +85,9 @@ switch ($path) {
         break;
     case '/online-consultations':
         require_once __DIR__ . '/online_consultations.php';
+        break;
+    case '/mail/test':
+        require_once __DIR__ . '/mail_test.php';
         break;
     case '/special_services':
         require_once __DIR__ . '/special_services.php';

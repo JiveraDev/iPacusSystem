@@ -1091,8 +1091,24 @@ export default function VetDiagnosis() {
         setIsSaving(true);
 
         try {
-            const attachments = await uploadAttachmentList(uploadedImages);
+            const attachments = (await uploadAttachmentList(uploadedImages))
+                .filter(attachment => attachment.category !== 'prescription_document');
             const customSections = diagnosisType === 'custom' ? await cleanCustomSectionsForSave() : [];
+            const generalPrescriptions = formData.prescription.map(cleanPrescription);
+            const prescriptionDocument = await uploadPrescriptionDocument({
+                context,
+                veterinarianName,
+                veterinarianLicense,
+                diagnosisText: diagnosisType === 'general'
+                    ? formData.diagnosis
+                    : customSections.map(section => `${section.label}: ${section.value || section.majorSymptoms || ''}`).join('\n'),
+                notes: formData.notes,
+                generalPrescriptions,
+                customSections
+            });
+            const diagnosisAttachments = prescriptionDocument
+                ? [...attachments, prescriptionDocument]
+                : attachments;
 
             const response = await fetch(`${API_BASE}/vet-diagnoses`, {
                 method: 'POST',
@@ -1116,9 +1132,9 @@ export default function VetDiagnosis() {
                     follow_up_date: formData.followUp || null,
                     notes: formData.notes,
                     vital_signs: formData.vitalSigns,
-                    prescriptions: formData.prescription.map(cleanPrescription),
+                    prescriptions: generalPrescriptions,
                     custom_sections: customSections,
-                    attachments,
+                    attachments: diagnosisAttachments,
                     source_uploads: allSourceUploads,
                     vaccination_record: shouldSaveVaccinationRecord
                         ? {
@@ -1874,6 +1890,193 @@ function formatPrescriptionLine(prescription) {
         : `${prescription.durationUnit}${Number(prescription.durationNumber) === 1 ? '' : '(s)'}`;
 
     return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        if (ctx.measureText(testLine).width <= maxWidth) {
+            currentLine = testLine;
+            return;
+        }
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        currentLine = word;
+    });
+
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+
+    return lines.length > 0 ? lines : [''];
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+    const lines = wrapCanvasText(ctx, text, maxWidth);
+    lines.forEach((line, index) => {
+        ctx.fillText(line, x, y + (index * lineHeight));
+    });
+
+    return y + (lines.length * lineHeight);
+}
+
+function collectPrescriptionRows(generalPrescriptions, customSections) {
+    const rows = [];
+
+    generalPrescriptions.forEach(prescription => {
+        rows.push({ section: 'General Diagnosis', prescription });
+    });
+
+    customSections.forEach(section => {
+        (section.prescriptions || []).forEach(prescription => {
+            rows.push({ section: section.label || 'Custom Diagnosis', prescription });
+        });
+    });
+
+    return rows;
+}
+
+function buildPrescriptionImageBlob({ context, veterinarianName, veterinarianLicense, diagnosisText, notes, rows }) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const width = 900;
+        const lineHeight = 28;
+        const estimatedHeight = 430 + (rows.length * 120) + (notes ? 120 : 0);
+        canvas.width = width;
+        canvas.height = Math.max(760, estimatedHeight);
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            reject(new Error('Could not create prescription image.'));
+            return;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#155dfc';
+        ctx.fillRect(0, 0, canvas.width, 120);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 34px Arial';
+        ctx.fillText('Ipawcus Veterinary Clinic', 48, 52);
+        ctx.font = '700 20px Arial';
+        ctx.fillText('Prescription Record', 48, 86);
+
+        ctx.fillStyle = '#101828';
+        ctx.font = '700 22px Arial';
+        ctx.fillText(context.petName || 'Patient', 48, 165);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#4a5565';
+        ctx.fillText(`Owner: ${context.ownerName || 'Pet Owner'}`, 48, 195);
+        ctx.fillText(`Service: ${context.serviceName || 'Diagnosis'}`, 48, 224);
+        ctx.fillText(`Veterinarian: ${veterinarianName || 'Clinic Veterinarian'}`, 48, 253);
+        if (veterinarianLicense) {
+            ctx.fillText(`License: ${veterinarianLicense}`, 48, 282);
+        }
+
+        ctx.textAlign = 'right';
+        ctx.fillText(new Date().toLocaleDateString(), width - 48, 165);
+        ctx.textAlign = 'left';
+
+        let y = 330;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(48, y - 28);
+        ctx.lineTo(width - 48, y - 28);
+        ctx.stroke();
+
+        ctx.fillStyle = '#101828';
+        ctx.font = '700 20px Arial';
+        ctx.fillText('Diagnosis Summary', 48, y);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#334155';
+        y = drawWrappedText(ctx, diagnosisText || 'No diagnosis summary recorded.', 48, y + 34, width - 96, lineHeight) + 26;
+
+        ctx.fillStyle = '#101828';
+        ctx.font = '700 20px Arial';
+        ctx.fillText('Prescriptions', 48, y);
+        y += 36;
+
+        rows.forEach((row, index) => {
+            const top = y - 20;
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(48, top, width - 96, 96);
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.strokeRect(48, top, width - 96, 96);
+            ctx.fillStyle = '#155dfc';
+            ctx.font = '700 15px Arial';
+            ctx.fillText(`${index + 1}. ${row.section}`, 68, y + 4);
+            ctx.fillStyle = '#101828';
+            ctx.font = '700 17px Arial';
+            ctx.fillText(formatPrescriptionLine(row.prescription), 68, y + 34);
+            if (row.prescription.instructions) {
+                ctx.fillStyle = '#475569';
+                ctx.font = '15px Arial';
+                drawWrappedText(ctx, row.prescription.instructions, 68, y + 62, width - 136, 22);
+            }
+            y += 116;
+        });
+
+        if (notes) {
+            ctx.fillStyle = '#101828';
+            ctx.font = '700 20px Arial';
+            ctx.fillText('Notes', 48, y);
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#334155';
+            y = drawWrappedText(ctx, notes, 48, y + 34, width - 96, lineHeight) + 20;
+        }
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '14px Arial';
+        ctx.fillText('Generated from the finalized diagnosis record.', 48, Math.min(canvas.height - 42, y + 30));
+
+        canvas.toBlob(blob => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Could not export prescription image.'));
+            }
+        }, 'image/png');
+    });
+}
+
+async function uploadPrescriptionDocument(payload) {
+    const rows = collectPrescriptionRows(payload.generalPrescriptions, payload.customSections);
+    if (rows.length === 0) {
+        return null;
+    }
+
+    const blob = await buildPrescriptionImageBlob({ ...payload, rows });
+    const file = new File([blob], `prescription-${Date.now()}.png`, { type: 'image/png' });
+    const formDataUpload = new FormData();
+    formDataUpload.append('image', file);
+    formDataUpload.append('type', 'diagnosis');
+
+    const response = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        body: formDataUpload
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(result.message || 'Failed to upload prescription image.');
+    }
+
+    return {
+        id: createId(),
+        name: file.name,
+        url: result.relative_url || result.url || '',
+        relativeUrl: result.relative_url || result.url || '',
+        mimeType: 'image/png',
+        uploadedAt: new Date().toISOString(),
+        category: 'prescription_document'
+    };
 }
 
 function PrescriptionEditor({

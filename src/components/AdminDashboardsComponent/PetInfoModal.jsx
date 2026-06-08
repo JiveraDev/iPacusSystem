@@ -108,7 +108,7 @@ export default function PetInfoModal({ petId, petName, booking }) {
     }
 
     return (
-        <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-2">
+        <div className="max-h-[70vh] min-w-0 space-y-4 overflow-y-auto pr-0 sm:space-y-6 sm:pr-2">
             {pets.map((pet, index) => (
                 <PetDetails key={pet.dbId || pet.id || `${pet.name}-${index}`} pet={pet} />
             ))}
@@ -127,10 +127,10 @@ function PetDetails({ pet }) {
             : [];
 
     return (
-        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-3 sm:space-y-6 sm:p-5">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
                 <div className="relative">
-                    <div className="size-28 overflow-hidden rounded-3xl border-4 border-white bg-slate-100 shadow-xl ring-1 ring-slate-100">
+                    <div className="size-24 overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-xl ring-1 ring-slate-100 sm:size-28 sm:rounded-3xl">
                         {imageUrl ? (
                             <img
                                 src={imageUrl}
@@ -155,7 +155,7 @@ function PetDetails({ pet }) {
 
                 <div className="min-w-0 flex-1">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Pet Profile</p>
-                    <h3 className="mt-1 break-words text-2xl font-black text-slate-900">{pet.name || 'Unnamed Pet'}</h3>
+                    <h3 className="mt-1 break-words text-xl font-black text-slate-900 sm:text-2xl">{pet.name || 'Unnamed Pet'}</h3>
                     <p className="mt-1 text-sm font-semibold text-slate-500">
                         {[pet.species, pet.breed].filter(Boolean).join(' - ') || 'Species not set'}
                     </p>
@@ -167,11 +167,11 @@ function PetDetails({ pet }) {
                 </div>
             </div>
 
-            <section className="rounded-2xl bg-slate-50 p-4 sm:p-5">
+            <section className="rounded-2xl bg-slate-50 p-3 sm:p-5">
                 <h4 className="mb-4 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                     Biological Profile
                 </h4>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                     <BioField label="Species" value={pet.species} />
                     <BioField label="Primary Breed" value={pet.breed} />
                     <BioField icon={Calendar} label="Birth Date" value={pet.birthDate ? formatDisplayDate(pet.birthDate) : ''} />
@@ -185,7 +185,7 @@ function PetDetails({ pet }) {
                 </div>
             </section>
 
-            <section className={`rounded-2xl p-4 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
+            <section className={`rounded-2xl p-3 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
                 <div className="mb-3 flex items-center gap-2">
                     <AlertCircle className="size-5 text-[#991b1b] dark:text-[#ef4444]" />
                     <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">Critical Allergies</h4>
@@ -214,7 +214,7 @@ function BioField({ label, value, icon: Icon }) {
                 {Icon && <Icon className="size-4 text-slate-400" />}
                 {label}
             </p>
-            <div className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+            <div className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:px-4">
                 <p className="break-words text-sm font-semibold text-slate-900 sm:text-base">
                     {value || 'Not set'}
                 </p>

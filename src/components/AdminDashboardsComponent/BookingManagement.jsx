@@ -19,6 +19,20 @@ import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '..
 import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import { useNavigate } from '../dashboardRouter.jsx';
+
+const REVIEW_SERVICE_TYPES = [
+    { value: 'consultation', label: 'Consultation' },
+    { value: 'vaccination', label: 'Vaccination' },
+    { value: 'grooming', label: 'Grooming' },
+    { value: 'dental', label: 'Dental Check-up' },
+    { value: 'wellness', label: 'General Check-Up' },
+    { value: 'surgery', label: 'Surgery' },
+    { value: 'lab-testing', label: 'Lab Testing' },
+    { value: 'parasite-control', label: 'Parasite Control' },
+    { value: 'home-service', label: 'Home Service' },
+    { value: 'special services', label: 'Special Services' },
+];
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -42,6 +56,7 @@ function ActionButtonMedia({ image, alt, fallback }) {
 }
 
 export default function BookingsManagement() {
+    const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('Service Type');
@@ -60,6 +75,7 @@ export default function BookingsManagement() {
         walletNumber: '',
         transactionNumber: ''
     });
+    const [reviewDrafts, setReviewDrafts] = useState({});
 
     // Registration states
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -115,6 +131,71 @@ export default function BookingsManagement() {
             toast.error(error.message || 'Failed to update booking status.');
             return false;
         }
+    };
+
+    const getReviewDraft = (booking) => reviewDrafts[booking.id] || {
+        serviceType: booking.type || 'consultation',
+        notes: booking.notes || ''
+    };
+
+    const updateReviewDraft = (booking, field, value) => {
+        setReviewDrafts(current => ({
+            ...current,
+            [booking.id]: {
+                ...getReviewDraft(booking),
+                [field]: value
+            }
+        }));
+    };
+
+    const saveBookingReview = async (booking) => {
+        const draft = getReviewDraft(booking);
+        const updated = await updateBookingStatus(booking.id, booking.status, {
+            service_type: draft.serviceType,
+            review_notes: draft.notes
+        });
+
+        if (updated) {
+            setBookings(current => current.map(item => (
+                item.id === booking.id
+                    ? {
+                        ...item,
+                        type: draft.serviceType,
+                        service: getServiceDisplayName(draft.serviceType),
+                        notes: draft.notes
+                    }
+                    : item
+            )));
+            toast.success(`Review saved for ${booking.bookingNumber}.`);
+        }
+    };
+
+    const sendOnlineBookingToPOS = (booking) => {
+        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
+            visit: {
+                id: booking.bookingNumber,
+                petName: booking.petName || 'Online Consultation',
+                ownerName: booking.ownerName || 'Pet Owner',
+                species: booking.petSpecies || 'Pet',
+                visitType: 'Online Consultation Payment',
+                veterinarian: booking.veterinarian || 'Clinic Team',
+                complaint: booking.notes || 'Admin-created online consultation payment',
+                status: 'Payment only'
+            },
+            charges: Number(booking.price || 0) > 0
+                ? [{
+                    classificationId: 'services',
+                    receiptType: 'SERVICE',
+                    name: getServiceDisplayName(booking.service || booking.type || 'Online Consultation'),
+                    group: 'Online Consultation',
+                    quantity: 1,
+                    price: Number(booking.price || 0),
+                    includedMaterials: [],
+                    extraMaterials: []
+                }]
+                : []
+        }));
+        navigate('/dashboard/pos');
     };
 
     const handleReschedule = (booking) => {
@@ -917,11 +998,64 @@ export default function BookingsManagement() {
                                                         </h4>
                                                         <div className="flex flex-col gap-3">
                                                             {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
+                                                                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                                                    <div className="space-y-2">
+                                                                        <Label>Reviewed Service</Label>
+                                                                        <Select
+                                                                            value={getReviewDraft(booking).serviceType}
+                                                                            onValueChange={(value) => updateReviewDraft(booking, 'serviceType', value)}
+                                                                        >
+                                                                            <SelectTrigger className="bg-white">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {REVIEW_SERVICE_TYPES.map((type) => (
+                                                                                    <SelectItem key={type.value} value={type.value}>
+                                                                                        {type.label}
+                                                                                    </SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label>Reviewed Notes / Observations</Label>
+                                                                        <Textarea
+                                                                            value={getReviewDraft(booking).notes}
+                                                                            onChange={(event) => updateReviewDraft(booking, 'notes', event.target.value)}
+                                                                            placeholder="Adjust the service based on client notes, observations, or request before confirming."
+                                                                            rows={4}
+                                                                            className="bg-white"
+                                                                        />
+                                                                    </div>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        onClick={() => saveBookingReview(booking)}
+                                                                        className="w-full border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff]"
+                                                                    >
+                                                                        Save Review
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+
+                                                            {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                                 <Button
                                                                     onClick={async () => {
-                                                                        const updated = await updateBookingStatus(booking.id, 'confirmed');
+                                                                        const draft = getReviewDraft(booking);
+                                                                        const updated = await updateBookingStatus(booking.id, 'confirmed', {
+                                                                            service_type: draft.serviceType,
+                                                                            review_notes: draft.notes
+                                                                        });
                                                                         if (updated) {
                                                                             toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully`);
+                                                                            if (booking.isOnlineConsultation && !booking.paymentProof) {
+                                                                                sendOnlineBookingToPOS({
+                                                                                    ...booking,
+                                                                                    type: draft.serviceType,
+                                                                                    service: getServiceDisplayName(draft.serviceType),
+                                                                                    notes: draft.notes
+                                                                                });
+                                                                            }
                                                                         }
                                                                     }}
                                                                     className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"

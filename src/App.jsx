@@ -9,6 +9,8 @@ const Login =lazy(() => import("./components/Login.jsx").then(module => ({ defau
 const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
 const RegistrationForm = lazy(() => import("./components/Registration.jsx").then(module => ({ default: module.RegistrationForm })));
 const PetOwnerProfileForm = lazy(() => import("./components/petownerprofileRegistration.jsx").then(module => ({ default: module.PetOwnerProfileForm })));
+const EmailVerification = lazy(() => import("./components/EmailVerification.jsx").then(module => ({ default: module.EmailVerification })));
+const ForgotPassword = lazy(() => import("./components/ForgotPassword.jsx").then(module => ({ default: module.ForgotPassword })));
 
 const routes = {
   landing: '/landing',
@@ -16,6 +18,8 @@ const routes = {
   dashboard: '/dashboard',
   register: '/landing/register',
   registerProfile: '/landing/register/profile',
+  verifyEmail: '/landing/verify-email',
+  forgotPassword: '/landing/forgot-password',
 };
 
 function getViewFromPath(pathname) {
@@ -32,6 +36,10 @@ function getViewFromPath(pathname) {
       return 'register';
     case routes.registerProfile:
       return 'registerProfile';
+    case routes.verifyEmail:
+      return 'verifyEmail';
+    case routes.forgotPassword:
+      return 'forgotPassword';
     case routes.landing:
     default:
       return 'landing';
@@ -39,7 +47,7 @@ function getViewFromPath(pathname) {
 }
 
 function getRouteRedirect(viewName, storedUser, registrationEmail = '') {
-  if (storedUser && (viewName === 'landing' || viewName === 'login' || viewName === 'register')) {
+  if (storedUser && ['landing', 'login', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(viewName)) {
     return { view: 'dashboard', path: routes.dashboard };
   }
 
@@ -77,6 +85,10 @@ function App() {
   });
   const [registrationData, setRegistrationData] = useState(initialRegistrationData);
   const [registrationFlowKey, setRegistrationFlowKey] = useState(0);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState(() => (
+    localStorage.getItem('pendingVerificationEmail') || ''
+  ));
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
 
   useEffect(() => {
     const handlePopState = () => {
@@ -89,7 +101,7 @@ function App() {
         return;
       }
       
-      if ((nextView === 'login' || nextView === 'landing' || nextView === 'register') && storedUser) {
+      if (['login', 'landing', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(nextView) && storedUser) {
         window.history.replaceState({}, '', routes.dashboard);
         setView('dashboard');
         setCurrentUser(JSON.parse(storedUser));
@@ -191,10 +203,15 @@ function App() {
     };
 
     try {
-      await registerUser(completedRegistration);
-      toast.success('Registration completed successfully!');
+      const result = await registerUser(completedRegistration);
+      const verificationEmail = result.email || completedRegistration.email;
+      localStorage.setItem('pendingVerificationEmail', verificationEmail);
+      setPendingVerificationEmail(verificationEmail);
+      toast.success(result.emailSent === false
+        ? result.message || 'Registration completed. Request a new verification code.'
+        : 'Registration completed. Verification code sent.');
       resetRegistrationFlow();
-      navigateTo(routes.login);
+      navigateTo(routes.verifyEmail);
     } catch (error) {
       console.error('Registration failed:', error);
       setRegistrationData((currentData) => ({
@@ -206,6 +223,26 @@ function App() {
       toast.error(error.message || 'Registration failed.');
       navigateTo(routes.register, { preserveRegistration: true });
     }
+  };
+
+  const handleVerifyEmailRoute = (email = '') => {
+    const nextEmail = email || pendingVerificationEmail || '';
+    if (nextEmail) {
+      localStorage.setItem('pendingVerificationEmail', nextEmail);
+      setPendingVerificationEmail(nextEmail);
+    }
+    navigateTo(routes.verifyEmail);
+  };
+
+  const handleVerificationComplete = () => {
+    localStorage.removeItem('pendingVerificationEmail');
+    setPendingVerificationEmail('');
+    navigateTo(routes.login);
+  };
+
+  const handleForgotPasswordRoute = (email = '') => {
+    setForgotPasswordEmail(email);
+    navigateTo(routes.forgotPassword);
   };
 
   return (
@@ -231,6 +268,24 @@ function App() {
                 onLogin={handleLoginSuccess}
                 onBack={() => navigateTo(routes.landing)}
                 onRegister={() => navigateTo(routes.register)}
+                onForgotPassword={() => handleForgotPasswordRoute()}
+                onVerifyEmail={handleVerifyEmailRoute}
+            />
+        )}
+
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'verifyEmail' && (
+            <EmailVerification
+                initialEmail={pendingVerificationEmail}
+                onBack={() => navigateTo(routes.login)}
+                onVerified={handleVerificationComplete}
+            />
+        )}
+
+        {getRouteRedirect(view, currentUser, registrationData.email).view === 'forgotPassword' && (
+            <ForgotPassword
+                initialEmail={forgotPasswordEmail}
+                onBack={() => navigateTo(routes.login)}
+                onComplete={() => navigateTo(routes.login)}
             />
         )}
 

@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  Banknote,
   CheckCircle2,
   ClipboardList,
-  CreditCard,
   FileText,
-  FlaskConical,
   Loader2,
   Minus,
   Package,
@@ -56,13 +53,13 @@ const CLASSIFICATIONS = [
     id: 'diagnostics',
     label: 'Diagnostics',
     receiptType: 'LAB',
-    icon: FlaskConical,
+    icon: Stethoscope,
     accent: 'emerald',
     description: 'CBC, blood chemistry, urinalysis, fecalysis, X-ray, ultrasound, and ECG.',
   },
   {
     id: 'medications',
-    label: 'Medications',
+    label: 'Medication',
     receiptType: 'MEDICINE',
     icon: Pill,
     accent: 'rose',
@@ -82,6 +79,25 @@ const CLASSIFICATION_BY_ID = CLASSIFICATIONS.reduce((map, classification) => {
   map[classification.id] = classification;
   return map;
 }, {});
+
+const BILLING_CLASSIFICATIONS = CLASSIFICATIONS.filter((classification) => (
+  ['services', 'medications', 'products'].includes(classification.id)
+));
+
+const WALK_IN_SALE_ID = 'walk-in-sale';
+
+const WALK_IN_SALE_VISIT = {
+  id: WALK_IN_SALE_ID,
+  source: 'walk_in',
+  petName: 'Walk-in Customer',
+  ownerName: 'Counter Sale',
+  species: 'No patient visit',
+  visitType: 'Walk-in / Retail Invoice',
+  veterinarian: 'POS Counter',
+  complaint: 'No ready-for-billing visit is required for direct sales.',
+  status: 'Optional visit',
+  initialCharges: [],
+};
 
 const INITIAL_INVENTORY = [
   { id: 'inv-rabies-vaccine', name: 'Rabies Vaccine Dose', category: 'MEDICATION', stock: 0, unit: 'dose', cost: 280, sellingPrice: 0, sellable: false },
@@ -260,52 +276,6 @@ const DIAGNOSTIC_PACKAGES = [
   },
 ];
 
-const SAMPLE_VISITS = [
-  {
-    id: 'VIS-2026-0530-001',
-    petName: 'Max',
-    ownerName: 'John Doe',
-    species: 'Dog',
-    visitType: 'Walk-in Consultation',
-    veterinarian: 'Dr. Santos',
-    complaint: 'Vomiting and low appetite',
-    status: 'Ready for billing',
-    initialCharges: [
-      { id: 'svc-consultation', quantity: 1 },
-      { id: 'lab-cbc', quantity: 1 },
-      { id: 'med-amoxicillin', quantity: 10 },
-      { id: 'med-vitamin-syrup', quantity: 1 },
-    ],
-  },
-  {
-    id: 'VIS-2026-0530-002',
-    petName: 'Bella',
-    ownerName: 'Jane Smith',
-    species: 'Cat',
-    visitType: 'Vaccination',
-    veterinarian: 'Dr. Reyes',
-    complaint: 'Annual vaccine update',
-    status: 'In treatment',
-    initialCharges: [
-      { id: 'svc-consultation', quantity: 1 },
-      { id: 'svc-5in1', quantity: 1 },
-    ],
-  },
-  {
-    id: 'VIS-2026-0530-003',
-    petName: 'Luna',
-    ownerName: 'Sarah Williams',
-    species: 'Dog',
-    visitType: 'Surgery',
-    veterinarian: 'Dr. Cruz',
-    complaint: 'Laceration on right paw',
-    status: 'Awaiting procedure',
-    initialCharges: [
-      { id: 'svc-consultation', quantity: 1 },
-    ],
-  },
-];
-
 let lineSequence = 0;
 
 function nextLineId(prefix = 'line') {
@@ -319,12 +289,82 @@ function normalizeText(value) {
 
 function groupById(items) {
   return items.reduce((map, item) => {
-    map[item.id] = item;
+    map[String(item.id)] = item;
     return map;
   }, {});
 }
 
-function buildCatalog(inventory) {
+function getCatalogClassification(serviceType) {
+  if (serviceType === 'laboratory') {
+    return 'diagnostics';
+  }
+
+  return 'services';
+}
+
+function serviceTypeLabel(value) {
+  const labels = {
+    consultation: 'Consultation',
+    vaccination: 'Vaccination',
+    laboratory: 'Laboratory',
+    surgery: 'Surgery',
+    grooming: 'Grooming',
+    boarding: 'Boarding',
+    dental: 'Dental',
+    home_service: 'Home Service',
+    other: 'Other',
+  };
+
+  return labels[value] || 'Service';
+}
+
+function normalizeServiceCatalogItem(service) {
+  const classificationId = getCatalogClassification(service.serviceType);
+
+  return {
+    id: `service-${service.serviceId}`,
+    serviceId: service.serviceId,
+    classificationId,
+    inventoryId: null,
+    name: service.serviceName,
+    group: serviceTypeLabel(service.serviceType),
+    price: Number(service.basePrice) || 0,
+    description: service.description || '',
+    materials: (service.materials || []).map((material) => ({
+      inventoryId: material.itemId !== null && material.itemId !== undefined ? String(material.itemId) : '',
+      quantity: Number(material.qtyUsed) || 1,
+      role: material.billablePolicy === 'separate' ? 'Separate material' : 'Included material',
+    })).filter((material) => material.inventoryId),
+  };
+}
+
+function normalizeInventoryItems(data) {
+  return (Array.isArray(data?.items) ? data.items : []).map((item) => {
+    const category = String(item.category || '').trim().toUpperCase();
+    const itemId = String(item.itemId || item.id || '');
+    const costPrice = Number(item.costPrice || item.unitCost || 0);
+    const sellingPrice = Number(item.sellingPrice || item.salePrice || item.retailPrice || costPrice || 0);
+
+    return {
+      id: itemId,
+      itemId: Number(item.itemId || item.id || 0),
+      name: item.name || item.itemName || 'Inventory item',
+      category,
+      stock: Number(item.quantity || item.stock || 0),
+      unit: item.unit || 'pcs',
+      cost: costPrice,
+      sellingPrice,
+      sellable: category !== 'CONSUMABLE' && sellingPrice > 0,
+    };
+  }).filter((item) => item.id);
+}
+
+function buildCatalog(inventory, serviceCatalog = []) {
+  const activeCatalogItems = serviceCatalog
+    .filter((service) => service.isActive !== false)
+    .map(normalizeServiceCatalogItem);
+  const catalogServices = activeCatalogItems.filter((item) => item.classificationId === 'services');
+
   const medicationItems = inventory
     .filter((item) => item.category === 'MEDICATION' && item.sellable)
     .map((item) => ({
@@ -332,27 +372,27 @@ function buildCatalog(inventory) {
       classificationId: 'medications',
       inventoryId: item.id,
       name: item.name,
-      group: 'Prescription',
+      group: 'Medication',
       price: item.sellingPrice,
       description: `${item.stock} ${item.unit} available`,
       materials: [],
     }));
 
   const productItems = inventory
-    .filter((item) => item.category === 'RETAIL' && item.sellable)
+    .filter((item) => item.category !== 'MEDICATION' && item.category !== 'CONSUMABLE' && item.sellable)
     .map((item) => ({
       id: item.id,
       classificationId: 'products',
       inventoryId: item.id,
       name: item.name,
-      group: 'Retail',
+      group: item.category ? item.category.toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase()) : 'Inventory',
       price: item.sellingPrice,
       description: `${item.stock} ${item.unit} available`,
       materials: [],
     }));
 
   return {
-    services: SERVICE_PACKAGES,
+    services: catalogServices.length > 0 ? catalogServices : SERVICE_PACKAGES,
     diagnostics: DIAGNOSTIC_PACKAGES,
     medications: medicationItems,
     products: productItems,
@@ -629,6 +669,90 @@ function createVisitCharge(charge, index = 0) {
   };
 }
 
+function getVisitChargeType(charge) {
+  if (charge.classificationId === 'diagnostics') {
+    return 'diagnostic';
+  }
+
+  if (charge.classificationId === 'medications') {
+    return 'medication';
+  }
+
+  if (charge.classificationId === 'products') {
+    return 'retail_product';
+  }
+
+  if (charge.group === 'Boarding') {
+    return 'boarding';
+  }
+
+  return 'service';
+}
+
+function serializeChargeForVisit(charge, inventoryById, currentUser) {
+  const inventoryItem = charge.inventoryId ? inventoryById[String(charge.inventoryId)] : null;
+  const serviceId = charge.catalogId && String(charge.catalogId).startsWith('service-')
+    ? Number(String(charge.catalogId).replace('service-', ''))
+    : null;
+
+  return {
+    chargeType: getVisitChargeType(charge),
+    serviceId: Number.isFinite(serviceId) && serviceId > 0 ? serviceId : null,
+    itemId: inventoryItem?.itemId || null,
+    description: charge.name,
+    quantity: Number(charge.quantity) || 1,
+    unitPrice: Number(charge.price) || 0,
+    createdByUserId: getUserIdentifier(currentUser),
+  };
+}
+
+function normalizeVisitPrescriptions(prescriptions) {
+  return (Array.isArray(prescriptions) ? prescriptions : []).map((prescription, index) => ({
+    id: prescription.id || `rx-${index + 1}`,
+    medicine: prescription.medicine || prescription.itemName || '',
+    times: Number(prescription.times) || 1,
+    frequency: prescription.frequency || 'per day',
+    durationNumber: Number(prescription.durationNumber) || 0,
+    durationUnit: prescription.durationUnit || 'week',
+    instructions: prescription.instructions || prescription.notes || '',
+  })).filter((prescription) => prescription.medicine.trim());
+}
+
+function getPrescriptionQuantity(prescription) {
+  const times = Math.max(1, Number(prescription.times) || 1);
+  const duration = Math.max(1, Number(prescription.durationNumber) || 1);
+  const durationUnit = prescription.durationUnit || 'week';
+  const days = durationUnit === 'month'
+    ? duration * 30
+    : durationUnit === 'week'
+      ? duration * 7
+      : durationUnit === 'day'
+        ? duration
+        : 1;
+
+  return Math.max(1, Math.ceil(times * days));
+}
+
+function formatPrescriptionLine(prescription) {
+  const durationUnit = prescription.durationUnit === 'as needed'
+    ? 'as needed'
+    : `${prescription.durationUnit}${Number(prescription.durationNumber) === 1 ? '' : '(s)'}`;
+
+  return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
+}
+
+function findPrescriptionInventoryItem(prescription, inventory) {
+  const medicine = normalizeText(prescription.medicine);
+  if (!medicine) {
+    return null;
+  }
+
+  return inventory.find((item) => {
+    const itemName = normalizeText(item.name);
+    return itemName === medicine || itemName.includes(medicine) || medicine.includes(itemName);
+  }) || null;
+}
+
 function getVisitSourceLabel(visit) {
   if (visit.queueNumber) {
     return `Queue #${visit.queueNumber}`;
@@ -658,6 +782,7 @@ function createDatabaseVisit(visit) {
   const total = Number(visit.totals?.charges);
   const paid = Number(visit.totals?.paid);
   const balance = Number(visit.totals?.balance);
+  const prescriptions = normalizeVisitPrescriptions(visit.prescriptions || visit.diagnosisPrescriptions);
 
   return {
     id: `visit-${visit.visitId}`,
@@ -674,6 +799,9 @@ function createDatabaseVisit(visit) {
     total: Number.isFinite(total) ? total : getInvoiceTotal(charges),
     paid: Number.isFinite(paid) ? paid : 0,
     balance: Number.isFinite(balance) ? balance : Math.max(0, getInvoiceTotal(charges)),
+    diagnosisSummary: visit.diagnosisSummary || visit.diagnosis || '',
+    diagnosisNotes: visit.diagnosisNotes || '',
+    prescriptions,
     initialCharges: charges,
   };
 }
@@ -687,17 +815,6 @@ function getUserDisplayName(user) {
     user?.first_Name || user?.firstName || user?.first_name,
     user?.last_Name || user?.lastName || user?.last_name,
   ].filter(Boolean).join(' ').trim() || user?.name || user?.email || null;
-}
-
-function getAccentClasses(accent) {
-  const classes = {
-    blue: 'border-blue-100 bg-blue-50 text-blue-700',
-    emerald: 'border-green-100 bg-green-50 text-green-700',
-    rose: 'border-red-100 bg-red-50 text-red-700',
-    amber: 'border-amber-100 bg-amber-50 text-amber-700',
-  };
-
-  return classes[accent] || classes.blue;
 }
 
 function StockBadge({ item, inventoryById, charges }) {
@@ -721,45 +838,35 @@ function StockBadge({ item, inventoryById, charges }) {
   );
 }
 
-function PaymentIcon({ method }) {
-  if (method === 'card') {
-    return <CreditCard className="size-4" />;
-  }
-
-  if (['gcash', 'maya', 'bank_transfer', 'other'].includes(method)) {
-    return <FileText className="size-4" />;
-  }
-
-  return <Banknote className="size-4" />;
-}
-
 export default function ServicePOS() {
   const currentUser = useDashboardUser();
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const [serviceCatalog, setServiceCatalog] = useState([]);
   const [visitBills, setVisitBills] = useState([]);
   const [visitSchemaMessage, setVisitSchemaMessage] = useState('');
+  const [catalogSchemaMessage, setCatalogSchemaMessage] = useState('');
   const [isLoadingVisits, setIsLoadingVisits] = useState(false);
   const [isPostingPayment, setIsPostingPayment] = useState(false);
   const [posPrefill] = useState(() => readPosPrefill());
-  const catalog = useMemo(() => buildCatalog(inventory), [inventory]);
+  const catalog = useMemo(() => buildCatalog(inventory, serviceCatalog), [inventory, serviceCatalog]);
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
   const databaseVisitOptions = useMemo(() => visitBills.map(createDatabaseVisit), [visitBills]);
   const visitOptions = useMemo(() => {
     const prefillOptions = posPrefill?.visit ? [createPrefillVisit(posPrefill)] : [];
 
-    return [...databaseVisitOptions, ...prefillOptions, ...SAMPLE_VISITS];
+    return [WALK_IN_SALE_VISIT, ...databaseVisitOptions, ...prefillOptions];
   }, [databaseVisitOptions, posPrefill]);
-  const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || SAMPLE_VISITS[0].id);
+  const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || WALK_IN_SALE_ID);
   const selectedVisit = visitOptions.find((visit) => visit.id === selectedVisitId) || visitOptions[0];
   const [charges, setCharges] = useState(() => (
     Array.isArray(posPrefill?.charges) && posPrefill.charges.length > 0
       ? posPrefill.charges.map(createPrefillCharge)
-      : createInitialCharges(flattenCatalog(buildCatalog(INITIAL_INVENTORY)), SAMPLE_VISITS[0])
+      : []
   ));
   const [activeTab, setActiveTab] = useState('services');
   const [searchQuery, setSearchQuery] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [chargeSheetOpen, setChargeSheetOpen] = useState(true);
   const [receiptPaperWidth, setReceiptPaperWidth] = useState('58mm');
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0530-001');
@@ -769,11 +876,6 @@ export default function ServicePOS() {
   const [selectedChargeId, setSelectedChargeId] = useState(charges[0]?.lineId || '');
   const [extraMaterialId, setExtraMaterialId] = useState('');
   const [extraMaterialQty, setExtraMaterialQty] = useState('1');
-  const [customClassificationId, setCustomClassificationId] = useState('services');
-  const [customName, setCustomName] = useState('');
-  const [customPrice, setCustomPrice] = useState('');
-  const [customMaterialId, setCustomMaterialId] = useState('');
-  const [customMaterialQty, setCustomMaterialQty] = useState('1');
 
   const loadVisitBills = useCallback(async ({ isAutoRefresh = false } = {}) => {
     if (!API_BASE) {
@@ -811,7 +913,58 @@ export default function ServicePOS() {
     }
   }, []);
 
+  const loadServiceCatalog = useCallback(async ({ isAutoRefresh = false } = {}) => {
+    if (!API_BASE) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/service-catalog`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || 'Failed to load service catalog.');
+      }
+
+      if (data.schemaReady === false) {
+        setServiceCatalog([]);
+        setCatalogSchemaMessage(data.message || 'Service catalog schema is not ready.');
+        return;
+      }
+
+      setServiceCatalog(Array.isArray(data.services) ? data.services : []);
+      setCatalogSchemaMessage('');
+    } catch (error) {
+      if (!isAutoRefresh) {
+        setCatalogSchemaMessage(error.message || 'Failed to load service catalog.');
+      }
+    }
+  }, []);
+
+  const loadInventory = useCallback(async () => {
+    if (!API_BASE) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/inventory`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load inventory.');
+      }
+
+      const items = normalizeInventoryItems(data);
+      if (items.length > 0) {
+        setInventory(items);
+      }
+    } catch {
+      // Keep local fallback inventory so POS remains usable without the inventory module.
+    }
+  }, []);
+
   useAutoRefresh(loadVisitBills, { refreshKey: 'pos-visit-payments' });
+  useAutoRefresh(loadServiceCatalog, { refreshKey: 'pos-service-catalog' });
+  useAutoRefresh(loadInventory, { intervalMs: 12000, refreshKey: 'pos-inventory' });
 
   useEffect(() => {
     if (!posPrefill) {
@@ -821,22 +974,25 @@ export default function ServicePOS() {
     localStorage.removeItem('ipawcus-pos-prefill');
   }, [posPrefill]);
 
+  const paymentMethod = 'cash';
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
-  const visitBalance = selectedVisit?.source === 'database' ? Number(selectedVisit.balance || 0) : invoiceTotal;
+  const visitBalance = selectedVisit?.source === 'database'
+    ? Math.max(0, invoiceTotal - Number(selectedVisit.paid || 0))
+    : invoiceTotal;
   const canCreateInvoice = charges.length > 0
     && stockProblems.length === 0
     && !isPostingPayment
     && (selectedVisit?.source !== 'database' || visitBalance > 0);
   const inventoryImpact = getInventoryImpact(charges, inventoryById);
   const selectedCharge = charges.find((charge) => charge.lineId === selectedChargeId);
-  const materialOptions = inventory.filter((item) => item.category !== 'RETAIL');
-  const visibleCatalog = catalog[activeTab].filter((item) => {
+  const materialOptions = inventory.filter((item) => !['RETAIL', 'PRODUCT', 'PRODUCTS'].includes(item.category));
+  const selectedVisitPrescriptions = selectedVisit?.prescriptions || [];
+  const visibleCatalog = (catalog[activeTab] || []).filter((item) => {
     const query = normalizeText(searchQuery);
     return !query ||
       normalizeText(item.name).includes(query) ||
-      normalizeText(item.group).includes(query) ||
-      normalizeText(item.description).includes(query);
+      normalizeText(item.group).includes(query);
   });
 
   const handleVisitChange = (visitId) => {
@@ -877,6 +1033,47 @@ export default function ServicePOS() {
     setCharges(nextCharges);
     setSelectedChargeId(existingCharge?.lineId || nextCharges[nextCharges.length - 1]?.lineId || '');
     setNotification('');
+  };
+
+  const addPrescriptionToInvoice = (prescription, inventoryItem) => {
+    if (!inventoryItem) {
+      setNotification('This prescription is not matched to clinic inventory.');
+      return;
+    }
+
+    const quantity = getPrescriptionQuantity(prescription);
+    const existingCharge = charges.find((charge) => charge.inventoryId === inventoryItem.id && charge.prescriptionId === prescription.id);
+    const prescriptionCharge = {
+      lineId: nextLineId('rx'),
+      catalogId: null,
+      classificationId: 'medications',
+      receiptType: CLASSIFICATION_BY_ID.medications.receiptType,
+      name: inventoryItem.name,
+      group: 'Prescription',
+      quantity,
+      price: Number(inventoryItem.sellingPrice || inventoryItem.cost || 0),
+      inventoryId: inventoryItem.id,
+      includedMaterials: [],
+      extraMaterials: [],
+      prescriptionId: prescription.id,
+    };
+    const nextCharges = existingCharge
+      ? charges.map((charge) => (
+        charge.lineId === existingCharge.lineId
+          ? { ...charge, quantity: charge.quantity + quantity }
+          : charge
+      ))
+      : [...charges, prescriptionCharge];
+    const problems = getStockProblems(nextCharges, inventoryById);
+
+    if (problems.length > 0) {
+      setNotification(problems[0]);
+      return;
+    }
+
+    setCharges(nextCharges);
+    setSelectedChargeId(existingCharge?.lineId || prescriptionCharge.lineId);
+    setNotification(`${inventoryItem.name} added from prescription.`);
   };
 
   const updateChargeQuantity = (lineId, delta) => {
@@ -956,48 +1153,6 @@ export default function ServicePOS() {
     setNotification('');
   };
 
-  const addCustomCharge = () => {
-    const price = Number(customPrice);
-    const materialQuantity = Number(customMaterialQty);
-    const classification = CLASSIFICATION_BY_ID[customClassificationId];
-
-    if (!customName.trim() || !Number.isFinite(price) || price < 0) {
-      setNotification('Enter a custom item name and valid price.');
-      return;
-    }
-
-    const customCharge = {
-      lineId: nextLineId('custom'),
-      catalogId: null,
-      classificationId: customClassificationId,
-      receiptType: classification.receiptType,
-      name: customName.trim(),
-      group: 'Custom',
-      quantity: 1,
-      price,
-      inventoryId: null,
-      includedMaterials: [],
-      extraMaterials: customMaterialId && materialQuantity > 0
-        ? [{ inventoryId: customMaterialId, quantity: materialQuantity, note: 'Custom material' }]
-        : [],
-    };
-
-    const nextCharges = [...charges, customCharge];
-    const problems = getStockProblems(nextCharges, inventoryById);
-    if (problems.length > 0) {
-      setNotification(problems[0]);
-      return;
-    }
-
-    setCharges(nextCharges);
-    setSelectedChargeId(customCharge.lineId);
-    setCustomName('');
-    setCustomPrice('');
-    setCustomMaterialId('');
-    setCustomMaterialQty('1');
-    setNotification('');
-  };
-
   const openInvoice = () => {
     if (charges.length === 0) {
       setNotification('Add at least one billable item before creating an invoice.');
@@ -1015,6 +1170,16 @@ export default function ServicePOS() {
     }
 
     setInvoiceOpen(true);
+  };
+
+  const toggleProductsPanel = () => {
+    setActiveTab('products');
+    setChargeSheetOpen((current) => !current);
+  };
+
+  const openProductsPanel = () => {
+    setActiveTab('products');
+    setChargeSheetOpen(true);
   };
 
   const postPayment = async () => {
@@ -1040,6 +1205,19 @@ export default function ServicePOS() {
       setIsPostingPayment(true);
 
       try {
+        const chargesResponse = await fetch(`${API_BASE}/visits/${selectedVisit.visitId}/charges`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
+          }),
+        });
+        const chargesData = await chargesResponse.json().catch(() => ({}));
+
+        if (!chargesResponse.ok || chargesData.success === false) {
+          throw new Error(chargesData.message || 'Failed to update draft invoice lines.');
+        }
+
         const response = await fetch(`${API_BASE}/visits/${selectedVisit.visitId}/payments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1099,7 +1277,7 @@ export default function ServicePOS() {
         {`
           @media print {
             @page {
-              size: ${receiptPaperWidth} 200mm;
+              size: ${receiptPaperWidth} 297mm;
               margin: 0;
             }
 
@@ -1107,23 +1285,42 @@ export default function ServicePOS() {
             body {
               margin: 0 !important;
               padding: 0 !important;
+              width: ${receiptPaperWidth} !important;
+              min-width: ${receiptPaperWidth} !important;
               background: #fff !important;
+              overflow: visible !important;
             }
 
             body * {
               visibility: hidden !important;
             }
 
-            .thermal-print-root,
-            .thermal-print-root * {
+            .pos-receipt-print-area,
+            .pos-receipt-print-area * {
               visibility: visible !important;
             }
 
-            .thermal-print-root {
+            .pos-receipt-print-area {
+              display: block !important;
               position: absolute !important;
-              inset: 0 auto auto 0 !important;
+              top: 0 !important;
+              left: 0 !important;
               width: ${receiptPaperWidth} !important;
               max-width: ${receiptPaperWidth} !important;
+              margin: 0 !important;
+              padding: 2mm !important;
+              box-sizing: border-box !important;
+              color: #000 !important;
+              background: #fff !important;
+              overflow: visible !important;
+              z-index: 999999 !important;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+
+            .pos-receipt-print-area .thermal-print-root {
+              width: 100% !important;
+              max-width: 100% !important;
               margin: 0 !important;
               padding: 0 !important;
               border: 0 !important;
@@ -1131,7 +1328,7 @@ export default function ServicePOS() {
               background: #fff !important;
             }
 
-            .thermal-print-root img {
+            .pos-receipt-print-area .thermal-print-root img {
               filter: grayscale(1) contrast(1.15);
             }
 
@@ -1141,19 +1338,38 @@ export default function ServicePOS() {
           }
         `}
       </style>
+      {invoiceOpen && (
+        <div className="pos-receipt-print-area hidden" aria-hidden="true">
+          <ThermalReceipt
+            paperWidth={receiptPaperWidth}
+            logo={ipawcusLogo}
+            invoiceNumber={invoiceNumber}
+            invoiceDate={INVOICE_DATE}
+            visit={selectedVisit}
+            charges={charges}
+            total={invoiceTotal}
+          />
+        </div>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-['Montserrat:Bold',sans-serif] text-[30px] font-bold text-[#101828]">
             Veterinary POS
           </h1>
           <p className="font-['Arimo:Regular',sans-serif] text-[15px] text-[#4a5565]">
-            Patient visit billing with service packages, prescriptions, retail sales, and internal stock deduction.
+            Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction.
           </p>
         </div>
-        <Badge className="w-fit border-0 bg-blue-50 px-3 py-1.5 text-blue-700">
-          <Receipt className="mr-1.5 size-4" />
-          Visit to Invoice
-        </Badge>
+        <Button
+          type="button"
+          onClick={toggleProductsPanel}
+          aria-expanded={chargeSheetOpen}
+          aria-controls="pos-products-panel"
+          className="w-fit bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+        >
+          <ShoppingBag className="mr-1.5 size-4" />
+          {chargeSheetOpen ? 'Hide Products' : 'Products'}
+        </Button>
       </div>
 
       {notification && (
@@ -1179,7 +1395,14 @@ export default function ServicePOS() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[310px_minmax(0,1fr)_390px]">
+      {catalogSchemaMessage && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span>{catalogSchemaMessage} POS is using fallback prices until the catalog is available.</span>
+        </div>
+      )}
+
+      <div className={`grid grid-cols-1 gap-5 ${chargeSheetOpen ? 'xl:grid-cols-[310px_minmax(0,1fr)_400px]' : 'xl:grid-cols-[310px_minmax(0,1fr)]'}`}>
         <aside className="space-y-4">
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1196,7 +1419,9 @@ export default function ServicePOS() {
               <SelectContent>
                 {visitOptions.map((visit) => (
                   <SelectItem key={visit.id} value={visit.id}>
-                    {visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - {visit.petName}
+                    {visit.id === WALK_IN_SALE_ID
+                      ? 'Walk-in / No ready billing'
+                      : `${visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - ${visit.petName}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1219,6 +1444,15 @@ export default function ServicePOS() {
               <InfoRow icon={Stethoscope} label="Veterinarian" value={selectedVisit.veterinarian} />
               <InfoRow icon={ClipboardList} label="Visit Type" value={selectedVisit.visitType} />
 
+              {selectedVisit.diagnosisSummary && (
+                <div>
+                  <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis Summary</p>
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+                    {selectedVisit.diagnosisSummary}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Complaint</p>
                 <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
@@ -1228,206 +1462,76 @@ export default function ServicePOS() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-              Extra Material Used
-            </h2>
-            <div className="space-y-3">
-              <Select value={selectedChargeId} onValueChange={setSelectedChargeId} disabled={charges.length === 0}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select invoice line" />
-                </SelectTrigger>
-                <SelectContent>
-                  {charges.map((charge) => (
-                    <SelectItem key={charge.lineId} value={charge.lineId}>
-                      {charge.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={extraMaterialId} onValueChange={setExtraMaterialId} disabled={charges.length === 0}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Material used" />
-                </SelectTrigger>
-                <SelectContent>
-                  {materialOptions.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.stock} {item.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="grid grid-cols-[1fr_auto] gap-2">
-                <Input
-                  type="number"
-                  min="1"
-                  value={extraMaterialQty}
-                  onChange={(event) => setExtraMaterialQty(event.target.value)}
-                  className="h-10"
-                />
-                <Button type="button" onClick={addExtraMaterial} className="h-10 bg-slate-900 text-white hover:bg-slate-800">
-                  <Plus className="mr-2 size-4" />
-                  Add
-                </Button>
+          {selectedVisitPrescriptions.length > 0 && (
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+                  Prescriptions
+                </h2>
+                <Badge className="border-0 bg-blue-50 text-blue-700">{selectedVisitPrescriptions.length}</Badge>
               </div>
-              <p className="text-xs font-semibold text-slate-500">
-                Added materials deduct inventory but stay hidden from the customer receipt.
-              </p>
-            </div>
-          </section>
+              <div className="space-y-3">
+                {selectedVisitPrescriptions.map((prescription) => {
+                  const matchedItem = findPrescriptionInventoryItem(prescription, inventory);
+                  const alreadyAdded = charges.some((charge) => charge.prescriptionId === prescription.id);
+
+                  return (
+                    <div key={prescription.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-sm font-black text-slate-900">{formatPrescriptionLine(prescription)}</p>
+                      {prescription.instructions && (
+                        <p className="mt-1 whitespace-pre-wrap text-xs font-semibold text-slate-500">{prescription.instructions}</p>
+                      )}
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className={`text-xs font-black ${matchedItem ? 'text-green-700' : 'text-amber-700'}`}>
+                          {matchedItem
+                            ? `${matchedItem.stock} ${matchedItem.unit} in inventory`
+                            : 'No inventory match'}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addPrescriptionToInvoice(prescription, matchedItem)}
+                          disabled={!matchedItem || alreadyAdded}
+                          className="w-full sm:w-fit"
+                        >
+                          <Plus className="size-4" />
+                          {alreadyAdded ? 'Added' : 'Add to Draft'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
         </aside>
 
         <main className="space-y-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-black text-[#101828]">Treatment Record Charges</h2>
-                <p className="text-sm font-semibold text-slate-500">
-                  Billable lines are separated from package materials and stock consumption.
-                </p>
-              </div>
-              <div className="relative w-full lg:max-w-xs">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search item"
-                  className="h-10 pl-9"
-                />
-              </div>
-            </div>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 gap-1 lg:grid-cols-4">
-                {CLASSIFICATIONS.map((classification) => {
-                  const Icon = classification.icon;
-                  return (
-                    <TabsTrigger key={classification.id} value={classification.id} className="gap-2">
-                      <Icon className="size-4" />
-                      {classification.label}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-
-              {CLASSIFICATIONS.map((classification) => (
-                <TabsContent key={classification.id} value={classification.id} className="mt-4">
-                  <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-start gap-3">
-                      <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${getAccentClasses(classification.accent)}`}>
-                        <classification.icon className="size-4" />
-                      </span>
-                      <div>
-                        <p className="font-black text-slate-900">{classification.label}</p>
-                        <p className="text-sm font-semibold text-slate-500">{classification.description}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 2xl:grid-cols-2">
-                    {visibleCatalog.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
-                        No matching items.
-                      </div>
-                    ) : (
-                      visibleCatalog.map((item) => (
-                        <CatalogItemCard
-                          key={item.id}
-                          item={item}
-                          charges={charges}
-                          inventoryById={inventoryById}
-                          onAdd={() => addCatalogItem(item)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-[#101828]">Custom Charge</h2>
-                <p className="text-sm font-semibold text-slate-500">Attach optional internal material when a package does not cover it.</p>
-              </div>
-              <Badge className="border-0 bg-slate-100 text-slate-700">Manual</Badge>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)_140px]">
-              <Select value={customClassificationId} onValueChange={setCustomClassificationId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLASSIFICATIONS.map((classification) => (
-                    <SelectItem key={classification.id} value={classification.id}>
-                      {classification.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                value={customName}
-                onChange={(event) => setCustomName(event.target.value)}
-                placeholder="Item name"
-                className="h-10"
-              />
-              <Input
-                type="number"
-                min="0"
-                value={customPrice}
-                onChange={(event) => setCustomPrice(event.target.value)}
-                placeholder="Price"
-                className="h-10"
-              />
-            </div>
-
-            <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_120px_auto]">
-              <Select value={customMaterialId} onValueChange={setCustomMaterialId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Optional internal material" />
-                </SelectTrigger>
-                <SelectContent>
-                  {materialOptions.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.stock} {item.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                min="1"
-                value={customMaterialQty}
-                onChange={(event) => setCustomMaterialQty(event.target.value)}
-                className="h-10"
-              />
-              <Button type="button" onClick={addCustomCharge} className="h-10 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                <Plus className="mr-2 size-4" />
-                Add Custom
-              </Button>
-            </div>
-          </section>
-        </main>
-
-        <aside className="space-y-4">
-          <section className="sticky top-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="bg-[#155dfc] p-4 text-white">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-lg font-black">
                   <Receipt className="size-5" />
                   Draft Invoice
                 </h2>
-                <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} lines</Badge>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={chargeSheetOpen ? () => setChargeSheetOpen(false) : openProductsPanel}
+                    className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+                  >
+                    {chargeSheetOpen ? 'Hide Products' : 'Products'}
+                  </Button>
+                  <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} items</Badge>
+                </div>
               </div>
               <p className="mt-1 text-sm font-semibold text-blue-100">{selectedVisit.id}</p>
             </div>
 
-            <div className="max-h-[410px] overflow-y-auto">
+            <div className="max-h-[560px] overflow-y-auto">
               {charges.length === 0 ? (
                 <div className="p-8 text-center">
                   <Receipt className="mx-auto mb-3 size-9 text-slate-300" />
@@ -1451,28 +1555,7 @@ export default function ServicePOS() {
             </div>
 
             <div className="border-t border-slate-200 p-4">
-              <div className="mb-3 flex items-center justify-between text-sm font-semibold text-slate-500">
-                <span>Payment Method</span>
-                <span className="flex items-center gap-1.5">
-                  <PaymentIcon method={paymentMethod} />
-                  {paymentMethod.toUpperCase()}
-                </span>
-              </div>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="gcash">GCash</SelectItem>
-                  <SelectItem value="maya">Maya</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="my-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between">
                 <span className="text-base font-black text-slate-900">Total</span>
                 <span className="text-2xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
               </div>
@@ -1497,46 +1580,162 @@ export default function ServicePOS() {
                 className="h-11 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 <FileText className="mr-2 size-5" />
-                {isPostingPayment ? 'Posting Payment...' : 'Create Invoice Receipt'}
+                {isPostingPayment ? 'Posting Payment...' : 'Preview Invoice Receipt'}
               </Button>
             </div>
           </section>
+        </main>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                Inventory Impact
-              </h2>
-              <Badge className="border-0 bg-slate-100 text-slate-700">Internal</Badge>
-            </div>
-
-            {inventoryImpact.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm font-semibold text-slate-500">
-                No stock will be deducted.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {inventoryImpact.map((row) => (
-                  <div key={row.inventoryId} className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-900">{row.name}</p>
-                        <p className="text-xs font-semibold text-slate-500">{row.category}</p>
-                      </div>
-                      <Badge className={`border-0 ${row.quantity > row.stock ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
-                        -{row.quantity} {row.unit}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-                      <span>Stock: {row.stock}</span>
-                      <span>After: {row.remaining}</span>
-                    </div>
-                  </div>
-                ))}
+        {chargeSheetOpen && (
+          <aside id="pos-products-panel" className="space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
+                <div>
+                  <h2 className="text-lg font-black text-[#101828]">Products</h2>
+                  <p className="text-sm font-semibold text-slate-500">Show or hide treatment items and internal usage.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChargeSheetOpen(false)}
+                  className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Hide products panel"
+                >
+                  <X className="size-4" />
+                </button>
               </div>
-            )}
-          </section>
-        </aside>
+
+              <div className="space-y-4 p-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search item"
+                    className="h-10 pl-9"
+                  />
+                </div>
+
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-3 gap-1">
+                    {BILLING_CLASSIFICATIONS.map((classification) => {
+                      const Icon = classification.icon;
+                      return (
+                        <TabsTrigger key={classification.id} value={classification.id} className="gap-2">
+                          <Icon className="size-4" />
+                          {classification.label}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+
+                  {BILLING_CLASSIFICATIONS.map((classification) => (
+                    <TabsContent key={classification.id} value={classification.id} className="mt-4">
+                      <div className="grid gap-3">
+                        {visibleCatalog.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
+                            No matching items.
+                          </div>
+                        ) : (
+                          visibleCatalog.map((item) => (
+                            <CatalogItemCard
+                              key={item.id}
+                              item={item}
+                              charges={charges}
+                              inventoryById={inventoryById}
+                              onAdd={() => addCatalogItem(item)}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+                Extra Material Used
+              </h2>
+              <div className="space-y-3">
+                <Select value={selectedChargeId} onValueChange={setSelectedChargeId} disabled={charges.length === 0}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select invoice line" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {charges.map((charge) => (
+                      <SelectItem key={charge.lineId} value={charge.lineId}>
+                        {charge.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={extraMaterialId} onValueChange={setExtraMaterialId} disabled={charges.length === 0}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Material used" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {materialOptions.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} ({item.stock} {item.unit})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={extraMaterialQty}
+                    onChange={(event) => setExtraMaterialQty(event.target.value)}
+                    className="h-10"
+                  />
+                  <Button type="button" onClick={addExtraMaterial} className="h-10 bg-slate-900 text-white hover:bg-slate-800">
+                    <Plus className="mr-2 size-4" />
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+                  Inventory Impact
+                </h2>
+                <Badge className="border-0 bg-slate-100 text-slate-700">Internal</Badge>
+              </div>
+
+              {inventoryImpact.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm font-semibold text-slate-500">
+                  No stock will be deducted.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {inventoryImpact.map((row) => (
+                    <div key={row.inventoryId} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-slate-900">{row.name}</p>
+                          <p className="text-xs font-semibold text-slate-500">{row.category}</p>
+                        </div>
+                        <Badge className={`border-0 ${row.quantity > row.stock ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                          -{row.quantity} {row.unit}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
+                        <span>Stock: {row.stock}</span>
+                        <span>After: {row.remaining}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </aside>
+        )}
       </div>
 
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
@@ -1573,6 +1772,22 @@ export default function ServicePOS() {
                 <ReceiptInfo label="Visit Type" value={selectedVisit.visitType} />
               </div>
 
+              {selectedVisitPrescriptions.length > 0 && (
+                <div className="border-b border-slate-200 py-4">
+                  <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Prescription Summary</p>
+                  <div className="space-y-2">
+                    {selectedVisitPrescriptions.map((prescription) => (
+                      <div key={prescription.id} className="rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+                        <p>{formatPrescriptionLine(prescription)}</p>
+                        {prescription.instructions && (
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-slate-500">{prescription.instructions}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left">
                   <thead>
@@ -1598,11 +1813,7 @@ export default function ServicePOS() {
 
               <div className="mt-4 flex flex-col gap-3 sm:items-end">
                 <div className="w-full rounded-lg bg-slate-50 p-4 sm:max-w-xs">
-                  <div className="flex items-center justify-between text-sm font-semibold text-slate-500">
-                    <span>Payment</span>
-                    <span className="capitalize">{paymentMethod}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="text-base font-black text-slate-900">Total</span>
                     <span className="text-2xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
                   </div>
@@ -1637,7 +1848,6 @@ export default function ServicePOS() {
                 invoiceDate={INVOICE_DATE}
                 visit={selectedVisit}
                 charges={charges}
-                paymentMethod={paymentMethod}
                 total={invoiceTotal}
               />
             </div>
@@ -1702,7 +1912,6 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
             <StockBadge item={item} inventoryById={inventoryById} charges={charges} />
           </div>
           <h3 className="text-base font-black text-[#101828]">{item.name}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{item.description}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-lg font-black text-[#155dfc]">{formatPhpCurrency(item.price)}</p>
@@ -1819,7 +2028,7 @@ function ReceiptInfo({ label, value }) {
   );
 }
 
-function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, charges, paymentMethod, total }) {
+function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, charges, total }) {
   const isNarrow = paperWidth === '58mm';
   const previewWidth = isNarrow ? '232px' : '302px';
 
@@ -1868,10 +2077,6 @@ function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, c
       <ReceiptDivider />
 
       <div className="space-y-1 text-[10px] font-black">
-        <div className="flex items-center justify-between">
-          <span>PAYMENT</span>
-          <span>{paymentMethod.toUpperCase()}</span>
-        </div>
         <div className="flex items-center justify-between text-[12px]">
           <span>TOTAL</span>
           <span>{formatPhpCurrency(total)}</span>

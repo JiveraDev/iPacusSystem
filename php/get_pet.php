@@ -23,6 +23,61 @@ function getPetColumnExists(PDO $pdo, string $tableName, string $columnName): bo
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function getPetTableExists(PDO $pdo, string $tableName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+    ");
+    $stmt->execute([$tableName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function getPetPrescriptionDocuments(PDO $pdo, int $petId): array
+{
+    if (!getPetTableExists($pdo, 'vet_diagnoses') || !getPetColumnExists($pdo, 'vet_diagnoses', 'attachments')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT diagnosis_id, veterinarian_name, attachments, finalized_at, created_at
+        FROM vet_diagnoses
+        WHERE pet_id = ?
+        ORDER BY finalized_at DESC, created_at DESC, diagnosis_id DESC
+    ");
+    $stmt->execute([$petId]);
+    $documents = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $attachments = json_decode((string)($row['attachments'] ?? ''), true);
+        if (!is_array($attachments)) {
+            continue;
+        }
+
+        foreach ($attachments as $attachment) {
+            if (($attachment['category'] ?? '') !== 'prescription_document') {
+                continue;
+            }
+
+            $documents[] = [
+                'id' => $attachment['id'] ?? ('prescription-' . $row['diagnosis_id']),
+                'diagnosisId' => (int)$row['diagnosis_id'],
+                'name' => $attachment['name'] ?? 'Prescription document',
+                'url' => $attachment['url'] ?? $attachment['relativeUrl'] ?? '',
+                'relativeUrl' => $attachment['relativeUrl'] ?? $attachment['url'] ?? '',
+                'mimeType' => $attachment['mimeType'] ?? 'image/png',
+                'veterinarianName' => $row['veterinarian_name'] ?? '',
+                'createdAt' => $attachment['uploadedAt'] ?? $row['finalized_at'] ?? $row['created_at'],
+            ];
+        }
+    }
+
+    return $documents;
+}
+
 try {
     // Check if it's a sharable ID or numeric ID
     $sql = "SELECT p.*, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name 
@@ -90,7 +145,8 @@ try {
         'profileImage' => $pet['setpetImage_url'],
         'allergies_raw' => $pet['pet_allergies'],
         'allergies' => $pet['pet_allergies'] ? [['allergen' => $pet['pet_allergies'], 'severity' => 'Known']] : [],
-        'vaccinations' => $vaccinations
+        'vaccinations' => $vaccinations,
+        'prescriptionDocuments' => getPetPrescriptionDocuments($pdo, (int)$pet['pet_id'])
     ];
 
     echo json_encode($formattedPet);

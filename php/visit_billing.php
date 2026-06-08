@@ -77,6 +77,17 @@ function visit_billing_allowed(string $value, array $allowed, string $fallback):
     return in_array($value, $allowed, true) ? $value : $fallback;
 }
 
+function visit_billing_decode_json($value)
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    $decoded = json_decode((string)$value, true);
+
+    return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+}
+
 function visit_billing_resolve_owner(PDO $pdo, ?int $ownerUserId, int $petId, ?int $queueId, ?int $bookingId): int
 {
     if ($ownerUserId !== null && $ownerUserId > 0) {
@@ -351,6 +362,20 @@ function visit_billing_upsert_visit(PDO $pdo): void
 
 function visit_billing_fetch_visit(PDO $pdo, int $visitId): ?array
 {
+    $hasDiagnosisTable = visit_billing_table_exists($pdo, 'vet_diagnoses');
+    $diagnosisSelect = $hasDiagnosisTable
+        ? ",
+            vd.prescriptions AS diagnosis_prescriptions,
+            vd.notes AS diagnosis_notes,
+            vd.diagnosis AS diagnosis_summary"
+        : ",
+            NULL AS diagnosis_prescriptions,
+            NULL AS diagnosis_notes,
+            NULL AS diagnosis_summary";
+    $diagnosisJoin = $hasDiagnosisTable
+        ? "LEFT JOIN vet_diagnoses vd ON vd.diagnosis_id = v.diagnosis_id"
+        : "";
+
     $stmt = $pdo->prepare("
         SELECT
             v.*,
@@ -360,12 +385,14 @@ function visit_billing_fetch_visit(PDO $pdo, int $visitId): ?array
             CONCAT(vet.first_Name, ' ', vet.last_Name) AS veterinarian_name,
             q.queue_number,
             b.booking_number
+            {$diagnosisSelect}
         FROM visits v
         JOIN pets_information p ON p.pet_id = v.pet_id
         JOIN users owner ON owner.user_id = v.owner_user_id
         LEFT JOIN users vet ON vet.user_id = v.veterinarian_user_id
         LEFT JOIN queues q ON q.queue_id = v.queue_id
         LEFT JOIN bookings b ON b.booking_id = v.booking_id
+        {$diagnosisJoin}
         WHERE v.visit_id = ?
         LIMIT 1
     ");
@@ -446,6 +473,9 @@ function visit_billing_fetch_visit(PDO $pdo, int $visitId): ?array
         'bookingId' => $visit['booking_id'] !== null ? (int)$visit['booking_id'] : null,
         'bookingNumber' => $visit['booking_number'],
         'diagnosisId' => $visit['diagnosis_id'] !== null ? (int)$visit['diagnosis_id'] : null,
+        'diagnosisSummary' => $visit['diagnosis_summary'] ?? '',
+        'diagnosisNotes' => $visit['diagnosis_notes'] ?? '',
+        'prescriptions' => visit_billing_decode_json($visit['diagnosis_prescriptions'] ?? null) ?: [],
         'sourceType' => $visit['source_type'],
         'visitStatus' => $visit['visit_status'],
         'billingStatus' => $visit['billing_status'],

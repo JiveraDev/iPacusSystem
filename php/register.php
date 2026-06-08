@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth_otp_helpers.php';
 
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
@@ -20,6 +20,8 @@ if (!$email || !$password || !$firstName || !$lastName || !$address || !$phoneNu
 }
 
 try {
+    authOtpRequireSchema($pdo);
+
     // Check if email exists
     $stmt = $pdo->prepare("SELECT user_id FROM users WHERE mail_Address = ? LIMIT 1");
     $stmt->execute([$email]);
@@ -32,7 +34,7 @@ try {
     // Hash password
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-    // Insert user
+    // Insert public self-registration as unverified. Email OTP activates the account.
     $sql = "INSERT INTO users 
                 (mail_Address, user_password, role, first_Name, last_Name, personal_Address, phoneNumber, emergencyNumber) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -49,10 +51,37 @@ try {
         $emergencyContact
     ]);
 
+    $userId = (int)$pdo->lastInsertId();
+    $user = [
+        'user_id' => $userId,
+        'mail_Address' => $email,
+        'first_Name' => $firstName,
+        'last_Name' => $lastName,
+        'role' => $role,
+        'email_verified_at' => null,
+    ];
+    $emailSent = true;
+    $emailWarning = null;
+
+    try {
+        $otp = authOtpCreate($pdo, $userId, $email, AUTH_OTP_EMAIL_VERIFICATION);
+        authOtpSendCodeEmail($email, $otp['code'], AUTH_OTP_EMAIL_VERIFICATION, $user, $otp['expiresMinutes']);
+    } catch (Throwable $mailError) {
+        $emailSent = false;
+        $emailWarning = mail_env_bool('MAIL_DEBUG', false)
+            ? $mailError->getMessage()
+            : 'Account was created, but the verification email could not be sent. Please request a new code.';
+    }
+
     http_response_code(201);
     echo json_encode([
-        'id' => $pdo->lastInsertId(),
-        'message' => 'User created successfully.'
+        'id' => $userId,
+        'email' => $email,
+        'requiresEmailVerification' => true,
+        'emailSent' => $emailSent,
+        'message' => $emailSent
+            ? 'User created successfully. Verification code sent.'
+            : $emailWarning,
     ]);
 
 } catch (Exception $e) {

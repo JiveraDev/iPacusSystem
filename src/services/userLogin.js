@@ -1,5 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+export class LoginError extends Error {
+    constructor(message, details = {}) {
+        super(message);
+        this.name = "LoginError";
+        this.code = details.code || "";
+        this.email = details.email || "";
+        this.status = details.status || 0;
+    }
+}
+
 export async function loginUser(payload) {
     const normalizedBaseUrl = API_BASE_URL.replace(/\/+$/, "");
     const loginUrl = normalizedBaseUrl.endsWith("/api")
@@ -17,7 +27,11 @@ export async function loginUser(payload) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(data.message || `Login failed with status ${response.status}`);
+        throw new LoginError(data.message || `Login failed with status ${response.status}`, {
+            code: data.code,
+            email: data.email,
+            status: response.status,
+        });
     }
 
     // Return both user and token

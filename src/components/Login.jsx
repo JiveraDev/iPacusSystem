@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import imgImageVfcLogo from "../assets/circular_logo.png";
-import { loginUser } from "../services/userLogin";
+import { LoginError, loginUser } from "../services/userLogin";
 import { toast } from "../reusecomponent/toast.jsx";
 
-export function Login({ onLogin, onBack, onRegister, embedded = false }) {
+export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyEmail, embedded = false }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +20,7 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
             const { user, token } = await loginUser({ email, password });
             localStorage.setItem("currentUser", JSON.stringify(user));
             localStorage.setItem("authToken", token);
-            toast.success(`Welcome back, ${user.firstName || 'User'}!`);
+            toast.success(`Welcome back, ${user.firstName || "User"}!`);
             onLogin(user);
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Login failed.";
@@ -28,6 +28,10 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
             setShowPassword(false);
             setErrorMessage(msg);
             toast.error(msg);
+
+            if (error instanceof LoginError && error.code === "EMAIL_UNVERIFIED" && onVerifyEmail) {
+                onVerifyEmail(error.email || email);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -74,9 +78,19 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
-                            Password
-                        </label>
+                        <div className="flex items-center justify-between gap-3">
+                            <label className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
+                                Password
+                            </label>
+                            <button
+                                type="button"
+                                onClick={onForgotPassword}
+                                className="text-sm font-semibold text-[#155dfc] hover:underline"
+                                style={{ fontFamily: "Arimo, sans-serif" }}
+                            >
+                                Forgot password?
+                            </button>
+                        </div>
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
@@ -136,7 +150,7 @@ export function Login({ onLogin, onBack, onRegister, embedded = false }) {
                         className="text-[#155dfc] text-base hover:underline"
                         style={{ fontFamily: "Arimo, sans-serif" }}
                     >
-                        ← Back to Home
+                        Back to Home
                     </button>
                 </div>
             )}

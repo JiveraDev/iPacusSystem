@@ -2,6 +2,27 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/account_status_helpers.php';
 
+function createAccountUserColumnExists(PDO $pdo, string $columnName): bool
+{
+    static $columnCache = [];
+
+    if (array_key_exists($columnName, $columnCache)) {
+        return $columnCache[$columnName];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'users'
+          AND column_name = ?
+    ");
+    $stmt->execute([$columnName]);
+    $columnCache[$columnName] = (int)$stmt->fetchColumn() > 0;
+
+    return $columnCache[$columnName];
+}
+
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -36,13 +57,39 @@ try {
     // Hash the password for security
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-    // 1. Insert into users table
-    // Using default/test values for fields not provided in the admin creation form
-    $userStmt = $pdo->prepare("
-        INSERT INTO users (first_Name, last_Name, mail_Address, personal_Address, user_password, phoneNumber, role, created_at) 
-        VALUES (?, ?, ?, 'Clinic Address Placeholder', ?, '000-000-0000', ?, NOW())
-    ");
-    $userStmt->execute([$firstName, $lastName, $email, $hashedPassword, $role]);
+    $userColumns = [
+        'first_Name',
+        'last_Name',
+        'mail_Address',
+        'personal_Address',
+        'user_password',
+        'phoneNumber',
+        'role',
+        'created_at'
+    ];
+    $userPlaceholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
+    $userParams = [
+        $firstName,
+        $lastName,
+        $email,
+        'Clinic Address Placeholder',
+        $hashedPassword,
+        '000-000-0000',
+        $role
+    ];
+
+    if (createAccountUserColumnExists($pdo, 'email_verified_at')) {
+        $userColumns[] = 'email_verified_at';
+        $userPlaceholders[] = 'NOW()';
+    }
+
+    // 1. Insert into users table. Admin-created staff accounts are trusted as verified.
+    $userStmt = $pdo->prepare(sprintf(
+        'INSERT INTO users (`%s`) VALUES (%s)',
+        implode('`, `', $userColumns),
+        implode(', ', $userPlaceholders)
+    ));
+    $userStmt->execute($userParams);
     $userId = $pdo->lastInsertId();
 
     if ($role === 'Veterinarian') {

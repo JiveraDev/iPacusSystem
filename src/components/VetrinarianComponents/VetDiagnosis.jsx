@@ -26,8 +26,14 @@ import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { fetchBoardingDocuments } from '../../services/boardingService';
+import { fetchProfile } from '../../services/profileService';
+import { fetchQueues } from '../../services/queueService';
+import { fetchServiceCatalog } from '../../services/serviceCatalogService';
+import { uploadFormData } from '../../services/uploadService';
+import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
+import { createVisit } from '../../services/visitBillingService';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 
 const PRESCRIPTION_FREQUENCIES = [
@@ -499,12 +505,11 @@ export default function VetDiagnosis() {
             if (!veterinarianUserId) return;
 
             try {
-                const response = await fetch(`${API_BASE}/api/profile?userId=${veterinarianUserId}&role=${encodeURIComponent(currentUser?.role || 'Veterinarian')}`);
-                const data = await response.json().catch(() => ({}));
-
-                if (response.ok) {
-                    setVeterinarianLicense(data.prc_license_number || data.licenseNumber || '');
-                }
+                const data = await fetchProfile({
+                    userId: veterinarianUserId,
+                    role: currentUser?.role || 'Veterinarian'
+                });
+                setVeterinarianLicense(data.prc_license_number || data.licenseNumber || '');
             } catch {
                 setVeterinarianLicense(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
             }
@@ -518,8 +523,7 @@ export default function VetDiagnosis() {
 
         const loadServiceCatalog = async () => {
             try {
-                const response = await fetch(`${API_BASE}/service-catalog`);
-                const data = await response.json().catch(() => ({}));
+                const data = await fetchServiceCatalog();
 
                 if (!isActive) return;
 
@@ -527,10 +531,6 @@ export default function VetDiagnosis() {
                     setBillingSchemaMessage(data.message || 'Service catalog migration is required before visit charges can be saved.');
                     setServiceCatalog([]);
                     return;
-                }
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load service catalog.');
                 }
 
                 setBillingSchemaMessage('');
@@ -559,12 +559,11 @@ export default function VetDiagnosis() {
 
         const loadBoardingDocuments = async () => {
             try {
-                const response = await fetch(`${API_BASE}/boarding/documents?petId=${encodeURIComponent(context.petId)}`);
-                const data = await response.json().catch(() => ({}));
+                const data = await fetchBoardingDocuments({ petId: context.petId });
 
                 if (!isActive) return;
 
-                if (response.ok && data.schemaReady !== false) {
+                if (data.schemaReady !== false) {
                     setBoardingDocuments(Array.isArray(data.documents) ? data.documents : []);
                 }
             } catch {
@@ -608,12 +607,7 @@ export default function VetDiagnosis() {
             setIsLoadingContext(true);
 
             try {
-                const response = await fetch(`${API_BASE}/queues`);
-                const data = await response.json().catch(() => []);
-
-                if (!response.ok) {
-                    throw new Error(data.message || data.error || 'Failed to load queue details.');
-                }
+                const data = await fetchQueues();
 
                 if (!isActive || !Array.isArray(data)) return;
 
@@ -679,21 +673,15 @@ export default function VetDiagnosis() {
             setIsLoadingRecord(true);
 
             try {
-                const query = context.queueId
-                    ? `queueId=${encodeURIComponent(context.queueId)}`
-                    : `petId=${encodeURIComponent(context.petId)}`;
-                const response = await fetch(`${API_BASE}/vet-diagnoses?${query}`);
-                const data = await response.json().catch(() => ({}));
+                const data = await fetchVetDiagnoses(
+                    context.queueId ? { queueId: context.queueId } : { petId: context.petId }
+                );
 
                 if (!isActive) return;
 
                 if (data.schemaReady === false) {
                     setSchemaWarning(data.message || 'Diagnosis table is not ready.');
                     return;
-                }
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load diagnosis record.');
                 }
 
                 const record = Array.isArray(data.records) ? data.records[0] : null;
@@ -894,15 +882,7 @@ export default function VetDiagnosis() {
         formDataUpload.append('image', attachment.file);
         formDataUpload.append('type', 'diagnosis');
 
-        const response = await fetch(`${API_BASE}/upload`, {
-            method: 'POST',
-            body: formDataUpload
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            throw new Error(result.message || `Failed to upload ${attachment.name}.`);
-        }
+        const result = await uploadFormData(formDataUpload);
 
         return {
             id: attachment.id,
@@ -1029,24 +1009,19 @@ export default function VetDiagnosis() {
             throw new Error(billingSchemaMessage);
         }
 
-        const response = await fetch(`${API_BASE}/visits`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pet_id: context.petId,
-                owner_user_id: context.ownerUserId || null,
-                veterinarian_user_id: veterinarianUserId,
-                queue_id: context.queueId || null,
-                booking_id: context.bookingId || null,
-                diagnosis_id: diagnosis?.diagnosisId || diagnosis?.id || null,
-                source_type: context.queueId ? 'queue' : (context.bookingId ? 'booking' : 'manual'),
-                visit_status: 'treatment_done',
-                charges
-            })
+        const result = await createVisit({
+            pet_id: context.petId,
+            owner_user_id: context.ownerUserId || null,
+            veterinarian_user_id: veterinarianUserId,
+            queue_id: context.queueId || null,
+            booking_id: context.bookingId || null,
+            diagnosis_id: diagnosis?.diagnosisId || diagnosis?.id || null,
+            source_type: context.queueId ? 'queue' : (context.bookingId ? 'booking' : 'manual'),
+            visit_status: 'treatment_done',
+            charges
         });
-        const result = await response.json().catch(() => ({}));
 
-        if (!response.ok || result.success === false) {
+        if (result.success === false) {
             throw new Error(result.message || 'Failed to save visit charges.');
         }
 
@@ -1110,44 +1085,39 @@ export default function VetDiagnosis() {
                 ? [...attachments, prescriptionDocument]
                 : attachments;
 
-            const response = await fetch(`${API_BASE}/vet-diagnoses`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    queue_id: context.queueId || null,
-                    booking_id: context.bookingId || null,
-                    assignment_id: context.assignmentId || null,
-                    pet_id: context.petId,
-                    veterinarian_user_id: veterinarianUserId,
-                    veterinarian_name: veterinarianName,
-                    diagnosis_type: diagnosisType,
-                    service_name: context.serviceName,
-                    chief_complaint: formData.chiefComplaint,
-                    major_symptoms: formData.majorSymptoms,
-                    symptoms: formData.symptoms,
-                    physical_exam: formData.physicalExam,
-                    diagnosis: diagnosisType === 'general' ? formData.diagnosis : null,
-                    treatment: formData.treatment,
-                    lab_results: formData.labResults,
-                    follow_up_date: formData.followUp || null,
-                    notes: formData.notes,
-                    vital_signs: formData.vitalSigns,
-                    prescriptions: generalPrescriptions,
-                    custom_sections: customSections,
-                    attachments: diagnosisAttachments,
-                    source_uploads: allSourceUploads,
-                    vaccination_record: shouldSaveVaccinationRecord
-                        ? {
-                            ...vaccinationRecord,
-                            veterinarianName: vaccinationRecord.veterinarianName || veterinarianName,
-                            veterinarianLicense: vaccinationRecord.veterinarianLicense || veterinarianLicense
-                        }
-                        : null
-                })
+            const data = await createVetDiagnosis({
+                queue_id: context.queueId || null,
+                booking_id: context.bookingId || null,
+                assignment_id: context.assignmentId || null,
+                pet_id: context.petId,
+                veterinarian_user_id: veterinarianUserId,
+                veterinarian_name: veterinarianName,
+                diagnosis_type: diagnosisType,
+                service_name: context.serviceName,
+                chief_complaint: formData.chiefComplaint,
+                major_symptoms: formData.majorSymptoms,
+                symptoms: formData.symptoms,
+                physical_exam: formData.physicalExam,
+                diagnosis: diagnosisType === 'general' ? formData.diagnosis : null,
+                treatment: formData.treatment,
+                lab_results: formData.labResults,
+                follow_up_date: formData.followUp || null,
+                notes: formData.notes,
+                vital_signs: formData.vitalSigns,
+                prescriptions: generalPrescriptions,
+                custom_sections: customSections,
+                attachments: diagnosisAttachments,
+                source_uploads: allSourceUploads,
+                vaccination_record: shouldSaveVaccinationRecord
+                    ? {
+                        ...vaccinationRecord,
+                        veterinarianName: vaccinationRecord.veterinarianName || veterinarianName,
+                        veterinarianLicense: vaccinationRecord.veterinarianLicense || veterinarianLicense
+                    }
+                    : null
             });
-            const data = await response.json().catch(() => ({}));
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.message || 'Failed to save diagnosis.');
             }
 
@@ -2058,15 +2028,7 @@ async function uploadPrescriptionDocument(payload) {
     formDataUpload.append('image', file);
     formDataUpload.append('type', 'diagnosis');
 
-    const response = await fetch(`${API_BASE}/upload`, {
-        method: 'POST',
-        body: formDataUpload
-    });
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        throw new Error(result.message || 'Failed to upload prescription image.');
-    }
+    const result = await uploadFormData(formDataUpload);
 
     return {
         id: createId(),

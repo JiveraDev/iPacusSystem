@@ -10,8 +10,9 @@ import { ArrowLeft, Check, Home, Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { createBooking } from "../../services/bookingService";
+import { fetchRoomAvailability } from "../../services/boardingService";
+import { fetchUserPets } from "../../services/petService";
 
 const ROOM_OPTIONS = {
   hotel: [
@@ -183,12 +184,7 @@ export default function PetHotel() {
           return;
         }
 
-        const response = await fetch(`${API_BASE}/users/${userId}/pets`);
-        const data = await response.json().catch(() => []);
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load pets.");
-        }
+        const data = await fetchUserPets(userId);
 
         setPets(Array.isArray(data) ? data.map((pet) => ({
           id: String(pet.db_id || pet.pet_id || pet.id),
@@ -224,12 +220,7 @@ export default function PetHotel() {
           check_in_date: checkInDate,
           check_out_date: checkOutDate
         });
-        const response = await fetch(`${API_BASE}/rooms/availability?${params.toString()}`);
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load room availability.");
-        }
+        const data = await fetchRoomAvailability(params);
 
         setRoomAvailability(Array.isArray(data.rooms) ? data.rooms : []);
       } catch (error) {
@@ -385,32 +376,23 @@ export default function PetHotel() {
         specialRequests.trim() ? `Special requests: ${specialRequests.trim()}` : ""
       ].filter(Boolean).join("\n");
 
-      const response = await fetch(`${API_BASE}/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: Number(userId),
-          pet_id: Number(selectedPets[0]),
-          pet_ids: selectedPets.map((petId) => Number(petId)),
-          service_type: "boarding",
-          booking_date: checkInDate,
-          booking_time: "09:00:00",
-          registered_status: "Registered",
-          notes,
-          price: estimatedTotal,
-          check_in_date: checkInDate,
-          check_out_date: checkOutDate,
-          room_size: roomSize,
-          add_ons: addOnPayload,
-          emergency_contact: emergencyContact.trim(),
-          hotel_boarding_type: serviceType
-        })
+      await createBooking({
+        user_id: Number(userId),
+        pet_id: Number(selectedPets[0]),
+        pet_ids: selectedPets.map((petId) => Number(petId)),
+        service_type: "boarding",
+        booking_date: checkInDate,
+        booking_time: "09:00:00",
+        registered_status: "Registered",
+        notes,
+        price: estimatedTotal,
+        check_in_date: checkInDate,
+        check_out_date: checkOutDate,
+        room_size: roomSize,
+        add_ons: addOnPayload,
+        emergency_contact: emergencyContact.trim(),
+        hotel_boarding_type: serviceType
       });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to submit booking.");
-      }
 
       toast.success(`${serviceType === "hotel" ? "Pet hotel" : "Pet boarding"} booking submitted for admin approval.`);
       navigate("/dashboard/services");

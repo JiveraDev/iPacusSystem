@@ -7,8 +7,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchOnlineConsultations, startOnlineConsultation } from '../../services/onlineConsultationService';
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
@@ -63,12 +62,7 @@ export default function ApprovedOnlineConsultation() {
             setIsLoading(true);
         }
         try {
-            const response = await fetch(`${API_BASE}/online-consultations?vetId=${encodeURIComponent(vetId)}`);
-            const data = await response.json().catch(() => []);
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to load online consultations');
-            }
+            const data = await fetchOnlineConsultations({ vetId });
 
             setConsultations(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -94,14 +88,7 @@ export default function ApprovedOnlineConsultation() {
     const startConsultation = async (consultation) => {
         setActionId(consultation.id);
         try {
-            const response = await fetch(`${API_BASE}/online-consultations/${consultation.id}/start`, {
-                method: 'POST'
-            });
-            const updated = await response.json().catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(updated?.message || 'Failed to start consultation');
-            }
+            const updated = await startOnlineConsultation(consultation.id);
 
             toast.success('Consultation started. Waiting for the pet owner to join.');
             openDiagnosisPage(updated?.id || consultation.id);

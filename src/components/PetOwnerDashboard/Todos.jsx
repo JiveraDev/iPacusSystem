@@ -1,721 +1,676 @@
-import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Label } from "../../ui/label";
-import { Textarea } from "../../ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Badge } from "../../ui/badge";
-import { format, isSameDay } from "../../lib/date";
-import { Calendar, Trash2 } from "lucide-react";
-import { toast } from "../../reusecomponent/toast.jsx";
+import { useMemo, useState } from 'react';
+import {
+    CalendarDays,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    CreditCard,
+    Loader2,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Stethoscope,
+    Trash2
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
+import { Badge } from '../../ui/badge';
+import { Checkbox } from '../../ui/checkbox';
+import { format, isSameDay } from '../../lib/date';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { toast } from '../../reusecomponent/toast.jsx';
+import {
+    createPetOwnerTodo,
+    deletePetOwnerTodo,
+    fetchPetOwnerTodos,
+    updatePetOwnerTodo
+} from '../../services/todoService';
 
-export default function Todos() {
-  const [todos, setTodos] = useState([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [newTask, setNewTask] = useState({
-    title: "",
-    details: "",
-    category: "Personal Task",
-  });
+const CATEGORY_OPTIONS = [
+    'Personal Task',
+    'Medication',
+    'Follow-up',
+    'Grooming',
+    'Feeding',
+    'Exercise',
+    'Other'
+];
 
-  // Helper function to get category color
-  const getCategoryColor = (category) => {
-    const colors = {
-      'General Check-Up': { bg: 'bg-blue-500', text: 'text-blue-700', badge: 'bg-blue-100' },
-      'Parasite Control': { bg: 'bg-orange-500', text: 'text-orange-700', badge: 'bg-orange-100' },
-      'Surgery': { bg: 'bg-red-600', text: 'text-red-700', badge: 'bg-red-100' },
-      'Vaccination': { bg: 'bg-green-600', text: 'text-green-700', badge: 'bg-green-100' },
-      'Grooming': { bg: 'bg-pink-500', text: 'text-pink-700', badge: 'bg-pink-100' },
-      'Dental Check-up': { bg: 'bg-cyan-600', text: 'text-cyan-700', badge: 'bg-cyan-100' },
-      'Personal Task': { bg: 'bg-gray-500', text: 'text-gray-700', badge: 'bg-gray-100' },
-      // Legacy categories
-      'Medication': { bg: 'bg-blue-600', text: 'text-blue-700', badge: 'bg-blue-100' },
-      'Consultation': { bg: 'bg-yellow-500', text: 'text-yellow-700', badge: 'bg-yellow-100' },
-      'Follow-up': { bg: 'bg-green-600', text: 'text-green-700', badge: 'bg-green-100' },
-      'General': { bg: 'bg-purple-600', text: 'text-purple-700', badge: 'bg-purple-100' },
-    };
-    return colors[category] || colors['General'];
-  };
+const CATEGORY_STYLES = {
+    Booking: { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' },
+    Boarding: { dot: 'bg-cyan-600', badge: 'bg-cyan-50 text-cyan-700', border: 'border-cyan-200' },
+    Payment: { dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-700', border: 'border-emerald-200' },
+    'Follow-up': { dot: 'bg-violet-600', badge: 'bg-violet-50 text-violet-700', border: 'border-violet-200' },
+    Medication: { dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700', border: 'border-amber-200' },
+    'Personal Task': { dot: 'bg-slate-600', badge: 'bg-slate-100 text-slate-700', border: 'border-slate-200' },
+    Other: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', border: 'border-slate-200' }
+};
 
-  useEffect(() => {
-    const initializeTodos = () => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.id === currentUser.id);
+function getUserId(user) {
+    return user?.id || user?.user_id || user?.userId || '';
+}
 
-    if (user && user.todos && user.todos.length > 0) {
-      // Convert date strings back to Date objects
-      const todosWithDates = user.todos.map((todo) => ({
-        ...todo,
-        start: new Date(todo.start),
-        end: new Date(todo.end),
-      }));
-      setTodos(todosWithDates);
-    } else {
-      // Add sample todos for demonstration
-      const sampleTodos = [
-        // March 2026 - Week 1
-        {
-          id: "1",
-          title: "Rabies Vaccine Follow-up",
-          details: "Check for any adverse reactions after vaccination",
-          start: new Date(2026, 2, 2, 10, 0),
-          end: new Date(2026, 2, 2, 10, 30),
-          category: "Follow-up",
-        },
-        {
-          id: "2",
-          title: "Morning Medication - Antibiotics",
-          details: "Amoxicillin 250mg for Max",
-          start: new Date(2026, 2, 3, 8, 0),
-          end: new Date(2026, 2, 3, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "3",
-          title: "Evening Medication - Antibiotics",
-          details: "Amoxicillin 250mg for Max",
-          start: new Date(2026, 2, 3, 20, 0),
-          end: new Date(2026, 2, 3, 20, 30),
-          category: "Medication",
-        },
-        {
-          id: "4",
-          title: "General Health Consultation",
-          details: "Annual General Check-Up for Bella with Dr. Smith",
-          start: new Date(2026, 2, 5, 14, 0),
-          end: new Date(2026, 2, 5, 15, 0),
-          category: "Consultation",
-        },
-        {
-          id: "5",
-          title: "Heart Medication",
-          details: "Enalapril 5mg for senior dog",
-          start: new Date(2026, 2, 6, 9, 0),
-          end: new Date(2026, 2, 6, 9, 30),
-          category: "Medication",
-        },
+function parseTaskDate(value) {
+    if (!value) return null;
 
-        // March 2026 - Week 2
-        {
-          id: "6",
-          title: "Post-Surgery Follow-up",
-          details: "Check surgical site healing and remove stitches",
-          start: new Date(2026, 2, 9, 11, 0),
-          end: new Date(2026, 2, 9, 12, 0),
-          category: "Follow-up",
-        },
-        {
-          id: "7",
-          title: "Morning Medication - Pain Relief",
-          details: "Carprofen 50mg for Charlie",
-          start: new Date(2026, 2, 10, 7, 30),
-          end: new Date(2026, 2, 10, 8, 0),
-          category: "Medication",
-        },
-        {
-          id: "8",
-          title: "Dermatology Consultation",
-          details: "Skin allergy consultation with specialist",
-          start: new Date(2026, 2, 11, 15, 30),
-          end: new Date(2026, 2, 11, 16, 30),
-          category: "Consultation",
-        },
-        {
-          id: "9",
-          title: "Allergy Medication",
-          details: "Antihistamine for skin condition",
-          start: new Date(2026, 2, 12, 8, 0),
-          end: new Date(2026, 2, 12, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "10",
-          title: "Blood Work Follow-up",
-          details: "Review lab results with Dr. Johnson",
-          start: new Date(2026, 2, 13, 10, 30),
-          end: new Date(2026, 2, 13, 11, 0),
-          category: "Follow-up",
-        },
+    const date = new Date(String(value).replace(' ', 'T'));
+    return Number.isNaN(date.getTime()) ? null : date;
+}
 
-        // March 2026 - Week 3
-        {
-          id: "11",
-          title: "Thyroid Medication",
-          details: "Levothyroxine for Lucy",
-          start: new Date(2026, 2, 16, 9, 0),
-          end: new Date(2026, 2, 16, 9, 30),
-          category: "Medication",
-        },
-        {
-          id: "12",
-          title: "Behavioral Consultation",
-          details: "Discuss anxiety issues and treatment options",
-          start: new Date(2026, 2, 17, 13, 0),
-          end: new Date(2026, 2, 17, 14, 0),
-          category: "Consultation",
-        },
-        {
-          id: "13",
-          title: "Dental Cleaning Follow-up",
-          details: "Check gums after dental procedure",
-          start: new Date(2026, 2, 18, 16, 0),
-          end: new Date(2026, 2, 18, 16, 30),
-          category: "Follow-up",
-        },
-        {
-          id: "14",
-          title: "Arthritis Medication",
-          details: "Glucosamine supplement for joint health",
-          start: new Date(2026, 2, 19, 8, 30),
-          end: new Date(2026, 2, 19, 9, 0),
-          category: "Medication",
-        },
-        {
-          id: "15",
-          title: "Nutrition Consultation",
-          details: "Weight management plan with nutritionist",
-          start: new Date(2026, 2, 20, 14, 30),
-          end: new Date(2026, 2, 20, 15, 30),
-          category: "Consultation",
-        },
+function dateInputValue(date) {
+    if (!date) return '';
+    return format(date, 'yyyy-MM-dd');
+}
 
-        // March 2026 - Week 4
-        {
-          id: "16",
-          title: "Diabetes Medication - Morning",
-          details: "Insulin injection for diabetic cat",
-          start: new Date(2026, 2, 23, 7, 0),
-          end: new Date(2026, 2, 23, 7, 30),
-          category: "Medication",
-        },
-        {
-          id: "17",
-          title: "Diabetes Medication - Evening",
-          details: "Insulin injection for diabetic cat",
-          start: new Date(2026, 2, 23, 19, 0),
-          end: new Date(2026, 2, 23, 19, 30),
-          category: "Medication",
-        },
-        {
-          id: "18",
-          title: "Vaccination Follow-up",
-          details: "Second dose of DHPP vaccine",
-          start: new Date(2026, 2, 24, 11, 30),
-          end: new Date(2026, 2, 24, 12, 0),
-          category: "Follow-up",
-        },
-        {
-          id: "19",
-          title: "Orthopedic Consultation",
-          details: "X-ray review for hip dysplasia",
-          start: new Date(2026, 2, 25, 10, 0),
-          end: new Date(2026, 2, 25, 11, 0),
-          category: "Consultation",
-        },
-        {
-          id: "20",
-          title: "Eye Drops Medication",
-          details: "Antibiotic eye drops for infection",
-          start: new Date(2026, 2, 26, 9, 0),
-          end: new Date(2026, 2, 26, 9, 30),
-          category: "Medication",
-        },
-        {
-          id: "21",
-          title: "Heartworm Prevention",
-          details: "Monthly heartworm medication",
-          start: new Date(2026, 2, 27, 8, 0),
-          end: new Date(2026, 2, 27, 8, 30),
-          category: "Medication",
-        },
+function timeInputValue(date) {
+    if (!date) return '09:00';
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
 
-        // March 2026 - Additional clustered dates
-        {
-          id: "22",
-          title: "Pre-Surgery Consultation",
-          details: "Discuss spay procedure and pre-op requirements",
-          start: new Date(2026, 2, 4, 15, 0),
-          end: new Date(2026, 2, 4, 16, 0),
-          category: "Consultation",
-        },
-        {
-          id: "23",
-          title: "Flea & Tick Prevention",
-          details: "Monthly topical treatment",
-          start: new Date(2026, 2, 11, 10, 0),
-          end: new Date(2026, 2, 11, 10, 30),
-          category: "Medication",
-        },
-        {
-          id: "24",
-          title: "X-ray Follow-up Review",
-          details: "Review healing progress of fractured leg",
-          start: new Date(2026, 2, 17, 9, 30),
-          end: new Date(2026, 2, 17, 10, 0),
-          category: "Follow-up",
-        },
+function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
 
-        // Daily Medications March 8-14
-        {
-          id: "25",
-          title: "Daily Vitamin Supplement",
-          details: "Multivitamin for Buddy",
-          start: new Date(2026, 2, 8, 8, 0),
-          end: new Date(2026, 2, 8, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "26",
-          title: "Probiotic Supplement",
-          details: "Digestive health supplement for Bella",
-          start: new Date(2026, 2, 9, 8, 0),
-          end: new Date(2026, 2, 9, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "27",
-          title: "Post-Surgery Follow-up",
-          details: "Check surgical site healing",
-          start: new Date(2026, 2, 9, 11, 0),
-          end: new Date(2026, 2, 9, 11, 30),
-          category: "Follow-up",
-        },
-        {
-          id: "28",
-          title: "Morning Medication",
-          details: "Daily morning medication for Max",
-          start: new Date(2026, 2, 10, 7, 30),
-          end: new Date(2026, 2, 10, 8, 0),
-          category: "Medication",
-        },
-        {
-          id: "29",
-          title: "Wound Care Follow-up",
-          details: "Check healing progress and change bandage",
-          start: new Date(2026, 2, 10, 14, 0),
-          end: new Date(2026, 2, 10, 14, 30),
-          category: "Follow-up",
-        },
-        {
-          id: "30",
-          title: "Dermatology Consultation",
-          details: "Skin allergy consultation with specialist",
-          start: new Date(2026, 2, 11, 15, 30),
-          end: new Date(2026, 2, 11, 16, 30),
-          category: "Consultation",
-        },
-        {
-          id: "31",
-          title: "Flea & Tick Prevention",
-          details: "Monthly topical treatment",
-          start: new Date(2026, 2, 11, 10, 0),
-          end: new Date(2026, 2, 11, 10, 30),
-          category: "Medication",
-        },
-        {
-          id: "32",
-          title: "Joint Support Medication",
-          details: "Cosequin for Max's joint health",
-          start: new Date(2026, 2, 11, 8, 0),
-          end: new Date(2026, 2, 11, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "33",
-          title: "Allergy Medication",
-          details: "Antihistamine for skin condition",
-          start: new Date(2026, 2, 12, 8, 0),
-          end: new Date(2026, 2, 12, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "34",
-          title: "Anti-Inflammatory Medication",
-          details: "Meloxicam 1.5mg for Charlie",
-          start: new Date(2026, 2, 12, 12, 0),
-          end: new Date(2026, 2, 12, 12, 30),
-          category: "Medication",
-        },
-        {
-          id: "35",
-          title: "Blood Work Follow-up",
-          details: "Review lab results with Dr. Johnson",
-          start: new Date(2026, 2, 13, 10, 30),
-          end: new Date(2026, 2, 13, 11, 0),
-          category: "Follow-up",
-        },
-        {
-          id: "36",
-          title: "Ear Medication",
-          details: "Antibiotic ear drops for infection treatment",
-          start: new Date(2026, 2, 13, 8, 0),
-          end: new Date(2026, 2, 13, 8, 30),
-          category: "Medication",
-        },
-        {
-          id: "37",
-          title: "Deworming Medication",
-          details: "Panacur oral suspension for Luna",
-          start: new Date(2026, 2, 14, 8, 0),
-          end: new Date(2026, 2, 14, 8, 30),
-          category: "Medication",
-        },
+function endOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+}
 
-        // Consultation on March 16
-        {
-          id: "38",
-          title: "Cardiology Consultation",
-          details: "Heart murmur evaluation with specialist Dr. Martinez",
-          start: new Date(2026, 2, 16, 14, 0),
-          end: new Date(2026, 2, 16, 15, 0),
-          category: "Consultation",
-        },
-      ];
-      setTodos(sampleTodos);
+function addDays(date, amount) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    return next;
+}
 
-      // Save sample todos to localStorage
-      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const userIndex = users.findIndex((u) => u.id === currentUser.id);
+function calendarRange(monthDate) {
+    const firstDay = startOfMonth(monthDate);
+    const lastDay = endOfMonth(monthDate);
+    const start = addDays(firstDay, -firstDay.getDay());
+    const end = addDays(lastDay, 6 - lastDay.getDay());
 
-      if (userIndex !== -1) {
-        users[userIndex].todos = sampleTodos;
-        localStorage.setItem("users", JSON.stringify(users));
-        localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
-      }
-    }
-    };
-
-    const timer = window.setTimeout(initializeTodos, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const handleAddTask = () => {
-    if (!newTask.title || !selectedDate) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    const startDate = new Date(selectedDate);
-    startDate.setHours(9, 0, 0);
-    const endDate = new Date(startDate);
-    endDate.setMinutes(endDate.getMinutes() + 30);
-
-    const task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      details: newTask.details,
-      start: startDate,
-      end: endDate,
-      category: newTask.category,
-    };
-
-    const updatedTodos = [...todos, task];
-    setTodos(updatedTodos);
-
-    // Save to localStorage
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const userIndex = users.findIndex((u) => u.id === currentUser.id);
-
-    if (userIndex !== -1) {
-      users[userIndex].todos = updatedTodos;
-      localStorage.setItem("users", JSON.stringify(users));
-      localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
-    }
-
-    toast.success("Task added successfully!");
-    setIsDialogOpen(false);
-    setNewTask({
-      title: "",
-      details: "",
-      category: "Personal Task",
-    });
-    setSelectedDate(null);
-  };
-
-  const handleDeleteTask = (taskId) => {
-    const updatedTodos = todos.filter(t => t.id !== taskId);
-    setTodos(updatedTodos);
-
-    // Save to localStorage
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const userIndex = users.findIndex((u) => u.id === currentUser.id);
-
-    if (userIndex !== -1) {
-      users[userIndex].todos = updatedTodos;
-      localStorage.setItem("users", JSON.stringify(users));
-      localStorage.setItem("currentUser", JSON.stringify(users[userIndex]));
-    }
-
-    toast.success("Task deleted");
-  };
-
-  const [upcomingRange] = useState(() => {
-    const start = new Date();
-    const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     return { start, end };
-  });
+}
 
-  // Get upcoming tasks (next 7 days)
-  const upcomingTasks = useMemo(() => (
-    todos
-      .filter((task) => {
-        const taskStart = new Date(task.start);
-        return taskStart >= upcomingRange.start && taskStart <= upcomingRange.end;
-      })
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-  ), [todos, upcomingRange]);
+function monthLabel(date) {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
 
-  // Get tasks for selected date
-  const getTasksForDate = (date) => {
-    return todos.filter(task => isSameDay(new Date(task.start), date));
-  };
+function combineDateTime(dateValue, timeValue) {
+    if (!dateValue) return '';
+    return `${dateValue} ${timeValue || '09:00'}:00`;
+}
 
-  const tasksForSelectedDate = selectedDate ? getTasksForDate(selectedDate) : [];
+function displayTime(value) {
+    const date = parseTaskDate(value);
+    if (!date) return '';
+    return format(date, 'p');
+}
 
-  return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">TODOs & Schedule</h1>
-        </div>
-      </div>
+function displayDateTime(value) {
+    const date = parseTaskDate(value);
+    if (!date) return 'Not scheduled';
+    return `${format(date, 'PPP')} at ${format(date, 'p')}`;
+}
 
-      {/* Date Task Modal */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedDate ? format(selectedDate, 'PPPP') : 'Select Date'}
-            </DialogTitle>
-            <DialogDescription>
-              View and manage tasks for this date
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Tasks for this date */}
-            <div>
-              <h3 className="font-semibold mb-3">Tasks for this day ({tasksForSelectedDate.length})</h3>
-              {tasksForSelectedDate.length > 0 ? (
-                <div className="space-y-2 mb-4">
-                  {tasksForSelectedDate.map((task) => (
-                    <div key={task.id} className="flex flex-col items-start justify-between gap-3 rounded-lg border bg-gray-50 p-3 sm:flex-row">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{task.title}</h4>
-                          <Badge className={`${getCategoryColor(task.category).badge} ${getCategoryColor(task.category).text}`}>
-                            {task.category}
-                          </Badge>
-                        </div>
-                        {task.details && (
-                          <p className="text-sm text-gray-600 mb-1">{task.details}</p>
-                        )}
-                        <p className="text-sm text-gray-500">
-                          {format(new Date(task.start), 'p')}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm mb-4">No tasks scheduled for this day</p>
-              )}
-            </div>
+function taskStyle(task) {
+    return CATEGORY_STYLES[task.category] || CATEGORY_STYLES[task.source === 'personal' ? 'Personal Task' : 'Other'];
+}
 
-            {/* Add new task form */}
-            <div className="border-t pt-4">
-              <h3 className="font-semibold mb-4">Add New Task</h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Task Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Feed pet, Give medication, Walk the dog"
-                    value={newTask.title}
-                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="details">Details</Label>
-                  <Textarea
-                    id="details"
-                    placeholder="Enter task details"
-                    value={newTask.details}
-                    onChange={(e) => setNewTask({ ...newTask, details: e.target.value })}
-                  />
-                </div>
-                <Button onClick={handleAddTask} className="w-full">
-                  Add Task
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+function isTaskDone(task) {
+    return task.status === 'completed' || task.status === 'cancelled';
+}
 
-      {/* Calendar View */}
-      <Card>
-        <CardHeader className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <CardTitle>Calendar View</CardTitle>
-          <div className="text-base font-semibold text-gray-700 sm:text-lg">March 2026</div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-auto">
-            {/* Calendar Grid */}
-            <div className="min-w-[540px] sm:min-w-[700px]">
-              {/* Day headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="text-center font-semibold text-gray-700 py-2">
-                    {day}
-                  </div>
-                ))}
-              </div>
+function isTaskOverdue(task) {
+    const date = parseTaskDate(task.startAt);
+    return date && !isTaskDone(task) && date.getTime() < Date.now();
+}
 
-              {/* Calendar dates */}
-              <div className="grid grid-cols-7 gap-2">
-                {/* Week 1 - Starting with padding for days before month starts */}
-                {/* March 1, 2026 is a Sunday, so no padding needed */}
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((date) => {
-                  const currentDate = new Date(2026, 2, date);
-                  const tasksForDate = todos.filter(task => 
-                    isSameDay(new Date(task.start), currentDate)
-                  );
+function emptyForm(date = new Date()) {
+    return {
+        title: '',
+        details: '',
+        category: 'Personal Task',
+        date: dateInputValue(date),
+        time: '09:00'
+    };
+}
 
-                  return (
-                    <div
-                      key={date}
-                      onClick={() => {
-                        setSelectedDate(currentDate);
-                        setIsDialogOpen(true);
-                      }}
-                      className="min-h-[84px] cursor-pointer rounded-lg border bg-white p-2 hover:bg-gray-50 sm:min-h-[100px]"
-                    >
-                      <div className="font-semibold text-gray-900 mb-2">{date}</div>
-                      <div className="space-y-1">
-                        {tasksForDate.map((task) => (
-                          <div
-                            key={task.id}
-                            className={`text-xs px-2 py-1 rounded text-white truncate ${getCategoryColor(task.category).bg}`}
-                            title={task.title}
-                          >
-                            {task.title}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+export default function Todos({ user }) {
+    const userId = getUserId(user);
+    const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [tasks, setTasks] = useState([]);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [editingTask, setEditingTask] = useState(null);
+    const [isAgendaOpen, setIsAgendaOpen] = useState(true);
+    const [form, setForm] = useState(() => emptyForm(new Date()));
 
-      {/* Upcoming Tasks */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-600" />
-            Upcoming Tasks (Next 7 Days)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {upcomingTasks.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingTasks.map((task) => (
-                <div key={task.id} className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 border rounded-lg hover:bg-gray-50 gap-3 sm:gap-0">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h4 className="font-semibold">{task.title}</h4>
-                      <Badge className={
-                        task.category === 'Medication' 
-                          ? 'bg-blue-100 text-blue-700' 
-                          : task.category === 'Consultation'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : task.category === 'Follow-up'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-purple-100 text-purple-700'
-                      }>
-                        {task.category}
-                      </Badge>
-                    </div>
-                    {task.details && (
-                      <p className="text-sm text-gray-600 mb-1">{task.details}</p>
-                    )}
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(task.start), 'PPP')} at {format(new Date(task.start), 'p')}
+    const range = useMemo(() => calendarRange(currentMonth), [currentMonth]);
+
+    const loadTasks = async ({ isAutoRefresh = false } = {}) => {
+        if (!userId) return null;
+
+        if (!isAutoRefresh) {
+            setIsLoading(true);
+            setLoadError('');
+        }
+
+        try {
+            const data = await fetchPetOwnerTodos(userId, {
+                start: dateInputValue(range.start),
+                end: dateInputValue(range.end)
+            });
+            setTasks(Array.isArray(data.tasks) ? data.tasks : []);
+            return data;
+        } catch (error) {
+            if (!isAutoRefresh) {
+                setLoadError(error.message || 'TODOs could not be loaded.');
+            }
+            return null;
+        } finally {
+            if (!isAutoRefresh) {
+                setIsLoading(false);
+            }
+        }
+    };
+
+    useAutoRefresh(loadTasks, {
+        enabled: Boolean(userId),
+        intervalMs: 10000,
+        refreshKey: `pet-owner-todos-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
+    });
+
+    const calendarDays = useMemo(() => {
+        const days = [];
+        let current = new Date(range.start);
+
+        while (current <= range.end) {
+            days.push(new Date(current));
+            current = addDays(current, 1);
+        }
+
+        return days;
+    }, [range]);
+
+    const tasksByDay = useMemo(() => {
+        const grouped = new Map();
+
+        tasks.forEach(task => {
+            const date = parseTaskDate(task.startAt);
+            if (!date) return;
+
+            const key = dateInputValue(date);
+            grouped.set(key, [...(grouped.get(key) || []), task]);
+        });
+
+        grouped.forEach(dayTasks => {
+            dayTasks.sort((left, right) => {
+                const leftTime = parseTaskDate(left.startAt)?.getTime() || 0;
+                const rightTime = parseTaskDate(right.startAt)?.getTime() || 0;
+                return leftTime - rightTime;
+            });
+        });
+
+        return grouped;
+    }, [tasks]);
+
+    const selectedTasks = useMemo(() => {
+        if (!selectedDate) return [];
+        return tasksByDay.get(dateInputValue(selectedDate)) || [];
+    }, [selectedDate, tasksByDay]);
+
+    const upcomingTasks = useMemo(() => (
+        tasks
+            .filter(task => {
+                const date = parseTaskDate(task.startAt);
+                if (!date || isTaskDone(task)) return false;
+                const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000;
+                return date.getTime() <= sevenDays;
+            })
+            .sort((left, right) => (parseTaskDate(left.startAt)?.getTime() || 0) - (parseTaskDate(right.startAt)?.getTime() || 0))
+            .slice(0, 8)
+    ), [tasks]);
+
+    const openDay = (date) => {
+        setSelectedDate(date);
+        setEditingTask(null);
+        setForm(emptyForm(date));
+        setIsDialogOpen(true);
+    };
+
+    const openCreate = () => {
+        const date = selectedDate || new Date();
+        setSelectedDate(date);
+        setEditingTask(null);
+        setForm(emptyForm(date));
+        setIsDialogOpen(true);
+    };
+
+    const openEdit = (task) => {
+        const date = parseTaskDate(task.startAt) || new Date();
+        setEditingTask(task);
+        setForm({
+            title: task.title || '',
+            details: task.details || '',
+            category: task.category || 'Personal Task',
+            date: dateInputValue(date),
+            time: timeInputValue(date)
+        });
+    };
+
+    const resetForm = () => {
+        setEditingTask(null);
+        setForm(emptyForm(selectedDate || new Date()));
+    };
+
+    const saveTask = async () => {
+        if (!userId) {
+            toast.error('Session error. Please log in again.');
+            return;
+        }
+
+        if (!form.title.trim() || !form.date) {
+            toast.error('Task title and date are required.');
+            return;
+        }
+
+        const payload = {
+            title: form.title.trim(),
+            details: form.details.trim(),
+            category: form.category,
+            startAt: combineDateTime(form.date, form.time)
+        };
+
+        setIsSaving(true);
+
+        try {
+            if (editingTask) {
+                await updatePetOwnerTodo(editingTask.sourceId, userId, payload);
+                toast.success('Task updated.');
+            } else {
+                await createPetOwnerTodo(userId, payload);
+                toast.success('Task added.');
+            }
+
+            resetForm();
+            await loadTasks();
+        } catch (error) {
+            toast.error(error.message || 'Task could not be saved.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const completeTask = async (task) => {
+        if (!task.editable) return;
+
+        setIsSaving(true);
+        try {
+            await updatePetOwnerTodo(task.sourceId, userId, { status: task.status === 'completed' ? 'pending' : 'completed' });
+            toast.success(task.status === 'completed' ? 'Task reopened.' : 'Task completed.');
+            await loadTasks();
+        } catch (error) {
+            toast.error(error.message || 'Task could not be updated.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const removeTask = async (task) => {
+        if (!task.editable) return;
+
+        setIsSaving(true);
+        try {
+            await deletePetOwnerTodo(task.sourceId, userId);
+            toast.success('Task deleted.');
+            await loadTasks();
+            if (editingTask?.sourceId === task.sourceId) {
+                resetForm();
+            }
+        } catch (error) {
+            toast.error(error.message || 'Task could not be deleted.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const changeMonth = (amount) => {
+        setCurrentMonth(current => startOfMonth(new Date(current.getFullYear(), current.getMonth() + amount, 1)));
+    };
+
+    return (
+        <div className="space-y-6 lg:space-y-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">TODOs & Schedule</h1>
+                    <p className="mt-2 text-sm font-medium text-slate-500">
+                        Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.
                     </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 self-start sm:self-auto"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
-              ))}
+                <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => loadTasks()} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        Refresh
+                    </Button>
+                    <Button type="button" onClick={openCreate} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                        <Plus className="size-4" />
+                        Add Task
+                    </Button>
+                </div>
             </div>
-          ) : (
-            <p className="text-gray-600 text-center py-4">No upcoming tasks</p>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Legend */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Category Legend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded"></div>
-              <span className="text-sm">General Check-Up</span>
+            {loadError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    {loadError}
+                </div>
+            )}
+
+            <div className={`grid gap-6 transition-[grid-template-columns] duration-300 xl:items-start ${isAgendaOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
+                <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+                    <CardHeader className="border-b border-slate-100">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-950">
+                                <CalendarDays className="size-5 text-[#155dfc]" />
+                                {monthLabel(currentMonth)}
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => changeMonth(-1)} aria-label="Previous month">
+                                    <ChevronLeft className="size-4" />
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setCurrentMonth(startOfMonth(new Date()))}>
+                                    Today
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => changeMonth(1)} aria-label="Next month">
+                                    <ChevronRight className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <div className="min-w-[44rem] p-4 lg:min-w-0">
+                                <div className="grid grid-cols-7 gap-2 pb-2">
+                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                        <div key={day} className="px-2 py-1 text-center text-xs font-black uppercase tracking-wide text-slate-400">
+                                            {day}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-7 gap-2">
+                                    {calendarDays.map(day => {
+                                        const key = dateInputValue(day);
+                                        const dayTasks = tasksByDay.get(key) || [];
+                                        const isOutsideMonth = day.getMonth() !== currentMonth.getMonth();
+                                        const isToday = isSameDay(day, new Date());
+
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={key}
+                                                onClick={() => openDay(day)}
+                                                className={`relative min-h-32 rounded-lg border p-2 pt-11 text-left align-top transition hover:border-blue-300 hover:bg-blue-50/30 ${isToday ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'} ${isOutsideMonth ? 'opacity-50' : ''}`}
+                                            >
+                                                <span className="absolute left-2 right-2 top-2 flex items-start justify-between gap-2">
+                                                    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${isToday ? 'bg-[#155dfc] text-white' : 'text-slate-700'}`}>
+                                                        {day.getDate()}
+                                                    </span>
+                                                    {dayTasks.length > 0 && (
+                                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-600">
+                                                            {dayTasks.length}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="block space-y-1">
+                                                    {dayTasks.slice(0, 3).map(task => {
+                                                        const style = taskStyle(task);
+                                                        return (
+                                                            <span
+                                                                key={task.id}
+                                                                className={`block truncate rounded-md px-2 py-1 text-xs font-bold ${style.badge}`}
+                                                                title={task.title}
+                                                            >
+                                                                {displayTime(task.startAt)} {task.title}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                    {dayTasks.length > 3 && (
+                                                        <span className="block px-2 text-xs font-bold text-slate-400">
+                                                            +{dayTasks.length - 3} more
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {isAgendaOpen && (
+                    <aside className="relative rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAgendaOpen(false)}
+                            aria-label="Hide next 7 days"
+                            aria-expanded={isAgendaOpen}
+                            className="absolute -left-4 top-5 z-10 size-8 rounded-full border-slate-200 bg-white p-0 shadow-md hover:bg-slate-50"
+                        >
+                            <ChevronRight className="size-4" />
+                        </Button>
+                        <div className="border-b border-slate-100 p-4 pl-6">
+                            <h2 className="flex items-center gap-2 text-lg font-black text-slate-950">
+                                <Clock className="size-5 text-[#155dfc]" />
+                                Next 7 Days
+                            </h2>
+                        </div>
+                        <div className="max-h-[36rem] space-y-3 overflow-y-auto p-4">
+                            {isLoading && tasks.length === 0 ? (
+                                <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-slate-500">
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Loading schedules...
+                                </div>
+                            ) : upcomingTasks.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-400">
+                                    No upcoming tasks.
+                                </div>
+                            ) : (
+                                upcomingTasks.map(task => <TaskRow key={task.id} task={task} onComplete={completeTask} onEdit={openEdit} onDelete={removeTask} compact />)
+                            )}
+                        </div>
+                    </aside>
+                )}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-orange-500 rounded"></div>
-              <span className="text-sm">Parasite Control</span>
+
+            {!isAgendaOpen && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAgendaOpen(true)}
+                    aria-label="Show next 7 days"
+                    aria-expanded={isAgendaOpen}
+                    className="fixed right-0 top-28 z-40 flex h-20 w-11 flex-col items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r-0 border-slate-200 bg-white p-0 shadow-lg hover:bg-slate-50"
+                >
+                    <ChevronLeft className="size-4" />
+                    <Clock className="size-4 text-[#155dfc]" />
+                    {upcomingTasks.length > 0 && (
+                        <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">
+                            {upcomingTasks.length}
+                        </span>
+                    )}
+                </Button>
+            )}
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>{selectedDate ? format(selectedDate, 'PPPP') : 'Schedule'}</DialogTitle>
+                        <DialogDescription>
+                            Clinic-generated items update from their source. Personal tasks can be edited here.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+                                Day Schedule ({selectedTasks.length})
+                            </h3>
+                            {selectedTasks.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-400">
+                                    Nothing scheduled for this day.
+                                </div>
+                            ) : (
+                                selectedTasks.map(task => (
+                                    <TaskRow
+                                        key={task.id}
+                                        task={task}
+                                        onComplete={completeTask}
+                                        onEdit={openEdit}
+                                        onDelete={removeTask}
+                                    />
+                                ))
+                            )}
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <h3 className="font-black text-slate-950">{editingTask ? 'Edit Task' : 'Add Task'}</h3>
+                                {editingTask && (
+                                    <Button type="button" variant="ghost" size="sm" onClick={resetForm}>
+                                        New
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="todo-title">Task Title</Label>
+                                    <Input
+                                        id="todo-title"
+                                        value={form.title}
+                                        onChange={(event) => setForm(current => ({ ...current, title: event.target.value }))}
+                                        placeholder="Give medicine"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="todo-date">Date</Label>
+                                        <Input
+                                            id="todo-date"
+                                            type="date"
+                                            value={form.date}
+                                            onChange={(event) => setForm(current => ({ ...current, date: event.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="todo-time">Time</Label>
+                                        <Input
+                                            id="todo-time"
+                                            type="time"
+                                            value={form.time}
+                                            onChange={(event) => setForm(current => ({ ...current, time: event.target.value }))}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="todo-category">Category</Label>
+                                    <select
+                                        id="todo-category"
+                                        value={form.category}
+                                        onChange={(event) => setForm(current => ({ ...current, category: event.target.value }))}
+                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                                    >
+                                        {CATEGORY_OPTIONS.map(category => (
+                                            <option key={category} value={category}>{category}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="todo-details">Details</Label>
+                                    <Textarea
+                                        id="todo-details"
+                                        value={form.details}
+                                        onChange={(event) => setForm(current => ({ ...current, details: event.target.value }))}
+                                        placeholder="Notes, dosage, or reminders"
+                                        className="min-h-24"
+                                    />
+                                </div>
+                                <Button type="button" onClick={saveTask} disabled={isSaving} className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                                    {editingTask ? 'Save Task' : 'Add Task'}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function TaskIcon({ task }) {
+    if (task.source === 'payment') return <CreditCard className="size-4" />;
+    if (task.source === 'diagnosis') return <Stethoscope className="size-4" />;
+    if (task.source === 'booking' || task.source === 'boarding' || task.source === 'boarding_task') {
+        return <CalendarDays className="size-4" />;
+    }
+
+    return <CheckCircle2 className="size-4" />;
+}
+
+function TaskRow({ task, onComplete, onEdit, onDelete, compact = false }) {
+    const style = taskStyle(task);
+    const overdue = isTaskOverdue(task);
+    const done = isTaskDone(task);
+
+    return (
+        <div className={`rounded-lg border bg-white p-3 shadow-sm ${style.border} ${done ? 'opacity-70' : ''}`}>
+            <div className="flex items-start gap-3">
+                <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${style.badge}`}>
+                    <TaskIcon task={task} />
+                </span>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="break-words text-sm font-black text-slate-950">{task.title}</h4>
+                        <Badge className={`border-0 ${style.badge}`}>{task.category}</Badge>
+                        {overdue && <Badge className="border-0 bg-red-50 text-red-700">Overdue</Badge>}
+                        {done && <Badge className="border-0 bg-emerald-50 text-emerald-700">Done</Badge>}
+                    </div>
+                    {!compact && task.details && (
+                        <p className="mt-1 whitespace-pre-wrap text-sm font-medium leading-5 text-slate-600">{task.details}</p>
+                    )}
+                    <p className="mt-2 text-xs font-bold text-slate-400">
+                        {displayDateTime(task.startAt)}{task.petName ? ` - ${task.petName}` : ''}
+                    </p>
+                </div>
+                {task.editable && (
+                    <div className="flex shrink-0 items-center gap-1">
+                        <Checkbox
+                            checked={task.status === 'completed'}
+                            onCheckedChange={() => onComplete(task)}
+                            aria-label="Mark task complete"
+                            className="mt-2"
+                        />
+                        <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(task)} aria-label="Edit task">
+                            <Pencil className="size-4" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => onDelete(task)} aria-label="Delete task" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                            <Trash2 className="size-4" />
+                        </Button>
+                    </div>
+                )}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-600 rounded"></div>
-              <span className="text-sm">Surgery</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-600 rounded"></div>
-              <span className="text-sm">Vaccination</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-pink-500 rounded"></div>
-              <span className="text-sm">Grooming</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-cyan-600 rounded"></div>
-              <span className="text-sm">Dental Check-up</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-500 rounded"></div>
-              <span className="text-sm">Personal Task</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        </div>
+    );
 }

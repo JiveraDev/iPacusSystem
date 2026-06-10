@@ -11,6 +11,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { createAccount, fetchAccounts as fetchAccountsService, updateAccountStatus } from '../../services/accountService';
 
 export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
@@ -51,11 +52,8 @@ export default function AccountManagement() {
             setIsLoading(true);
         }
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts`);
-            if (response.ok) {
-                const data = await response.json();
-                setAccounts(data);
-            }
+            const data = await fetchAccountsService();
+            setAccounts(data);
         } catch (error) {
             console.error("Error fetching accounts:", error);
             toast.error("Failed to load accounts");
@@ -77,31 +75,20 @@ export default function AccountManagement() {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(createForm)
+            await createAccount(createForm);
+            toast.success(`${createForm.role} account created successfully!`);
+            setShowCreateAccount(false);
+            fetchAccounts();
+            setCreateForm({
+                firstName: '', lastName: '', email: '', password: '',
+                role: 'Veterinarian', hireDate: new Date().toISOString().split('T')[0],
+                licenseNumber: '', specialization: '',
+                position: 'Nurse', employmentStatus: 'full-time', masterKey: ''
             });
-
-            if (response.ok) {
-                toast.success(`${createForm.role} account created successfully!`);
-                setShowCreateAccount(false);
-                fetchAccounts();
-                setCreateForm({
-                    firstName: '', lastName: '', email: '', password: '',
-                    role: 'Veterinarian', hireDate: new Date().toISOString().split('T')[0],
-                    licenseNumber: '', specialization: '',
-                    position: 'Nurse', employmentStatus: 'full-time', masterKey: ''
-                });
-            } else {
-                const data = await response.json();
-                clearCreatePasswordFields();
-                toast.error(data.message || "Failed to create account");
-            }
         } catch (error) {
             console.error("Creation error:", error);
             clearCreatePasswordFields();
-            toast.error("An error occurred during account creation");
+            toast.error(error.message || "An error occurred during account creation");
         } finally {
             setIsSubmitting(false);
         }
@@ -134,23 +121,14 @@ export default function AccountManagement() {
 
         setIsUpdatingStatus(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/accounts/${userId}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_active: currentStatus ? 0 : 1, type })
-            });
-
-            if (response.ok) {
-                toast.success(`Account ${action}d successfully`);
-                fetchAccounts();
-                setPendingStatusAction(null);
-                setShowDetails(false);
-            } else {
-                toast.error(`Failed to ${action} account`);
-            }
+            await updateAccountStatus(userId, { is_active: currentStatus ? 0 : 1, type });
+            toast.success(`Account ${action}d successfully`);
+            fetchAccounts();
+            setPendingStatusAction(null);
+            setShowDetails(false);
         } catch (error) {
             console.error("Status update error:", error);
-            toast.error("An error occurred");
+            toast.error(error.message || "An error occurred");
         } finally {
             setIsUpdatingStatus(false);
         }

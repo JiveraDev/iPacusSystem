@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { searchAddresses } from "../../services/addressAutocomplete";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
+import { fetchUserPets } from "../../services/petService";
 
 export default function HomeServices() {
   const navigate = useNavigate();
@@ -131,12 +132,8 @@ export default function HomeServices() {
           return;
         }
 
-        const url = `${import.meta.env.VITE_API_BASE_URL}/users/${userId}/pets`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          setPets(data);
-        }
+        const data = await fetchUserPets(userId);
+        setPets(Array.isArray(data) ? data : []);
 
         // Pre-fill address from user profile
         if (currentUser.personal_Address || currentUser.personal_address || currentUser.address) {

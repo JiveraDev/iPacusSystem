@@ -7,8 +7,12 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import {
+    endOnlineConsultation,
+    fetchOnlineConsultation,
+    startOnlineConsultation,
+    submitOnlineConsultationDiagnosis
+} from '../../services/onlineConsultationService';
 
 function getStatusBadge(status) {
     const normalized = String(status || '').toLowerCase();
@@ -47,12 +51,7 @@ export default function VetOnlineConsultDiagnosis() {
         const loadConsultation = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch(`${API_BASE}/online-consultations/${onlineConsultationId}`);
-                const data = await response.json().catch(() => []);
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load online consultation');
-                }
+                const data = await fetchOnlineConsultation(onlineConsultationId);
 
                 const loaded = Array.isArray(data) ? data[0] : data;
                 if (!loaded) {
@@ -85,14 +84,7 @@ export default function VetOnlineConsultDiagnosis() {
 
         setIsStarting(true);
         try {
-            const response = await fetch(`${API_BASE}/online-consultations/${consultation.id}/start`, {
-                method: 'POST'
-            });
-            const updated = await response.json().catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(updated?.message || 'Failed to start consultation');
-            }
+            const updated = await startOnlineConsultation(consultation.id);
 
             setConsultation(updated);
             toast.success('Consultation started. Waiting for the pet owner to join.');
@@ -114,16 +106,7 @@ export default function VetOnlineConsultDiagnosis() {
 
         setIsSaving(true);
         try {
-            const response = await fetch(`${API_BASE}/online-consultations/${consultation.id}/diagnosis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(diagnosisForm)
-            });
-            const updated = await response.json().catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(updated?.message || 'Failed to save diagnosis');
-            }
+            const updated = await submitOnlineConsultationDiagnosis(consultation.id, diagnosisForm);
 
             setConsultation(updated);
             toast.success('Diagnosis saved and consultation completed.');
@@ -141,14 +124,7 @@ export default function VetOnlineConsultDiagnosis() {
 
         setIsSaving(true);
         try {
-            const response = await fetch(`${API_BASE}/online-consultations/${consultation.id}/end`, {
-                method: 'POST'
-            });
-            const updated = await response.json().catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(updated?.message || 'Failed to end consultation');
-            }
+            const updated = await endOnlineConsultation(consultation.id);
 
             setConsultation(updated);
             toast.success('Consultation marked completed.');

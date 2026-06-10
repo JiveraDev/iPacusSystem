@@ -10,6 +10,12 @@ import { Upload, FileText, Trash2, Edit3, Eye, Plus, AlertTriangle } from 'lucid
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
+import {
+    createConsentFile,
+    deleteConsentFile,
+    fetchConsentFiles as fetchConsentFilesService,
+    updateConsentFile
+} from '../../services/consentFileService';
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState([]);
@@ -50,11 +56,8 @@ export default function ConsentFilesManagement() {
             setIsLoading(true);
         }
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/consent_files`);
-            if (response.ok) {
-                const data = await response.json();
-                setFiles(data);
-            }
+            const data = await fetchConsentFilesService();
+            setFiles(data);
         } catch (error) {
             console.error("Error fetching consent files:", error);
             if (!isAutoRefresh) {
@@ -99,21 +102,13 @@ export default function ConsentFilesManagement() {
                 formData.append('file_size', formatFileSize(uploadFile.size));
                 formData.append('category', uploadCategory);
 
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/consent_files`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    toast.success("Consent form added successfully");
-                    setUploadFile(null);
-                    setUploadCategory('');
-                    const fileInput = document.getElementById('consent-file-input');
-                    if (fileInput) fileInput.value = '';
-                    fetchConsentFiles();
-                } else {
-                    toast.error("Failed to upload file");
-                }
+                await createConsentFile(formData);
+                toast.success("Consent form added successfully");
+                setUploadFile(null);
+                setUploadCategory('');
+                const fileInput = document.getElementById('consent-file-input');
+                if (fileInput) fileInput.value = '';
+                fetchConsentFiles();
             };
             reader.readAsText(uploadFile);
         } catch (error) {
@@ -128,21 +123,14 @@ export default function ConsentFilesManagement() {
         if (!selectedFile) return;
         
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/consent_files/${selectedFile.file_id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    file_name: editTitle,
-                    content: editContent,
-                    category: editCategory
-                })
+            await updateConsentFile(selectedFile.file_id, {
+                file_name: editTitle,
+                content: editContent,
+                category: editCategory
             });
-
-            if (response.ok) {
-                toast.success("Consent form updated");
-                setEditModalOpen(false);
-                fetchConsentFiles();
-            }
+            toast.success("Consent form updated");
+            setEditModalOpen(false);
+            fetchConsentFiles();
         } catch {
             toast.error("Update failed");
         }
@@ -152,18 +140,11 @@ export default function ConsentFilesManagement() {
         if (!fileToDelete) return;
         
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/consent_files/${fileToDelete.file_id}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                toast.success("Form deleted successfully");
-                setFiles(files.filter(f => f.file_id !== fileToDelete.file_id));
-                setDeleteDialogOpen(false);
-                setFileToDelete(null);
-            } else {
-                toast.error("Failed to delete form");
-            }
+            await deleteConsentFile(fileToDelete.file_id);
+            toast.success("Form deleted successfully");
+            setFiles(files.filter(f => f.file_id !== fileToDelete.file_id));
+            setDeleteDialogOpen(false);
+            setFileToDelete(null);
         } catch {
             toast.error("Error deleting form");
         }

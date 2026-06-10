@@ -27,8 +27,15 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
 import { createConsentDocumentImage } from '../shared/consentDocumentImage.js';
+import { fetchConsentFiles } from '../../services/consentFileService';
+import { fetchProfile } from '../../services/profileService';
+import {
+    fetchQueues,
+    returnQueue as returnQueueService,
+    updateQueueStatus as updateQueueStatusService
+} from '../../services/queueService';
+import { deleteUpload, uploadDataUrlImage } from '../../services/uploadService';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
 const FALLBACK_CONSENT_FORMS = [
@@ -150,11 +157,7 @@ async function deleteUploadedFile(path) {
     if (!path || String(path).startsWith('data:')) return;
 
     try {
-        await fetch(`${API_BASE}/upload/delete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path })
-        });
+        await deleteUpload({ path });
     } catch {
         // Local consent cleanup should not be blocked by a missing file.
     }
@@ -232,12 +235,11 @@ export default function VetMyList() {
             if (!veterinarianUserId) return;
 
             try {
-                const response = await fetch(`${API_BASE}/api/profile?userId=${veterinarianUserId}&role=${encodeURIComponent(currentUser?.role || 'Veterinarian')}`);
-                const data = await response.json();
-
-                if (response.ok) {
-                    setVeterinarianLicense(data.prc_license_number || data.licenseNumber || '');
-                }
+                const data = await fetchProfile({
+                    userId: veterinarianUserId,
+                    role: currentUser?.role || 'Veterinarian'
+                });
+                setVeterinarianLicense(data.prc_license_number || data.licenseNumber || '');
             } catch {
                 setVeterinarianLicense(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
             }
@@ -253,12 +255,7 @@ export default function VetMyList() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/queues`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || 'Failed to load veterinarian list.');
-            }
+            const data = await fetchQueues();
 
             setQueue(Array.isArray(data) ? data : []);
             setHasLoadedQueue(true);
@@ -275,10 +272,9 @@ export default function VetMyList() {
 
     const loadConsentForms = async () => {
         try {
-            const response = await fetch(`${API_BASE}/consent_files`);
-            const data = await response.json();
+            const data = await fetchConsentFiles();
 
-            if (response.ok && Array.isArray(data) && data.length > 0) {
+            if (Array.isArray(data) && data.length > 0) {
                 setConsentForms(data);
             }
         } catch {
@@ -357,18 +353,13 @@ export default function VetMyList() {
 
         const returnExpiredItems = async () => {
             const results = await Promise.allSettled(expiredItems.map(async item => {
-                const response = await fetch(`${API_BASE}/queues/return`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        queue_id: item.queue_id,
-                        veterinarian_user_id: veterinarianUserId,
-                        return_reason: 'Returned automatically because queue date passed'
-                    })
+                const data = await returnQueueService({
+                    queue_id: item.queue_id,
+                    veterinarian_user_id: veterinarianUserId,
+                    return_reason: 'Returned automatically because queue date passed'
                 });
-                const data = await response.json().catch(() => ({}));
 
-                if (!response.ok || !data.success) {
+                if (!data.success) {
                     throw new Error(data.error || data.message || 'Failed to auto-return expired queue patient.');
                 }
 
@@ -419,14 +410,9 @@ export default function VetMyList() {
         setUpdatingQueueId(queueId);
 
         try {
-            const response = await fetch(`${API_BASE}/queues/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ queue_id: queueId, status })
-            });
-            const data = await response.json();
+            const data = await updateQueueStatusService({ queue_id: queueId, status });
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.error || data.message || 'Failed to update queue status.');
             }
 
@@ -462,18 +448,13 @@ export default function VetMyList() {
         setUpdatingQueueId(queueId);
 
         try {
-            const response = await fetch(`${API_BASE}/queues/return`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    queue_id: queueId,
-                    veterinarian_user_id: veterinarianUserId,
-                    return_reason: 'Returned from veterinarian My List'
-                })
+            const data = await returnQueueService({
+                queue_id: queueId,
+                veterinarian_user_id: veterinarianUserId,
+                return_reason: 'Returned from veterinarian My List'
             });
-            const data = await response.json();
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.error || data.message || 'Failed to return patient to approved list.');
             }
 
@@ -515,32 +496,6 @@ export default function VetMyList() {
         setUploadDialogOpen(true);
     };
 
-    const dataUrlToFile = async (dataUrl, fileName) => {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const extension = blob.type.includes('png') ? 'png' : 'jpg';
-        return new File([blob], `${fileName}.${extension}`, { type: blob.type || 'image/png' });
-    };
-
-    const uploadDataUrl = async (dataUrl, type, fileNamePrefix) => {
-        const file = await dataUrlToFile(dataUrl, `${fileNamePrefix}_${Date.now()}`);
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('type', type);
-
-        const response = await fetch(`${API_BASE}/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            throw new Error(result.message || 'Failed to upload signed consent.');
-        }
-
-        return result.relative_url || result.url || null;
-    };
-
     const saveConsent = async () => {
         if (!selectedPatient || !selectedConsentId) {
             toast.error('Please select a consent form.');
@@ -565,7 +520,7 @@ export default function VetMyList() {
                 veterinarianName,
                 veterinarianLicense
             });
-            const signedDocumentPath = await uploadDataUrl(signedDocumentImage, 'booking_signature', 'signed_consent');
+            const signedDocumentPath = await uploadDataUrlImage(signedDocumentImage, 'booking_signature', 'signed_consent');
 
             setConsentRecords(current => ({
                 ...current,

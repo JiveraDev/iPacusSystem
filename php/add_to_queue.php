@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -238,6 +239,13 @@ try {
     );
     $stmt = $pdo->prepare($sql);
     $stmt->execute($insertValues);
+    $queueId = (int)$pdo->lastInsertId();
+
+    try {
+        notification_send_queue_event($pdo, $queueId, 'created');
+    } catch (Throwable $notificationError) {
+        error_log('Queue creation notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode(['success' => true]);
 } catch (Exception $e) {

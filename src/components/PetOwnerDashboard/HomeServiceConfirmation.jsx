@@ -14,6 +14,8 @@ import {
 import SignatureCapture from "../SignatureCapture";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
+import { createBooking } from "../../services/bookingService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
@@ -57,21 +59,6 @@ export default function HomeServiceConfirmation() {
     return new File([u8arr], filename, {type:mime});
   };
 
-  const uploadFile = async (file, type = "booking_payment") => {
-    const data = new FormData();
-    data.append("image", file);
-    data.append("type", type);
-
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
-      method: "POST",
-      body: data,
-    });
-
-    if (!response.ok) throw new Error("Failed to upload image");
-    const result = await response.json();
-    return result.url;
-  };
-
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
 
@@ -102,14 +89,14 @@ export default function HomeServiceConfirmation() {
     try {
       // 1. Upload Receipt
       const receiptUrl = paymentFormData.receiptFile
-        ? await uploadFile(paymentFormData.receiptFile, "booking_payment")
+        ? await uploadImageFile(paymentFormData.receiptFile, "booking_payment")
         : null;
 
       // 2. Upload Signature
       let finalSignatureUrl = signature;
       if (signature.startsWith('data:image')) {
         const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
-        finalSignatureUrl = await uploadFile(signatureFile, "booking_signature");
+        finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
       }
 
       // 3. Upload Additional Images (Concerns)
@@ -119,7 +106,7 @@ export default function HomeServiceConfirmation() {
           const img = booking.images[i];
           if (img.startsWith('data:image')) {
             const imgFile = dataURLtoFile(img, `concern_${Date.now()}_${i}.png`);
-            const url = await uploadFile(imgFile, "booking_concern");
+            const url = await uploadImageFile(imgFile, "booking_concern");
             uploadedConcernUrls.push(url);
           } else {
             uploadedConcernUrls.push(img);
@@ -140,20 +127,10 @@ export default function HomeServiceConfirmation() {
       };
 
       // 5. Submit to DB
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalBookingData),
-      });
-
-      if (response.ok) {
-        toast.success("Home Service Booking submitted successfully!");
-        sessionStorage.removeItem("pendingHomeBooking");
-        navigate("/dashboard/services"); 
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create booking");
-      }
+      await createBooking(finalBookingData);
+      toast.success("Home Service Booking submitted successfully!");
+      sessionStorage.removeItem("pendingHomeBooking");
+      navigate("/dashboard/services"); 
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(error.message || "An error occurred during submission");

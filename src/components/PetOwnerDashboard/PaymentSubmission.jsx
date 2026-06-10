@@ -8,6 +8,8 @@ import { Textarea } from "../../ui/textarea";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
+import { createBooking } from "../../services/bookingService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
@@ -45,21 +47,6 @@ export default function PaymentSubmission() {
     return new File([u8arr], filename, {type:mime});
   };
 
-  const uploadFile = async (file, type = "booking_payment") => {
-    const data = new FormData();
-    data.append("image", file);
-    data.append("type", type);
-
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
-      method: "POST",
-      body: data,
-    });
-
-    if (!response.ok) throw new Error("Failed to upload image");
-    const result = await response.json();
-    return result.url;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isDeceasedPetStatus(paymentData?.bookingData?.petStatus)) {
@@ -78,14 +65,14 @@ export default function PaymentSubmission() {
     setIsSubmitting(true);
     try {
       // 1. Upload Receipt
-      const receiptUrl = formData.receiptFile ? await uploadFile(formData.receiptFile) : null;
+      const receiptUrl = formData.receiptFile ? await uploadImageFile(formData.receiptFile) : null;
 
       // 2. Handle Signature if it exists (base64)
       let signatureUrl = paymentData.bookingData.signature;
       if (signatureUrl && signatureUrl.startsWith('data:image')) {
         try {
           const signatureFile = dataURLtoFile(signatureUrl, `signature_${Date.now()}.png`);
-          signatureUrl = await uploadFile(signatureFile, "booking_signature");
+          signatureUrl = await uploadImageFile(signatureFile, "booking_signature");
         } catch (sigError) {
           console.error("Signature upload failed:", sigError);
         }
@@ -99,7 +86,7 @@ export default function PaymentSubmission() {
           if (img.startsWith('data:image')) {
             try {
               const imgFile = dataURLtoFile(img, `concern_${Date.now()}_${i}.png`);
-              const url = await uploadFile(imgFile, "booking_concern");
+              const url = await uploadImageFile(imgFile, "booking_concern");
               uploadedImageUrls.push(url);
             } catch (imgError) {
               console.error("Concern image upload failed:", imgError);
@@ -124,22 +111,12 @@ export default function PaymentSubmission() {
       };
 
       // 5. Submit Booking to DB
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData),
-      });
-
-      if (response.ok) {
-        toast.success("Booking and payment submitted successfully!");
-        sessionStorage.removeItem("paymentDetails");
-        sessionStorage.removeItem("pendingHomeBooking");
-        // Redirect based on the booking type
-        navigate("/dashboard/services"); 
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create booking");
-      }
+      await createBooking(bookingData);
+      toast.success("Booking and payment submitted successfully!");
+      sessionStorage.removeItem("paymentDetails");
+      sessionStorage.removeItem("pendingHomeBooking");
+      // Redirect based on the booking type
+      navigate("/dashboard/services"); 
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(error.message || "An error occurred during submission");

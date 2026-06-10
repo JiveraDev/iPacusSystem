@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ArrowLeft, Stethoscope, Upload, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
+import { createBooking } from "../../services/bookingService";
+import { fetchUserPets } from "../../services/petService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function GeneralCheckup() {
   const navigate = useNavigate();
@@ -43,19 +46,9 @@ export default function GeneralCheckup() {
           return;
         }
 
-        const url = `${import.meta.env.VITE_API_BASE_URL}/users/${userId}/pets`;
-        console.log("Fetching pets from:", url);
-
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched Pets Data:", data);
-          setPets(data);
-        } else {
-          console.error("Failed to fetch pets. Status:", response.status);
-          const errorData = await response.json().catch(() => ({}));
-          console.error("Error response data:", errorData);
-        }
+        const data = await fetchUserPets(userId);
+        console.log("Fetched Pets Data:", data);
+        setPets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error during fetchPets:", error);
         toast.error("Failed to load your pets");
@@ -103,18 +96,13 @@ export default function GeneralCheckup() {
       if (formData.files.length > 0) {
         toast.success("Uploading documents...");
         for (const file of formData.files) {
-          const uploadFormData = new FormData();
-          uploadFormData.append('image', file);
-          uploadFormData.append('type', 'booking_concern');
-
-          const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload`, {
-            method: 'POST',
-            body: uploadFormData
-          });
-
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            uploadedFileUrls.push(uploadData.url);
+          try {
+            const uploadedUrl = await uploadImageFile(file, 'booking_concern');
+            if (uploadedUrl) {
+              uploadedFileUrls.push(uploadedUrl);
+            }
+          } catch (uploadError) {
+            console.error("Document upload failed:", uploadError);
           }
         }
       }
@@ -138,18 +126,7 @@ export default function GeneralCheckup() {
 
       console.log("Submitting booking payload:", bookingPayload);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bookingPayload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to submit booking");
-      }
+      await createBooking(bookingPayload);
 
       toast.success("Booking submitted! Awaiting admin approval.");
       navigate("/dashboard/services");

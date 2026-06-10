@@ -10,6 +10,8 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
+import { createBooking } from "../../services/bookingService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
@@ -53,21 +55,6 @@ export default function ConsultPayment() {
     return new File([array], filename, { type: mime });
   };
 
-  const uploadFile = async (file, type = "booking_payment") => {
-    const data = new FormData();
-    data.append("image", file);
-    data.append("type", type);
-
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
-      method: "POST",
-      body: data,
-    });
-
-    if (!response.ok) throw new Error("Failed to upload image");
-    const result = await response.json();
-    return result.url;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -102,13 +89,13 @@ export default function ConsultPayment() {
       // 1. Upload Receipt if available
       let receiptUrl = null;
       if (formData.receiptFile) {
-        receiptUrl = await uploadFile(formData.receiptFile, "booking_payment");
+        receiptUrl = await uploadImageFile(formData.receiptFile, "booking_payment");
       }
 
       let finalSignatureUrl = signature;
       if (signature.startsWith("data:image")) {
         const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
-        finalSignatureUrl = await uploadFile(signatureFile, "booking_signature");
+        finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
       }
 
       const uploadedConcernUrls = [];
@@ -117,7 +104,7 @@ export default function ConsultPayment() {
           const image = bookingData.concernImages[index];
           if (typeof image === "string" && image.startsWith("data:image")) {
             const imageFile = dataURLtoFile(image, `consult_concern_${Date.now()}_${index}.png`);
-            const url = await uploadFile(imageFile, "booking_concern");
+            const url = await uploadImageFile(imageFile, "booking_concern");
             uploadedConcernUrls.push(url);
           } else if (image) {
             uploadedConcernUrls.push(image);
@@ -155,21 +142,10 @@ export default function ConsultPayment() {
       };
 
       // 3. Submit to DB
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalBookingData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        toast.success("Consultation booking submitted successfully!");
-        sessionStorage.removeItem("pendingBooking");
-        navigate(`/dashboard/consult/confirmation/${result.booking_id || "success"}`);
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create consultation booking");
-      }
+      const result = await createBooking(finalBookingData);
+      toast.success("Consultation booking submitted successfully!");
+      sessionStorage.removeItem("pendingBooking");
+      navigate(`/dashboard/consult/confirmation/${result.booking_id || "success"}`);
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(error.message || "An error occurred during submission");

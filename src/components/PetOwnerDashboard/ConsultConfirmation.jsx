@@ -9,6 +9,8 @@ import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2 } fr
 import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { fetchBookingById, updateBookingStatus } from "../../services/bookingService";
+import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
 
 const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
 
@@ -29,10 +31,7 @@ export default function ConsultConfirmation() {
 
   const fetchConsultation = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings?bookingId=${bookingId}`);
-      if (!response.ok) throw new Error("Failed to fetch booking");
-
-      const data = await response.json();
+      const data = await fetchBookingById(bookingId, { apiPrefix: true });
       // get_bookings returns an array
       const consult = data.find(b => b.id.toString() === bookingId.toString());
 
@@ -45,8 +44,7 @@ export default function ConsultConfirmation() {
             walletNumber: senderNumberMatch?.[1] || ""
           }));
         }
-        const onlineResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations?bookingId=${consult.id}`);
-        const onlineData = onlineResponse.ok ? await onlineResponse.json() : [];
+        const onlineData = await fetchOnlineConsultations({ bookingId: consult.id }).catch(() => []);
         const online = Array.isArray(onlineData) ? onlineData[0] : null;
         setOnlineConsultation(online || null);
 
@@ -80,7 +78,7 @@ export default function ConsultConfirmation() {
     refreshKey: bookingId
   });
 
-  const handleJoinConsultation = () => {
+  const handleJoinConsultation = async () => {
     if (!onlineConsultation?.meetingUrl) {
       toast.error("The consultation room is not available yet.");
       return;
@@ -91,23 +89,16 @@ export default function ConsultConfirmation() {
       return;
     }
 
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations/${onlineConsultation.id}/join`, {
-      method: "POST"
-    })
-      .then((response) => response.json().then((data) => ({ response, data })).catch(() => ({ response, data: null })))
-      .then(({ response, data }) => {
-        if (!response.ok) {
-          throw new Error(data?.message || "Failed to join consultation");
-        }
-        if (data) {
-          setOnlineConsultation(data);
-        }
-        navigate(`/dashboard/consult/video/${onlineConsultation.id}`);
-      })
-      .catch((error) => {
-        console.error("Join consultation failed:", error);
-        toast.error(error.message || "Failed to join consultation");
-      });
+    try {
+      const data = await joinOnlineConsultation(onlineConsultation.id);
+      if (data) {
+        setOnlineConsultation(data);
+      }
+      navigate(`/dashboard/consult/video/${onlineConsultation.id}`);
+    } catch (error) {
+      console.error("Join consultation failed:", error);
+      toast.error(error.message || "Failed to join consultation");
+    }
   };
 
   const openCancelDialog = () => {
@@ -124,21 +115,12 @@ export default function ConsultConfirmation() {
 
     setIsCancelling(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/${consultation.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "cancelled",
-          cancellation_message: cancellationData.message.trim(),
-          wallet_number: cancellationData.walletNumber.trim(),
-          transaction_number: cancellationData.transactionNumber.trim()
-        })
+      await updateBookingStatus(consultation.id, {
+        status: "cancelled",
+        cancellation_message: cancellationData.message.trim(),
+        wallet_number: cancellationData.walletNumber.trim(),
+        transaction_number: cancellationData.transactionNumber.trim()
       });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to request cancellation");
-      }
 
       toast.success("Cancellation request sent to admin.");
       setCancelDialogOpen(false);

@@ -1,12 +1,12 @@
 <?php
 require_once 'db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
 try {
-    // Auto-cancel queues older than 2 days
-    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+    autoCancelStaleQueues($pdo);
 
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");
     $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);

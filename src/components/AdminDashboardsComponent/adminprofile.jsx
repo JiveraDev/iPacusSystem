@@ -14,8 +14,9 @@ import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import NotificationPreferencesCard from '../shared/NotificationPreferencesCard.jsx';
+import { fetchProfile, updateProfile } from '../../services/profileService';
+import { uploadImageFile } from '../../services/uploadService';
 
 const emptyProfile = {
     firstName: '',
@@ -61,15 +62,11 @@ export default function ProfileManagement({ onLogout }) {
     const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
-        const fetchProfile = async () => {
+        const loadProfile = async () => {
             try {
                 if (!userId) return;
 
-                const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role || '')}`);
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load profile');
-                }
+                const data = await fetchProfile({ userId, role });
 
                 const normalized = {
                     firstName: data.first_Name || '',
@@ -101,7 +98,7 @@ export default function ProfileManagement({ onLogout }) {
                 setIsLoading(false);
             }
         };
-        fetchProfile();
+        loadProfile();
     }, [userId, role]);
 
     const handleImageChange = (event) => {
@@ -124,19 +121,7 @@ export default function ProfileManagement({ onLogout }) {
 
         try {
             if (imageFile) {
-                const formData = new FormData();
-                formData.append('image', imageFile);
-                formData.append('type', 'user');
-
-                const uploadResponse = await fetch(`${API_BASE}/api/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const uploadResult = await uploadResponse.json().catch(() => ({}));
-                if (!uploadResponse.ok) {
-                    throw new Error(uploadResult.message || 'Image upload failed');
-                }
-                finalImageUrl = uploadResult.url || uploadResult.relative_url || finalImageUrl;
+                finalImageUrl = await uploadImageFile(imageFile, 'user') || finalImageUrl;
             }
 
             const payload = {
@@ -160,16 +145,7 @@ export default function ProfileManagement({ onLogout }) {
                 experienceHistory: cleanProfileHistory(profile.experienceHistory)
             };
 
-            const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role)}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to save profile');
-            }
+            await updateProfile({ userId, role, payload });
 
             const normalized = {
                 ...profile,
@@ -242,9 +218,10 @@ export default function ProfileManagement({ onLogout }) {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="mb-6 grid grid-cols-3 sm:inline-grid">
+                <TabsList className="mb-6 grid grid-cols-2 sm:inline-grid sm:grid-cols-4">
                     <TabsTrigger value="profile">Profile Details</TabsTrigger>
                     <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="notifications">Notifications</TabsTrigger>
                     <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 </TabsList>
 
@@ -426,6 +403,10 @@ export default function ProfileManagement({ onLogout }) {
 
                 <TabsContent value="security">
                     <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                </TabsContent>
+
+                <TabsContent value="notifications">
+                    <NotificationPreferencesCard user={currentUser} />
                 </TabsContent>
 
                 <TabsContent value="appearance">

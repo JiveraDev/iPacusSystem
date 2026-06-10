@@ -13,11 +13,14 @@ import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 
 import { findPetService } from "../../services/findPet";
+import { updateBookingStatus } from "../../services/bookingService";
+import { cancelPetOverdueActivity, fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
+import { updateQueueStatus } from "../../services/queueService";
+import { uploadFormData } from "../../services/uploadService";
 
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
@@ -26,6 +29,7 @@ export default function PetProfile() {
   const [activityReferenceTime, setActivityReferenceTime] = useState(() => Date.now());
   const [confirmAction, setConfirmAction] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCleaningOverdue, setIsCleaningOverdue] = useState(false);
   const [copied, setCopied] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
 
@@ -55,15 +59,13 @@ export default function PetProfile() {
       setIsActivityLoading(true);
     }
     try {
-      const [queuesResponse, bookingsResponse] = await Promise.all([
-        fetch(`${API_BASE}/pets/${pet.db_id}/queues`),
-        fetch(`${API_BASE}/pets/${pet.db_id}/bookings`)
+      const [queuesResult, bookingsResult] = await Promise.allSettled([
+        fetchPetQueues(pet.db_id),
+        fetchPetBookings(pet.db_id)
       ]);
 
-      const [queuesData, bookingsData] = await Promise.all([
-        queuesResponse.ok ? queuesResponse.json() : [],
-        bookingsResponse.ok ? bookingsResponse.json() : []
-      ]);
+      const queuesData = queuesResult.status === "fulfilled" ? queuesResult.value : [];
+      const bookingsData = bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
 
       setQueueRecords(Array.isArray(queuesData) ? queuesData : []);
       setBookingRecords(Array.isArray(bookingsData) ? bookingsData : []);
@@ -167,8 +169,42 @@ export default function PetProfile() {
     return true;
   };
 
+  const parseActivityDateTime = (dateValue, timeValue) => {
+    if (!dateValue) return null;
+    const timePart = timeValue ? ` ${timeValue}` : "";
+    const date = new Date(String(`${dateValue}${timePart}`).replace(" ", "T"));
+
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const isOlderThanDays = (date, days) => (
+    date && activityReferenceTime - date.getTime() > days * 24 * 60 * 60 * 1000
+  );
+
+  const isCleanupBooking = (booking) => {
+    const status = String(booking.status || "").toLowerCase();
+    const serviceType = String(booking.type || "").toLowerCase();
+    if (!["pending", "confirmed"].includes(status) || serviceType === "boarding" || booking.hotelBoardingType) {
+      return false;
+    }
+
+    return isOlderThanDays(parseActivityDateTime(booking.date || booking.createdAt, booking.time), 7);
+  };
+
+  const isCleanupQueue = (queue) => {
+    const status = String(queue.status || "").toLowerCase();
+    if (!["waiting", "in-progress", "in_progress"].includes(status)) {
+      return false;
+    }
+
+    return isOlderThanDays(parseActivityDateTime(queue.timestamp), 2);
+  };
+
   const visibleQueueRecords = queueRecords.filter(shouldShowQueueRecord);
   const visibleBookingRecords = bookingRecords.filter(shouldShowBookingRecord);
+  const overdueBookingCount = bookingRecords.filter(isCleanupBooking).length;
+  const overdueQueueCount = queueRecords.filter(isCleanupQueue).length;
+  const overdueCleanupCount = overdueBookingCount + overdueQueueCount;
   const activeQueue = visibleQueueRecords.find(item => item.status !== "cancelled");
   const displayedQueue = activeQueue || visibleQueueRecords[0];
 
@@ -201,13 +237,8 @@ export default function PetProfile() {
     setIsCancelling(true);
     try {
       if (confirmAction.type === "queue") {
-        const response = await fetch(`${API_BASE}/queues/status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ queue_id: confirmAction.id, status: "cancelled" })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || data.success === false) {
+        const data = await updateQueueStatus({ queue_id: confirmAction.id, status: "cancelled" });
+        if (data.success === false) {
           throw new Error(data.message || "Failed to cancel queue entry");
         }
         setQueueRecords(records =>
@@ -215,15 +246,7 @@ export default function PetProfile() {
         );
         toast.success("Queue entry cancelled");
       } else {
-        const response = await fetch(`${API_BASE}/bookings/${confirmAction.id}/status`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "cancelled" })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to cancel booking");
-        }
+        await updateBookingStatus(confirmAction.id, { status: "cancelled" });
         setBookingRecords(records =>
           records.map(item => item.id === confirmAction.id ? { ...item, status: "cancelled" } : item)
         );
@@ -234,6 +257,21 @@ export default function PetProfile() {
       toast.error(error.message || "Cancellation failed");
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleCancelOverdueActivity = async () => {
+    if (!pet?.db_id) return;
+
+    setIsCleaningOverdue(true);
+    try {
+      const result = await cancelPetOverdueActivity(pet.db_id);
+      await fetchPetActivity();
+      toast.success(result.message || "Overdue items checked.");
+    } catch (error) {
+      toast.error(error.message || "Overdue cleanup failed");
+    } finally {
+      setIsCleaningOverdue(false);
     }
   };
 
@@ -561,25 +599,12 @@ export default function PetProfile() {
                         formData.append('type', 'pet');
 
                         try {
-                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload`, {
-                                method: 'POST',
-                                body: formData
-                            });
-                            const result = await res.json();
+                            const result = await uploadFormData(formData);
                             
                             // Update the pet with the new URL
-                            const updateRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information/${pet.db_id}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ setpetImage_url: result.relative_url })
-                            });
-
-                            if (updateRes.ok) {
-                                toast.success("Profile picture updated!");
-                                setPet(prev => ({ ...prev, profileImage: result.relative_url }));
-                            } else {
-                                toast.error("Failed to update profile picture.");
-                            }
+                            await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
+                            toast.success("Profile picture updated!");
+                            setPet(prev => ({ ...prev, profileImage: result.relative_url }));
                         } catch (err) {
                             console.error(err);
                             toast.error("Upload failed.");
@@ -713,6 +738,40 @@ export default function PetProfile() {
 
           <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
           <PrescriptionDocumentsPanel documents={pet.prescriptionDocuments || []} />
+
+          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Overdue Cleanup</p>
+                <h4 className="mt-1 text-lg font-black text-slate-900">Cancel Overdue Activity</h4>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge className="border border-amber-200 bg-amber-50 text-amber-700">
+                    Non-boarding bookings: {overdueBookingCount}
+                  </Badge>
+                  <Badge className="border border-blue-200 bg-blue-50 text-blue-700">
+                    Queues: {overdueQueueCount}
+                  </Badge>
+                  <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                    Boarding excluded
+                  </Badge>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant={overdueCleanupCount > 0 ? "destructive" : "outline"}
+                onClick={handleCancelOverdueActivity}
+                disabled={isCleaningOverdue || isActivityLoading}
+                className="w-full sm:w-auto"
+              >
+                {isCleaningOverdue ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Cancel Overdue
+              </Button>
+            </CardContent>
+          </Card>
 
           <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">

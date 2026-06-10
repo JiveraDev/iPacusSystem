@@ -2,7 +2,7 @@
 // 1. Force CORS headers immediately (Essential for local testing)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE, PATCH");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Client-Public-IP");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Client-Public-IP, X-Notification-Reminder-Key");
 
 // 2. Handle OPTIONS preflight request immediately
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -88,6 +88,20 @@ switch ($path) {
         break;
     case '/mail/test':
         require_once __DIR__ . '/mail_test.php';
+        break;
+    case '/notifications':
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/notifications/preferences':
+        $_GET['action'] = 'preferences';
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/notifications/reminders/run':
+        $_GET['action'] = 'run-reminders';
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/todos':
+        require_once __DIR__ . '/pet_owner_todos.php';
         break;
     case '/special_services':
         require_once __DIR__ . '/special_services.php';
@@ -221,12 +235,21 @@ switch ($path) {
         } elseif (preg_match('/^\/users\/(\d+)\/bookings$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             require_once __DIR__ . '/get_bookings.php';
+        } elseif (preg_match('/^\/users\/(\d+)\/todos$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            require_once __DIR__ . '/pet_owner_todos.php';
+        } elseif (preg_match('/^\/todos\/(\d+)$/', $path, $matches)) {
+            $_GET['todoId'] = $matches[1];
+            require_once __DIR__ . '/pet_owner_todos.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/queues$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/get_pet_queues.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/bookings$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/get_pet_bookings.php';
+        } elseif (preg_match('/^\/pets\/([^\/]+)\/overdue\/cancel$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            require_once __DIR__ . '/pet_overdue_cancellations.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_medical_records.php';
@@ -256,6 +279,13 @@ switch ($path) {
                 http_response_code(405);
                 echo json_encode(['message' => 'Method not allowed.']);
             }
+        } elseif (preg_match('/^\/notifications\/read-all$/', $path, $matches)) {
+            $_GET['action'] = 'read-all';
+            require_once __DIR__ . '/notifications.php';
+        } elseif (preg_match('/^\/notifications\/(\d+)\/read$/', $path, $matches)) {
+            $_GET['notificationId'] = $matches[1];
+            $_GET['action'] = 'read';
+            require_once __DIR__ . '/notifications.php';
         } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_status.php';

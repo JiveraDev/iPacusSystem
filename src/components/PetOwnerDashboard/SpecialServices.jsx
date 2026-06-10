@@ -23,8 +23,13 @@ import {
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { normalizeCurrencyLabel } from "../../lib/currency";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { createBooking } from "../../services/bookingService";
+import { fetchUserPets } from "../../services/petService";
+import {
+    createSpecialService,
+    fetchSpecialServices,
+    updateSpecialService
+} from "../../services/specialServicesService";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -286,12 +291,7 @@ export default function SpecialServices({ user }) {
             setIsLoadingPets(true);
         }
         try {
-            const response = await fetch(`${API_BASE}/api/users/${currentUserId}/pets`);
-            const data = await response.json().catch(() => []);
-
-            if (!response.ok) {
-                throw new Error(data.message || "Failed to load pets.");
-            }
+            const data = await fetchUserPets(currentUserId);
 
             setPets(Array.isArray(data) ? data.map((pet) => ({
                 id: String(pet.db_id || pet.pet_id || pet.id),
@@ -319,12 +319,7 @@ export default function SpecialServices({ user }) {
             setIsLoadingServices(true);
         }
         try {
-            const response = await fetch(`${API_BASE}/api/special_services${isAdminUser ? "?includeInactive=1" : ""}`);
-            const data = await response.json().catch(() => []);
-
-            if (!response.ok) {
-                throw new Error(data.message || "Failed to load special services.");
-            }
+            const data = await fetchSpecialServices({ includeInactive: isAdminUser });
 
             setServices(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -430,19 +425,10 @@ export default function SpecialServices({ user }) {
 
         setIsSavingService(true);
         try {
-            const response = await fetch(`${API_BASE}/api/special_services`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    created_by_user_id: currentUserId,
-                    ...buildServicePayload(serviceForm),
-                }),
+            await createSpecialService({
+                created_by_user_id: currentUserId,
+                ...buildServicePayload(serviceForm),
             });
-
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(result.message || "Failed to save special service.");
-            }
 
             toast.success("Special service type saved.");
             setShowAdminForm(false);
@@ -477,19 +463,10 @@ export default function SpecialServices({ user }) {
 
         setIsUpdatingService(true);
         try {
-            const response = await fetch(`${API_BASE}/api/special_services/${editingService.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    updated_by_user_id: currentUserId,
-                    ...buildServicePayload(editServiceForm),
-                }),
+            await updateSpecialService(editingService.id, {
+                updated_by_user_id: currentUserId,
+                ...buildServicePayload(editServiceForm),
             });
-
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(result.message || "Failed to update special service.");
-            }
 
             toast.success("Special service updated.");
             setEditDialogOpen(false);
@@ -512,19 +489,10 @@ export default function SpecialServices({ user }) {
 
         setIsUpdatingService(true);
         try {
-            const response = await fetch(`${API_BASE}/api/special_services/${service.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    updated_by_user_id: currentUserId,
-                    is_active: nextIsActive,
-                }),
+            await updateSpecialService(service.id, {
+                updated_by_user_id: currentUserId,
+                is_active: nextIsActive,
             });
-
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(result.message || `Failed to ${actionLabel} special service.`);
-            }
 
             if (!nextIsActive) {
                 setSelectedServiceIds((current) => current.filter((id) => id !== String(service.id)));
@@ -582,31 +550,22 @@ export default function SpecialServices({ user }) {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`${API_BASE}/api/bookings`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    user_id: currentUserId,
-                    pet_id: isNewPet ? null : selectedPetIds[0] || null,
-                    pet_ids: isNewPet ? [] : selectedPetIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
-                    service_type: "special services",
-                    booking_date: serviceDate,
-                    booking_time: "09:00:00",
-                    notes: notes.trim(),
-                    registered_status: isNewPet ? "Not Registered" : "Registered",
-                    petType: isNewPet ? newPetSpecies : null,
-                    new_pet_name: isNewPet ? newPetName.trim() : null,
-                    new_pet_breed: isNewPet ? newPetBreed.trim() : null,
-                    new_pet_age: isNewPet ? newPetAge.trim() : null,
-                    new_pet_weight: isNewPet ? newPetWeight.trim() : null,
-                    special_service_items: selectedServiceIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
-                }),
+            await createBooking({
+                user_id: currentUserId,
+                pet_id: isNewPet ? null : selectedPetIds[0] || null,
+                pet_ids: isNewPet ? [] : selectedPetIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+                service_type: "special services",
+                booking_date: serviceDate,
+                booking_time: "09:00:00",
+                notes: notes.trim(),
+                registered_status: isNewPet ? "Not Registered" : "Registered",
+                petType: isNewPet ? newPetSpecies : null,
+                new_pet_name: isNewPet ? newPetName.trim() : null,
+                new_pet_breed: isNewPet ? newPetBreed.trim() : null,
+                new_pet_age: isNewPet ? newPetAge.trim() : null,
+                new_pet_weight: isNewPet ? newPetWeight.trim() : null,
+                special_service_items: selectedServiceIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
             });
-
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(result.message || "Failed to create special services booking.");
-            }
 
             toast.success("Special services booking submitted.");
             navigate("/dashboard/services");

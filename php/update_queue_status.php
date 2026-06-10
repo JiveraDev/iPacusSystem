@@ -2,6 +2,7 @@
 require_once 'db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -75,6 +76,13 @@ try {
                 $bookingStmt->execute([$bookingId]);
             }
         }
+    }
+
+    try {
+        $event = $status === 'in-progress' ? 'in_progress' : $status;
+        notification_send_queue_event($pdo, (int)$queue_id, $event);
+    } catch (Throwable $notificationError) {
+        error_log('Queue status notification failed: ' . $notificationError->getMessage());
     }
 
     echo json_encode(['success' => true]);

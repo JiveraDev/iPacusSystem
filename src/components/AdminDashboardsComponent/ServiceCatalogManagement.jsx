@@ -21,8 +21,13 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchInventoryItems } from '../../services/inventoryApi';
+import {
+    deleteServiceCatalogItem,
+    fetchServiceCatalog,
+    saveServiceCatalogItem,
+    updateServiceCatalogMaterials
+} from '../../services/serviceCatalogService';
 
 const SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -111,12 +116,7 @@ export default function ServiceCatalogManagement() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/service-catalog?includeInactive=1`);
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to load services.');
-            }
+            const data = await fetchServiceCatalog({ includeInactive: true });
 
             if (data.schemaReady === false) {
                 setSchemaMessage(data.message || 'Service catalog migration is required.');
@@ -154,12 +154,8 @@ export default function ServiceCatalogManagement() {
 
     const loadInventory = async () => {
         try {
-            const response = await fetch(`${API_BASE}/inventory`);
-            const data = await response.json().catch(() => ({}));
-
-            if (response.ok) {
-                setInventoryItems(normalizeInventoryItems(data));
-            }
+            const data = await fetchInventoryItems();
+            setInventoryItems(normalizeInventoryItems(data));
         } catch {
             setInventoryItems([]);
         }
@@ -274,42 +270,32 @@ export default function ServiceCatalogManagement() {
         setIsSaving(true);
         try {
             const isNew = selectedServiceId === 'new';
-            const serviceResponse = await fetch(`${API_BASE}/service-catalog${isNew ? '' : `/${selectedServiceId}`}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    serviceCode: serviceForm.serviceCode,
-                    serviceName: serviceForm.serviceName,
-                    serviceType: serviceForm.serviceType,
-                    description: serviceForm.description,
-                    basePrice,
-                    isMajorService: serviceForm.serviceType !== 'other' && serviceForm.isMajorService,
-                    isActive: serviceForm.isActive,
-                    createdByUserId: userId || null
-                })
+            const serviceData = await saveServiceCatalogItem(isNew ? null : selectedServiceId, {
+                serviceCode: serviceForm.serviceCode,
+                serviceName: serviceForm.serviceName,
+                serviceType: serviceForm.serviceType,
+                description: serviceForm.description,
+                basePrice,
+                isMajorService: serviceForm.serviceType !== 'other' && serviceForm.isMajorService,
+                isActive: serviceForm.isActive,
+                createdByUserId: userId || null
             });
-            const serviceData = await serviceResponse.json().catch(() => ({}));
 
-            if (!serviceResponse.ok || serviceData.success === false) {
+            if (serviceData.success === false) {
                 throw new Error(serviceData.message || 'Failed to save service.');
             }
 
             const serviceId = serviceData.serviceId || selectedServiceId;
-            const materialResponse = await fetch(`${API_BASE}/service-catalog/${serviceId}/materials`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    materials: materials.map((material) => ({
-                        itemId: material.itemId || null,
-                        materialName: material.materialName || material.itemName,
-                        qtyUsed: material.qtyUsed,
-                        billablePolicy: material.billablePolicy
-                    }))
-                })
+            const materialData = await updateServiceCatalogMaterials(serviceId, {
+                materials: materials.map((material) => ({
+                    itemId: material.itemId || null,
+                    materialName: material.materialName || material.itemName,
+                    qtyUsed: material.qtyUsed,
+                    billablePolicy: material.billablePolicy
+                }))
             });
-            const materialData = await materialResponse.json().catch(() => ({}));
 
-            if (!materialResponse.ok || materialData.success === false) {
+            if (materialData.success === false) {
                 throw new Error(materialData.message || 'Failed to save service materials.');
             }
 
@@ -330,12 +316,9 @@ export default function ServiceCatalogManagement() {
 
         setIsSaving(true);
         try {
-            const response = await fetch(`${API_BASE}/service-catalog/${selectedServiceId}`, {
-                method: 'DELETE'
-            });
-            const data = await response.json().catch(() => ({}));
+            const data = await deleteServiceCatalogItem(selectedServiceId);
 
-            if (!response.ok || data.success === false) {
+            if (data.success === false) {
                 throw new Error(data.message || 'Failed to deactivate service.');
             }
 

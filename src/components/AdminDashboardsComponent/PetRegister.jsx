@@ -17,6 +17,9 @@ import { calculateAge } from '../../lib/date';
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { fetchAllPets, updatePetStatus } from '../../services/petService';
+import { addQueueItem } from '../../services/queueService';
+import { uploadImageFile } from '../../services/uploadService';
 
 const emptyPetProfile = {
     id: '',
@@ -54,23 +57,19 @@ export default function PetRegister() {
     const [generatedPetId, setGeneratedPetId] = useState('');
     const [copiedPetId, setCopiedPetId] = useState(false);
     const [registeredPetName, setRegisteredPetName] = useState('');
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
     const fetchPets = useCallback(async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/pet_information`);
-            if (response.ok) {
-                const data = await response.json();
-                setRegisteredPets(data);
-            }
+            const data = await fetchAllPets();
+            setRegisteredPets(data);
         } catch (error) {
             console.error('Failed to fetch pets:', error);
         } finally {
             setIsLoading(false);
         }
-    }, [API_BASE_URL]);
+    }, []);
 
-    useAutoRefresh(fetchPets, { refreshKey: API_BASE_URL });
+    useAutoRefresh(fetchPets, { refreshKey: 'pet-register' });
 
     const handleInputChange = (field, value) => {
         setFormData(prev => {
@@ -84,20 +83,11 @@ export default function PetRegister() {
 
     const handleStatusChange = async (petId, newStatus) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/pet_information/${petId}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            });
-            
-            if (response.ok) {
-                setRegisteredPets(prev => prev.map(pet => 
-                    pet.id === petId ? { ...pet, status: newStatus } : pet
-                ));
-                toast.success(`Pet status updated to ${newStatus}`);
-            } else {
-                throw new Error("Failed to update status");
-            }
+            await updatePetStatus(petId, { status: newStatus });
+            setRegisteredPets(prev => prev.map(pet => 
+                pet.id === petId ? { ...pet, status: newStatus } : pet
+            ));
+            toast.success(`Pet status updated to ${newStatus}`);
         } catch (error) {
             console.error('Failed to update status:', error);
             toast.error("Error updating pet status");
@@ -132,18 +122,7 @@ export default function PetRegister() {
             // 1. Upload image if exists
             if (formData.profileImage) {
                 setIsUploading(true);
-                const uploadData = new FormData();
-                uploadData.append('image', formData.profileImage);
-                uploadData.append('type', 'pet');
-                
-                const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
-                    method: 'POST',
-                    body: uploadData
-                });
-
-                if (!uploadRes.ok) throw new Error("Failed to upload image");
-                const uploadResult = await uploadRes.json();
-                profileImageUrl = uploadResult.url;
+                profileImageUrl = await uploadImageFile(formData.profileImage, 'pet');
             }
 
             // 2. Submit pet data
@@ -173,22 +152,14 @@ export default function PetRegister() {
             // If this secondary step fails, keep the successful pet registration intact.
             if (Number.isFinite(registeredPetId) && registeredPetId > 0) {
                 try {
-                    const queueResponse = await fetch(`${API_BASE_URL}/queues`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            pet_id: registeredPetId,
-                            user_id: null,
-                            service_name: 'Consultation',
-                            priority: 'normal',
-                            complaint: complaintFromMedicalInfo,
-                            queue_source: 'register'
-                        })
+                    await addQueueItem({
+                        pet_id: registeredPetId,
+                        user_id: null,
+                        service_name: 'Consultation',
+                        priority: 'normal',
+                        complaint: complaintFromMedicalInfo,
+                        queue_source: 'register'
                     });
-                    if (!queueResponse.ok) {
-                        const queueErrorData = await queueResponse.json().catch(() => ({}));
-                        throw new Error(queueErrorData.message || 'Queue POST failed');
-                    }
                 } catch (queueError) {
                     console.error('Failed to auto-add registered pet to queue:', queueError);
                     toast.error('Pet registered, but failed to add to queue automatically.');

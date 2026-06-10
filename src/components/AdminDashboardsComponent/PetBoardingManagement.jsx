@@ -37,8 +37,25 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import {
+    assignBoardingRoom,
+    checkInBoardingBooking,
+    checkOutBoardingBooking,
+    completeBoardingTask,
+    createBoardingDocument,
+    createBoardingObservation,
+    createBoardingRooms,
+    createBoardingTask,
+    directBoardingCheckIn,
+    fetchBoardingMonitoring,
+    fetchBoardingRooms,
+    updateBoardingRoom,
+    updateDesiredCheckOut
+} from '../../services/boardingService';
+import { fetchBookings } from '../../services/bookingService';
+import { fetchAllPets } from '../../services/petService';
+import { fetchServiceCatalog } from '../../services/serviceCatalogService';
+import { uploadFormData } from '../../services/uploadService';
 
 const FACILITY_LABELS = {
     boarding: 'Boarding Kennel',
@@ -371,15 +388,6 @@ function buildPaymentPrefill(unit) {
     };
 }
 
-async function readJsonResponse(response) {
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(data.message || 'Request failed.');
-    }
-
-    return data;
-}
-
 function getUserName(user) {
     const fullName = [
         user?.firstName || user?.FirstName || user?.first_name,
@@ -533,11 +541,11 @@ export default function PetBoardingManagement() {
 
         try {
             const [roomsResult, monitoringResult, petsResult, bookingsResult, catalogResult] = await Promise.allSettled([
-                fetch(`${API_BASE}/boarding/rooms`).then(readJsonResponse),
-                fetch(`${API_BASE}/boarding/monitoring`).then(readJsonResponse),
-                fetch(`${API_BASE}/api/pet_information`).then(readJsonResponse),
-                fetch(`${API_BASE}/bookings`).then(readJsonResponse),
-                fetch(`${API_BASE}/service-catalog`).then(readJsonResponse)
+                fetchBoardingRooms(),
+                fetchBoardingMonitoring(),
+                fetchAllPets(),
+                fetchBookings(),
+                fetchServiceCatalog()
             ]);
 
             if (roomsResult.status === 'fulfilled') {
@@ -824,15 +832,11 @@ export default function PetBoardingManagement() {
     const updateRoomStatus = async (unit, status) => {
         setActionLoading(`room-${unit.id}`);
         try {
-            await fetch(`${API_BASE}/boarding/rooms`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    room_type: unit.roomType,
-                    room_number: unit.roomNumber,
-                    status
-                })
-            }).then(readJsonResponse);
+            await updateBoardingRoom({
+                room_type: unit.roomType,
+                room_number: unit.roomNumber,
+                status
+            });
 
             toast.success(status === 'maintenance' ? 'Room marked for maintenance.' : 'Room marked available.');
             setIsDetailOpen(false);
@@ -847,11 +851,7 @@ export default function PetBoardingManagement() {
     const reserveBooking = async (booking) => {
         setActionLoading(`reserve-${booking.id}`);
         try {
-            await fetch(`${API_BASE}/boarding/bookings/${booking.id}/assign-room`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            }).then(readJsonResponse);
+            await assignBoardingRoom(booking.id, {});
 
             toast.success(`${booking.bookingNumber} reserved.`);
             fetchBoardingData();
@@ -871,16 +871,12 @@ export default function PetBoardingManagement() {
 
         setActionLoading('add-room');
         try {
-            await fetch(`${API_BASE}/boarding/rooms`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    hotel_boarding_type: addRoomForm.type,
-                    room_size: addRoomForm.roomSize,
-                    quantity,
-                    description: addRoomForm.description
-                })
-            }).then(readJsonResponse);
+            await createBoardingRooms({
+                hotel_boarding_type: addRoomForm.type,
+                room_size: addRoomForm.roomSize,
+                quantity,
+                description: addRoomForm.description
+            });
 
             toast.success('Room capacity updated.');
             setFacilityView(addRoomForm.type);
@@ -907,22 +903,18 @@ export default function PetBoardingManagement() {
 
         setActionLoading('direct-check-in');
         try {
-            await fetch(`${API_BASE}/boarding/direct-check-in`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    pet_id: directCheckInForm.petId,
-                    type: directCheckInForm.type,
-                    room_size: directCheckInForm.roomSize,
-                    room_number: directCheckInForm.roomNumber || null,
-                    check_out_date: directCheckInForm.checkOutDate,
-                    emergency_contact: directCheckInForm.emergencyContact,
-                    service_catalog_id: directCheckInForm.serviceCatalogId,
-                    service_catalog_name: getCatalogServiceName(selectedBoardingCatalogService),
-                    price: directCheckInEstimatedTotal,
-                    notes: directCheckInForm.notes
-                })
-            }).then(readJsonResponse);
+            await directBoardingCheckIn({
+                pet_id: directCheckInForm.petId,
+                type: directCheckInForm.type,
+                room_size: directCheckInForm.roomSize,
+                room_number: directCheckInForm.roomNumber || null,
+                check_out_date: directCheckInForm.checkOutDate,
+                emergency_contact: directCheckInForm.emergencyContact,
+                service_catalog_id: directCheckInForm.serviceCatalogId,
+                service_catalog_name: getCatalogServiceName(selectedBoardingCatalogService),
+                price: directCheckInEstimatedTotal,
+                notes: directCheckInForm.notes
+            });
 
             toast.success('Pet checked in.');
             setIsDirectCheckInOpen(false);
@@ -940,10 +932,7 @@ export default function PetBoardingManagement() {
 
         setActionLoading(`check-in-${unit.id}`);
         try {
-            await fetch(`${API_BASE}/boarding/bookings/${unit.assignment.bookingId}/check-in`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            }).then(readJsonResponse);
+            await checkInBoardingBooking(unit.assignment.bookingId);
 
             toast.success('Reserved pet checked in.');
             setIsDetailOpen(false);
@@ -960,10 +949,7 @@ export default function PetBoardingManagement() {
 
         setActionLoading(`check-out-${unit.id}`);
         try {
-            await fetch(`${API_BASE}/boarding/bookings/${unit.assignment.bookingId}/check-out`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            }).then(readJsonResponse);
+            await checkOutBoardingBooking(unit.assignment.bookingId);
 
             toast.success('Pet checked out.');
             setIsDetailOpen(false);
@@ -983,11 +969,7 @@ export default function PetBoardingManagement() {
 
         setActionLoading('desired-out');
         try {
-            await fetch(`${API_BASE}/boarding/bookings/${selectedUnit.assignment.bookingId}/desired-check-out`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ check_out_date: desiredOutDate })
-            }).then(readJsonResponse);
+            await updateDesiredCheckOut(selectedUnit.assignment.bookingId, { check_out_date: desiredOutDate });
 
             toast.success('Desired out date updated.');
             setIsDesiredOutOpen(false);
@@ -1008,15 +990,11 @@ export default function PetBoardingManagement() {
 
         setActionLoading('observation');
         try {
-            await fetch(`${API_BASE}/boarding/observations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assignment_id: Number(observationForm.assignmentId),
-                    observation_type: observationForm.observationType,
-                    notes: observationForm.notes
-                })
-            }).then(readJsonResponse);
+            await createBoardingObservation({
+                assignment_id: Number(observationForm.assignmentId),
+                observation_type: observationForm.observationType,
+                notes: observationForm.notes
+            });
 
             toast.success('Observation added.');
             setIsObservationOpen(false);
@@ -1037,17 +1015,13 @@ export default function PetBoardingManagement() {
 
         setActionLoading('task');
         try {
-            await fetch(`${API_BASE}/boarding/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assignment_id: Number(taskForm.assignmentId),
-                    task_type: taskForm.taskType,
-                    due_at: taskForm.dueAt,
-                    assigned_to: taskForm.assignedTo,
-                    notes: taskForm.notes
-                })
-            }).then(readJsonResponse);
+            await createBoardingTask({
+                assignment_id: Number(taskForm.assignmentId),
+                task_type: taskForm.taskType,
+                due_at: taskForm.dueAt,
+                assigned_to: taskForm.assignedTo,
+                notes: taskForm.notes
+            });
 
             toast.success('Task scheduled.');
             setIsTaskOpen(false);
@@ -1063,10 +1037,7 @@ export default function PetBoardingManagement() {
     const completeTask = async (task) => {
         setActionLoading(`task-${task.taskId}`);
         try {
-            await fetch(`${API_BASE}/boarding/tasks/${task.taskId}/complete`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' }
-            }).then(readJsonResponse);
+            await completeBoardingTask(task.taskId);
 
             toast.success('Task completed.');
             fetchBoardingData();
@@ -1104,31 +1075,20 @@ export default function PetBoardingManagement() {
             uploadData.append('image', documentForm.file);
             uploadData.append('type', 'boarding_document');
 
-            const uploadResponse = await fetch(`${API_BASE}/upload`, {
-                method: 'POST',
-                body: uploadData
-            });
-            const uploadResult = await uploadResponse.json().catch(() => ({}));
-            if (!uploadResponse.ok) {
-                throw new Error(uploadResult.message || 'Failed to upload boarding document.');
-            }
+            const uploadResult = await uploadFormData(uploadData);
 
-            await fetch(`${API_BASE}/boarding/documents`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assignment_id: selectedDocumentSubject.assignmentId || null,
-                    booking_id: selectedDocumentSubject.bookingId,
-                    document_type: documentForm.documentType,
-                    title: documentForm.title,
-                    document_path: uploadResult.relative_url || uploadResult.url,
-                    file_name: documentForm.file.name,
-                    mime_type: documentForm.file.type,
-                    notes: documentForm.notes,
-                    uploaded_by_user_id: currentUserId || null,
-                    uploaded_by_name: currentUserName
-                })
-            }).then(readJsonResponse);
+            await createBoardingDocument({
+                assignment_id: selectedDocumentSubject.assignmentId || null,
+                booking_id: selectedDocumentSubject.bookingId,
+                document_type: documentForm.documentType,
+                title: documentForm.title,
+                document_path: uploadResult.relative_url || uploadResult.url,
+                file_name: documentForm.file.name,
+                mime_type: documentForm.file.type,
+                notes: documentForm.notes,
+                uploaded_by_user_id: currentUserId || null,
+                uploaded_by_name: currentUserName
+            });
 
             toast.success('Boarding document attached.');
             setIsDocumentOpen(false);

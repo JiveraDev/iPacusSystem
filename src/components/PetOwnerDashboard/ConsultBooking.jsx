@@ -11,8 +11,11 @@ import { ArrowLeft, Image as ImageIcon, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { fetchAccounts } from "../../services/accountService";
+import { fetchBookings } from "../../services/bookingService";
+import { fetchUserPets } from "../../services/petService";
+import { fetchVetSchedules } from "../../services/vetScheduleService";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const TIME_SLOT_ORDER = [
   "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
   "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
@@ -177,31 +180,16 @@ export default function ConsultBooking() {
         return;
       }
 
-      // Fetch Pets
-      const petsResponse = await fetch(`${API_BASE}/api/users/${userId}/pets`);
-      if (!petsResponse.ok) {
-        throw new Error("Failed to load pets");
-      }
-      const petsData = await petsResponse.json();
+      const petsData = await fetchUserPets(userId);
       setPets(Array.isArray(petsData) ? petsData : []);
 
-      // Fetch Veterinarians
-      const vetsResponse = await fetch(`${API_BASE}/api/accounts`);
-      if (!vetsResponse.ok) {
-        throw new Error("Failed to load veterinarians");
-      }
-      const vetsData = await vetsResponse.json();
+      const vetsData = await fetchAccounts();
       const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
       const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
         const vetId = toId(vet.user_id);
 
         try {
-          const scheduleResponse = await fetch(`${API_BASE}/api/vet_schedules?userId=${encodeURIComponent(vetId)}`);
-          if (!scheduleResponse.ok) {
-            throw new Error("Schedule request failed");
-          }
-
-          const schedules = await scheduleResponse.json();
+          const schedules = await fetchVetSchedules(vetId);
           return {
             vetId,
             hasScheduleRows: Array.isArray(schedules) && schedules.length > 0,
@@ -234,11 +222,10 @@ export default function ConsultBooking() {
         setVeterinarians(formattedVets);
       }
 
-      const bookingsResponse = await fetch(`${API_BASE}/api/bookings`);
-      if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
+      try {
+        const bookingsData = await fetchBookings({ apiPrefix: true });
         setExistingConsultBookings(Array.isArray(bookingsData) ? bookingsData : []);
-      } else {
+      } catch {
         setExistingConsultBookings([]);
       }
     } catch (error) {

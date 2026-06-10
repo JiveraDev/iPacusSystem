@@ -5,8 +5,7 @@ import { Label } from '../../ui/label';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { KeyRound, Loader2 } from 'lucide-react';
 import PasswordInput from './PasswordInput.jsx';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { updateUserPassword } from '../../services/userService';
 
 export default function PasswordChangeCard({ userId, onForgotPassword }) {
     const [form, setForm] = useState({
@@ -47,19 +46,10 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
 
         setIsSaving(true);
         try {
-            const response = await fetch(`${API_BASE}/api/users/${userId}/password`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    currentPassword: form.currentPassword,
-                    newPassword: form.newPassword
-                })
+            await updateUserPassword(userId, {
+                currentPassword: form.currentPassword,
+                newPassword: form.newPassword
             });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to change password.');
-            }
 
             setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
             toast.success('Password changed successfully.');

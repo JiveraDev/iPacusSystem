@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -99,7 +100,21 @@ try {
         cancelOnlineConsultationForBooking($pdo, (int)$bookingId);
     }
 
+    $previousStatus = $booking['status'];
+
     $pdo->commit();
+
+    if ($status !== $previousStatus && in_array($status, ['confirmed', 'cancelled'], true)) {
+        try {
+            notification_send_booking_event($pdo, (int)$bookingId, $status === 'confirmed' ? 'confirmed' : 'cancelled', [
+                'cancellation_message' => $cancellationMessage,
+                'wallet_number' => $walletNumber,
+                'transaction_number' => $transactionNumber,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Booking notification failed: ' . $notificationError->getMessage());
+        }
+    }
 
     echo json_encode([
         'message' => 'Booking status updated successfully.',

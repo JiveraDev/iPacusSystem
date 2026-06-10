@@ -25,8 +25,8 @@ import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchOnlineConsultations } from '../../services/onlineConsultationService';
+import { fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 
 function getStoredUser() {
     try {
@@ -68,17 +68,6 @@ function isImageFile(attachment) {
     const url = attachment?.preview || attachment?.url || attachment?.relativeUrl || '';
 
     return mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(url);
-}
-
-async function fetchJson(url, fallbackMessage) {
-    const response = await fetch(url);
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        throw new Error(data.message || data.error || fallbackMessage);
-    }
-
-    return data;
 }
 
 function customDiagnosisSummary(sections) {
@@ -207,12 +196,9 @@ export default function VetDiagnosisHistory() {
         const errors = [];
         const nextRecords = [];
 
-        const clinicUrl = `${API_BASE}/vet-diagnoses?veterinarianUserId=${encodeURIComponent(veterinarianUserId)}`;
-        const onlineUrl = `${API_BASE}/online-consultations?vetId=${encodeURIComponent(veterinarianUserId)}`;
-
         const [clinicResult, onlineResult] = await Promise.allSettled([
-            fetchJson(clinicUrl, 'Failed to load clinic diagnosis histories.'),
-            fetchJson(onlineUrl, 'Failed to load online consultation histories.')
+            fetchVetDiagnoses({ veterinarianUserId }),
+            fetchOnlineConsultations({ vetId: veterinarianUserId })
         ]);
 
         if (clinicResult.status === 'fulfilled') {

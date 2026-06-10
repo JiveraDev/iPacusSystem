@@ -16,11 +16,12 @@ import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
 
 import { findPetService } from "../../services/findPet";
+import { fetchPetMedicalRecords, savePetMedicalRecord, updatePetDetails } from "../../services/petService";
+import { uploadFormData } from "../../services/uploadService";
 
 export default function PetProfileEdit() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,13 +78,10 @@ export default function PetProfileEdit() {
       if (!pet?.db_id) return;
       setIsMedicalLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/pets/${petId}/medical`);
-        if (res.ok) {
-          const data = await res.json();
-          setVaccinations(data.vaccinations || []);
-          setAllergies(data.allergies || []);
-          setPrescriptionDocuments(data.prescriptionDocuments || []);
-        }
+        const data = await fetchPetMedicalRecords(petId);
+        setVaccinations(data.vaccinations || []);
+        setAllergies(data.allergies || []);
+        setPrescriptionDocuments(data.prescriptionDocuments || []);
       } catch (error) {
         console.error("Failed to load medical records:", error);
       } finally {
@@ -91,7 +89,7 @@ export default function PetProfileEdit() {
       }
     }
     fetchMedical();
-  }, [API_BASE, pet?.db_id, petId]);
+  }, [pet?.db_id, petId]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -111,12 +109,7 @@ export default function PetProfileEdit() {
   const handleSaveProfile = async () => {
     setIsEditing(true);
     try {
-      const response = await fetch(`${API_BASE}/pet_information/${petId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
+      const result = await updatePetDetails(petId, formData);
       if (result.success) {
         toast.success("Pet profile updated successfully");
         setPet(prev => ({ ...prev, ...formData, name: formData.petName }));
@@ -137,12 +130,7 @@ export default function PetProfileEdit() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/pets/${petId}/medical`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'vaccination', action: 'add', ...newVax })
-      });
-      const data = await res.json();
+      const data = await savePetMedicalRecord(petId, { type: 'vaccination', action: 'add', ...newVax });
       if (data.success) {
         setVaccinations(prev => [{ ...newVax, id: data.id }, ...prev]);
         setShowAddVax(false);
@@ -157,15 +145,9 @@ export default function PetProfileEdit() {
   const handleDeleteVaccination = async (id) => {
     if (!confirm("Are you sure you want to delete this record?")) return;
     try {
-      const res = await fetch(`${API_BASE}/pets/${petId}/medical`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'vaccination', action: 'delete', id })
-      });
-      if (res.ok) {
-        setVaccinations(prev => prev.filter(v => v.id !== id));
-        toast.success("Record deleted");
-      }
+      await savePetMedicalRecord(petId, { type: 'vaccination', action: 'delete', id });
+      setVaccinations(prev => prev.filter(v => v.id !== id));
+      toast.success("Record deleted");
     } catch {
       toast.error("Failed to delete record");
     }
@@ -174,12 +156,7 @@ export default function PetProfileEdit() {
   const handleAddAllergy = async () => {
     if (!newAllergy.allergen) return;
     try {
-      const res = await fetch(`${API_BASE}/pets/${petId}/medical`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'allergy', action: 'add', ...newAllergy })
-      });
-      const data = await res.json();
+      const data = await savePetMedicalRecord(petId, { type: 'allergy', action: 'add', ...newAllergy });
       if (data.success) {
         setAllergies(prev => [...prev, { ...newAllergy, id: data.id }]);
         setShowAddAllergy(false);
@@ -193,15 +170,9 @@ export default function PetProfileEdit() {
 
   const handleDeleteAllergy = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/pets/${petId}/medical`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'allergy', action: 'delete', id })
-      });
-      if (res.ok) {
-        setAllergies(prev => prev.filter(a => a.id !== id));
-        toast.success("Allergy removed");
-      }
+      await savePetMedicalRecord(petId, { type: 'allergy', action: 'delete', id });
+      setAllergies(prev => prev.filter(a => a.id !== id));
+      toast.success("Allergy removed");
     } catch {
       toast.error("Failed to remove allergy");
     }
@@ -271,13 +242,8 @@ export default function PetProfileEdit() {
                   formData.append('image', file);
                   formData.append('type', 'pet');
                   try {
-                      const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
-                      const result = await res.json();
-                      await fetch(`${API_BASE}/pet_information/${pet.db_id}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ setpetImage_url: result.relative_url })
-                      });
+                      const result = await uploadFormData(formData);
+                      await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
                       toast.success("Profile picture updated!");
                       setPet(prev => ({ ...prev, profileImage: result.relative_url }));
                   } catch { toast.error("Upload failed."); }

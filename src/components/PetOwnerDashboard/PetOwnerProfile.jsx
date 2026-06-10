@@ -9,8 +9,9 @@ import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock, Pencil, Sa
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import NotificationPreferencesCard from "../shared/NotificationPreferencesCard.jsx";
+import { uploadImageFile } from "../../services/uploadService";
+import { fetchUser, updateUser } from "../../services/userService";
 
 function parseProfileDate(value) {
   if (!value) return null;
@@ -92,10 +93,7 @@ export default function PetOwnerProfile({ onLogout }) {
       if (!userId) return;
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/users/${userId}`);
-        if (!response.ok) throw new Error("Failed to sync with database");
-        
-        const latestUser = await response.json();
+        const latestUser = await fetchUser(userId);
         const normalized = normalizeUser(latestUser);
 
         // Sync local storage and state with the absolute source of truth (DB)
@@ -159,36 +157,18 @@ export default function PetOwnerProfile({ onLogout }) {
     try {
       // 1. Upload image if a new one was selected
       if (imageFile) {
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        formData.append('type', 'user');
-        
-        const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!uploadRes.ok) throw new Error("Image upload failed");
-        const uploadResult = await uploadRes.json();
-        finalImageUrl = uploadResult.url;
+        finalImageUrl = await uploadImageFile(imageFile, 'user');
       }
 
       // 2. Save profile data to DB
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: profileData.firstName,
-          lastName: profileData.lastName,
-          phoneNumber: profileData.phone,
-          address: profileData.address,
-          dateOfBirth: profileData.dateOfBirth,
-          profileImage: finalImageUrl
-        })
+      const result = await updateUser(userId, {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        phoneNumber: profileData.phone,
+        address: profileData.address,
+        dateOfBirth: profileData.dateOfBirth,
+        profileImage: finalImageUrl
       });
-
-      if (!response.ok) throw new Error("Database update failed");
-      const result = await response.json();
 
       // 3. Update local state and global context
       const serverUser = result.user ? normalizeUser(result.user) : null;
@@ -285,12 +265,15 @@ export default function PetOwnerProfile({ onLogout }) {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 rounded-lg bg-slate-100 p-1 text-slate-600 sm:inline-grid sm:w-auto">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 rounded-lg bg-slate-100 p-1 text-slate-600 sm:inline-grid sm:w-auto sm:grid-cols-4">
           <TabsTrigger value="profile" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
             Profile
           </TabsTrigger>
           <TabsTrigger value="security" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
             Security
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
+            Notifications
           </TabsTrigger>
           <TabsTrigger value="appearance" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
             Appearance
@@ -473,6 +456,10 @@ export default function PetOwnerProfile({ onLogout }) {
 
         <TabsContent value="security" className="outline-none">
           <PasswordChangeCard userId={passwordUserId} onForgotPassword={onLogout} />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="outline-none">
+          <NotificationPreferencesCard user={passwordUser} />
         </TabsContent>
 
         <TabsContent value="appearance" className="outline-none">

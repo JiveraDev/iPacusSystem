@@ -11,8 +11,13 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchAccounts } from '../../services/accountService';
+import {
+    assignQueueToVeterinarian,
+    fetchQueues as fetchQueuesService,
+    reenterQueue,
+    updateQueueStatus
+} from '../../services/queueService';
 
 export default function QueueManagement() {
     const [queue, setQueue] = useState([]);
@@ -29,8 +34,7 @@ export default function QueueManagement() {
 
     const fetchQueues = async () => {
         try {
-            const response = await fetch(`${API_BASE}/queues`);
-            const data = await response.json();
+            const data = await fetchQueuesService();
             if (Array.isArray(data)) {
                 setQueue(data);
             }
@@ -45,10 +49,9 @@ export default function QueueManagement() {
 
     const fetchVeterinarians = async () => {
         try {
-            const response = await fetch(`${API_BASE}/accounts`);
-            const data = await response.json();
+            const data = await fetchAccounts();
 
-            if (response.ok && Array.isArray(data.veterinarians)) {
+            if (Array.isArray(data.veterinarians)) {
                 setVeterinarians(data.veterinarians.filter(vet => Number(vet.is_active ?? 1) === 1));
             }
         } catch (error) {
@@ -87,12 +90,7 @@ export default function QueueManagement() {
 
     const updateStatus = async (id, newStatus) => {
         try {
-            const response = await fetch(`${API_BASE}/queues/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ queue_id: id, status: newStatus })
-            });
-            const data = await response.json();
+            const data = await updateQueueStatus({ queue_id: id, status: newStatus });
             if (data.success) {
                 setQueue(items =>
                     items.map(item =>
@@ -132,19 +130,14 @@ export default function QueueManagement() {
         setAssigningQueueId(queueId);
 
         try {
-            const response = await fetch(`${API_BASE}/queues/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    queue_id: queueId,
-                    veterinarian_user_id: veterinarianUserId,
-                    veterinarian_name: veterinarianName,
-                    reason
-                })
+            const data = await assignQueueToVeterinarian({
+                queue_id: queueId,
+                veterinarian_user_id: veterinarianUserId,
+                veterinarian_name: veterinarianName,
+                reason
             });
-            const data = await response.json();
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.error || data.message || 'Failed to assign veterinarian.');
             }
 
@@ -302,12 +295,7 @@ export default function QueueManagement() {
 
     const handleReEnterQueue = async (queueId) => {
         try {
-            const response = await fetch(`${API_BASE}/queues/reenter`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ queue_id: queueId })
-            });
-            const data = await response.json();
+            const data = await reenterQueue({ queue_id: queueId });
             if (data.success) {
                 toast.success('Queue item re-entered for today');
                 fetchQueues();

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -94,6 +95,14 @@ try {
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
     $pdo->commit();
+
+    try {
+        notification_send_queue_event($pdo, $queueId, 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+    } catch (Throwable $notificationError) {
+        error_log('Queue receive notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'success' => true,

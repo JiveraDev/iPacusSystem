@@ -3,8 +3,7 @@ import { AlertCircle, Calendar, Check, PawPrint, User } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchPetDetails } from '../../services/petService';
 
 function normalizePet(data = {}) {
     const isRegistered = data.isRegistered ?? Boolean(data.db_id || data.petId || data.petShareableId || data.id);
@@ -65,11 +64,11 @@ export default function PetInfoModal({ petId, petName, booking }) {
             setIsLoading(true);
             try {
                 const fetchedPets = await Promise.all(ids.map(async (id) => {
-                    const response = await fetch(`${API_BASE}/api/pet_information/${id}`);
-                    if (!response.ok) {
+                    try {
+                        return await fetchPetDetails(id);
+                    } catch {
                         return null;
                     }
-                    return response.json();
                 }));
                 const normalizedPets = fetchedPets.filter(Boolean).map(normalizePet);
 

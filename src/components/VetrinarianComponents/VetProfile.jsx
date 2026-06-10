@@ -15,8 +15,11 @@ import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
+import NotificationPreferencesCard from '../shared/NotificationPreferencesCard.jsx';
+import { fetchProfile, updateProfile } from '../../services/profileService';
+import { uploadImageFile } from '../../services/uploadService';
+import { fetchVetSchedules, updateVetSchedules } from '../../services/vetScheduleService';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const TIME_SLOTS = [
     '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
     '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM',
@@ -100,15 +103,11 @@ export default function VetProfile({ onLogout }) {
     const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
-        const fetchProfile = async () => {
+        const loadProfile = async () => {
             try {
                 if (!userId) return;
 
-                const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role || '')}`);
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load profile');
-                }
+                const data = await fetchProfile({ userId, role });
 
                 const normalized = {
                     firstName: data.first_Name || '',
@@ -137,7 +136,7 @@ export default function VetProfile({ onLogout }) {
                 setIsLoading(false);
             }
         };
-        fetchProfile();
+        loadProfile();
     }, [userId, role]);
 
     useEffect(() => {
@@ -145,8 +144,7 @@ export default function VetProfile({ onLogout }) {
             try {
                 if (!userId) return;
 
-                const response = await fetch(`${API_BASE}/api/vet_schedules?userId=${userId}`);
-                const data = await response.json();
+                const data = await fetchVetSchedules(userId);
                 if (Array.isArray(data)) {
                     setAvailability(buildAvailabilityByDay(data));
                 }
@@ -170,20 +168,12 @@ export default function VetProfile({ onLogout }) {
         }));
 
         try {
-            const response = await fetch(`${API_BASE}/api/vet_schedules`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: userId,
-                    day,
-                    time,
-                    is_available: newStatus ? 1 : 0
-                })
+            await updateVetSchedules({
+                user_id: userId,
+                day,
+                time,
+                is_available: newStatus ? 1 : 0
             });
-
-            if (!response.ok) {
-                throw new Error('Schedule update failed');
-            }
 
             toast.success('Availability updated');
         } catch (error) {
@@ -233,19 +223,7 @@ export default function VetProfile({ onLogout }) {
 
         try {
             if (imageFile) {
-                const formData = new FormData();
-                formData.append('image', imageFile);
-                formData.append('type', 'user');
-
-                const uploadResponse = await fetch(`${API_BASE}/api/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const uploadResult = await uploadResponse.json().catch(() => ({}));
-                if (!uploadResponse.ok) {
-                    throw new Error(uploadResult.message || 'Image upload failed');
-                }
-                finalImageUrl = uploadResult.url || uploadResult.relative_url || finalImageUrl;
+                finalImageUrl = await uploadImageFile(imageFile, 'user') || finalImageUrl;
             }
 
             const payload = {
@@ -266,16 +244,7 @@ export default function VetProfile({ onLogout }) {
                 experienceHistory: cleanProfileHistory(profileData.experienceHistory)
             };
 
-            const response = await fetch(`${API_BASE}/api/profile?userId=${userId}&role=${encodeURIComponent(role)}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to save profile');
-            }
+            await updateProfile({ userId, role, payload });
 
             const normalized = {
                 ...profileData,
@@ -348,9 +317,10 @@ export default function VetProfile({ onLogout }) {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="mb-6 grid grid-cols-3 sm:inline-grid">
+                <TabsList className="mb-6 grid grid-cols-2 sm:inline-grid sm:grid-cols-4">
                     <TabsTrigger value="profile">Profile Details</TabsTrigger>
                     <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="notifications">Notifications</TabsTrigger>
                     <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 </TabsList>
 
@@ -537,6 +507,10 @@ export default function VetProfile({ onLogout }) {
 
                 <TabsContent value="security">
                     <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                </TabsContent>
+
+                <TabsContent value="notifications">
+                    <NotificationPreferencesCard user={currentUser} />
                 </TabsContent>
 
                 <TabsContent value="appearance">

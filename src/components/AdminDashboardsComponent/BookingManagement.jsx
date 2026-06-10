@@ -20,6 +20,11 @@ import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
+import {
+    fetchBookings as fetchBookingsService,
+    updateBookingSchedule,
+    updateBookingStatus as updateBookingStatusService
+} from '../../services/bookingService';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -95,9 +100,7 @@ export default function BookingsManagement() {
 
     const fetchBookings = async () => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`);
-            if (!response.ok) throw new Error('Failed to fetch bookings');
-            const data = await response.json();
+            const data = await fetchBookingsService();
             setBookings(data);
         } catch (error) {
             console.error('Error fetching bookings:', error);
@@ -108,24 +111,13 @@ export default function BookingsManagement() {
 
     const updateBookingStatus = async (id, newStatus, extraPayload = {}) => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus, ...extraPayload })
-            });
-            
-            if (response.ok) {
-                const result = await response.json().catch(() => ({}));
-                setBookings(bookings =>
-                    bookings.map(booking =>
-                        booking.id === id ? { ...booking, status: newStatus, onlineConsultation: result.onlineConsultation || booking.onlineConsultation } : booking
-                    )
-                );
-                return true;
-            } else {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.message || 'Failed to update booking status');
-            }
+            const result = await updateBookingStatusService(id, { status: newStatus, ...extraPayload });
+            setBookings(bookings =>
+                bookings.map(booking =>
+                    booking.id === id ? { ...booking, status: newStatus, onlineConsultation: result.onlineConsultation || booking.onlineConsultation } : booking
+                )
+            );
+            return true;
         } catch (error) {
             console.error('Error updating status:', error);
             toast.error(error.message || 'Failed to update booking status.');
@@ -228,21 +220,12 @@ export default function BookingsManagement() {
         }
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${currentCancellationBooking.id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: 'cancelled',
-                    cancellation_message: cancellationData.message.trim(),
-                    wallet_number: cancellationData.walletNumber.trim(),
-                    transaction_number: cancellationData.transactionNumber.trim()
-                })
+            await updateBookingStatusService(currentCancellationBooking.id, {
+                status: 'cancelled',
+                cancellation_message: cancellationData.message.trim(),
+                wallet_number: cancellationData.walletNumber.trim(),
+                transaction_number: cancellationData.transactionNumber.trim()
             });
-
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.message || 'Failed to request cancellation');
-            }
 
             toast.success(`Cancellation request recorded for ${currentCancellationBooking.bookingNumber}.`);
             setCancellationDialogOpen(false);
@@ -258,21 +241,12 @@ export default function BookingsManagement() {
         if (currentRescheduleBooking && newDate && newTime) {
             try {
                 const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings/${currentRescheduleBooking.id}/schedule`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        booking_date: newDate,
-                        booking_time: newTime,
-                        changed_by_user_id: storedUser.id || storedUser.user_id || null,
-                        reason: 'Admin reschedule'
-                    })
+                const result = await updateBookingSchedule(currentRescheduleBooking.id, {
+                    booking_date: newDate,
+                    booking_time: newTime,
+                    changed_by_user_id: storedUser.id || storedUser.user_id || null,
+                    reason: 'Admin reschedule'
                 });
-
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(result.message || 'Failed to reschedule booking');
-                }
 
                 setBookings(bookings =>
                     bookings.map(booking =>

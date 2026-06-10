@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -728,6 +729,12 @@ try {
     }
 
     $pdo->commit();
+
+    try {
+        notification_send_booking_event($pdo, $bookingId, 'submitted');
+    } catch (Throwable $notificationError) {
+        error_log('Booking submitted notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'message' => 'Booking created successfully.',

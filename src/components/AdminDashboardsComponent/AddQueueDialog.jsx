@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../../ui/label';
 import { Checkbox } from '../../ui/checkbox';
 import { toast } from '../../reusecomponent/toast.jsx';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { addQueueItem, fetchQueuePets } from '../../services/queueService';
 
 const SERVICES = [
     "Consultation", "Vaccination", "Grooming", "Dental", "General Check-Up", 
@@ -28,8 +27,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
     const menuRef = useRef(null);
 
     useEffect(() => {
-        fetch(`${API_BASE}/queues/pets`)
-            .then(res => res.json())
+        fetchQueuePets()
             .then(data => setAllPets(Array.isArray(data) ? data : []))
             .catch(err => {
                 console.error("Error loading pets:", err);
@@ -56,20 +54,15 @@ export default function AddQueueDialog({ onAddToQueue }) {
     const handleSubmit = async () => {
         if (!selectedPet || !service || !verified) return;
 
-        const response = await fetch(`${API_BASE}/queues`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        try {
+            await addQueueItem({
                 pet_id: selectedPet.pet_id,
                 user_id: selectedPet.user_id,
                 service_name: service,
                 priority,
                 complaint,
                 queue_source: 'admin'
-            })
-        });
-
-        if (response.ok) {
+            });
             onAddToQueue();
             setIsOpen(false);
             setSelectedPet(null);
@@ -80,10 +73,9 @@ export default function AddQueueDialog({ onAddToQueue }) {
             setVerified(false);
             toast.success('Queue item added successfully');
             return;
+        } catch (error) {
+            toast.error(error.message || 'Failed to add queue item');
         }
-
-        const errorData = await response.json().catch(() => ({}));
-        toast.error(errorData.message || 'Failed to add queue item');
     };
 
     return (

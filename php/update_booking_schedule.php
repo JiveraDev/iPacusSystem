@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -31,7 +32,7 @@ try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
-        SELECT booking_id, is_online_consultation, status
+        SELECT booking_id, is_online_consultation, status, booking_date, booking_time
         FROM bookings
         WHERE booking_id = ?
         LIMIT 1
@@ -59,7 +60,22 @@ try {
         );
     }
 
+    $oldBookingDate = $booking['booking_date'] ?? null;
+    $oldBookingTime = $booking['booking_time'] ?? null;
+
     $pdo->commit();
+
+    if ((string)$oldBookingDate !== $bookingDate || (string)$oldBookingTime !== $bookingTime) {
+        try {
+            notification_send_booking_event($pdo, $bookingId, 'rescheduled', [
+                'old_date' => $oldBookingDate,
+                'old_time' => $oldBookingTime,
+                'reason' => $reason,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Booking schedule notification failed: ' . $notificationError->getMessage());
+        }
+    }
 
     echo json_encode([
         'message' => 'Booking rescheduled successfully.',

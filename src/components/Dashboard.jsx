@@ -24,6 +24,7 @@ import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
 import { resolveImageUrl } from "../lib/image";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
+import NotificationBell from "./shared/NotificationBell.jsx";
 
 // Lazy load screens
 const HomeScreen = lazy(() => import("./PetOwnerDashboard/Home.jsx"));
@@ -79,7 +80,7 @@ const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.j
 
 // debug bypas starts here
 
-const DEBUG_BYPASS = false;
+const DEBUG_BYPASS = true;
 
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
@@ -616,14 +617,17 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 <p className="text-xs text-slate-500">Dashboard</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsMobileNavOpen((current) => !current)}
-              className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
-              aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
-            >
-              {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
+            <div className="flex items-center gap-2">
+              <NotificationBell user={user} navigate={navigate} />
+              <button
+                type="button"
+                onClick={() => setIsMobileNavOpen((current) => !current)}
+                className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
+                aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
+              >
+                {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </header>
         )}
 
@@ -661,6 +665,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             }`}
           >
             <main className="mx-auto w-full max-w-7xl min-w-0 p-4 sm:p-6 lg:p-10">
+              {!isCompactLayout && (
+                <div className="mb-4 flex justify-end">
+                  <NotificationBell user={user} navigate={navigate} />
+                </div>
+              )}
               <Suspense fallback={
                 <div className="flex h-64 w-full items-center justify-center">
                   <div className="flex flex-col items-center gap-3">

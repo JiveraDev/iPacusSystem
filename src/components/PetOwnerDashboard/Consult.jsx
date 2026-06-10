@@ -6,6 +6,8 @@ import { useState } from "react";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { fetchUserBookings } from "../../services/bookingService";
+import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
 
 const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
 
@@ -80,10 +82,7 @@ export default function Consult() {
         return;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/bookings`);
-      if (!response.ok) throw new Error("Failed to fetch bookings");
-
-      const data = await response.json();
+      const data = await fetchUserBookings(userId, { apiPrefix: true });
       const consultations = data.filter(b => b.isOnlineConsultation);
 
       const upcoming = consultations
@@ -103,13 +102,7 @@ export default function Consult() {
   const handleJoinConsultation = async (consultation) => {
     setJoiningConsultationId(consultation.id);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations?bookingId=${consultation.id}`);
-      const data = await response.json().catch(() => []);
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to load consultation room");
-      }
-
+      const data = await fetchOnlineConsultations({ bookingId: consultation.id });
       const onlineConsultation = Array.isArray(data) ? data[0] : data;
       if (!onlineConsultation?.meetingUrl) {
         throw new Error("The consultation room is not available yet.");
@@ -120,14 +113,7 @@ export default function Consult() {
         throw new Error("Please wait for the veterinarian to start the consultation.");
       }
 
-      const joinResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/online-consultations/${onlineConsultation.id}/join`, {
-        method: "POST"
-      });
-      const joinedConsultation = await joinResponse.json().catch(() => null);
-
-      if (!joinResponse.ok) {
-        throw new Error(joinedConsultation?.message || "Failed to join consultation");
-      }
+      await joinOnlineConsultation(onlineConsultation.id);
 
       navigate(`/dashboard/consult/video/${onlineConsultation.id}`);
     } catch (error) {

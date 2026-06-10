@@ -17,6 +17,10 @@ import SignatureCapture from "../SignatureCapture";
 import { resolveImageUrl } from "../../lib/image";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { addQueueItem, updateQueueStatus } from "../../services/queueService";
+import { checkSelfServiceAccess, fetchPublicWanIp } from "../../services/selfServiceService";
+import { fetchUserPets } from "../../services/petService";
+import { uploadDataUrlImage } from "../../services/uploadService";
 
 const SERVICES = [
     "General Check-Up",
@@ -90,7 +94,6 @@ const SERVICE_CONSENTS = {
 
 export default function QueueDashboard() {
 
-    const API_BASE = import.meta.env.VITE_API_BASE_URL;
     const [pets, setPets] = useState([]);
     const [isAccessLoading, setIsAccessLoading] = useState(true);
     const [isAccessAllowed, setIsAccessAllowed] = useState(false);
@@ -109,25 +112,18 @@ export default function QueueDashboard() {
             try {
                 let wanIp = "";
                 try {
-                    const wanRes = await fetch("https://api.ipify.org?format=json");
-                    if (wanRes.ok) {
-                        const wanData = await wanRes.json();
-                        wanIp = wanData?.ip || "";
-                        setPublicWanIp(wanIp);
-                    }
+                    wanIp = await fetchPublicWanIp();
+                    setPublicWanIp(wanIp);
                 } catch (e) {
                     console.error("Failed to fetch WAN IP:", e);
                 }
 
-                const response = await fetch(`${API_BASE}/self-service/access`, {
-                    headers: wanIp ? { "X-Client-Public-IP": wanIp } : {}
-                });
-                const data = await response.json().catch(() => ({}));
+                const data = await checkSelfServiceAccess(wanIp);
                 setAccessDebug({
                     client_ip: data.client_ip || "",
                     allowed_rules: Array.isArray(data.allowed_rules) ? data.allowed_rules : []
                 });
-                if (response.ok && data.allowed) {
+                if (data.ok && data.allowed) {
                     setIsAccessAllowed(true);
                 } else {
                     setIsAccessAllowed(false);
@@ -141,7 +137,7 @@ export default function QueueDashboard() {
         };
 
         checkAccess();
-    }, [API_BASE]);
+    }, []);
 
     const loadPets = async () => {
         try {
@@ -152,12 +148,7 @@ export default function QueueDashboard() {
                 return;
             }
 
-            const response = await fetch(`${API_BASE}/users/${userId}/pets`);
-            if (!response.ok) {
-                return;
-            }
-
-            const data = await response.json();
+            const data = await fetchUserPets(userId);
             if (!Array.isArray(data) || data.length === 0) {
                 setPets([]);
                 return;
@@ -187,18 +178,12 @@ export default function QueueDashboard() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/queues/status`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    queue_id: queueId,
-                    status: "cancelled"
-                })
+            const data = await updateQueueStatus({
+                queue_id: queueId,
+                status: "cancelled"
             });
 
-            if (response.ok) {
+            if (data.success !== false) {
                 toast.success(`Queue for ${petName} has been cancelled.`);
                 // Refresh pets list
                 setSubmitted(prev => !prev);
@@ -232,32 +217,6 @@ export default function QueueDashboard() {
         setUploadedImages((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const dataUrlToFile = async (dataUrl, fileName) => {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        const extension = blob.type.includes("png") ? "png" : "jpg";
-        return new File([blob], `${fileName}.${extension}`, { type: blob.type || "image/png" });
-    };
-
-    const uploadDataUrl = async (dataUrl, type, fileNamePrefix) => {
-        const file = await dataUrlToFile(dataUrl, `${fileNamePrefix}_${Date.now()}`);
-        const formData = new FormData();
-        formData.append("image", file);
-        formData.append("type", type);
-
-        const response = await fetch(`${API_BASE}/upload`, {
-            method: "POST",
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Upload failed");
-        }
-
-        const result = await response.json();
-        return result.relative_url || null;
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!signature) {
@@ -276,34 +235,28 @@ export default function QueueDashboard() {
 
             let signaturePath = null;
             if (signature?.startsWith("data:image")) {
-                signaturePath = await uploadDataUrl(signature, "booking_signature", "queue_signature");
+                signaturePath = await uploadDataUrlImage(signature, "booking_signature", "queue_signature");
             }
 
             let imagePath = null;
             if (uploadedImages.length > 0 && uploadedImages[0]?.startsWith("data:image")) {
-                imagePath = await uploadDataUrl(uploadedImages[0], "booking_concern", "queue_concern");
+                imagePath = await uploadDataUrlImage(uploadedImages[0], "booking_concern", "queue_concern");
             }
 
-            const queueResponse = await fetch(`${API_BASE}/queues`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(publicWanIp ? { "X-Client-Public-IP": publicWanIp } : {})
-                },
-                body: JSON.stringify({
-                    pet_id: Number(selectedPetData.id),
-                    user_id: userId ? Number(userId) : null,
-                    service_name: selectedService,
-                    priority: "normal",
-                    complaint: concernStatement || "",
-                    image_path: imagePath,
-                    signiture_self_service_path: signaturePath,
-                    queue_source: "self_service"
-                })
+            const queueData = await addQueueItem({
+                pet_id: Number(selectedPetData.id),
+                user_id: userId ? Number(userId) : null,
+                service_name: selectedService,
+                priority: "normal",
+                complaint: concernStatement || "",
+                image_path: imagePath,
+                signiture_self_service_path: signaturePath,
+                queue_source: "self_service"
+            }, {
+                headers: publicWanIp ? { "X-Client-Public-IP": publicWanIp } : {}
             });
 
-            const queueData = await queueResponse.json().catch(() => ({}));
-            if (!queueResponse.ok || !queueData.success) {
+            if (!queueData.success) {
                 toast.error(queueData.message || "Failed to add to queue.");
                 return;
             }

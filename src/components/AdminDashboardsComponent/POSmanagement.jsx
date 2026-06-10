@@ -36,8 +36,10 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
+import { fetchInventoryItems } from '../../services/inventoryApi';
+import { fetchServiceCatalog } from '../../services/serviceCatalogService';
+import { fetchVisits, postVisitPayment, saveVisitCharges } from '../../services/visitBillingService';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const INVOICE_DATE = 'May 30, 2026';
 
 const CLASSIFICATIONS = [
@@ -878,19 +880,14 @@ export default function ServicePOS() {
   const [extraMaterialQty, setExtraMaterialQty] = useState('1');
 
   const loadVisitBills = useCallback(async ({ isAutoRefresh = false } = {}) => {
-    if (!API_BASE) {
-      return;
-    }
-
     if (!isAutoRefresh) {
       setIsLoadingVisits(true);
     }
 
     try {
-      const response = await fetch(`${API_BASE}/visits`);
-      const data = await response.json().catch(() => ({}));
+      const data = await fetchVisits();
 
-      if (!response.ok || data.success === false) {
+      if (data.success === false) {
         throw new Error(data.message || 'Failed to load visit bills.');
       }
 
@@ -914,15 +911,10 @@ export default function ServicePOS() {
   }, []);
 
   const loadServiceCatalog = useCallback(async ({ isAutoRefresh = false } = {}) => {
-    if (!API_BASE) {
-      return;
-    }
-
     try {
-      const response = await fetch(`${API_BASE}/service-catalog`);
-      const data = await response.json().catch(() => ({}));
+      const data = await fetchServiceCatalog();
 
-      if (!response.ok || data.success === false) {
+      if (data.success === false) {
         throw new Error(data.message || 'Failed to load service catalog.');
       }
 
@@ -942,16 +934,8 @@ export default function ServicePOS() {
   }, []);
 
   const loadInventory = useCallback(async () => {
-    if (!API_BASE) {
-      return;
-    }
-
     try {
-      const response = await fetch(`${API_BASE}/inventory`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to load inventory.');
-      }
+      const data = await fetchInventoryItems();
 
       const items = normalizeInventoryItems(data);
       if (items.length > 0) {
@@ -1190,7 +1174,7 @@ export default function ServicePOS() {
     }
 
     if (selectedVisit?.source === 'database') {
-      if (!API_BASE || !selectedVisit.visitId) {
+      if (!selectedVisit.visitId) {
         setNotification('Visit payment endpoint is not available.');
         return;
       }
@@ -1205,34 +1189,24 @@ export default function ServicePOS() {
       setIsPostingPayment(true);
 
       try {
-        const chargesResponse = await fetch(`${API_BASE}/visits/${selectedVisit.visitId}/charges`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
-          }),
+        const chargesData = await saveVisitCharges(selectedVisit.visitId, {
+          charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
         });
-        const chargesData = await chargesResponse.json().catch(() => ({}));
 
-        if (!chargesResponse.ok || chargesData.success === false) {
+        if (chargesData.success === false) {
           throw new Error(chargesData.message || 'Failed to update draft invoice lines.');
         }
 
-        const response = await fetch(`${API_BASE}/visits/${selectedVisit.visitId}/payments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: amountToPost,
-            payment_method: paymentMethod,
-            payment_status: 'verified',
-            reference_number: postedInvoiceNumber,
-            received_by_user_id: getUserIdentifier(currentUser),
-            received_by_name: getUserDisplayName(currentUser),
-          }),
+        const data = await postVisitPayment(selectedVisit.visitId, {
+          amount: amountToPost,
+          payment_method: paymentMethod,
+          payment_status: 'verified',
+          reference_number: postedInvoiceNumber,
+          received_by_user_id: getUserIdentifier(currentUser),
+          received_by_name: getUserDisplayName(currentUser),
         });
-        const data = await response.json().catch(() => ({}));
 
-        if (!response.ok || data.success === false) {
+        if (data.success === false) {
           throw new Error(data.message || 'Failed to post visit payment.');
         }
 

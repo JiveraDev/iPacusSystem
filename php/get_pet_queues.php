@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header("Content-Type: application/json");
 
@@ -12,7 +13,19 @@ if (!$petId) {
 }
 
 try {
-    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+    $numericPetId = null;
+    if (strpos((string)$petId, 'PET-') === 0) {
+        $petStmt = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_sharable_ID = ? LIMIT 1");
+        $petStmt->execute([$petId]);
+        $resolvedPetId = $petStmt->fetchColumn();
+        $numericPetId = $resolvedPetId ? (int)$resolvedPetId : null;
+    } else {
+        $numericPetId = (int)$petId;
+    }
+
+    if ($numericPetId !== null && $numericPetId > 0) {
+        autoCancelStaleQueuesDetailed($pdo, $numericPetId, true);
+    }
 
     $whereColumn = strpos((string)$petId, 'PET-') === 0 ? 'p.pet_sharable_ID' : 'p.pet_id';
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");

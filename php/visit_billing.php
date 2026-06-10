@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -350,6 +351,14 @@ function visit_billing_upsert_visit(PDO $pdo): void
 
         $pdo->commit();
 
+        try {
+            if (!empty($charges)) {
+                notification_send_visit_event($pdo, $visitId, 'invoice_ready');
+            }
+        } catch (Throwable $notificationError) {
+            error_log('Visit invoice notification failed: ' . $notificationError->getMessage());
+        }
+
         echo json_encode([
             'success' => true,
             'message' => 'Visit billing saved.',
@@ -632,9 +641,20 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
             visit_billing_nullable_int($input['received_by_user_id'] ?? $input['receivedByUserId'] ?? null),
             visit_billing_nullable_text($input['received_by_name'] ?? $input['receivedByName'] ?? null)
         ]);
+        $paymentId = (int)$pdo->lastInsertId();
 
         visit_billing_update_status($pdo, $visitId);
         $pdo->commit();
+
+        try {
+            notification_send_visit_event($pdo, $visitId, 'payment_received', [
+                'payment_id' => $paymentId,
+                'amount' => $amount,
+                'reference_number' => visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null),
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Visit payment notification failed: ' . $notificationError->getMessage());
+        }
 
         echo json_encode([
             'success' => true,

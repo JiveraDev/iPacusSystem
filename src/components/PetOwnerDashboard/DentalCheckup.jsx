@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Heart, ArrowLeft, Upload, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
+import { createBooking } from "../../services/bookingService";
+import { fetchUserPets } from "../../services/petService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function DentalCheckup() {
   const navigate = useNavigate();
@@ -39,12 +42,8 @@ export default function DentalCheckup() {
           return;
         }
 
-        const url = `${import.meta.env.VITE_API_BASE_URL}/users/${userId}/pets`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          setPets(data);
-        }
+        const data = await fetchUserPets(userId);
+        setPets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching pets:", error);
         toast.error("Failed to load your pets");
@@ -92,18 +91,13 @@ export default function DentalCheckup() {
       if (formData.files.length > 0) {
         toast.success("Uploading documents...");
         for (const file of formData.files) {
-          const uploadFormData = new FormData();
-          uploadFormData.append('image', file);
-          uploadFormData.append('type', 'booking_concern');
-
-          const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload`, {
-            method: 'POST',
-            body: uploadFormData
-          });
-
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            uploadedFileUrls.push(uploadData.url);
+          try {
+            const uploadedUrl = await uploadImageFile(file, 'booking_concern');
+            if (uploadedUrl) {
+              uploadedFileUrls.push(uploadedUrl);
+            }
+          } catch (uploadError) {
+            console.error("Document upload failed:", uploadError);
           }
         }
       }
@@ -125,18 +119,7 @@ export default function DentalCheckup() {
         new_pet_weight: formData.newPetWeight
       };
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bookingPayload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to submit booking");
-      }
+      await createBooking(bookingPayload);
 
       toast.success("Booking submitted! Awaiting admin approval.");
       navigate("/dashboard/services");

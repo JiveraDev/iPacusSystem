@@ -11,6 +11,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge } from "../../lib/date";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { fetchAllPets } from "../../services/petService";
 
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
 
@@ -70,12 +71,7 @@ export default function MyPets() {
 
       let userPets = [];
       if (isDirectoryUser) {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pet_information`);
-        if (response.ok) {
-          userPets = await response.json();
-        } else {
-          throw new Error("Failed to fetch all pets");
-        }
+        userPets = await fetchAllPets();
       } else {
         userPets = await getUserPetsService(userId);
       }

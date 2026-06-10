@@ -20,8 +20,12 @@ import { calculateAge, formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import {
+    fetchBookings as fetchBookingsService,
+    receiveBooking as receiveBookingService,
+    updateBookingSchedule
+} from '../../services/bookingService';
+import { fetchQueues, receiveQueue as receiveQueueService } from '../../services/queueService';
 const BOOKING_QUEUE_SOURCE = 'booking_management';
 
 function normalize(value) {
@@ -175,12 +179,7 @@ export default function VetQueueList() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/queues`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || 'Failed to load approved queue.');
-            }
+            const data = await fetchQueues();
 
             setQueue(Array.isArray(data) ? data : []);
             return Array.isArray(data) ? data : [];
@@ -201,12 +200,7 @@ export default function VetQueueList() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/bookings`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || 'Failed to load approved bookings.');
-            }
+            const data = await fetchBookingsService();
 
             setBookings(Array.isArray(data) ? data : []);
             return Array.isArray(data) ? data : [];
@@ -348,18 +342,13 @@ export default function VetQueueList() {
         setUpdatingQueueId(queueId);
 
         try {
-            const response = await fetch(`${API_BASE}/queues/receive`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    queue_id: queueId,
-                    veterinarian_user_id: veterinarianUserId,
-                    veterinarian_name: veterinarianName
-                })
+            const data = await receiveQueueService({
+                queue_id: queueId,
+                veterinarian_user_id: veterinarianUserId,
+                veterinarian_name: veterinarianName
             });
-            const data = await response.json();
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.error || data.message || 'Failed to receive queue patient.');
             }
 
@@ -413,21 +402,12 @@ export default function VetQueueList() {
         setUpdatingBookingId(actionKey);
 
         try {
-            const response = await fetch(`${API_BASE}/bookings/${booking.id}/schedule`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    booking_date: todayKey,
-                    booking_time: booking.time,
-                    reason: 'Vet approved queue reschedule today',
-                    changed_by_user_id: veterinarianUserId || null
-                })
+            const data = await updateBookingSchedule(booking.id, {
+                booking_date: todayKey,
+                booking_time: booking.time,
+                reason: 'Vet approved queue reschedule today',
+                changed_by_user_id: veterinarianUserId || null
             });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to reschedule booking for today.');
-            }
 
             setBookings(currentBookings =>
                 currentBookings.map(item =>
@@ -464,18 +444,13 @@ export default function VetQueueList() {
         setUpdatingBookingId(actionKey);
 
         try {
-            const response = await fetch(`${API_BASE}/bookings/${booking.id}/receive`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    veterinarian_user_id: veterinarianUserId,
-                    veterinarian_name: veterinarianName,
-                    service_name: getServiceDisplayName(booking.service || booking.type, 'Booking')
-                })
+            const data = await receiveBookingService(booking.id, {
+                veterinarian_user_id: veterinarianUserId,
+                veterinarian_name: veterinarianName,
+                service_name: getServiceDisplayName(booking.service || booking.type, 'Booking')
             });
-            const data = await response.json().catch(() => ({}));
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.message || data.error || 'Failed to receive booking.');
             }
 

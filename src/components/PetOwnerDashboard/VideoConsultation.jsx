@@ -4,8 +4,7 @@ import { useParams, useNavigate } from "../dashboardRouter.jsx";
 import { Button } from "../../ui/button";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { formatDisplayDateTime } from "../../lib/date";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchOnlineConsultation } from "../../services/onlineConsultationService";
 
 export default function VideoConsultation() {
   const { consultationId } = useParams();
@@ -17,13 +16,7 @@ export default function VideoConsultation() {
     const fetchConsultation = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`${API_BASE}/api/online-consultations/${consultationId}`);
-        const data = await response.json().catch(() => []);
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch online consultation");
-        }
-
+        const data = await fetchOnlineConsultation(consultationId);
         const found = Array.isArray(data) ? data[0] : data;
 
         if (found?.meetingUrl) {

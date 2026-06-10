@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Mail, MapPin, Phone, Shield, User } from 'lucide-react';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { fetchUser } from '../../services/userService';
 
 function normalizeOwner(data = {}) {
     const fullName = `${data.firstName || data.first_Name || ''} ${data.lastName || data.last_Name || ''}`.trim();
@@ -59,10 +58,9 @@ export default function PetOwnerProfileModal({
 
             setIsLoading(true);
             try {
-                const response = await fetch(`${API_BASE}/api/users/${ownerId}`);
-                const data = await response.json().catch(() => ({}));
+                const data = await fetchUser(ownerId);
 
-                if (response.ok && isMounted) {
+                if (isMounted) {
                     setOwner(normalizeOwner({ ...initialOwner, ...data }));
                     setImageError(false);
                 }

@@ -23,6 +23,7 @@ function notification_ensure_schema(PDO $pdo): void
             user_id INT NOT NULL PRIMARY KEY,
             email_enabled TINYINT(1) NOT NULL DEFAULT 1,
             in_app_enabled TINYINT(1) NOT NULL DEFAULT 1,
+            browser_push_enabled TINYINT(1) NOT NULL DEFAULT 0,
             booking_updates TINYINT(1) NOT NULL DEFAULT 1,
             schedule_reminders TINYINT(1) NOT NULL DEFAULT 1,
             payment_updates TINYINT(1) NOT NULL DEFAULT 1,
@@ -55,6 +56,9 @@ function notification_ensure_schema(PDO $pdo): void
             email_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
             email_sent_at DATETIME NULL,
             email_error TEXT NULL,
+            push_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
+            push_sent_at DATETIME NULL,
+            push_error TEXT NULL,
             read_at DATETIME NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -67,10 +71,49 @@ function notification_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
 
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS notification_push_subscriptions (
+            subscription_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            endpoint TEXT NOT NULL,
+            endpoint_hash CHAR(64) NOT NULL,
+            p256dh TEXT NULL,
+            auth TEXT NULL,
+            content_encoding VARCHAR(40) NULL DEFAULT 'aes128gcm',
+            user_agent TEXT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            last_sent_at DATETIME NULL,
+            last_error TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY notification_push_endpoint_unique (endpoint_hash),
+            KEY notification_push_user_active_idx (user_id, is_active),
+            CONSTRAINT notification_push_user_fk
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+                ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    if (!notification_column_exists($pdo, 'notification_preferences', 'browser_push_enabled')) {
+        $pdo->exec("
+            ALTER TABLE notification_preferences
+            ADD COLUMN browser_push_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER in_app_enabled
+        ");
+    }
+
     if (!notification_column_exists($pdo, 'user_notifications', 'in_app_visible')) {
         $pdo->exec("
             ALTER TABLE user_notifications
             ADD COLUMN in_app_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER redirect_path
+        ");
+    }
+
+    if (!notification_column_exists($pdo, 'user_notifications', 'push_status')) {
+        $pdo->exec("
+            ALTER TABLE user_notifications
+            ADD COLUMN push_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent' AFTER email_error,
+            ADD COLUMN push_sent_at DATETIME NULL AFTER push_status,
+            ADD COLUMN push_error TEXT NULL AFTER push_sent_at
         ");
     }
 }
@@ -93,6 +136,7 @@ function notification_default_preferences(): array
     return [
         'email_enabled' => 1,
         'in_app_enabled' => 1,
+        'browser_push_enabled' => 0,
         'booking_updates' => 1,
         'schedule_reminders' => 1,
         'payment_updates' => 1,
@@ -367,6 +411,507 @@ function notification_send_email_if_enabled(PDO $pdo, int $userId, string $categ
     }
 }
 
+function notification_push_env(string $key): string
+{
+    $value = trim((string)(getenv($key) ?: ''));
+
+    if (
+        strlen($value) >= 2
+        && (($value[0] === '"' && substr($value, -1) === '"') || ($value[0] === "'" && substr($value, -1) === "'"))
+    ) {
+        $value = substr($value, 1, -1);
+    }
+
+    return trim($value);
+}
+
+function notification_push_public_key(): string
+{
+    return notification_push_env('PUSH_VAPID_PUBLIC_KEY') ?: notification_push_env('VITE_PUSH_PUBLIC_KEY');
+}
+
+function notification_push_base64url_decode(string $value): string|false
+{
+    $padding = str_repeat('=', (4 - strlen($value) % 4) % 4);
+    return base64_decode(strtr($value . $padding, '-_', '+/'), true);
+}
+
+function notification_push_build_ec_private_key_pem(string $privateKey, string $publicKey): string
+{
+    $der = hex2bin('30770201010420')
+        . $privateKey
+        . hex2bin('a00a06082a8648ce3d030107a144034200')
+        . $publicKey;
+
+    return "-----BEGIN EC PRIVATE KEY-----\n"
+        . chunk_split(base64_encode($der), 64, "\n")
+        . "-----END EC PRIVATE KEY-----";
+}
+
+function notification_push_private_key_pem(): string
+{
+    $base64Pem = notification_push_env('PUSH_VAPID_PRIVATE_KEY_BASE64');
+    if ($base64Pem !== '') {
+        $decoded = base64_decode($base64Pem, true);
+        if ($decoded !== false && trim($decoded) !== '') {
+            return trim($decoded);
+        }
+    }
+
+    $path = notification_push_env('PUSH_VAPID_PRIVATE_KEY_PATH');
+    if ($path !== '' && is_file($path) && is_readable($path)) {
+        return trim((string)file_get_contents($path));
+    }
+
+    $privateKey = notification_push_env('PUSH_VAPID_PRIVATE_KEY') ?: notification_push_env('PUSH_VAPID_PRIVATE_KEY_PEM');
+    if (str_starts_with($privateKey, 'file:')) {
+        $filePath = substr($privateKey, 5);
+        if ($filePath !== '' && is_file($filePath) && is_readable($filePath)) {
+            return trim((string)file_get_contents($filePath));
+        }
+    }
+
+    if ($privateKey !== '' && is_file($privateKey) && is_readable($privateKey)) {
+        return trim((string)file_get_contents($privateKey));
+    }
+
+    $privateKey = trim(str_replace('\n', "\n", $privateKey));
+    if ($privateKey === '' || str_contains($privateKey, 'BEGIN EC PRIVATE KEY') || str_contains($privateKey, 'BEGIN PRIVATE KEY')) {
+        return $privateKey;
+    }
+
+    $rawPrivateKey = notification_push_base64url_decode($privateKey);
+    $rawPublicKey = notification_push_base64url_decode(notification_push_public_key());
+
+    if (
+        $rawPrivateKey !== false
+        && $rawPublicKey !== false
+        && strlen($rawPrivateKey) === 32
+        && strlen($rawPublicKey) === 65
+        && $rawPublicKey[0] === "\x04"
+    ) {
+        return notification_push_build_ec_private_key_pem($rawPrivateKey, $rawPublicKey);
+    }
+
+    return $privateKey;
+}
+
+function notification_push_subject(): string
+{
+    $subject = notification_push_env('PUSH_VAPID_SUBJECT');
+    if ($subject !== '') {
+        return $subject;
+    }
+
+    $mailFrom = notification_push_env('MAIL_FROM_ADDRESS');
+    if (filter_var($mailFrom, FILTER_VALIDATE_EMAIL)) {
+        return 'mailto:' . $mailFrom;
+    }
+
+    return 'mailto:notifications@ipawcus.local';
+}
+
+function notification_push_is_configured(): bool
+{
+    return notification_push_public_key() !== ''
+        && notification_push_private_key_pem() !== ''
+        && function_exists('openssl_sign');
+}
+
+function notification_push_config_status(): array
+{
+    $publicKey = notification_push_public_key();
+    $hasPrivateKey = notification_push_private_key_pem() !== '';
+    $hasOpenSsl = function_exists('openssl_sign');
+
+    return [
+        'enabled' => $publicKey !== '' && $hasPrivateKey && $hasOpenSsl,
+        'publicKey' => $publicKey,
+        'needsSetup' => $publicKey === '' || !$hasPrivateKey || !$hasOpenSsl,
+    ];
+}
+
+function notification_push_base64url(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function notification_push_asn1_length(string $der, int &$offset): int
+{
+    $length = ord($der[$offset++]);
+    if ($length < 0x80) {
+        return $length;
+    }
+
+    $bytes = $length & 0x7f;
+    $length = 0;
+    for ($i = 0; $i < $bytes; $i++) {
+        $length = ($length << 8) | ord($der[$offset++]);
+    }
+
+    return $length;
+}
+
+function notification_push_der_signature_to_jose(string $der): string
+{
+    $offset = 0;
+    if (ord($der[$offset++]) !== 0x30) {
+        throw new RuntimeException('Invalid VAPID signature.');
+    }
+
+    notification_push_asn1_length($der, $offset);
+
+    if (ord($der[$offset++]) !== 0x02) {
+        throw new RuntimeException('Invalid VAPID signature.');
+    }
+
+    $rLength = notification_push_asn1_length($der, $offset);
+    $r = substr($der, $offset, $rLength);
+    $offset += $rLength;
+
+    if (ord($der[$offset++]) !== 0x02) {
+        throw new RuntimeException('Invalid VAPID signature.');
+    }
+
+    $sLength = notification_push_asn1_length($der, $offset);
+    $s = substr($der, $offset, $sLength);
+
+    $r = substr(ltrim($r, "\x00"), -32);
+    $s = substr(ltrim($s, "\x00"), -32);
+
+    return str_pad($r, 32, "\x00", STR_PAD_LEFT) . str_pad($s, 32, "\x00", STR_PAD_LEFT);
+}
+
+function notification_push_audience(string $endpoint): string
+{
+    $parts = parse_url($endpoint);
+    $scheme = strtolower((string)($parts['scheme'] ?? 'https'));
+    $host = strtolower((string)($parts['host'] ?? ''));
+    $port = $parts['port'] ?? null;
+
+    if ($host === '') {
+        throw new RuntimeException('Push endpoint is invalid.');
+    }
+
+    $isDefaultPort = ($scheme === 'https' && (int)$port === 443) || ($scheme === 'http' && (int)$port === 80);
+    return $scheme . '://' . $host . ($port && !$isDefaultPort ? ':' . $port : '');
+}
+
+function notification_push_vapid_jwt(string $endpoint): string
+{
+    $privateKeyPem = notification_push_private_key_pem();
+    $privateKey = openssl_pkey_get_private($privateKeyPem);
+
+    if (!$privateKey) {
+        throw new RuntimeException('Browser notification private key is invalid.');
+    }
+
+    $header = notification_push_base64url(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
+    $claims = notification_push_base64url(json_encode([
+        'aud' => notification_push_audience($endpoint),
+        'exp' => time() + 12 * 60 * 60,
+        'sub' => notification_push_subject(),
+    ]));
+    $unsigned = $header . '.' . $claims;
+
+    if (!openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+        throw new RuntimeException('Browser notification signature could not be created.');
+    }
+
+    return $unsigned . '.' . notification_push_base64url(notification_push_der_signature_to_jose($signature));
+}
+
+function notification_push_post(string $endpoint, string $jwt, string $publicKey): array
+{
+    $headers = [
+        'TTL: 3600',
+        'Urgency: normal',
+        'Authorization: vapid t=' . $jwt . ', k=' . $publicKey,
+        'Content-Length: 0',
+    ];
+
+    if (function_exists('curl_init')) {
+        $curl = curl_init($endpoint);
+        $options = [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_POSTFIELDS => '',
+        ];
+
+        if (defined('CURL_HTTP_VERSION_2TLS')) {
+            $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
+        }
+
+        curl_setopt_array($curl, $options);
+        $response = curl_exec($curl);
+        $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $error = curl_error($curl);
+        curl_close($curl);
+
+        if ($response === false) {
+            throw new RuntimeException($error ?: 'Browser notification request failed.');
+        }
+
+        return ['status' => $status, 'body' => (string)$response];
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers),
+            'content' => '',
+            'ignore_errors' => true,
+            'timeout' => 12,
+        ],
+    ]);
+    $body = @file_get_contents($endpoint, false, $context);
+    $status = 0;
+    $responseHeaders = function_exists('http_get_last_response_headers') ? http_get_last_response_headers() : [];
+
+    if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $matches)) {
+        $status = (int)$matches[1];
+    }
+
+    return ['status' => $status, 'body' => (string)$body];
+}
+
+function notification_push_deactivate_subscription(PDO $pdo, int $subscriptionId, string $error = ''): void
+{
+    $stmt = $pdo->prepare("
+        UPDATE notification_push_subscriptions
+        SET is_active = 0,
+            last_error = ?
+        WHERE subscription_id = ?
+    ");
+    $stmt->execute([$error ?: 'Push subscription is no longer active.', $subscriptionId]);
+}
+
+function notification_push_save_subscription(PDO $pdo, int $userId, array $subscription, string $userAgent = ''): array
+{
+    notification_ensure_schema($pdo);
+
+    $endpoint = trim((string)($subscription['endpoint'] ?? ''));
+    if ($userId <= 0 || $endpoint === '') {
+        throw new InvalidArgumentException('User and browser subscription are required.');
+    }
+
+    $keys = is_array($subscription['keys'] ?? null) ? $subscription['keys'] : [];
+    $p256dh = trim((string)($keys['p256dh'] ?? $subscription['p256dh'] ?? ''));
+    $auth = trim((string)($keys['auth'] ?? $subscription['auth'] ?? ''));
+    $contentEncoding = trim((string)($subscription['contentEncoding'] ?? $subscription['content_encoding'] ?? 'aes128gcm')) ?: 'aes128gcm';
+    $endpointHash = hash('sha256', $endpoint);
+
+    $stmt = $pdo->prepare("
+        INSERT INTO notification_push_subscriptions (
+            user_id,
+            endpoint,
+            endpoint_hash,
+            p256dh,
+            auth,
+            content_encoding,
+            user_agent,
+            is_active,
+            last_error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, NULL)
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            endpoint = VALUES(endpoint),
+            p256dh = VALUES(p256dh),
+            auth = VALUES(auth),
+            content_encoding = VALUES(content_encoding),
+            user_agent = VALUES(user_agent),
+            is_active = 1,
+            last_error = NULL,
+            updated_at = CURRENT_TIMESTAMP
+    ");
+    $stmt->execute([
+        $userId,
+        $endpoint,
+        $endpointHash,
+        $p256dh ?: null,
+        $auth ?: null,
+        $contentEncoding,
+        $userAgent ?: null,
+    ]);
+
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM notification_push_subscriptions
+        WHERE user_id = ?
+          AND is_active = 1
+    ");
+    $countStmt->execute([$userId]);
+
+    return [
+        'activeSubscriptions' => (int)$countStmt->fetchColumn(),
+        'endpointHash' => $endpointHash,
+    ];
+}
+
+function notification_push_disable_subscription(PDO $pdo, int $userId, string $endpoint = ''): array
+{
+    notification_ensure_schema($pdo);
+
+    if ($endpoint !== '') {
+        $stmt = $pdo->prepare("
+            UPDATE notification_push_subscriptions
+            SET is_active = 0,
+                last_error = NULL
+            WHERE user_id = ?
+              AND endpoint_hash = ?
+        ");
+        $stmt->execute([$userId, hash('sha256', $endpoint)]);
+    } else {
+        $stmt = $pdo->prepare("
+            UPDATE notification_push_subscriptions
+            SET is_active = 0,
+                last_error = NULL
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$userId]);
+    }
+
+    return notification_push_user_status($pdo, $userId);
+}
+
+function notification_push_user_status(PDO $pdo, int $userId): array
+{
+    notification_ensure_schema($pdo);
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM notification_push_subscriptions
+        WHERE user_id = ?
+          AND is_active = 1
+    ");
+    $stmt->execute([$userId]);
+    $config = notification_push_config_status();
+
+    return [
+        'configured' => (bool)$config['enabled'],
+        'publicKey' => $config['publicKey'],
+        'needsSetup' => (bool)$config['needsSetup'],
+        'activeSubscriptions' => (int)$stmt->fetchColumn(),
+    ];
+}
+
+function notification_send_push_to_subscription(PDO $pdo, array $subscription): array
+{
+    $subscriptionId = (int)($subscription['subscription_id'] ?? 0);
+    $endpoint = trim((string)($subscription['endpoint'] ?? ''));
+    $publicKey = notification_push_public_key();
+
+    if ($subscriptionId <= 0 || $endpoint === '') {
+        return ['success' => false, 'message' => 'Saved browser subscription is incomplete.'];
+    }
+
+    try {
+        $result = notification_push_post($endpoint, notification_push_vapid_jwt($endpoint), $publicKey);
+        $status = (int)$result['status'];
+
+        if (in_array($status, [200, 201, 202, 204], true)) {
+            $stmt = $pdo->prepare("
+                UPDATE notification_push_subscriptions
+                SET last_sent_at = NOW(),
+                    last_error = NULL
+                WHERE subscription_id = ?
+            ");
+            $stmt->execute([$subscriptionId]);
+
+            return ['success' => true, 'status' => $status];
+        }
+
+        $message = 'Browser notification service returned status ' . ($status ?: 'unknown') . '.';
+        if (in_array($status, [404, 410], true)) {
+            notification_push_deactivate_subscription($pdo, $subscriptionId, $message);
+        } else {
+            $stmt = $pdo->prepare("UPDATE notification_push_subscriptions SET last_error = ? WHERE subscription_id = ?");
+            $stmt->execute([$message, $subscriptionId]);
+        }
+
+        return ['success' => false, 'status' => $status, 'message' => $message];
+    } catch (Throwable $error) {
+        $message = $error->getMessage();
+        $stmt = $pdo->prepare("UPDATE notification_push_subscriptions SET last_error = ? WHERE subscription_id = ?");
+        $stmt->execute([$message, $subscriptionId]);
+
+        return ['success' => false, 'message' => $message];
+    }
+}
+
+function notification_send_push_if_enabled(PDO $pdo, int $userId, string $category, ?int $notificationId = null): array
+{
+    if ($notificationId === null || $notificationId <= 0) {
+        return ['success' => true, 'skipped' => true];
+    }
+
+    $preferences = notification_fetch_preferences($pdo, $userId);
+    if (
+        notification_bool($preferences['browser_push_enabled'] ?? 0, false) !== 1
+        || !notification_category_enabled($preferences, $category)
+    ) {
+        $stmt = $pdo->prepare("UPDATE user_notifications SET push_status = 'skipped' WHERE notification_id = ?");
+        $stmt->execute([$notificationId]);
+        return ['success' => true, 'skipped' => true];
+    }
+
+    if (!notification_push_is_configured()) {
+        $stmt = $pdo->prepare("UPDATE user_notifications SET push_status = 'skipped', push_error = ? WHERE notification_id = ?");
+        $stmt->execute(['Browser notifications are not configured on this server.', $notificationId]);
+        return ['success' => true, 'skipped' => true, 'message' => 'Browser notifications are not configured.'];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT subscription_id, endpoint
+        FROM notification_push_subscriptions
+        WHERE user_id = ?
+          AND is_active = 1
+    ");
+    $stmt->execute([$userId]);
+    $subscriptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$subscriptions) {
+        $update = $pdo->prepare("UPDATE user_notifications SET push_status = 'skipped', push_error = ? WHERE notification_id = ?");
+        $update->execute(['No active browser subscription for this user.', $notificationId]);
+        return ['success' => true, 'skipped' => true];
+    }
+
+    $sent = 0;
+    $errors = [];
+
+    foreach ($subscriptions as $subscription) {
+        $result = notification_send_push_to_subscription($pdo, $subscription);
+        if (!empty($result['success'])) {
+            $sent++;
+        } else {
+            $errors[] = (string)($result['message'] ?? 'Browser notification failed.');
+        }
+    }
+
+    if ($sent > 0) {
+        $update = $pdo->prepare("
+            UPDATE user_notifications
+            SET push_status = 'sent',
+                push_sent_at = NOW(),
+                push_error = NULL
+            WHERE notification_id = ?
+        ");
+        $update->execute([$notificationId]);
+
+        return ['success' => true, 'sent' => $sent, 'failed' => count($errors)];
+    }
+
+    $message = $errors ? implode(' | ', array_slice($errors, 0, 3)) : 'Browser notification failed.';
+    $update = $pdo->prepare("UPDATE user_notifications SET push_status = 'failed', push_error = ? WHERE notification_id = ?");
+    $update->execute([$message, $notificationId]);
+    error_log('Notification browser push failed: ' . $message);
+
+    return ['success' => false, 'message' => $message];
+}
+
 function notification_create_event(PDO $pdo, array $payload): ?int
 {
     notification_ensure_schema($pdo);
@@ -377,7 +922,7 @@ function notification_create_event(PDO $pdo, array $payload): ?int
 
     if ($userId > 0 && $dedupeKey !== '') {
         $existingStmt = $pdo->prepare("
-            SELECT notification_id, email_status
+            SELECT notification_id, email_status, push_status
             FROM user_notifications
             WHERE user_id = ?
               AND dedupe_key = ?
@@ -391,6 +936,8 @@ function notification_create_event(PDO $pdo, array $payload): ?int
     $effectiveNotificationId = $notificationId ?: ($existingNotification ? (int)$existingNotification['notification_id'] : null);
     $emailAlreadyHandled = $existingNotification
         && in_array((string)$existingNotification['email_status'], ['sent', 'skipped'], true);
+    $pushAlreadyHandled = $existingNotification
+        && in_array((string)($existingNotification['push_status'] ?? ''), ['sent', 'skipped'], true);
 
     if (!$emailAlreadyHandled && !empty($payload['email_subject']) && !empty($payload['email_html'])) {
         notification_send_email_if_enabled(
@@ -400,6 +947,15 @@ function notification_create_event(PDO $pdo, array $payload): ?int
             (string)$payload['email_subject'],
             (string)$payload['email_html'],
             (string)($payload['email_text'] ?? ''),
+            $effectiveNotificationId
+        );
+    }
+
+    if (!$pushAlreadyHandled && $effectiveNotificationId) {
+        notification_send_push_if_enabled(
+            $pdo,
+            (int)$payload['user_id'],
+            (string)($payload['category'] ?? 'system'),
             $effectiveNotificationId
         );
     }
@@ -427,7 +983,17 @@ function notification_format_datetime(?string $date, ?string $time): string
 function notification_service_name(array $booking): string
 {
     $service = trim((string)($booking['service_type'] ?? 'Booking'));
+    if ($service === 'boarding' && !empty($booking['hotel_boarding_type'])) {
+        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+    }
+
     return ucwords(str_replace(['_', '-'], ' ', $service));
+}
+
+function notification_pet_redirect_path($petId, string $fallback = '/dashboard/todos'): string
+{
+    $numericPetId = (int)$petId;
+    return $numericPetId > 0 ? "/dashboard/my-pets/{$numericPetId}" : $fallback;
 }
 
 function notification_fetch_booking(PDO $pdo, int $bookingId): ?array
@@ -463,9 +1029,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     $bookingNumber = (string)$booking['booking_number'];
     $serviceName = notification_service_name($booking);
     $schedule = notification_format_datetime($booking['booking_date'] ?? null, $booking['booking_time'] ?? null);
-    $redirectPath = !empty($booking['is_online_consultation'])
-        ? "/dashboard/consult/confirmation/{$bookingId}"
-        : '/dashboard/todos';
+    $redirectPath = notification_pet_redirect_path($booking['pet_id'] ?? null);
 
     $title = 'Booking update';
     $message = "Booking {$bookingNumber} has been updated.";
@@ -627,9 +1191,7 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
     $bookingNumber = trim((string)($booking['booking_number'] ?? ('Booking #' . $bookingId)));
     $serviceName = notification_service_name($booking);
     $schedule = notification_format_datetime($booking['booking_date'] ?? null, $booking['booking_time'] ?? null);
-    $redirectPath = !empty($booking['is_online_consultation'])
-        ? "/dashboard/consult/confirmation/{$bookingId}"
-        : '/dashboard/todos';
+    $redirectPath = notification_pet_redirect_path($booking['pet_id'] ?? null);
     $title = $slot['title'];
     $message = "{$bookingNumber} for {$petName} is scheduled {$slot['lead']}.";
     $intro = "Hello " . notification_user_name($booking) . ", this is a reminder for your iPawcus appointment {$slot['lead']}.";
@@ -818,7 +1380,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         'category' => 'queue_updates',
         'title' => $title,
         'message' => $message,
-        'redirect_path' => '/dashboard/todos',
+        'redirect_path' => notification_pet_redirect_path($queue['pet_id'] ?? null),
         'dedupe_key' => $dedupeKey,
         'email_subject' => $subject,
         'email_html' => $emailHtml,
@@ -883,7 +1445,7 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
     $paid = (float)($visit['total_paid'] ?? 0);
     $balance = max(0, $total - $paid);
     $reference = $visit['booking_number'] ?: ($visit['queue_number'] ? 'Queue #' . $visit['queue_number'] : 'Visit #' . $visitId);
-    $redirectPath = '/dashboard/todos';
+    $redirectPath = notification_pet_redirect_path($visit['pet_id'] ?? null);
 
     if ($event === 'payment_received') {
         $amount = (float)($context['amount'] ?? 0);

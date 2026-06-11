@@ -383,12 +383,26 @@ export default function BookingsManagement() {
             'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
             'parasite-control': 'Parasite Control',
-            'boarding': 'Pet Hotel & Boarding',
+            'boarding': 'Pet Hotel & Kennel Boarding',
             'special services': 'Special Services'
         };
 
         const label = labels[type] || 'Consultation';
         return <Badge variant="secondary">{label}</Badge>;
+    };
+
+    const getBoardingStayLabel = (type) => (
+        type === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+    );
+
+    const getBoardingAssignmentStatusLabel = (status) => {
+        const labels = {
+            reserved: 'Reserved',
+            occupied: 'Boarded',
+            checked_out: 'Checked Out'
+        };
+
+        return labels[status] || getServiceDisplayName(status || 'Pending');
     };
 
     const filteredBookings = bookings.filter(booking => {
@@ -741,8 +755,8 @@ export default function BookingsManagement() {
                                                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
                                                                     Stay Type
                                                                 </p>
-                                                                <p className="font-['Arimo:Regular',sans-serif] text-[16px] capitalize">
-                                                                    {booking.hotelBoardingType}
+                                                                <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
+                                                                    {getBoardingStayLabel(booking.hotelBoardingType)}
                                                                 </p>
                                                             </div>
                                                             <div>
@@ -762,8 +776,8 @@ export default function BookingsManagement() {
                                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
                                                                             {booking.boardingAssignment.roomLabel}
                                                                         </p>
-                                                                        <Badge className="bg-blue-50 text-blue-700 capitalize">
-                                                                            {booking.boardingAssignment.status}
+                                                                        <Badge className="bg-blue-50 text-blue-700">
+                                                                            {getBoardingAssignmentStatusLabel(booking.boardingAssignment.status)}
                                                                         </Badge>
                                                                     </div>
                                                                 ) : (

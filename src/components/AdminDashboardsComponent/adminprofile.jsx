@@ -367,16 +367,6 @@ export default function ProfileManagement({ onLogout }) {
                                 />
                             </section>
 
-                            <section className="border-t border-slate-100 pt-8">
-                                <h4 className="mb-2 text-[18px] font-bold text-[#101828]">Professional Name Preview</h4>
-                                <div className="rounded-lg border border-[#bedbff] bg-[#eff6ff] p-4">
-                                    <p className="break-words text-[20px] font-bold text-[#155dfc]">{getFullName(profile)}</p>
-                                    <p className="mt-1 text-[16px] text-[#4a5565]">
-                                        {profile.position || 'Admin'} - Employee ID: {profile.employeeId || 'Not set'}
-                                    </p>
-                                </div>
-                            </section>
-
                             {isEditing && (
                                 <div className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
                                     <Button onClick={handleCancel} variant="outline" disabled={isSaving} className="h-11 w-full sm:w-[140px]">

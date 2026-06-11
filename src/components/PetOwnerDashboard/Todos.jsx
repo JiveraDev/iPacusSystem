@@ -30,6 +30,7 @@ import {
     fetchPetOwnerTodos,
     updatePetOwnerTodo
 } from '../../services/todoService';
+import { useNavigate } from '../dashboardRouter.jsx';
 
 const CATEGORY_OPTIONS = [
     'Personal Task',
@@ -141,7 +142,17 @@ function emptyForm(date = new Date()) {
     };
 }
 
+function petProfilePath(task) {
+    if (typeof task.redirectPath === 'string' && task.redirectPath.startsWith('/dashboard/my-pets/')) {
+        return task.redirectPath;
+    }
+
+    const petId = task.petShareableId || task.petId;
+    return petId ? `/dashboard/my-pets/${petId}` : '';
+}
+
 export default function Todos({ user }) {
+    const navigate = useNavigate();
     const userId = getUserId(user);
     const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
     const [selectedDate, setSelectedDate] = useState(null);
@@ -347,6 +358,13 @@ export default function Todos({ user }) {
         setCurrentMonth(current => startOfMonth(new Date(current.getFullYear(), current.getMonth() + amount, 1)));
     };
 
+    const openTaskPet = (task) => {
+        const path = petProfilePath(task);
+        if (path) {
+            navigate(path);
+        }
+    };
+
     return (
         <div className="space-y-6 lg:space-y-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -487,7 +505,17 @@ export default function Todos({ user }) {
                                     No upcoming tasks.
                                 </div>
                             ) : (
-                                upcomingTasks.map(task => <TaskRow key={task.id} task={task} onComplete={completeTask} onEdit={openEdit} onDelete={removeTask} compact />)
+                                upcomingTasks.map(task => (
+                                    <TaskRow
+                                        key={task.id}
+                                        task={task}
+                                        onComplete={completeTask}
+                                        onEdit={openEdit}
+                                        onDelete={removeTask}
+                                        onOpenPet={openTaskPet}
+                                        compact
+                                    />
+                                ))
                             )}
                         </div>
                     </aside>
@@ -501,7 +529,7 @@ export default function Todos({ user }) {
                     onClick={() => setIsAgendaOpen(true)}
                     aria-label="Show next 7 days"
                     aria-expanded={isAgendaOpen}
-                    className="fixed right-0 top-28 z-40 flex h-20 w-11 flex-col items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r-0 border-slate-200 bg-white p-0 shadow-lg hover:bg-slate-50"
+                    className="fixed right-0 top-48 z-40 flex h-20 w-11 flex-col items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r-0 border-slate-200 bg-white p-0 shadow-lg hover:bg-slate-50"
                 >
                     <ChevronLeft className="size-4" />
                     <Clock className="size-4 text-[#155dfc]" />
@@ -539,6 +567,7 @@ export default function Todos({ user }) {
                                         onComplete={completeTask}
                                         onEdit={openEdit}
                                         onDelete={removeTask}
+                                        onOpenPet={openTaskPet}
                                     />
                                 ))
                             )}
@@ -629,13 +658,34 @@ function TaskIcon({ task }) {
     return <CheckCircle2 className="size-4" />;
 }
 
-function TaskRow({ task, onComplete, onEdit, onDelete, compact = false }) {
+function TaskRow({ task, onComplete, onEdit, onDelete, onOpenPet, compact = false }) {
     const style = taskStyle(task);
     const overdue = isTaskOverdue(task);
     const done = isTaskDone(task);
+    const canOpenPet = Boolean(onOpenPet && petProfilePath(task));
+
+    const handleOpenPet = () => {
+        if (canOpenPet) {
+            onOpenPet(task);
+        }
+    };
+
+    const handleOpenPetKeyDown = (event) => {
+        if (!canOpenPet) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenPet();
+        }
+    };
 
     return (
-        <div className={`rounded-lg border bg-white p-3 shadow-sm ${style.border} ${done ? 'opacity-70' : ''}`}>
+        <div
+            role={canOpenPet ? 'button' : undefined}
+            tabIndex={canOpenPet ? 0 : undefined}
+            onClick={handleOpenPet}
+            onKeyDown={handleOpenPetKeyDown}
+            className={`rounded-lg border bg-white p-3 shadow-sm ${style.border} ${done ? 'opacity-70' : ''} ${canOpenPet ? 'cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/30' : ''}`}
+        >
             <div className="flex items-start gap-3">
                 <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${style.badge}`}>
                     <TaskIcon task={task} />
@@ -655,7 +705,7 @@ function TaskRow({ task, onComplete, onEdit, onDelete, compact = false }) {
                     </p>
                 </div>
                 {task.editable && (
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
                         <Checkbox
                             checked={task.status === 'completed'}
                             onCheckedChange={() => onComplete(task)}

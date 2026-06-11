@@ -41,7 +41,7 @@ function normalizeServiceName(array $booking, array $specialServiceItems = []): 
 {
     $serviceName = $booking['service_type'] ?? '';
     if (($booking['service_type'] ?? '') === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        $serviceName = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel' : 'Pet Boarding';
+        $serviceName = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
         if (!empty($booking['room_size'])) {
             $serviceName .= ' - ' . ucfirst($booking['room_size']);
         }
@@ -60,6 +60,19 @@ function normalizeServiceName(array $booking, array $specialServiceItems = []): 
     return $serviceName;
 }
 
+function resolveNumericPetId(PDO $pdo, string $petId): ?int
+{
+    if (strpos($petId, 'PET-') === 0) {
+        $stmt = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_sharable_ID = ? LIMIT 1");
+        $stmt->execute([$petId]);
+        $resolvedPetId = $stmt->fetchColumn();
+
+        return $resolvedPetId ? (int)$resolvedPetId : null;
+    }
+
+    return (int)$petId > 0 ? (int)$petId : null;
+}
+
 $petId = $_GET['petId'] ?? null;
 
 if (!$petId) {
@@ -69,7 +82,10 @@ if (!$petId) {
 }
 
 try {
-    autoCancelOverdueBookings($pdo);
+    $numericPetId = resolveNumericPetId($pdo, (string)$petId);
+    if ($numericPetId !== null && $numericPetId > 0) {
+        autoCancelOverdueBookingsDetailed($pdo, $numericPetId, true);
+    }
 
     $hasBookingPets = tableExists($pdo, 'booking_pets');
     $whereColumn = strpos((string)$petId, 'PET-') === 0 ? 'p.pet_sharable_ID' : 'b.pet_id';

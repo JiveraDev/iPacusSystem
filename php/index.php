@@ -96,6 +96,22 @@ switch ($path) {
         $_GET['action'] = 'preferences';
         require_once __DIR__ . '/notifications.php';
         break;
+    case '/notifications/push/public-key':
+        $_GET['action'] = 'push-public-key';
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/notifications/push/status':
+        $_GET['action'] = 'push-status';
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/notifications/push/subscribe':
+        $_GET['action'] = 'push-subscribe';
+        require_once __DIR__ . '/notifications.php';
+        break;
+    case '/notifications/push/unsubscribe':
+        $_GET['action'] = 'push-unsubscribe';
+        require_once __DIR__ . '/notifications.php';
+        break;
     case '/notifications/reminders/run':
         $_GET['action'] = 'run-reminders';
         require_once __DIR__ . '/notifications.php';

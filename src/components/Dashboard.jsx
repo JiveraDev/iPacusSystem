@@ -480,8 +480,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
          </div>
       )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden scrollbar-hide">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-hide">
           <nav className="space-y-2">
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
@@ -538,7 +538,17 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-200 bg-white">
+        <div className="shrink-0 border-t border-slate-200 bg-white p-4">
+          <div className="mb-3">
+            <NotificationBell
+              user={user}
+              navigate={navigate}
+              variant="nav"
+              collapsed={isCollapsed}
+              label="Notifications"
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => navigate("/dashboard/profile")}
@@ -618,7 +628,6 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationBell user={user} navigate={navigate} />
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen((current) => !current)}
@@ -665,11 +674,6 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             }`}
           >
             <main className="mx-auto w-full max-w-7xl min-w-0 p-4 sm:p-6 lg:p-10">
-              {!isCompactLayout && (
-                <div className="mb-4 flex justify-end">
-                  <NotificationBell user={user} navigate={navigate} />
-                </div>
-              )}
               <Suspense fallback={
                 <div className="flex h-64 w-full items-center justify-center">
                   <div className="flex flex-col items-center gap-3">

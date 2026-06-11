@@ -17,6 +17,7 @@ import {
     markAllNotificationsRead,
     markNotificationRead
 } from '../../services/notificationService';
+import { syncPushContext } from '../../services/pushNotificationService';
 
 const CATEGORY_META = {
     booking_updates: {
@@ -125,7 +126,14 @@ function summaryLabel(item) {
     return `${count} ${meta.label}`;
 }
 
-export default function NotificationBell({ user, navigate }) {
+export default function NotificationBell({
+    user,
+    navigate,
+    variant = 'icon',
+    label = 'Notifications',
+    description = '',
+    collapsed = false
+}) {
     const userId = getUserId(user);
     const containerRef = useRef(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -168,6 +176,12 @@ export default function NotificationBell({ user, navigate }) {
         intervalMs: 12000,
         refreshKey: `notifications-${userId}`
     });
+
+    useEffect(() => {
+        if (!userId) return;
+
+        syncPushContext(userId).catch(() => {});
+    }, [userId]);
 
     useEffect(() => {
         const closeOnOutsideClick = (event) => {
@@ -229,8 +243,9 @@ export default function NotificationBell({ user, navigate }) {
             }
             setIsOpen(false);
 
-            if (notification.redirectPath) {
-                navigate(notification.redirectPath);
+            const redirectPath = notification.petRedirectPath || notification.redirectPath;
+            if (redirectPath) {
+                navigate(redirectPath);
             }
         } finally {
             setIsUpdating(false);
@@ -255,16 +270,49 @@ export default function NotificationBell({ user, navigate }) {
         }
     };
 
+    const isNavVariant = variant === 'nav';
+    const panelClassName = isNavVariant
+        ? 'fixed bottom-32 left-4 z-50 w-[min(27rem,calc(100vw-2rem))]'
+        : 'absolute right-0 z-50 mt-2 w-[min(27rem,calc(100vw-2rem))]';
+    const buttonClassName = isNavVariant
+        ? `relative flex items-center rounded-xl border border-slate-200 text-left text-slate-700 shadow-sm transition hover:bg-slate-50 ${
+            collapsed ? 'mx-auto size-12 justify-center bg-white p-0' : 'w-full gap-3 bg-white px-4 py-3'
+        }`
+        : 'relative flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50';
+
     return (
-        <div ref={containerRef} className="relative">
+        <div ref={containerRef} className={`relative ${isNavVariant ? 'w-full' : ''}`}>
             <button
                 type="button"
                 onClick={openPanel}
-                className="relative flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className={buttonClassName}
                 aria-label="Open notifications"
+                title={collapsed ? label : undefined}
             >
-                <Bell className="size-5" />
-                {unreadCount > 0 && (
+                <span className="relative flex size-8 shrink-0 items-center justify-center">
+                    <Bell className="size-5" />
+                    {(!isNavVariant || collapsed) && unreadCount > 0 && (
+                        <span className="absolute -right-3 -top-3 flex min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1.5 text-[11px] font-black leading-5 text-white shadow-md">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                    )}
+                </span>
+                {isNavVariant && !collapsed && (
+                    <>
+                        <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{label}</span>
+                            {description && (
+                                <span className="block truncate text-xs font-semibold text-[#155dfc]">{description}</span>
+                            )}
+                        </span>
+                        {unreadCount > 0 && (
+                            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-black text-red-600">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </>
+                )}
+                {!isNavVariant && unreadCount > 0 && (
                     <span className="absolute -right-2 -top-2 flex min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1.5 text-[11px] font-black leading-5 text-white shadow-md">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
@@ -272,7 +320,7 @@ export default function NotificationBell({ user, navigate }) {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-[min(27rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                <div className={`${panelClassName} overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl`}>
                     <div className="border-b border-slate-100 p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>

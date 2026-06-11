@@ -58,8 +58,8 @@ import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadFormData } from '../../services/uploadService';
 
 const FACILITY_LABELS = {
-    boarding: 'Boarding Kennel',
-    hotel: 'Boarding Pet Hotel'
+    boarding: 'Kennel Boarding',
+    hotel: 'Pet Hotel Boarding'
 };
 
 const ROOM_SIZE_LABELS = {
@@ -180,8 +180,8 @@ function getTaskStatusStyle(status) {
 function getRoomStatusMeta(status) {
     const meta = {
         occupied: {
-            label: 'Occupied',
-            note: 'Stay active',
+            label: 'Boarded',
+            note: 'Boarding stay active',
             Icon: PawPrint,
             rail: 'bg-blue-600',
             badge: 'bg-blue-50 text-blue-700',
@@ -223,7 +223,7 @@ function getRoomStatusMeta(status) {
 function getFacilityMeta(facilityType) {
     if (facilityType === 'hotel') {
         return {
-            title: 'Boarding Pet Hotel Rooms',
+            title: 'Pet Hotel Boarding Rooms',
             unitLabel: 'Rooms',
             unitSingular: 'Room',
             Icon: Hotel,
@@ -234,7 +234,7 @@ function getFacilityMeta(facilityType) {
     }
 
     return {
-        title: 'Boarding Kennels',
+        title: 'Kennel Boarding',
         unitLabel: 'Kennels',
         unitSingular: 'Kennel',
         Icon: Home,
@@ -364,7 +364,7 @@ function buildPaymentPrefill(unit) {
             petName: assignment.petName || 'Boarding Pet',
             ownerName: assignment.ownerName || 'Pet Owner',
             species: assignment.petSpecies || 'Pet',
-            visitType: unit.hotelBoardingType === 'hotel' ? 'Boarding Pet Hotel Stay' : 'Pet Boarding Stay',
+            visitType: unit.hotelBoardingType === 'hotel' ? 'Pet Hotel Boarding Stay' : 'Kennel Boarding Stay',
             veterinarian: 'Boarding Team',
             complaint: `${unit.roomLabel} from ${formatDate(checkInDate)} to ${formatDate(checkOutDate)}`,
             status: 'Ready for payment'
@@ -916,12 +916,12 @@ export default function PetBoardingManagement() {
                 notes: directCheckInForm.notes
             });
 
-            toast.success('Pet checked in.');
+            toast.success('Pet boarded.');
             setIsDirectCheckInOpen(false);
             setDirectCheckInForm(emptyDirectCheckInForm);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to check in pet.');
+            toast.error(error.message || 'Failed to board pet.');
         } finally {
             setActionLoading('');
         }
@@ -934,11 +934,11 @@ export default function PetBoardingManagement() {
         try {
             await checkInBoardingBooking(unit.assignment.bookingId);
 
-            toast.success('Reserved pet checked in.');
+            toast.success('Pet boarded.');
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to check in reserved pet.');
+            toast.error(error.message || 'Failed to board reserved pet.');
         } finally {
             setActionLoading('');
         }
@@ -1159,7 +1159,7 @@ export default function PetBoardingManagement() {
                 }`}
             >
                 <Home className="size-4" />
-                Boarding Kennel
+                Kennel Boarding
             </button>
             <button
                 type="button"
@@ -1171,7 +1171,7 @@ export default function PetBoardingManagement() {
                 }`}
             >
                 <Hotel className="size-4" />
-                Boarding Pet Hotel
+                Pet Hotel Boarding
             </button>
         </div>
     );
@@ -1228,7 +1228,7 @@ export default function PetBoardingManagement() {
 
                     <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                         <div className="rounded-lg bg-slate-50 p-2">
-                            <p className="font-black uppercase text-slate-400">{unit.status === 'occupied' ? 'Checked In' : 'Start'}</p>
+                            <p className="font-black uppercase text-slate-400">{unit.status === 'occupied' ? 'Boarded On' : 'Start'}</p>
                             <p className="mt-1 truncate font-semibold text-slate-700">
                                 {assignment.petName ? formatDateTime(assignment.actualCheckInAt || assignment.checkInDate, 'Pending') : statusMeta.note}
                             </p>
@@ -1457,7 +1457,7 @@ export default function PetBoardingManagement() {
                             </span>
                             <div className="min-w-0">
                                 <h2 className="font-['Arimo:Bold',sans-serif] text-[24px] font-bold text-[#101828]">
-                                    Pet Boarding & Hotel Management
+                                    Pet Hotel & Kennel Boarding Management
                                 </h2>
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                     <Badge className={`${currentFacilityMeta.surface} ${currentFacilityMeta.text}`}>
@@ -1686,7 +1686,7 @@ export default function PetBoardingManagement() {
                                             {currentFacilityMeta.title}
                                         </h3>
                                         <p className="mt-1 text-sm font-semibold text-slate-500">
-                                            {stats.available} available, {stats.reserved} reserved, {stats.occupied} occupied
+                                            {stats.available} available, {stats.reserved} reserved, {stats.occupied} boarded
                                         </p>
                                     </div>
                                 </div>
@@ -1988,7 +1988,7 @@ export default function PetBoardingManagement() {
 
                         <div className="space-y-4">
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <InfoPanel label="Status" value={selectedUnit.status} />
+                                <InfoPanel label="Status" value={getRoomStatusMeta(selectedUnit.status).label} />
                                 <InfoPanel label="Facility" value={FACILITY_LABELS[selectedUnit.hotelBoardingType]} />
                                 <InfoPanel label="Size" value={ROOM_SIZE_LABELS[selectedUnit.roomSize]} />
                             </div>
@@ -2005,7 +2005,7 @@ export default function PetBoardingManagement() {
                                         <InfoPanel label="Checked In" value={formatDateTime(selectedUnit.assignment.actualCheckInAt, 'Not checked in')} />
                                         <InfoPanel label="Desired Out" value={formatDate(selectedUnit.assignment.desiredCheckOutDate || selectedUnit.assignment.checkOutDate)} />
                                         <InfoPanel label="Estimated Total" value={selectedUnit.assignment.price > 0 ? formatPhpCurrency(selectedUnit.assignment.price) : 'Not set'} />
-                                        <InfoPanel label="Stay Status" value={selectedUnit.assignment.status} />
+                                        <InfoPanel label="Stay Status" value={getRoomStatusMeta(selectedUnit.assignment.status).label} />
                                     </div>
                                 </div>
                             )}
@@ -2164,7 +2164,7 @@ export default function PetBoardingManagement() {
                             {selectedUnit.status === 'reserved' && (
                                 <Button className="bg-[#155dfc]" onClick={() => checkInReservedPet(selectedUnit)} disabled={actionLoading === `check-in-${selectedUnit.id}`}>
                                     <CheckCircle className="size-4" />
-                                    Check In Pet
+                                    Mark Boarded
                                 </Button>
                             )}
                             {selectedUnit.status === 'occupied' && (
@@ -2191,7 +2191,7 @@ export default function PetBoardingManagement() {
                 <DialogContent className="max-w-xl">
                     <DialogHeader>
                         <DialogTitle>Add Rooms</DialogTitle>
-                        <DialogDescription>Increase capacity for a hotel room or boarding kennel category.</DialogDescription>
+                        <DialogDescription>Increase capacity for a pet hotel room or kennel boarding category.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <FieldSelect
@@ -2200,8 +2200,8 @@ export default function PetBoardingManagement() {
                             displayValue={FACILITY_LABELS[addRoomForm.type]}
                             onChange={(value) => setAddRoomForm({ ...addRoomForm, type: value })}
                             options={[
-                                { value: 'boarding', label: 'Boarding Kennel' },
-                                { value: 'hotel', label: 'Boarding Pet Hotel' }
+                                { value: 'boarding', label: 'Kennel Boarding' },
+                                { value: 'hotel', label: 'Pet Hotel Boarding' }
                             ]}
                         />
                         <FieldSelect
@@ -2257,8 +2257,8 @@ export default function PetBoardingManagement() {
                             displayValue={FACILITY_LABELS[directCheckInForm.type]}
                             onChange={(value) => setDirectCheckInForm({ ...directCheckInForm, type: value, roomNumber: '' })}
                             options={[
-                                { value: 'boarding', label: 'Boarding Kennel' },
-                                { value: 'hotel', label: 'Boarding Pet Hotel' }
+                                { value: 'boarding', label: 'Kennel Boarding' },
+                                { value: 'hotel', label: 'Pet Hotel Boarding' }
                             ]}
                         />
                         <FieldSelect

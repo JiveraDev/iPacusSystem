@@ -370,7 +370,7 @@ export default function PetHotel() {
         billing: addOn.billing
       }));
       const notes = [
-        `[Stay: ${serviceType === "hotel" ? "Pet Hotel" : "Pet Boarding"}]`,
+        `[Stay: ${serviceType === "hotel" ? "Pet Hotel Boarding" : "Kennel Boarding"}]`,
         `[Room: ${selectedRoomLabel}]`,
         `[Pets: ${selectedPetData.map((pet) => pet.name).join(", ")}]`,
         specialRequests.trim() ? `Special requests: ${specialRequests.trim()}` : ""
@@ -394,7 +394,7 @@ export default function PetHotel() {
         hotel_boarding_type: serviceType
       });
 
-      toast.success(`${serviceType === "hotel" ? "Pet hotel" : "Pet boarding"} booking submitted for admin approval.`);
+      toast.success(`${serviceType === "hotel" ? "Pet hotel boarding" : "Kennel boarding"} booking submitted for admin approval.`);
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Failed to submit hotel booking:", error);
@@ -412,7 +412,7 @@ export default function PetHotel() {
           Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Pet Hotel & Boarding</h1>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Pet Hotel & Kennel Boarding</h1>
           <p className="mt-1 text-sm text-gray-600">Rooms and kennels are checked against live availability.</p>
         </div>
       </div>
@@ -427,8 +427,8 @@ export default function PetHotel() {
               <Label>Service Type *</Label>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {[
-                  { id: "hotel", title: "Pet Hotel", description: "Premium rooms with comfort amenities", icon: Hotel },
-                  { id: "boarding", title: "Pet Boarding", description: "Secure kennels with daily care", icon: Home }
+                  { id: "hotel", title: "Pet Hotel Boarding", description: "Premium rooms with comfort amenities", icon: Hotel },
+                  { id: "boarding", title: "Kennel Boarding", description: "Secure kennels with daily care", icon: Home }
                 ].map((option) => {
                   const Icon = option.icon;
                   const isSelected = serviceType === option.id;

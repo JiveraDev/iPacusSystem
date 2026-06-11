@@ -90,7 +90,7 @@ function pet_owner_todos_service_label(array $booking): string
 {
     $type = trim((string)($booking['service_type'] ?? 'Booking'));
     if ($type === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel' : 'Pet Boarding';
+        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
     }
 
     return ucwords(str_replace(['_', '-'], ' ', $type));
@@ -108,6 +108,8 @@ function pet_owner_todos_format_task(array $task): array
         'startAt' => $task['startAt'],
         'endAt' => $task['endAt'] ?? null,
         'status' => $task['status'] ?? 'pending',
+        'petId' => isset($task['petId']) ? (int)$task['petId'] : null,
+        'petShareableId' => $task['petShareableId'] ?? null,
         'petName' => $task['petName'] ?? '',
         'redirectPath' => $task['redirectPath'] ?? '/dashboard/todos',
         'editable' => !empty($task['editable']),
@@ -119,7 +121,8 @@ function pet_owner_todos_booking_tasks(PDO $pdo, int $userId, string $start, str
     $stmt = $pdo->prepare("
         SELECT
             b.*,
-            COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID
         FROM bookings b
         LEFT JOIN pets_information p ON p.pet_id = b.pet_id
         WHERE b.user_id = ?
@@ -138,9 +141,8 @@ function pet_owner_todos_booking_tasks(PDO $pdo, int $userId, string $start, str
         $service = pet_owner_todos_service_label($booking);
         $petName = (string)$booking['pet_name'];
         $scheduledAt = trim((string)$booking['booking_date'] . ' ' . (string)$booking['booking_time']);
-        $redirect = !empty($booking['is_online_consultation'])
-            ? "/dashboard/consult/confirmation/{$bookingId}"
-            : '/dashboard/todos';
+        $petId = (int)($booking['pet_id'] ?? 0);
+        $redirect = $petId > 0 ? "/dashboard/my-pets/{$petId}" : '/dashboard/todos';
 
         $tasks[] = pet_owner_todos_format_task([
             'id' => "booking-{$bookingId}",
@@ -152,6 +154,8 @@ function pet_owner_todos_booking_tasks(PDO $pdo, int $userId, string $start, str
             'startAt' => date('Y-m-d H:i:s', strtotime($scheduledAt)),
             'endAt' => date('Y-m-d H:i:s', strtotime($scheduledAt . ' +1 hour')),
             'status' => $booking['status'] === 'confirmed' ? 'confirmed' : 'pending',
+            'petId' => $petId > 0 ? $petId : null,
+            'petShareableId' => $booking['pet_sharable_ID'] ?? null,
             'petName' => $petName,
             'redirectPath' => $redirect,
             'editable' => false,
@@ -173,8 +177,10 @@ function pet_owner_todos_booking_tasks(PDO $pdo, int $userId, string $start, str
                 'startAt' => $checkInAt,
                 'endAt' => $checkOutAt,
                 'status' => $booking['status'] === 'confirmed' ? 'confirmed' : 'pending',
+                'petId' => $petId > 0 ? $petId : null,
+                'petShareableId' => $booking['pet_sharable_ID'] ?? null,
                 'petName' => $petName,
-                'redirectPath' => '/dashboard/todos',
+                'redirectPath' => $redirect,
                 'editable' => false,
             ]);
         }
@@ -226,7 +232,8 @@ function pet_owner_todos_diagnosis_tasks(PDO $pdo, int $userId, string $start, s
             vd.follow_up_date,
             vd.service_name,
             vd.diagnosis,
-            COALESCE(p.pet_name, 'Pet') AS pet_name
+            COALESCE(p.pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID
         FROM vet_diagnoses vd
         JOIN pets_information p ON p.pet_id = vd.pet_id
         LEFT JOIN bookings b ON b.booking_id = vd.booking_id
@@ -254,6 +261,8 @@ function pet_owner_todos_diagnosis_tasks(PDO $pdo, int $userId, string $start, s
             'startAt' => $followUpAt,
             'endAt' => date('Y-m-d H:i:s', strtotime($followUpAt . ' +30 minutes')),
             'status' => 'pending',
+            'petId' => $petId,
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
             'petName' => $row['pet_name'],
             'redirectPath' => "/dashboard/my-pets/{$petId}",
             'editable' => false,
@@ -274,8 +283,10 @@ function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
     $stmt = $pdo->prepare("
         SELECT
             v.visit_id,
+            v.pet_id,
             v.created_at,
             COALESCE(p.pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID,
             b.booking_number,
             COALESCE(charges.total_charges, 0) AS total_charges,
             COALESCE(payments.total_paid, 0) AS total_paid
@@ -303,6 +314,7 @@ function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
 
     return array_map(function ($row) {
         $visitId = (int)$row['visit_id'];
+        $petId = (int)($row['pet_id'] ?? 0);
         $balance = max(0, (float)$row['total_charges'] - (float)$row['total_paid']);
 
         return pet_owner_todos_format_task([
@@ -315,8 +327,10 @@ function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
             'startAt' => $row['created_at'],
             'endAt' => null,
             'status' => 'pending',
+            'petId' => $petId > 0 ? $petId : null,
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
             'petName' => $row['pet_name'],
-            'redirectPath' => '/dashboard/todos',
+            'redirectPath' => $petId > 0 ? "/dashboard/my-pets/{$petId}" : '/dashboard/todos',
             'editable' => false,
         ]);
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -331,11 +345,13 @@ function pet_owner_todos_boarding_tasks(PDO $pdo, int $userId, string $start, st
     $stmt = $pdo->prepare("
         SELECT
             bt.*,
+            COALESCE(bt.pet_id, b.pet_id) AS todo_pet_id,
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID,
             b.booking_number
         FROM boarding_tasks bt
         JOIN bookings b ON b.booking_id = bt.booking_id
-        LEFT JOIN pets_information p ON p.pet_id = bt.pet_id
+        LEFT JOIN pets_information p ON p.pet_id = COALESCE(bt.pet_id, b.pet_id)
         WHERE b.user_id = ?
           AND bt.status <> 'cancelled'
           AND bt.due_at BETWEEN ? AND ?
@@ -345,6 +361,7 @@ function pet_owner_todos_boarding_tasks(PDO $pdo, int $userId, string $start, st
 
     return array_map(function ($row) {
         $taskId = (int)$row['task_id'];
+        $petId = (int)($row['todo_pet_id'] ?? 0);
         $type = ucwords(str_replace('_', ' ', (string)$row['task_type']));
 
         return pet_owner_todos_format_task([
@@ -357,8 +374,10 @@ function pet_owner_todos_boarding_tasks(PDO $pdo, int $userId, string $start, st
             'startAt' => $row['due_at'],
             'endAt' => null,
             'status' => $row['status'],
+            'petId' => $petId > 0 ? $petId : null,
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
             'petName' => $row['pet_name'],
-            'redirectPath' => '/dashboard/todos',
+            'redirectPath' => $petId > 0 ? "/dashboard/my-pets/{$petId}" : '/dashboard/todos',
             'editable' => false,
         ]);
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));

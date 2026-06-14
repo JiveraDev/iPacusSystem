@@ -46,6 +46,14 @@ const CATEGORY_META = {
     }
 };
 
+const NOTIFICATION_PAGE_SIZE = 6;
+const EMPTY_PAGE_INFO = {
+    currentOffset: 0,
+    currentTotal: 0,
+    historyOffset: 0,
+    historyTotal: 0
+};
+
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
 }
@@ -120,6 +128,36 @@ function groupedNotifications(notifications) {
         .map(key => ({ key, notifications: groups.get(key) }));
 }
 
+function isTodayNotification(notification) {
+    return daySection(notification.createdAt) === 'Today';
+}
+
+function isCurrentNotification(notification) {
+    return !notification.readAt || isTodayNotification(notification);
+}
+
+function isHistoryNotification(notification) {
+    return Boolean(notification.readAt) && !isTodayNotification(notification);
+}
+
+function mergeNotifications(primary, secondary) {
+    const seen = new Set();
+
+    return [...primary, ...secondary].filter(notification => {
+        const id = notification.notificationId;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    });
+}
+
+function notificationCounts(data, fallbackCurrent = 0) {
+    return {
+        current: Number(data?.counts?.current ?? data?.pagination?.total ?? fallbackCurrent),
+        history: Number(data?.counts?.history ?? 0)
+    };
+}
+
 function summaryLabel(item) {
     const meta = notificationMeta(item.category);
     const count = item.unread > 0 ? item.unread : item.total;
@@ -140,8 +178,10 @@ export default function NotificationBell({
     const [notifications, setNotifications] = useState([]);
     const [summary, setSummary] = useState({ categories: [] });
     const [unreadCount, setUnreadCount] = useState(0);
+    const [pageInfo, setPageInfo] = useState(EMPTY_PAGE_INFO);
     const [filter, setFilter] = useState('all');
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -154,8 +194,24 @@ export default function NotificationBell({
         }
 
         try {
-            const data = await fetchNotifications(userId, { limit: 30 });
-            setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+            const data = await fetchNotifications(userId, {
+                limit: NOTIFICATION_PAGE_SIZE,
+                offset: 0,
+                scope: 'current'
+            });
+            const incomingNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+            const counts = notificationCounts(data, incomingNotifications.length);
+            const nextNotifications = isAutoRefresh
+                ? mergeNotifications(incomingNotifications, notifications)
+                : incomingNotifications;
+
+            setNotifications(nextNotifications);
+            setPageInfo({
+                currentOffset: Math.min(counts.current, nextNotifications.filter(isCurrentNotification).length),
+                currentTotal: counts.current,
+                historyOffset: Math.min(counts.history, nextNotifications.filter(isHistoryNotification).length),
+                historyTotal: counts.history
+            });
             setSummary(data.summary || { categories: [] });
             setUnreadCount(Number(data.unreadCount || 0));
             return data;
@@ -208,10 +264,65 @@ export default function NotificationBell({
             : []
     ), [summary]);
 
+    const loadedUnreadCount = useMemo(
+        () => notifications.filter(notification => !notification.readAt).length,
+        [notifications]
+    );
+    const hasMoreNotifications = pageInfo.currentOffset < pageInfo.currentTotal
+        || pageInfo.historyOffset < pageInfo.historyTotal;
+    const canLoadMoreVisible = filter === 'unread'
+        ? loadedUnreadCount < unreadCount && pageInfo.currentOffset < pageInfo.currentTotal
+        : hasMoreNotifications;
+    const loadMoreLabel = filter === 'unread'
+        ? 'Load more unread'
+        : pageInfo.currentOffset < pageInfo.currentTotal
+            ? 'Load more'
+            : notifications.length === 0
+                ? 'View older notifications'
+                : 'Load older notifications';
+
     const openPanel = () => {
         setIsOpen(current => !current);
         if (!isOpen) {
             loadNotifications();
+        }
+    };
+
+    const handleLoadMore = async () => {
+        if (!userId || isLoadingMore || !canLoadMoreVisible) return;
+
+        const scope = pageInfo.currentOffset < pageInfo.currentTotal ? 'current' : 'history';
+        const offset = scope === 'current' ? pageInfo.currentOffset : pageInfo.historyOffset;
+
+        setIsLoadingMore(true);
+        setErrorMessage('');
+
+        try {
+            const data = await fetchNotifications(userId, {
+                limit: NOTIFICATION_PAGE_SIZE,
+                offset,
+                scope
+            });
+            const incomingNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+            const counts = notificationCounts(data);
+
+            setNotifications(current => mergeNotifications(current, incomingNotifications));
+            setPageInfo(current => ({
+                currentOffset: scope === 'current'
+                    ? Math.min(counts.current, current.currentOffset + incomingNotifications.length)
+                    : Math.min(counts.current, current.currentOffset),
+                currentTotal: counts.current,
+                historyOffset: scope === 'history'
+                    ? Math.min(counts.history, current.historyOffset + incomingNotifications.length)
+                    : Math.min(counts.history, current.historyOffset),
+                historyTotal: counts.history
+            }));
+            setSummary(data.summary || { categories: [] });
+            setUnreadCount(Number(data.unreadCount || 0));
+        } catch (error) {
+            setErrorMessage(error.message || 'More notifications could not be loaded.');
+        } finally {
+            setIsLoadingMore(false);
         }
     };
 
@@ -229,6 +340,14 @@ export default function NotificationBell({
                     : item
             )));
             setUnreadCount(current => Math.max(0, current - (notification.readAt ? 0 : 1)));
+            if (!notification.readAt && !isTodayNotification(notification)) {
+                setPageInfo(current => ({
+                    ...current,
+                    currentOffset: Math.max(0, current.currentOffset - 1),
+                    currentTotal: Math.max(0, current.currentTotal - 1),
+                    historyTotal: current.historyTotal + 1
+                }));
+            }
             if (!notification.readAt) {
                 setSummary(current => ({
                     ...current,
@@ -257,7 +376,6 @@ export default function NotificationBell({
 
         try {
             await markAllNotificationsRead(userId);
-            setNotifications(current => current.map(item => ({ ...item, readAt: item.readAt || new Date().toISOString() })));
             setUnreadCount(0);
             setSummary(current => ({
                 ...current,
@@ -265,6 +383,7 @@ export default function NotificationBell({
                     ? current.categories.map(item => ({ ...item, unread: 0 }))
                     : []
             }));
+            await loadNotifications();
         } finally {
             setIsUpdating(false);
         }
@@ -432,6 +551,20 @@ export default function NotificationBell({
                                     })}
                                 </section>
                             ))
+                        )}
+                        {!isLoading && !errorMessage && canLoadMoreVisible && (
+                            <div className="border-t border-slate-100 bg-white px-4 py-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleLoadMore}
+                                    disabled={isLoadingMore}
+                                    className="h-9 w-full text-sm font-black"
+                                >
+                                    {isLoadingMore && <Loader2 className="size-4 animate-spin" />}
+                                    {loadMoreLabel}
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>

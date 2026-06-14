@@ -93,6 +93,44 @@ function vetDiagnosisDecodeJson($value)
     return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
 }
 
+function vetDiagnosisWeightValue($value): ?float
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $text = trim(str_replace(',', '.', (string)$value));
+    if ($text === '') {
+        return null;
+    }
+
+    if (!is_numeric($text) && preg_match('/-?\d+(?:\.\d+)?/', $text, $matches)) {
+        $text = $matches[0];
+    }
+
+    if (!is_numeric($text)) {
+        return null;
+    }
+
+    $weight = (float)$text;
+    return $weight > 0 ? round($weight, 2) : null;
+}
+
+function vetDiagnosisUpdatePetWeight(PDO $pdo, int $petId, $vitalSigns): void
+{
+    if (!is_array($vitalSigns)) {
+        return;
+    }
+
+    $weight = vetDiagnosisWeightValue($vitalSigns['weight'] ?? $vitalSigns['petWeight'] ?? null);
+    if ($weight === null) {
+        return;
+    }
+
+    $stmt = $pdo->prepare("UPDATE pets_information SET pet_weight = ? WHERE pet_id = ?");
+    $stmt->execute([$weight, $petId]);
+}
+
 function vetDiagnosisVaccinationSelect(PDO $pdo): string
 {
     $hasSourceDiagnosis = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'source_diagnosis_id');
@@ -678,6 +716,8 @@ try {
     }
 
     $diagnosisText = vetDiagnosisNullableText($input['diagnosis'] ?? null);
+    $vitalSigns = $input['vital_signs'] ?? $input['vitalSigns'] ?? [];
+    $vitalSigns = is_array($vitalSigns) ? $vitalSigns : [];
     $customSections = $input['custom_sections'] ?? $input['customSections'] ?? [];
     $customSections = is_array($customSections) ? $customSections : [];
     $prescriptions = $input['prescriptions'] ?? [];
@@ -746,7 +786,7 @@ try {
         'lab_results' => vetDiagnosisNullableText($input['lab_results'] ?? $input['labResults'] ?? null),
         'follow_up_date' => vetDiagnosisDate($input['follow_up_date'] ?? $input['followUp'] ?? null),
         'notes' => vetDiagnosisNullableText($input['notes'] ?? null),
-        'vital_signs' => vetDiagnosisJsonValue($input['vital_signs'] ?? $input['vitalSigns'] ?? []),
+        'vital_signs' => vetDiagnosisJsonValue($vitalSigns),
         'prescriptions' => vetDiagnosisJsonValue($prescriptions),
         'custom_sections' => vetDiagnosisJsonValue($customSections),
         'attachments' => vetDiagnosisJsonValue($attachments),
@@ -833,6 +873,7 @@ try {
     $stmt->execute($payload);
     $diagnosisId = (int)$pdo->lastInsertId();
 
+    vetDiagnosisUpdatePetWeight($pdo, $petId, $vitalSigns);
     vetDiagnosisSaveVaccinationRecord(
         $pdo,
         $diagnosisId,

@@ -35,10 +35,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
 import { fetchInventoryItems } from '../../services/inventoryApi';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { fetchVisits, postVisitPayment, saveVisitCharges } from '../../services/visitBillingService';
+import { createVisit, fetchVisits, postVisitPayment, saveVisitCharges } from '../../services/visitBillingService';
 
 const INVOICE_DATE = 'May 30, 2026';
 
@@ -93,11 +94,11 @@ const WALK_IN_SALE_VISIT = {
   source: 'walk_in',
   petName: 'Walk-in Customer',
   ownerName: 'Counter Sale',
-  species: 'No patient visit',
+  species: 'Counter sale',
   visitType: 'Walk-in / Retail Invoice',
   veterinarian: 'POS Counter',
-  complaint: 'No ready-for-billing visit is required for direct sales.',
-  status: 'Optional visit',
+  complaint: 'Posting this sale records a walk-in visit for patient visit counts.',
+  status: 'New sale',
   initialCharges: [],
 };
 
@@ -849,6 +850,7 @@ export default function ServicePOS() {
   const [catalogSchemaMessage, setCatalogSchemaMessage] = useState('');
   const [isLoadingVisits, setIsLoadingVisits] = useState(false);
   const [isPostingPayment, setIsPostingPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('gcash');
   const [posPrefill] = useState(() => readPosPrefill());
   const catalog = useMemo(() => buildCatalog(inventory, serviceCatalog), [inventory, serviceCatalog]);
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
@@ -949,6 +951,7 @@ export default function ServicePOS() {
   useAutoRefresh(loadVisitBills, { refreshKey: 'pos-visit-payments' });
   useAutoRefresh(loadServiceCatalog, { refreshKey: 'pos-service-catalog' });
   useAutoRefresh(loadInventory, { intervalMs: 12000, refreshKey: 'pos-inventory' });
+  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
 
   useEffect(() => {
     if (!posPrefill) {
@@ -958,7 +961,12 @@ export default function ServicePOS() {
     localStorage.removeItem('ipawcus-pos-prefill');
   }, [posPrefill]);
 
-  const paymentMethod = 'cash';
+  useEffect(() => {
+    if (paymentMethods.length > 0 && !paymentMethods.some((method) => method.value === paymentMethod)) {
+      setPaymentMethod(paymentMethods[0].value);
+    }
+  }, [paymentMethod, paymentMethods]);
+
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
   const visitBalance = selectedVisit?.source === 'database'
@@ -967,6 +975,7 @@ export default function ServicePOS() {
   const canCreateInvoice = charges.length > 0
     && stockProblems.length === 0
     && !isPostingPayment
+    && Boolean(paymentMethod)
     && (selectedVisit?.source !== 'database' || visitBalance > 0);
   const inventoryImpact = getInventoryImpact(charges, inventoryById);
   const selectedCharge = charges.find((charge) => charge.lineId === selectedChargeId);
@@ -1233,16 +1242,59 @@ export default function ServicePOS() {
       return;
     }
 
-    const usageByInventory = buildUsageByInventory(charges);
-    setInventory((currentInventory) => currentInventory.map((item) => ({
-      ...item,
-      stock: Math.max(0, item.stock - (usageByInventory[item.id]?.quantity || 0)),
-    })));
-    setCharges([]);
-    setSelectedChargeId('');
-    setInvoiceOpen(false);
-    setInvoiceNumber((current) => nextInvoiceNumber(current));
-    setNotification(`${invoiceNumber} posted. Inventory was deducted internally.`);
+    const postedInvoiceNumber = invoiceNumber;
+    const amountToPost = invoiceTotal;
+    setIsPostingPayment(true);
+
+    try {
+      const visitData = await createVisit({
+        source_type: 'walk_in',
+        visit_status: 'completed',
+        charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
+      });
+
+      if (visitData.success === false || !visitData.visit?.visitId) {
+        throw new Error(visitData.message || 'Failed to record walk-in sale visit.');
+      }
+
+      const data = await postVisitPayment(visitData.visit.visitId, {
+        amount: amountToPost,
+        payment_method: paymentMethod,
+        payment_status: 'verified',
+        reference_number: postedInvoiceNumber,
+        received_by_user_id: getUserIdentifier(currentUser),
+        received_by_name: getUserDisplayName(currentUser),
+      });
+
+      if (data.success === false) {
+        throw new Error(data.message || 'Failed to post walk-in sale payment.');
+      }
+
+      const recordedVisit = data.visit || visitData.visit;
+      if (recordedVisit) {
+        setVisitBills((currentBills) => [
+          recordedVisit,
+          ...currentBills.filter((visit) => visit.visitId !== recordedVisit.visitId),
+        ]);
+      } else {
+        await loadVisitBills({ isAutoRefresh: true });
+      }
+
+      const usageByInventory = buildUsageByInventory(charges);
+      setInventory((currentInventory) => currentInventory.map((item) => ({
+        ...item,
+        stock: Math.max(0, item.stock - (usageByInventory[item.id]?.quantity || 0)),
+      })));
+      setCharges([]);
+      setSelectedChargeId('');
+      setInvoiceOpen(false);
+      setInvoiceNumber((current) => nextInvoiceNumber(current));
+      setNotification(`${postedInvoiceNumber} posted. Walk-in sale was added to patient visit count.`);
+    } catch (error) {
+      setNotification(error.message || 'Failed to post walk-in sale.');
+    } finally {
+      setIsPostingPayment(false);
+    }
   };
 
   return (
@@ -1313,7 +1365,7 @@ export default function ServicePOS() {
         `}
       </style>
       {invoiceOpen && (
-        <div className="pos-receipt-print-area hidden" aria-hidden="true">
+        <div className="pos-receipt-print-area theme-static-light hidden" aria-hidden="true">
           <ThermalReceipt
             paperWidth={receiptPaperWidth}
             logo={ipawcusLogo}
@@ -1394,7 +1446,7 @@ export default function ServicePOS() {
                 {visitOptions.map((visit) => (
                   <SelectItem key={visit.id} value={visit.id}>
                     {visit.id === WALK_IN_SALE_ID
-                      ? 'Walk-in / No ready billing'
+                      ? 'Walk-in Sale / Count as visit'
                       : `${visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - ${visit.petName}`}
                   </SelectItem>
                 ))}
@@ -1713,7 +1765,7 @@ export default function ServicePOS() {
       </div>
 
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="theme-static-light max-w-5xl">
           <DialogHeader className="thermal-print-hidden">
             <DialogTitle>Invoice Receipt</DialogTitle>
             <DialogDescription>
@@ -1825,6 +1877,22 @@ export default function ServicePOS() {
                 total={invoiceTotal}
               />
             </div>
+          </div>
+
+          <div className="thermal-print-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Payment Method</p>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={isLoadingPaymentMethods || isPostingPayment}>
+              <SelectTrigger className="h-10 bg-white">
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((method) => (
+                  <SelectItem key={method.value} value={method.value}>
+                    {method.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter className="thermal-print-hidden">
@@ -2008,7 +2076,7 @@ function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, c
 
   return (
     <div
-      className="thermal-print-root mx-auto rounded-lg border border-slate-300 bg-white p-3 font-mono text-black shadow-sm"
+      className="thermal-print-root theme-static-light mx-auto rounded-lg border border-slate-300 bg-white p-3 font-mono text-black shadow-sm"
       style={{ width: previewWidth, maxWidth: previewWidth }}
     >
       <div className="text-center">

@@ -2,6 +2,12 @@ import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 
 import { registerUser } from "./services/registerUser.js";
 import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
+import ServerDownPage from "./components/ServerDownPage.jsx";
+import {
+  checkServerHealth,
+  getServerStatusSnapshot,
+  subscribeToServerStatus
+} from "./services/apiClient.js";
 
 // Lazy load components
 const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
@@ -89,6 +95,8 @@ function App() {
     localStorage.getItem('pendingVerificationEmail') || ''
   ));
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [serverStatus, setServerStatus] = useState(() => getServerStatusSnapshot());
+  const [isCheckingServer, setIsCheckingServer] = useState(false);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -131,6 +139,44 @@ function App() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
+
+  useEffect(() => {
+    return subscribeToServerStatus(setServerStatus);
+  }, []);
+
+  const retryServerConnection = useCallback(async (options = {}) => {
+    const showChecking = options?.showChecking !== false;
+
+    if (showChecking) {
+      setIsCheckingServer(true);
+    }
+
+    try {
+      await checkServerHealth();
+    } catch (error) {
+      console.error('Server health check failed:', error);
+    } finally {
+      if (showChecking) {
+        setIsCheckingServer(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    retryServerConnection({ showChecking: false });
+  }, [retryServerConnection]);
+
+  useEffect(() => {
+    if (!serverStatus.isDown) {
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      retryServerConnection({ showChecking: false });
+    }, 15000);
+
+    return () => window.clearInterval(timerId);
+  }, [retryServerConnection, serverStatus.isDown]);
 
   useEffect(() => {
     if (view === 'dashboard' && !currentUser) {
@@ -245,6 +291,18 @@ function App() {
     navigateTo(routes.forgotPassword);
   };
 
+  if (serverStatus.isDown) {
+    return (
+      <ServerDownPage
+        message={serverStatus.message}
+        isRetrying={isCheckingServer}
+        onRetry={retryServerConnection}
+      />
+    );
+  }
+
+  const activeView = getRouteRedirect(view, currentUser, registrationData.email).view;
+
   return (
     <Suspense fallback={
       <div className="flex h-screen w-screen items-center justify-center bg-white">
@@ -254,16 +312,16 @@ function App() {
         </div>
       </div>
     }>
-      <div className="min-h-screen">
+      <div className={activeView === 'dashboard' ? 'min-h-screen theme-aware' : 'min-h-screen theme-static-light'}>
         <ToastViewport />
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'landing' && (
+        {activeView === 'landing' && (
             <LandingPage
                 onLogin={() => navigateTo(routes.login)}
                 onRegister={() => navigateTo(routes.register)}
             />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'login' && (
+        {activeView === 'login' && (
             <Login
                 onLogin={handleLoginSuccess}
                 onBack={() => navigateTo(routes.landing)}
@@ -273,7 +331,7 @@ function App() {
             />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'verifyEmail' && (
+        {activeView === 'verifyEmail' && (
             <EmailVerification
                 initialEmail={pendingVerificationEmail}
                 onBack={() => navigateTo(routes.login)}
@@ -281,7 +339,7 @@ function App() {
             />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'forgotPassword' && (
+        {activeView === 'forgotPassword' && (
             <ForgotPassword
                 initialEmail={forgotPasswordEmail}
                 onBack={() => navigateTo(routes.login)}
@@ -289,11 +347,11 @@ function App() {
             />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'dashboard' && currentUser && (
+        {activeView === 'dashboard' && currentUser && (
             <Dashboard user={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'register' && (
+        {activeView === 'register' && (
             <RegistrationForm
                 key={`register-${registrationFlowKey}`}
                 onBackHome={() => navigateTo(routes.landing)}
@@ -303,7 +361,7 @@ function App() {
             />
         )}
 
-        {getRouteRedirect(view, currentUser, registrationData.email).view === 'registerProfile' && (
+        {activeView === 'registerProfile' && (
             <PetOwnerProfileForm
                 key={`register-profile-${registrationFlowKey}`}
                 email={registrationData.email}

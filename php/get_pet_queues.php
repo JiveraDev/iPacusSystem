@@ -32,6 +32,8 @@ try {
     $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
     $hasQueueSource = in_array('queue_source', $columns, true);
     $queueSourceSelect = $hasQueueSource ? "q.queue_source" : "'admin'";
+    $hasSelfServiceSignature = in_array('signiture_self_service_path', $columns, true);
+    $selfServiceSignatureSelect = $hasSelfServiceSignature ? "q.signiture_self_service_path" : "NULL";
 
     $stmt = $pdo->prepare("
         SELECT
@@ -43,7 +45,8 @@ try {
             q.priority,
             q.complaint,
             q.timestamp,
-            {$queueSourceSelect} AS queue_source
+            {$queueSourceSelect} AS queue_source,
+            {$selfServiceSignatureSelect} AS signiture_self_service_path
         FROM queues q
         JOIN pets_information p ON q.pet_id = p.pet_id
         WHERE {$whereColumn} = ?

@@ -5,8 +5,10 @@ function userIdQuery(userId) {
 }
 
 export function fetchNotifications(userId, options = {}) {
-    const { limit = 30, ...requestOptions } = options;
+    const { limit = 30, offset, scope, ...requestOptions } = options;
     const query = new URLSearchParams({ userId, limit });
+    if (offset !== undefined) query.set('offset', offset);
+    if (scope) query.set('scope', scope);
 
     return apiRequest(`/notifications?${query.toString()}`, requestOptions);
 }

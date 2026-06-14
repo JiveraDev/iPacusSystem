@@ -9,17 +9,37 @@ if (!$userId) {
     exit;
 }
 
-try {
+function fetchUserPetRows(PDO $pdo, $userId): array
+{
     $sql = "SELECT p.*, q.queue_id, q.status AS queue_status, q.queue_number
-            FROM pets_information p 
-            JOIN pet_ownership o ON p.pet_id = o.pet_id 
-            LEFT JOIN queues q ON p.pet_id = q.pet_id AND q.status IN ('waiting', 'in-progress')
-            WHERE o.user_id = ? 
+            FROM pets_information p
+            JOIN pet_ownership o ON p.pet_id = o.pet_id
+            LEFT JOIN queues q ON q.queue_id = (
+                SELECT q2.queue_id
+                FROM queues q2
+                WHERE q2.pet_id = p.pet_id
+                  AND q2.status IN ('waiting', 'in-progress')
+                ORDER BY q2.queue_id DESC
+                LIMIT 1
+            )
+            WHERE o.user_id = ?
             ORDER BY p.pet_id DESC";
-    
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$userId]);
-    $pets = $stmt->fetchAll();
+    return $stmt->fetchAll();
+}
+
+try {
+    try {
+        $pets = fetchUserPetRows($pdo, $userId);
+    } catch (PDOException $e) {
+        if (!isRecoverableDatabaseConnectionError($e)) {
+            throw $e;
+        }
+
+        $pets = fetchUserPetRows(reconnectDatabase(), $userId);
+    }
 
     $formattedPets = array_map(function($pet) {
         return [

@@ -12,12 +12,14 @@ import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "
 import { createBooking } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
+import SubmissionStatus from "../shared/SubmissionStatus";
 
 export default function GeneralCheckup() {
   const navigate = useNavigate();
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     petId: "",
     petName: "",
@@ -62,6 +64,9 @@ export default function GeneralCheckup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
     
     if (!isNewPet && !formData.petId) {
       toast.error("Please select a pet");
@@ -82,6 +87,7 @@ export default function GeneralCheckup() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
       const userId = currentUser.user_id || currentUser.id;
@@ -133,6 +139,8 @@ export default function GeneralCheckup() {
     } catch (error) {
       console.error("Booking error:", error);
       toast.error(error.message || "Failed to submit booking");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -360,8 +368,10 @@ export default function GeneralCheckup() {
                 <p className="text-xs text-gray-500">Upload medical records, X-rays, or other relevant documents (Maximum upload of 5 files recommended)</p>
               </div>
 
-              <Button type="submit" className="w-full">
-                Submit Booking Request
+              <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />
+
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Submitting Booking..." : "Submit Booking Request"}
               </Button>
             </form>
           </CardContent>

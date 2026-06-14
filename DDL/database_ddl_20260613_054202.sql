@@ -1,7 +1,7 @@
 -- Database DDL export
 -- Database: ipawcus_system
--- Generated: 2026-06-03T06:23:41+00:00
--- Tables: 28
+-- Generated: 2026-06-13T05:42:02+00:00
+-- Tables: 47
 -- Views: 0
 
 SET FOREIGN_KEY_CHECKS=0;
@@ -34,6 +34,123 @@ CREATE TABLE `admin_profiles` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- Table: boarding_assignments
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `boarding_assignments`;
+CREATE TABLE `boarding_assignments` (
+  `assignment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `booking_id` int(11) NOT NULL,
+  `room_type` varchar(50) NOT NULL,
+  `room_number` int(11) NOT NULL,
+  `status` enum('reserved','occupied','checked_out','cancelled') NOT NULL DEFAULT 'reserved',
+  `reserved_at` datetime DEFAULT NULL,
+  `actual_check_in_at` datetime DEFAULT NULL,
+  `actual_check_out_at` datetime DEFAULT NULL,
+  `desired_check_out_date` date DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`assignment_id`),
+  KEY `boarding_assignment_booking_idx` (`booking_id`),
+  KEY `boarding_assignment_room_idx` (`room_type`,`room_number`,`status`),
+  KEY `boarding_assignment_status_idx` (`status`),
+  CONSTRAINT `boarding_assignment_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: boarding_documents
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `boarding_documents`;
+CREATE TABLE `boarding_documents` (
+  `document_id` int(11) NOT NULL AUTO_INCREMENT,
+  `assignment_id` int(11) DEFAULT NULL,
+  `booking_id` int(11) NOT NULL,
+  `pet_id` int(11) DEFAULT NULL,
+  `document_type` enum('monitoring_report','boarding_history','checkout_summary','diagnosis_reference','other') NOT NULL DEFAULT 'monitoring_report',
+  `title` varchar(180) NOT NULL,
+  `document_path` varchar(255) NOT NULL,
+  `file_name` varchar(255) DEFAULT NULL,
+  `mime_type` varchar(120) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `uploaded_by_user_id` int(11) DEFAULT NULL,
+  `uploaded_by_name` varchar(220) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`document_id`),
+  KEY `boarding_documents_assignment_idx` (`assignment_id`),
+  KEY `boarding_documents_booking_idx` (`booking_id`),
+  KEY `boarding_documents_pet_idx` (`pet_id`),
+  KEY `boarding_documents_uploaded_by_fk` (`uploaded_by_user_id`),
+  CONSTRAINT `boarding_documents_assignment_fk` FOREIGN KEY (`assignment_id`) REFERENCES `boarding_assignments` (`assignment_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_documents_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE,
+  CONSTRAINT `boarding_documents_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_documents_uploaded_by_fk` FOREIGN KEY (`uploaded_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: boarding_observations
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `boarding_observations`;
+CREATE TABLE `boarding_observations` (
+  `observation_id` int(11) NOT NULL AUTO_INCREMENT,
+  `assignment_id` int(11) DEFAULT NULL,
+  `booking_id` int(11) NOT NULL,
+  `pet_id` int(11) DEFAULT NULL,
+  `room_type` varchar(50) NOT NULL,
+  `room_number` int(11) NOT NULL,
+  `observation_type` varchar(40) NOT NULL,
+  `notes` text NOT NULL,
+  `observed_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`observation_id`),
+  KEY `boarding_observation_assignment_idx` (`assignment_id`),
+  KEY `boarding_observation_booking_idx` (`booking_id`),
+  KEY `boarding_observation_pet_idx` (`pet_id`),
+  KEY `boarding_observation_type_idx` (`observation_type`),
+  KEY `boarding_observation_user_fk` (`created_by_user_id`),
+  CONSTRAINT `boarding_observation_assignment_fk` FOREIGN KEY (`assignment_id`) REFERENCES `boarding_assignments` (`assignment_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_observation_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE,
+  CONSTRAINT `boarding_observation_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_observation_user_fk` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: boarding_tasks
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `boarding_tasks`;
+CREATE TABLE `boarding_tasks` (
+  `task_id` int(11) NOT NULL AUTO_INCREMENT,
+  `assignment_id` int(11) DEFAULT NULL,
+  `booking_id` int(11) NOT NULL,
+  `pet_id` int(11) DEFAULT NULL,
+  `room_type` varchar(50) NOT NULL,
+  `room_number` int(11) NOT NULL,
+  `task_type` varchar(40) NOT NULL,
+  `due_at` datetime NOT NULL,
+  `status` enum('pending','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `assigned_to` varchar(120) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `created_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`task_id`),
+  KEY `boarding_task_assignment_idx` (`assignment_id`),
+  KEY `boarding_task_booking_idx` (`booking_id`),
+  KEY `boarding_task_pet_idx` (`pet_id`),
+  KEY `boarding_task_due_idx` (`status`,`due_at`),
+  KEY `boarding_task_user_fk` (`created_by_user_id`),
+  CONSTRAINT `boarding_task_assignment_fk` FOREIGN KEY (`assignment_id`) REFERENCES `boarding_assignments` (`assignment_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_task_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE,
+  CONSTRAINT `boarding_task_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE SET NULL,
+  CONSTRAINT `boarding_task_user_fk` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 -- Table: bookings
 -- --------------------------------------------------------
 
@@ -52,6 +169,8 @@ CREATE TABLE `bookings` (
   `is_home_service` tinyint(1) DEFAULT 0,
   `address` text DEFAULT NULL,
   `payment_proof_url` varchar(255) DEFAULT NULL,
+  `payment_method` varchar(40) DEFAULT NULL,
+  `payment_reference` varchar(120) DEFAULT NULL,
   `is_online_consultation` tinyint(1) DEFAULT 0,
   `veterinarian_id` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -111,6 +230,34 @@ CREATE TABLE `consent_files` (
   `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`file_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: email_otp_tokens
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `email_otp_tokens`;
+CREATE TABLE `email_otp_tokens` (
+  `otp_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `email` varchar(200) NOT NULL,
+  `purpose` enum('email_verification','password_reset','password_change','payment_settings_change') NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `attempt_count` int(11) NOT NULL DEFAULT 0,
+  `max_attempts` int(11) NOT NULL DEFAULT 5,
+  `last_sent_at` datetime DEFAULT NULL,
+  `request_ip` varchar(45) DEFAULT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`otp_id`),
+  KEY `email_otp_user_purpose_idx` (`user_id`,`purpose`,`expires_at`),
+  KEY `email_otp_email_purpose_idx` (`email`,`purpose`,`expires_at`),
+  KEY `email_otp_token_hash_idx` (`token_hash`),
+  KEY `email_otp_cleanup_idx` (`used_at`,`expires_at`),
+  CONSTRAINT `email_otp_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: history_before_registration
@@ -291,6 +438,56 @@ CREATE TABLE `inventory_suppliers` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- Table: notification_preferences
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `notification_preferences`;
+CREATE TABLE `notification_preferences` (
+  `user_id` int(11) NOT NULL,
+  `email_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `in_app_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `browser_push_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `booking_updates` tinyint(1) NOT NULL DEFAULT 1,
+  `schedule_reminders` tinyint(1) NOT NULL DEFAULT 1,
+  `payment_updates` tinyint(1) NOT NULL DEFAULT 1,
+  `diagnosis_updates` tinyint(1) NOT NULL DEFAULT 1,
+  `queue_updates` tinyint(1) NOT NULL DEFAULT 1,
+  `boarding_updates` tinyint(1) NOT NULL DEFAULT 1,
+  `reminder_24h` tinyint(1) NOT NULL DEFAULT 1,
+  `reminder_2h` tinyint(1) NOT NULL DEFAULT 1,
+  `reminder_same_day` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `notification_preferences_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: notification_push_subscriptions
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `notification_push_subscriptions`;
+CREATE TABLE `notification_push_subscriptions` (
+  `subscription_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `endpoint` text NOT NULL,
+  `endpoint_hash` char(64) NOT NULL,
+  `p256dh` text DEFAULT NULL,
+  `auth` text DEFAULT NULL,
+  `content_encoding` varchar(40) DEFAULT 'aes128gcm',
+  `user_agent` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `last_sent_at` datetime DEFAULT NULL,
+  `last_error` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`subscription_id`),
+  UNIQUE KEY `notification_push_endpoint_unique` (`endpoint_hash`),
+  KEY `notification_push_user_active_idx` (`user_id`,`is_active`),
+  CONSTRAINT `notification_push_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 -- Table: online_consultations
 -- --------------------------------------------------------
 
@@ -374,6 +571,29 @@ CREATE TABLE `online_consultation_reschedules` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- Table: payment_methods
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `payment_methods`;
+CREATE TABLE `payment_methods` (
+  `method_key` varchar(40) NOT NULL,
+  `label` varchar(80) NOT NULL,
+  `account_name` varchar(140) DEFAULT NULL,
+  `account_number` varchar(140) DEFAULT NULL,
+  `instructions` text DEFAULT NULL,
+  `qr_image_url` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `requires_proof` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `updated_by_user_id` int(11) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`method_key`),
+  KEY `payment_methods_sort_idx` (`is_active`,`sort_order`),
+  KEY `payment_methods_updated_by_idx` (`updated_by_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 -- Table: pets_information
 -- --------------------------------------------------------
 
@@ -414,6 +634,57 @@ CREATE TABLE `pet_allergies` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- Table: pet_medical_record_groups
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `pet_medical_record_groups`;
+CREATE TABLE `pet_medical_record_groups` (
+  `group_id` int(11) NOT NULL AUTO_INCREMENT,
+  `pet_id` int(11) NOT NULL,
+  `title` varchar(180) NOT NULL,
+  `summary` text DEFAULT NULL,
+  `visible_to_owner` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_by_user_id` int(11) DEFAULT NULL,
+  `updated_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`group_id`),
+  KEY `pet_medical_record_groups_pet_idx` (`pet_id`,`sort_order`,`group_id`),
+  KEY `pet_medical_record_groups_created_by_idx` (`created_by_user_id`),
+  KEY `pet_medical_record_groups_updated_by_idx` (`updated_by_user_id`),
+  CONSTRAINT `pet_medical_record_groups_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: pet_medical_record_group_items
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `pet_medical_record_group_items`;
+CREATE TABLE `pet_medical_record_group_items` (
+  `item_id` int(11) NOT NULL AUTO_INCREMENT,
+  `group_id` int(11) NOT NULL,
+  `source_type` varchar(40) NOT NULL,
+  `source_id` int(11) DEFAULT NULL,
+  `title` varchar(180) NOT NULL,
+  `summary` text DEFAULT NULL,
+  `revision_notes` text DEFAULT NULL,
+  `service_date` datetime DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `source_snapshot` longtext DEFAULT NULL,
+  `added_by_user_id` int(11) DEFAULT NULL,
+  `updated_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`item_id`),
+  KEY `pet_medical_record_group_items_group_idx` (`group_id`,`sort_order`,`item_id`),
+  KEY `pet_medical_record_group_items_source_idx` (`source_type`,`source_id`),
+  KEY `pet_medical_record_group_items_added_by_idx` (`added_by_user_id`),
+  KEY `pet_medical_record_group_items_updated_by_idx` (`updated_by_user_id`),
+  CONSTRAINT `pet_medical_record_group_items_group_fk` FOREIGN KEY (`group_id`) REFERENCES `pet_medical_record_groups` (`group_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
 -- Table: pet_ownership
 -- --------------------------------------------------------
 
@@ -429,6 +700,69 @@ CREATE TABLE `pet_ownership` (
   CONSTRAINT `pet_ownership_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
   CONSTRAINT `pet_ownership_ibfk_2` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: pet_owner_todos
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `pet_owner_todos`;
+CREATE TABLE `pet_owner_todos` (
+  `todo_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `title` varchar(180) NOT NULL,
+  `details` text DEFAULT NULL,
+  `category` varchar(80) NOT NULL DEFAULT 'Personal Task',
+  `start_at` datetime NOT NULL,
+  `end_at` datetime DEFAULT NULL,
+  `status` enum('pending','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `completed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`todo_id`),
+  KEY `pet_owner_todos_user_start_idx` (`user_id`,`start_at`),
+  KEY `pet_owner_todos_user_status_idx` (`user_id`,`status`),
+  CONSTRAINT `pet_owner_todos_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: pet_record_update_requests
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `pet_record_update_requests`;
+CREATE TABLE `pet_record_update_requests` (
+  `request_id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_number` varchar(32) NOT NULL,
+  `pet_id` int(11) NOT NULL,
+  `owner_user_id` int(11) DEFAULT NULL,
+  `requested_changes` text DEFAULT NULL,
+  `payment_method` varchar(40) NOT NULL DEFAULT 'qrph',
+  `payment_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `payment_status` enum('pending','submitted','verified','waived','rejected') NOT NULL DEFAULT 'pending',
+  `payment_proof_url` varchar(255) DEFAULT NULL,
+  `status` enum('pending_admin_review','approved','rejected','assigned','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending_admin_review',
+  `admin_notes` text DEFAULT NULL,
+  `veterinarian_notes` text DEFAULT NULL,
+  `assigned_veterinarian_user_id` int(11) DEFAULT NULL,
+  `reviewed_by_user_id` int(11) DEFAULT NULL,
+  `completed_by_user_id` int(11) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`request_id`),
+  UNIQUE KEY `request_number` (`request_number`),
+  KEY `record_update_pet_idx` (`pet_id`,`status`),
+  KEY `record_update_owner_idx` (`owner_user_id`,`created_at`),
+  KEY `record_update_status_idx` (`status`,`payment_status`),
+  KEY `record_update_vet_idx` (`assigned_veterinarian_user_id`,`status`),
+  KEY `record_update_reviewed_by_fk` (`reviewed_by_user_id`),
+  KEY `record_update_completed_by_fk` (`completed_by_user_id`),
+  CONSTRAINT `record_update_assigned_vet_fk` FOREIGN KEY (`assigned_veterinarian_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
+  CONSTRAINT `record_update_completed_by_fk` FOREIGN KEY (`completed_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
+  CONSTRAINT `record_update_owner_fk` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
+  CONSTRAINT `record_update_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE CASCADE,
+  CONSTRAINT `record_update_reviewed_by_fk` FOREIGN KEY (`reviewed_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: pet_vaccinations
@@ -447,7 +781,7 @@ CREATE TABLE `pet_vaccinations` (
   PRIMARY KEY (`vax_id`),
   KEY `pet_id` (`pet_id`),
   CONSTRAINT `pet_vaccinations_ibfk_1` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: queues
@@ -476,7 +810,7 @@ CREATE TABLE `queues` (
   CONSTRAINT `queues_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE SET NULL,
   CONSTRAINT `queues_ibfk_1` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`),
   CONSTRAINT `queues_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: rooms
@@ -491,6 +825,68 @@ CREATE TABLE `rooms` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`room_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: room_unit_statuses
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `room_unit_statuses`;
+CREATE TABLE `room_unit_statuses` (
+  `room_unit_status_id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_type` varchar(50) NOT NULL,
+  `room_number` int(11) NOT NULL,
+  `status` enum('available','maintenance') NOT NULL DEFAULT 'available',
+  `notes` text DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`room_unit_status_id`),
+  UNIQUE KEY `room_unit_status_unique` (`room_type`,`room_number`),
+  KEY `room_unit_status_lookup` (`room_type`,`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: service_catalog
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `service_catalog`;
+CREATE TABLE `service_catalog` (
+  `service_id` int(11) NOT NULL AUTO_INCREMENT,
+  `service_code` varchar(80) DEFAULT NULL,
+  `service_name` varchar(150) NOT NULL,
+  `service_type` enum('consultation','vaccination','laboratory','surgery','grooming','boarding','dental','home_service','other') NOT NULL,
+  `description` text DEFAULT NULL,
+  `base_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `is_major_service` tinyint(1) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`service_id`),
+  UNIQUE KEY `service_catalog_code_unique` (`service_code`),
+  KEY `service_catalog_type_idx` (`service_type`,`is_active`),
+  KEY `service_catalog_created_by_fk` (`created_by_user_id`),
+  CONSTRAINT `service_catalog_created_by_fk` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: service_materials
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `service_materials`;
+CREATE TABLE `service_materials` (
+  `service_material_id` int(11) NOT NULL AUTO_INCREMENT,
+  `service_id` int(11) NOT NULL,
+  `item_id` int(11) DEFAULT NULL,
+  `material_name` varchar(180) NOT NULL,
+  `qty_used` decimal(10,2) NOT NULL DEFAULT 1.00,
+  `billable_policy` enum('included','separate','optional') DEFAULT 'included',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`service_material_id`),
+  KEY `service_id` (`service_id`),
+  KEY `item_id` (`item_id`),
+  CONSTRAINT `service_materials_ibfk_1` FOREIGN KEY (`service_id`) REFERENCES `service_catalog` (`service_id`),
+  CONSTRAINT `service_materials_ibfk_2` FOREIGN KEY (`item_id`) REFERENCES `inventory_items` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: special_service_booking_items
@@ -550,16 +946,53 @@ CREATE TABLE `users` (
   `first_Name` varchar(100) DEFAULT NULL,
   `last_Name` varchar(100) NOT NULL,
   `mail_Address` varchar(200) NOT NULL,
+  `email_verified_at` datetime DEFAULT NULL,
   `personal_Address` varchar(250) NOT NULL,
   `user_password` varchar(250) DEFAULT NULL,
+  `password_changed_at` datetime DEFAULT NULL,
   `emergencyNumber` varchar(100) DEFAULT NULL,
   `phoneNumber` varchar(100) DEFAULT NULL,
   `role` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `setProfilePic_url` varchar(250) DEFAULT NULL,
   `birthdate` date DEFAULT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `users_mail_address_unique` (`mail_Address`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: user_notifications
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `user_notifications`;
+CREATE TABLE `user_notifications` (
+  `notification_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `type` varchar(80) NOT NULL DEFAULT 'system',
+  `category` varchar(80) NOT NULL DEFAULT 'system',
+  `title` varchar(180) NOT NULL,
+  `message` text DEFAULT NULL,
+  `push_title` varchar(180) DEFAULT NULL,
+  `push_message` text DEFAULT NULL,
+  `redirect_path` varchar(255) DEFAULT NULL,
+  `in_app_visible` tinyint(1) NOT NULL DEFAULT 1,
+  `dedupe_key` varchar(180) DEFAULT NULL,
+  `email_subject` varchar(180) DEFAULT NULL,
+  `email_status` enum('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
+  `email_sent_at` datetime DEFAULT NULL,
+  `email_error` text DEFAULT NULL,
+  `push_status` enum('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
+  `push_sent_at` datetime DEFAULT NULL,
+  `push_error` text DEFAULT NULL,
+  `read_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`notification_id`),
+  UNIQUE KEY `user_notifications_dedupe_unique` (`user_id`,`dedupe_key`),
+  KEY `user_notifications_user_created_idx` (`user_id`,`created_at`),
+  KEY `user_notifications_user_read_idx` (`user_id`,`read_at`),
+  CONSTRAINT `user_notifications_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: veterinarian_profiles
@@ -654,7 +1087,7 @@ CREATE TABLE `vet_queue_assignments` (
   KEY `vet_queue_assignments_status_idx` (`queue_id`,`status`),
   CONSTRAINT `vet_queue_assignments_queue_fk` FOREIGN KEY (`queue_id`) REFERENCES `queues` (`queue_id`) ON DELETE CASCADE,
   CONSTRAINT `vet_queue_assignments_vet_fk` FOREIGN KEY (`veterinarian_user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table: vet_schedules
@@ -671,5 +1104,91 @@ CREATE TABLE `vet_schedules` (
   KEY `vet_schedules_fk` (`user_id`),
   CONSTRAINT `vet_schedules_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: visits
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `visits`;
+CREATE TABLE `visits` (
+  `visit_id` int(11) NOT NULL AUTO_INCREMENT,
+  `pet_id` int(11) NOT NULL,
+  `owner_user_id` int(11) NOT NULL,
+  `veterinarian_user_id` int(11) DEFAULT NULL,
+  `queue_id` int(11) DEFAULT NULL,
+  `booking_id` int(11) DEFAULT NULL,
+  `diagnosis_id` int(11) DEFAULT NULL,
+  `source_type` enum('queue','booking','walk_in','boarding','manual') NOT NULL DEFAULT 'manual',
+  `visit_status` enum('waiting','in_consultation','treatment_done','completed','cancelled') DEFAULT 'waiting',
+  `billing_status` enum('unbilled','unpaid','partial','paid','refunded') DEFAULT 'unbilled',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`visit_id`),
+  KEY `pet_id` (`pet_id`),
+  KEY `owner_user_id` (`owner_user_id`),
+  KEY `veterinarian_user_id` (`veterinarian_user_id`),
+  KEY `queue_id` (`queue_id`),
+  KEY `booking_id` (`booking_id`),
+  KEY `visits_diagnosis_idx` (`diagnosis_id`),
+  CONSTRAINT `visits_diagnosis_fk` FOREIGN KEY (`diagnosis_id`) REFERENCES `vet_diagnoses` (`diagnosis_id`) ON DELETE SET NULL,
+  CONSTRAINT `visits_ibfk_1` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`),
+  CONSTRAINT `visits_ibfk_2` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `visits_ibfk_3` FOREIGN KEY (`veterinarian_user_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `visits_ibfk_4` FOREIGN KEY (`queue_id`) REFERENCES `queues` (`queue_id`),
+  CONSTRAINT `visits_ibfk_5` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: visit_charges
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `visit_charges`;
+CREATE TABLE `visit_charges` (
+  `charge_id` int(11) NOT NULL AUTO_INCREMENT,
+  `visit_id` int(11) NOT NULL,
+  `charge_type` enum('service','diagnostic','medication','consumable','retail_product','boarding','other') NOT NULL,
+  `service_id` int(11) DEFAULT NULL,
+  `item_id` int(11) DEFAULT NULL,
+  `description` varchar(255) NOT NULL,
+  `quantity` decimal(10,2) NOT NULL DEFAULT 1.00,
+  `unit_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `subtotal` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_by_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`charge_id`),
+  KEY `visit_id` (`visit_id`),
+  KEY `service_id` (`service_id`),
+  KEY `item_id` (`item_id`),
+  CONSTRAINT `visit_charges_ibfk_1` FOREIGN KEY (`visit_id`) REFERENCES `visits` (`visit_id`),
+  CONSTRAINT `visit_charges_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service_catalog` (`service_id`),
+  CONSTRAINT `visit_charges_ibfk_3` FOREIGN KEY (`item_id`) REFERENCES `inventory_items` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table: visit_payments
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `visit_payments`;
+CREATE TABLE `visit_payments` (
+  `payment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `visit_id` int(11) NOT NULL,
+  `payment_method` enum('qrph','gcash','maya','bank_transfer') NOT NULL DEFAULT 'gcash',
+  `payment_status` enum('pending','verified','failed','refunded','voided') NOT NULL DEFAULT 'verified',
+  `amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `reference_number` varchar(120) DEFAULT NULL,
+  `proof_url` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `paid_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `received_by_user_id` int(11) DEFAULT NULL,
+  `received_by_name` varchar(220) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`payment_id`),
+  KEY `visit_payments_visit_idx` (`visit_id`),
+  KEY `visit_payments_received_by_fk` (`received_by_user_id`),
+  CONSTRAINT `visit_payments_received_by_fk` FOREIGN KEY (`received_by_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
+  CONSTRAINT `visit_payments_visit_fk` FOREIGN KEY (`visit_id`) REFERENCES `visits` (`visit_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 SET FOREIGN_KEY_CHECKS=1;

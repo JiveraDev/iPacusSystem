@@ -1,34 +1,106 @@
 <?php
 /**
- * Simple helper to load .env file into $_ENV and getenv()
+ * Simple helper to load .env file into getenv(), $_ENV, and $_SERVER.
  */
+if (!function_exists('setLoadedEnvValue')) {
+    function setLoadedEnvValue(string $name, string $value): void
+    {
+        putenv(sprintf('%s=%s', $name, $value));
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
+    }
+}
+
+if (!function_exists('syncExistingEnvValue')) {
+    function syncExistingEnvValue(string $name): bool
+    {
+        $value = getenv($name);
+        if ($value !== false) {
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+            return true;
+        }
+
+        if (array_key_exists($name, $_ENV)) {
+            setLoadedEnvValue($name, (string)$_ENV[$name]);
+            return true;
+        }
+
+        if (array_key_exists($name, $_SERVER)) {
+            setLoadedEnvValue($name, (string)$_SERVER[$name]);
+            return true;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('parseEnvValue')) {
+    function parseEnvValue(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $quote = $value[0];
+        if (($quote === '"' || $quote === "'") && substr($value, -1) === $quote) {
+            $value = substr($value, 1, -1);
+
+            if ($quote === '"') {
+                $value = strtr($value, [
+                    '\\n' => "\n",
+                    '\\r' => "\r",
+                    '\\t' => "\t",
+                    '\\"' => '"',
+                    '\\\\' => '\\',
+                ]);
+            }
+
+            return $value;
+        }
+
+        return trim((string)preg_replace('/\s+#.*$/', '', $value));
+    }
+}
+
 if (!function_exists('loadEnv')) {
-    function loadEnv($path) {
-        if (!file_exists($path)) {
+    function loadEnv(string $path, bool $overrideExisting = false): void
+    {
+        if (!is_readable($path)) {
             return;
         }
 
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            if (strpos($line, '=') === false) continue;
+            $line = trim((string)$line);
+            $line = preg_replace('/^\xEF\xBB\xBF/', '', $line);
 
-            list($name, $value) = explode('=', $line, 2);
+            if ($line === '' || str_starts_with(ltrim($line), '#')) {
+                continue;
+            }
+
+            if (str_starts_with($line, 'export ')) {
+                $line = trim(substr($line, 7));
+            }
+
+            if (strpos($line, '=') === false) {
+                continue;
+            }
+
+            [$name, $value] = explode('=', $line, 2);
             $name = trim($name);
-            $value = trim($value);
 
-            if (
-                strlen($value) >= 2
-                && (($value[0] === '"' && substr($value, -1) === '"') || ($value[0] === "'" && substr($value, -1) === "'"))
-            ) {
-                $value = substr($value, 1, -1);
+            if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
+                continue;
             }
 
-            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-                putenv(sprintf('%s=%s', $name, $value));
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
+            if (!$overrideExisting && syncExistingEnvValue($name)) {
+                continue;
             }
+
+            setLoadedEnvValue($name, parseEnvValue($value));
         }
     }
 }

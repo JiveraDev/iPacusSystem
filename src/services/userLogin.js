@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiFetch, readJsonResponse } from './apiClient';
 
 export class LoginError extends Error {
     constructor(message, details = {}) {
@@ -11,12 +11,8 @@ export class LoginError extends Error {
 }
 
 export async function loginUser(payload) {
-    const normalizedBaseUrl = API_BASE_URL.replace(/\/+$/, "");
-    const loginUrl = normalizedBaseUrl.endsWith("/api")
-        ? `${normalizedBaseUrl}/login`
-        : `${normalizedBaseUrl}/api/login`;
-
-    const response = await fetch(loginUrl, {
+    const response = await apiFetch('/login', {
+        apiPrefix: true,
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -24,7 +20,7 @@ export async function loginUser(payload) {
         body: JSON.stringify(payload),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await readJsonResponse(response);
 
     if (!response.ok) {
         throw new LoginError(data.message || `Login failed with status ${response.status}`, {

@@ -14,6 +14,7 @@ import {
     Image as ImageIcon
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
+import SubmissionStatus from "../shared/SubmissionStatus";
 import { resolveImageUrl } from "../../lib/image";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
@@ -106,6 +107,7 @@ export default function QueueDashboard() {
     const [concernStatement, setConcernStatement] = useState("");
     const [uploadedImages, setUploadedImages] = useState([]);
     const [viewingImage, setViewingImage] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         const checkAccess = async () => {
@@ -219,11 +221,16 @@ export default function QueueDashboard() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) {
+            return;
+        }
+
         if (!signature) {
             toast.error("Please provide your signature to approve the service consent.");
             return;
         }
 
+        setIsSubmitting(true);
         try {
             const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
             const userId = currentUser.id || currentUser.user_id || currentUser.userId;
@@ -274,7 +281,9 @@ export default function QueueDashboard() {
             }, 3000);
         } catch (error) {
             console.error("Failed to submit self-service queue:", error);
-            toast.error("Failed to add to queue.");
+            toast.error(error.message || "Failed to add to queue.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -293,7 +302,7 @@ export default function QueueDashboard() {
 
     const selectedPetData = pets.find(pet => pet.id === selectedPet);
     const selectedConsent = selectedService ? SERVICE_CONSENTS[selectedService] : null;
-    const canSubmit = selectedPet && selectedService && signature;
+    const canSubmit = selectedPet && selectedService && signature && !isSubmitting;
 
     if (isAccessLoading) {
         return (
@@ -381,7 +390,7 @@ export default function QueueDashboard() {
                                                                     ? "ring-2 ring-blue-600 bg-blue-50"
                                                                     : "hover:border-blue-300"
                                                             } ${pet.activeQueue ? "opacity-90" : "cursor-pointer"}`}
-                                                            onClick={() => !pet.activeQueue && setSelectedPet(pet.id)}
+                                                            onClick={() => !isSubmitting && !pet.activeQueue && setSelectedPet(pet.id)}
                                                         >
                                                             <CardContent className="pt-4">
                                                                 <div className="flex items-center gap-3">
@@ -444,6 +453,7 @@ export default function QueueDashboard() {
                                                 value={selectedService}
                                                 onChange={(e) => setSelectedService(e.target.value)}
                                                 required
+                                                disabled={isSubmitting}
                                             >
                                                 <option value="">Select a service</option>
                                                 {SERVICES.map(service => (
@@ -478,6 +488,7 @@ export default function QueueDashboard() {
                                                     placeholder="Describe any concerns, symptoms, or observations about your pet..."
                                                     value={concernStatement}
                                                     onChange={(e) => setConcernStatement(e.target.value)}
+                                                    disabled={isSubmitting}
                                                 />
                                             </div>
                                         )}
@@ -494,6 +505,7 @@ export default function QueueDashboard() {
                                                         multiple
                                                         onChange={handleImageUpload}
                                                         className="hidden"
+                                                        disabled={isSubmitting}
                                                     />
                                                     <label htmlFor="imageUpload" className="cursor-pointer">
                                                         <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
@@ -523,6 +535,7 @@ export default function QueueDashboard() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleRemoveImage(index)}
+                                                                    disabled={isSubmitting}
                                                                     className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                                                                     aria-label="Remove image"
                                                                 >
@@ -549,9 +562,16 @@ export default function QueueDashboard() {
                                                 <SignatureCapture
                                                     onSignatureChange={setSignature}
                                                     signature={signature}
+                                                    disabled={isSubmitting}
                                                 />
                                             </div>
                                         )}
+
+                                        <SubmissionStatus
+                                            active={isSubmitting}
+                                            label="Adding queue entry..."
+                                            slowLabel="Still adding queue entry..."
+                                        />
 
                                         <div className="flex gap-3">
                                             <Button
@@ -559,11 +579,12 @@ export default function QueueDashboard() {
                                                 className="flex-1"
                                                 disabled={!canSubmit}
                                             >
-                                                Add to Queue
+                                                {isSubmitting ? "Adding to Queue..." : "Add to Queue"}
                                             </Button>
                                             <Button
                                                 type="button"
                                                 variant="outline"
+                                                disabled={isSubmitting}
                                                 onClick={() => {
                                                     setSelectedPet(null);
                                                     setSelectedService("");

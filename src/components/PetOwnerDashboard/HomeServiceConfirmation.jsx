@@ -9,19 +9,24 @@ import { Textarea } from "../../ui/textarea";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { 
   Calendar, Clock, MapPin, AlertCircle, FileText, 
-  ShieldCheck, Upload, CheckCircle, Loader2, ArrowLeft, X 
+  ShieldCheck, Upload, CheckCircle, Loader2, ArrowLeft, X, Eye
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { uploadImageFile } from "../../services/uploadService";
+import SubmissionStatus from "../shared/SubmissionStatus";
+import { resolveImageUrl } from "../../lib/image";
+import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { PhotoViewer } from "../../ui/photo-viewer";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [signature, setSignature] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewer, setViewer] = useState(null);
   const [consents, setConsents] = useState({
     terms: false,
     privacy: false,
@@ -36,6 +41,10 @@ export default function HomeServiceConfirmation() {
     notes: "",
     receiptFile: null
   });
+  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const selectedMethod = paymentMethods.find((m) => m.value === paymentFormData.paymentMethod);
+  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
+  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
 
   useEffect(() => {
     const pendingBooking = sessionStorage.getItem("pendingHomeBooking");
@@ -61,6 +70,9 @@ export default function HomeServiceConfirmation() {
 
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
 
     if (isDeceasedPetStatus(booking?.petStatus)) {
       toast.error(DECEASED_PET_BOOKING_MESSAGE);
@@ -80,7 +92,7 @@ export default function HomeServiceConfirmation() {
       toast.error("Please select a payment method.");
       return;
     }
-    if (!paymentFormData.receiptFile && paymentFormData.paymentMethod !== "cash") {
+    if (!paymentFormData.receiptFile && selectedMethodRequiresProof) {
       toast.error("Please upload proof of payment.");
       return;
     }
@@ -138,26 +150,6 @@ export default function HomeServiceConfirmation() {
       setIsSubmitting(false);
     }
   };
-
-  const paymentMethods = [
-    {
-      value: "maya",
-      label: "Maya",
-      instructions: "Send to Maya: 0917-XXX-XXXX (iPawcus). Upload screenshot.",
-    },
-    {
-      value: "gcash",
-      label: "GCash",
-      instructions: "Send to GCash: 0917-XXX-XXXX (iPawcus). Upload screenshot.",
-    },
-    {
-      value: "cash",
-      label: "Cash Payment",
-      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
-    },
-  ];
-
-  const selectedMethod = paymentMethods.find((m) => m.value === paymentFormData.paymentMethod);
 
   if (!booking) {
     return (
@@ -294,9 +286,9 @@ export default function HomeServiceConfirmation() {
                         className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white"
                         value={paymentFormData.paymentMethod}
                         onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentMethod: e.target.value })}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isLoadingPaymentMethods}
                       >
-                        <option value="">Select method</option>
+                        <option value="">{isLoadingPaymentMethods ? "Loading methods..." : "Select method"}</option>
                         {paymentMethods.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                       </select>
                     </div>
@@ -304,7 +296,20 @@ export default function HomeServiceConfirmation() {
                     {selectedMethod && (
                       <div className="bg-green-50 border border-green-200 p-3 rounded-lg text-xs text-green-800">
                         <p className="font-bold mb-1">{selectedMethod.label} Instructions:</p>
-                        <p>{selectedMethod.instructions}</p>
+                        <p className="whitespace-pre-wrap">{paymentMethodInstruction(selectedMethod)}</p>
+                        {selectedQrUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedMethod.label} QR` })}
+                            className="mt-3 block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300"
+                          >
+                            <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-44 rounded-md object-contain" />
+                            <span className="mt-2 flex items-center gap-1 text-xs font-bold text-green-700">
+                              <Eye className="size-3.5" />
+                              View larger
+                            </span>
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -321,7 +326,7 @@ export default function HomeServiceConfirmation() {
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Upload Receipt *</Label>
+                      <Label>Upload Receipt {selectedMethodRequiresProof && "*"}</Label>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
                         {paymentFormData.receiptFile ? (
                           <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
@@ -354,7 +359,7 @@ export default function HomeServiceConfirmation() {
                             <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
                             <Input
                               type="file"
-                              required={paymentFormData.paymentMethod !== "cash"}
+                              required={selectedMethodRequiresProof}
                               accept="image/*"
                               onChange={(e) => setPaymentFormData({...paymentFormData, receiptFile: e.target.files[0]})}
                               disabled={isSubmitting}
@@ -372,10 +377,16 @@ export default function HomeServiceConfirmation() {
                   </div>
                 </div>
 
+                <SubmissionStatus
+                  active={isSubmitting}
+                  label="Finalizing booking..."
+                  slowLabel="Still finalizing booking..."
+                />
+
                 <Button 
                   type="submit" 
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg" 
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingPaymentMethods}
                 >
                   {isSubmitting ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Finalizing Booking...</>
@@ -399,6 +410,12 @@ export default function HomeServiceConfirmation() {
           </Button>
         </div>
       )}
+      <PhotoViewer
+        open={Boolean(viewer)}
+        src={viewer?.src || ""}
+        alt={viewer?.alt || "Payment QR"}
+        onOpenChange={(open) => !open && setViewer(null)}
+      />
     </div>
   );
 }

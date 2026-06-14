@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../../ui/label';
 import { Checkbox } from '../../ui/checkbox';
 import { toast } from '../../reusecomponent/toast.jsx';
+import SubmissionStatus from '../shared/SubmissionStatus';
 import { addQueueItem, fetchQueuePets } from '../../services/queueService';
 
 const SERVICES = [
@@ -24,6 +25,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
     const [verified, setVerified] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const menuRef = useRef(null);
 
     useEffect(() => {
@@ -52,8 +54,10 @@ export default function AddQueueDialog({ onAddToQueue }) {
     };
 
     const handleSubmit = async () => {
+        if (isSubmitting) return;
         if (!selectedPet || !service || !verified) return;
 
+        setIsSubmitting(true);
         try {
             await addQueueItem({
                 pet_id: selectedPet.pet_id,
@@ -75,11 +79,13 @@ export default function AddQueueDialog({ onAddToQueue }) {
             return;
         } catch (error) {
             toast.error(error.message || 'Failed to add queue item');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={(nextOpen) => !isSubmitting && setIsOpen(nextOpen)}>
             <DialogTrigger asChild>
                 <Button className="w-full bg-[#155dfc] sm:w-auto">Add to Queue</Button>
             </DialogTrigger>
@@ -98,6 +104,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                 setIsMenuOpen(e.target.value.length >= 2);
                             }}
                             onFocus={() => searchTerm.length >= 2 && setIsMenuOpen(true)}
+                            disabled={isSubmitting}
                         />
                         {isMenuOpen && suggestions.length > 0 && (
                             <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
@@ -121,7 +128,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
                     <div>
                         <Label>Service</Label>
-                        <Select value={service} onValueChange={setService}>
+                        <Select value={service} onValueChange={setService} disabled={isSubmitting}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select Service" />
                             </SelectTrigger>
@@ -133,7 +140,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
                     <div>
                         <Label>Priority</Label>
-                        <Select value={priority} onValueChange={setPriority}>
+                        <Select value={priority} onValueChange={setPriority} disabled={isSubmitting}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
@@ -146,15 +153,19 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
                     <div>
                         <Label>Complaint</Label>
-                        <Textarea value={complaint} onChange={(e) => setComplaint(e.target.value)} />
+                        <Textarea value={complaint} onChange={(e) => setComplaint(e.target.value)} disabled={isSubmitting} />
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        <Checkbox id="verified" checked={verified} onCheckedChange={setVerified} />
+                        <Checkbox id="verified" checked={verified} onCheckedChange={setVerified} disabled={isSubmitting} />
                         <Label htmlFor="verified">Admin verified content and location</Label>
                     </div>
+
+                    <SubmissionStatus active={isSubmitting} label="Adding queue entry..." slowLabel="Still adding queue entry..." />
                 </div>
-                <Button onClick={handleSubmit} disabled={!verified}>Add to Queue</Button>
+                <Button onClick={handleSubmit} disabled={!verified || isSubmitting}>
+                    {isSubmitting ? 'Adding to Queue...' : 'Add to Queue'}
+                </Button>
             </DialogContent>
         </Dialog>
     );

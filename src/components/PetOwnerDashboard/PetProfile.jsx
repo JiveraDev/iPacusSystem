@@ -1,22 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { formatPhpCurrency } from "../../lib/currency";
 import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
+import { PhotoViewer } from "../../ui/photo-viewer";
 
 import { findPetService } from "../../services/findPet";
 import { updateBookingStatus } from "../../services/bookingService";
 import { fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
 import { updateQueueStatus } from "../../services/queueService";
 import { uploadFormData } from "../../services/uploadService";
+
+function uploadFileName(path) {
+  const cleanPath = String(path || "").split("?")[0].replace(/\\/g, "/");
+  return cleanPath.split("/").filter(Boolean).pop() || "Upload";
+}
+
+function isImageUploadPath(path) {
+  return /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(path || "").split("?")[0]);
+}
 
 export default function PetProfile() {
   const navigate = useNavigate();
@@ -31,6 +42,7 @@ export default function PetProfile() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
+  const [consentViewer, setConsentViewer] = useState(null);
 
   useEffect(() => {
     async function fetchPet() {
@@ -174,6 +186,7 @@ export default function PetProfile() {
 
   const visibleQueueRecords = queueRecords.filter(shouldShowQueueRecord);
   const visibleBookingRecords = bookingRecords.filter(shouldShowBookingRecord);
+  const consentRecords = useMemo(() => buildConsentRecords(bookingRecords, queueRecords), [bookingRecords, queueRecords]);
   const activeQueue = visibleQueueRecords.find(item => item.status !== "cancelled");
   const displayedQueue = activeQueue || visibleQueueRecords[0];
 
@@ -419,23 +432,36 @@ export default function PetProfile() {
 
         {booking.image_Booking_Concern_Path && (
           <div className="border-t pt-4">
-            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Pictures of Concern</p>
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-3">Concern Uploads</p>
             <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
               {String(booking.image_Booking_Concern_Path)
                 .split(',')
                 .map((path) => path.trim())
                 .filter(Boolean)
-                .map((path, index) => (
-                  <a
-                    key={`${path}-${index}`}
-                    href={path}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-                  >
-                    <img src={resolveImageUrl(path)} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
-                  </a>
-                ))}
+                .map((path, index) => {
+                  const url = resolveImageUrl(path);
+                  const isImage = isImageUploadPath(path);
+
+                  return (
+                    <a
+                      key={`${path}-${index}`}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                    >
+                      {isImage ? (
+                        <img src={url} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
+                      ) : (
+                        <span className="flex aspect-square w-full flex-col items-center justify-center gap-3 p-4 text-center">
+                          <FileText className="h-10 w-10 text-slate-300" />
+                          <span className="max-w-full truncate text-sm font-bold text-slate-700">{uploadFileName(path)}</span>
+                          <span className="text-xs font-semibold text-blue-600">Open file</span>
+                        </span>
+                      )}
+                    </a>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -657,6 +683,11 @@ export default function PetProfile() {
               )}
             </CardContent>
           </Card>
+
+          <ConsentImagesPanel
+            records={consentRecords}
+            onPreview={(record) => setConsentViewer({ src: record.url, alt: record.identifier })}
+          />
         </div>
 
         {/* Right Column: Vaccinations & Actions */}
@@ -876,7 +907,158 @@ export default function PetProfile() {
           {renderRecordDetails()}
         </DialogContent>
       </Dialog>
+      <PhotoViewer
+        open={Boolean(consentViewer)}
+        src={consentViewer?.src || ""}
+        alt={consentViewer?.alt || "Consent image"}
+        onOpenChange={(open) => !open && setConsentViewer(null)}
+      />
     </div>
+  );
+}
+
+function buildConsentRecords(bookings, queues) {
+  const records = [];
+  const seen = new Set();
+
+  const addRecord = (record) => {
+    const url = resolveImageUrl(record.path || "");
+    if (!url) return;
+
+    const key = `${record.source}-${record.sourceId}-${url}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    records.push({
+      ...record,
+      url,
+      consentId: `CONSENT-${String(record.source).toUpperCase()}-${record.sourceId || records.length + 1}`,
+    });
+  };
+
+  bookings.forEach((booking) => {
+    addRecord({
+      source: "booking",
+      sourceLabel: "Booking Consent",
+      sourceId: booking.id,
+      path: booking.signaturePath,
+      identifier: booking.bookingNumber || `Booking #${booking.id}`,
+      service: getServiceDisplayName(booking.service || booking.type, "Booking"),
+      dateLabel: formatDisplayDateTime(booking.date || booking.createdAt, booking.time),
+      ownerLabel: booking.ownerName || "Pet owner",
+    });
+  });
+
+  queues.forEach((queue) => {
+    addRecord({
+      source: "queue",
+      sourceLabel: "Queue Consent",
+      sourceId: queue.queue_id,
+      path: queue.signiture_self_service_path,
+      identifier: queue.queue_number ? `Queue #${queue.queue_number}` : `Queue #${queue.queue_id}`,
+      service: getServiceDisplayName(queue.service_name, "Queue"),
+      dateLabel: formatDisplayDateTime(queue.timestamp),
+      ownerLabel: "Pet owner",
+    });
+  });
+
+  return records;
+}
+
+function ConsentImagesPanel({ records, onPreview }) {
+  return (
+    <Sheet>
+      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-blue-100 bg-blue-50/50">
+          <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#155dfc]">
+            <ShieldCheck className="h-4 w-4" />
+            Consent Images
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-2xl font-black text-slate-900">{records.length}</p>
+              <p className="text-sm font-semibold text-slate-500">View-only signed copies</p>
+            </div>
+            <Badge className="border-0 bg-slate-100 text-slate-700">No print</Badge>
+          </div>
+
+          <SheetTrigger asChild>
+            <Button type="button" variant="outline" className="w-full gap-2" disabled={records.length === 0}>
+              <Eye className="h-4 w-4" />
+              View Holder
+            </Button>
+          </SheetTrigger>
+
+          {records.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-400">
+              No signed consent image has been recorded for this pet yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <SheetContent side="right" className="sm:max-w-xl">
+        <div className="p-5 sm:p-6">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+              <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
+              Consent Image Holder
+            </SheetTitle>
+            <SheetDescription>
+              Signed owner consent images for this pet. These copies are for viewing only.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-5 space-y-3">
+            {records.map((record) => (
+              <ConsentRecordCard key={`${record.source}-${record.sourceId}-${record.url}`} record={record} onPreview={onPreview} />
+            ))}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ConsentRecordCard({ record, onPreview }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPreview(record)}
+      className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
+    >
+      <div className="grid gap-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
+        <div className="flex h-36 items-center justify-center overflow-hidden bg-slate-50 sm:h-full">
+          <img src={record.url} alt={record.identifier} className="h-full w-full object-contain" />
+        </div>
+        <div className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="border-0 bg-blue-50 text-[#155dfc]">{record.sourceLabel}</Badge>
+            <Badge className="border-0 bg-slate-100 text-slate-700">View only</Badge>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Identifier</p>
+            <p className="mt-1 break-words text-sm font-black text-slate-900">{record.consentId}</p>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Source</p>
+              <p className="font-bold text-slate-800">{record.identifier}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Service</p>
+              <p className="font-semibold text-slate-700">{record.service}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Signed / Recorded</p>
+              <p className="font-semibold text-slate-700">{record.dateLabel}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 

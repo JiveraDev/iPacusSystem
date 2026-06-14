@@ -77,8 +77,8 @@ async function showIpaWcusNotification() {
         notification = null;
     }
 
-    const title = notification?.title || 'iPawcus update';
-    const body = notification?.message || 'You have a new iPawcus notification.';
+    const title = notification?.pushTitle || notification?.title || 'iPawcus update';
+    const body = notification?.pushMessage || notification?.message || 'You have a new iPawcus notification.';
     const redirectPath = notification?.petRedirectPath || notification?.redirectPath || '/dashboard';
 
     await self.registration.showNotification(title, {

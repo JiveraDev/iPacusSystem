@@ -343,8 +343,230 @@ html.dark select:disabled {
   color: var(--theme-text-soft) !important;
 }
 
+html.dark .theme-static-light,
+html.dark .theme-static-light * {
+  color-scheme: light;
+}
+
+html.dark .theme-static-light {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.dark .theme-static-light .bg-white,
+html.dark .theme-static-light [data-slot="card"],
+html.dark .theme-static-light [class~="bg-card"] {
+  background-color: #ffffff !important;
+  color: #0f172a;
+}
+
+html.dark .theme-static-light .bg-slate-50,
+html.dark .theme-static-light .bg-gray-50,
+html.dark .theme-static-light [class~="bg-slate-50/50"],
+html.dark .theme-static-light [class~="bg-slate-50/70"],
+html.dark .theme-static-light [class~="bg-slate-50/80"],
+html.dark .theme-static-light [class~="bg-blue-50/30"],
+html.dark .theme-static-light [class~="bg-[#f9fafb]"] {
+  background-color: #f8fafc !important;
+}
+
+html.dark .theme-static-light .bg-slate-100,
+html.dark .theme-static-light .bg-slate-200,
+html.dark .theme-static-light .bg-gray-100,
+html.dark .theme-static-light [class~="bg-[#f3f3f5]"],
+html.dark .theme-static-light [class~="bg-[#f3f4f6]"] {
+  background-color: #f1f5f9 !important;
+}
+
+html.dark .theme-static-light .bg-blue-50,
+html.dark .theme-static-light .bg-blue-100,
+html.dark .theme-static-light [class~="bg-[#eff6ff]"],
+html.dark .theme-static-light [class~="bg-[#dbeafe]"] {
+  background-color: #eff6ff !important;
+}
+
+html.dark .theme-static-light .bg-green-50,
+html.dark .theme-static-light .bg-green-100,
+html.dark .theme-static-light [class~="bg-[#e0f2e9]"] {
+  background-color: #f0fdf4 !important;
+}
+
+html.dark .theme-static-light .bg-red-50,
+html.dark .theme-static-light .bg-red-100,
+html.dark .theme-static-light [class~="bg-[#ffe6e6]"],
+html.dark .theme-static-light [class~="bg-[#fffbfa]"] {
+  background-color: #fef2f2 !important;
+}
+
+html.dark .theme-static-light .bg-amber-50,
+html.dark .theme-static-light .bg-amber-100,
+html.dark .theme-static-light .bg-yellow-50,
+html.dark .theme-static-light .bg-yellow-100,
+html.dark .theme-static-light [class~="bg-[#fff4e6]"],
+html.dark .theme-static-light [class~="bg-[#ffec99]"] {
+  background-color: #fffbeb !important;
+}
+
+html.dark .theme-static-light .bg-purple-50,
+html.dark .theme-static-light .bg-purple-100 {
+  background-color: #faf5ff !important;
+}
+
+html.dark .theme-static-light .border-slate-50,
+html.dark .theme-static-light .border-slate-100,
+html.dark .theme-static-light .border-slate-200,
+html.dark .theme-static-light .border-slate-300,
+html.dark .theme-static-light .border-gray-100,
+html.dark .theme-static-light .border-gray-200,
+html.dark .theme-static-light .border-gray-300,
+html.dark .theme-static-light [class~="border-black/10"],
+html.dark .theme-static-light [class~="border-[rgba(0,0,0,0.05)]"],
+html.dark .theme-static-light [class~="border-[rgba(0,0,0,0.08)]"],
+html.dark .theme-static-light [class~="border-[rgba(0,0,0,0.1)]"] {
+  border-color: #e2e8f0 !important;
+}
+
+html.dark .theme-static-light .border-blue-100,
+html.dark .theme-static-light .border-blue-200,
+html.dark .theme-static-light .border-blue-300,
+html.dark .theme-static-light [class~="border-[#bedbff]"],
+html.dark .theme-static-light [class~="border-[#bfdbfe]"],
+html.dark .theme-static-light [class~="border-[#155dfc]"] {
+  border-color: #bfdbfe !important;
+}
+
+html.dark .theme-static-light .border-green-100,
+html.dark .theme-static-light .border-green-200,
+html.dark .theme-static-light .border-green-300 {
+  border-color: #bbf7d0 !important;
+}
+
+html.dark .theme-static-light .border-red-100,
+html.dark .theme-static-light .border-red-200,
+html.dark .theme-static-light .border-red-300 {
+  border-color: #fecaca !important;
+}
+
+html.dark .theme-static-light .border-amber-100,
+html.dark .theme-static-light .border-amber-200,
+html.dark .theme-static-light .border-yellow-200 {
+  border-color: #fde68a !important;
+}
+
+html.dark .theme-static-light .text-slate-950,
+html.dark .theme-static-light .text-slate-900,
+html.dark .theme-static-light .text-slate-800,
+html.dark .theme-static-light .text-gray-950,
+html.dark .theme-static-light .text-gray-900,
+html.dark .theme-static-light .text-gray-800,
+html.dark .theme-static-light .text-neutral-800,
+html.dark .theme-static-light .text-black,
+html.dark .theme-static-light [class~="text-[#101828]"],
+html.dark .theme-static-light [class~="text-[#0a0a0a]"],
+html.dark .theme-static-light [class~="text-[#000]"] {
+  color: #0f172a !important;
+}
+
+html.dark .theme-static-light .text-slate-700,
+html.dark .theme-static-light .text-slate-600,
+html.dark .theme-static-light .text-gray-700,
+html.dark .theme-static-light .text-gray-600,
+html.dark .theme-static-light [class~="text-[#4a5565]"] {
+  color: #475569 !important;
+}
+
+html.dark .theme-static-light .text-slate-500,
+html.dark .theme-static-light .text-slate-400,
+html.dark .theme-static-light .text-gray-500,
+html.dark .theme-static-light .text-gray-400 {
+  color: #64748b !important;
+}
+
+html.dark .theme-static-light .text-blue-600,
+html.dark .theme-static-light .text-blue-700,
+html.dark .theme-static-light [class~="text-[#155dfc]"],
+html.dark .theme-static-light [class~="text-[#1e3a8a]"] {
+  color: #155dfc !important;
+}
+
+html.dark .theme-static-light .text-green-600,
+html.dark .theme-static-light .text-green-700 {
+  color: #15803d !important;
+}
+
+html.dark .theme-static-light .text-red-500,
+html.dark .theme-static-light .text-red-600,
+html.dark .theme-static-light .text-red-700,
+html.dark .theme-static-light .text-red-800 {
+  color: #b91c1c !important;
+}
+
+html.dark .theme-static-light .text-amber-500,
+html.dark .theme-static-light .text-amber-600,
+html.dark .theme-static-light .text-amber-700,
+html.dark .theme-static-light .text-amber-800,
+html.dark .theme-static-light .text-yellow-700,
+html.dark .theme-static-light .text-yellow-800 {
+  color: #b45309 !important;
+}
+
+html.dark .theme-static-light .bg-blue-600,
+html.dark .theme-static-light .bg-blue-700,
+html.dark .theme-static-light [class~="bg-[#155dfc]"],
+html.dark .theme-static-light [class~="bg-[#1447e6]"],
+html.dark .theme-static-light [class~="bg-[#0d4acf]"] {
+  background-color: #155dfc !important;
+  color: #ffffff !important;
+}
+
+html.dark .theme-static-light [class~="bg-[#030213]"] {
+  background-color: #030213 !important;
+  color: #ffffff !important;
+}
+
+html.dark .theme-static-light input,
+html.dark .theme-static-light textarea,
+html.dark .theme-static-light select,
+html.dark .theme-static-light [data-slot="input"],
+html.dark .theme-static-light [data-slot="textarea"] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.dark .theme-static-light input::placeholder,
+html.dark .theme-static-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.dark .theme-static-light aside,
+html.dark .theme-static-light header,
+html.dark .theme-static-light [data-slot="dialog-content"],
+html.dark .theme-static-light [data-slot="sheet-content"],
+html.dark [data-slot="dialog-content"].theme-static-light,
+html.dark [data-slot="sheet-content"].theme-static-light {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.dark .theme-static-light .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+}
+
+html.dark .theme-static-light .shadow,
+html.dark .theme-static-light .shadow-md,
+html.dark .theme-static-light .shadow-lg,
+html.dark .theme-static-light .shadow-xl,
+html.dark .theme-static-light .shadow-2xl {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+}
+
 html.dark table {
   color: var(--theme-text);
+}
+
+html.dark .theme-static-light table {
+  color: #0f172a !important;
 }
 
 html.dark tr:hover,
@@ -359,6 +581,20 @@ html.dark .hover\:bg-gray-100:hover {
 html.dark .hover\:text-slate-900:hover,
 html.dark .hover\:text-gray-900:hover {
   color: var(--theme-text) !important;
+}
+
+html.dark .theme-static-light tr:hover,
+html.dark .theme-static-light .hover\:bg-white:hover,
+html.dark .theme-static-light .hover\:bg-slate-50:hover,
+html.dark .theme-static-light .hover\:bg-slate-100:hover,
+html.dark .theme-static-light .hover\:bg-gray-50:hover,
+html.dark .theme-static-light .hover\:bg-gray-100:hover {
+  background-color: #f8fafc !important;
+}
+
+html.dark .theme-static-light .hover\:text-slate-900:hover,
+html.dark .theme-static-light .hover\:text-gray-900:hover {
+  color: #0f172a !important;
 }
 
 .mobile-dashboard-drawer {

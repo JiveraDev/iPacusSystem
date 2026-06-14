@@ -1,4 +1,4 @@
-import { getApiUrl, readJsonResponse } from './apiClient';
+import { apiFetch, readJsonResponse } from './apiClient';
 
 export async function fetchPublicWanIp() {
     const response = await fetch('https://api.ipify.org?format=json');
@@ -12,7 +12,7 @@ export async function fetchPublicWanIp() {
 }
 
 export async function checkSelfServiceAccess(publicWanIp = '') {
-    const response = await fetch(getApiUrl('/self-service/access'), {
+    const response = await apiFetch('/self-service/access', {
         headers: publicWanIp ? { 'X-Client-Public-IP': publicWanIp } : {}
     });
     const data = await readJsonResponse(response);

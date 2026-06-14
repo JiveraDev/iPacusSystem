@@ -5,6 +5,7 @@ require_once __DIR__ . '/mail_helpers.php';
 const AUTH_OTP_EMAIL_VERIFICATION = 'email_verification';
 const AUTH_OTP_PASSWORD_RESET = 'password_reset';
 const AUTH_OTP_PASSWORD_CHANGE = 'password_change';
+const AUTH_OTP_PAYMENT_SETTINGS_CHANGE = 'payment_settings_change';
 
 function authOtpColumnExists(PDO $pdo, string $tableName, string $columnName): bool
 {
@@ -251,15 +252,19 @@ function authOtpSendCodeEmail(string $email, string $code, string $purpose, ?arr
     $name = htmlspecialchars(authOtpDisplayName($user), ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
     $safeMinutes = (int)$expiresMinutes;
-    $subject = $purpose === AUTH_OTP_PASSWORD_RESET
-        ? 'Your iPawcus password reset code'
-        : 'Verify your iPawcus email';
-    $heading = $purpose === AUTH_OTP_PASSWORD_RESET
-        ? 'Password reset code'
-        : 'Email verification code';
-    $reason = $purpose === AUTH_OTP_PASSWORD_RESET
-        ? 'Use this code to reset your iPawcus password.'
-        : 'Use this code to verify your email address and activate your iPawcus account.';
+    $subject = 'Verify your iPawcus email';
+    $heading = 'Email verification code';
+    $reason = 'Use this code to verify your email address and activate your iPawcus account.';
+
+    if ($purpose === AUTH_OTP_PASSWORD_RESET) {
+        $subject = 'Your iPawcus password reset code';
+        $heading = 'Password reset code';
+        $reason = 'Use this code to reset your iPawcus password.';
+    } elseif ($purpose === AUTH_OTP_PAYMENT_SETTINGS_CHANGE) {
+        $subject = 'Confirm payment settings change';
+        $heading = 'Payment settings code';
+        $reason = 'Use this code to confirm changes to clinic payment account details.';
+    }
     $html = "
         <div style=\"font-family: Arial, sans-serif; color: #111827; line-height: 1.5;\">
             <h1 style=\"font-size: 20px; margin: 0 0 12px;\">{$heading}</h1>

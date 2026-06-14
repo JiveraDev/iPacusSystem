@@ -1,14 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-function authUrl(path) {
-    const normalizedBaseUrl = API_BASE_URL.replace(/\/+$/, "");
-    const apiBase = normalizedBaseUrl.endsWith("/api") ? normalizedBaseUrl : `${normalizedBaseUrl}/api`;
-
-    return `${apiBase}${path}`;
-}
+import { apiFetch } from './apiClient';
 
 async function postAuth(path, payload) {
-    const response = await fetch(authUrl(path), {
+    const response = await apiFetch(path, {
+        apiPrefix: true,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

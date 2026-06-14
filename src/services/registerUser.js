@@ -1,12 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiFetch, readJsonResponse } from './apiClient';
 
 export async function registerUser(payload) {
-    const normalizedBaseUrl = (API_BASE_URL).replace(/\/+$/, "");
-    const registerUrl = normalizedBaseUrl.endsWith("/api")
-        ? `${normalizedBaseUrl}/register`
-        : `${normalizedBaseUrl}/api/register`;
-
-    const response = await fetch(registerUrl, {
+    const response = await apiFetch('/register', {
+        apiPrefix: true,
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -14,7 +10,7 @@ export async function registerUser(payload) {
         body: JSON.stringify(payload),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await readJsonResponse(response);
 
     if (!response.ok) {
         // Handle validation errors specifically if they exist

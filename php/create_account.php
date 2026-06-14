@@ -31,6 +31,20 @@ $lastName = $input['lastName'] ?? null;
 $email = $input['email'] ?? null;
 $password = $input['password'] ?? null;
 $role = $input['role'] ?? null; // 'Veterinarian' or 'Admin'
+$masterKey = (string)($input['masterKey'] ?? '');
+
+$expectedMasterKey = trim((string)(getenv('MASTER_KEY') ?: getenv('VITE_MASTER_KEY') ?: ''));
+if ($expectedMasterKey === '') {
+    http_response_code(500);
+    echo json_encode(['message' => 'Master key is not configured.']);
+    exit;
+}
+
+if ($masterKey === '' || !hash_equals($expectedMasterKey, $masterKey)) {
+    http_response_code(403);
+    echo json_encode(['message' => 'Invalid Master Key. Authorization denied.']);
+    exit;
+}
 
 // Common Profile Fields
 $hireDate = $input['hireDate'] ?? date('Y-m-d');

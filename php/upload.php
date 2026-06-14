@@ -32,6 +32,9 @@ if ($type === 'pet') {
 } elseif ($type === 'booking_payment') {
     $targetDir = __DIR__ . '/../public/payments/';
     $urlPath = "payments/";
+} elseif ($type === 'payment_qr') {
+    $targetDir = __DIR__ . '/../public/payment_qr/';
+    $urlPath = "payment_qr/";
 } elseif ($type === 'booking_concern') {
     $targetDir = __DIR__ . '/../public/concerns/';
     $urlPath = "concerns/";

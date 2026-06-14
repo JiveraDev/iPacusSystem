@@ -24,7 +24,7 @@ const ConsentDocument = forwardRef(function ConsentDocument({
     return (
         <div
             ref={ref}
-            className={`relative flex flex-col overflow-hidden border border-gray-100 bg-white font-serif text-gray-900 shadow-inner ${isCompact ? 'min-h-[680px] p-4 sm:p-6' : 'min-h-[600px] p-4 sm:p-8 lg:p-12'} ${className}`}
+            className={`theme-static-light relative flex flex-col overflow-hidden border border-gray-100 bg-white font-serif text-gray-900 shadow-inner ${isCompact ? 'min-h-[680px] p-4 sm:p-6' : 'min-h-[600px] p-4 sm:p-8 lg:p-12'} ${className}`}
         >
             <div className="pointer-events-none absolute inset-0 flex rotate-12 items-center justify-center opacity-[0.03]">
                 <img src={logoImg} alt="Watermark" className="w-[400px]" />

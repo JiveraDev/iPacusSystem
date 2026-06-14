@@ -67,12 +67,6 @@ export default function AccountManagement() {
     const handleCreateAccount = async (e) => {
         e.preventDefault();
 
-        if (createForm.masterKey !== import.meta.env.VITE_MASTER_KEY) {
-            toast.error("Invalid Master Key. Authorization denied.");
-            clearCreatePasswordFields();
-            return;
-        }
-
         setIsSubmitting(true);
         try {
             await createAccount(createForm);

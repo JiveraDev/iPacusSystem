@@ -16,6 +16,19 @@ function notification_column_exists(PDO $pdo, string $tableName, string $columnN
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function notification_table_exists(PDO $pdo, string $tableName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+    ");
+    $stmt->execute([$tableName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function notification_ensure_schema(PDO $pdo): void
 {
     $pdo->exec("
@@ -49,6 +62,8 @@ function notification_ensure_schema(PDO $pdo): void
             category VARCHAR(80) NOT NULL DEFAULT 'system',
             title VARCHAR(180) NOT NULL,
             message TEXT NULL,
+            push_title VARCHAR(180) NULL,
+            push_message TEXT NULL,
             redirect_path VARCHAR(255) NULL,
             in_app_visible TINYINT(1) NOT NULL DEFAULT 1,
             dedupe_key VARCHAR(180) NULL,
@@ -105,6 +120,20 @@ function notification_ensure_schema(PDO $pdo): void
         $pdo->exec("
             ALTER TABLE user_notifications
             ADD COLUMN in_app_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER redirect_path
+        ");
+    }
+
+    if (!notification_column_exists($pdo, 'user_notifications', 'push_title')) {
+        $pdo->exec("
+            ALTER TABLE user_notifications
+            ADD COLUMN push_title VARCHAR(180) NULL AFTER message
+        ");
+    }
+
+    if (!notification_column_exists($pdo, 'user_notifications', 'push_message')) {
+        $pdo->exec("
+            ALTER TABLE user_notifications
+            ADD COLUMN push_message TEXT NULL AFTER push_title
         ");
     }
 
@@ -264,18 +293,22 @@ function notification_create(PDO $pdo, array $payload): ?int
             category,
             title,
             message,
+            push_title,
+            push_message,
             redirect_path,
             in_app_visible,
             dedupe_key,
             email_subject,
             read_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             notification_id = LAST_INSERT_ID(notification_id),
             type = VALUES(type),
             category = VALUES(category),
             title = VALUES(title),
             message = VALUES(message),
+            push_title = VALUES(push_title),
+            push_message = VALUES(push_message),
             redirect_path = VALUES(redirect_path),
             in_app_visible = VALUES(in_app_visible),
             email_subject = VALUES(email_subject),
@@ -288,6 +321,8 @@ function notification_create(PDO $pdo, array $payload): ?int
         $category,
         trim((string)($payload['title'] ?? 'Notification')),
         trim((string)($payload['message'] ?? '')),
+        trim((string)($payload['push_title'] ?? '')) ?: null,
+        trim((string)($payload['push_message'] ?? '')) ?: null,
         trim((string)($payload['redirect_path'] ?? '')) ?: null,
         $inAppVisible ? 1 : 0,
         trim((string)($payload['dedupe_key'] ?? '')) ?: null,
@@ -996,6 +1031,266 @@ function notification_pet_redirect_path($petId, string $fallback = '/dashboard/t
     return $numericPetId > 0 ? "/dashboard/my-pets/{$numericPetId}" : $fallback;
 }
 
+function notification_task_datetime(?string $value): ?DateTimeImmutable
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return null;
+    }
+
+    try {
+        return new DateTimeImmutable($value);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function notification_todo_reminder_slot(?string $startAt, DateTimeImmutable $now): ?array
+{
+    $scheduledAt = notification_task_datetime($startAt);
+    if (!$scheduledAt) {
+        return null;
+    }
+
+    $secondsUntil = $scheduledAt->getTimestamp() - $now->getTimestamp();
+    $sameDay = $scheduledAt->format('Y-m-d') === $now->format('Y-m-d');
+
+    if ($secondsUntil < 0) {
+        return [
+            'slug' => 'overdue',
+            'preference' => 'reminder_same_day',
+            'title' => 'Task overdue',
+            'lead' => 'is overdue',
+            'daily' => true,
+        ];
+    }
+
+    if ($secondsUntil <= 2 * 60 * 60) {
+        return [
+            'slug' => '2h',
+            'preference' => 'reminder_2h',
+            'title' => 'Task due soon',
+            'lead' => 'is due within about 2 hours',
+            'daily' => false,
+        ];
+    }
+
+    if ($sameDay) {
+        return [
+            'slug' => 'same-day',
+            'preference' => 'reminder_same_day',
+            'title' => 'Task scheduled today',
+            'lead' => 'is scheduled today',
+            'daily' => false,
+        ];
+    }
+
+    if ($secondsUntil <= 24 * 60 * 60) {
+        return [
+            'slug' => '24h',
+            'preference' => 'reminder_24h',
+            'title' => 'Task due tomorrow',
+            'lead' => 'is due in about 24 hours',
+            'daily' => false,
+        ];
+    }
+
+    return null;
+}
+
+function notification_todo_reminder_task(array $task): array
+{
+    $source = trim((string)($task['source'] ?? 'todo')) ?: 'todo';
+    $sourceId = (int)($task['source_id'] ?? 0);
+    $petId = (int)($task['pet_id'] ?? 0);
+
+    return [
+        'source' => $source,
+        'source_id' => $sourceId,
+        'user_id' => (int)($task['user_id'] ?? 0),
+        'title' => trim((string)($task['title'] ?? 'Scheduled task')) ?: 'Scheduled task',
+        'details' => trim((string)($task['details'] ?? '')),
+        'category' => trim((string)($task['category'] ?? 'Schedule')) ?: 'Schedule',
+        'start_at' => trim((string)($task['start_at'] ?? '')),
+        'pet_id' => $petId,
+        'pet_name' => trim((string)($task['pet_name'] ?? '')),
+        'redirect_path' => trim((string)($task['redirect_path'] ?? '')) ?: notification_pet_redirect_path($petId),
+    ];
+}
+
+function notification_fetch_todo_reminder_tasks(PDO $pdo): array
+{
+    $tasks = [];
+
+    if (notification_table_exists($pdo, 'pet_owner_todos')) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'personal' AS source,
+                todo_id AS source_id,
+                user_id,
+                title,
+                details,
+                category,
+                start_at,
+                NULL AS pet_id,
+                '' AS pet_name,
+                '/dashboard/todos' AS redirect_path
+            FROM pet_owner_todos
+            WHERE status = 'pending'
+              AND start_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND start_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+            ORDER BY start_at ASC
+            LIMIT 200
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
+    if (notification_table_exists($pdo, 'vet_diagnoses')) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'diagnosis-follow-up' AS source,
+                vd.diagnosis_id AS source_id,
+                COALESCE(b.user_id, q.user_id, po.user_id) AS user_id,
+                'Diagnosis follow-up' AS title,
+                TRIM(CONCAT(COALESCE(vd.service_name, 'Clinic follow-up'), ': ', COALESCE(vd.diagnosis, ''))) AS details,
+                'Follow-up' AS category,
+                CONCAT(vd.follow_up_date, ' 09:00:00') AS start_at,
+                vd.pet_id,
+                COALESCE(p.pet_name, 'Pet') AS pet_name,
+                CONCAT('/dashboard/my-pets/', vd.pet_id) AS redirect_path
+            FROM vet_diagnoses vd
+            JOIN pets_information p ON p.pet_id = vd.pet_id
+            LEFT JOIN bookings b ON b.booking_id = vd.booking_id
+            LEFT JOIN queues q ON q.queue_id = vd.queue_id
+            LEFT JOIN pet_ownership po ON po.pet_id = vd.pet_id
+            WHERE vd.follow_up_date IS NOT NULL
+              AND COALESCE(b.user_id, q.user_id, po.user_id) IS NOT NULL
+              AND CONCAT(vd.follow_up_date, ' 09:00:00') >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND CONCAT(vd.follow_up_date, ' 09:00:00') <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+            ORDER BY vd.follow_up_date ASC
+            LIMIT 200
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
+    if (notification_table_exists($pdo, 'boarding_tasks') && notification_table_exists($pdo, 'bookings')) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'boarding-task' AS source,
+                bt.task_id AS source_id,
+                b.user_id,
+                CONCAT('Boarding ', REPLACE(bt.task_type, '_', ' ')) AS title,
+                TRIM(COALESCE(bt.notes, '')) AS details,
+                'Boarding' AS category,
+                bt.due_at AS start_at,
+                COALESCE(bt.pet_id, b.pet_id) AS pet_id,
+                COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+                CASE
+                    WHEN COALESCE(bt.pet_id, b.pet_id) IS NULL THEN '/dashboard/todos'
+                    ELSE CONCAT('/dashboard/my-pets/', COALESCE(bt.pet_id, b.pet_id))
+                END AS redirect_path
+            FROM boarding_tasks bt
+            JOIN bookings b ON b.booking_id = bt.booking_id
+            LEFT JOIN pets_information p ON p.pet_id = COALESCE(bt.pet_id, b.pet_id)
+            WHERE b.user_id IS NOT NULL
+              AND bt.status NOT IN ('completed', 'cancelled')
+              AND bt.due_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND bt.due_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+            ORDER BY bt.due_at ASC
+            LIMIT 200
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
+    return $tasks;
+}
+
+function notification_send_todo_reminder(PDO $pdo, array $task, array $slot, DateTimeImmutable $now): ?int
+{
+    $ownerUserId = (int)($task['user_id'] ?? 0);
+    if ($ownerUserId <= 0) {
+        return null;
+    }
+
+    $preferences = notification_fetch_preferences($pdo, $ownerUserId);
+    if (notification_bool($preferences[$slot['preference']] ?? 1) !== 1) {
+        return null;
+    }
+
+    $scheduledAt = notification_task_datetime($task['start_at'] ?? null);
+    if (!$scheduledAt) {
+        return null;
+    }
+
+    $source = preg_replace('/[^a-z0-9_-]+/i', '-', (string)($task['source'] ?? 'todo')) ?: 'todo';
+    $sourceId = (int)($task['source_id'] ?? 0);
+    $sourceKey = $sourceId > 0 ? (string)$sourceId : substr(hash('sha256', $task['title'] . $task['start_at']), 0, 16);
+    $timeKey = !empty($slot['daily']) ? $now->format('Ymd') : $scheduledAt->format('YmdHi');
+    $dedupeKey = "todo-reminder-{$slot['slug']}-{$source}-{$sourceKey}-{$timeKey}";
+    $taskTitle = trim((string)($task['title'] ?? 'Scheduled task')) ?: 'Scheduled task';
+    $petName = trim((string)($task['pet_name'] ?? ''));
+    $schedule = $scheduledAt->format('F j, Y \a\t g:i A');
+    $message = "{$taskTitle} {$slot['lead']}.";
+
+    if ($petName !== '') {
+        $message .= " Pet: {$petName}.";
+    }
+
+    $message .= " Schedule: {$schedule}.";
+
+    return notification_create_event($pdo, [
+        'user_id' => $ownerUserId,
+        'type' => 'todo_schedule_reminder',
+        'category' => 'schedule_reminders',
+        'title' => $slot['title'],
+        'message' => $message,
+        'redirect_path' => trim((string)($task['redirect_path'] ?? '')) ?: '/dashboard/todos',
+        'dedupe_key' => $dedupeKey,
+    ]);
+}
+
+function notification_run_todo_reminders(PDO $pdo): array
+{
+    notification_ensure_schema($pdo);
+
+    $now = new DateTimeImmutable('now');
+    $checked = 0;
+    $processed = 0;
+    $skipped = 0;
+
+    foreach (notification_fetch_todo_reminder_tasks($pdo) as $task) {
+        $checked++;
+        $slot = notification_todo_reminder_slot($task['start_at'] ?? null, $now);
+
+        if (!$slot) {
+            $skipped++;
+            continue;
+        }
+
+        $notificationId = notification_send_todo_reminder($pdo, $task, $slot, $now);
+        if ($notificationId) {
+            $processed++;
+        } else {
+            $skipped++;
+        }
+    }
+
+    return [
+        'checked' => $checked,
+        'processed' => $processed,
+        'skipped' => $skipped,
+    ];
+}
+
 function notification_fetch_booking(PDO $pdo, int $bookingId): ?array
 {
     $stmt = $pdo->prepare("
@@ -1029,6 +1324,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     $bookingNumber = (string)$booking['booking_number'];
     $serviceName = notification_service_name($booking);
     $schedule = notification_format_datetime($booking['booking_date'] ?? null, $booking['booking_time'] ?? null);
+    $schedulePhrase = $schedule !== '' ? " for {$schedule}" : '';
     $redirectPath = notification_pet_redirect_path($booking['pet_id'] ?? null);
 
     $title = 'Booking update';
@@ -1038,10 +1334,12 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     $type = 'booking_update';
     $dedupeKey = null;
     $reason = 'There was an update to this booking.';
+    $pushMessage = "Your {$serviceName} booking for {$petName} has been updated.";
 
     if ($event === 'submitted') {
         $title = 'Booking received';
         $message = "{$bookingNumber} for {$petName} was received and is waiting for admin review.";
+        $pushMessage = "Your {$serviceName} booking for {$petName} was received and is waiting for admin review.";
         $subject = "We received your iPawcus booking - {$bookingNumber}";
         $intro = "Hello " . notification_user_name($booking) . ", your booking request was received. Clinic staff will review the details and notify you when it is confirmed.";
         $type = 'booking_submitted';
@@ -1050,6 +1348,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     } elseif ($event === 'confirmed') {
         $title = 'Booking confirmed';
         $message = "{$bookingNumber} for {$petName} is confirmed for {$schedule}.";
+        $pushMessage = "Your {$serviceName} booking for {$petName} is confirmed{$schedulePhrase}.";
         $subject = "Your iPawcus booking is confirmed - {$bookingNumber}";
         $intro = "Hello " . notification_user_name($booking) . ", your appointment has been confirmed. Please arrive 10 minutes before the scheduled time.";
         $type = 'booking_confirmed';
@@ -1058,6 +1357,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     } elseif ($event === 'cancelled') {
         $title = 'Booking cancelled';
         $message = "{$bookingNumber} for {$petName} has been cancelled.";
+        $pushMessage = "Your {$serviceName} booking for {$petName} has been cancelled.";
         $subject = "Your iPawcus booking was cancelled - {$bookingNumber}";
         $intro = "Hello " . notification_user_name($booking) . ", your booking has been cancelled. If payment proof was submitted, clinic staff will coordinate the return process manually.";
         $type = 'booking_cancelled';
@@ -1067,6 +1367,9 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         $oldSchedule = notification_format_datetime($context['old_date'] ?? null, $context['old_time'] ?? null);
         $title = 'Booking rescheduled';
         $message = "{$bookingNumber} for {$petName} moved from {$oldSchedule} to {$schedule}.";
+        $pushMessage = $oldSchedule !== '' && $schedule !== ''
+            ? "Your {$serviceName} booking for {$petName} moved from {$oldSchedule} to {$schedule}."
+            : "Your {$serviceName} booking for {$petName} was rescheduled{$schedulePhrase}.";
         $subject = "Your iPawcus booking was rescheduled - {$bookingNumber}";
         $intro = "Hello " . notification_user_name($booking) . ", your booking schedule was adjusted. Reminders will now follow the updated date and time.";
         $type = 'booking_rescheduled';
@@ -1104,6 +1407,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         'category' => 'booking_updates',
         'title' => $title,
         'message' => $message,
+        'push_message' => $pushMessage,
         'redirect_path' => $redirectPath,
         'dedupe_key' => $dedupeKey,
         'email_subject' => $subject,
@@ -1194,6 +1498,7 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
     $redirectPath = notification_pet_redirect_path($booking['pet_id'] ?? null);
     $title = $slot['title'];
     $message = "{$bookingNumber} for {$petName} is scheduled {$slot['lead']}.";
+    $pushMessage = "{$petName}'s {$serviceName} appointment is scheduled {$slot['lead']}.";
     $intro = "Hello " . notification_user_name($booking) . ", this is a reminder for your iPawcus appointment {$slot['lead']}.";
     $reason = "This appointment is scheduled {$slot['lead']}.";
     $rows = [
@@ -1217,6 +1522,7 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
         'category' => 'schedule_reminders',
         'title' => $title,
         'message' => $message,
+        'push_message' => $pushMessage,
         'redirect_path' => $redirectPath,
         'dedupe_key' => "booking-reminder-{$slot['slug']}-{$bookingId}-" . $scheduledAt->format('YmdHi'),
         'email_subject' => "{$title} - {$bookingNumber}",
@@ -1319,10 +1625,12 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     $intro = "Hello " . notification_user_name($queue) . ", there is an update for your pet's clinic queue.";
     $type = 'queue_update';
     $dedupeKey = "queue-update-{$queueId}-{$event}-" . time();
+    $pushMessage = "{$petName} has a queue update for {$serviceName}.";
 
     if ($event === 'created') {
         $title = 'Queue created';
         $message = "{$petName} was added to queue {$queueNumber}.";
+        $pushMessage = "{$petName} was added to the clinic queue for {$serviceName}.";
         $subject = "Queue created for {$petName} - {$queueNumber}";
         $intro = "Hello " . notification_user_name($queue) . ", your pet has been added to the clinic queue.";
         $type = 'queue_created';
@@ -1331,6 +1639,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     } elseif ($event === 'in_progress') {
         $title = 'Queue approved';
         $message = "{$petName} is now in progress for queue {$queueNumber}.";
+        $pushMessage = "{$petName} is now in progress for {$serviceName}.";
         $subject = "Queue approved for {$petName} - {$queueNumber}";
         $intro = "Hello " . notification_user_name($queue) . ", your pet's queue entry is now in progress.";
         $type = 'queue_in_progress';
@@ -1339,6 +1648,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         $vetName = trim((string)($context['veterinarian_name'] ?? 'the veterinarian'));
         $title = 'Pet received by veterinarian';
         $message = "{$petName} from queue {$queueNumber} was received by {$vetName}.";
+        $pushMessage = "{$vetName} received {$petName} for {$serviceName}.";
         $subject = "Veterinarian received {$petName} - {$queueNumber}";
         $intro = "Hello " . notification_user_name($queue) . ", the veterinarian has received your pet from the queue.";
         $type = 'queue_received';
@@ -1346,6 +1656,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     } elseif (in_array($event, ['completed', 'done'], true)) {
         $title = 'Queue completed';
         $message = "{$petName}'s queue {$queueNumber} is completed.";
+        $pushMessage = "{$petName}'s {$serviceName} queue service is completed.";
         $subject = "Queue completed for {$petName} - {$queueNumber}";
         $intro = "Hello " . notification_user_name($queue) . ", your pet's queue service has been completed.";
         $type = 'queue_completed';
@@ -1353,6 +1664,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     } elseif ($event === 'cancelled') {
         $title = 'Queue cancelled';
         $message = "{$petName}'s queue {$queueNumber} was cancelled.";
+        $pushMessage = "{$petName}'s {$serviceName} queue entry was cancelled.";
         $subject = "Queue cancelled for {$petName} - {$queueNumber}";
         $intro = "Hello " . notification_user_name($queue) . ", your pet's queue entry was cancelled.";
         $type = 'queue_cancelled';
@@ -1380,6 +1692,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         'category' => 'queue_updates',
         'title' => $title,
         'message' => $message,
+        'push_message' => $pushMessage,
         'redirect_path' => notification_pet_redirect_path($queue['pet_id'] ?? null),
         'dedupe_key' => $dedupeKey,
         'email_subject' => $subject,
@@ -1432,10 +1745,47 @@ function notification_money($amount): string
     return 'PHP ' . number_format((float)$amount, 2);
 }
 
+function notification_quantity($quantity): string
+{
+    $number = (float)$quantity;
+    return abs($number - round($number)) < 0.0001 ? (string)(int)round($number) : rtrim(rtrim(number_format($number, 2), '0'), '.');
+}
+
+function notification_visit_purchase_summary(PDO $pdo, int $visitId): string
+{
+    if (!notification_table_exists($pdo, 'visit_charges')) {
+        return '';
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT charge_type, description, quantity, unit_price, subtotal
+        FROM visit_charges
+        WHERE visit_id = ?
+        ORDER BY charge_id ASC
+    ");
+    $stmt->execute([$visitId]);
+
+    $lines = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $charge) {
+        $description = trim((string)($charge['description'] ?? 'Item'));
+        $type = ucwords(str_replace('_', ' ', (string)($charge['charge_type'] ?? 'charge')));
+        $quantity = notification_quantity($charge['quantity'] ?? 1);
+        $unitPrice = notification_money($charge['unit_price'] ?? 0);
+        $subtotal = notification_money($charge['subtotal'] ?? 0);
+        $lines[] = "{$description} ({$type}) x {$quantity} @ {$unitPrice} = {$subtotal}";
+    }
+
+    return implode("\n", $lines);
+}
+
 function notification_send_visit_event(PDO $pdo, int $visitId, string $event, array $context = []): void
 {
     $visit = notification_fetch_visit_summary($pdo, $visitId);
     if (!$visit) {
+        return;
+    }
+
+    if (strtolower((string)($visit['source_type'] ?? '')) === 'walk_in') {
         return;
     }
 
@@ -1446,19 +1796,22 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
     $balance = max(0, $total - $paid);
     $reference = $visit['booking_number'] ?: ($visit['queue_number'] ? 'Queue #' . $visit['queue_number'] : 'Visit #' . $visitId);
     $redirectPath = notification_pet_redirect_path($visit['pet_id'] ?? null);
+    $hasEmailReceiver = filter_var(trim((string)($visit['mail_Address'] ?? '')), FILTER_VALIDATE_EMAIL);
 
     if ($event === 'payment_received') {
         $amount = (float)($context['amount'] ?? 0);
         $invoice = trim((string)($context['reference_number'] ?? ''));
-        $title = 'Payment received';
+        $purchaseSummary = notification_visit_purchase_summary($pdo, $visitId);
+        $title = 'Purchase summary';
         $message = notification_money($amount) . " payment was recorded for {$petName}.";
-        $subject = "Payment received for {$petName}";
-        $intro = "Hello " . notification_user_name($visit) . ", your payment has been recorded by the clinic.";
+        $subject = "Purchase summary for {$petName}";
+        $intro = "Hello " . notification_user_name($visit) . ", your payment has been recorded by the clinic. Here is the purchase summary for this visit.";
         $reason = 'A clinic staff member recorded a payment for this visit.';
         $rows = [
             'Reason' => $reason,
             'Pet' => $petName,
             'Reference' => $reference,
+            'Purchase Summary' => $purchaseSummary,
             'Payment Amount' => notification_money($amount),
             'Invoice / Receipt' => $invoice,
             'Remaining Balance' => notification_money($balance),
@@ -1488,12 +1841,12 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
     }
 
     $emailSummary = "Pet: {$petName} | Reference: {$reference} | Reason: {$reason}";
-    $emailHtml = notification_email_template($title, $intro, $rows, null, $emailSummary);
-    $emailText = trim($intro . "\n\nSummary: {$emailSummary}\n\n" . implode("\n", array_map(
+    $emailHtml = $hasEmailReceiver ? notification_email_template($title, $intro, $rows, null, $emailSummary) : '';
+    $emailText = $hasEmailReceiver ? trim($intro . "\n\nSummary: {$emailSummary}\n\n" . implode("\n", array_map(
         fn($key, $value) => "{$key}: {$value}",
         array_keys($rows),
         array_values($rows)
-    )));
+    ))) : '';
 
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
@@ -1503,7 +1856,7 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
         'message' => $message,
         'redirect_path' => $redirectPath,
         'dedupe_key' => $dedupeKey,
-        'email_subject' => $subject,
+        'email_subject' => $hasEmailReceiver ? $subject : '',
         'email_html' => $emailHtml,
         'email_text' => $emailText,
     ]);

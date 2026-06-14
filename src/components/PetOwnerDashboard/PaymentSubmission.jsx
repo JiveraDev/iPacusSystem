@@ -5,16 +5,21 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { uploadImageFile } from "../../services/uploadService";
+import SubmissionStatus from "../shared/SubmissionStatus";
+import { resolveImageUrl } from "../../lib/image";
+import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { PhotoViewer } from "../../ui/photo-viewer";
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
   const [paymentData, setPaymentData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewer, setViewer] = useState(null);
   const [formData, setFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
@@ -23,6 +28,10 @@ export default function PaymentSubmission() {
     receiptFile: null,
     additionalImages: [],
   });
+  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
+  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
+  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
 
   useEffect(() => {
     const details = sessionStorage.getItem("paymentDetails");
@@ -49,6 +58,10 @@ export default function PaymentSubmission() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
+
     if (isDeceasedPetStatus(paymentData?.bookingData?.petStatus)) {
       toast.error(DECEASED_PET_BOOKING_MESSAGE);
       return;
@@ -57,7 +70,7 @@ export default function PaymentSubmission() {
       toast.error("Please select a payment method");
       return;
     }
-    if (!formData.receiptFile && formData.paymentMethod !== "cash") {
+    if (!formData.receiptFile && selectedMethodRequiresProof) {
       toast.error("Please upload proof of payment");
       return;
     }
@@ -65,7 +78,7 @@ export default function PaymentSubmission() {
     setIsSubmitting(true);
     try {
       // 1. Upload Receipt
-      const receiptUrl = formData.receiptFile ? await uploadImageFile(formData.receiptFile) : null;
+      const receiptUrl = formData.receiptFile ? await uploadImageFile(formData.receiptFile, "booking_payment") : null;
 
       // 2. Handle Signature if it exists (base64)
       let signatureUrl = paymentData.bookingData.signature;
@@ -131,31 +144,6 @@ export default function PaymentSubmission() {
     }
   };
 
-  const paymentMethods = [
-    {
-      value: "maya",
-      label: "Maya",
-      instructions: "Send payment to Maya account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "gcash",
-      label: "GCash",
-      instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "cash",
-      label: "Cash Payment",
-      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
-    },
-    {
-      value: "other",
-      label: "Other Payment Method",
-      instructions: "Please specify your payment method in the notes section and upload proof of payment.",
-    },
-  ];
-
-  const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
-
   return (
     <div className="space-y-6 lg:space-y-8 max-w-4xl mx-auto pb-10">
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -204,9 +192,9 @@ export default function PaymentSubmission() {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingPaymentMethods}
               >
-                <option value="">Select payment method</option>
+                <option value="">{isLoadingPaymentMethods ? "Loading payment methods..." : "Select payment method"}</option>
                 {paymentMethods.map((method) => (
                   <option key={method.value} value={method.value}>
                     {method.label}
@@ -223,7 +211,20 @@ export default function PaymentSubmission() {
                     <CheckCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-gray-900 mb-1">{selectedMethod.label} Instructions:</p>
-                      <p className="text-sm text-gray-700">{selectedMethod.instructions}</p>
+                      <p className="whitespace-pre-wrap text-sm text-gray-700">{paymentMethodInstruction(selectedMethod)}</p>
+                      {selectedQrUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedMethod.label} QR` })}
+                          className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300"
+                        >
+                          <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-48 rounded-md object-contain" />
+                          <span className="mt-2 flex items-center gap-1 text-xs font-bold text-green-700">
+                            <Eye className="size-3.5" />
+                            View larger
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -262,13 +263,13 @@ export default function PaymentSubmission() {
                 disabled={isSubmitting}
               />
               <p className="text-xs text-gray-500">
-                For digital payments (Maya, GCash), please include the transaction reference number
+                For QRPH, Maya, GCash, and Bank Transfer, please include the transaction reference number
               </p>
             </div>
 
             {/* Receipt Upload */}
             <div className="space-y-2">
-              <Label htmlFor="receipt">Upload Payment Proof/Receipt *</Label>
+              <Label htmlFor="receipt">Upload Payment Proof/Receipt {selectedMethodRequiresProof && "*"}</Label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
                 {formData.receiptFile ? (
                   <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
@@ -302,7 +303,7 @@ export default function PaymentSubmission() {
                     <Input
                       id="receipt"
                       type="file"
-                      required={formData.paymentMethod !== "cash"}
+                      required={selectedMethodRequiresProof}
                       accept="image/*,.pdf"
                       onChange={handleReceiptChange}
                       disabled={isSubmitting}
@@ -327,7 +328,13 @@ export default function PaymentSubmission() {
             </div>
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
+            <SubmissionStatus
+              active={isSubmitting}
+              label="Finalizing booking..."
+              slowLabel="Still finalizing booking..."
+            />
+
+            <Button type="submit" className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700" disabled={isSubmitting || isLoadingPaymentMethods}>
               {isSubmitting ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Booking...</>
               ) : (
@@ -337,6 +344,12 @@ export default function PaymentSubmission() {
           </form>
         </CardContent>
       </Card>
+      <PhotoViewer
+        open={Boolean(viewer)}
+        src={viewer?.src || ""}
+        alt={viewer?.alt || "Payment QR"}
+        onOpenChange={(open) => !open && setViewer(null)}
+      />
     </div>
   );
 }

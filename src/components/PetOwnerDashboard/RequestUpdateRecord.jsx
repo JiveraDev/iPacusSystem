@@ -5,43 +5,38 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, X } from "lucide-react";
-import qrphCode from "../../assets/circular_logo.png";
+import { ArrowLeft, Upload, CheckCircle2, AlertCircle, X, Eye } from "lucide-react";
+import { uploadImageFile } from "../../services/uploadService";
+import { createRecordUpdateRequest } from "../../services/recordUpdateRequestService";
+import { useDashboardUser } from "../dashboardRouter.jsx";
+import { resolveImageUrl } from "../../lib/image";
+import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { PhotoViewer } from "../../ui/photo-viewer";
+
+function currentUserId(user) {
+  return user?.user_id || user?.userId || user?.id || null;
+}
 
 export default function RequestUpdateRecord() {
   const navigate = useNavigate();
   const { petId } = useParams();
+  const currentUser = useDashboardUser();
   const [selectedMethod, setSelectedMethod] = useState("");
   const [paymentProof, setPaymentProof] = useState(null);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedRequest, setSubmittedRequest] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [viewer, setViewer] = useState(null);
+  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
 
   const convenienceFee = 200; // PHP 200 convenience fee
-
-  const paymentMethods = [
-    {
-      value: "qrph",
-      label: "QRPH",
-      instructions: "Scan the QR code below using any banking app that supports InstaPay/PESONet. Upload screenshot of successful transaction.",
-      hasQRCode: true,
-    },
-    {
-      value: "maya",
-      label: "Maya",
-      instructions: "Send payment to Maya account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "gcash",
-      label: "GCash",
-      instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "cash",
-      label: "Cash",
-      instructions: "Our personnel will verify your payment and call you for identification before the update request is confirmed.",
-    },
-  ];
+  const selectedPaymentMethod = paymentMethods.find(
+    (method) => method.value === selectedMethod
+  );
+  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedPaymentMethod);
+  const selectedQrUrl = resolveImageUrl(selectedPaymentMethod?.qrImageUrl || "");
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -52,27 +47,47 @@ export default function RequestUpdateRecord() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
+
+    if (!selectedMethod) {
+      setErrorMessage("Please select a payment method.");
+      return;
+    }
+
+    if (selectedMethodRequiresProof && !paymentProof) {
+      setErrorMessage("Please upload your payment proof.");
+      return;
+    }
+
+    if (!notes.trim()) {
+      setErrorMessage("Please describe what needs to be updated.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const paymentProofUrl = paymentProof
+        ? await uploadImageFile(paymentProof, "booking_payment")
+        : "";
 
-    // In a real app, you would upload the file and submit the payment details
-    console.log({
-      petId,
-      paymentMethod: selectedMethod,
-      paymentProof,
-      notes,
-      amount: convenienceFee,
-    });
+      const response = await createRecordUpdateRequest({
+        petId,
+        ownerUserId: currentUserId(currentUser),
+        paymentMethod: selectedMethod,
+        paymentProofUrl,
+        requestedChanges: notes,
+        paymentAmount: convenienceFee
+      });
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+      setSubmittedRequest(response.request || null);
+      setIsSubmitted(true);
+    } catch (error) {
+      setErrorMessage(error.message || "Failed to submit record update request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const selectedPaymentMethod = paymentMethods.find(
-    (method) => method.value === selectedMethod
-  );
 
   if (isSubmitted) {
     return (
@@ -87,8 +102,14 @@ export default function RequestUpdateRecord() {
             <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
             <h3 className="font-semibold text-2xl mb-2">Request Submitted Successfully!</h3>
             <p className="text-gray-600 mb-6">
-              Your update request has been submitted. Our veterinarian will review your payment and contact you shortly to update your pet's records.
+              Your update request has been submitted for admin payment review. A veterinarian will complete the update after approval.
             </p>
+            {submittedRequest?.requestNumber && (
+              <div className="mx-auto mb-6 w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-left">
+                <p className="text-xs font-black uppercase tracking-widest text-green-700">Request Number</p>
+                <p className="text-lg font-black text-green-900">{submittedRequest.requestNumber}</p>
+              </div>
+            )}
             <div className="flex gap-4 justify-center">
               <Button onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
                 Back to Pet Profile
@@ -135,21 +156,33 @@ export default function RequestUpdateRecord() {
       </Card>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {errorMessage && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+            <AlertCircle className="h-5 w-5" />
+            {errorMessage}
+          </div>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Select Payment Method</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <RadioGroup value={selectedMethod} onValueChange={setSelectedMethod}>
+              {isLoadingPaymentMethods && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                  Loading payment methods...
+                </div>
+              )}
               {paymentMethods.map((method) => (
                 <div key={method.value} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <RadioGroupItem value={method.value} id={method.value} />
+                  <RadioGroupItem value={method.value} id={method.value} disabled={isLoadingPaymentMethods} />
                   <div className="flex-1">
                     <Label htmlFor={method.value} className="cursor-pointer font-semibold">
                       {method.label}
                     </Label>
                     {selectedMethod === method.value && (
-                      <p className="text-sm text-gray-600 mt-2">{method.instructions}</p>
+                      <p className="whitespace-pre-wrap text-sm text-gray-600 mt-2">{paymentMethodInstruction(method)}</p>
                     )}
                   </div>
                 </div>
@@ -167,24 +200,32 @@ export default function RequestUpdateRecord() {
 
         {selectedPaymentMethod && (
           <>
-            {selectedPaymentMethod.hasQRCode && (
+            {selectedQrUrl && (
               <Card>
                 <CardHeader>
                   <CardTitle>Scan QR Code</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-col items-center justify-center p-6 bg-white">
-                    <div className="bg-white p-4 rounded-lg shadow-lg border-2 border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedPaymentMethod.label} QR Code` })}
+                      className="bg-white p-4 rounded-lg shadow-lg border-2 border-gray-200 transition hover:border-blue-300"
+                    >
                       <img
-                        src={qrphCode}
-                        alt="QRPH Payment QR Code"
-                        className="w-64 h-64 object-cover"
+                        src={selectedQrUrl}
+                        alt={`${selectedPaymentMethod.label} QR Code`}
+                        className="w-64 h-64 object-contain"
                       />
-                    </div>
+                      <span className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-blue-700">
+                        <Eye className="size-3.5" />
+                        View larger
+                      </span>
+                    </button>
                     <div className="mt-4 text-center">
                       <p className="font-semibold text-gray-900">iPawcus Veterinary Clinic</p>
                       <p className="text-sm text-gray-600 mt-1">Amount: PHP {convenienceFee.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500 mt-2">Scan using any QRPH-enabled banking app</p>
+                      <p className="text-xs text-gray-500 mt-2">Scan using the supported payment app</p>
                     </div>
                   </div>
                 </CardContent>
@@ -198,7 +239,8 @@ export default function RequestUpdateRecord() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="payment-proof">
-                    Upload Screenshot or Receipt <span className="text-red-500">*</span>
+                    Upload Screenshot or Receipt
+                    {selectedMethodRequiresProof && <span className="text-red-500"> *</span>}
                   </Label>
                   <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[180px] flex flex-col items-center justify-center relative overflow-hidden">
                     {paymentProof ? (
@@ -239,7 +281,7 @@ export default function RequestUpdateRecord() {
                           className="hidden"
                           accept="image/*,.pdf"
                           onChange={handleFileChange}
-                          required
+                          required={selectedMethodRequiresProof}
                         />
                       </label>
                     )}
@@ -293,7 +335,7 @@ export default function RequestUpdateRecord() {
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedMethod || !paymentProof || isSubmitting}
+                disabled={!selectedMethod || !notes.trim() || (selectedMethodRequiresProof && !paymentProof) || isSubmitting || isLoadingPaymentMethods}
                 className="flex-1"
               >
                 {isSubmitting ? "Submitting..." : "Submit Request"}
@@ -302,6 +344,12 @@ export default function RequestUpdateRecord() {
           </>
         )}
       </form>
+      <PhotoViewer
+        open={Boolean(viewer)}
+        src={viewer?.src || ""}
+        alt={viewer?.alt || "Payment QR"}
+        onOpenChange={(open) => !open && setViewer(null)}
+      />
     </div>
   );
 }

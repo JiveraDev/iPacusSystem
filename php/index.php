@@ -76,6 +76,13 @@ switch ($path) {
     case '/upload/delete':
         require_once __DIR__ . '/delete_upload.php';
         break;
+    case '/payment-methods':
+        require_once __DIR__ . '/payment_methods.php';
+        break;
+    case '/payment-methods/otp':
+        $_GET['action'] = 'otp';
+        require_once __DIR__ . '/payment_methods.php';
+        break;
     case '/bookings':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/add_booking.php';
@@ -154,6 +161,9 @@ switch ($path) {
     case '/boarding/documents':
         $_GET['action'] = 'documents';
         require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/record-update-requests':
+        require_once __DIR__ . '/record_update_requests.php';
         break;
     case '/inventory':
         $_GET['action'] = 'list';
@@ -241,7 +251,18 @@ switch ($path) {
         }
         break;
     case '/health':
-        echo json_encode(['ok' => true, 'message' => 'PHP API is healthy']);
+        try {
+            require_once __DIR__ . '/db.php';
+            $pdo->query('SELECT 1');
+            echo json_encode(['ok' => true, 'message' => 'PHP API and database are healthy']);
+        } catch (Throwable $e) {
+            http_response_code(503);
+            echo json_encode([
+                'ok' => false,
+                'code' => 'database_unavailable',
+                'message' => 'The database is not responding. Please try again later.',
+            ]);
+        }
         break;
     default:
         // Handle routes with parameters like /users/{id}/pets or /pet_information/{id}
@@ -269,6 +290,9 @@ switch ($path) {
         } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_medical_records.php';
+        } elseif (preg_match('/^\/record-update-requests\/(\d+)$/', $path, $matches)) {
+            $_GET['requestId'] = $matches[1];
+            require_once __DIR__ . '/record_update_requests.php';
         } elseif (preg_match('/^\/vet-diagnoses\/(\d+)$/', $path, $matches)) {
             $_GET['diagnosisId'] = $matches[1];
             require_once __DIR__ . '/vet_diagnoses.php';

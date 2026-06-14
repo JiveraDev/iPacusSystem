@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiFetch } from './apiClient';
 
 /**
  * Fetches detailed information for a single pet by its sharable ID.
@@ -12,7 +12,8 @@ export async function findPetService(petId) {
             throw new Error("Authentication token not found.");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/pet_information/${petId}`, {
+        const response = await apiFetch(`/pet_information/${petId}`, {
+            apiPrefix: true,
             headers: {
                 'Authorization': `Bearer ${token}` // Add Authorization header
             }
@@ -20,6 +21,7 @@ export async function findPetService(petId) {
         
         if (!response.ok) {
             let errorMessage = 'Failed to fetch pet details';
+            const errorResponse = response.clone();
             try {
                 const errorData = await response.json();
                 // Try to get a specific error message from the backend
@@ -27,7 +29,7 @@ export async function findPetService(petId) {
             } catch {
                 // If it's not JSON, try text
                 try {
-                    const textError = await response.text();
+                    const textError = await errorResponse.text();
                     console.error('Server returned non-JSON error:', textError);
                     errorMessage = textError || errorMessage; // Use text error if available
                 } catch {

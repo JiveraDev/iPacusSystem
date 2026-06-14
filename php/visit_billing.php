@@ -22,6 +22,20 @@ function visit_billing_table_exists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function visit_billing_column_exists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function visit_billing_schema_ready(PDO $pdo): bool
 {
     foreach (['visits', 'visit_charges', 'visit_payments', 'service_catalog'] as $tableName) {
@@ -87,6 +101,96 @@ function visit_billing_decode_json($value)
     $decoded = json_decode((string)$value, true);
 
     return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+}
+
+function visit_billing_ensure_walk_in_patient(PDO $pdo): array
+{
+    $ownerEmail = 'pos.walkin@counter.local';
+    $petShareId = 'PET-WALK-IN-SALE';
+
+    $stmt = $pdo->prepare("SELECT user_id FROM users WHERE mail_Address = ? LIMIT 1");
+    $stmt->execute([$ownerEmail]);
+    $ownerUserId = $stmt->fetchColumn();
+
+    if (!$ownerUserId) {
+        $stmt = $pdo->prepare("
+            INSERT INTO users (first_Name, last_Name, mail_Address, personal_Address, role)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute(['Walk-in', 'Counter Sale', $ownerEmail, 'POS counter sale', 'guest']);
+        $ownerUserId = (int)$pdo->lastInsertId();
+    } else {
+        $ownerUserId = (int)$ownerUserId;
+    }
+
+    $hasShareId = visit_billing_column_exists($pdo, 'pets_information', 'pet_sharable_ID');
+    if ($hasShareId) {
+        $stmt = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_sharable_ID = ? LIMIT 1");
+        $stmt->execute([$petShareId]);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT pet_id
+            FROM pets_information
+            WHERE pet_name = ?
+              AND pet_Temp_owner = ?
+            LIMIT 1
+        ");
+        $stmt->execute(['Walk-in Customer', 'Counter Sale']);
+    }
+    $petId = $stmt->fetchColumn();
+
+    if (!$petId) {
+        $columns = [
+            'pet_name',
+            'pet_species',
+            'pet_breed',
+            'pet_BDAY',
+            'pet_status',
+            'pet_gender',
+            'pet_weight',
+            'pet_Temp_owner',
+            'pet_allergies',
+            'pet_color_marking',
+            'pet_age',
+        ];
+        $values = [
+            'Walk-in Customer',
+            'Counter Sale',
+            'POS Sale',
+            '1970-01-01',
+            'Healthy',
+            'N/A',
+            0,
+            'Counter Sale',
+            null,
+            'POS walk-in sale placeholder',
+            'N/A',
+        ];
+
+        if ($hasShareId) {
+            $columns[] = 'pet_sharable_ID';
+            $values[] = $petShareId;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        $stmt = $pdo->prepare('INSERT INTO pets_information (' . implode(', ', $columns) . ") VALUES ({$placeholders})");
+        $stmt->execute($values);
+        $petId = (int)$pdo->lastInsertId();
+    } else {
+        $petId = (int)$petId;
+    }
+
+    $stmt = $pdo->prepare("SELECT link_id FROM pet_ownership WHERE pet_id = ? LIMIT 1");
+    $stmt->execute([$petId]);
+    if (!$stmt->fetchColumn()) {
+        $stmt = $pdo->prepare("INSERT INTO pet_ownership (user_id, pet_id) VALUES (?, ?)");
+        $stmt->execute([$ownerUserId, $petId]);
+    }
+
+    return [
+        'pet_id' => $petId,
+        'owner_user_id' => $ownerUserId,
+    ];
 }
 
 function visit_billing_resolve_owner(PDO $pdo, ?int $ownerUserId, int $petId, ?int $queueId, ?int $bookingId): int
@@ -255,26 +359,38 @@ function visit_billing_upsert_visit(PDO $pdo): void
 
     $input = visit_billing_input();
     $petId = visit_billing_nullable_int($input['pet_id'] ?? $input['petId'] ?? null);
+    $queueId = visit_billing_nullable_int($input['queue_id'] ?? $input['queueId'] ?? null);
+    $bookingId = visit_billing_nullable_int($input['booking_id'] ?? $input['bookingId'] ?? null);
+    $sourceType = visit_billing_allowed(
+        trim((string)($input['source_type'] ?? $input['sourceType'] ?? ($queueId ? 'queue' : ($bookingId ? 'booking' : 'manual')))),
+        ['queue', 'booking', 'walk_in', 'boarding', 'manual'],
+        'manual'
+    );
+    $walkInPatient = null;
+
+    if (($petId === null || $petId <= 0) && $sourceType === 'walk_in') {
+        $walkInPatient = visit_billing_ensure_walk_in_patient($pdo);
+        $petId = $walkInPatient['pet_id'];
+    }
+
     if ($petId === null || $petId <= 0) {
         visit_billing_error(400, 'pet_id is required.');
     }
 
-    $queueId = visit_billing_nullable_int($input['queue_id'] ?? $input['queueId'] ?? null);
-    $bookingId = visit_billing_nullable_int($input['booking_id'] ?? $input['bookingId'] ?? null);
+    $ownerInput = visit_billing_nullable_int($input['owner_user_id'] ?? $input['ownerUserId'] ?? null);
+    if (($ownerInput === null || $ownerInput <= 0) && $walkInPatient !== null) {
+        $ownerInput = $walkInPatient['owner_user_id'];
+    }
+
     $ownerUserId = visit_billing_resolve_owner(
         $pdo,
-        visit_billing_nullable_int($input['owner_user_id'] ?? $input['ownerUserId'] ?? null),
+        $ownerInput,
         $petId,
         $queueId,
         $bookingId
     );
     $veterinarianUserId = visit_billing_nullable_int($input['veterinarian_user_id'] ?? $input['veterinarianUserId'] ?? null);
     $diagnosisId = visit_billing_nullable_int($input['diagnosis_id'] ?? $input['diagnosisId'] ?? null);
-    $sourceType = visit_billing_allowed(
-        trim((string)($input['source_type'] ?? $input['sourceType'] ?? ($queueId ? 'queue' : ($bookingId ? 'booking' : 'manual')))),
-        ['queue', 'booking', 'walk_in', 'boarding', 'manual'],
-        'manual'
-    );
     $visitStatus = visit_billing_allowed(
         trim((string)($input['visit_status'] ?? $input['visitStatus'] ?? 'treatment_done')),
         ['waiting', 'in_consultation', 'treatment_done', 'completed', 'cancelled'],
@@ -603,9 +719,9 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
     }
 
     $paymentMethod = visit_billing_allowed(
-        trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? 'cash')),
-        ['cash', 'gcash', 'maya', 'bank_transfer', 'card', 'other'],
-        'cash'
+        trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? 'gcash')),
+        ['qrph', 'gcash', 'maya', 'bank_transfer'],
+        'gcash'
     );
     $paymentStatus = visit_billing_allowed(
         trim((string)($input['payment_status'] ?? $input['paymentStatus'] ?? 'verified')),

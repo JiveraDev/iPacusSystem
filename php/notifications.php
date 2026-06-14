@@ -294,9 +294,18 @@ try {
             notifications_error(403, 'Reminder runner is not authorized.');
         }
 
+        $bookingReminders = notification_run_booking_reminders($pdo);
+        $todoReminders = notification_run_todo_reminders($pdo);
+
         echo json_encode([
             'success' => true,
-            'reminders' => notification_run_booking_reminders($pdo),
+            'reminders' => [
+                'checked' => (int)($bookingReminders['checked'] ?? 0) + (int)($todoReminders['checked'] ?? 0),
+                'processed' => (int)($bookingReminders['processed'] ?? 0) + (int)($todoReminders['processed'] ?? 0),
+                'skipped' => (int)($bookingReminders['skipped'] ?? 0) + (int)($todoReminders['skipped'] ?? 0),
+                'bookings' => $bookingReminders,
+                'todos' => $todoReminders,
+            ],
         ]);
         exit;
     }
@@ -308,6 +317,57 @@ try {
         }
 
         $limit = max(1, min(50, (int)($_GET['limit'] ?? 15)));
+        $offset = max(0, (int)($_GET['offset'] ?? 0));
+        $scope = strtolower(trim((string)($_GET['scope'] ?? 'all')));
+        if (!in_array($scope, ['all', 'current', 'history'], true)) {
+            $scope = 'all';
+        }
+
+        $where = 'user_id = ? AND in_app_visible = 1';
+        $params = [$userId];
+        $orderBy = 'created_at DESC, notification_id DESC';
+
+        if ($scope === 'current') {
+            $where .= ' AND (read_at IS NULL OR DATE(created_at) = CURDATE())';
+            $orderBy = 'CASE WHEN read_at IS NULL THEN 0 ELSE 1 END ASC, created_at DESC, notification_id DESC';
+        } elseif ($scope === 'history') {
+            $where .= ' AND read_at IS NOT NULL AND DATE(created_at) < CURDATE()';
+        }
+
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM user_notifications WHERE {$where}");
+        $countStmt->execute($params);
+        $totalCount = (int)$countStmt->fetchColumn();
+
+        $currentCountStmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM user_notifications
+            WHERE user_id = ?
+              AND in_app_visible = 1
+              AND (read_at IS NULL OR DATE(created_at) = CURDATE())
+        ");
+        $currentCountStmt->execute([$userId]);
+        $currentCount = (int)$currentCountStmt->fetchColumn();
+
+        $historyCountStmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM user_notifications
+            WHERE user_id = ?
+              AND in_app_visible = 1
+              AND read_at IS NOT NULL
+              AND DATE(created_at) < CURDATE()
+        ");
+        $historyCountStmt->execute([$userId]);
+        $historyCount = (int)$historyCountStmt->fetchColumn();
+
+        $allCountStmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM user_notifications
+            WHERE user_id = ?
+              AND in_app_visible = 1
+        ");
+        $allCountStmt->execute([$userId]);
+        $allCount = (int)$allCountStmt->fetchColumn();
+
         $stmt = $pdo->prepare("
             SELECT
                 notification_id,
@@ -316,6 +376,8 @@ try {
                 category,
                 title,
                 message,
+                push_title,
+                push_message,
                 redirect_path,
                 dedupe_key,
                 email_status,
@@ -325,12 +387,11 @@ try {
                 read_at,
                 created_at
             FROM user_notifications
-            WHERE user_id = ?
-              AND in_app_visible = 1
-            ORDER BY created_at DESC, notification_id DESC
-            LIMIT {$limit}
+            WHERE {$where}
+            ORDER BY {$orderBy}
+            LIMIT {$limit} OFFSET {$offset}
         ");
-        $stmt->execute([$userId]);
+        $stmt->execute($params);
         $notifications = array_map(function ($notification) use ($pdo) {
             $petRedirectPath = notifications_resolve_pet_redirect($pdo, $notification);
 
@@ -341,6 +402,8 @@ try {
                 'category' => $notification['category'],
                 'title' => $notification['title'],
                 'message' => $notification['message'],
+                'pushTitle' => $notification['push_title'],
+                'pushMessage' => $notification['push_message'],
                 'redirectPath' => $petRedirectPath ?: $notification['redirect_path'],
                 'petRedirectPath' => $petRedirectPath,
                 'emailStatus' => $notification['email_status'],
@@ -381,6 +444,19 @@ try {
             'success' => true,
             'notifications' => $notifications,
             'unreadCount' => $unreadCount,
+            'pagination' => [
+                'scope' => $scope,
+                'limit' => $limit,
+                'offset' => $offset,
+                'nextOffset' => $offset + count($notifications),
+                'total' => $totalCount,
+                'hasMore' => ($offset + count($notifications)) < $totalCount,
+            ],
+            'counts' => [
+                'all' => $allCount,
+                'current' => $currentCount,
+                'history' => $historyCount,
+            ],
             'summary' => [
                 'unreadCount' => $unreadCount,
                 'visibleCount' => count($notifications),

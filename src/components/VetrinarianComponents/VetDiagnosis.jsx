@@ -24,13 +24,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../../ui/sheet';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
+import SignatureCapture from '../SignatureCapture';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { fetchBoardingDocuments } from '../../services/boardingService';
+import { fetchConsentFiles } from '../../services/consentFileService';
 import { fetchProfile } from '../../services/profileService';
 import { fetchQueues } from '../../services/queueService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { uploadFormData } from '../../services/uploadService';
+import { uploadDataUrlImage, uploadFormData } from '../../services/uploadService';
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 import { createVisit } from '../../services/visitBillingService';
 
@@ -49,6 +51,9 @@ const PRESCRIPTION_DURATION_UNITS = [
     { value: 'month', label: 'Month(s)' },
     { value: 'as needed', label: 'As needed' }
 ];
+
+const DOCUMENT_UPLOAD_ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt';
+const ADDITIONAL_CONSENT_CATEGORY = 'additional_consent';
 
 const emptyDiagnosisForm = {
     chiefComplaint: '',
@@ -381,6 +386,42 @@ function normalizeSavedAttachment(attachment) {
     };
 }
 
+function normalizeConsentTemplate(file) {
+    return {
+        id: String(file.file_id || file.id || ''),
+        title: file.file_name || file.title || 'Consent Form',
+        content: file.content || '',
+        category: file.category || 'General'
+    };
+}
+
+function normalizeAdditionalConsent(attachment) {
+    const normalized = normalizeSavedAttachment(attachment);
+
+    return {
+        ...normalized,
+        category: ADDITIONAL_CONSENT_CATEGORY,
+        templateId: attachment.templateId || attachment.template_id || attachment.consentTemplateId || '',
+        title: attachment.title || attachment.consentTitle || normalized.name || 'Signed consent',
+        content: attachment.content || attachment.consentContent || '',
+        signerName: attachment.signerName || attachment.signer_name || '',
+        signedAt: attachment.signedAt || attachment.signed_at || attachment.uploadedAt || '',
+        signatureDataUrl: attachment.signatureDataUrl || '',
+        signatureUrl: attachment.signatureUrl || attachment.url || attachment.relativeUrl || ''
+    };
+}
+
+function formatSignedAt(value) {
+    if (!value) return '';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString();
+}
+
 function normalizeBoardingDocumentUpload(document) {
     return {
         id: `boarding-document-${document.documentId}`,
@@ -419,7 +460,11 @@ export default function VetDiagnosis() {
     const [diagnosisType, setDiagnosisType] = useState('general');
     const [formData, setFormData] = useState(() => ({
         ...emptyDiagnosisForm,
-        chiefComplaint: buildInitialChiefComplaint(context)
+        chiefComplaint: buildInitialChiefComplaint(context),
+        vitalSigns: {
+            ...emptyDiagnosisForm.vitalSigns,
+            weight: context.petWeight || ''
+        }
     }));
     const [currentPrescription, setCurrentPrescription] = useState(createPrescriptionDraft);
     const [customFields, setCustomFields] = useState(() => [createCustomSection(context.serviceName)]);
@@ -430,7 +475,11 @@ export default function VetDiagnosis() {
     const [schemaWarning, setSchemaWarning] = useState('');
     const [previewImage, setPreviewImage] = useState(null);
     const [isLoadingContext, setIsLoadingContext] = useState(Boolean(initialContext.queueId || initialContext.bookingId || initialContext.bookingNumber));
-    const [shouldRecordVaccination, setShouldRecordVaccination] = useState(() => isVaccinationService(initialContext.serviceName));
+    const [consentTemplates, setConsentTemplates] = useState([]);
+    const [isLoadingConsentTemplates, setIsLoadingConsentTemplates] = useState(false);
+    const [consentDraft, setConsentDraft] = useState({ templateId: '', signature: null });
+    const [additionalConsents, setAdditionalConsents] = useState([]);
+    const [shouldRecordVaccination, setShouldRecordVaccination] = useState(false);
     const [vaccinationRecord, setVaccinationRecord] = useState(() => ({
         ...emptyVaccinationRecord,
         veterinarianName,
@@ -462,7 +511,13 @@ export default function VetDiagnosis() {
             prescription: Array.isArray(record.prescriptions) ? record.prescriptions.map(cleanPrescription) : []
         });
         setCurrentPrescription(createPrescriptionDraft());
-        setUploadedImages(Array.isArray(record.attachments) ? record.attachments.map(normalizeSavedAttachment) : []);
+        const savedAttachments = Array.isArray(record.attachments) ? record.attachments : [];
+        setUploadedImages(savedAttachments
+            .filter(attachment => attachment.category !== ADDITIONAL_CONSENT_CATEGORY)
+            .map(normalizeSavedAttachment));
+        setAdditionalConsents(savedAttachments
+            .filter(attachment => attachment.category === ADDITIONAL_CONSENT_CATEGORY)
+            .map(normalizeAdditionalConsent));
 
         const sections = Array.isArray(record.customSections) ? record.customSections : [];
         setCustomFields(sections.length > 0
@@ -550,6 +605,41 @@ export default function VetDiagnosis() {
     }, []);
 
     useEffect(() => {
+        let isActive = true;
+
+        const loadConsentTemplates = async () => {
+            setIsLoadingConsentTemplates(true);
+
+            try {
+                const data = await fetchConsentFiles();
+                if (!isActive) return;
+
+                const templates = Array.isArray(data) ? data.map(normalizeConsentTemplate).filter(template => template.id) : [];
+                setConsentTemplates(templates);
+                setConsentDraft(current => ({
+                    ...current,
+                    templateId: current.templateId || templates[0]?.id || ''
+                }));
+            } catch (error) {
+                if (isActive) {
+                    setConsentTemplates([]);
+                    toast.error(error.message || 'Failed to load consent templates.');
+                }
+            } finally {
+                if (isActive) {
+                    setIsLoadingConsentTemplates(false);
+                }
+            }
+        };
+
+        loadConsentTemplates();
+
+        return () => {
+            isActive = false;
+        };
+    }, []);
+
+    useEffect(() => {
         if (!context.petId) {
             setBoardingDocuments([]);
             return undefined;
@@ -589,12 +679,6 @@ export default function VetDiagnosis() {
     }, [veterinarianLicense, veterinarianName]);
 
     useEffect(() => {
-        if (contextIsVaccination && !loadedDiagnosisId) {
-            setShouldRecordVaccination(true);
-        }
-    }, [contextIsVaccination, loadedDiagnosisId]);
-
-    useEffect(() => {
         if (!initialContext.queueId && !initialContext.bookingId && !initialContext.bookingNumber) {
             setIsLoadingContext(false);
             return undefined;
@@ -631,11 +715,21 @@ export default function VetDiagnosis() {
                 const nextComplaint = buildInitialChiefComplaint(nextContext);
                 setFormData(current => {
                     const currentComplaint = current.chiefComplaint.trim();
-                    if (loadedDiagnosisId || (currentComplaint && currentComplaint !== previousComplaint.trim())) {
+                    if (loadedDiagnosisId) {
                         return current;
                     }
 
-                    return { ...current, chiefComplaint: nextComplaint };
+                    const shouldUpdateComplaint = !currentComplaint || currentComplaint === previousComplaint.trim();
+                    const nextVitalSigns = {
+                        ...current.vitalSigns,
+                        weight: current.vitalSigns.weight || nextContext.petWeight || ''
+                    };
+
+                    return {
+                        ...current,
+                        chiefComplaint: shouldUpdateComplaint ? nextComplaint : current.chiefComplaint,
+                        vitalSigns: nextVitalSigns
+                    };
                 });
 
                 setCustomFields(current => {
@@ -808,7 +902,7 @@ export default function VetDiagnosis() {
             name: file.name,
             file,
             mimeType: file.type,
-            preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+            preview: URL.createObjectURL(file),
             category
         }));
     };
@@ -899,6 +993,36 @@ export default function VetDiagnosis() {
         return Promise.all((attachments || []).map(uploadDiagnosisAttachment));
     };
 
+    const uploadAdditionalConsentList = async (consents) => {
+        const uploaded = [];
+
+        for (const consent of consents || []) {
+            let signatureUrl = consent.signatureUrl || consent.url || consent.relativeUrl || '';
+
+            if (consent.signatureDataUrl?.startsWith('data:image')) {
+                signatureUrl = await uploadDataUrlImage(consent.signatureDataUrl, 'booking_signature', 'diagnosis_consent');
+            }
+
+            uploaded.push({
+                id: consent.id || createId(),
+                name: consent.name || `Signed consent - ${consent.title || 'Consent Form'}`,
+                url: signatureUrl,
+                relativeUrl: signatureUrl,
+                mimeType: 'image/png',
+                uploadedAt: consent.uploadedAt || new Date().toISOString(),
+                category: ADDITIONAL_CONSENT_CATEGORY,
+                templateId: consent.templateId || '',
+                title: consent.title || 'Consent Form',
+                content: consent.content || '',
+                signerName: consent.signerName || context.ownerName || 'Pet owner',
+                signedAt: consent.signedAt || new Date().toISOString(),
+                signatureUrl
+            });
+        }
+
+        return uploaded;
+    };
+
     const diagnosisAttachments = useMemo(
         () => uploadedImages.filter(attachment => attachment.category !== 'reference_document'),
         [uploadedImages]
@@ -907,6 +1031,47 @@ export default function VetDiagnosis() {
         () => uploadedImages.filter(attachment => attachment.category === 'reference_document'),
         [uploadedImages]
     );
+    const selectedConsentTemplate = useMemo(
+        () => consentTemplates.find(template => template.id === consentDraft.templateId) || null,
+        [consentDraft.templateId, consentTemplates]
+    );
+
+    const addAdditionalConsent = () => {
+        if (!selectedConsentTemplate) {
+            toast.error('Select a consent form first.');
+            return;
+        }
+
+        if (!consentDraft.signature) {
+            toast.error('Pet owner signature is required for the selected consent form.');
+            return;
+        }
+
+        const signedAt = new Date().toISOString();
+        const title = selectedConsentTemplate.title || 'Consent Form';
+
+        setAdditionalConsents(current => [
+            ...current,
+            {
+                id: createId(),
+                name: `Signed consent - ${title}`,
+                category: ADDITIONAL_CONSENT_CATEGORY,
+                templateId: selectedConsentTemplate.id,
+                title,
+                content: selectedConsentTemplate.content,
+                signerName: context.ownerName || 'Pet owner',
+                signedAt,
+                signatureDataUrl: consentDraft.signature,
+                preview: consentDraft.signature,
+                mimeType: 'image/png'
+            }
+        ]);
+        setConsentDraft(current => ({ ...current, signature: null }));
+    };
+
+    const removeAdditionalConsent = (id) => {
+        setAdditionalConsents(current => current.filter(consent => consent.id !== id));
+    };
 
     const cleanCustomSectionsForSave = async () => {
         const sections = customFields.filter(field =>
@@ -1057,8 +1222,9 @@ export default function VetDiagnosis() {
             return;
         }
 
-        const shouldSaveVaccinationRecord = shouldRecordVaccination || hasVaccinationRecordContent(vaccinationRecord);
-        if (shouldSaveVaccinationRecord && (!vaccinationRecord.vaccineName.trim() || !vaccinationRecord.dateAdministered || !vaccinationRecord.nextDueDate)) {
+        const hasVaccinationDetails = hasVaccinationRecordContent(vaccinationRecord);
+        const shouldSaveVaccinationRecord = shouldRecordVaccination && hasVaccinationDetails;
+        if (shouldRecordVaccination && hasVaccinationDetails && (!vaccinationRecord.vaccineName.trim() || !vaccinationRecord.dateAdministered || !vaccinationRecord.nextDueDate)) {
             toast.error('Vaccine name, date administered, and next due date are required for vaccination records.');
             return;
         }
@@ -1068,6 +1234,7 @@ export default function VetDiagnosis() {
         try {
             const attachments = (await uploadAttachmentList(uploadedImages))
                 .filter(attachment => attachment.category !== 'prescription_document');
+            const signedConsents = await uploadAdditionalConsentList(additionalConsents);
             const customSections = diagnosisType === 'custom' ? await cleanCustomSectionsForSave() : [];
             const generalPrescriptions = formData.prescription.map(cleanPrescription);
             const prescriptionDocument = await uploadPrescriptionDocument({
@@ -1082,8 +1249,8 @@ export default function VetDiagnosis() {
                 customSections
             });
             const diagnosisAttachments = prescriptionDocument
-                ? [...attachments, prescriptionDocument]
-                : attachments;
+                ? [...attachments, ...signedConsents, prescriptionDocument]
+                : [...attachments, ...signedConsents];
 
             const data = await createVetDiagnosis({
                 queue_id: context.queueId || null,
@@ -1170,6 +1337,7 @@ export default function VetDiagnosis() {
                         context={context}
                         sourceUploads={sourceUploads}
                         consentUploads={consentUploads}
+                        additionalConsents={additionalConsents}
                         boardingDocumentUploads={boardingDocumentUploads}
                         onPreview={setPreviewImage}
                     />
@@ -1249,6 +1417,19 @@ export default function VetDiagnosis() {
                 suggested={contextIsVaccination}
             />
 
+            <AdditionalConsentSection
+                consentTemplates={consentTemplates}
+                isLoading={isLoadingConsentTemplates}
+                draft={consentDraft}
+                setDraft={setConsentDraft}
+                selectedTemplate={selectedConsentTemplate}
+                additionalConsents={additionalConsents}
+                addAdditionalConsent={addAdditionalConsent}
+                removeAdditionalConsent={removeAdditionalConsent}
+                ownerName={context.ownerName}
+                onPreview={setPreviewImage}
+            />
+
             <VisitChargesSection
                 serviceCatalog={serviceCatalog}
                 selectedServiceId={selectedServiceId}
@@ -1272,7 +1453,7 @@ export default function VetDiagnosis() {
                     <input
                         ref={generalFileInputRef}
                         type="file"
-                        accept="image/*,.pdf"
+                        accept={DOCUMENT_UPLOAD_ACCEPT}
                         multiple
                         onChange={handleImageUpload}
                         className="hidden"
@@ -1302,7 +1483,7 @@ export default function VetDiagnosis() {
                     <input
                         ref={referenceFileInputRef}
                         type="file"
-                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                        accept={DOCUMENT_UPLOAD_ACCEPT}
                         multiple
                         onChange={handleReferenceUpload}
                         className="hidden"
@@ -1365,7 +1546,7 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
                         )}
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                        Records saved here are added to the pet information vaccination section when diagnosis is saved.
+                        Optional. Fill this only when a vaccine was actually administered or needs to be recorded.
                     </p>
                 </div>
                 <Button
@@ -1420,6 +1601,159 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
                     </Field>
                 </div>
             )}
+        </section>
+    );
+}
+
+function AdditionalConsentSection({
+    consentTemplates,
+    isLoading,
+    draft,
+    setDraft,
+    selectedTemplate,
+    additionalConsents,
+    addAdditionalConsent,
+    removeAdditionalConsent,
+    ownerName,
+    onPreview
+}) {
+    return (
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <FileText className="size-5 text-[#155dfc]" />
+                        <h3 className="text-lg font-bold text-slate-900">Additional Consent Forms</h3>
+                        <Badge className="border-0 bg-blue-50 text-blue-700">
+                            {additionalConsents.length} signed
+                        </Badge>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-500">
+                        Optional. Add another signed owner consent when the current visit needs coverage beyond the intake consent.
+                    </p>
+                </div>
+
+                <Sheet>
+                    <SheetTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto">
+                            <PanelRightOpen className="size-4" />
+                            Open Consent Sheet
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="overflow-y-auto sm:max-w-2xl">
+                        <div className="p-5">
+                            <SheetHeader>
+                                <SheetTitle>Additional Consent Forms</SheetTitle>
+                                <SheetDescription>
+                                    Select a consent template and collect the pet owner signature for this diagnosis.
+                                </SheetDescription>
+                            </SheetHeader>
+
+                            <div className="mt-5 space-y-5">
+                                <div className="space-y-3">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold text-slate-900">Consent Template</Label>
+                                        <Select
+                                            value={draft.templateId}
+                                            onValueChange={(value) => setDraft(current => ({ ...current, templateId: value }))}
+                                            disabled={isLoading || consentTemplates.length === 0}
+                                        >
+                                            <SelectTrigger className="bg-white">
+                                                <SelectValue placeholder={isLoading ? 'Loading consent forms...' : 'Select consent form'} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {consentTemplates.map(template => (
+                                                    <SelectItem key={template.id} value={template.id}>
+                                                        {template.title}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="min-h-36 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                        {selectedTemplate ? (
+                                            <>
+                                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                    <p className="font-bold text-slate-900">{selectedTemplate.title}</p>
+                                                    <Badge className="border-0 bg-slate-100 text-slate-600">{selectedTemplate.category}</Badge>
+                                                </div>
+                                                <p className="max-h-80 overflow-y-auto whitespace-pre-wrap text-sm font-medium leading-6 text-slate-600">
+                                                    {selectedTemplate.content || 'No consent content available.'}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm font-semibold text-slate-400">
+                                                No consent template selected. Add templates from Consent Files Management if this list is empty.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <Label className="text-sm font-bold text-slate-900">Owner Signature</Label>
+                                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                                            Signed by {ownerName || 'pet owner'} for the selected consent form.
+                                        </p>
+                                    </div>
+                                    <SignatureCapture
+                                        signature={draft.signature}
+                                        onSignatureChange={(signature) => setDraft(current => ({ ...current, signature }))}
+                                        disabled={!selectedTemplate}
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={addAdditionalConsent}
+                                        disabled={!selectedTemplate || !draft.signature}
+                                        className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                                    >
+                                        <Plus className="size-4" />
+                                        Add Signed Consent
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            </div>
+
+            <div className="mt-5">
+                {additionalConsents.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-400">
+                        No additional consent forms added for this diagnosis.
+                    </p>
+                ) : (
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {additionalConsents.map(consent => (
+                            <div key={consent.id} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => onPreview?.({
+                                        src: consent.preview || consent.signatureDataUrl || consent.url || consent.signatureUrl,
+                                        alt: consent.title || consent.name || 'Signed consent'
+                                    })}
+                                    className="min-w-0 text-left"
+                                >
+                                    <p className="truncate text-sm font-black text-slate-900">{consent.title || consent.name}</p>
+                                    <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                                        {consent.signerName || ownerName || 'Pet owner'} {consent.signedAt ? `- ${formatSignedAt(consent.signedAt)}` : ''}
+                                    </p>
+                                </button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeAdditionalConsent(consent.id)}
+                                    className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </section>
     );
 }
@@ -1541,7 +1875,7 @@ function VisitChargesSection({
     );
 }
 
-function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, boardingDocumentUploads, onPreview }) {
+function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, additionalConsents, boardingDocumentUploads, onPreview }) {
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -1639,6 +1973,36 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, board
                                         <AttachmentCard
                                             key={upload.id}
                                             attachment={upload}
+                                            onPreview={onPreview}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Additional Consents</h3>
+                                <Badge className="border-0 bg-slate-100 text-slate-700">{additionalConsents.length}</Badge>
+                            </div>
+
+                            {additionalConsents.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-400">
+                                    No additional consent forms signed for this diagnosis.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {additionalConsents.map(consent => (
+                                        <AttachmentCard
+                                            key={consent.id}
+                                            attachment={{
+                                                ...consent,
+                                                label: consent.title || 'Additional consent',
+                                                name: consent.title || consent.name || 'Signed consent',
+                                                preview: consent.preview || consent.signatureDataUrl,
+                                                url: consent.url || consent.signatureUrl,
+                                                mimeType: 'image/png'
+                                            }}
                                             onPreview={onPreview}
                                         />
                                     ))}
@@ -2232,7 +2596,7 @@ function CustomDiagnosisForm({
                             <input
                                 id={`custom-upload-${field.id}`}
                                 type="file"
-                                accept="image/*,.pdf"
+                                accept={DOCUMENT_UPLOAD_ACCEPT}
                                 multiple
                                 onChange={(event) => handleCustomUpload(field.id, event)}
                                 className="hidden"

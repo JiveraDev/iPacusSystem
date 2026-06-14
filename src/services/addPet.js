@@ -1,9 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { apiFetch } from './apiClient';
 
 export async function addPetService(petData) {
     try {
         const token = localStorage.getItem("authToken");
-        const response = await fetch(`${API_BASE_URL}/api/pet_information`, {
+        const response = await apiFetch('/pet_information', {
+            apiPrefix: true,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -14,13 +15,14 @@ export async function addPetService(petData) {
 
         if (!response.ok) {
             let errorMessage = 'Failed to add pet';
+            const errorResponse = response.clone();
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.message || errorMessage;
             } catch {
                 // If it's not JSON, try text
                 try {
-                    const textError = await response.text();
+                    const textError = await errorResponse.text();
                     console.error('Server returned non-JSON error:', textError);
                 } catch {
                     console.error('Could not read error response');

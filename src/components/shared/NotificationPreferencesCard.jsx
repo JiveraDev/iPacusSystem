@@ -43,7 +43,7 @@ const PREFERENCE_GROUPS = [
         description: 'Pick the kinds of pet care updates you want to follow.',
         items: [
             { key: 'booking_updates', label: 'Bookings', detail: 'Know when a booking is approved, cancelled, or moved to a new schedule.' },
-            { key: 'schedule_reminders', label: 'Schedule reminders', detail: 'Get reminded before an appointment, boarding stay, or clinic schedule.' },
+            { key: 'schedule_reminders', label: 'Schedule reminders', detail: 'Get push reminders for appointments, personal TODOs, boarding tasks, follow-ups, and due or overdue schedules.' },
             { key: 'payment_updates', label: 'Payments', detail: 'Know when a bill is ready or when a payment has been recorded.' },
             { key: 'diagnosis_updates', label: 'Diagnosis and follow-up', detail: 'Know when diagnosis notes or follow-up dates are available.' },
             { key: 'queue_updates', label: 'Queue status', detail: 'Follow queue approvals, cancellations, and veterinarian receiving updates.' },

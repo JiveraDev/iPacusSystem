@@ -1,5 +1,3 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
 /**
  * Resolves an image path to a full URL, handling Vite's public folder and absolute URLs.
  * @param {string} profileImage - The path or URL to the image

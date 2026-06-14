@@ -4,6 +4,7 @@ import {
     Eye,
     FileText,
     History,
+    Hotel,
     Loader2,
     MessageSquare,
     Paperclip,
@@ -25,6 +26,7 @@ import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
+import { fetchBookings } from '../../services/bookingService';
 import { fetchOnlineConsultations } from '../../services/onlineConsultationService';
 import { fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 
@@ -102,6 +104,26 @@ function removeBookingMarker(complaint) {
     return String(complaint || '').replace(/\[Booking:\s*[^\]]+\]\s*/g, '').trim();
 }
 
+function isCompletedBoarding(booking) {
+    const status = normalize(booking?.status);
+    const assignmentStatus = normalize(booking?.boardingAssignment?.status);
+
+    return normalize(booking?.type) === 'boarding'
+        && ['completed', 'done', 'checked_out', 'checked-out'].some(value => value === status || value === assignmentStatus);
+}
+
+function boardingFacilityName(booking) {
+    if (booking?.hotelBoardingType === 'hotel') {
+        return 'Pet Hotel Boarding';
+    }
+
+    if (booking?.hotelBoardingType === 'boarding') {
+        return 'Kennel Boarding';
+    }
+
+    return booking?.service || 'Boarding Stay';
+}
+
 function mapClinicRecord(record) {
     return {
         id: `clinic-${record.diagnosisId || record.id}`,
@@ -142,6 +164,32 @@ function mapOnlineRecord(consultation) {
     };
 }
 
+function mapBoardingRecord(booking) {
+    const assignment = booking.boardingAssignment || {};
+
+    return {
+        id: `boarding-${booking.id}`,
+        source: 'boarding',
+        sourceLabel: 'Boarding',
+        sourceIcon: Hotel,
+        recordId: booking.id,
+        petName: booking.petName || 'Unnamed Pet',
+        petDetails: [booking.petSpecies, booking.petBreed].filter(Boolean).join(' - '),
+        ownerName: booking.ownerName || 'Pet owner',
+        serviceName: booking.service || boardingFacilityName(booking),
+        bookingNumber: booking.bookingNumber || '',
+        queueNumber: '',
+        date: assignment.actualCheckOutAt || booking.checkOutDate || booking.date || booking.createdAt,
+        diagnosis: [
+            booking.service || boardingFacilityName(booking),
+            assignment.roomLabel,
+            booking.notes
+        ].filter(Boolean).join(' '),
+        diagnosisType: 'boarding',
+        raw: booking
+    };
+}
+
 function compareByDateDesc(left, right) {
     const leftTime = new Date(left.date || 0).getTime() || 0;
     const rightTime = new Date(right.date || 0).getTime() || 0;
@@ -165,8 +213,23 @@ function recordSearchText(record) {
         record.raw?.treatment,
         record.raw?.recommendations,
         record.raw?.medications,
-        record.raw?.diagnosisNotes
+        record.raw?.diagnosisNotes,
+        record.raw?.service,
+        record.raw?.hotelBoardingType,
+        record.raw?.roomSize,
+        record.raw?.boardingAssignment?.roomLabel
     ].join(' ');
+}
+
+function sourceFilterLabel(value) {
+    const labels = {
+        all: 'All Sources',
+        clinic: 'Clinic',
+        online: 'Online',
+        boarding: 'Boarding'
+    };
+
+    return labels[value] || 'All Sources';
 }
 
 export default function VetDiagnosisHistory() {
@@ -196,9 +259,10 @@ export default function VetDiagnosisHistory() {
         const errors = [];
         const nextRecords = [];
 
-        const [clinicResult, onlineResult] = await Promise.allSettled([
+        const [clinicResult, onlineResult, boardingResult] = await Promise.allSettled([
             fetchVetDiagnoses({ veterinarianUserId }),
-            fetchOnlineConsultations({ vetId: veterinarianUserId })
+            fetchOnlineConsultations({ vetId: veterinarianUserId }),
+            fetchBookings()
         ]);
 
         if (clinicResult.status === 'fulfilled') {
@@ -217,6 +281,12 @@ export default function VetDiagnosisHistory() {
             nextRecords.push(...safeArray(onlineResult.value).filter(hasOnlineDiagnosis).map(mapOnlineRecord));
         } else {
             errors.push(onlineResult.reason?.message || 'Failed to load online consultation histories.');
+        }
+
+        if (boardingResult.status === 'fulfilled') {
+            nextRecords.push(...safeArray(boardingResult.value).filter(isCompletedBoarding).map(mapBoardingRecord));
+        } else {
+            errors.push(boardingResult.reason?.message || 'Failed to load completed boarding histories.');
         }
 
         setRecords(nextRecords.sort(compareByDateDesc));
@@ -251,6 +321,7 @@ export default function VetDiagnosisHistory() {
 
     const clinicCount = records.filter(record => record.source === 'clinic').length;
     const onlineCount = records.filter(record => record.source === 'online').length;
+    const boardingCount = records.filter(record => record.source === 'boarding').length;
     const latestRecordDate = records[0]?.date;
 
     if (!veterinarianUserId) {
@@ -271,7 +342,7 @@ export default function VetDiagnosisHistory() {
                 <div>
                     <h2 className="text-2xl font-bold text-[#101828]">Diagnosis Histories</h2>
                     <p className="text-sm font-medium text-slate-500">
-                        Past clinic and online diagnosis records saved by this veterinarian.
+                        Past clinic, online, and completed boarding service records.
                     </p>
                 </div>
                 <Button
@@ -286,10 +357,11 @@ export default function VetDiagnosisHistory() {
                 </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatCard icon={History} label="Total Records" value={records.length} tone="blue" />
                 <StatCard icon={Stethoscope} label="Clinic Diagnoses" value={clinicCount} tone="green" />
                 <StatCard icon={Video} label="Online Diagnoses" value={onlineCount} tone="purple" />
+                <StatCard icon={Hotel} label="Boarding Stays" value={boardingCount} tone="amber" />
                 <StatCard
                     icon={CalendarClock}
                     label="Latest Review"
@@ -313,13 +385,14 @@ export default function VetDiagnosisHistory() {
                         <SelectTrigger>
                             <SelectValue
                                 placeholder="Filter source"
-                                displayValue={sourceFilter === 'all' ? 'All Sources' : sourceFilter === 'clinic' ? 'Clinic' : 'Online'}
+                                displayValue={sourceFilterLabel(sourceFilter)}
                             />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Sources</SelectItem>
                             <SelectItem value="clinic">Clinic</SelectItem>
                             <SelectItem value="online">Online</SelectItem>
+                            <SelectItem value="boarding">Boarding</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -419,6 +492,7 @@ function StatCard({ icon, label, value, tone }) {
     const toneClasses = {
         blue: 'bg-blue-50 text-blue-700',
         green: 'bg-green-50 text-green-700',
+        amber: 'bg-amber-50 text-amber-700',
         purple: 'bg-violet-50 text-violet-700',
         slate: 'bg-slate-100 text-slate-700'
     };
@@ -440,9 +514,11 @@ function StatCard({ icon, label, value, tone }) {
 
 function SourceBadge({ record }) {
     const Icon = record.sourceIcon;
-    const className = record.source === 'online'
-        ? 'border-0 bg-violet-50 text-violet-700'
-        : 'border-0 bg-blue-50 text-blue-700';
+    const className = {
+        online: 'border-0 bg-violet-50 text-violet-700',
+        boarding: 'border-0 bg-amber-50 text-amber-700',
+        clinic: 'border-0 bg-blue-50 text-blue-700'
+    }[record.source] || 'border-0 bg-slate-100 text-slate-700';
 
     return (
         <Badge className={className}>
@@ -456,6 +532,7 @@ function RecordDialog({ record, onClose, onPreview }) {
     if (!record) return null;
 
     const isOnline = record.source === 'online';
+    const isBoarding = record.source === 'boarding';
     const raw = record.raw || {};
 
     return (
@@ -464,7 +541,7 @@ function RecordDialog({ record, onClose, onPreview }) {
                 <DialogHeader>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <DialogTitle>Diagnosis Review</DialogTitle>
+                            <DialogTitle>{isBoarding ? 'Boarding Record Review' : 'Diagnosis Review'}</DialogTitle>
                             <p className="mt-1 text-sm font-medium text-slate-500">
                                 {record.petName} - {record.ownerName}
                             </p>
@@ -486,14 +563,18 @@ function RecordDialog({ record, onClose, onPreview }) {
                         <Detail label="Queue" value={record.queueNumber ? `#${record.queueNumber}` : ''} />
                         <Detail label="Pet Details" value={record.petDetails} />
                         <Detail label="Record ID" value={`${record.sourceLabel} #${record.recordId}`} />
-                        {isOnline ? (
+                        {isBoarding ? (
+                            <Detail label="Status" value={raw.status} />
+                        ) : isOnline ? (
                             <Detail label="Consult Status" value={raw.status} />
                         ) : (
                             <Detail label="Follow-up" value={raw.followUp ? formatDisplayDate(raw.followUp) : ''} />
                         )}
                     </div>
 
-                    {isOnline ? (
+                    {isBoarding ? (
+                        <BoardingDetails booking={raw} onPreview={onPreview} />
+                    ) : isOnline ? (
                         <OnlineDetails consultation={raw} />
                     ) : (
                         <ClinicDetails record={raw} onPreview={onPreview} />
@@ -558,6 +639,44 @@ function VaccinationReview({ record }) {
                 <Detail label="Notes" value={record.notes} />
             </div>
         </section>
+    );
+}
+
+function BoardingDetails({ booking, onPreview }) {
+    const assignment = booking.boardingAssignment || {};
+    const stayFiles = [
+        { name: 'Payment Proof', url: booking.paymentProof },
+        { name: 'Booking Concern', url: booking.image_Booking_Concern_Path },
+        { name: 'Signed Consent', url: booking.signaturePath }
+    ].filter(file => file.url);
+
+    return (
+        <div className="space-y-4">
+            <section className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                    <Hotel className="size-4 text-amber-700" />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Boarding Stay</h3>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <Detail label="Facility" value={boardingFacilityName(booking)} />
+                    <Detail label="Room/Kennel" value={assignment.roomLabel || booking.roomSize} />
+                    <Detail label="Check-in" value={formatDisplayDate(assignment.actualCheckInAt || booking.checkInDate || booking.date)} />
+                    <Detail label="Check-out" value={formatDisplayDate(assignment.actualCheckOutAt || booking.checkOutDate)} />
+                    <Detail label="Assignment Status" value={assignment.status} />
+                    <Detail label="Booking Status" value={booking.status} />
+                    <Detail label="Payment" value={booking.price ? `PHP ${booking.price}` : ''} />
+                    <Detail label="Boarding ID" value={booking.bookingNumber || booking.id} />
+                </div>
+            </section>
+
+            <TextBlock label="Boarding Notes" value={booking.notes} icon={MessageSquare} />
+            <TextBlock
+                label="Owner Contact"
+                value={[booking.ownerPhone, booking.ownerEmail, booking.ownerEmergencyNumber].filter(Boolean).join('\n')}
+                icon={FileText}
+            />
+            <AttachmentList title="Boarding Files" attachments={stayFiles} onPreview={onPreview} />
+        </div>
     );
 }
 

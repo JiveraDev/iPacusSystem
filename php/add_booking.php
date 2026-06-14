@@ -30,6 +30,21 @@ function columnExists(PDO $pdo, string $tableName, string $columnName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function jsonColumnValue($value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    if ($encoded === false) {
+        throw new Exception('Invalid JSON payload.');
+    }
+
+    return $encoded;
+}
+
 function specialServiceDateColumnsExist(PDO $pdo): bool
 {
     return columnExists($pdo, 'special_service_catalog', 'date_restriction_type')
@@ -360,8 +375,18 @@ if ($specificLocation && $address) {
     $address = $address . " | Specific Location: " . $specificLocation;
 }
 
-$signaturePath = $input['signature'] ?? null;
+$signaturePath = $input['signature'] ?? $input['signature_path'] ?? $input['consent_signature_path'] ?? null;
+$consentForms = $input['consent_forms'] ?? $input['consentForms'] ?? null;
+$consentStatus = trim((string)($input['consent_status'] ?? $input['consentStatus'] ?? ''));
+$consentStatus = $consentStatus !== '' ? $consentStatus : ($signaturePath ? 'signed' : null);
 $paymentProofUrl = $input['payment_proof_url'] ?? null;
+$allowedPaymentMethods = ['qrph', 'maya', 'gcash', 'bank_transfer'];
+$paymentMethod = strtolower(trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? '')));
+if (!in_array($paymentMethod, $allowedPaymentMethods, true)) {
+    $paymentMethod = null;
+}
+$paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
+$paymentReference = $paymentReference !== '' ? $paymentReference : null;
 $price = $input['price'] ?? 0;
 $transportFee = $input['transport_fee'] ?? 0;
 
@@ -379,6 +404,12 @@ $isHotelBoarding = $serviceType === 'boarding' && in_array($hotelBoardingType, [
 if ($isHotelBoarding) {
     $bookingDate = $bookingDate ?: $checkInDate;
     $bookingTime = $bookingTime ?: '09:00:00';
+}
+
+if ($isHotelBoarding && !$signaturePath) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Pet hotel and boarding bookings require a signed liability consent before payment or activation.']);
+    exit;
 }
 
 $bookingTime = normalizeBookingTime($bookingTime);
@@ -583,6 +614,22 @@ if ($isHotelBoarding) {
     }
 }
 
+if (!columnExists($pdo, 'bookings', 'payment_method')) {
+    $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_method VARCHAR(40) NULL AFTER payment_proof_url");
+}
+
+if (!columnExists($pdo, 'bookings', 'payment_reference')) {
+    $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_reference VARCHAR(120) NULL AFTER payment_method");
+}
+
+if (!columnExists($pdo, 'bookings', 'consent_forms')) {
+    $pdo->exec("ALTER TABLE bookings ADD COLUMN consent_forms LONGTEXT NULL AFTER signature_path");
+}
+
+if (!columnExists($pdo, 'bookings', 'consent_status')) {
+    $pdo->exec("ALTER TABLE bookings ADD COLUMN consent_status VARCHAR(40) NULL AFTER consent_forms");
+}
+
 try {
     $pdo->beginTransaction();
 
@@ -648,7 +695,11 @@ try {
             is_home_service,
             address,
             signature_path,
+            consent_forms,
+            consent_status,
             payment_proof_url,
+            payment_method,
+            payment_reference,
             is_online_consultation,
             veterinarian_id,
             price,
@@ -660,7 +711,7 @@ try {
             emergency_contact,
             hotel_boarding_type,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     $stmt->execute([
@@ -682,7 +733,11 @@ try {
         $isHomeService,
         $address,
         $signaturePath,
+        jsonColumnValue($consentForms),
+        $consentStatus,
         $paymentProofUrl,
+        $paymentMethod,
+        $paymentReference,
         $isOnlineConsultation,
         $veterinarianId,
         $price,

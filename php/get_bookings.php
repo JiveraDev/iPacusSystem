@@ -37,6 +37,17 @@ function normalizePriceLabel(?string $value): ?string
     return $label !== '' ? $label : null;
 }
 
+function decodeJsonArray($value): array
+{
+    if ($value === null || $value === '') {
+        return [];
+    }
+
+    $decoded = json_decode((string)$value, true);
+
+    return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+}
+
 try {
     autoCancelOverdueBookings($pdo);
 
@@ -283,6 +294,8 @@ try {
             'isHomeService' => $isHomeService,
             'address' => $b['address'],
             'paymentProof' => $b['payment_proof_url'],
+            'paymentMethod' => $b['payment_method'] ?? null,
+            'paymentReference' => $b['payment_reference'] ?? null,
             'isOnlineConsultation' => $isOnlineConsultation,
             'veterinarianId' => $b['veterinarian_id'],
             'veterinarian' => $b['vet_first_name'] ? "Dr. {$b['vet_first_name']} {$b['vet_last_name']}" : "Unassigned",
@@ -296,6 +309,8 @@ try {
             'emergencyContact' => $b['emergency_contact'] ?? null,
             'image_Booking_Concern_Path' => $b['Image_Booking_Concern_Path'],
             'signaturePath' => $b['signature_path'],
+            'consentForms' => decodeJsonArray($b['consent_forms'] ?? null),
+            'consentStatus' => $b['consent_status'] ?? null,
             'isRegistered' => $isRegistered,
             'createdAt' => $b['created_at']
         ];

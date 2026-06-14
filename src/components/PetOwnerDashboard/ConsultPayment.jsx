@@ -7,17 +7,22 @@ import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Checkbox } from "../../ui/checkbox";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck, Eye } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { uploadImageFile } from "../../services/uploadService";
+import SubmissionStatus from "../shared/SubmissionStatus";
+import { resolveImageUrl } from "../../lib/image";
+import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { PhotoViewer } from "../../ui/photo-viewer";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
   const [bookingData, setBookingData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState(null);
+  const [viewer, setViewer] = useState(null);
   const [consents, setConsents] = useState({
     terms: false,
     privacy: false,
@@ -30,6 +35,10 @@ export default function ConsultPayment() {
     amount: "",
     receiptFile: null,
   });
+  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
+  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
+  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
 
   useEffect(() => {
     const pending = sessionStorage.getItem("pendingBooking");
@@ -57,6 +66,9 @@ export default function ConsultPayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isProcessing) {
+      return;
+    }
 
     if (isDeceasedPetStatus(bookingData?.petStatus)) {
       toast.error(DECEASED_PET_BOOKING_MESSAGE);
@@ -76,7 +88,7 @@ export default function ConsultPayment() {
       toast.error("Please select a payment method");
       return;
     }
-    if (!formData.receiptFile && formData.paymentMethod !== "cash") {
+    if (!formData.receiptFile && selectedMethodRequiresProof) {
       toast.error("Please upload proof of payment");
       return;
     }
@@ -159,31 +171,6 @@ export default function ConsultPayment() {
       setFormData({ ...formData, receiptFile: e.target.files[0] });
     }
   };
-
-  const paymentMethods = [
-    {
-      value: "maya",
-      label: "Maya",
-      instructions: "Send payment to Maya account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "gcash",
-      label: "GCash",
-      instructions: "Send payment to GCash account: 0917-XXX-XXXX (iPawcus Veterinary). Upload screenshot of successful transaction.",
-    },
-    {
-      value: "cash",
-      label: "Cash Payment",
-      instructions: "Our personnel will verify your booking and call you for identification before the admin confirms it.",
-    },
-    {
-      value: "other",
-      label: "Other Payment Method",
-      instructions: "Please specify your payment method in the notes section and upload proof of payment.",
-    },
-  ];
-
-  const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
 
   if (!bookingData) {
     return null;
@@ -305,8 +292,9 @@ export default function ConsultPayment() {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                disabled={isLoadingPaymentMethods}
               >
-                <option value="">Select payment method</option>
+                <option value="">{isLoadingPaymentMethods ? "Loading payment methods..." : "Select payment method"}</option>
                 {paymentMethods.map((method) => (
                   <option key={method.value} value={method.value}>
                     {method.label}
@@ -323,7 +311,20 @@ export default function ConsultPayment() {
                     <CheckCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-gray-900 mb-1">{selectedMethod.label} Instructions:</p>
-                      <p className="text-sm text-gray-700">{selectedMethod.instructions}</p>
+                      <p className="whitespace-pre-wrap text-sm text-gray-700">{paymentMethodInstruction(selectedMethod)}</p>
+                      {selectedQrUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedMethod.label} QR` })}
+                          className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300"
+                        >
+                          <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-48 rounded-md object-contain" />
+                          <span className="mt-2 flex items-center gap-1 text-xs font-bold text-green-700">
+                            <Eye className="size-3.5" />
+                            View larger
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -353,7 +354,7 @@ export default function ConsultPayment() {
                 onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
               />
               <p className="text-xs text-gray-500">
-                For digital payments (Maya, GCash), please include the transaction reference number
+                For QRPH, Maya, GCash, and Bank Transfer, please include the transaction reference number
               </p>
             </div>
 
@@ -374,7 +375,7 @@ export default function ConsultPayment() {
 
             {/* Receipt Upload */}
             <div className="space-y-2">
-              <Label htmlFor="receipt">Upload Payment Proof/Receipt *</Label>
+              <Label htmlFor="receipt">Upload Payment Proof/Receipt {selectedMethodRequiresProof && "*"}</Label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
                 {formData.receiptFile ? (
                   <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
@@ -408,7 +409,7 @@ export default function ConsultPayment() {
                     <Input
                       id="receipt"
                       type="file"
-                      required={formData.paymentMethod !== "cash"}
+                      required={selectedMethodRequiresProof}
                       accept="image/*,.pdf"
                       onChange={handleReceiptChange}
                       className="hidden"
@@ -419,12 +420,24 @@ export default function ConsultPayment() {
             </div>
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full h-12 text-base" disabled={isProcessing}>
+            <SubmissionStatus
+              active={isProcessing}
+              label="Submitting payment..."
+              slowLabel="Still submitting payment..."
+            />
+
+            <Button type="submit" className="w-full h-12 text-base" disabled={isProcessing || isLoadingPaymentMethods}>
               {isProcessing ? "Submitting Payment..." : "Submit Payment"}
             </Button>
           </form>
         </CardContent>
       </Card>
+      <PhotoViewer
+        open={Boolean(viewer)}
+        src={viewer?.src || ""}
+        alt={viewer?.alt || "Payment QR"}
+        onOpenChange={(open) => !open && setViewer(null)}
+      />
     </div>
   );
 }

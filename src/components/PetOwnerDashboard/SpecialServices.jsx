@@ -30,6 +30,7 @@ import {
     fetchSpecialServices,
     updateSpecialService
 } from "../../services/specialServicesService";
+import SubmissionStatus from "../shared/SubmissionStatus";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -511,6 +512,9 @@ export default function SpecialServices({ user }) {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        if (isSubmitting) {
+            return;
+        }
 
         if (selectedServiceIds.length === 0) {
             toast.error("Please select one special service.");
@@ -1225,6 +1229,8 @@ export default function SpecialServices({ user }) {
                                 </ul>
                             </CardContent>
                         </Card>
+
+                        <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />
 
                         <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || isLoadingServices}>
                             {isSubmitting ? (

@@ -11,3 +11,32 @@ export function createAccount(payload) {
 export function updateAccountStatus(userId, payload) {
     return patchJson(`/accounts/${userId}/status`, payload, { apiPrefix: true });
 }
+
+function currentUserRole() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        return user?.role || '';
+    } catch {
+        return '';
+    }
+}
+
+export function fetchPetOwnerAccounts() {
+    const query = new URLSearchParams({ role: currentUserRole() });
+    return apiRequest(`/pet-owner-accounts?${query.toString()}`, { apiPrefix: true });
+}
+
+export function updatePetOwnerStatus(userId, payload) {
+    return patchJson(`/pet-owner-accounts/${userId}/status`, {
+        ...payload,
+        role: currentUserRole()
+    }, { apiPrefix: true });
+}
+
+export function removePetOwnerOwnership(userId, petId) {
+    const query = new URLSearchParams({ role: currentUserRole() });
+    return apiRequest(`/pet-owner-accounts/${userId}/pets/${petId}?${query.toString()}`, {
+        method: 'DELETE',
+        apiPrefix: true
+    });
+}

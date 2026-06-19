@@ -132,7 +132,34 @@ function isConfirmedBooking(booking) {
 }
 
 function isBoardingBooking(booking) {
-    return normalize(booking.type) === 'boarding' && Boolean(booking.hotelBoardingType || booking.hotel_boarding_type);
+    return normalize(booking.type) === 'boarding'
+        || Boolean(booking.hotelBoardingType || booking.hotel_boarding_type);
+}
+
+function isSpecialServiceBooking(booking) {
+    const type = normalize(booking.type);
+    const service = normalize(booking.service);
+
+    return type.includes('special') || service.includes('special');
+}
+
+function isHomeServiceBooking(booking) {
+    const type = normalize(booking.type);
+    const service = normalize(booking.service);
+
+    return Boolean(booking.isHomeService) || type === 'home-service' || type === 'home_service' || service.includes('home service');
+}
+
+function isNormalPhysicalBooking(booking) {
+    return isConfirmedBooking(booking)
+        && !booking.isOnlineConsultation
+        && !isHomeServiceBooking(booking)
+        && !isBoardingBooking(booking)
+        && !isSpecialServiceBooking(booking);
+}
+
+function isAutoRescheduledBooking(booking) {
+    return /\[Lifecycle\]\s*Auto-rescheduled due to missed approved booking/i.test(String(booking.notes || ''));
 }
 
 function getStoredUser() {
@@ -259,15 +286,30 @@ export default function VetQueueList() {
 
     const confirmedBookings = useMemo(() => {
         return bookings
-            .filter(isConfirmedBooking)
-            .filter(booking => !booking.isOnlineConsultation)
-            .filter(booking => !isBoardingBooking(booking))
+            .filter(isNormalPhysicalBooking)
+            .filter(booking => toLocalDateKey(booking.date) === todayKey)
+            .filter(booking => !isAutoRescheduledBooking(booking))
             .sort((a, b) => {
                 const leftDate = new Date(`${a.date || ''}T${a.time || '00:00:00'}`);
                 const rightDate = new Date(`${b.date || ''}T${b.time || '00:00:00'}`);
                 return leftDate - rightDate;
             });
-    }, [bookings]);
+    }, [bookings, todayKey]);
+
+    const missedBookings = useMemo(() => {
+        return bookings
+            .filter(isNormalPhysicalBooking)
+            .filter(booking => {
+                const bookingDate = toLocalDateKey(booking.date);
+                if (!bookingDate) return false;
+                return bookingDate < todayKey || (bookingDate === todayKey && isAutoRescheduledBooking(booking));
+            })
+            .sort((a, b) => {
+                const leftDate = new Date(`${a.date || ''}T${a.time || '00:00:00'}`);
+                const rightDate = new Date(`${b.date || ''}T${b.time || '00:00:00'}`);
+                return leftDate - rightDate;
+            });
+    }, [bookings, todayKey]);
 
     const filteredQueue = useMemo(() => {
         const query = normalize(searchQuery);
@@ -317,9 +359,34 @@ export default function VetQueueList() {
         });
     }, [confirmedBookings, searchQuery]);
 
+    const filteredMissedBookings = useMemo(() => {
+        const query = normalize(searchQuery);
+
+        if (!query) {
+            return missedBookings;
+        }
+
+        return missedBookings.filter(booking => {
+            const searchableText = [
+                booking.bookingNumber,
+                booking.petName,
+                bookingOwnerName(booking),
+                getServiceDisplayName(booking.service, ''),
+                getServiceDisplayName(booking.type, ''),
+                booking.notes,
+                booking.date,
+                booking.time,
+                booking.petSpecies,
+                booking.petBreed
+            ].join(' ');
+
+            return normalize(searchableText).includes(query);
+        });
+    }, [missedBookings, searchQuery]);
+
     const waitingCount = queueOnly.filter(isWaitingQueue).length;
     const urgentCount = approvedQueue.filter(item => normalize(item.priority) === 'urgent').length;
-    const todayConfirmedBookings = confirmedBookings.filter(booking => toLocalDateKey(booking.date) === todayKey).length;
+    const todayConfirmedBookings = confirmedBookings.length;
 
     const toggleRow = (id) => {
         setExpandedRows(prev => {
@@ -538,7 +605,7 @@ export default function VetQueueList() {
                 <div>
                     <h2 className="text-2xl font-bold text-[#101828]">Approved Queue List</h2>
                     <p className="text-sm font-medium text-slate-500">
-                        Queue patients for today plus confirmed bookings that can be rescheduled or received.
+                        Queue patients for today, current-date confirmed bookings, and missed physical bookings.
                     </p>
                 </div>
                 <Button
@@ -556,11 +623,12 @@ export default function VetQueueList() {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatBadge label="Available to Receive" value={approvedQueue.length} className="bg-blue-50 text-blue-700" />
                 <StatBadge label="Urgent" value={urgentCount} className="bg-red-50 text-red-700" />
                 <StatBadge label="Today Waiting Approval" value={waitingCount} className="bg-amber-50 text-amber-700" />
-                <StatBadge label="Approved Bookings" value={`${todayConfirmedBookings}/${confirmedBookings.length}`} className="bg-emerald-50 text-emerald-700" />
+                <StatBadge label="Today Approved Bookings" value={todayConfirmedBookings} className="bg-emerald-50 text-emerald-700" />
+                <StatBadge label="Missed / Rescheduled" value={missedBookings.length} className="bg-sky-50 text-sky-700" />
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -697,12 +765,100 @@ export default function VetQueueList() {
                 </Table>
             </div>
 
+            <div className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-1 border-b border-sky-100 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 className="text-base font-bold text-slate-900">Missed Bookings / Ready for Reschedule Today</h3>
+                        <p className="text-xs font-semibold text-slate-500">
+                            Normal physical bookings that missed their date or were auto-rescheduled to today.
+                        </p>
+                    </div>
+                    <Badge className="w-fit border-0 bg-sky-100 text-sky-700">
+                        {filteredMissedBookings.length} bookings
+                    </Badge>
+                </div>
+                <Table>
+                    <TableHeader className="bg-white">
+                        <TableRow>
+                            <TableHead className="w-32">Booking #</TableHead>
+                            <TableHead>Pet</TableHead>
+                            <TableHead className="hidden md:table-cell">Owner</TableHead>
+                            <TableHead className="hidden lg:table-cell">Service</TableHead>
+                            <TableHead className="hidden xl:table-cell">Desired Schedule</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isBookingsLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-slate-500">
+                                    <span className="inline-flex items-center gap-2 font-semibold">
+                                        <Loader2 className="size-4 animate-spin" />
+                                        Loading missed bookings...
+                                    </span>
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredMissedBookings.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-slate-400">
+                                    No missed bookings need reschedule.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredMissedBookings.map(booking => {
+                                const scheduledToday = toLocalDateKey(booking.date) === todayKey;
+                                const matchingQueue = getQueueForBooking(booking);
+
+                                return (
+                                    <TableRow key={`missed-${booking.id}`} className="hover:bg-slate-50">
+                                        <TableCell className="font-black text-slate-800">{booking.bookingNumber}</TableCell>
+                                        <TableCell>
+                                            <div>
+                                                <p className="font-bold text-slate-900">{booking.petName || 'Unknown Pet'}</p>
+                                                <p className="text-xs font-medium text-slate-500">
+                                                    {[booking.petSpecies, booking.petBreed].filter(Boolean).join(' - ') || 'No pet profile details'}
+                                                </p>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell font-medium text-slate-700">
+                                            {bookingOwnerName(booking)}
+                                        </TableCell>
+                                        <TableCell className="hidden lg:table-cell text-sm font-medium text-slate-600">
+                                            {getServiceDisplayName(booking.service || booking.type, 'Booking')}
+                                        </TableCell>
+                                        <TableCell className="hidden xl:table-cell text-xs font-semibold text-slate-500">
+                                            {formatBookingSchedule(booking)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-2">
+                                                {scheduledToday ? (
+                                                    <Badge className="border-0 bg-sky-100 text-sky-700">Auto-rescheduled from previous date</Badge>
+                                                ) : (
+                                                    <Badge className="border-0 bg-amber-50 text-amber-700">Missed Booking - Ready for Reschedule</Badge>
+                                                )}
+                                                {matchingQueue && hasActiveVetAssignment(matchingQueue) && (
+                                                    <Badge className="border-0 bg-slate-100 text-slate-700">Received</Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {renderBookingAction(booking)}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="text-base font-bold text-slate-900">Confirmed / Approved Bookings</h3>
                         <p className="text-xs font-semibold text-slate-500">
-                            All confirmed clinic bookings. Only the date must be today before receiving.
+                            Confirmed physical clinic bookings scheduled for the current clinic date only.
                         </p>
                     </div>
                     <Badge className="w-fit border-0 bg-emerald-100 text-emerald-700">
@@ -734,7 +890,7 @@ export default function VetQueueList() {
                         ) : filteredConfirmedBookings.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="py-12 text-center text-slate-400">
-                                    No confirmed bookings found.
+                                    No confirmed bookings scheduled for today.
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -765,10 +921,8 @@ export default function VetQueueList() {
                                         <TableCell>
                                             <div className="flex flex-wrap gap-2">
                                                 <Badge className="border-0 bg-blue-50 text-blue-700">Approved</Badge>
-                                                {scheduledToday ? (
+                                                {scheduledToday && (
                                                     <Badge className="border-0 bg-emerald-50 text-emerald-700">Today</Badge>
-                                                ) : (
-                                                    <Badge className="border-0 bg-amber-50 text-amber-700">Different Date</Badge>
                                                 )}
                                                 {matchingQueue && hasActiveVetAssignment(matchingQueue) && (
                                                     <Badge className="border-0 bg-slate-100 text-slate-700">Received</Badge>

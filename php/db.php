@@ -58,7 +58,7 @@ if (!function_exists('createDatabaseConnection')) {
         echo json_encode([
             'ok' => false,
             'code' => 'database_unavailable',
-            'message' => 'The database is not responding. Please try again later.',
+            'message' => 'This site is temporarily unavailable due to maintenance. Please try again in a moment.',
         ]);
         exit;
     }

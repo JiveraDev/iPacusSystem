@@ -117,7 +117,7 @@ const petCarePaths = [
         name: 'Active companion',
         Icon: Dog,
         headline: 'Build a routine around check-ups, vaccines, parasite control, dental care, and grooming.',
-        nextBest: 'Use General Check-Up for routine exams, then keep vaccination and prescription records under the pet profile.',
+        nextBest: 'Use General Check-up for routine exams, then keep vaccination and prescription records under the pet profile.',
         services: ['General check-up', 'Vaccination', 'Parasite control', 'Grooming'],
     },
     {

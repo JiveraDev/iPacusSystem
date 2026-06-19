@@ -1,6 +1,8 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-export default function ServerDownPage({ message, isRetrying, onRetry }) {
+const MAINTENANCE_MESSAGE = 'This site is temporarily unavailable due to maintenance. Please try again in a moment.';
+
+export default function ServerDownPage({ isRetrying, onRetry }) {
     return (
         <div className="min-h-screen bg-slate-50 text-slate-950">
             <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-12">
@@ -9,13 +11,13 @@ export default function ServerDownPage({ message, isRetrying, onRetry }) {
                 </div>
 
                 <p className="mb-3 text-sm font-black uppercase tracking-wide text-red-600">
-                    iPawcus connection
+                    iPawcus maintenance
                 </p>
                 <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-                    Server is down
+                    iPawcus is under maintenance
                 </h1>
                 <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">
-                    {message || 'The server or database is not responding, so iPawcus cannot be accessed right now.'}
+                    {MAINTENANCE_MESSAGE}
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -30,7 +32,7 @@ export default function ServerDownPage({ message, isRetrying, onRetry }) {
                     </button>
 
                     <span className="text-sm font-semibold text-slate-500">
-                        This page will unlock after PHP and the database respond again.
+                        We will reopen the app automatically once service is restored.
                     </span>
                 </div>
             </main>

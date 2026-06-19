@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
@@ -24,6 +26,7 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
 
@@ -70,10 +73,22 @@ try {
     $activeStmt->execute([$queueId]);
     $activeAssignment = $activeStmt->fetch(PDO::FETCH_ASSOC);
 
+    $previousQueueStatus = (string)$queue['status'];
+
     if ($activeAssignment && (int)$activeAssignment['veterinarian_user_id'] === $veterinarianUserId) {
         $queueUpdate = $pdo->prepare("UPDATE queues SET status = 'in-progress' WHERE queue_id = ?");
         $queueUpdate->execute([$queueId]);
         $pdo->commit();
+
+        if ($previousQueueStatus !== 'in-progress') {
+            try {
+                notification_send_queue_event($pdo, $queueId, 'in_progress', [
+                    'reason' => $reason !== '' ? $reason : 'Assigned by admin from queue management',
+                ]);
+            } catch (Throwable $notificationError) {
+                error_log('Queue assignment approval notification failed: ' . $notificationError->getMessage());
+            }
+        }
 
         echo json_encode([
             'success' => true,
@@ -113,6 +128,20 @@ try {
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
     $pdo->commit();
+
+    try {
+        if ($previousQueueStatus !== 'in-progress') {
+            notification_send_queue_event($pdo, $queueId, 'in_progress', [
+                'reason' => $reason !== '' ? $reason : 'Assigned by admin from queue management',
+            ]);
+        }
+
+        notification_send_queue_event($pdo, $queueId, 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+    } catch (Throwable $notificationError) {
+        error_log('Queue assignment notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'success' => true,

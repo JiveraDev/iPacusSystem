@@ -74,14 +74,8 @@ export default function QueueManagement() {
     };
 
     const handleApprove = async (id) => {
-        const selectedVetId = getSelectedVetId(id);
-
-        if (!selectedVetId) {
-            toast.error('Select a veterinarian before approving this queue.');
-            return;
-        }
-
-        await assignQueueToVet(id, selectedVetId, 'Assigned during queue approval');
+        await updateStatus(id, 'in-progress');
+        toast.success('Queue approved and moved to the approved list.');
     };
 
     const handleCancel = async (id) => {
@@ -234,7 +228,7 @@ export default function QueueManagement() {
         filteredQueue.forEach(item => {
             const itemDate = new Date(item.timestamp);
             if (itemDate >= today) return;
-            if (['completed', 'done', 'cancelled'].includes(item.status)) return;
+            if (item.status !== 'cancelled') return;
 
             const diffTime = Math.abs(today - itemDate);
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -414,14 +408,12 @@ export default function QueueManagement() {
                                             <div className="flex flex-wrap justify-end gap-1.5">
                                                 {item.status === 'waiting' ? (
                                                     <>
-                                                        {renderVetSelect(item)}
                                                         <Button 
                                                             size="sm" 
                                                             onClick={() => handleApprove(item.queue_id)} 
-                                                            disabled={assigningQueueId === item.queue_id}
                                                             className="bg-blue-600 hover:bg-blue-700 h-8 px-2 text-[11px] font-bold"
                                                         >
-                                                            {assigningQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <UserCheck className="mr-1 size-3" />}
+                                                            <UserCheck className="mr-1 size-3" />
                                                             Approve
                                                         </Button>
                                                         <Button 
@@ -534,7 +526,7 @@ export default function QueueManagement() {
             {/* Missed Section */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                    <h3 className="text-base font-bold text-slate-800">Missed Queue</h3>
+                    <h3 className="text-base font-bold text-slate-800">Missed Queue / Re-entry Holders</h3>
                     <Select value={missedAgeFilter} onValueChange={setMissedAgeFilter}>
                         <SelectTrigger className="h-8 w-28 text-xs bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -552,18 +544,24 @@ export default function QueueManagement() {
                                 <TableHead className="font-bold text-slate-900">Pet</TableHead>
                                 <TableHead className="hidden sm:table-cell">Service</TableHead>
                                 <TableHead className="hidden md:table-cell">Date</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead className="text-right pr-4">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {missedQueue.length === 0 ? (
-                                <TableRow><TableCell colSpan={5} className="text-center py-8 text-slate-400 text-sm">No missed items</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400 text-sm">No previous-day queue holders</TableCell></TableRow>
                             ) : missedQueue.map(item => (
                                 <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
                                     <TableCell className="text-center font-bold text-slate-500 px-1">{item.queue_number}</TableCell>
                                     <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
                                     <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
                                     <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="destructive" className="text-[10px]">
+                                            Cancelled - re-entry required
+                                        </Badge>
+                                    </TableCell>
                                     <TableCell className="text-right pr-4">
                                         <Button size="sm" onClick={() => handleReEnterQueue(item.queue_id)} className="bg-blue-600 hover:bg-blue-700 h-7 text-[11px] px-2 font-bold">Re-enter</Button>
                                     </TableCell>

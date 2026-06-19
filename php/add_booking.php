@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/consent_record_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -420,6 +422,8 @@ if (!$userId || !$serviceType || !$bookingDate || !$bookingTime) {
     exit;
 }
 
+$notes = maintenance_append_note($notes, sprintf(MAINTENANCE_ORIGINAL_BOOKING_NOTE, $bookingDate));
+
 if ((int)$isOnlineConsultation === 1 && (!$veterinarianId || !is_numeric($veterinarianId))) {
     http_response_code(400);
     echo json_encode(['message' => 'Please select a veterinarian for online consultation.']);
@@ -782,6 +786,18 @@ try {
             ]);
         }
     }
+
+    consent_record_capture_booking($pdo, [
+        'booking_id' => $bookingId,
+        'owner_user_id' => $userId,
+        'pet_id' => $primaryPetId,
+        'pet_ids' => !empty($petIds) ? $petIds : [$primaryPetId],
+        'service_name' => $serviceType,
+        'signature_path' => $signaturePath,
+        'consent_forms' => $consentForms,
+        'status' => $consentStatus,
+        'notes' => 'Captured during booking creation.',
+    ]);
 
     $pdo->commit();
 

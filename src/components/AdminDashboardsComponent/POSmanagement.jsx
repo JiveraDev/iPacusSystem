@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
-  ClipboardList,
   FileText,
   Loader2,
   Minus,
@@ -39,7 +38,7 @@ import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
 import { fetchInventoryItems } from '../../services/inventoryApi';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { createVisit, fetchVisits, postVisitPayment, saveVisitCharges } from '../../services/visitBillingService';
+import { createVisit, fetchVisits, postVisitPayment } from '../../services/visitBillingService';
 
 const INVOICE_DATE = 'May 30, 2026';
 
@@ -87,6 +86,7 @@ const BILLING_CLASSIFICATIONS = CLASSIFICATIONS.filter((classification) => (
   ['services', 'medications', 'products'].includes(classification.id)
 ));
 
+const POS_CASH_METHOD = { value: 'cash', label: 'Cash' };
 const WALK_IN_SALE_ID = 'walk-in-sale';
 
 const WALK_IN_SALE_VISIT = {
@@ -96,8 +96,8 @@ const WALK_IN_SALE_VISIT = {
   ownerName: 'Counter Sale',
   species: 'Counter sale',
   visitType: 'Walk-in / Retail Invoice',
-  veterinarian: 'POS Counter',
-  complaint: 'Posting this sale records a walk-in visit for patient visit counts.',
+  veterinarian: 'Point-Of-Sale Counter',
+  complaint: 'Walk-in or retail invoice.',
   status: 'New sale',
   initialCharges: [],
 };
@@ -290,6 +290,133 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getSearchTokens(value) {
+  return normalizeSearchText(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+}
+
+function flattenSearchValues(values) {
+  return values.flatMap((value) => {
+    if (Array.isArray(value)) {
+      return flattenSearchValues(value);
+    }
+
+    if (value === null || value === undefined) {
+      return [];
+    }
+
+    return String(value)
+      .split(/[,\n;|/]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  });
+}
+
+function buildInventorySearchParts(item) {
+  return flattenSearchValues([
+    item.name,
+    item.itemName,
+    item.genericName,
+    item.generic_name,
+    item.variantName,
+    item.variant_name,
+    item.variantNames,
+    item.variant_names,
+    item.brand,
+    item.sku,
+    item.barcode,
+    item.description,
+    item.category,
+    item.unit,
+    item.supplier,
+    item.searchKeywords,
+    item.search_keywords,
+    (item.batches || []).map((batch) => batch.batchNumber || batch.batch_number),
+  ]);
+}
+
+function buildSearchText(parts) {
+  return normalizeSearchText(flattenSearchValues(parts).join(' '));
+}
+
+function getInventorySearchText(item) {
+  return item.searchText || buildSearchText(buildInventorySearchParts(item));
+}
+
+function getInventoryMatchScore(query, item) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const name = normalizeSearchText(item.name);
+  const genericName = normalizeSearchText(item.genericName);
+  const variantName = normalizeSearchText(item.variantName);
+  const brand = normalizeSearchText(item.brand);
+  const sku = normalizeSearchText(item.sku);
+  const barcode = normalizeSearchText(item.barcode);
+  const searchText = getInventorySearchText(item);
+  const queryTokens = getSearchTokens(query);
+
+  if (name === normalizedQuery) return 120;
+  if (genericName === normalizedQuery || variantName === normalizedQuery) return 110;
+  if (sku === normalizedQuery || barcode === normalizedQuery) return 105;
+  if (name.includes(normalizedQuery)) return 95;
+  if (genericName.includes(normalizedQuery) || variantName.includes(normalizedQuery)) return 90;
+  if (brand.includes(normalizedQuery)) return 82;
+  if (searchText.includes(normalizedQuery)) return 75;
+  if (normalizedQuery.includes(name) && name.length > 2) return 70;
+
+  if (queryTokens.length > 0) {
+    const matchedTokens = queryTokens.filter((token) => searchText.includes(token));
+    if (matchedTokens.length === queryTokens.length) {
+      return 55 + matchedTokens.length;
+    }
+
+    if (queryTokens.length > 1 && matchedTokens.length >= Math.ceil(queryTokens.length * 0.6)) {
+      return 35 + matchedTokens.length;
+    }
+  }
+
+  return 0;
+}
+
+function catalogItemMatchesSearch(item, query) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const searchText = item.searchText || buildSearchText([
+    item.name,
+    item.group,
+    item.description,
+    item.genericName,
+    item.variantName,
+    item.brand,
+    item.sku,
+    item.barcode,
+    item.category,
+    item.unit,
+  ]);
+  const tokens = getSearchTokens(query);
+
+  return searchText.includes(normalizedQuery) || (
+    tokens.length > 0 && tokens.every((token) => searchText.includes(token))
+  );
+}
+
 function groupById(items) {
   return items.reduce((map, item) => {
     map[String(item.id)] = item;
@@ -347,17 +474,31 @@ function normalizeInventoryItems(data) {
     const itemId = String(item.itemId || item.id || '');
     const costPrice = Number(item.costPrice || item.unitCost || 0);
     const sellingPrice = Number(item.sellingPrice || item.salePrice || item.retailPrice || costPrice || 0);
-
-    return {
+    const inventoryItem = {
       id: itemId,
       itemId: Number(item.itemId || item.id || 0),
       name: item.name || item.itemName || 'Inventory item',
+      genericName: item.genericName || item.generic_name || '',
+      variantName: item.variantName || item.variant_name || '',
+      variantNames: item.variantNames || item.variant_names || [],
+      sku: item.sku || '',
+      barcode: item.barcode || '',
+      description: item.description || '',
+      brand: item.brand || '',
+      supplier: item.supplier || '',
       category,
       stock: Number(item.quantity || item.stock || 0),
       unit: item.unit || 'pcs',
       cost: costPrice,
       sellingPrice,
       sellable: category !== 'CONSUMABLE' && sellingPrice > 0,
+      batches: Array.isArray(item.batches) ? item.batches : [],
+      searchKeywords: item.searchKeywords || item.search_keywords || '',
+    };
+
+    return {
+      ...inventoryItem,
+      searchText: buildSearchText(buildInventorySearchParts(inventoryItem)),
     };
   }).filter((item) => item.id);
 }
@@ -375,10 +516,19 @@ function buildCatalog(inventory, serviceCatalog = []) {
       classificationId: 'medications',
       inventoryId: item.id,
       name: item.name,
+      genericName: item.genericName,
+      variantName: item.variantName,
+      variantNames: item.variantNames,
+      sku: item.sku,
+      barcode: item.barcode,
+      brand: item.brand,
+      category: item.category,
+      unit: item.unit,
       group: 'Medication',
       price: item.sellingPrice,
       description: `${item.stock} ${item.unit} available`,
       materials: [],
+      searchText: item.searchText,
     }));
 
   const productItems = inventory
@@ -388,10 +538,19 @@ function buildCatalog(inventory, serviceCatalog = []) {
       classificationId: 'products',
       inventoryId: item.id,
       name: item.name,
+      genericName: item.genericName,
+      variantName: item.variantName,
+      variantNames: item.variantNames,
+      sku: item.sku,
+      barcode: item.barcode,
+      brand: item.brand,
+      category: item.category,
+      unit: item.unit,
       group: item.category ? item.category.toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase()) : 'Inventory',
       price: item.sellingPrice,
       description: `${item.stock} ${item.unit} available`,
       materials: [],
+      searchText: item.searchText,
     }));
 
   return {
@@ -560,24 +719,6 @@ function getStockProblems(charges, inventoryById) {
     .filter(Boolean);
 }
 
-function getInventoryImpact(charges, inventoryById) {
-  return Object.values(buildUsageByInventory(charges))
-    .map((row) => {
-      const item = inventoryById[row.inventoryId];
-      return {
-        inventoryId: row.inventoryId,
-        name: item?.name || 'Unknown item',
-        category: item?.category || 'Inventory',
-        unit: item?.unit || 'pcs',
-        stock: item?.stock || 0,
-        quantity: row.quantity,
-        remaining: Math.max(0, (item?.stock || 0) - row.quantity),
-        sources: Array.from(row.sources),
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
 function getLineSubtotal(charge) {
   return charge.price * charge.quantity;
 }
@@ -605,16 +746,25 @@ function readPosPrefill() {
 
     return JSON.parse(rawPrefill);
   } catch (error) {
-    console.error('Failed to read POS prefill:', error);
+    console.error('Failed to read Point-Of-Sale prefill:', error);
     return null;
   }
 }
 
 function createPrefillVisit(prefill) {
   const visit = prefill?.visit || {};
+  const bookingId = Number(visit.bookingId || visit.booking_id);
+  const petId = Number(visit.petId || visit.pet_id);
+  const ownerUserId = Number(visit.ownerUserId || visit.owner_user_id);
+  const sourceType = visit.sourceType || visit.source_type || (Number.isFinite(bookingId) && bookingId > 0 ? 'booking' : 'manual');
 
   return {
     id: visit.id || `BOARD-${Date.now()}`,
+    source: visit.source || (sourceType === 'booking' ? 'booking_prefill' : 'prefill'),
+    sourceType,
+    bookingId: Number.isFinite(bookingId) && bookingId > 0 ? bookingId : null,
+    petId: Number.isFinite(petId) && petId > 0 ? petId : null,
+    ownerUserId: Number.isFinite(ownerUserId) && ownerUserId > 0 ? ownerUserId : null,
     petName: visit.petName || 'Boarding Pet',
     ownerName: visit.ownerName || 'Pet Owner',
     species: visit.species || 'Pet',
@@ -712,7 +862,10 @@ function serializeChargeForVisit(charge, inventoryById, currentUser) {
 function normalizeVisitPrescriptions(prescriptions) {
   return (Array.isArray(prescriptions) ? prescriptions : []).map((prescription, index) => ({
     id: prescription.id || `rx-${index + 1}`,
-    medicine: prescription.medicine || prescription.itemName || '',
+    medicine: prescription.medicine || prescription.medicineName || prescription.medicine_name || prescription.itemName || prescription.item_name || '',
+    genericName: prescription.genericName || prescription.generic_name || '',
+    variantName: prescription.variantName || prescription.variant_name || '',
+    brand: prescription.brand || '',
     times: Number(prescription.times) || 1,
     frequency: prescription.frequency || 'per day',
     durationNumber: Number(prescription.durationNumber) || 0,
@@ -744,16 +897,63 @@ function formatPrescriptionLine(prescription) {
   return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
 }
 
-function findPrescriptionInventoryItem(prescription, inventory) {
-  const medicine = normalizeText(prescription.medicine);
-  if (!medicine) {
-    return null;
+function getPrescriptionSearchQuery(prescription) {
+  return flattenSearchValues([
+    prescription.medicine,
+    prescription.genericName,
+    prescription.variantName,
+    prescription.brand,
+  ]).join(' ');
+}
+
+function getInventoryMatchDetail(query, item) {
+  const normalizedQuery = normalizeSearchText(query);
+  const fields = [
+    ['name', item.name],
+    ['generic', item.genericName],
+    ['variant', item.variantName || item.variantNames],
+    ['brand', item.brand],
+    ['SKU', item.sku],
+    ['barcode', item.barcode],
+  ];
+
+  const detail = fields.find(([, value]) => {
+    const fieldText = buildSearchText([value]);
+    return fieldText && (
+      fieldText === normalizedQuery ||
+      fieldText.includes(normalizedQuery) ||
+      getSearchTokens(query).some((token) => fieldText.includes(token))
+    );
+  });
+
+  return detail ? `${detail[0]}: ${flattenSearchValues([detail[1]]).join(', ')}` : item.name;
+}
+
+function getPrescriptionInventoryMatches(prescription, inventory, limit = 3) {
+  const query = getPrescriptionSearchQuery(prescription);
+  if (!normalizeSearchText(query)) {
+    return [];
   }
 
-  return inventory.find((item) => {
-    const itemName = normalizeText(item.name);
-    return itemName === medicine || itemName.includes(medicine) || medicine.includes(itemName);
-  }) || null;
+  return inventory
+    .map((item) => {
+      const medicationBonus = item.category === 'MEDICATION' ? 20 : 0;
+      const sellableBonus = item.sellable ? 8 : 0;
+      const score = getInventoryMatchScore(query, item) + medicationBonus + sellableBonus;
+
+      return {
+        item,
+        score,
+        detail: getInventoryMatchDetail(query, item),
+      };
+    })
+    .filter((match) => match.score > 0 && match.item.category === 'MEDICATION')
+    .sort((left, right) => (
+      right.score - left.score ||
+      Number(right.item.stock || 0) - Number(left.item.stock || 0) ||
+      String(left.item.name).localeCompare(String(right.item.name))
+    ))
+    .slice(0, limit);
 }
 
 function getVisitSourceLabel(visit) {
@@ -778,6 +978,29 @@ function formatVisitBillingStatus(status) {
   };
 
   return labels[status] || 'Ready for payment';
+}
+
+function isPendingPaymentStatus(status) {
+  return ['unpaid', 'partial'].includes(normalizeText(status));
+}
+
+function getBillingStatusRank(status) {
+  const normalized = normalizeText(status);
+
+  if (isPendingPaymentStatus(normalized)) return 0;
+  if (normalized === 'unbilled') return 1;
+  if (normalized === 'paid') return 2;
+  if (normalized === 'refunded') return 3;
+  return 4;
+}
+
+function getVisitStatusBadgeClass(status) {
+  const normalized = normalizeText(status);
+
+  if (isPendingPaymentStatus(normalized)) return 'border-0 bg-amber-50 text-amber-700';
+  if (normalized === 'paid') return 'border-0 bg-green-50 text-green-700';
+  if (normalized === 'refunded') return 'border-0 bg-slate-100 text-slate-700';
+  return 'border-0 bg-blue-50 text-blue-700';
 }
 
 function createDatabaseVisit(visit) {
@@ -850,12 +1073,24 @@ export default function ServicePOS() {
   const [catalogSchemaMessage, setCatalogSchemaMessage] = useState('');
   const [isLoadingVisits, setIsLoadingVisits] = useState(false);
   const [isPostingPayment, setIsPostingPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('gcash');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [cashNoReference, setCashNoReference] = useState(true);
   const [posPrefill] = useState(() => readPosPrefill());
   const catalog = useMemo(() => buildCatalog(inventory, serviceCatalog), [inventory, serviceCatalog]);
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
-  const databaseVisitOptions = useMemo(() => visitBills.map(createDatabaseVisit), [visitBills]);
+  const databaseVisitOptions = useMemo(() => (
+    visitBills
+      .map(createDatabaseVisit)
+      .sort((left, right) => (
+        getBillingStatusRank(left.billingStatus) - getBillingStatusRank(right.billingStatus)
+        || new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0)
+      ))
+  ), [visitBills]);
+  const pendingPaymentCount = useMemo(() => (
+    databaseVisitOptions.filter((visit) => isPendingPaymentStatus(visit.billingStatus)).length
+  ), [databaseVisitOptions]);
   const visitOptions = useMemo(() => {
     const prefillOptions = posPrefill?.visit ? [createPrefillVisit(posPrefill)] : [];
 
@@ -875,11 +1110,9 @@ export default function ServicePOS() {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0530-001');
   const [notification, setNotification] = useState(() => (
-    posPrefill ? 'Boarding payment summary loaded. Review the invoice before posting payment.' : ''
+    posPrefill ? (posPrefill.message || 'Payment summary loaded. Review the invoice before posting payment.') : ''
   ));
   const [selectedChargeId, setSelectedChargeId] = useState(charges[0]?.lineId || '');
-  const [extraMaterialId, setExtraMaterialId] = useState('');
-  const [extraMaterialQty, setExtraMaterialQty] = useState('1');
 
   const loadVisitBills = useCallback(async ({ isAutoRefresh = false } = {}) => {
     if (!isAutoRefresh) {
@@ -944,7 +1177,7 @@ export default function ServicePOS() {
         setInventory(items);
       }
     } catch {
-      // Keep local fallback inventory so POS remains usable without the inventory module.
+      // Keep local fallback inventory so Point-Of-Sale remains usable without the inventory module.
     }
   }, []);
 
@@ -952,6 +1185,14 @@ export default function ServicePOS() {
   useAutoRefresh(loadServiceCatalog, { refreshKey: 'pos-service-catalog' });
   useAutoRefresh(loadInventory, { intervalMs: 12000, refreshKey: 'pos-inventory' });
   const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const posPaymentMethods = useMemo(() => {
+    const methods = [
+      POS_CASH_METHOD,
+      ...paymentMethods.filter((method) => method.value !== POS_CASH_METHOD.value),
+    ];
+
+    return methods.length > 0 ? methods : [POS_CASH_METHOD];
+  }, [paymentMethods]);
 
   useEffect(() => {
     if (!posPrefill) {
@@ -962,30 +1203,59 @@ export default function ServicePOS() {
   }, [posPrefill]);
 
   useEffect(() => {
-    if (paymentMethods.length > 0 && !paymentMethods.some((method) => method.value === paymentMethod)) {
-      setPaymentMethod(paymentMethods[0].value);
+    if (posPaymentMethods.length > 0 && !posPaymentMethods.some((method) => method.value === paymentMethod)) {
+      setPaymentMethod(posPaymentMethods[0].value);
     }
-  }, [paymentMethod, paymentMethods]);
+  }, [paymentMethod, posPaymentMethods]);
 
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
+  const paymentReferenceRequired = paymentMethod !== 'cash' || !cashNoReference;
+  const effectivePaymentReference = paymentMethod === 'cash' && cashNoReference ? '' : paymentReference.trim();
+  const hasPaymentReference = effectivePaymentReference !== '';
   const visitBalance = selectedVisit?.source === 'database'
     ? Math.max(0, invoiceTotal - Number(selectedVisit.paid || 0))
     : invoiceTotal;
-  const canCreateInvoice = charges.length > 0
-    && stockProblems.length === 0
-    && !isPostingPayment
-    && Boolean(paymentMethod)
-    && (selectedVisit?.source !== 'database' || visitBalance > 0);
-  const inventoryImpact = getInventoryImpact(charges, inventoryById);
-  const selectedCharge = charges.find((charge) => charge.lineId === selectedChargeId);
-  const materialOptions = inventory.filter((item) => !['RETAIL', 'PRODUCT', 'PRODUCTS'].includes(item.category));
+  const invoiceBlockReason = (() => {
+    if (charges.length === 0) {
+      return 'Add at least one billable item before creating an invoice.';
+    }
+
+    if (invoiceTotal <= 0) {
+      return 'Invoice total must be greater than zero.';
+    }
+
+    if (stockProblems.length > 0) {
+      return stockProblems[0];
+    }
+
+    if (selectedVisit?.source === 'database' && visitBalance <= 0) {
+      return 'This visit has no remaining balance to invoice.';
+    }
+
+    return '';
+  })();
+  const paymentBlockReason = (() => {
+    if (invoiceBlockReason) {
+      return invoiceBlockReason;
+    }
+
+    if (!paymentMethod) {
+      return 'Select a payment method.';
+    }
+
+    if (paymentReferenceRequired && !hasPaymentReference) {
+      return 'Enter the transaction number, or check no transaction number for cash.';
+    }
+
+    return '';
+  })();
+  const canPreviewInvoice = !invoiceBlockReason && !isPostingPayment;
+  const canPostPayment = !paymentBlockReason && !isPostingPayment;
+  const isWalkInSale = selectedVisit?.id === WALK_IN_SALE_ID;
   const selectedVisitPrescriptions = selectedVisit?.prescriptions || [];
   const visibleCatalog = (catalog[activeTab] || []).filter((item) => {
-    const query = normalizeText(searchQuery);
-    return !query ||
-      normalizeText(item.name).includes(query) ||
-      normalizeText(item.group).includes(query);
+    return catalogItemMatchesSearch(item, searchQuery);
   });
 
   const handleVisitChange = (visitId) => {
@@ -1101,51 +1371,6 @@ export default function ServicePOS() {
     }
   };
 
-  const addExtraMaterial = () => {
-    const quantity = Number(extraMaterialQty);
-    if (!selectedCharge || !extraMaterialId || !Number.isFinite(quantity) || quantity <= 0) {
-      setNotification('Select a charge, material, and valid quantity.');
-      return;
-    }
-
-    const nextCharges = charges.map((charge) => {
-      if (charge.lineId !== selectedCharge.lineId) {
-        return charge;
-      }
-
-      const existingMaterial = charge.extraMaterials.find((material) => material.inventoryId === extraMaterialId);
-      if (existingMaterial) {
-        return {
-          ...charge,
-          extraMaterials: charge.extraMaterials.map((material) => (
-            material.inventoryId === extraMaterialId
-              ? { ...material, quantity: material.quantity + quantity }
-              : material
-          )),
-        };
-      }
-
-      return {
-        ...charge,
-        extraMaterials: [
-          ...charge.extraMaterials,
-          { inventoryId: extraMaterialId, quantity, note: 'Additional material' },
-        ],
-      };
-    });
-
-    const problems = getStockProblems(nextCharges, inventoryById);
-    if (problems.length > 0) {
-      setNotification(problems[0]);
-      return;
-    }
-
-    setCharges(nextCharges);
-    setExtraMaterialId('');
-    setExtraMaterialQty('1');
-    setNotification('');
-  };
-
   const openInvoice = () => {
     if (charges.length === 0) {
       setNotification('Add at least one billable item before creating an invoice.');
@@ -1182,6 +1407,11 @@ export default function ServicePOS() {
       return;
     }
 
+    if (paymentReferenceRequired && !hasPaymentReference) {
+      setNotification('Enter the transaction number, or check no transaction number for cash.');
+      return;
+    }
+
     if (selectedVisit?.source === 'database') {
       if (!selectedVisit.visitId) {
         setNotification('Visit payment endpoint is not available.');
@@ -1198,21 +1428,15 @@ export default function ServicePOS() {
       setIsPostingPayment(true);
 
       try {
-        const chargesData = await saveVisitCharges(selectedVisit.visitId, {
-          charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
-        });
-
-        if (chargesData.success === false) {
-          throw new Error(chargesData.message || 'Failed to update draft invoice lines.');
-        }
-
         const data = await postVisitPayment(selectedVisit.visitId, {
           amount: amountToPost,
           payment_method: paymentMethod,
           payment_status: 'verified',
-          reference_number: postedInvoiceNumber,
+          reference_number: hasPaymentReference ? effectivePaymentReference : null,
+          notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
           received_by_user_id: getUserIdentifier(currentUser),
           received_by_name: getUserDisplayName(currentUser),
+          charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
         });
 
         if (data.success === false) {
@@ -1232,6 +1456,8 @@ export default function ServicePOS() {
         }
 
         setInvoiceOpen(false);
+        setPaymentReference('');
+        setCashNoReference(paymentMethod === 'cash');
         setInvoiceNumber((current) => nextInvoiceNumber(current));
         setNotification(`${postedInvoiceNumber} posted. Visit billing status was updated.`);
       } catch (error) {
@@ -1244,33 +1470,52 @@ export default function ServicePOS() {
 
     const postedInvoiceNumber = invoiceNumber;
     const amountToPost = invoiceTotal;
+    const sourceType = selectedVisit?.sourceType || (selectedVisit?.source === 'walk_in' ? 'walk_in' : 'manual');
+
+    if (sourceType !== 'walk_in' && !selectedVisit?.petId) {
+      setNotification('This Point-Of-Sale payment is missing the patient link. Open it again from the booking record.');
+      return;
+    }
+
     setIsPostingPayment(true);
 
     try {
-      const visitData = await createVisit({
-        source_type: 'walk_in',
+      const visitPayload = {
+        source_type: sourceType,
         visit_status: 'completed',
         charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
+        payment: {
+          amount: amountToPost,
+          payment_method: paymentMethod,
+          payment_status: 'verified',
+          reference_number: hasPaymentReference ? effectivePaymentReference : null,
+          notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
+          received_by_user_id: getUserIdentifier(currentUser),
+          received_by_name: getUserDisplayName(currentUser),
+        },
+      };
+
+      if (selectedVisit?.petId) {
+        visitPayload.pet_id = selectedVisit.petId;
+      }
+
+      if (selectedVisit?.bookingId) {
+        visitPayload.booking_id = selectedVisit.bookingId;
+      }
+
+      if (selectedVisit?.ownerUserId) {
+        visitPayload.owner_user_id = selectedVisit.ownerUserId;
+      }
+
+      const visitData = await createVisit({
+        ...visitPayload,
       });
 
       if (visitData.success === false || !visitData.visit?.visitId) {
-        throw new Error(visitData.message || 'Failed to record walk-in sale visit.');
+        throw new Error(visitData.message || 'Failed to record Point-Of-Sale visit.');
       }
 
-      const data = await postVisitPayment(visitData.visit.visitId, {
-        amount: amountToPost,
-        payment_method: paymentMethod,
-        payment_status: 'verified',
-        reference_number: postedInvoiceNumber,
-        received_by_user_id: getUserIdentifier(currentUser),
-        received_by_name: getUserDisplayName(currentUser),
-      });
-
-      if (data.success === false) {
-        throw new Error(data.message || 'Failed to post walk-in sale payment.');
-      }
-
-      const recordedVisit = data.visit || visitData.visit;
+      const recordedVisit = visitData.visit;
       if (recordedVisit) {
         setVisitBills((currentBills) => [
           recordedVisit,
@@ -1288,6 +1533,8 @@ export default function ServicePOS() {
       setCharges([]);
       setSelectedChargeId('');
       setInvoiceOpen(false);
+      setPaymentReference('');
+      setCashNoReference(paymentMethod === 'cash');
       setInvoiceNumber((current) => nextInvoiceNumber(current));
       setNotification(`${postedInvoiceNumber} posted. Walk-in sale was added to patient visit count.`);
     } catch (error) {
@@ -1380,7 +1627,7 @@ export default function ServicePOS() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-['Montserrat:Bold',sans-serif] text-[30px] font-bold text-[#101828]">
-            Veterinary POS
+            Veterinary Point-Of-Sale
           </h1>
           <p className="font-['Arimo:Regular',sans-serif] text-[15px] text-[#4a5565]">
             Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction.
@@ -1424,7 +1671,7 @@ export default function ServicePOS() {
       {catalogSchemaMessage && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>{catalogSchemaMessage} POS is using fallback prices until the catalog is available.</span>
+          <span>{catalogSchemaMessage} Point-Of-Sale is using fallback prices until the catalog is available.</span>
         </div>
       )}
 
@@ -1435,7 +1682,9 @@ export default function ServicePOS() {
               <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
                 Patient Visit
               </h2>
-              <Badge className="border-0 bg-green-50 text-green-700">{selectedVisit.status}</Badge>
+              <Badge className={getVisitStatusBadgeClass(selectedVisit.billingStatus)}>
+                {selectedVisit.status}
+              </Badge>
             </div>
 
             <Select value={selectedVisitId} onValueChange={handleVisitChange}>
@@ -1447,11 +1696,17 @@ export default function ServicePOS() {
                   <SelectItem key={visit.id} value={visit.id}>
                     {visit.id === WALK_IN_SALE_ID
                       ? 'Walk-in Sale / Count as visit'
-                      : `${visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - ${visit.petName}`}
+                      : `${visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - ${visit.petName} (${visit.status})`}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {pendingPaymentCount > 0 && (
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Pending payments: {pendingPaymentCount}
+              </p>
+            )}
 
             <div className="mt-4 space-y-3">
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
@@ -1460,45 +1715,60 @@ export default function ServicePOS() {
                     <PawPrint className="size-5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-lg font-black text-[#101828]">{selectedVisit.petName}</p>
-                    <p className="text-sm font-semibold text-blue-700">{selectedVisit.species}</p>
+                    <p className="truncate text-lg font-black text-[#101828]">
+                      {isWalkInSale ? 'Walk-in Sale' : selectedVisit.petName}
+                    </p>
+                    <p className="text-sm font-semibold text-blue-700">
+                      {isWalkInSale ? 'Counter payment' : [selectedVisit.species, selectedVisit.visitType].filter(Boolean).join(' - ')}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <InfoRow icon={User} label="Owner" value={selectedVisit.ownerName} />
-              <InfoRow icon={Stethoscope} label="Veterinarian" value={selectedVisit.veterinarian} />
-              <InfoRow icon={ClipboardList} label="Visit Type" value={selectedVisit.visitType} />
-
-              {selectedVisit.diagnosisSummary && (
-                <div>
-                  <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis Summary</p>
-                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
-                    {selectedVisit.diagnosisSummary}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Complaint</p>
-                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
-                  {selectedVisit.complaint}
+              {isWalkInSale ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+                  Add services, medication, or products to start the invoice.
                 </p>
-              </div>
+              ) : (
+                <>
+                  <InfoRow icon={User} label="Owner" value={selectedVisit.ownerName} />
+                  {selectedVisit.diagnosisSummary && (
+                    <div>
+                      <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis Summary</p>
+                      <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+                        {selectedVisit.diagnosisSummary}
+                      </p>
+                    </div>
+                  )}
+                  {selectedVisit.complaint && (
+                    <div>
+                      <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Reference</p>
+                      <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+                        {selectedVisit.complaint}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </section>
 
-          {selectedVisitPrescriptions.length > 0 && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                  Prescriptions
-                </h2>
-                <Badge className="border-0 bg-blue-50 text-blue-700">{selectedVisitPrescriptions.length}</Badge>
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+                Prescription Add-ons
+              </h2>
+              <Badge className="border-0 bg-blue-50 text-blue-700">{selectedVisitPrescriptions.length}</Badge>
+            </div>
+            {selectedVisitPrescriptions.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm font-semibold text-slate-500">
+                No prescriptions attached to this visit.
               </div>
+            ) : (
               <div className="space-y-3">
                 {selectedVisitPrescriptions.map((prescription) => {
-                  const matchedItem = findPrescriptionInventoryItem(prescription, inventory);
+                  const prescriptionMatches = getPrescriptionInventoryMatches(prescription, inventory, 3);
+                  const matchedItem = prescriptionMatches[0]?.item || null;
                   const alreadyAdded = charges.some((charge) => charge.prescriptionId === prescription.id);
 
                   return (
@@ -1510,8 +1780,8 @@ export default function ServicePOS() {
                       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <span className={`text-xs font-black ${matchedItem ? 'text-green-700' : 'text-amber-700'}`}>
                           {matchedItem
-                            ? `${matchedItem.stock} ${matchedItem.unit} in inventory`
-                            : 'No inventory match'}
+                            ? `${matchedItem.name} - ${matchedItem.stock} ${matchedItem.unit} in inventory`
+                            : 'No medication inventory match'}
                         </span>
                         <Button
                           type="button"
@@ -1525,12 +1795,26 @@ export default function ServicePOS() {
                           {alreadyAdded ? 'Added' : 'Add to Draft'}
                         </Button>
                       </div>
+                      {prescriptionMatches.length > 0 ? (
+                        <div className="mt-2 rounded-md border border-green-100 bg-white px-2.5 py-2 text-xs font-semibold text-slate-600">
+                          <p className="font-black text-green-700">Matched by {prescriptionMatches[0].detail}</p>
+                          {prescriptionMatches.length > 1 ? (
+                            <p className="mt-1 text-slate-500">
+                              Related: {prescriptionMatches.slice(1).map((match) => match.item.name).join(', ')}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="mt-2 rounded-md border border-amber-100 bg-white px-2.5 py-2 text-xs font-semibold text-amber-700">
+                          Try adding the medicine generic name, variant name, brand, SKU, or barcode in inventory so POS can match it.
+                        </p>
+                      )}
                     </div>
                   );
                 })}
               </div>
-            </section>
-          )}
+            )}
+          </section>
         </aside>
 
         <main className="space-y-4">
@@ -1602,8 +1886,9 @@ export default function ServicePOS() {
               <Button
                 type="button"
                 onClick={openInvoice}
-                disabled={!canCreateInvoice}
+                disabled={!canPreviewInvoice}
                 className="h-11 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                title={invoiceBlockReason || undefined}
               >
                 <FileText className="mr-2 size-5" />
                 {isPostingPayment ? 'Posting Payment...' : 'Preview Invoice Receipt'}
@@ -1659,7 +1944,7 @@ export default function ServicePOS() {
                       <div className="grid gap-3">
                         {visibleCatalog.length === 0 ? (
                           <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
-                            No matching items.
+                            No matching items. Search can use item name, generic or variant name, brand, SKU, barcode, or batch number.
                           </div>
                         ) : (
                           visibleCatalog.map((item) => (
@@ -1679,87 +1964,6 @@ export default function ServicePOS() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                Extra Material Used
-              </h2>
-              <div className="space-y-3">
-                <Select value={selectedChargeId} onValueChange={setSelectedChargeId} disabled={charges.length === 0}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select invoice line" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {charges.map((charge) => (
-                      <SelectItem key={charge.lineId} value={charge.lineId}>
-                        {charge.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={extraMaterialId} onValueChange={setExtraMaterialId} disabled={charges.length === 0}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Material used" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {materialOptions.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name} ({item.stock} {item.unit})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={extraMaterialQty}
-                    onChange={(event) => setExtraMaterialQty(event.target.value)}
-                    className="h-10"
-                  />
-                  <Button type="button" onClick={addExtraMaterial} className="h-10 bg-slate-900 text-white hover:bg-slate-800">
-                    <Plus className="mr-2 size-4" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                  Inventory Impact
-                </h2>
-                <Badge className="border-0 bg-slate-100 text-slate-700">Internal</Badge>
-              </div>
-
-              {inventoryImpact.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm font-semibold text-slate-500">
-                  No stock will be deducted.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {inventoryImpact.map((row) => (
-                    <div key={row.inventoryId} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-900">{row.name}</p>
-                          <p className="text-xs font-semibold text-slate-500">{row.category}</p>
-                        </div>
-                        <Badge className={`border-0 ${row.quantity > row.stock ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
-                          -{row.quantity} {row.unit}
-                        </Badge>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
-                        <span>Stock: {row.stock}</span>
-                        <span>After: {row.remaining}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
           </aside>
         )}
       </div>
@@ -1851,7 +2055,7 @@ export default function ServicePOS() {
               <div className="thermal-print-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-black text-slate-900">Portable POS Printer</p>
+                    <p className="text-sm font-black text-slate-900">Portable Point-Of-Sale Printer</p>
                     <p className="text-xs font-semibold text-slate-500">Soft-copy thermal receipt preview</p>
                   </div>
                   <Printer className="size-5 text-slate-500" />
@@ -1881,18 +2085,56 @@ export default function ServicePOS() {
 
           <div className="thermal-print-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Payment Method</p>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={isLoadingPaymentMethods || isPostingPayment}>
+            <Select
+              value={paymentMethod}
+              onValueChange={(value) => {
+                setPaymentMethod(value);
+                if (value === 'cash') {
+                  setCashNoReference(true);
+                  setPaymentReference('');
+                } else {
+                  setCashNoReference(false);
+                }
+              }}
+              disabled={isLoadingPaymentMethods || isPostingPayment}
+            >
               <SelectTrigger className="h-10 bg-white">
                 <SelectValue placeholder="Select payment method" />
               </SelectTrigger>
               <SelectContent>
-                {paymentMethods.map((method) => (
+                {posPaymentMethods.map((method) => (
                   <SelectItem key={method.value} value={method.value}>
                     {method.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <div className="mt-3 space-y-2">
+              <Input
+                value={paymentReference}
+                onChange={(event) => setPaymentReference(event.target.value)}
+                placeholder={paymentMethod === 'cash' ? 'Cash receipt or transaction number' : 'Transaction number'}
+                disabled={isPostingPayment || (paymentMethod === 'cash' && cashNoReference)}
+                className="h-10 bg-white"
+              />
+              {paymentMethod === 'cash' && (
+                <label className="flex items-center gap-2 text-xs font-black text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={cashNoReference}
+                    onChange={(event) => {
+                      setCashNoReference(event.target.checked);
+                      if (event.target.checked) {
+                        setPaymentReference('');
+                      }
+                    }}
+                    disabled={isPostingPayment}
+                    className="size-4 rounded border-slate-300"
+                  />
+                  Cash payment has no transaction number
+                </label>
+              )}
+            </div>
           </div>
 
           <DialogFooter className="thermal-print-hidden">
@@ -1906,8 +2148,9 @@ export default function ServicePOS() {
             <Button
               type="button"
               onClick={postPayment}
-              disabled={!canCreateInvoice}
+              disabled={!canPostPayment}
               className="bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+              title={paymentBlockReason || undefined}
             >
               {isPostingPayment ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />

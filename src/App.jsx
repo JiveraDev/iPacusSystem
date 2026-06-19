@@ -17,6 +17,7 @@ const RegistrationForm = lazy(() => import("./components/Registration.jsx").then
 const PetOwnerProfileForm = lazy(() => import("./components/petownerprofileRegistration.jsx").then(module => ({ default: module.PetOwnerProfileForm })));
 const EmailVerification = lazy(() => import("./components/EmailVerification.jsx").then(module => ({ default: module.EmailVerification })));
 const ForgotPassword = lazy(() => import("./components/ForgotPassword.jsx").then(module => ({ default: module.ForgotPassword })));
+const TVStatusDisplay = lazy(() => import("./components/StatusDisplay/TVStatusDisplay.jsx"));
 
 const routes = {
   landing: '/landing',
@@ -26,9 +27,23 @@ const routes = {
   registerProfile: '/landing/register/profile',
   verifyEmail: '/landing/verify-email',
   forgotPassword: '/landing/forgot-password',
+  statusDisplay: '/status-display',
 };
 
+function isStatusDisplayHost(hostname = '') {
+  const normalizedHost = String(hostname || '').toLowerCase();
+  return normalizedHost === 'status.ipawcus.com' || normalizedHost.startsWith('status.');
+}
+
 function getViewFromPath(pathname) {
+  if (pathname === routes.statusDisplay || pathname.startsWith(`${routes.statusDisplay}/`)) {
+    return 'statusDisplay';
+  }
+
+  if (pathname === '/' && isStatusDisplayHost(window.location.hostname)) {
+    return 'statusDisplay';
+  }
+
   if (pathname.startsWith('/dashboard')) {
     return 'dashboard';
   }
@@ -53,6 +68,10 @@ function getViewFromPath(pathname) {
 }
 
 function getRouteRedirect(viewName, storedUser, registrationEmail = '') {
+  if (viewName === 'statusDisplay') {
+    return { view: viewName, path: null };
+  }
+
   if (storedUser && ['landing', 'login', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(viewName)) {
     return { view: 'dashboard', path: routes.dashboard };
   }
@@ -103,6 +122,12 @@ function App() {
       const nextView = getViewFromPath(window.location.pathname);
       const storedUser = localStorage.getItem('currentUser');
 
+      if (nextView === 'statusDisplay') {
+        setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
+        setView(nextView);
+        return;
+      }
+
       if (nextView === 'dashboard' && !storedUser) {
         window.history.replaceState({}, '', routes.login);
         setView('login');
@@ -131,7 +156,7 @@ function App() {
       window.history.replaceState({}, '', redirect.path);
     }
 
-    if (window.location.pathname === '/' && !storedUser) {
+    if (window.location.pathname === '/' && !storedUser && currentView !== 'statusDisplay') {
       window.history.replaceState({}, '', routes.landing);
     }
 
@@ -294,7 +319,6 @@ function App() {
   if (serverStatus.isDown) {
     return (
       <ServerDownPage
-        message={serverStatus.message}
         isRetrying={isCheckingServer}
         onRetry={retryServerConnection}
       />
@@ -314,6 +338,10 @@ function App() {
     }>
       <div className={activeView === 'dashboard' ? 'min-h-screen theme-aware' : 'min-h-screen theme-static-light'}>
         <ToastViewport />
+        {activeView === 'statusDisplay' && (
+          <TVStatusDisplay />
+        )}
+
         {activeView === 'landing' && (
             <LandingPage
                 onLogin={() => navigateTo(routes.login)}

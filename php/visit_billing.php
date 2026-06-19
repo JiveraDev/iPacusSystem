@@ -36,6 +36,21 @@ function visit_billing_column_exists(PDO $pdo, string $tableName, string $column
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function visit_billing_column_type(PDO $pdo, string $tableName, string $columnName): string
+{
+    $stmt = $pdo->prepare("
+        SELECT COLUMN_TYPE
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (string)($stmt->fetchColumn() ?: '');
+}
+
 function visit_billing_schema_ready(PDO $pdo): bool
 {
     foreach (['visits', 'visit_charges', 'visit_payments', 'service_catalog'] as $tableName) {
@@ -56,6 +71,11 @@ function visit_billing_error(int $statusCode, string $message): void
 {
     global $pdo;
 
+    if (defined('VISIT_BILLING_THROW_ERRORS') && VISIT_BILLING_THROW_ERRORS) {
+        http_response_code($statusCode);
+        throw new RuntimeException($message);
+    }
+
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
@@ -70,6 +90,23 @@ function visit_billing_require_schema(PDO $pdo): void
     if (!visit_billing_schema_ready($pdo)) {
         visit_billing_error(409, visit_billing_missing_message());
     }
+}
+
+function visit_billing_ensure_payment_method_schema(PDO $pdo): void
+{
+    $columnType = visit_billing_column_type($pdo, 'visit_payments', 'payment_method');
+    if ($columnType === '' || stripos($columnType, "'cash'") !== false) {
+        return;
+    }
+
+    if (stripos($columnType, 'enum(') !== 0) {
+        return;
+    }
+
+    visit_billing_error(
+        409,
+        "Database change required before POS cash payments can be posted: ALTER TABLE visit_payments MODIFY payment_method ENUM('cash','qrph','gcash','maya','bank_transfer') NOT NULL DEFAULT 'gcash';"
+    );
 }
 
 function visit_billing_nullable_int($value): ?int
@@ -288,14 +325,336 @@ function visit_billing_update_status(PDO $pdo, int $visitId): void
     $stmt->execute([$status, $visitId]);
 }
 
+function visit_billing_is_whole_quantity(float $quantity): bool
+{
+    return abs($quantity - round($quantity)) <= 0.0001;
+}
+
+function visit_billing_fetch_user(PDO $pdo, ?int $userId): ?array
+{
+    if ($userId === null || $userId <= 0) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            user_id,
+            TRIM(CONCAT(COALESCE(first_Name, ''), ' ', COALESCE(last_Name, ''))) AS full_name,
+            mail_Address
+        FROM users
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        return null;
+    }
+
+    return [
+        'user_id' => (int)$user['user_id'],
+        'full_name' => trim((string)($user['full_name'] ?? '')) ?: (string)($user['mail_Address'] ?? 'Clinic Staff'),
+    ];
+}
+
+function visit_billing_resolve_stock_performer(PDO $pdo, int $visitId, ?int $preferredUserId = null): array
+{
+    $preferredUser = visit_billing_fetch_user($pdo, $preferredUserId);
+    if ($preferredUser) {
+        return $preferredUser;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(v.veterinarian_user_id, v.owner_user_id) AS user_id
+        FROM visits v
+        WHERE v.visit_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$visitId]);
+    $visitUserId = $stmt->fetchColumn();
+    $visitUser = visit_billing_fetch_user($pdo, $visitUserId ? (int)$visitUserId : null);
+    if ($visitUser) {
+        return $visitUser;
+    }
+
+    $fallbackStmt = $pdo->query("
+        SELECT
+            user_id,
+            TRIM(CONCAT(COALESCE(first_Name, ''), ' ', COALESCE(last_Name, ''))) AS full_name,
+            mail_Address
+        FROM users
+        ORDER BY user_id ASC
+        LIMIT 1
+    ");
+    $fallback = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+    if ($fallback) {
+        return [
+            'user_id' => (int)$fallback['user_id'],
+            'full_name' => trim((string)($fallback['full_name'] ?? '')) ?: (string)($fallback['mail_Address'] ?? 'Clinic Staff'),
+        ];
+    }
+
+    visit_billing_error(409, 'A valid user is required to record inventory movement.');
+}
+
+function visit_billing_fetch_inventory_item(PDO $pdo, int $itemId, string $chargeType): array
+{
+    if (!visit_billing_table_exists($pdo, 'inventory_items')) {
+        visit_billing_error(409, 'Inventory schema is missing.');
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT item_id, item_name, category, status
+        FROM inventory_items
+        WHERE item_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$itemId]);
+    $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$item) {
+        visit_billing_error(404, 'Inventory item was not found for a visit charge.');
+    }
+
+    if (($item['status'] ?? '') !== 'active') {
+        visit_billing_error(409, 'Inactive inventory items cannot be billed or consumed.');
+    }
+
+    $category = strtoupper(trim((string)($item['category'] ?? '')));
+    if ($chargeType === 'medication' && $category !== 'MEDICATION') {
+        visit_billing_error(400, 'Medication charges must use an inventory item categorized as MEDICATION.');
+    }
+
+    if ($chargeType === 'retail_product' && in_array($category, ['MEDICATION', 'CONSUMABLE'], true)) {
+        visit_billing_error(400, 'Product charges cannot use medication or internal consumable inventory items.');
+    }
+
+    return $item;
+}
+
+function visit_billing_consume_inventory_item(
+    PDO $pdo,
+    int $itemId,
+    float $quantity,
+    int $chargeId,
+    string $description,
+    string $chargeType,
+    array $performer
+): void {
+    if ($quantity <= 0) {
+        return;
+    }
+
+    if (!visit_billing_table_exists($pdo, 'inventory_batches') || !visit_billing_table_exists($pdo, 'inventory_stock_movements')) {
+        visit_billing_error(409, 'Inventory batch and movement schema is required before inventory-linked charges can be saved.');
+    }
+
+    $item = visit_billing_fetch_inventory_item($pdo, $itemId, $chargeType);
+    if (!visit_billing_is_whole_quantity($quantity)) {
+        visit_billing_error(400, "Inventory quantity for {$item['item_name']} must be a whole number.");
+    }
+
+    $needed = (int)round($quantity);
+    if ($needed <= 0) {
+        return;
+    }
+
+    $batchStmt = $pdo->prepare("
+        SELECT batch_id, quantity
+        FROM inventory_batches
+        WHERE item_id = ?
+          AND quantity > 0
+        ORDER BY expiry_date IS NULL ASC, expiry_date ASC, created_at ASC, batch_id ASC
+        FOR UPDATE
+    ");
+    $batchStmt->execute([$itemId]);
+    $batches = $batchStmt->fetchAll(PDO::FETCH_ASSOC);
+    $available = array_reduce($batches, fn($sum, $batch) => $sum + (int)$batch['quantity'], 0);
+
+    if ($available < $needed) {
+        visit_billing_error(409, "{$item['item_name']} has insufficient stock. Needs {$needed}, available {$available}.");
+    }
+
+    $remaining = $needed;
+    $updateBatch = $pdo->prepare("UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?");
+    $movementStmt = $pdo->prepare("
+        INSERT INTO inventory_stock_movements (
+            item_id,
+            batch_id,
+            movement_type,
+            quantity_change,
+            quantity_before,
+            quantity_after,
+            reference_type,
+            reference_id,
+            remarks,
+            performed_by_user_id,
+            performed_by_name
+        ) VALUES (?, ?, 'stock_out', ?, ?, ?, 'visit_charges', ?, ?, ?, ?)
+    ");
+
+    foreach ($batches as $batch) {
+        if ($remaining <= 0) {
+            break;
+        }
+
+        $before = (int)$batch['quantity'];
+        $deduct = min($before, $remaining);
+        $after = $before - $deduct;
+
+        $updateBatch->execute([$after, (int)$batch['batch_id']]);
+        $movementStmt->execute([
+            $itemId,
+            (int)$batch['batch_id'],
+            -$deduct,
+            $before,
+            $after,
+            $chargeId,
+            'Visit charge stock use: ' . substr($description, 0, 180),
+            (int)$performer['user_id'],
+            $performer['full_name'],
+        ]);
+
+        $remaining -= $deduct;
+    }
+}
+
+function visit_billing_reverse_visit_charge_stock(PDO $pdo, int $visitId, array $performer): void
+{
+    if (
+        !visit_billing_table_exists($pdo, 'inventory_stock_movements')
+        || !visit_billing_table_exists($pdo, 'inventory_batches')
+    ) {
+        return;
+    }
+
+    $movementStmt = $pdo->prepare("
+        SELECT ism.*
+        FROM inventory_stock_movements ism
+        JOIN visit_charges vc ON vc.charge_id = ism.reference_id
+        WHERE vc.visit_id = ?
+          AND ism.reference_type = 'visit_charges'
+          AND ism.quantity_change < 0
+        ORDER BY ism.movement_id DESC
+        FOR UPDATE
+    ");
+    $movementStmt->execute([$visitId]);
+    $movements = $movementStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$movements) {
+        return;
+    }
+
+    $batchStmt = $pdo->prepare("
+        SELECT quantity
+        FROM inventory_batches
+        WHERE batch_id = ?
+          AND item_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $updateBatch = $pdo->prepare("UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?");
+    $reversalStmt = $pdo->prepare("
+        INSERT INTO inventory_stock_movements (
+            item_id,
+            batch_id,
+            movement_type,
+            quantity_change,
+            quantity_before,
+            quantity_after,
+            reference_type,
+            reference_id,
+            remarks,
+            performed_by_user_id,
+            performed_by_name
+        ) VALUES (?, ?, 'adjustment', ?, ?, ?, 'visit_charge_reversal', ?, ?, ?, ?)
+    ");
+
+    foreach ($movements as $movement) {
+        $batchId = (int)($movement['batch_id'] ?? 0);
+        $itemId = (int)$movement['item_id'];
+        $restore = abs((int)$movement['quantity_change']);
+        if ($batchId <= 0 || $restore <= 0) {
+            continue;
+        }
+
+        $batchStmt->execute([$batchId, $itemId]);
+        $before = $batchStmt->fetchColumn();
+        if ($before === false) {
+            visit_billing_error(409, 'Cannot reverse inventory movement because the original batch no longer exists.');
+        }
+
+        $before = (int)$before;
+        $after = $before + $restore;
+        $updateBatch->execute([$after, $batchId]);
+        $reversalStmt->execute([
+            $itemId,
+            $batchId,
+            $restore,
+            $before,
+            $after,
+            (int)$movement['reference_id'],
+            'Reversed visit charge stock use before invoice update.',
+            (int)$performer['user_id'],
+            $performer['full_name'],
+        ]);
+    }
+}
+
+function visit_billing_fetch_service_materials(PDO $pdo, int $serviceId): array
+{
+    if (!visit_billing_table_exists($pdo, 'service_materials')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            sm.item_id,
+            sm.material_name,
+            sm.qty_used,
+            sm.billable_policy,
+            ii.item_name
+        FROM service_materials sm
+        LEFT JOIN inventory_items ii ON ii.item_id = sm.item_id
+        WHERE sm.service_id = ?
+          AND sm.item_id IS NOT NULL
+        ORDER BY sm.service_material_id ASC
+    ");
+    $stmt->execute([$serviceId]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function visit_billing_save_charges(PDO $pdo, int $visitId, array $charges, bool $replace = true): void
 {
+    $preferredUserId = null;
+    foreach ($charges as $charge) {
+        $candidate = visit_billing_nullable_int($charge['created_by_user_id'] ?? $charge['createdByUserId'] ?? null);
+        if ($candidate !== null && $candidate > 0) {
+            $preferredUserId = $candidate;
+            break;
+        }
+    }
+    $stockPerformer = visit_billing_resolve_stock_performer($pdo, $visitId, $preferredUserId);
+
     if ($replace) {
+        visit_billing_reverse_visit_charge_stock($pdo, $visitId, $stockPerformer);
+
         $deleteStmt = $pdo->prepare("DELETE FROM visit_charges WHERE visit_id = ?");
         $deleteStmt->execute([$visitId]);
     }
 
     $allowedTypes = ['service', 'diagnostic', 'medication', 'consumable', 'retail_product', 'boarding', 'other'];
+    $explicitServiceMaterials = [];
+    foreach ($charges as $charge) {
+        $serviceId = visit_billing_nullable_int($charge['service_id'] ?? $charge['serviceId'] ?? null);
+        $itemId = visit_billing_nullable_int($charge['item_id'] ?? $charge['itemId'] ?? null);
+        if ($serviceId !== null && $serviceId > 0 && $itemId !== null && $itemId > 0) {
+            $explicitServiceMaterials[$serviceId][$itemId] = true;
+        }
+    }
+
     $insertStmt = $pdo->prepare("
         INSERT INTO visit_charges (
             visit_id,
@@ -337,6 +696,10 @@ function visit_billing_save_charges(PDO $pdo, int $visitId, array $charges, bool
         $createdBy = visit_billing_nullable_int($charge['created_by_user_id'] ?? $charge['createdByUserId'] ?? null);
         $subtotal = round($quantity * $unitPrice, 2);
 
+        if ($itemId !== null && $itemId > 0) {
+            visit_billing_fetch_inventory_item($pdo, $itemId, $chargeType);
+        }
+
         $insertStmt->execute([
             $visitId,
             $chargeType,
@@ -348,9 +711,152 @@ function visit_billing_save_charges(PDO $pdo, int $visitId, array $charges, bool
             $subtotal,
             $createdBy
         ]);
+        $chargeId = (int)$pdo->lastInsertId();
+
+        $linePerformer = $createdBy
+            ? visit_billing_resolve_stock_performer($pdo, $visitId, $createdBy)
+            : $stockPerformer;
+
+        if ($itemId !== null && $itemId > 0) {
+            visit_billing_consume_inventory_item(
+                $pdo,
+                $itemId,
+                $quantity,
+                $chargeId,
+                $description,
+                $chargeType,
+                $linePerformer
+            );
+        }
+
+        if ($serviceId !== null && $serviceId > 0 && $itemId === null && in_array($chargeType, ['service', 'diagnostic', 'boarding'], true)) {
+            foreach (visit_billing_fetch_service_materials($pdo, $serviceId) as $material) {
+                $materialItemId = (int)($material['item_id'] ?? 0);
+                if ($materialItemId <= 0 || isset($explicitServiceMaterials[$serviceId][$materialItemId])) {
+                    continue;
+                }
+
+                $materialQuantity = $quantity * (float)($material['qty_used'] ?? 0);
+                $materialName = (string)($material['item_name'] ?? $material['material_name'] ?? $description);
+                visit_billing_consume_inventory_item(
+                    $pdo,
+                    $materialItemId,
+                    $materialQuantity,
+                    $chargeId,
+                    $description . ' - ' . $materialName,
+                    'consumable',
+                    $linePerformer
+                );
+            }
+        }
     }
 
     visit_billing_update_status($pdo, $visitId);
+}
+
+function visit_billing_save_visit_payload(PDO $pdo, array $input): array
+{
+    visit_billing_require_schema($pdo);
+
+    $petId = visit_billing_nullable_int($input['pet_id'] ?? $input['petId'] ?? null);
+    $queueId = visit_billing_nullable_int($input['queue_id'] ?? $input['queueId'] ?? null);
+    $bookingId = visit_billing_nullable_int($input['booking_id'] ?? $input['bookingId'] ?? null);
+    $sourceType = visit_billing_allowed(
+        trim((string)($input['source_type'] ?? $input['sourceType'] ?? ($queueId ? 'queue' : ($bookingId ? 'booking' : 'manual')))),
+        ['queue', 'booking', 'walk_in', 'boarding', 'manual'],
+        'manual'
+    );
+
+    if ($petId === null || $petId <= 0) {
+        visit_billing_error(400, 'pet_id is required.');
+    }
+
+    $ownerUserId = visit_billing_resolve_owner(
+        $pdo,
+        visit_billing_nullable_int($input['owner_user_id'] ?? $input['ownerUserId'] ?? null),
+        $petId,
+        $queueId,
+        $bookingId
+    );
+    $veterinarianUserId = visit_billing_nullable_int($input['veterinarian_user_id'] ?? $input['veterinarianUserId'] ?? null);
+    $diagnosisId = visit_billing_nullable_int($input['diagnosis_id'] ?? $input['diagnosisId'] ?? null);
+    $visitStatus = visit_billing_allowed(
+        trim((string)($input['visit_status'] ?? $input['visitStatus'] ?? 'treatment_done')),
+        ['waiting', 'in_consultation', 'treatment_done', 'completed', 'cancelled'],
+        'treatment_done'
+    );
+
+    $charges = $input['charges'] ?? [];
+    if (!is_array($charges)) {
+        visit_billing_error(400, 'charges must be an array.');
+    }
+
+    $visitLookupInput = array_merge($input, [
+        'pet_id' => $petId,
+        'queue_id' => $queueId,
+        'booking_id' => $bookingId,
+    ]);
+    $visitId = visit_billing_fetch_visit_id($pdo, $visitLookupInput);
+
+    if ($visitId !== null) {
+        $stmt = $pdo->prepare("
+            UPDATE visits
+            SET owner_user_id = ?,
+                veterinarian_user_id = ?,
+                queue_id = ?,
+                booking_id = ?,
+                diagnosis_id = COALESCE(?, diagnosis_id),
+                source_type = ?,
+                visit_status = ?
+            WHERE visit_id = ?
+        ");
+        $stmt->execute([
+            $ownerUserId,
+            $veterinarianUserId,
+            $queueId,
+            $bookingId,
+            $diagnosisId,
+            $sourceType,
+            $visitStatus,
+            $visitId
+        ]);
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO visits (
+                pet_id,
+                owner_user_id,
+                veterinarian_user_id,
+                queue_id,
+                booking_id,
+                diagnosis_id,
+                source_type,
+                visit_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $petId,
+            $ownerUserId,
+            $veterinarianUserId,
+            $queueId,
+            $bookingId,
+            $diagnosisId,
+            $sourceType,
+            $visitStatus
+        ]);
+        $visitId = (int)$pdo->lastInsertId();
+    }
+
+    if (!empty($charges)) {
+        visit_billing_save_charges($pdo, $visitId, $charges, true);
+    } else {
+        visit_billing_update_status($pdo, $visitId);
+    }
+
+    return [
+        'visitId' => $visitId,
+        'hasCharges' => !empty($charges),
+        'visit' => visit_billing_fetch_visit($pdo, $visitId),
+    ];
 }
 
 function visit_billing_upsert_visit(PDO $pdo): void
@@ -465,6 +971,12 @@ function visit_billing_upsert_visit(PDO $pdo): void
             visit_billing_update_status($pdo, $visitId);
         }
 
+        $paymentInput = $input['payment'] ?? $input['paymentPayload'] ?? null;
+        $paymentId = null;
+        if (is_array($paymentInput)) {
+            $paymentId = visit_billing_insert_payment_payload($pdo, $visitId, $paymentInput);
+        }
+
         $pdo->commit();
 
         try {
@@ -473,6 +985,18 @@ function visit_billing_upsert_visit(PDO $pdo): void
             }
         } catch (Throwable $notificationError) {
             error_log('Visit invoice notification failed: ' . $notificationError->getMessage());
+        }
+
+        try {
+            if ($paymentId !== null) {
+                notification_send_visit_event($pdo, $visitId, 'payment_received', [
+                    'payment_id' => $paymentId,
+                    'amount' => (float)($paymentInput['amount'] ?? 0),
+                    'reference_number' => visit_billing_nullable_text($paymentInput['reference_number'] ?? $paymentInput['referenceNumber'] ?? null),
+                ]);
+            }
+        } catch (Throwable $notificationError) {
+            error_log('Visit payment notification failed: ' . $notificationError->getMessage());
         }
 
         echo json_encode([
@@ -705,6 +1229,60 @@ function visit_billing_replace_charges(PDO $pdo, int $visitId): void
     }
 }
 
+function visit_billing_insert_payment_payload(PDO $pdo, int $visitId, array $input): int
+{
+    $amount = (float)($input['amount'] ?? 0);
+    if ($amount <= 0) {
+        visit_billing_error(400, 'Payment amount must be greater than 0.');
+    }
+
+    $paymentMethod = visit_billing_allowed(
+        trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? 'gcash')),
+        ['cash', 'qrph', 'gcash', 'maya', 'bank_transfer'],
+        'gcash'
+    );
+    if ($paymentMethod === 'cash') {
+        visit_billing_ensure_payment_method_schema($pdo);
+    }
+    $paymentStatus = visit_billing_allowed(
+        trim((string)($input['payment_status'] ?? $input['paymentStatus'] ?? 'verified')),
+        ['pending', 'verified', 'failed', 'refunded', 'voided'],
+        'verified'
+    );
+
+    $stmt = $pdo->prepare("
+        INSERT INTO visit_payments (
+            visit_id,
+            payment_method,
+            payment_status,
+            amount,
+            reference_number,
+            proof_url,
+            notes,
+            paid_at,
+            received_by_user_id,
+            received_by_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $visitId,
+        $paymentMethod,
+        $paymentStatus,
+        $amount,
+        visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null),
+        visit_billing_nullable_text($input['proof_url'] ?? $input['proofUrl'] ?? null),
+        visit_billing_nullable_text($input['notes'] ?? null),
+        visit_billing_nullable_text($input['paid_at'] ?? $input['paidAt'] ?? null) ?: date('Y-m-d H:i:s'),
+        visit_billing_nullable_int($input['received_by_user_id'] ?? $input['receivedByUserId'] ?? null),
+        visit_billing_nullable_text($input['received_by_name'] ?? $input['receivedByName'] ?? null)
+    ]);
+    $paymentId = (int)$pdo->lastInsertId();
+
+    visit_billing_update_status($pdo, $visitId);
+
+    return $paymentId;
+}
+
 function visit_billing_add_payment(PDO $pdo, int $visitId): void
 {
     visit_billing_require_schema($pdo);
@@ -713,59 +1291,24 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
     }
 
     $input = visit_billing_input();
-    $amount = (float)($input['amount'] ?? 0);
-    if ($amount <= 0) {
-        visit_billing_error(400, 'Payment amount must be greater than 0.');
-    }
-
-    $paymentMethod = visit_billing_allowed(
-        trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? 'gcash')),
-        ['qrph', 'gcash', 'maya', 'bank_transfer'],
-        'gcash'
-    );
-    $paymentStatus = visit_billing_allowed(
-        trim((string)($input['payment_status'] ?? $input['paymentStatus'] ?? 'verified')),
-        ['pending', 'verified', 'failed', 'refunded', 'voided'],
-        'verified'
-    );
 
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("
-            INSERT INTO visit_payments (
-                visit_id,
-                payment_method,
-                payment_status,
-                amount,
-                reference_number,
-                proof_url,
-                notes,
-                paid_at,
-                received_by_user_id,
-                received_by_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $visitId,
-            $paymentMethod,
-            $paymentStatus,
-            $amount,
-            visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null),
-            visit_billing_nullable_text($input['proof_url'] ?? $input['proofUrl'] ?? null),
-            visit_billing_nullable_text($input['notes'] ?? null),
-            visit_billing_nullable_text($input['paid_at'] ?? $input['paidAt'] ?? null) ?: date('Y-m-d H:i:s'),
-            visit_billing_nullable_int($input['received_by_user_id'] ?? $input['receivedByUserId'] ?? null),
-            visit_billing_nullable_text($input['received_by_name'] ?? $input['receivedByName'] ?? null)
-        ]);
-        $paymentId = (int)$pdo->lastInsertId();
+        if (array_key_exists('charges', $input)) {
+            $charges = $input['charges'];
+            if (!is_array($charges)) {
+                visit_billing_error(400, 'charges must be an array.');
+            }
+            visit_billing_save_charges($pdo, $visitId, $charges, true);
+        }
 
-        visit_billing_update_status($pdo, $visitId);
+        $paymentId = visit_billing_insert_payment_payload($pdo, $visitId, $input);
         $pdo->commit();
 
         try {
             notification_send_visit_event($pdo, $visitId, 'payment_received', [
                 'payment_id' => $paymentId,
-                'amount' => $amount,
+                'amount' => (float)($input['amount'] ?? 0),
                 'reference_number' => visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null),
             ]);
         } catch (Throwable $notificationError) {
@@ -782,19 +1325,21 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
     }
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
-$action = $_GET['action'] ?? '';
-$visitId = isset($_GET['visitId']) ? (int)$_GET['visitId'] : 0;
+if (!defined('VISIT_BILLING_HELPERS_ONLY') || !VISIT_BILLING_HELPERS_ONLY) {
+    $method = $_SERVER['REQUEST_METHOD'];
+    $action = $_GET['action'] ?? '';
+    $visitId = isset($_GET['visitId']) ? (int)$_GET['visitId'] : 0;
 
-if ($method === 'GET') {
-    visit_billing_list($pdo);
-} elseif ($method === 'POST' && $action === 'charges') {
-    visit_billing_replace_charges($pdo, $visitId);
-} elseif ($method === 'POST' && $action === 'payments') {
-    visit_billing_add_payment($pdo, $visitId);
-} elseif ($method === 'POST') {
-    visit_billing_upsert_visit($pdo);
-} else {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
+    if ($method === 'GET') {
+        visit_billing_list($pdo);
+    } elseif ($method === 'POST' && $action === 'charges') {
+        visit_billing_replace_charges($pdo, $visitId);
+    } elseif ($method === 'POST' && $action === 'payments') {
+        visit_billing_add_payment($pdo, $visitId);
+    } elseif ($method === 'POST') {
+        visit_billing_upsert_visit($pdo);
+    } else {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
+    }
 }

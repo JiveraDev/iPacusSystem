@@ -160,7 +160,7 @@ CREATE TABLE `bookings` (
   `user_id` int(11) NOT NULL,
   `pet_id` int(11) DEFAULT NULL,
   `booking_number` varchar(20) NOT NULL,
-  `service_type` enum('consultation','vaccination','grooming','dental','wellness','surgery','kapon','lab-testing','parasite-control','boarding','home-service','special services') NOT NULL,
+  `service_type` enum('consultation','vaccination','grooming','dental','General Check-up','surgery','kapon','lab-testing','parasite-control','boarding','home-service','special services') NOT NULL,
   `booking_date` date NOT NULL,
   `booking_time` time NOT NULL,
   `status` enum('pending','confirmed','completed','cancelled') DEFAULT 'pending',

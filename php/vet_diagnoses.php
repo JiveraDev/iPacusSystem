@@ -4,6 +4,14 @@ require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 
+if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
+    define('VISIT_BILLING_HELPERS_ONLY', true);
+}
+if (!defined('VISIT_BILLING_THROW_ERRORS')) {
+    define('VISIT_BILLING_THROW_ERRORS', true);
+}
+require_once __DIR__ . '/visit_billing.php';
+
 header('Content-Type: application/json');
 
 function vetDiagnosisTableExists(PDO $pdo): bool
@@ -80,6 +88,18 @@ function vetDiagnosisJsonValue($value): ?string
     }
 
     return $encoded;
+}
+
+function vetDiagnosisChargesFromInput(array $input): array
+{
+    $charges = $input['visit_charges'] ?? $input['visitCharges'] ?? $input['charges'] ?? [];
+
+    if (!is_array($charges)) {
+        http_response_code(400);
+        throw new RuntimeException('visit_charges must be an array.');
+    }
+
+    return $charges;
 }
 
 function vetDiagnosisDecodeJson($value)
@@ -882,6 +902,19 @@ try {
         $payload['veterinarian_name'] ?: 'Veterinarian',
         $input
     );
+
+    $visitBilling = visit_billing_save_visit_payload($pdo, [
+        'pet_id' => $petId,
+        'owner_user_id' => vetDiagnosisNullableInt($input['owner_user_id'] ?? $input['ownerUserId'] ?? null),
+        'veterinarian_user_id' => $veterinarianUserId,
+        'queue_id' => $queueId,
+        'booking_id' => $bookingId,
+        'diagnosis_id' => $diagnosisId,
+        'source_type' => $queueId ? 'queue' : ($bookingId ? 'booking' : 'manual'),
+        'visit_status' => 'treatment_done',
+        'charges' => vetDiagnosisChargesFromInput($input),
+    ]);
+
     vetDiagnosisCompleteQueue($pdo, $queueId, $assignmentId);
     vetDiagnosisCompleteBooking($pdo, $bookingId);
 
@@ -891,6 +924,14 @@ try {
         notification_send_diagnosis_event($pdo, $diagnosisId);
     } catch (Throwable $notificationError) {
         error_log('Diagnosis notification failed: ' . $notificationError->getMessage());
+    }
+
+    try {
+        if (!empty($visitBilling['hasCharges']) && !empty($visitBilling['visitId'])) {
+            notification_send_visit_event($pdo, (int)$visitBilling['visitId'], 'invoice_ready');
+        }
+    } catch (Throwable $notificationError) {
+        error_log('Visit invoice notification failed: ' . $notificationError->getMessage());
     }
 
     $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
@@ -920,8 +961,9 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Diagnosis saved.',
-        'diagnosis' => $record ? vetDiagnosisFormatRow($record) : null
+        'message' => 'Diagnosis saved and visit billing prepared.',
+        'diagnosis' => $record ? vetDiagnosisFormatRow($record) : null,
+        'visit' => $visitBilling['visit'] ?? null
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

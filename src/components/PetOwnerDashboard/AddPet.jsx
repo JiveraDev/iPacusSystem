@@ -138,8 +138,8 @@ export default function AddPet() {
               Visit our clinic or schedule a consultation. Our staff will register your pet and provide you with a unique ID.
             </p>
             <p className="pt-2">
-              <strong>Contact Us:</strong><br />
-              Phone: (042) 373-5678<br />
+              <strong>Contact Us:</strong><br/>
+              Phone: (042) 373-5678<br/>
               Email: support@vetfocuscare.com
             </p>
           </div>

@@ -465,6 +465,30 @@ function notification_push_public_key(): string
     return notification_push_env('PUSH_VAPID_PUBLIC_KEY') ?: notification_push_env('VITE_PUSH_PUBLIC_KEY');
 }
 
+function notification_push_ca_bundle_path(): string
+{
+    $candidates = [
+        notification_push_env('PUSH_CURL_CA_BUNDLE'),
+        notification_push_env('CURL_CA_BUNDLE'),
+        notification_push_env('SSL_CERT_FILE'),
+        (string)ini_get('curl.cainfo'),
+        (string)ini_get('openssl.cafile'),
+        'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
+        'C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt',
+        'C:\\xampp\\apache\\bin\\curl-ca-bundle.crt',
+        'C:\\php\\extras\\ssl\\cacert.pem',
+    ];
+
+    foreach ($candidates as $candidate) {
+        $path = trim((string)$candidate);
+        if ($path !== '' && is_file($path) && is_readable($path)) {
+            return $path;
+        }
+    }
+
+    return '';
+}
+
 function notification_push_base64url_decode(string $value): string|false
 {
     $padding = str_repeat('=', (4 - strlen($value) % 4) % 4);
@@ -558,10 +582,13 @@ function notification_push_config_status(): array
     $publicKey = notification_push_public_key();
     $hasPrivateKey = notification_push_private_key_pem() !== '';
     $hasOpenSsl = function_exists('openssl_sign');
+    $caBundle = notification_push_ca_bundle_path();
 
     return [
         'enabled' => $publicKey !== '' && $hasPrivateKey && $hasOpenSsl,
         'publicKey' => $publicKey,
+        'caBundle' => $caBundle,
+        'needsCaBundle' => $caBundle === '',
         'needsSetup' => $publicKey === '' || !$hasPrivateKey || !$hasOpenSsl,
     ];
 }
@@ -667,6 +694,7 @@ function notification_push_post(string $endpoint, string $jwt, string $publicKey
 
     if (function_exists('curl_init')) {
         $curl = curl_init($endpoint);
+        $caBundle = notification_push_ca_bundle_path();
         $options = [
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
@@ -674,7 +702,13 @@ function notification_push_post(string $endpoint, string $jwt, string $publicKey
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_TIMEOUT => 12,
             CURLOPT_POSTFIELDS => '',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ];
+
+        if ($caBundle !== '') {
+            $options[CURLOPT_CAINFO] = $caBundle;
+        }
 
         if (defined('CURL_HTTP_VERSION_2TLS')) {
             $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_2TLS;
@@ -684,15 +718,19 @@ function notification_push_post(string $endpoint, string $jwt, string $publicKey
         $response = curl_exec($curl);
         $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $error = curl_error($curl);
-        curl_close($curl);
 
         if ($response === false) {
-            throw new RuntimeException($error ?: 'Browser notification request failed.');
+            $message = $error ?: 'Browser notification request failed.';
+            if (stripos($message, 'certificate') !== false && $caBundle === '') {
+                $message .= ' Configure PUSH_CURL_CA_BUNDLE, CURL_CA_BUNDLE, or openssl.cafile/curl.cainfo with a readable CA bundle.';
+            }
+            throw new RuntimeException($message);
         }
 
         return ['status' => $status, 'body' => (string)$response];
     }
 
+    $caBundle = notification_push_ca_bundle_path();
     $context = stream_context_create([
         'http' => [
             'method' => 'POST',
@@ -700,6 +738,11 @@ function notification_push_post(string $endpoint, string $jwt, string $publicKey
             'content' => '',
             'ignore_errors' => true,
             'timeout' => 12,
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            ...($caBundle !== '' ? ['cafile' => $caBundle] : []),
         ],
     ]);
     $body = @file_get_contents($endpoint, false, $context);
@@ -860,7 +903,7 @@ function notification_send_push_to_subscription(PDO $pdo, array $subscription): 
         }
 
         $message = 'Browser notification service returned status ' . ($status ?: 'unknown') . '.';
-        if (in_array($status, [404, 410], true)) {
+        if (in_array($status, [401, 403, 404, 410], true)) {
             notification_push_deactivate_subscription($pdo, $subscriptionId, $message);
         } else {
             $stmt = $pdo->prepare("UPDATE notification_push_subscriptions SET last_error = ? WHERE subscription_id = ?");
@@ -1018,6 +1061,11 @@ function notification_format_datetime(?string $date, ?string $time): string
 function notification_service_name(array $booking): string
 {
     $service = trim((string)($booking['service_type'] ?? 'Booking'));
+    $normalized = strtolower($service);
+    if (in_array($normalized, ['general check-up', 'general checkup', 'general-checkup'], true)) {
+        return 'General Check-up';
+    }
+
     if ($service === 'boarding' && !empty($booking['hotel_boarding_type'])) {
         return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
     }

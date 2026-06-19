@@ -4,7 +4,6 @@ import {
     ClipboardList,
     Eye,
     Loader2,
-    Pencil,
     RefreshCw,
     Search,
     Stethoscope
@@ -14,9 +13,7 @@ import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
-import { Label } from '../../ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
@@ -61,7 +58,7 @@ export default function VetRecordUpdateRequests() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRequest, setSelectedRequest] = useState(null);
-    const [vetNotes, setVetNotes] = useState('');
+    const [assignmentRequest, setAssignmentRequest] = useState(null);
     const [actionLoading, setActionLoading] = useState('');
 
     const loadRequests = async ({ isAutoRefresh = false } = {}) => {
@@ -114,35 +111,45 @@ export default function VetRecordUpdateRequests() {
     }, [requests, searchQuery, veterinarianUserId]);
 
     const availableCount = visibleRequests.filter(request => request.status === 'approved').length;
-    const activeCount = visibleRequests.filter(request => ['assigned', 'in_progress'].includes(request.status)).length;
+    const assignedCount = visibleRequests.filter(request => request.status === 'assigned').length;
     const completedCount = visibleRequests.filter(request => request.status === 'completed').length;
+    const isRequestActionLoading = (action, request) => actionLoading === `${action}-${request?.requestId}`;
 
     const openRequest = (request) => {
         setSelectedRequest(request);
-        setVetNotes(request.veterinarianNotes || '');
     };
 
-    const updateRequest = async (action) => {
-        if (!selectedRequest) return;
+    const assignRequestAndOpenEditor = async (request) => {
+        if (!request) return;
 
-        setActionLoading(action);
+        setActionLoading(`assign-${request.requestId}`);
         try {
-            const response = await updateRecordUpdateRequest(selectedRequest.requestId, {
-                action,
+            const response = await updateRecordUpdateRequest(request.requestId, {
+                action: 'assign',
                 userId: veterinarianUserId,
-                veterinarianNotes: vetNotes
+                assignedVeterinarianUserId: veterinarianUserId
             });
 
-            setRequests(current => current.map(request => (
-                request.requestId === selectedRequest.requestId ? response.request : request
+            setRequests(current => current.map(item => (
+                item.requestId === response.request?.requestId ? response.request : item
             )));
-            setSelectedRequest(response.request);
-            toast.success(action === 'complete' ? 'Request marked completed.' : 'Request updated.');
+            setSelectedRequest(current => (
+                current?.requestId === response.request?.requestId ? response.request : current
+            ));
+            if (assignmentRequest?.requestId === response.request?.requestId) {
+                setAssignmentRequest(null);
+            }
+            toast.success('Request assigned. Opening medical records.');
+            openMedicalEditor(response.request || request);
         } catch (error) {
             toast.error(error.message || 'Failed to update request.');
         } finally {
             setActionLoading('');
         }
+    };
+
+    const openAssignmentConfirm = (request) => {
+        setAssignmentRequest(request);
     };
 
     const openMedicalEditor = (request) => {
@@ -168,7 +175,7 @@ export default function VetRecordUpdateRequests() {
                 <div>
                     <h2 className="text-2xl font-black text-slate-950">Record Update Requests</h2>
                     <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Select approved owner requests, update the pet record, then mark the work done.
+                        View approved owner requests, assign them to yourself, then open the pet medical record editor.
                     </p>
                 </div>
                 <Button variant="outline" onClick={() => loadRequests()} disabled={isLoading} className="gap-2">
@@ -179,7 +186,7 @@ export default function VetRecordUpdateRequests() {
 
             <div className="grid gap-3 sm:grid-cols-3">
                 <Stat icon={ClipboardList} label="Available" value={availableCount} />
-                <Stat icon={Pencil} label="Active" value={activeCount} />
+                <Stat icon={Stethoscope} label="Assigned" value={assignedCount} />
                 <Stat icon={CheckCircle2} label="Completed" value={completedCount} />
             </div>
 
@@ -221,7 +228,7 @@ export default function VetRecordUpdateRequests() {
                         ) : visibleRequests.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="py-12 text-center text-slate-400">
-                                    No approved record update requests found.
+                                    No record update requests found.
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -242,10 +249,27 @@ export default function VetRecordUpdateRequests() {
                                         <Badge className={`border-0 ${statusClass(request.status)}`}>{statusLabel(request.status)}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="outline" size="sm" onClick={() => openRequest(request)}>
-                                            <Eye className="size-4" />
-                                            Work
-                                        </Button>
+                                        <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                                            <Button variant="outline" size="sm" onClick={() => openMedicalEditor(request)}>
+                                                <Stethoscope className="size-4" />
+                                                View Records
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => openRequest(request)}>
+                                                <Eye className="size-4" />
+                                                Details
+                                            </Button>
+                                            {request.status !== 'completed' && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => openAssignmentConfirm(request)}
+                                                    disabled={Boolean(actionLoading)}
+                                                    className="bg-green-600 text-white hover:bg-green-700"
+                                                >
+                                                    {isRequestActionLoading('assign', request) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
+                                                    Update Request
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -257,9 +281,9 @@ export default function VetRecordUpdateRequests() {
             <Dialog open={Boolean(selectedRequest)} onOpenChange={(open) => !open && setSelectedRequest(null)}>
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
-                        <DialogTitle>Complete Record Update</DialogTitle>
+                        <DialogTitle>Record Update Request</DialogTitle>
                         <DialogDescription>
-                            Open the medical record editor to make the update, then mark this request done.
+                            Review the owner request, view medical records, or assign it to yourself and open the editor.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -279,15 +303,6 @@ export default function VetRecordUpdateRequests() {
                                 </p>
                             </section>
 
-                            <div className="space-y-2">
-                                <Label>Veterinarian Completion Notes</Label>
-                                <Textarea
-                                    value={vetNotes}
-                                    onChange={(event) => setVetNotes(event.target.value)}
-                                    placeholder="Summarize what was changed or verified in the pet record."
-                                    className="min-h-28"
-                                />
-                            </div>
                         </div>
                     )}
 
@@ -300,19 +315,49 @@ export default function VetRecordUpdateRequests() {
                                     Open Medical Records
                                 </Button>
                             )}
-                            {selectedRequest?.status === 'approved' && (
-                                <Button onClick={() => updateRequest('start')} disabled={Boolean(actionLoading)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                                    {actionLoading === 'start' ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
-                                    Start
-                                </Button>
-                            )}
                             {selectedRequest && selectedRequest.status !== 'completed' && (
-                                <Button onClick={() => updateRequest('complete')} disabled={Boolean(actionLoading)} className="bg-green-600 text-white hover:bg-green-700">
-                                    {actionLoading === 'complete' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-                                    Mark Done
+                                <Button onClick={() => openAssignmentConfirm(selectedRequest)} disabled={Boolean(actionLoading)} className="bg-green-600 text-white hover:bg-green-700">
+                                    <Stethoscope className="size-4" />
+                                    Update Request
                                 </Button>
                             )}
                         </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={Boolean(assignmentRequest)} onOpenChange={(open) => !open && setAssignmentRequest(null)}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Confirm Record Update</DialogTitle>
+                        <DialogDescription>
+                            This will change the request status to assigned and open the pet medical record editor for this patient.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {assignmentRequest && (
+                        <div className="space-y-4">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                                <Detail label="Request" value={assignmentRequest.requestNumber} />
+                                <div className="mt-3">
+                                    <Detail label="Pet / Owner" value={`${assignmentRequest.petName} / ${assignmentRequest.ownerName}`} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAssignmentRequest(null)} disabled={Boolean(actionLoading)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => assignRequestAndOpenEditor(assignmentRequest)}
+                            disabled={Boolean(actionLoading)}
+                            className="bg-green-600 text-white hover:bg-green-700"
+                        >
+                            {isRequestActionLoading('assign', assignmentRequest) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
+                            Confirm & Open Editor
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

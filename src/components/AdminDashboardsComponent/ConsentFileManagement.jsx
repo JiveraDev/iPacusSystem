@@ -37,7 +37,7 @@ export default function ConsentFilesManagement() {
     const [editCategory, setEditCategory] = useState('');
 
     const categories = [
-        { value: 'wellness', label: 'General Check-Up' },
+        { value: 'General Check-up', label: 'General Check-up' },
         { value: 'vaccination', label: 'Vaccination' },
         { value: 'grooming', label: 'Grooming' },
         { value: 'dental', label: 'Dental Check-up' },

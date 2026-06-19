@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/consent_record_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -133,8 +135,7 @@ if (!$pet_id || !$service_name) {
 }
 
 try {
-    // Auto-cancel all queues older than 2 days
-    $pdo->exec("UPDATE queues SET status = 'cancelled' WHERE status IN ('waiting', 'in-progress') AND timestamp < (NOW() - INTERVAL 2 DAY)");
+    runLifecycleMaintenance($pdo, (int)$pet_id);
 
     // Check for active queue entries for THIS specific pet
     $activeQueueStmt = $pdo->prepare("
@@ -163,9 +164,14 @@ try {
             ]);
             exit;
         } else {
-            // If it's from a previous day (Missed), automatically cancel it
-            $cancelStmt = $pdo->prepare("UPDATE queues SET status = 'cancelled' WHERE pet_id = ? AND status IN ('waiting', 'in-progress') AND DATE(timestamp) < CURDATE()");
-            $cancelStmt->execute([$pet_id]);
+            http_response_code(409);
+            echo json_encode([
+                'message' => "This pet still has an active in-service queue entry (#{$activeQueue['queue_number']}). Complete, return, or cancel it before adding another queue.",
+                'queue_id' => $activeQueue['queue_id'],
+                'queue_number' => $activeQueue['queue_number'],
+                'status' => $activeQueue['status']
+            ]);
+            exit;
         }
     }
 
@@ -240,6 +246,17 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($insertValues);
     $queueId = (int)$pdo->lastInsertId();
+
+    consent_record_capture_queue($pdo, [
+        'queue_id' => $queueId,
+        'owner_user_id' => $user_id,
+        'pet_id' => $pet_id,
+        'service_name' => $service_name,
+        'signed_file_path' => $signiture_self_service_path,
+        'notes' => $queue_source === 'self_service'
+            ? 'Captured during self-service queue creation.'
+            : 'Captured during queue creation.',
+    ]);
 
     try {
         notification_send_queue_event($pdo, $queueId, 'created');

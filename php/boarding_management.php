@@ -261,6 +261,8 @@ function assignment_response(PDO $pdo, int $bookingId): array
         SELECT
             ba.*,
             b.booking_number,
+            b.pet_id,
+            b.user_id AS owner_user_id,
             b.check_in_date,
             b.check_out_date,
             b.price,
@@ -289,6 +291,8 @@ function assignment_response(PDO $pdo, int $bookingId): array
         'assignmentId' => (int)$row['assignment_id'],
         'bookingId' => (int)$row['booking_id'],
         'bookingNumber' => $row['booking_number'],
+        'petId' => $row['pet_id'] !== null ? (int)$row['pet_id'] : null,
+        'ownerUserId' => $row['owner_user_id'] !== null ? (int)$row['owner_user_id'] : null,
         'roomType' => $row['room_type'],
         'hotelBoardingType' => $roomParts['hotel_boarding_type'],
         'roomSize' => $roomParts['room_size'],

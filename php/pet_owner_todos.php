@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
@@ -89,6 +90,11 @@ function pet_owner_todos_range(): array
 function pet_owner_todos_service_label(array $booking): string
 {
     $type = trim((string)($booking['service_type'] ?? 'Booking'));
+    $normalized = strtolower($type);
+    if (in_array($normalized, ['general-checkup', 'general check-up', 'general checkup'], true)) {
+        return 'General Check-up';
+    }
+
     if ($type === 'boarding' && !empty($booking['hotel_boarding_type'])) {
         return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
     }
@@ -428,6 +434,7 @@ function pet_owner_todos_summary(array $tasks): array
 function pet_owner_todos_list(PDO $pdo): void
 {
     pet_owner_todos_ensure_schema($pdo);
+    runLifecycleMaintenance($pdo);
 
     $userId = pet_owner_todos_user_id();
     if ($userId <= 0) {

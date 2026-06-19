@@ -72,8 +72,8 @@ export default function HomeServices() {
       color: "text-cyan-600"
     },
     {
-      id: "wellness-check",
-      name: "General Check-Up",
+      id: "general-checkup",
+      name: "General Check-up",
       description: "Complete physical examination",
       price: "PHP 500 - PHP 800",
       icon: Stethoscope,

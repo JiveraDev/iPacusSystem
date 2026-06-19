@@ -36,6 +36,26 @@ function isStaffAccountDeactivated(PDO $pdo, array $user): bool
     return false;
 }
 
+function isPetOwnerAccountDeactivated(PDO $pdo, array $user): bool
+{
+    $role = strtolower(trim((string)($user['role'] ?? '')));
+    $userId = (int)($user['user_id'] ?? 0);
+
+    if ($userId <= 0 || !in_array($role, ['pet owner', 'pet_owner'], true)) {
+        return false;
+    }
+
+    if (!loginColumnExists($pdo, 'users', 'account_status')) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("SELECT account_status FROM users WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $status = strtolower((string)$stmt->fetchColumn());
+
+    return $status === 'deactivated';
+}
+
 function loginColumnExists(PDO $pdo, string $tableName, string $columnName): bool
 {
     static $cache = [];
@@ -112,6 +132,12 @@ try {
     }
 
     if (isStaffAccountDeactivated($pdo, $user)) {
+        http_response_code(403);
+        echo json_encode(['message' => DEACTIVATED_ACCOUNT_MESSAGE]);
+        exit;
+    }
+
+    if (isPetOwnerAccountDeactivated($pdo, $user)) {
         http_response_code(403);
         echo json_encode(['message' => DEACTIVATED_ACCOUNT_MESSAGE]);
         exit;

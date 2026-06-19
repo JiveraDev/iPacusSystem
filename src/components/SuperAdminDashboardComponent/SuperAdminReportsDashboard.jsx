@@ -1,0 +1,351 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Activity, AlertTriangle, FileText, Loader2, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Button } from '../../ui/button';
+import { Card, CardContent } from '../../ui/card';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
+import { fetchReportsDashboard, REPORT_QUICK_RANGES } from '../../services/reportService';
+import ReportChartCard from './ReportChartCard';
+import ReportKpiCard from './ReportKpiCard';
+import ReportTable from './ReportTable';
+
+const GENERAL_CHART_IDS = [
+    'revenue_diagnosis_trend',
+    'queue_booking_trend',
+    'online_appointment_trend',
+    'boarding_trend',
+    'service_utilization',
+    'animal_distribution',
+    'revenue_breakdown',
+    'inventory_alerts'
+];
+
+function normalizeRole(role) {
+    return String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function isSuperAdmin(user) {
+    return ['super_admin', 'superadmin'].includes(normalizeRole(user?.role));
+}
+
+function dateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function defaultMonthStart() {
+    const date = new Date();
+    return dateInputValue(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+function defaultMonthEnd() {
+    const date = new Date();
+    return dateInputValue(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+}
+
+function clinicToday() {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric'
+    }).formatToParts(new Date()).reduce((values, part) => {
+        if (part.type !== 'literal') {
+            values[part.type] = Number(part.value);
+        }
+        return values;
+    }, {});
+
+    return new Date(parts.year, parts.month - 1, parts.day);
+}
+
+function quickRangeDates(value) {
+    const today = clinicToday();
+    let start = new Date(today);
+    let end = new Date(today);
+
+    if (value === 'this_week') {
+        const weekday = today.getDay();
+        const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+        start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+        end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    } else if (value === 'this_quarter') {
+        const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+        start = new Date(today.getFullYear(), quarterStartMonth, 1);
+        end = new Date(today.getFullYear(), quarterStartMonth + 3, 0);
+    } else if (value === 'this_year') {
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31);
+    } else if (value !== 'today') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+
+    return {
+        start: dateInputValue(start),
+        end: dateInputValue(end)
+    };
+}
+
+export default function SuperAdminReportsDashboard() {
+    const user = useDashboardUser();
+    const navigate = useNavigate();
+    const [range, setRange] = useState('this_month');
+    const [customStart, setCustomStart] = useState(defaultMonthStart);
+    const [customEnd, setCustomEnd] = useState(defaultMonthEnd);
+    const [dashboard, setDashboard] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const selectedRangeLabel = useMemo(() => (
+        REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
+    ), [range]);
+    const visibleDateRange = useMemo(() => (
+        range === 'custom'
+            ? { start: customStart, end: customEnd }
+            : quickRangeDates(range)
+    ), [customEnd, customStart, range]);
+
+    const loadDashboard = useCallback(async ({ isAutoRefresh = false } = {}) => {
+        if (!isSuperAdmin(user)) {
+            setIsLoading(false);
+            return;
+        }
+
+        if (range === 'custom' && (!customStart || !customEnd || customStart > customEnd)) {
+            setError('Use a valid custom date range where Start is before or equal to End.');
+            setIsLoading(false);
+            return;
+        }
+
+        if (!isAutoRefresh) {
+            setIsLoading(true);
+        }
+        setError('');
+
+        try {
+            const data = await fetchReportsDashboard({
+                user,
+                range,
+                startDate: range === 'custom' ? customStart : undefined,
+                endDate: range === 'custom' ? customEnd : undefined
+            });
+            setDashboard(data);
+        } catch (requestError) {
+            setError(requestError.message || 'Reports dashboard could not be loaded.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [customEnd, customStart, range, user]);
+
+    useAutoRefresh(loadDashboard, {
+        enabled: isSuperAdmin(user),
+        refreshKey: `${range}:${customStart}:${customEnd}`
+    });
+
+    const charts = useMemo(() => {
+        const chartItems = Array.isArray(dashboard?.charts) ? dashboard.charts : [];
+        return GENERAL_CHART_IDS
+            .map(chartId => chartItems.find(item => item.id === chartId))
+            .filter(Boolean);
+    }, [dashboard]);
+
+    if (!isSuperAdmin(user)) {
+        return (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+                <h1 className="text-xl font-black text-red-900">Reports are restricted</h1>
+                <p className="mt-2 text-sm font-semibold text-red-700">Only Super Admin accounts can open the reports dashboard.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 shadow-sm">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                    <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#155dfc]">
+                        <Activity className="size-3.5" />
+                        Super Admin Intelligence
+                    </div>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-950">Reports Dashboard</h1>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+                        Clinic performance, service activity, billing, inventory, and patient case overview
+                    </p>
+                </div>
+
+                <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur sm:grid-cols-[12rem_9rem_9rem_auto]">
+                    <div>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Date Range</Label>
+                        <Select value={range} onValueChange={setRange}>
+                            <SelectTrigger className="mt-1">
+                                <SelectValue displayValue={selectedRangeLabel} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {REPORT_QUICK_RANGES.map(item => (
+                                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Start</Label>
+                        <Input
+                            type="date"
+                            value={visibleDateRange.start}
+                            onChange={(event) => setCustomStart(event.target.value)}
+                            disabled={range !== 'custom'}
+                            className="mt-1"
+                        />
+                    </div>
+                    <div>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">End</Label>
+                        <Input
+                            type="date"
+                            value={visibleDateRange.end}
+                            onChange={(event) => setCustomEnd(event.target.value)}
+                            disabled={range !== 'custom'}
+                            className="mt-1"
+                        />
+                    </div>
+                    <div className="flex items-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2">
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            Refresh
+                        </Button>
+                        <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="gap-2">
+                            <FileText className="size-4" />
+                            Report Center
+                        </Button>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>
+            ) : null}
+
+            {isLoading && !dashboard ? (
+                <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white">
+                    <Loader2 className="size-8 animate-spin text-[#155dfc]" />
+                </div>
+            ) : (
+                <>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {(dashboard?.kpis || []).map(kpi => (
+                            <ReportKpiCard key={kpi.label} {...kpi} />
+                        ))}
+                    </div>
+
+                    {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
+                        <Card className="border-amber-200 bg-amber-50 shadow-none">
+                            <CardContent className="flex gap-3 p-4 text-sm font-semibold leading-6 text-amber-900">
+                                <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+                                <div>
+                                    {dashboard.missing_data.slice(0, 4).map((note, index) => (
+                                        <p key={`${note}-${index}`}>{note}</p>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
+                    <section className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-black text-slate-950">Movement and Revenue Trends</h2>
+                            <p className="text-sm font-semibold text-slate-500">Line charts show how clinic activity changes across the selected period.</p>
+                        </div>
+                        <div className="grid gap-4 xl:grid-cols-2">
+                            {charts.slice(0, 4).map(chartItem => (
+                                <ReportChartCard
+                                    key={chartItem.id}
+                                    title={chartItem.title}
+                                    summary={chartItem.summary}
+                                    chart={chartItem.chart}
+                                />
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-black text-slate-950">Service Mix and Clinic Resources</h2>
+                            <p className="text-sm font-semibold text-slate-500">Catalog utilization, patient mix, revenue split, and inventory alerts.</p>
+                        </div>
+                        <div className="grid gap-4 xl:grid-cols-2">
+                            {charts.slice(4).map(chartItem => (
+                                <ReportChartCard
+                                    key={chartItem.id}
+                                    title={chartItem.title}
+                                    summary={chartItem.summary}
+                                    chart={chartItem.chart}
+                                />
+                            ))}
+                        </div>
+                    </section>
+
+                    {dashboard?.monitoring ? (
+                        <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm">
+                            <CardContent className="grid gap-5 p-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex size-11 items-center justify-center rounded-xl bg-white/10">
+                                            <ShieldCheck className="size-5 text-emerald-300" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black">{dashboard.monitoring.title}</h3>
+                                            <p className="text-sm font-semibold leading-6 text-slate-300">{dashboard.monitoring.summary}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {Object.entries(dashboard.monitoring.totals || {}).slice(0, 6).map(([key, value]) => (
+                                            <div key={key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{key.replaceAll('_', ' ')}</p>
+                                                <p className="mt-1 text-2xl font-black text-white">{value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-white p-1 text-slate-900">
+                                    <ReportTable columns={dashboard.monitoring.columns || []} rows={dashboard.monitoring.rows || []} maxRows={8} compact />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                <Users className="size-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-slate-950">Operational Attention</h2>
+                                <p className="text-sm font-semibold text-slate-500">Detailed records that need billing, inventory, or follow-up action.</p>
+                            </div>
+                        </div>
+                        <div className="grid gap-4 xl:grid-cols-3">
+                            {(dashboard?.summary_tables || []).map(table => (
+                                <Card key={table.title} className="border-slate-200 shadow-none">
+                                    <CardContent className="space-y-4 p-4">
+                                        <div>
+                                            <h3 className="text-base font-black text-slate-950">{table.title}</h3>
+                                            <p className="mt-1 text-sm font-semibold text-slate-500">Recent records that need owner/admin attention.</p>
+                                        </div>
+                                        <ReportTable columns={table.columns || []} rows={table.rows || []} maxRows={5} compact />
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}

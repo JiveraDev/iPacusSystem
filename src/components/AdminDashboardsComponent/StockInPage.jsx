@@ -16,11 +16,30 @@ const emptyStockInItem = () => ({
   productId: '',
   productName: '',
   supplier: '',
+  supplierName: '',
   location: '',
   quantity: 0,
   batchNumber: '',
   expiryDate: ''
 });
+
+const NEW_SUPPLIER_PREFIX = 'new-supplier:';
+
+function newSupplierValue(name) {
+  return `${NEW_SUPPLIER_PREFIX}${name}`;
+}
+
+function isNewSupplierValue(value) {
+  return String(value || '').startsWith(NEW_SUPPLIER_PREFIX);
+}
+
+function supplierDisplayName(item, suppliers) {
+  if (item.supplierName) {
+    return item.supplierName;
+  }
+
+  return suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name || '';
+}
 
 function getItemLocationOptions(inventoryItem) {
   if (!inventoryItem) return [];
@@ -178,6 +197,25 @@ export default function StockInPage() {
     )));
   };
 
+  const handleSupplierSelect = (index, value) => {
+    setItems((currentItems) => currentItems.map((item, itemIndex) => (
+      itemIndex === index
+        ? { ...item, supplier: value, supplierName: '' }
+        : item
+    )));
+  };
+
+  const handleSupplierCreate = (index, supplierName) => {
+    const cleanName = String(supplierName || '').trim();
+    if (!cleanName) return;
+
+    setItems((currentItems) => currentItems.map((item, itemIndex) => (
+      itemIndex === index
+        ? { ...item, supplier: newSupplierValue(cleanName), supplierName: cleanName }
+        : item
+    )));
+  };
+
   const getInventoryItem = (productId) => (
     inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(productId))
   );
@@ -239,7 +277,7 @@ export default function StockInPage() {
     try {
       const incompleteIndex = items.findIndex((item) => (
         !item.productId ||
-        !item.supplier ||
+        (!item.supplier && !item.supplierName) ||
         !item.location ||
         item.quantity <= 0 ||
         !item.batchNumber ||
@@ -267,7 +305,8 @@ export default function StockInPage() {
           const selectedItem = inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(item.productId));
           return {
             item_id: item.productId,
-            supplier_id: item.supplier,
+            supplier_id: isNewSupplierValue(item.supplier) ? null : item.supplier,
+            supplier_name: item.supplierName || null,
             location_id: item.location,
             batch_number: item.batchNumber,
             quantity_received: item.quantity,
@@ -286,11 +325,11 @@ export default function StockInPage() {
 
   const displayedItems = items.map((item, index) => ({ item, index })).reverse();
   const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  const supplierCount = new Set(items.map((item) => item.supplier).filter(Boolean)).size;
+  const supplierCount = new Set(items.map((item) => item.supplierName || item.supplier).filter(Boolean)).size;
   const locationCount = new Set(items.map((item) => item.location).filter(Boolean)).size;
   const completedItems = items.filter((item) => (
     item.productId &&
-    item.supplier &&
+    (item.supplier || item.supplierName) &&
     item.location &&
     item.quantity > 0 &&
     item.batchNumber &&
@@ -436,6 +475,7 @@ export default function StockInPage() {
                     <Select
                       value={item.productId}
                       onValueChange={(value) => handleProductSelect(index, value)}
+                      searchPlaceholder="Search product, SKU, brand, or location"
                       required
                     >
                       <SelectTrigger>
@@ -446,7 +486,18 @@ export default function StockInPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {inventoryItems.map((inventoryItem) => (
-                          <SelectItem key={inventoryItem.itemId} value={String(inventoryItem.itemId)}>
+                          <SelectItem
+                            key={inventoryItem.itemId}
+                            value={String(inventoryItem.itemId)}
+                            searchText={[
+                              inventoryItem.name,
+                              inventoryItem.brand,
+                              inventoryItem.sku,
+                              inventoryItem.location,
+                              inventoryItem.category,
+                              inventoryItem.unit
+                            ].filter(Boolean).join(' ')}
+                          >
                             <div className="flex flex-col">
                               <span>{inventoryItem.name}</span>
                               <span className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
@@ -488,18 +539,23 @@ export default function StockInPage() {
                     </Label>
                     <Select
                       value={item.supplier}
-                      onValueChange={(value) => handleItemChange(index, 'supplier', value)}
+                      onValueChange={(value) => handleSupplierSelect(index, value)}
+                      searchPlaceholder="Search or type supplier"
+                      emptyMessage="No supplier found."
+                      allowCustom
+                      customOptionLabel={(supplierName) => `Add supplier "${supplierName}"`}
+                      onCreateOption={(supplierName) => handleSupplierCreate(index, supplierName)}
                       required
                     >
                       <SelectTrigger>
                         <SelectValue
                           placeholder="Select supplier"
-                          displayValue={suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name}
+                          displayValue={supplierDisplayName(item, suppliers)}
                         />
                       </SelectTrigger>
                       <SelectContent>
                         {suppliers.map((supplier) => (
-                          <SelectItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</SelectItem>
+                          <SelectItem key={supplier.id} value={String(supplier.id)} searchText={supplier.name}>{supplier.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -514,6 +570,7 @@ export default function StockInPage() {
                       <Select
                         value={item.location}
                         onValueChange={(value) => handleItemChange(index, 'location', value)}
+                        searchPlaceholder="Search location"
                         required
                       >
                         <SelectTrigger>
@@ -728,7 +785,7 @@ export default function StockInPage() {
                           {item.quantity || 0}
                         </p>
                         <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
-                          {suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name || 'Not selected'}
+                          {supplierDisplayName(item, suppliers) || 'Not selected'}
                         </p>
                         <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
                           {selectedLocation?.name || 'Not selected'}

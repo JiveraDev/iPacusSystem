@@ -263,7 +263,12 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
         service_catalog_error(400, 'Materials must be an array.');
     }
 
+    if (count($materials) > 100) {
+        service_catalog_error(400, 'A service can have at most 100 preset materials.');
+    }
+
     $allowedPolicies = ['included', 'separate', 'optional'];
+    $seenMaterials = [];
 
     $pdo->beginTransaction();
     try {
@@ -283,7 +288,11 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
         foreach ($materials as $material) {
             $itemId = (int)($material['item_id'] ?? $material['itemId'] ?? 0);
             $materialName = service_catalog_nullable_text($material['material_name'] ?? $material['materialName'] ?? $material['item_name'] ?? $material['itemName'] ?? null);
-            $qtyUsed = (float)($material['qty_used'] ?? $material['qtyUsed'] ?? 1);
+            $qtyValue = $material['qty_used'] ?? $material['qtyUsed'] ?? 1;
+            if (!is_numeric($qtyValue)) {
+                service_catalog_error(400, 'Material quantity must be a valid number.');
+            }
+            $qtyUsed = (float)$qtyValue;
             $policy = service_catalog_text($material['billable_policy'] ?? $material['billablePolicy'] ?? 'included');
 
             if ($itemId <= 0 && $materialName === null) {
@@ -298,12 +307,22 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
                 service_catalog_error(400, 'Invalid material billable policy.');
             }
 
+            if ($materialName !== null && strlen($materialName) > 180) {
+                service_catalog_error(400, 'Material name must be 180 characters or fewer.');
+            }
+
             if ($itemId > 0) {
-                $itemStmt = $pdo->prepare("SELECT item_id, item_name FROM inventory_items WHERE item_id = ? LIMIT 1");
+                $itemStmt = $pdo->prepare("SELECT item_id, item_name, status FROM inventory_items WHERE item_id = ? LIMIT 1");
                 $itemStmt->execute([$itemId]);
                 $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
                 if (!$item) {
                     service_catalog_error(404, 'Inventory material was not found.');
+                }
+                if (($item['status'] ?? '') !== 'active') {
+                    service_catalog_error(409, 'Inactive inventory materials cannot be attached to a service.');
+                }
+                if (abs($qtyUsed - round($qtyUsed)) > 0.0001) {
+                    service_catalog_error(400, 'Linked inventory material quantities must be whole numbers because inventory stock is batch-counted.');
                 }
                 $materialName = $materialName ?: $item['item_name'];
             } elseif ($materialName !== null) {
@@ -318,7 +337,18 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
                 $matchStmt->execute([$materialName]);
                 $matchedItemId = $matchStmt->fetchColumn();
                 $itemId = $matchedItemId ? (int)$matchedItemId : null;
+                if ($itemId !== null && abs($qtyUsed - round($qtyUsed)) > 0.0001) {
+                    service_catalog_error(400, 'Linked inventory material quantities must be whole numbers because inventory stock is batch-counted.');
+                }
             }
+
+            $dedupeKey = $itemId
+                ? 'item:' . $itemId
+                : 'name:' . strtolower(preg_replace('/\s+/', ' ', $materialName ?? ''));
+            if (isset($seenMaterials[$dedupeKey])) {
+                service_catalog_error(400, 'Duplicate service materials are not allowed.');
+            }
+            $seenMaterials[$dedupeKey] = true;
 
             $insertStmt->execute([$serviceId, $itemId ?: null, $materialName, $qtyUsed, $policy]);
         }

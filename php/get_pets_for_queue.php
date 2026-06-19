@@ -5,7 +5,16 @@ header("Content-Type: application/json");
 
 try {
     // Fetch pets and prioritize pet_Temp_owner if user_id is null
-    $sql = "SELECT p.pet_id, p.pet_name, p.pet_Temp_owner, u.user_id, u.first_Name, u.last_Name 
+    $sql = "SELECT
+                p.pet_id,
+                p.pet_name,
+                p.pet_species,
+                p.pet_breed,
+                p.pet_status,
+                p.pet_Temp_owner,
+                u.user_id,
+                u.first_Name,
+                u.last_Name
             FROM pets_information p
             LEFT JOIN pet_ownership o ON p.pet_id = o.pet_id
             LEFT JOIN users u ON o.user_id = u.user_id

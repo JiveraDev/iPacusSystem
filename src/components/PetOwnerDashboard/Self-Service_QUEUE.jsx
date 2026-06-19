@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import {
     ClipboardList,
     CheckCircle,
@@ -24,7 +25,7 @@ import { fetchUserPets } from "../../services/petService";
 import { uploadDataUrlImage } from "../../services/uploadService";
 
 const SERVICES = [
-    "General Check-Up",
+    "General Check-up",
     "Surgery",
     "Dental Services",
     "Pet Boarding",
@@ -35,8 +36,8 @@ const SERVICES = [
 ];
 
 const SERVICE_CONSENTS = {
-    "General Check-Up": {
-        title: "General Check-Up Service Consent",
+    "General Check-up": {
+        title: "General Check-up Service Consent",
         items: [
             "I authorize Vetfocus Care Animal Clinic to perform a comprehensive physical examination on my pet.",
             "I understand that the veterinarian will assess my pet's overall health, vital signs, and may recommend additional tests or treatments."
@@ -447,19 +448,21 @@ export default function QueueDashboard() {
                                         {/* Service Selection */}
                                         <div className="space-y-2">
                                             <Label htmlFor="service">Select Service *</Label>
-                                            <select
-                                                id="service"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            <Select
                                                 value={selectedService}
-                                                onChange={(e) => setSelectedService(e.target.value)}
-                                                required
+                                                onValueChange={setSelectedService}
                                                 disabled={isSubmitting}
+                                                searchPlaceholder="Search service"
                                             >
-                                                <option value="">Select a service</option>
-                                                {SERVICES.map(service => (
-                                                    <option key={service} value={service}>{service}</option>
-                                                ))}
-                                            </select>
+                                                <SelectTrigger id="service">
+                                                    <SelectValue placeholder="Select a service" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {SERVICES.map(service => (
+                                                        <SelectItem key={service} value={service} searchText={service}>{service}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
 
                                         {/* Service Consent Display */}

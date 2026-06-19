@@ -28,6 +28,7 @@ import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
 import { createConsentDocumentImage } from '../shared/consentDocumentImage.js';
 import { fetchConsentFiles } from '../../services/consentFileService';
+import { saveConsentFormRecord } from '../../services/consentRecordService';
 import { fetchProfile } from '../../services/profileService';
 import {
     fetchQueues,
@@ -153,6 +154,12 @@ function getUserName(user) {
     return fullName || user?.name || user?.email || 'Veterinarian';
 }
 
+function numericId(value) {
+    const numberValue = Number(value);
+
+    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
+}
+
 async function deleteUploadedFile(path) {
     if (!path || String(path).startsWith('data:')) return;
 
@@ -177,7 +184,6 @@ export default function VetMyList() {
     const veterinarianUserId = getUserId(currentUser);
     const veterinarianName = getUserName(currentUser);
     const fileInputRef = useRef(null);
-    const autoReturnedQueueIdsRef = useRef(new Set());
     const [queue, setQueue] = useState([]);
     const [consentForms, setConsentForms] = useState(FALLBACK_CONSENT_FORMS);
     const [consentRecords, setConsentRecords] = useState(readStoredConsents);
@@ -335,77 +341,6 @@ export default function VetMyList() {
         });
     }, [consentRecords]);
 
-    useEffect(() => {
-        if (!veterinarianUserId || receivedItems.length === 0) return;
-
-        const expiredItems = receivedItems.filter(item => {
-            const queueId = String(item.queue_id || '');
-
-            return queueId
-                && isPastQueueDate(item.timestamp)
-                && !autoReturnedQueueIdsRef.current.has(queueId);
-        });
-
-        if (expiredItems.length === 0) return;
-
-        let isActive = true;
-        expiredItems.forEach(item => autoReturnedQueueIdsRef.current.add(String(item.queue_id)));
-
-        const returnExpiredItems = async () => {
-            const results = await Promise.allSettled(expiredItems.map(async item => {
-                const data = await returnQueueService({
-                    queue_id: item.queue_id,
-                    veterinarian_user_id: veterinarianUserId,
-                    return_reason: 'Returned automatically because queue date passed'
-                });
-
-                if (!data.success) {
-                    throw new Error(data.error || data.message || 'Failed to auto-return expired queue patient.');
-                }
-
-                return item.queue_id;
-            }));
-
-            if (!isActive) return;
-
-            const returnedQueueIds = [];
-
-            results.forEach((result, index) => {
-                const queueId = String(expiredItems[index].queue_id);
-
-                if (result.status === 'fulfilled') {
-                    returnedQueueIds.push(result.value);
-                    return;
-                }
-
-                autoReturnedQueueIdsRef.current.delete(queueId);
-                console.error('Failed to auto-return expired queue patient:', result.reason);
-            });
-
-            if (returnedQueueIds.length === 0) return;
-
-            setQueue(current =>
-                current.map(item =>
-                    returnedQueueIds.includes(item.queue_id)
-                        ? {
-                            ...item,
-                            assignment_status: 'returned',
-                            returned_at: new Date().toISOString(),
-                            has_active_assignment: 0
-                        }
-                        : item
-                )
-            );
-            returnedQueueIds.forEach(queueId => deleteConsentRecord(queueId, { deleteFiles: true }));
-        };
-
-        returnExpiredItems();
-
-        return () => {
-            isActive = false;
-        };
-    }, [deleteConsentRecord, receivedItems, veterinarianUserId]);
-
     const updateQueueStatus = async (queueId, status) => {
         setUpdatingQueueId(queueId);
 
@@ -465,6 +400,7 @@ export default function VetMyList() {
                             ...item,
                             assignment_status: 'returned',
                             returned_at: new Date().toISOString(),
+                            status: data.queue_status || item.status,
                             has_active_assignment: 0
                         }
                         : item
@@ -510,7 +446,9 @@ export default function VetMyList() {
         setIsSavingConsent(true);
 
         try {
-            const signedAt = new Date().toLocaleString();
+            const signedAtDate = new Date();
+            const signedAt = signedAtDate.toLocaleString();
+            const signedAtIso = signedAtDate.toISOString();
             const signedDocumentImage = await createConsentDocumentImage({
                 title: selectedConsent?.file_name || selectedConsent?.name || 'Consent Form',
                 content: selectedConsent?.content || '',
@@ -521,11 +459,39 @@ export default function VetMyList() {
                 veterinarianLicense
             });
             const signedDocumentPath = await uploadDataUrlImage(signedDocumentImage, 'booking_signature', 'signed_consent');
+            let consentRecordId = null;
+            let recordWarning = '';
+
+            try {
+                const recordData = await saveConsentFormRecord({
+                    consent_file_id: numericId(selectedConsentId),
+                    consent_type: selectedConsent?.file_name || selectedConsent?.name || 'Consent Form',
+                    owner_user_id: numericId(selectedPatient.user_id),
+                    pet_id: numericId(selectedPatient.pet_id),
+                    queue_id: numericId(selectedPatient.queue_id),
+                    booking_id: numericId(selectedPatient.booking_id),
+                    service_name: getServiceDisplayName(selectedPatient.service_name, 'Queue'),
+                    status: 'signed',
+                    source: 'vet_my_list',
+                    signed_at: signedAtIso,
+                    signed_file_path: signedDocumentPath,
+                    signer_name: signerName.trim() || ownerName(selectedPatient),
+                    processed_by_user_id: numericId(veterinarianUserId),
+                    processed_by_name: veterinarianName,
+                    notes: 'Captured from veterinarian My List.'
+                });
+
+                consentRecordId = recordData?.consent_record_id || null;
+            } catch (recordError) {
+                console.warn('Consent report tracking was not recorded:', recordError);
+                recordWarning = recordError?.message || 'Consent report tracking was not recorded.';
+            }
 
             setConsentRecords(current => ({
                 ...current,
                 [selectedPatient.queue_id]: {
                     ...(current[selectedPatient.queue_id] || {}),
+                    consentRecordId,
                     consentId: selectedConsentId,
                     consentName: selectedConsent?.file_name || selectedConsent?.name || 'Consent Form',
                     signerName: signerName.trim() || ownerName(selectedPatient),
@@ -540,7 +506,11 @@ export default function VetMyList() {
             setConsentDialogOpen(false);
             setSelectedPatient(null);
             setSignatureImage(null);
-            toast.success('Signed consent document saved as an image.');
+            if (recordWarning) {
+                toast.error(`Signed consent image saved, but report tracking failed: ${recordWarning}`);
+            } else {
+                toast.success('Signed consent document saved and tracked for reports.');
+            }
         } catch (error) {
             toast.error(error.message || 'Failed to save signed consent.');
         } finally {
@@ -548,28 +518,73 @@ export default function VetMyList() {
         }
     };
 
-    const savePhysicalConsent = () => {
+    const savePhysicalConsent = async () => {
         if (!selectedPatient || !uploadedFileName) {
             toast.error('Please select a consent image first.');
             return;
         }
 
-        setConsentRecords(current => ({
-            ...current,
-            [selectedPatient.queue_id]: {
-                ...(current[selectedPatient.queue_id] || {}),
-                physicalConsentName: uploadedFileName,
-                physicalConsentPreview: previewUrl,
-                physicalConsentUploadedAt: new Date().toISOString(),
-                isTemporary: false
-            }
-        }));
+        setIsSavingConsent(true);
 
-        setUploadDialogOpen(false);
-        setSelectedPatient(null);
-        setUploadedFileName('');
-        setPreviewUrl('');
-        toast.success('Physical consent attached locally.');
+        try {
+            const uploadedAt = new Date().toISOString();
+            const physicalConsentPath = previewUrl?.startsWith('data:image')
+                ? await uploadDataUrlImage(previewUrl, 'booking_signature', 'physical_consent')
+                : previewUrl;
+            let consentRecordId = null;
+            let recordWarning = '';
+
+            try {
+                const recordData = await saveConsentFormRecord({
+                    consent_type: 'Physical Consent Upload',
+                    owner_user_id: numericId(selectedPatient.user_id),
+                    pet_id: numericId(selectedPatient.pet_id),
+                    queue_id: numericId(selectedPatient.queue_id),
+                    booking_id: numericId(selectedPatient.booking_id),
+                    service_name: getServiceDisplayName(selectedPatient.service_name, 'Queue'),
+                    status: 'signed',
+                    source: 'vet_my_list',
+                    signed_at: uploadedAt,
+                    physical_file_path: physicalConsentPath,
+                    signer_name: ownerName(selectedPatient),
+                    processed_by_user_id: numericId(veterinarianUserId),
+                    processed_by_name: veterinarianName,
+                    notes: `Physical consent uploaded: ${uploadedFileName}`
+                });
+
+                consentRecordId = recordData?.consent_record_id || null;
+            } catch (recordError) {
+                console.warn('Physical consent report tracking was not recorded:', recordError);
+                recordWarning = recordError?.message || 'Consent report tracking was not recorded.';
+            }
+
+            setConsentRecords(current => ({
+                ...current,
+                [selectedPatient.queue_id]: {
+                    ...(current[selectedPatient.queue_id] || {}),
+                    consentRecordId,
+                    physicalConsentName: uploadedFileName,
+                    physicalConsentPath,
+                    physicalConsentPreview: previewUrl,
+                    physicalConsentUploadedAt: uploadedAt,
+                    isTemporary: false
+                }
+            }));
+
+            setUploadDialogOpen(false);
+            setSelectedPatient(null);
+            setUploadedFileName('');
+            setPreviewUrl('');
+            if (recordWarning) {
+                toast.error(`Physical consent saved, but report tracking failed: ${recordWarning}`);
+            } else {
+                toast.success('Physical consent uploaded and tracked for reports.');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Failed to upload physical consent.');
+        } finally {
+            setIsSavingConsent(false);
+        }
     };
 
     const handleFileSelect = (event) => {
@@ -894,7 +909,13 @@ export default function VetMyList() {
                         <Button type="button" variant="outline" onClick={() => setUploadDialogOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="button" onClick={savePhysicalConsent} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                        <Button
+                            type="button"
+                            onClick={savePhysicalConsent}
+                            disabled={isSavingConsent || !uploadedFileName}
+                            className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                        >
+                            {isSavingConsent ? <Loader2 className="size-4 animate-spin" /> : null}
                             Save Upload
                         </Button>
                     </DialogFooter>
@@ -950,6 +971,7 @@ function StatCard({ icon, label, value, tone }) {
 
 function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConsent, onStartDiagnosis, onReturnToApproved }) {
     const hasConsent = Boolean(consentRecord?.signedAt);
+    const queueDatePassed = isPastQueueDate(item.timestamp);
 
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -962,6 +984,12 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
             </div>
 
             <PatientDetails item={item} />
+
+            {queueDatePassed && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                    Service date has passed. Returning this patient will cancel the queue for re-entry.
+                </div>
+            )}
 
             <div className={`mt-5 grid gap-2 sm:grid-cols-2 ${hasConsent ? 'xl:grid-cols-2' : 'xl:grid-cols-4'}`}>
                 {!hasConsent && (

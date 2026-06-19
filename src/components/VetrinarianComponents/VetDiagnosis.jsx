@@ -7,6 +7,7 @@ import {
     PanelRightOpen,
     Pill,
     Plus,
+    Printer,
     Receipt,
     Save,
     Stethoscope,
@@ -34,7 +35,6 @@ import { fetchQueues } from '../../services/queueService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadDataUrlImage, uploadFormData } from '../../services/uploadService';
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
-import { createVisit } from '../../services/visitBillingService';
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 
@@ -1153,8 +1153,8 @@ export default function VetDiagnosis() {
         setVisitCharges(current => current.filter(charge => charge.id !== id));
     };
 
-    const saveVisitBilling = async (diagnosis) => {
-        const charges = visitCharges
+    const buildVisitChargesPayload = () => {
+        return visitCharges
             .filter(charge => String(charge.description || '').trim() !== '')
             .map(charge => ({
                 chargeType: charge.chargeType,
@@ -1165,48 +1165,68 @@ export default function VetDiagnosis() {
                 unitPrice: Number(charge.unitPrice) || 0,
                 createdByUserId: veterinarianUserId || null
             }));
-
-        if (charges.length === 0) {
-            return null;
-        }
-
-        if (billingSchemaMessage) {
-            throw new Error(billingSchemaMessage);
-        }
-
-        const result = await createVisit({
-            pet_id: context.petId,
-            owner_user_id: context.ownerUserId || null,
-            veterinarian_user_id: veterinarianUserId,
-            queue_id: context.queueId || null,
-            booking_id: context.bookingId || null,
-            diagnosis_id: diagnosis?.diagnosisId || diagnosis?.id || null,
-            source_type: context.queueId ? 'queue' : (context.bookingId ? 'booking' : 'manual'),
-            visit_status: 'treatment_done',
-            charges
-        });
-
-        if (result.success === false) {
-            throw new Error(result.message || 'Failed to save visit charges.');
-        }
-
-        return result.visit;
     };
 
-    const handleSaveDiagnosis = async () => {
+    const printablePrescriptionPayload = useMemo(() => {
+        const generalPrescriptions = diagnosisType === 'general'
+            ? formData.prescription.map(cleanPrescription)
+            : [];
+        const customSectionsForPrint = diagnosisType === 'custom'
+            ? customFields.map(field => ({
+                label: field.label || 'Custom Diagnosis',
+                value: field.value || '',
+                majorSymptoms: field.majorSymptoms || '',
+                prescriptions: field.prescription.map(cleanPrescription)
+            }))
+            : [];
+        const diagnosisText = diagnosisType === 'general'
+            ? formData.diagnosis
+            : customSectionsForPrint
+                .map(section => `${section.label}: ${section.value || section.majorSymptoms || ''}`.trim())
+                .filter(Boolean)
+                .join('\n');
+
+        return {
+            diagnosisText,
+            notes: formData.notes,
+            rows: collectPrescriptionRows(generalPrescriptions, customSectionsForPrint)
+        };
+    }, [customFields, diagnosisType, formData.diagnosis, formData.notes, formData.prescription]);
+
+    const hasPrintablePrescriptions = printablePrescriptionPayload.rows.length > 0;
+
+    const printPrescriptionFromCurrentForm = () => {
+        if (!hasPrintablePrescriptions) {
+            toast.error('Add at least one prescription before printing.');
+            return;
+        }
+
+        try {
+            printHtmlDocument(buildPrescriptionPrintHtml({
+                context,
+                veterinarianName,
+                veterinarianLicense,
+                ...printablePrescriptionPayload
+            }));
+        } catch (error) {
+            toast.error(error.message || 'Could not print prescription.');
+        }
+    };
+
+    const handleSaveDiagnosis = async ({ printAfterSave = false, stayAfterSave = false } = {}) => {
         if (!veterinarianUserId) {
             toast.error('Could not identify the current veterinarian account.');
-            return;
+            return false;
         }
 
         if (!context.petId) {
             toast.error('Missing pet information for this diagnosis.');
-            return;
+            return false;
         }
 
         if (diagnosisType === 'general' && !formData.diagnosis.trim()) {
             toast.error('Please enter a diagnosis before saving.');
-            return;
+            return false;
         }
 
         const hasCustomDetails = customFields.some(field =>
@@ -1219,19 +1239,24 @@ export default function VetDiagnosis() {
 
         if (diagnosisType === 'custom' && !hasCustomDetails) {
             toast.error('Please enter at least one custom diagnosis service.');
-            return;
+            return false;
         }
 
         const hasVaccinationDetails = hasVaccinationRecordContent(vaccinationRecord);
         const shouldSaveVaccinationRecord = shouldRecordVaccination && hasVaccinationDetails;
         if (shouldRecordVaccination && hasVaccinationDetails && (!vaccinationRecord.vaccineName.trim() || !vaccinationRecord.dateAdministered || !vaccinationRecord.nextDueDate)) {
             toast.error('Vaccine name, date administered, and next due date are required for vaccination records.');
-            return;
+            return false;
         }
 
         setIsSaving(true);
 
         try {
+            if (billingSchemaMessage) {
+                throw new Error(billingSchemaMessage);
+            }
+
+            const visitChargesPayload = buildVisitChargesPayload();
             const attachments = (await uploadAttachmentList(uploadedImages))
                 .filter(attachment => attachment.category !== 'prescription_document');
             const signedConsents = await uploadAdditionalConsentList(additionalConsents);
@@ -1257,6 +1282,7 @@ export default function VetDiagnosis() {
                 booking_id: context.bookingId || null,
                 assignment_id: context.assignmentId || null,
                 pet_id: context.petId,
+                owner_user_id: context.ownerUserId || null,
                 veterinarian_user_id: veterinarianUserId,
                 veterinarian_name: veterinarianName,
                 diagnosis_type: diagnosisType,
@@ -1275,6 +1301,7 @@ export default function VetDiagnosis() {
                 custom_sections: customSections,
                 attachments: diagnosisAttachments,
                 source_uploads: allSourceUploads,
+                visit_charges: visitChargesPayload,
                 vaccination_record: shouldSaveVaccinationRecord
                     ? {
                         ...vaccinationRecord,
@@ -1292,15 +1319,29 @@ export default function VetDiagnosis() {
                 hydrateDiagnosisRecord(data.diagnosis);
             }
 
-            await saveVisitBilling(data.diagnosis);
-
             toast.success('Diagnosis saved and patient marked done.');
-            goBackToMyList();
+            if (printAfterSave) {
+                printPrescriptionFromCurrentForm();
+            }
+            if (!stayAfterSave) {
+                goBackToMyList();
+            }
+            return true;
         } catch (error) {
             toast.error(error.message || 'Failed to save diagnosis.');
+            return false;
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleSaveAndPrintPrescription = async () => {
+        if (!hasPrintablePrescriptions) {
+            toast.error('Add at least one prescription before printing.');
+            return;
+        }
+
+        await handleSaveDiagnosis({ printAfterSave: true, stayAfterSave: true });
     };
 
     const handleCancel = () => {
@@ -1508,7 +1549,18 @@ export default function VetDiagnosis() {
                 </Button>
                 <Button
                     type="button"
-                    onClick={handleSaveDiagnosis}
+                    variant="outline"
+                    onClick={handleSaveAndPrintPrescription}
+                    disabled={isSaving || isLoadingRecord || !hasPrintablePrescriptions}
+                    title={!hasPrintablePrescriptions ? 'Add at least one prescription before printing.' : undefined}
+                    className="gap-2"
+                >
+                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+                    {loadedDiagnosisId ? 'Update & Print Prescription' : 'Save & Print Prescription'}
+                </Button>
+                <Button
+                    type="button"
+                    onClick={() => handleSaveDiagnosis()}
                     disabled={isSaving || isLoadingRecord}
                     className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                 >
@@ -2224,6 +2276,145 @@ function formatPrescriptionLine(prescription) {
         : `${prescription.durationUnit}${Number(prescription.durationNumber) === 1 ? '' : '(s)'}`;
 
     return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function printHtmlDocument(html) {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+
+    const printWindow = iframe.contentWindow;
+    const printDocument = printWindow?.document;
+    if (!printWindow || !printDocument) {
+        iframe.remove();
+        throw new Error('Could not prepare prescription print view.');
+    }
+
+    printDocument.open();
+    printDocument.write(html);
+    printDocument.close();
+
+    setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        setTimeout(() => iframe.remove(), 1000);
+    }, 250);
+}
+
+function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLicense, diagnosisText, notes, rows }) {
+    const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const prescriptionRows = rows.map((row, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(row.section)}</td>
+            <td>
+                <strong>${escapeHtml(formatPrescriptionLine(row.prescription))}</strong>
+                ${row.prescription.instructions ? `<p class="instructions">${escapeHtml(row.prescription.instructions)}</p>` : ''}
+            </td>
+        </tr>
+    `).join('');
+
+    return `<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Prescription - ${escapeHtml(context.petName || 'Patient')}</title>
+    <style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #111827; font-family: Arial, sans-serif; background: #fff; }
+        .sheet { width: 100%; }
+        .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #155dfc; padding-bottom: 18px; }
+        .brand { color: #155dfc; font-size: 28px; font-weight: 800; line-height: 1; }
+        .clinic { margin-top: 6px; color: #475569; font-size: 14px; font-weight: 700; }
+        .title { text-align: right; }
+        .title h1 { margin: 0; font-size: 22px; }
+        .title p { margin: 6px 0 0; color: #475569; font-size: 13px; font-weight: 700; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 20px 0; }
+        .field { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+        .label { display: block; color: #64748b; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .value { display: block; margin-top: 4px; color: #111827; font-size: 14px; font-weight: 700; }
+        .section { margin-top: 20px; }
+        .section h2 { margin: 0 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: #155dfc; }
+        .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; min-height: 56px; white-space: pre-wrap; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+        th { background: #eff6ff; color: #1d4ed8; text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        th, td { border: 1px solid #dbe3ef; padding: 10px; vertical-align: top; }
+        td:first-child { width: 42px; text-align: center; font-weight: 800; }
+        td:nth-child(2) { width: 160px; font-weight: 700; color: #334155; }
+        .instructions { margin: 6px 0 0; color: #475569; white-space: pre-wrap; line-height: 1.45; }
+        .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 42px; }
+        .line { border-top: 1px solid #111827; padding-top: 8px; text-align: center; font-size: 12px; font-weight: 700; }
+        .footer { margin-top: 28px; color: #64748b; font-size: 11px; text-align: center; }
+    </style>
+</head>
+<body>
+    <main class="sheet">
+        <header class="header">
+            <div>
+                <div class="brand">iPawcus</div>
+                <div class="clinic">Vetfocus Care Animal Clinic</div>
+            </div>
+            <div class="title">
+                <h1>Prescription</h1>
+                <p>${escapeHtml(today)}</p>
+            </div>
+        </header>
+
+        <section class="grid">
+            <div class="field"><span class="label">Patient</span><span class="value">${escapeHtml(context.petName || 'Patient')}</span></div>
+            <div class="field"><span class="label">Owner</span><span class="value">${escapeHtml(context.ownerName || 'Pet Owner')}</span></div>
+            <div class="field"><span class="label">Service</span><span class="value">${escapeHtml(context.serviceName || 'Diagnosis')}</span></div>
+            <div class="field"><span class="label">Veterinarian</span><span class="value">${escapeHtml(veterinarianName || 'Clinic Veterinarian')}</span></div>
+            <div class="field"><span class="label">Species / Breed</span><span class="value">${escapeHtml([context.petSpecies, context.petBreed].filter(Boolean).join(' / ') || 'N/A')}</span></div>
+            <div class="field"><span class="label">License</span><span class="value">${escapeHtml(veterinarianLicense || 'N/A')}</span></div>
+        </section>
+
+        <section class="section">
+            <h2>Diagnosis Summary</h2>
+            <div class="box">${escapeHtml(diagnosisText || 'No diagnosis summary recorded.')}</div>
+        </section>
+
+        <section class="section">
+            <h2>Prescription Details</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Section</th>
+                        <th>Medication and Instructions</th>
+                    </tr>
+                </thead>
+                <tbody>${prescriptionRows}</tbody>
+            </table>
+        </section>
+
+        ${notes ? `<section class="section"><h2>Notes</h2><div class="box">${escapeHtml(notes)}</div></section>` : ''}
+
+        <section class="signature">
+            <div class="line">Veterinarian Signature</div>
+            <div class="line">Owner / Client Signature</div>
+        </section>
+
+        <footer class="footer">Generated by iPawcus from the diagnosis record.</footer>
+    </main>
+</body>
+</html>`;
 }
 
 function wrapCanvasText(ctx, text, maxWidth) {

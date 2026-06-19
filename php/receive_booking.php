@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
@@ -25,23 +26,31 @@ if ($bookingId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
-    $todayDate = (string)$pdo->query("SELECT CURDATE()")->fetchColumn();
+    $todayDate = maintenance_today($pdo);
 
     $bookingStmt = $pdo->prepare("
         SELECT
-            booking_id,
-            user_id,
-            pet_id,
-            booking_number,
-            service_type,
-            booking_date,
-            booking_time,
-            status,
-            notes
-        FROM bookings
-        WHERE booking_id = ?
+            b.booking_id,
+            b.user_id,
+            b.pet_id,
+            b.booking_number,
+            b.service_type,
+            b.booking_date,
+            b.booking_time,
+            b.status,
+            b.notes,
+            b.is_home_service,
+            b.is_online_consultation,
+            b.check_in_date,
+            b.hotel_boarding_type,
+            b.created_at,
+            p.pet_status
+        FROM bookings b
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        WHERE b.booking_id = ?
         LIMIT 1
         FOR UPDATE
     ");
@@ -62,9 +71,20 @@ try {
         throw new RuntimeException('Register this booking pet before receiving it for diagnosis.');
     }
 
+    if (strtolower(trim((string)($booking['pet_status'] ?? ''))) === 'deceased') {
+        http_response_code(409);
+        throw new RuntimeException('Cannot receive a booking for a deceased pet.');
+    }
+
     if ((string)$booking['booking_date'] !== $todayDate) {
         http_response_code(409);
         throw new RuntimeException('This booking must be scheduled for today before it can be received.');
+    }
+
+    $originalBookingDate = maintenance_booking_original_date($booking);
+    if ($originalBookingDate !== null && maintenance_is_after($todayDate, maintenance_date_add($originalBookingDate, 7))) {
+        http_response_code(409);
+        throw new RuntimeException('This booking is outside the 7-day valid booking lifespan and must be reviewed or cancelled.');
     }
 
     $vetStmt = $pdo->prepare("SELECT first_Name, last_Name FROM users WHERE user_id = ? LIMIT 1");
@@ -129,14 +149,24 @@ try {
         throw new RuntimeException("This pet already has an active queue entry today (#{$activeQueue['queue_number']}).");
     }
 
-    $cancelOldStmt = $pdo->prepare("
-        UPDATE queues
-        SET status = 'cancelled'
-        WHERE pet_id = ?
-          AND status IN ('waiting', 'in-progress')
-          AND DATE(timestamp) < CURDATE()
+    $activeServiceStmt = $pdo->prepare("
+        SELECT q.queue_id, q.queue_number
+        FROM queues q
+        JOIN vet_queue_assignments vqa ON vqa.queue_id = q.queue_id
+        WHERE q.pet_id = ?
+          AND q.status = 'in-progress'
+          AND vqa.status = 'received'
+        ORDER BY q.timestamp DESC
+        LIMIT 1
+        FOR UPDATE
     ");
-    $cancelOldStmt->execute([(int)$booking['pet_id']]);
+    $activeServiceStmt->execute([(int)$booking['pet_id']]);
+    $activeServiceQueue = $activeServiceStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($activeServiceQueue && (!$queue || (int)$activeServiceQueue['queue_id'] !== (int)$queue['queue_id'])) {
+        http_response_code(409);
+        throw new RuntimeException("This pet is still in service on queue #{$activeServiceQueue['queue_number']}.");
+    }
 
     if ($queue && $hasBookingIdColumn && empty($queue['booking_id'])) {
         $linkQueue = $pdo->prepare("UPDATE queues SET booking_id = ? WHERE queue_id = ?");

@@ -117,7 +117,7 @@ export default function GeneralCheckup() {
       const bookingPayload = {
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
-        service_type: 'wellness',
+        service_type: 'General Check-up',
         booking_date: formData.date,
         booking_time: formData.time,
         notes: formData.notes,
@@ -187,7 +187,7 @@ export default function GeneralCheckup() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">General Check-Up</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">General Check-up</h1>
           <p className="text-gray-600 mt-1">Book a comprehensive health examination for your pet</p>
         </div>
       </div>
@@ -384,7 +384,7 @@ export default function GeneralCheckup() {
               <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Stethoscope className="h-8 w-8" />
               </div>
-              <CardTitle className="text-center">General Check-Up</CardTitle>
+              <CardTitle className="text-center">General Check-up</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 text-sm text-gray-700">

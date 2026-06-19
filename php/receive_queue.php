@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
@@ -24,6 +25,7 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
 

@@ -18,6 +18,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
@@ -614,16 +615,20 @@ export default function Todos({ user }) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="todo-category">Category</Label>
-                                    <select
-                                        id="todo-category"
+                                    <Select
                                         value={form.category}
-                                        onChange={(event) => setForm(current => ({ ...current, category: event.target.value }))}
-                                        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                                        onValueChange={(value) => setForm(current => ({ ...current, category: value }))}
+                                        searchPlaceholder="Search category"
                                     >
-                                        {CATEGORY_OPTIONS.map(category => (
-                                            <option key={category} value={category}>{category}</option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger id="todo-category">
+                                            <SelectValue placeholder="Select category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {CATEGORY_OPTIONS.map(category => (
+                                                <SelectItem key={category} value={category} searchText={category}>{category}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="todo-details">Details</Label>

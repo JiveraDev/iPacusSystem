@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
 
 header('Content-Type: application/json');
 
@@ -23,8 +24,26 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
+
+    $queueStmt = $pdo->prepare("
+        SELECT queue_id, pet_id, status, timestamp
+        FROM queues
+        WHERE queue_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $queueStmt->execute([$queueId]);
+    $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$queue) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
 
     $assignmentStmt = $pdo->prepare("
         SELECT assignment_id, veterinarian_user_id, veterinarian_name
@@ -52,6 +71,14 @@ try {
         exit;
     }
 
+    $queueDate = date('Y-m-d', strtotime((string)$queue['timestamp']));
+    $todayDate = maintenance_today($pdo);
+    $effectiveReason = $returnReason !== '' ? $returnReason : 'Returned from veterinarian My List';
+
+    if ($queueDate < $todayDate) {
+        $effectiveReason = 'Returned after service day ended';
+    }
+
     $updateStmt = $pdo->prepare("
         UPDATE vet_queue_assignments
         SET status = 'returned',
@@ -59,14 +86,29 @@ try {
             return_reason = ?
         WHERE assignment_id = ?
     ");
-    $updateStmt->execute([$returnReason !== '' ? $returnReason : null, $assignment['assignment_id']]);
+    $updateStmt->execute([$effectiveReason, $assignment['assignment_id']]);
+
+    $queueStatus = $queue['status'];
+    if ($queueDate < $todayDate) {
+        maintenance_cancel_queue($pdo, $queueId, $effectiveReason, true, false);
+        $queueStatus = 'cancelled';
+    }
 
     $pdo->commit();
+
+    if ($queueStatus === 'cancelled' && !empty($queue['pet_id'])) {
+        try {
+            runLifecycleMaintenance($pdo, (int)$queue['pet_id']);
+        } catch (Throwable $maintenanceError) {
+            error_log('Post-return lifecycle maintenance failed: ' . $maintenanceError->getMessage());
+        }
+    }
 
     echo json_encode([
         'success' => true,
         'queue_id' => $queueId,
-        'assignment_id' => (int)$assignment['assignment_id']
+        'assignment_id' => (int)$assignment['assignment_id'],
+        'queue_status' => $queueStatus
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

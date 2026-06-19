@@ -165,6 +165,65 @@ function inventoryResolveLocationId(PDO $pdo, array $input): int
     }
 }
 
+function inventoryResolveSupplierId(PDO $pdo, array $input): int
+{
+    $supplierId = (int)($input['supplier_id'] ?? 0);
+    if ($supplierId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT supplier_id
+            FROM inventory_suppliers
+            WHERE supplier_id = ? AND status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$supplierId]);
+        $existingId = $stmt->fetchColumn();
+        if ($existingId) {
+            return (int)$existingId;
+        }
+
+        throw new Exception('Supplier was not found.');
+    }
+
+    $supplierName = inventoryOptionalText($input['supplier_name'] ?? null);
+    if (!$supplierName) {
+        throw new Exception('Supplier is required for each stock-in item.');
+    }
+
+    if (strlen($supplierName) > 150) {
+        throw new Exception('Supplier name must be 150 characters or fewer.');
+    }
+
+    $lookup = $pdo->prepare("
+        SELECT supplier_id, status
+        FROM inventory_suppliers
+        WHERE LOWER(supplier_name) = LOWER(?)
+        LIMIT 1
+    ");
+    $lookup->execute([$supplierName]);
+    $existing = $lookup->fetch(PDO::FETCH_ASSOC);
+    if ($existing) {
+        if ((string)($existing['status'] ?? '') !== 'active') {
+            $activate = $pdo->prepare("UPDATE inventory_suppliers SET status = 'active' WHERE supplier_id = ?");
+            $activate->execute([(int)$existing['supplier_id']]);
+        }
+
+        return (int)$existing['supplier_id'];
+    }
+
+    try {
+        $insert = $pdo->prepare("INSERT INTO inventory_suppliers (supplier_name) VALUES (?)");
+        $insert->execute([$supplierName]);
+        return (int)$pdo->lastInsertId();
+    } catch (PDOException $e) {
+        $lookup->execute([$supplierName]);
+        $existing = $lookup->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            return (int)$existing['supplier_id'];
+        }
+        throw $e;
+    }
+}
+
 function getInventoryItems(PDO $pdo): void
 {
     $stmt = $pdo->query("
@@ -446,13 +505,14 @@ function createStockIn(PDO $pdo): void
         $receiptId = (int)$pdo->lastInsertId();
 
         foreach ($items as $line) {
-            foreach (['item_id', 'supplier_id', 'location_id', 'batch_number', 'quantity_received'] as $field) {
+            foreach (['item_id', 'location_id', 'batch_number', 'quantity_received'] as $field) {
                 if (empty($line[$field])) {
                     throw new Exception("$field is required for each stock-in item.");
                 }
             }
 
             $itemId = (int)$line['item_id'];
+            $supplierId = inventoryResolveSupplierId($pdo, $line);
             $locationId = (int)$line['location_id'];
             $batchNumber = inventoryText($line['batch_number']);
             $quantity = (int)$line['quantity_received'];
@@ -516,7 +576,7 @@ function createStockIn(PDO $pdo): void
             $receiptItemStmt->execute([
                 $receiptId,
                 $itemId,
-                (int)$line['supplier_id'],
+                $supplierId,
                 $locationId,
                 $batchId,
                 $batchNumber,

@@ -126,6 +126,18 @@ switch ($path) {
     case '/todos':
         require_once __DIR__ . '/pet_owner_todos.php';
         break;
+    case '/lifecycle/recovery-report':
+        require_once __DIR__ . '/lifecycle_recovery_report.php';
+        break;
+    case '/reports/dashboard':
+        require_once __DIR__ . '/reports_dashboard.php';
+        break;
+    case '/reports/generate':
+        require_once __DIR__ . '/reports_generate.php';
+        break;
+    case '/pet-media-monitoring':
+        require_once __DIR__ . '/pet_media_monitoring.php';
+        break;
     case '/special_services':
         require_once __DIR__ . '/special_services.php';
         break;
@@ -188,6 +200,9 @@ switch ($path) {
     case '/accounts':
         require_once __DIR__ . '/get_accounts.php';
         break;
+    case '/pet-owner-accounts':
+        require_once __DIR__ . '/pet_owner_accounts.php';
+        break;
     case '/accounts/create':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/create_account.php';
@@ -201,6 +216,10 @@ switch ($path) {
         } else {
             require_once __DIR__ . '/get_consent_files.php';
         }
+        break;
+    case '/consent-form-records':
+    case '/consent_form_records':
+        require_once __DIR__ . '/consent_form_records.php';
         break;
     case '/queues/debug':
         require_once __DIR__ . '/debug_queues.php';
@@ -236,6 +255,10 @@ switch ($path) {
     case '/self-service/access':
         require_once __DIR__ . '/check_self_service_access.php';
         break;
+    case '/status-display':
+    case '/tv-status':
+        require_once __DIR__ . '/status_display.php';
+        break;
     case '/vet_schedules':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/update_vet_schedule.php';
@@ -260,7 +283,7 @@ switch ($path) {
             echo json_encode([
                 'ok' => false,
                 'code' => 'database_unavailable',
-                'message' => 'The database is not responding. Please try again later.',
+                'message' => 'This site is temporarily unavailable due to maintenance. Please try again in a moment.',
             ]);
         }
         break;
@@ -319,6 +342,15 @@ switch ($path) {
                 http_response_code(405);
                 echo json_encode(['message' => 'Method not allowed.']);
             }
+        } elseif (preg_match('/^\/pet-owner-accounts\/(\d+)\/status$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            $_GET['action'] = 'status';
+            require_once __DIR__ . '/pet_owner_accounts.php';
+        } elseif (preg_match('/^\/pet-owner-accounts\/(\d+)\/pets\/(\d+)$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            $_GET['petId'] = $matches[2];
+            $_GET['action'] = 'ownership';
+            require_once __DIR__ . '/pet_owner_accounts.php';
         } elseif (preg_match('/^\/notifications\/read-all$/', $path, $matches)) {
             $_GET['action'] = 'read-all';
             require_once __DIR__ . '/notifications.php';

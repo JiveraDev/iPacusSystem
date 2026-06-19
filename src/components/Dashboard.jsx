@@ -19,6 +19,9 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
+  ImageIcon,
+  Users,
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
@@ -62,6 +65,10 @@ const PetRegister = lazy(() => import("./AdminDashboardsComponent/PetRegister.js
 const PetProfileEdit = lazy(() => import("./AdminDashboardsComponent/PetProfileEdit.jsx"));
 const AccountManagement = lazy(() => import("./SuperAdminDashboardComponent/AccountManagement.jsx"));
 const PaymentMethodsManagement = lazy(() => import("./SuperAdminDashboardComponent/PaymentMethodsManagement.jsx"));
+const SuperAdminReportsDashboard = lazy(() => import("./SuperAdminDashboardComponent/SuperAdminReportsDashboard.jsx"));
+const SuperAdminReportCenter = lazy(() => import("./SuperAdminDashboardComponent/SuperAdminReportCenter.jsx"));
+const PetOwnerAccountsManagement = lazy(() => import("./SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx"));
+const PetMediaMonitoring = lazy(() => import("./SuperAdminDashboardComponent/PetMediaMonitoring.jsx"));
 const QueueDashboard = lazy(() => import("./PetOwnerDashboard/Self-Service_QUEUE.jsx"));
 const AllItemsPage = lazy(() => import("./AdminDashboardsComponent/AllItemsPage.jsx"));
 const AddNewItemPage = lazy(() => import("./AdminDashboardsComponent/AddNewItemPage.jsx"));
@@ -116,6 +123,10 @@ const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
 const PETS_DIRECTORY_LABEL_ROLES = ["admin", "veterinarian", "super admin"];
 
 function getNavItemLabel(item, userRole) {
+  if (item.id === "home" && ["super admin", "super_admin", "superadmin"].includes(String(userRole || "").toLowerCase())) {
+    return "Reports Dashboard";
+  }
+
   if (item.id === "pets" && PETS_DIRECTORY_LABEL_ROLES.includes(String(userRole || "").toLowerCase())) {
     return "Pets Directory";
   }
@@ -133,7 +144,7 @@ const navItems = [
   { id: "record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/record-requests", roles: ADMIN_ROLES },
   { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES },
   { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES },
-  { id: "pos", label: "POS", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES },
+  { id: "pos", label: "Point-Of-Sale", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES },
   { id: "service-catalog", label: "Service Catalog", icon: Stethoscope, path: "/dashboard/service-catalog", roles: ADMIN_ROLES },
   { 
     id: "inventory", 
@@ -154,13 +165,24 @@ const navItems = [
   { id: "vet-record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES },
   { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES },
   { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES },
+  { id: "report-center", label: "Report Export & Print Center", icon: BarChart3, path: "/dashboard/reports/export", roles: SUPERADMIN_ROLES },
+  { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: ImageIcon, path: "/dashboard/pet-media-monitoring", roles: SUPERADMIN_ROLES },
   { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
+  { id: "pet-owner-accounts", label: "Pet Owners", icon: Users, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES },
   { id: "payment-methods", label: "Payment Methods", icon: CreditCard, path: "/dashboard/payment-methods", roles: SUPERADMIN_ROLES },
   { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
 ];
 
 const screenMap = {
-  "/dashboard": HomeScreen,
+  "/dashboard": (props = {}) => {
+    const role = normalizeRole(getUserValue(props.user, ["role"]));
+
+    if (role === "super_admin" || role === "superadmin") {
+      return <SuperAdminReportsDashboard {...props} />;
+    }
+
+    return <HomeScreen {...props} />;
+  },
   "/dashboard/consult": ConsultScreen,
   "/dashboard/consult/booking": ConsultBookingScreen,
   "/dashboard/consult/payment": ConsultPaymentScreen,
@@ -199,7 +221,11 @@ const screenMap = {
   "/dashboard/vet/histories": VetDiagnosisHistory,
   "/dashboard/vet/online-consultations/:onlineConsultationId/diagnosis": VetOnlineConsultDiagnosis,
   "/dashboard/vet/online-consultations": ApprovedOnlineConsultation,
+  "/dashboard/reports": SuperAdminReportsDashboard,
+  "/dashboard/reports/export": SuperAdminReportCenter,
+  "/dashboard/pet-media-monitoring": PetMediaMonitoring,
   "/dashboard/accounts": AccountManagement,
+  "/dashboard/pet-owner-accounts": PetOwnerAccountsManagement,
   "/dashboard/payment-methods": PaymentMethodsManagement,
   "/dashboard/self-service-queue": QueueDashboard,
   "/dashboard/todos": TodosScreen,
@@ -322,8 +348,20 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/vet/histories")) {
     return "vet-histories";
   }
+  if (path.startsWith("/dashboard/reports/export")) {
+    return "report-center";
+  }
+  if (path.startsWith("/dashboard/reports")) {
+    return "home";
+  }
+  if (path.startsWith("/dashboard/pet-media-monitoring")) {
+    return "pet-media-monitoring";
+  }
   if (path.startsWith("/dashboard/accounts")) {
     return "accounts";
+  }
+  if (path.startsWith("/dashboard/pet-owner-accounts")) {
+    return "pet-owner-accounts";
   }
   if (path.startsWith("/dashboard/payment-methods")) {
     return "payment-methods";

@@ -11,7 +11,7 @@ import SubmissionStatus from '../shared/SubmissionStatus';
 import { addQueueItem, fetchQueuePets } from '../../services/queueService';
 
 const SERVICES = [
-    "Consultation", "Vaccination", "Grooming", "Dental", "General Check-Up", 
+    "Consultation", "Vaccination", "Grooming", "Dental", "General Check-up",
     "Surgery", "Kapon", "Lab-testing", "Parasite-control", "Boarding", "Home-service", "Special Services"
 ];
 

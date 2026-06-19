@@ -1,7 +1,8 @@
 const SERVICE_LABELS = {
-    wellness: 'General Check-Up',
-    'general check-up': 'General Check-Up',
-    'general checkup': 'General Check-Up'
+    'General Check-up': 'General Check-up',
+    'general-checkup': 'General Check-up',
+    'general check-up': 'General Check-up',
+    'general checkup': 'General Check-up'
 };
 
 function getServiceDisplayName(value, fallback = 'Service') {

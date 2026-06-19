@@ -5,6 +5,7 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
@@ -186,21 +187,23 @@ export default function PaymentSubmission() {
             {/* Payment Method Selection */}
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method *</Label>
-              <select
-                id="paymentMethod"
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <Select
                 value={formData.paymentMethod}
-                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
                 disabled={isSubmitting || isLoadingPaymentMethods}
+                searchPlaceholder="Search payment method"
               >
-                <option value="">{isLoadingPaymentMethods ? "Loading payment methods..." : "Select payment method"}</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="paymentMethod">
+                  <SelectValue placeholder={isLoadingPaymentMethods ? "Loading payment methods..." : "Select payment method"} displayValue={selectedMethod?.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.value} value={method.value} searchText={method.label}>
+                      {method.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Payment Method Instructions */}

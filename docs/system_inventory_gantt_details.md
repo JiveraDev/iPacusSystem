@@ -1,6 +1,6 @@
 # iPawcus System Inventory and Gantt Details
 
-Prepared: 2026-06-14
+Prepared: 2026-06-19
 
 This document is a planning inventory for the current project. It lists the visible pages, component files, backend endpoints, database areas, workflows, notifications, design parts, and suggested Gantt work packages.
 
@@ -8,7 +8,8 @@ This document is a planning inventory for the current project. It lists the visi
 
 - The app is a React 19 + Vite + Tailwind frontend with a PHP + MySQL backend.
 - The dashboard is role based, but `src/components/Dashboard.jsx` and `src/components/dashboardRouter.jsx` currently have `DEBUG_BYPASS = true`. Do not change that while planning unless it becomes a separate security task.
-- The canonical database export for this planning document is `DDL/database_ddl_20260613_054826.sql`. It was generated for database `ipawcus_system` on 2026-06-13 at 05:48:26 UTC and contains 47 tables and 0 views.
+- The latest full database export in this workspace is `DDL/database_ddl_20260618_034832.sql`. It was generated for database `ipawcus_system` on 2026-06-18 at 03:48:31 UTC and contains 47 tables and 0 views.
+- The newest consent-record table is tracked as an explicit migration in `DDL/20260619_create_consent_form_records.sql`; it is not part of the full DDL exports yet.
 - `README.md` and `AGENTS.md` mention `tables.sql`, but this workspace currently does not contain that file. Do not use `tables.sql` as the planning source unless a fresh copy is added later.
 - Some PHP files perform runtime schema updates or table creation. These should be tracked in the Gantt because they affect deployment.
 - Recent confirmed requirements:
@@ -18,7 +19,13 @@ This document is a planning inventory for the current project. It lists the visi
   - Pet hotel or boarding requires a liability consent signature before the booking/payment submission can proceed.
   - Boarding consent follows the same idea as diagnosis consent: show the form, capture signature, then allow the next action.
   - Medical record actions should show direct `Print` and `Email Copy` buttons, not a problematic dropdown.
-  - Future task: create a TV display/status page, likely on a subdomain, for queue, booking, diagnosis, payment, and pet status.
+  - TV display/status page is implemented as a public read-only route for queue, booking, diagnosis, payment, and pet status.
+  - Super Admin reporting now has a live dashboard plus report preview, print, and CSV export flows.
+  - Super Admin can review pet owner accounts, linked pets, account status support, and ownership links.
+  - Pet media monitoring aggregates consent, booking, queue, diagnosis, and boarding images for Super Admin review.
+  - Consent signatures should be captured into `consent_form_records` when the migration is present, with legacy booking/queue fields still used as fallback data.
+  - POS billing now consumes linked inventory materials/items and reverses stock movements when visit charges are replaced.
+  - Booking/queue lifecycle maintenance now handles expired queues, missed approved bookings, auto-reschedule notes, and recovery reporting.
   - Future task: improve upload preview for non-image files such as PDF or office documents. Current shared preview support is strongest for images through `PhotoViewer`.
 
 ## System Areas
@@ -29,7 +36,7 @@ This document is a planning inventory for the current project. It lists the visi
 | Pet owner dashboard | Pet Owner | Pet profiles, booking, consultation, service requests, queue self-service, medical records, todos, profile |
 | Admin dashboard | Admin, Super Admin | Bookings, queue, boarding, pet registry, service catalog, consent files, POS, inventory, record requests |
 | Veterinarian dashboard | Veterinarian, Super Admin | Approved queues, assigned list, diagnosis, EMR review, record update work, online consult diagnosis, schedule/profile |
-| Super admin dashboard | Super Admin | Account management and payment method settings |
+| Super admin dashboard | Super Admin | Reports dashboard, report export/print center, account management, pet owner controls, pet media monitoring, payment method settings |
 | Backend API | All frontend roles | PHP routes, database persistence, upload handling, notifications, email, push |
 | Database | Backend | Users, pets, bookings, queues, records, boarding, inventory, notifications, billing |
 
@@ -79,7 +86,7 @@ Implementation note: because debug bypass is currently enabled, route role array
 | `/dashboard/consult/confirmation/:bookingId` | `ConsultConfirmation.jsx` | Booking confirmation | View booking, cancel where allowed, join online consult |
 | `/dashboard/consult/video/:consultationId` | `VideoConsultation.jsx` | Online consult room | Load consultation meeting URL and embed/open room |
 | `/dashboard/services` | `Services.jsx` | Service menu | Navigate to service-specific forms |
-| `/dashboard/services/general-checkup` | `GeneralCheckup.jsx` | General checkup booking | Select pet/new pet details, upload concern, submit booking |
+| `/dashboard/services/general-checkup` | `GeneralCheckup.jsx` | General Check-up booking | Select pet/new pet details, upload concern, submit booking |
 | `/dashboard/services/parasite-control` | `ParasiteControl.jsx` | Parasite control booking | Same standard service booking flow |
 | `/dashboard/services/surgery` | `Surgery.jsx` | Surgery booking | Standard service booking with documents/concern |
 | `/dashboard/services/vaccination` | `Vaccination.jsx` | Vaccination booking | Standard service booking for vaccination service |
@@ -138,7 +145,12 @@ Implementation note: because debug bypass is currently enabled, route role array
 
 | Route | Component | Purpose | Main Actions/Data |
 | --- | --- | --- | --- |
+| `/dashboard` for super admin | `SuperAdminReportsDashboard.jsx` | Super Admin landing dashboard | KPI cards, Chart.js visualizations, staff/activity monitoring, operational attention tables |
+| `/dashboard/reports` | `SuperAdminReportsDashboard.jsx` | Reports dashboard route | Same dashboard surface for direct route access |
+| `/dashboard/reports/export` | `SuperAdminReportCenter.jsx` | Report export and print center | Select report type/date/filter, preview tables, print, export CSV |
+| `/dashboard/pet-media-monitoring` | `PetMediaMonitoring.jsx` | Pet media monitoring | Filter/preview consent, booking, queue, diagnosis, and boarding images |
 | `/dashboard/accounts` | `AccountManagement.jsx` | User/staff account management | List accounts, create account, activate/deactivate admin accounts |
+| `/dashboard/pet-owner-accounts` | `PetOwnerAccountsManagement.jsx` | Pet owner account control | Search owners, inspect linked pets/activity, deactivate/reactivate where DB supports it, remove ownership links |
 | `/dashboard/payment-methods` | `PaymentMethodsManagement.jsx` | Clinic payment method settings | Load methods, upload QR/payment image, OTP verification, save payment options |
 
 ## Component Inventory
@@ -157,6 +169,7 @@ Implementation note: because debug bypass is currently enabled, route role array
 | `Registration.jsx` | Account registration form |
 | `ServerDownPage.jsx` | API/database outage screen |
 | `SignatureCapture.jsx` | Reusable canvas signature capture used in consent flows |
+| `StatusDisplay/TVStatusDisplay.jsx` | Public TV queue/booking/payment status display |
 | `figma/ImageWithFallback.jsx` | Image helper/fallback component |
 
 ### Shared Components
@@ -235,6 +248,14 @@ Implementation note: because debug bypass is currently enabled, route role array
 | --- | --- |
 | `AccountManagement.jsx` | Account creation and activation state |
 | `PaymentMethodsManagement.jsx` | Payment settings with OTP |
+| `PetMediaMonitoring.jsx` | Super Admin media review for consent, booking, queue, diagnosis, and boarding images |
+| `PetOwnerAccountsManagement.jsx` | Pet owner account and ownership-link management |
+| `ReportChartCard.jsx` | Chart.js report card wrapper |
+| `ReportKpiCard.jsx` | Report KPI card |
+| `ReportPreview.jsx` | Printable report preview |
+| `ReportTable.jsx` | Shared report table renderer |
+| `SuperAdminReportCenter.jsx` | Report generation, preview, print, and CSV export UI |
+| `SuperAdminReportsDashboard.jsx` | Super Admin KPI/chart dashboard |
 
 ### Veterinarian Components
 
@@ -276,7 +297,7 @@ Implementation note: because debug bypass is currently enabled, route role array
 
 | Service | Purpose |
 | --- | --- |
-| `accountService.js` | Fetch/create accounts, update account status |
+| `accountService.js` | Fetch/create accounts, update account status, fetch/manage pet owner accounts |
 | `addPet.js` | Create pet records |
 | `addressAutocomplete.js` | Geoapify address autocomplete |
 | `apiClient.js` | Base API URL, fetch wrapper, health checks, timeout/server-down state |
@@ -285,20 +306,24 @@ Implementation note: because debug bypass is currently enabled, route role array
 | `bookingService.js` | Booking list/detail/create/status/schedule/receive |
 | `ConnectOwnership.js` | Link pet ownership and fetch user pets |
 | `consentFileService.js` | Consent file CRUD |
+| `consentRecordService.js` | Save signed/released consent form records |
 | `findPet.js` | Fetch one pet detail |
 | `inventoryApi.js` | Inventory meta/items/create/update/stock-in/stock-out/upload |
 | `notificationService.js` | Notification list/read/preferences/push/reminders |
 | `onlineConsultationService.js` | Online consult list/detail/start/join/end/diagnosis |
 | `paymentMethodService.js` | Payment method list, OTP, update |
+| `petMediaMonitoringService.js` | Super Admin pet media monitoring query |
 | `petService.js` | Pets, pet details/status, activity, medical records, email copy, organized record CRUD |
 | `profileService.js` | Role-aware profile fetch/update |
 | `pushNotificationService.js` | Browser push service worker, permission, subscription sync |
 | `queueService.js` | Queue list/pets/add/status/assign/receive/return/reenter |
 | `recordUpdateRequestService.js` | Record update request list/create/update |
 | `registerUser.js` | Registration submit |
+| `reportService.js` | Reports dashboard and report generation requests |
 | `selfServiceService.js` | Public WAN IP and self-service queue access check |
 | `serviceCatalogService.js` | Service catalog CRUD and materials |
 | `specialServicesService.js` | Special service catalog CRUD |
+| `statusDisplayService.js` | Public TV status display fetch |
 | `todoService.js` | Owner todo CRUD |
 | `uploadService.js` | Upload files/data URLs and delete uploaded files |
 | `userLogin.js` | Login |
@@ -314,11 +339,14 @@ The backend router starts at `php/index.php`. It strips `/api` if present, then 
 | Endpoint Group | Routes | Backend Files |
 | --- | --- | --- |
 | Auth | `/login`, `/register`, `/users`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password` | `login.php`, `register.php`, `auth_*.php`, `auth_otp_helpers.php` |
-| Users/profile/accounts | `/users/{id}`, `/users/{id}/password`, `/profile`, `/accounts`, `/accounts/create`, `/accounts/{id}/status` | `get_user.php`, `update_user.php`, `update_password.php`, `get_user_profile.php`, `update_user_profile.php`, `get_accounts.php`, `create_account.php`, `update_account_status.php` |
+| Users/profile/accounts | `/users/{id}`, `/users/{id}/password`, `/profile`, `/accounts`, `/accounts/create`, `/accounts/{id}/status`, `/pet-owner-accounts`, `/pet-owner-accounts/{id}/status`, `/pet-owner-accounts/{id}/pets/{petId}` | `get_user.php`, `update_user.php`, `update_password.php`, `get_user_profile.php`, `update_user_profile.php`, `get_accounts.php`, `create_account.php`, `update_account_status.php`, `pet_owner_accounts.php` |
 | Pets/ownership | `/pet_information`, `/pet_information/{id}`, `/pet_information/{id}/status`, `/pet_ownership/link`, `/users/{id}/pets` | `add_pet.php`, `get_pets.php`, `get_pet.php`, `update_pet.php`, `update_pet_status.php`, `link_pet.php`, `get_user_pets.php` |
 | Pet activity/records | `/pets/{id}/queues`, `/pets/{id}/bookings`, `/pets/{id}/overdue/cancel`, `/pets/{id}/medical` | `get_pet_queues.php`, `get_pet_bookings.php`, `pet_overdue_cancellations.php`, `pet_medical_records.php` |
 | Uploads | `/upload`, `/upload/delete` | `upload.php`, `delete_upload.php` |
 | Payment methods | `/payment-methods`, `/payment-methods/otp` | `payment_methods.php` |
+| Super Admin reports | `/reports/dashboard`, `/reports/generate` | `reports_dashboard.php`, `reports_generate.php`, `reports_common.php` |
+| Pet media monitoring | `/pet-media-monitoring` | `pet_media_monitoring.php` |
+| Lifecycle recovery | `/lifecycle/recovery-report` | `lifecycle_recovery_report.php` |
 | Bookings | `/bookings`, `/bookings/{id}/status`, `/bookings/{id}/receive`, `/bookings/{id}/schedule`, `/users/{id}/bookings` | `add_booking.php`, `get_bookings.php`, `update_booking_status.php`, `receive_booking.php`, `update_booking_schedule.php` |
 | Online consultations | `/online-consultations`, `/online-consultations/{id}`, `/online-consultations/{id}/start`, `/join`, `/end`, `/diagnosis` | `online_consultations.php`, `online_consultation_helpers.php` |
 | Notifications | `/notifications`, `/notifications/{id}/read`, `/notifications/read-all`, `/notifications/preferences`, `/notifications/push/public-key`, `/push/status`, `/push/subscribe`, `/push/unsubscribe`, `/notifications/reminders/run` | `notifications.php`, `notification_helpers.php`, `mail_helpers.php` |
@@ -329,10 +357,11 @@ The backend router starts at `php/index.php`. It strips `/api` if present, then 
 | Boarding | `/rooms/availability`, `/boarding/rooms`, `/boarding/direct-check-in`, `/boarding/monitoring`, `/boarding/observations`, `/boarding/tasks`, `/boarding/tasks/{id}/complete`, `/boarding/documents`, `/boarding/bookings/{id}/assign-room`, `/check-in`, `/check-out`, `/desired-check-out`, `/documents` | `get_room_availability.php`, `boarding_management.php` |
 | Record update requests | `/record-update-requests`, `/record-update-requests/{id}` | `record_update_requests.php` |
 | Inventory | `/inventory`, `/inventory/meta`, `/inventory/items`, `/inventory/stock-in`, `/inventory/stock-out` | `inventory.php` |
-| Consent files | `/consent_files`, `/consent_files/{id}` | `get_consent_files.php`, `add_consent_file.php`, `update_consent_file.php`, `delete_consent_file.php` |
+| Consent files and records | `/consent_files`, `/consent_files/{id}`, `/consent-form-records`, `/consent_form_records` | `get_consent_files.php`, `add_consent_file.php`, `update_consent_file.php`, `delete_consent_file.php`, `consent_form_records.php`, `consent_record_helpers.php` |
 | Queue | `/queues`, `/queues/debug`, `/queues/pets`, `/queues/status`, `/queues/receive`, `/queues/assign`, `/queues/return`, `/queues/reenter` | `get_queues.php`, `add_to_queue.php`, `update_queue_status.php`, `receive_queue.php`, `assign_queue_vet.php`, `return_queue.php`, `reenter_queue.php`, `debug_queues.php` |
 | Vet diagnosis | `/vet-diagnoses`, `/vet-diagnoses/{id}` | `vet_diagnoses.php` |
 | Self-service access | `/self-service/access` | `check_self_service_access.php` |
+| TV status display | `/status-display`, `/tv-status` | `status_display.php` |
 | Vet schedules | `/vet_schedules` | `get_vet_schedules.php`, `update_vet_schedule.php` |
 | Health/mail test | `/health`, `/mail/test` | `index.php`, `mail_test.php` |
 
@@ -386,7 +415,7 @@ The backend router starts at `php/index.php`. It strips `/api` if present, then 
 2. Page loads owner pets, room availability, and boarding consent template.
 3. User selects pet(s), service type, room/kennel, check-in/out dates, and emergency contact.
 4. User must sign boarding liability consent before the submit/payment button is allowed.
-5. Current booking code submits boarding consent data to `/bookings` as `consent_forms` and `consent_status`; these columns are not in the canonical DDL yet, so they need the runtime auto-ALTER or an explicit migration.
+5. Current booking code submits boarding consent data to `/bookings` as `consent_forms` and `consent_status`; these columns are not in the latest full DDL yet, so they need the runtime auto-ALTER or an explicit migration.
 6. Admin handles room assignment/reservation/check-in in `PetBoardingManagement.jsx`.
 7. During stay, admin records observations, scheduled tasks, documents, and check-out.
 8. Boarding history can be printed.
@@ -443,6 +472,38 @@ The backend router starts at `php/index.php`. It strips `/api` if present, then 
 6. Browser push subscriptions are stored in `notification_push_subscriptions`.
 7. Reminder runner is called through `/notifications/reminders/run`.
 
+### 11. Super Admin Reports
+
+1. Super Admin opens `/dashboard` or `/dashboard/reports`.
+2. `SuperAdminReportsDashboard.jsx` loads `/reports/dashboard` with role and date-range parameters.
+3. Backend `reports_common.php` builds KPIs, Chart.js datasets, summary tables, staff monitoring, and missing-data notes from bookings, queues, visits, diagnosis, inventory, consent, and pet data.
+4. The report dashboard auto-refreshes quietly through `useAutoRefresh`.
+5. Super Admin opens `/dashboard/reports/export` for detailed reports.
+6. `SuperAdminReportCenter.jsx` posts report type, date range, and filters to `/reports/generate`.
+7. Generated reports can be previewed, printed, and exported as CSV. PDF/Excel buttons are placeholders until export dependencies are added.
+
+### 12. Pet Owner Accounts and Pet Media Monitoring
+
+1. Super Admin opens `/dashboard/pet-owner-accounts`.
+2. `PetOwnerAccountsManagement.jsx` loads pet owner profiles, linked pets, booking counts, and queue counts from `/pet-owner-accounts`.
+3. Ownership links can be removed without deleting the pet record.
+4. Owner deactivation/reactivation requires `users.account_status`, `users.deactivated_at`, and `users.deactivation_reason`; the endpoint returns the required SQL when those columns are missing.
+5. Login checks `users.account_status` when present and blocks deactivated accounts.
+6. Super Admin opens `/dashboard/pet-media-monitoring`.
+7. `PetMediaMonitoring.jsx` loads image records from consent records, bookings, queues, diagnosis uploads, and boarding documents through `/pet-media-monitoring`.
+8. Media can be filtered by date range, source, and pet, then previewed with `PhotoViewer`.
+
+### 13. Consent Records and Lifecycle Maintenance
+
+1. `DDL/20260619_create_consent_form_records.sql` creates `consent_form_records`.
+2. `consent_record_helpers.php` saves or updates signed consent records for booking, queue, diagnosis/manual, and released/physical consent states when the table exists.
+3. `/consent-form-records` allows explicit consent record creation from the frontend.
+4. Reports and media monitoring use `consent_form_records` when available and fall back to legacy booking/queue consent paths where needed.
+5. `booking_maintenance.php` runs lifecycle maintenance in the clinic timezone.
+6. Lifecycle maintenance cancels previous-day active queues that need re-entry, auto-reschedules missed eligible confirmed bookings, and preserves original booking dates in notes.
+7. `/lifecycle/recovery-report` identifies completed queue/booking diagnosis records that are missing visits or visit charges.
+8. `status_display.php` runs lifecycle maintenance before returning TV status data.
+
 ## Notification Sources
 
 | Trigger Area | Notification Types / Events |
@@ -473,15 +534,19 @@ Notification preferences include booking updates, schedule reminders, email enab
 | Theme | `ThemeProvider`, `ThemeToggle`, localStorage key `ipawcus-theme` |
 | Auto refresh | `useAutoRefresh` on GET-heavy pages such as bookings, queues, inventory, todos, consults |
 | Server failure | App-level health check and blocking server-down page |
+| Reports | Chart.js through `react-chartjs-2`, printable report preview, CSV export, and dense operational tables |
+| TV display | Full-screen public status layout with configurable left/right column width stored in localStorage |
 
 ## Database Inventory
 
-Canonical full export: `DDL/database_ddl_20260613_054826.sql`.
+Latest full export: `DDL/database_ddl_20260618_034832.sql`.
+
+Additional migration: `DDL/20260619_create_consent_form_records.sql`.
 
 DDL export metadata:
 
 - Database name: `ipawcus_system`
-- Generated: `2026-06-13T05:48:26+00:00`
+- Generated: `2026-06-18T03:48:31+00:00`
 - Tables: 47
 - Views: 0
 
@@ -502,7 +567,7 @@ DDL export metadata:
 | Notifications | `notification_preferences`, `notification_push_subscriptions`, `user_notifications` |
 | Pet owner productivity | `pet_owner_todos` |
 | Record updates | `pet_record_update_requests` |
-| Consent/payment settings | `consent_files`, `payment_methods` |
+| Consent/payment settings | `consent_files`, `payment_methods`; planned migration adds `consent_form_records` |
 
 ## Runtime DB Updates and Schema Notes
 
@@ -510,21 +575,26 @@ DDL export metadata:
 | --- | --- |
 | `php/account_status_helpers.php` | Adds `admin_profiles.is_active` if missing |
 | `php/add_booking.php` | Checks for and adds `bookings.payment_method`, `bookings.payment_reference`, `bookings.consent_forms`, `bookings.consent_status` if missing |
+| `php/consent_record_helpers.php` | Requires `consent_form_records`; skips automatic persistence when the table is missing unless `/consent-form-records` is called directly |
 | `php/update_schema_home_service.php` | Adds `bookings.signature_path` and `bookings.transport_fee` when run |
 | `php/notification_helpers.php` | Creates notification tables if missing and adds push-related columns |
 | `php/payment_methods.php` | Creates `payment_methods` if missing and adjusts OTP support |
 | `php/pet_medical_records.php` | Creates organized medical record groups/items if missing |
+| `php/pet_owner_accounts.php` | Requires manual `users.account_status`, `users.deactivated_at`, and `users.deactivation_reason` columns before owner deactivation can be used |
 | `php/pet_owner_todos.php` | Creates `pet_owner_todos` if missing |
 | `php/record_update_requests.php` | Creates `pet_record_update_requests` if missing |
+| `php/visit_billing.php` | Cash payments require `visit_payments.payment_method` enum to include `cash`; visit charges can consume/reverse inventory stock movements |
 | `php/rooms_setup.sql` | Standalone boarding room/booking-pets setup SQL |
 | `php/vet_schedules.sql` | Standalone vet schedule table SQL |
 
-Canonical DDL discrepancy note:
+Full DDL discrepancy note:
 
-- `DDL/database_ddl_20260613_054826.sql` already includes `bookings.payment_method`, `bookings.payment_reference`, `bookings.signature_path`, and `bookings.transport_fee`.
-- The same canonical DDL does not include the newer boarding consent columns `bookings.consent_forms` and `bookings.consent_status`.
+- `DDL/database_ddl_20260618_034832.sql` already includes `bookings.payment_method`, `bookings.payment_reference`, `bookings.signature_path`, `bookings.transport_fee`, and the `General Check-up` booking service enum value.
+- The same full DDL does not include the newer boarding consent columns `bookings.consent_forms` and `bookings.consent_status`.
+- The same full DDL does not include `consent_form_records`; run `DDL/20260619_create_consent_form_records.sql` before relying on consent record persistence, reports, or media monitoring.
+- The same full DDL does not include `users.account_status`, `users.deactivated_at`, or `users.deactivation_reason`; apply those columns before enabling pet owner deactivation.
 - Current backend code in `php/add_booking.php` auto-adds `bookings.consent_forms` and `bookings.consent_status` if the database user has `ALTER TABLE` permission.
-- For deployment planning, create an explicit migration or export a fresh DDL after those columns exist, so the database file matches the current boarding consent workflow.
+- For deployment planning, create explicit migrations or export a fresh full DDL after those columns/tables exist, so the database files match the current boarding consent, owner status, reporting, and media-monitoring workflows.
 
 ## Upload and Static Media Areas
 
@@ -544,21 +614,20 @@ Preview planning:
 - For Word/Excel/unknown document types, show file metadata, download/open button, and maybe a server-side conversion only if needed later.
 - The upload endpoint should keep allowing non-image documents only where the workflow expects them, with file type validation per use case.
 
-## Future TV Status Page / Subdomain Task
+## TV Status Page / Subdomain Task
 
-This is a separate feature and does not require a separate full project. It can be a new route/page in this same React app, then served from a subdomain with web server routing.
+This is implemented in the same React/PHP project and does not require a separate project.
 
-Recommended approach:
+Implemented approach:
 
-1. Add a public or protected display route such as `/status-display`.
-2. Create a read-only page component for TV use.
-3. Add backend endpoint(s) that return queue, booking, diagnosis, billing/payment, and pet status in a display-safe format.
-4. Auto-refresh every few seconds using `useAutoRefresh` or a dedicated polling hook.
-5. Make it full-screen responsive for TV, high contrast, no editing controls.
-6. Deploy as `status.ipawcus.com` pointing to the same frontend build, with routing configured to load `/status-display`.
-7. Decide privacy rules: avoid showing full owner names or sensitive diagnosis text on public TVs.
+1. Frontend route: `/status-display`.
+2. Subdomain root support: `status.ipawcus.com/` renders the same TV display.
+3. Frontend component: `src/components/StatusDisplay/TVStatusDisplay.jsx`.
+4. Backend endpoint: `/status-display` and `/tv-status`, routed to `php/status_display.php`.
+5. Auto-refresh interval: backend returns `refreshSeconds`, currently 8 seconds.
+6. Privacy rules: owner names, contact details, complaints, and diagnosis text are not returned to the TV endpoint.
 
-No separate project is required unless the TV display needs a totally different deployment/security boundary.
+Subdomain deployment notes are in `docs/tv_status_display_deployment.md`.
 
 ## Suggested Gantt Work Breakdown
 
@@ -584,8 +653,13 @@ No separate project is required unless the TV display needs a totally different 
 | 18. Consent management | Consent template CRUD and use in workflows | `ConsentFileManagement.jsx`, `ConsentDocument.jsx`, consent PHP | Uploads | Upload/edit/delete/use templates |
 | 19. Notifications | In-app, email, push, reminders, preferences | notification services/PHP, service worker | Auth/events/mail config | Trigger booking/queue/diagnosis/payment notifications |
 | 20. Upload/document preview | Images, PDF/document preview plan | `uploadService.js`, `PhotoViewer`, upload PHP | Upload endpoint | Preview image/PDF and download docs |
-| 21. TV status display | Read-only status page/subdomain | New display component/API | Queue/booking/diagnosis/billing | TV viewport test and privacy review |
-| 22. QA and deployment | Lint/build, PHP syntax, manual flow scripts, deployment notes | All touched areas | Feature completion | `npm run lint`, `npm run build`, `php -l` changed files |
+| 21. TV status display | Read-only status page/subdomain | `TVStatusDisplay.jsx`, `php/status_display.php` | Queue/booking/diagnosis/billing | TV viewport test and privacy review |
+| 22. Super Admin reports | KPI dashboard, charts, report center, print/CSV export | report components/services/PHP, `chart.js`, `react-chartjs-2` | Visits/bookings/queues/inventory/consents | Dashboard loads, report filters work, CSV/print output usable |
+| 23. Pet owner account controls | Owner/pet detail view, status controls, ownership unlink | `PetOwnerAccountsManagement.jsx`, `pet_owner_accounts.php`, `accountService.js` | Users/pets/ownership schema | Search owners, inspect pets, remove ownership, status SQL documented/applied |
+| 24. Consent record ledger | Signed/released consent record persistence | `consent_record_helpers.php`, `consent_form_records.php`, `DDL/20260619_create_consent_form_records.sql` | Consent files, uploads, booking/queue/diagnosis flows | Signed consent rows save and appear in reports/media monitoring |
+| 25. Pet media monitoring | Source/date/pet media aggregation and preview | `PetMediaMonitoring.jsx`, `pet_media_monitoring.php` | Uploads, consent records, booking/queue/diagnosis/boarding docs | Filter media and open originals/previews without duplicate rows |
+| 26. Lifecycle automation and recovery | Queue expiry, booking reschedule/cancel, recovery report | `booking_maintenance.php`, `lifecycle_recovery_report.php`, status display | Queue/booking/visit schema | Missed/expired cases update correctly; recovery report identifies missing billing links |
+| 27. QA and deployment | Lint/build, PHP syntax, manual flow scripts, deployment notes | All touched areas | Feature completion | `npm run lint`, `npm run build`, `php -l` changed files |
 
 ## Manual QA Checklist
 
@@ -608,6 +682,16 @@ No separate project is required unless the TV display needs a totally different 
 - Record update request moves from owner submission through admin/vet handling.
 - POS can add charges and record payment.
 - Inventory item, stock receipt, stock out, low stock, expiry, disposal reports work.
+- POS charges consume linked inventory items/materials and reverse stock when charges are replaced.
+- Super Admin reports dashboard loads KPI cards, charts, monitoring tables, and missing-data notes.
+- Report center can generate each report type, print the preview, and export CSV.
+- Pet owner account screen can search owners, inspect linked pets, remove an ownership link, and show required SQL if status columns are missing.
+- Deactivated pet owner login is blocked when `users.account_status` exists.
+- Consent records save after `DDL/20260619_create_consent_form_records.sql` is applied.
+- Pet media monitoring filters by source, date range, and pet and opens image previews/originals.
+- TV status display auto-refreshes and does not expose owner contact details or diagnosis text.
+- Lifecycle maintenance handles previous-day queue re-entry and missed approved booking reschedules without affecting excluded service types.
+- Lifecycle recovery report identifies completed diagnosis records with missing visit/charge data.
 - Notification preferences save and notification bell updates.
 - Browser push registers/unregisters only when permission/config is valid.
 - Profile image uploads work for owner/admin/vet.

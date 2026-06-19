@@ -361,6 +361,10 @@ function buildPaymentPrefill(unit) {
         sourceId: assignment.bookingId,
         visit: {
             id: assignment.bookingNumber || `BOARD-${assignment.bookingId || Date.now()}`,
+            bookingId: assignment.bookingId || null,
+            petId: assignment.petId || null,
+            ownerUserId: assignment.ownerUserId || null,
+            sourceType: 'boarding',
             petName: assignment.petName || 'Boarding Pet',
             ownerName: assignment.ownerName || 'Pet Owner',
             species: assignment.petSpecies || 'Pet',
@@ -903,7 +907,7 @@ export default function PetBoardingManagement() {
 
         setActionLoading('direct-check-in');
         try {
-            await directBoardingCheckIn({
+            const result = await directBoardingCheckIn({
                 pet_id: directCheckInForm.petId,
                 type: directCheckInForm.type,
                 room_size: directCheckInForm.roomSize,
@@ -916,9 +920,18 @@ export default function PetBoardingManagement() {
                 notes: directCheckInForm.notes
             });
 
-            toast.success('Pet boarded.');
+            toast.success('Pet boarded. Opening Point-Of-Sale payment.');
             setIsDirectCheckInOpen(false);
             setDirectCheckInForm(emptyDirectCheckInForm);
+            if (result?.assignment) {
+                localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill({
+                    roomLabel: result.assignment.roomLabel,
+                    hotelBoardingType: result.assignment.hotelBoardingType,
+                    assignment: result.assignment
+                })));
+                navigate('/dashboard/pos');
+                return;
+            }
             fetchBoardingData();
         } catch (error) {
             toast.error(error.message || 'Failed to board pet.');

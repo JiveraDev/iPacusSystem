@@ -1,7 +1,7 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export const SERVER_STATUS_EVENT = 'ipawcus:server-status-change';
 
-const SERVER_UNAVAILABLE_MESSAGE = 'The server or database is not responding. iPawcus cannot be accessed right now.';
+const SERVER_UNAVAILABLE_MESSAGE = 'This site is temporarily unavailable due to maintenance. Please try again in a moment.';
 const DEFAULT_GET_TIMEOUT_MS = 15000;
 const DEFAULT_MUTATION_TIMEOUT_MS = 120000;
 
@@ -176,7 +176,7 @@ export async function apiFetch(path, options = {}) {
         return response;
     } catch (error) {
         if (timeoutController?.signal.aborted && !signal?.aborted) {
-            const timeoutError = new ApiError('The server is taking too long to respond.', {
+            const timeoutError = new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
                 status: 0,
                 data: { code: 'request_timeout' }
             });

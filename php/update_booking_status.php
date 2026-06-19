@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
 
 $input = json_decode(file_get_contents('php://input'), true);
 $bookingId = $_GET['bookingId'] ?? null;
-$status = $input['status'] ?? null;
+$status = isset($input['status']) ? strtolower(trim((string)$input['status'])) : null;
 $cancellationMessage = trim((string)($input['cancellation_message'] ?? ''));
 $walletNumber = trim((string)($input['wallet_number'] ?? ''));
 $transactionNumber = trim((string)($input['transaction_number'] ?? ''));
@@ -28,8 +28,26 @@ if (!$bookingId || !$status) {
     exit;
 }
 
+$allowedBookingStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
+if (!in_array($status, $allowedBookingStatuses, true)) {
+    http_response_code(400);
+    echo json_encode([
+        'message' => 'Invalid booking status.',
+        'allowedStatuses' => $allowedBookingStatuses
+    ]);
+    exit;
+}
+
+if ($status === 'completed') {
+    http_response_code(409);
+    echo json_encode([
+        'message' => 'Bookings can only be completed by the matching service completion workflow so billing and service status stay consistent.'
+    ]);
+    exit;
+}
+
 try {
-    autoCancelOverdueBookings($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
     $onlineConsultation = null;
@@ -40,6 +58,11 @@ try {
 
     if (!$booking) {
         throw new Exception('Booking not found.');
+    }
+
+    if ($booking['status'] === 'cancelled' && $status !== 'cancelled') {
+        http_response_code(409);
+        throw new Exception('Cancelled bookings cannot be moved back to an active status without rescheduling/recreating the booking.');
     }
 
     $hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
@@ -125,6 +148,8 @@ try {
         $pdo->rollBack();
     }
 
-    http_response_code(500);
+    if (http_response_code() < 400) {
+        http_response_code(500);
+    }
     echo json_encode(['message' => 'Failed to update booking status: ' . $e->getMessage()]);
 }

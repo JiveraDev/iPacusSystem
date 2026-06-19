@@ -6,6 +6,7 @@ import { Checkbox } from "../../ui/checkbox";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { 
   Calendar, Clock, MapPin, AlertCircle, FileText, 
@@ -281,16 +282,23 @@ export default function HomeServiceConfirmation() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Payment Method *</Label>
-                      <select
-                        required
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white"
+                      <Select
                         value={paymentFormData.paymentMethod}
-                        onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentMethod: e.target.value })}
+                        onValueChange={(value) => setPaymentFormData({ ...paymentFormData, paymentMethod: value })}
                         disabled={isSubmitting || isLoadingPaymentMethods}
+                        searchPlaceholder="Search payment method"
                       >
-                        <option value="">{isLoadingPaymentMethods ? "Loading methods..." : "Select method"}</option>
-                        {paymentMethods.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                      </select>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder={isLoadingPaymentMethods ? "Loading methods..." : "Select method"} displayValue={selectedMethod?.label} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {paymentMethods.map((method) => (
+                            <SelectItem key={method.value} value={method.value} searchText={method.label}>
+                              {method.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {selectedMethod && (

@@ -122,7 +122,7 @@ export default function VetPetsEMR() {
             if (requestedPetId) {
                 window.sessionStorage.removeItem('vet-record-update-pet-id');
             }
-            setSelectedPetId(current => current || requestedPetId || String(nextPets[0]?.db_id || nextPets[0]?.id || ''));
+            setSelectedPetId(current => current || (requestedPetId ? String(requestedPetId) : ''));
             return nextPets;
         } catch (error) {
             if (!isAutoRefresh) {
@@ -464,15 +464,18 @@ export default function VetPetsEMR() {
                 {isPetPreviewOpen && (
                     <PetPreviewCard
                         pet={selectedPet}
-                        groupsCount={groups.length}
-                        serviceCount={serviceHistory.length}
-                        addedCount={serviceHistory.filter(record => record.isAddedToOrganizedRecord).length}
                         onCollapse={() => setIsPetPreviewOpen(false)}
                     />
                 )}
             </section>
 
-            {!isPetPreviewOpen && (
+            {!selectedPetId ? (
+                <EmptyPanel
+                    icon={PawPrint}
+                    title="No pet selected"
+                    message="Search and select a pet to view or edit medical records."
+                />
+            ) : !isPetPreviewOpen && (
                 <Button
                     type="button"
                     variant="outline"
@@ -486,14 +489,15 @@ export default function VetPetsEMR() {
                 </Button>
             )}
 
-            {recordsData?.schemaReady === false && (
+            {selectedPetId && recordsData?.schemaReady === false && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
                     {recordsData.message || 'Medical record schema is not ready.'}
                 </div>
             )}
 
-            <VaccinationPanel vaccinations={vaccinations} />
+            {selectedPetId && <VaccinationPanel vaccinations={vaccinations} />}
 
+            {selectedPetId && (
             <section className={`grid min-h-[38rem] gap-5 ${isServiceRecordsOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
                 <main className="min-w-0 space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -596,8 +600,9 @@ export default function VetPetsEMR() {
                     </aside>
                 )}
             </section>
+            )}
 
-            {!isServiceRecordsOpen && (
+            {selectedPetId && !isServiceRecordsOpen && (
                 <Button
                     type="button"
                     variant="outline"
@@ -705,7 +710,7 @@ export default function VetPetsEMR() {
     );
 }
 
-function PetPreviewCard({ pet, groupsCount, serviceCount, addedCount, onCollapse }) {
+function PetPreviewCard({ pet, onCollapse }) {
     const imageSrc = resolveImageUrl(pet?.profileImage || pet?.setpetImage_url || '');
     const petName = pet?.name || pet?.petName || 'No pet selected';
     const ownerName = pet?.ownerName || pet?.tempOwnerName || 'N/A';
@@ -750,21 +755,13 @@ function PetPreviewCard({ pet, groupsCount, serviceCount, addedCount, onCollapse
             </div>
 
             <CardContent className="p-4">
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-                    <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                        <PreviewInfo label="Pet ID" value={petId} />
-                        <PreviewInfo label="Owner" value={ownerName} />
-                        <PreviewInfo label="Sex" value={pet?.gender || 'N/A'} />
-                        <PreviewInfo label="Age" value={pet?.age || 'N/A'} />
-                        <PreviewInfo label="Weight" value={pet?.weight ? `${pet.weight} kg` : 'N/A'} />
-                        <PreviewInfo label="Microchip" value={pet?.microchipId || 'N/A'} />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                        <Stat label="Groups" value={groupsCount} />
-                        <Stat label="Services" value={serviceCount} />
-                        <Stat label="Added" value={addedCount} />
-                    </div>
+                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                    <PreviewInfo label="Pet ID" value={petId} />
+                    <PreviewInfo label="Owner" value={ownerName} />
+                    <PreviewInfo label="Sex" value={pet?.gender || 'N/A'} />
+                    <PreviewInfo label="Age" value={pet?.age || 'N/A'} />
+                    <PreviewInfo label="Weight" value={pet?.weight ? `${pet.weight} kg` : 'N/A'} />
+                    <PreviewInfo label="Microchip" value={pet?.microchipId || 'N/A'} />
                 </div>
             </CardContent>
         </Card>
@@ -829,15 +826,6 @@ function PreviewInfo({ label, value }) {
         <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
             <p className="mt-1 truncate text-xs font-bold text-slate-800">{value || 'N/A'}</p>
-        </div>
-    );
-}
-
-function Stat({ label, value }) {
-    return (
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-center">
-            <p className="text-xl font-black text-slate-950">{value}</p>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
         </div>
     );
 }

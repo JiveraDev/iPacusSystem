@@ -13,7 +13,7 @@ export default function Services() {
   const services = [
     {
       id: "general-checkup",
-      title: "General Check-Up",
+      title: "General Check-up",
       description: "Comprehensive health examination",
       icon: Stethoscope,
       color: "bg-blue-100 text-blue-600",

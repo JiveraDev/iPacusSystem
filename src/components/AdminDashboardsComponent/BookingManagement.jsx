@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2 } from 'lucide-react';
+import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
@@ -21,23 +21,73 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
 import {
+    createBooking,
     fetchBookings as fetchBookingsService,
     updateBookingSchedule,
     updateBookingStatus as updateBookingStatusService
 } from '../../services/bookingService';
+import { fetchQueuePets } from '../../services/queueService';
+import { fetchAccounts } from '../../services/accountService';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
     { value: 'vaccination', label: 'Vaccination' },
     { value: 'grooming', label: 'Grooming' },
     { value: 'dental', label: 'Dental Check-up' },
-    { value: 'wellness', label: 'General Check-Up' },
+    { value: 'General Check-up', label: 'General Check-up' },
     { value: 'surgery', label: 'Surgery' },
     { value: 'lab-testing', label: 'Lab Testing' },
     { value: 'parasite-control', label: 'Parasite Control' },
     { value: 'home-service', label: 'Home Service' },
     { value: 'special services', label: 'Special Services' },
 ];
+
+const ADMIN_BOOKING_SERVICE_TYPES = [
+    { value: 'online-consultation', label: 'Online Consultation' },
+    ...REVIEW_SERVICE_TYPES.filter(
+        (type) => !['consultation', 'home-service', 'special services', 'boarding'].includes(type.value)
+    )
+];
+
+function todayInputDate() {
+    return new Date().toLocaleDateString('en-CA');
+}
+
+function currentInputTime() {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function createEmptyAdminBookingForm() {
+    return {
+        serviceType: 'online-consultation',
+        veterinarianId: '',
+        bookingDate: todayInputDate(),
+        bookingTime: currentInputTime(),
+        notes: '',
+        paymentAction: 'pos'
+    };
+}
+
+function ownerNameForPet(pet) {
+    return pet?.owner_name
+        || [pet?.first_Name, pet?.last_Name].filter(Boolean).join(' ').trim()
+        || pet?.pet_Temp_owner
+        || 'Unknown Owner';
+}
+
+function vetId(vet) {
+    return String(vet?.user_id || vet?.userId || vet?.id || '');
+}
+
+function vetName(vet) {
+    if (vet?.veterinarian_name) {
+        return vet.veterinarian_name;
+    }
+
+    const fullName = [vet?.first_Name, vet?.last_Name].filter(Boolean).join(' ').trim();
+    return fullName ? `Dr. ${fullName}` : vet?.mail_Address || vet?.email || 'Veterinarian';
+}
 
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
@@ -81,6 +131,15 @@ export default function BookingsManagement() {
         transactionNumber: ''
     });
     const [reviewDrafts, setReviewDrafts] = useState({});
+    const [addBookingOpen, setAddBookingOpen] = useState(false);
+    const [isLoadingBookingPets, setIsLoadingBookingPets] = useState(false);
+    const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+    const [bookingPets, setBookingPets] = useState([]);
+    const [veterinarians, setVeterinarians] = useState([]);
+    const [isLoadingVeterinarians, setIsLoadingVeterinarians] = useState(false);
+    const [bookingPetSearch, setBookingPetSearch] = useState('');
+    const [selectedBookingPet, setSelectedBookingPet] = useState(null);
+    const [adminBookingForm, setAdminBookingForm] = useState(createEmptyAdminBookingForm);
 
     // Registration states
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -109,6 +168,27 @@ export default function BookingsManagement() {
 
     useAutoRefresh(fetchBookings);
 
+    const bookingPetSuggestions = useMemo(() => {
+        const query = bookingPetSearch.trim().toLowerCase();
+        if (query.length < 2) {
+            return [];
+        }
+
+        return bookingPets
+            .filter((pet) => {
+                const ownerUserId = Number(pet.user_id);
+                const petStatus = String(pet.pet_status || '').toLowerCase();
+                if (!Number.isFinite(ownerUserId) || ownerUserId <= 0 || ['deceased', 'dead'].includes(petStatus)) {
+                    return false;
+                }
+
+                const petName = String(pet.pet_name || '').toLowerCase();
+                const ownerName = ownerNameForPet(pet).toLowerCase();
+                return petName.includes(query) || ownerName.includes(query);
+            })
+            .slice(0, 8);
+    }, [bookingPetSearch, bookingPets]);
+
     const updateBookingStatus = async (id, newStatus, extraPayload = {}) => {
         try {
             const result = await updateBookingStatusService(id, { status: newStatus, ...extraPayload });
@@ -122,6 +202,157 @@ export default function BookingsManagement() {
             console.error('Error updating status:', error);
             toast.error(error.message || 'Failed to update booking status.');
             return false;
+        }
+    };
+
+    const openAddBookingDialog = async () => {
+        setAddBookingOpen(true);
+
+        if (bookingPets.length === 0 && !isLoadingBookingPets) {
+            setIsLoadingBookingPets(true);
+            try {
+                const data = await fetchQueuePets();
+                setBookingPets(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error('Error loading pets for booking:', error);
+                toast.error(error.message || 'Failed to load pets for booking.');
+            } finally {
+                setIsLoadingBookingPets(false);
+            }
+        }
+
+        if (veterinarians.length === 0 && !isLoadingVeterinarians) {
+            setIsLoadingVeterinarians(true);
+            try {
+                const data = await fetchAccounts();
+                setVeterinarians(Array.isArray(data?.veterinarians)
+                    ? data.veterinarians.filter((vet) => Number(vet.is_active ?? 1) === 1)
+                    : []);
+            } catch (error) {
+                console.error('Error loading veterinarians for booking:', error);
+                toast.error(error.message || 'Failed to load veterinarians.');
+            } finally {
+                setIsLoadingVeterinarians(false);
+            }
+        }
+    };
+
+    const resetAddBookingDialog = () => {
+        setBookingPetSearch('');
+        setSelectedBookingPet(null);
+        setAdminBookingForm(createEmptyAdminBookingForm());
+    };
+
+    const selectBookingPet = (pet) => {
+        setSelectedBookingPet(pet);
+        setBookingPetSearch(`${pet.pet_name} - ${ownerNameForPet(pet)}`);
+    };
+
+    const sendBookingPaymentToPOS = (booking) => {
+        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
+            message: 'Booking payment loaded. Add the payment service manually before posting.',
+            visit: {
+                id: booking.bookingNumber || `BOOKING-${booking.id}`,
+                bookingId: booking.id,
+                petId: booking.petId || null,
+                ownerUserId: booking.userId || null,
+                sourceType: 'booking',
+                petName: booking.petName || 'Booking Patient',
+                ownerName: booking.ownerName || 'Pet Owner',
+                species: booking.petSpecies || 'Pet',
+                visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : 'Booking Payment',
+                veterinarian: booking.veterinarian || 'Clinic Team',
+                complaint: booking.notes || `${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber || ''}`.trim(),
+                status: 'Add payment service'
+            },
+            charges: []
+        }));
+        navigate('/dashboard/pos');
+    };
+
+    const createAdminBooking = async () => {
+        if (isCreatingBooking) return;
+
+        if (!selectedBookingPet) {
+            toast.error('Select a registered pet before creating a booking.');
+            return;
+        }
+
+        const ownerUserId = Number(selectedBookingPet.user_id);
+        if (!Number.isFinite(ownerUserId) || ownerUserId <= 0) {
+            toast.error('This pet has no linked registered owner account. Link an owner before creating a booking.');
+            return;
+        }
+
+        const isOnlineConsultation = adminBookingForm.serviceType === 'online-consultation';
+        if (isOnlineConsultation && !adminBookingForm.veterinarianId) {
+            toast.error('Select a veterinarian for online consultation.');
+            return;
+        }
+
+        if (!adminBookingForm.bookingDate || !adminBookingForm.bookingTime) {
+            toast.error('Booking date and time are required.');
+            return;
+        }
+
+        setIsCreatingBooking(true);
+        try {
+            const shouldOpenPOS = adminBookingForm.paymentAction === 'pos';
+            const savedServiceType = isOnlineConsultation ? 'consultation' : adminBookingForm.serviceType;
+            const serviceLabel = isOnlineConsultation ? 'Online Consultation' : getServiceDisplayName(savedServiceType);
+            const selectedVet = veterinarians.find((vet) => vetId(vet) === String(adminBookingForm.veterinarianId));
+            const notes = [
+                isOnlineConsultation ? '[Admin Online Consultation Booking]' : '[Admin Face-to-Face Booking]',
+                `Service: ${serviceLabel}`,
+                adminBookingForm.notes.trim()
+            ].filter(Boolean).join('\n');
+
+            const result = await createBooking({
+                user_id: ownerUserId,
+                pet_id: selectedBookingPet.pet_id,
+                pet_ids: [selectedBookingPet.pet_id],
+                service_type: savedServiceType,
+                booking_date: adminBookingForm.bookingDate,
+                booking_time: adminBookingForm.bookingTime,
+                registered_status: 'Registered',
+                is_home_service: 0,
+                is_online_consultation: isOnlineConsultation ? 1 : 0,
+                veterinarian_id: isOnlineConsultation ? Number(adminBookingForm.veterinarianId) : null,
+                price: 0,
+                notes
+            });
+
+            const createdBooking = {
+                id: result.booking_id,
+                bookingNumber: result.booking_number,
+                userId: ownerUserId,
+                petId: selectedBookingPet.pet_id,
+                petName: selectedBookingPet.pet_name,
+                petSpecies: selectedBookingPet.pet_species,
+                ownerName: ownerNameForPet(selectedBookingPet),
+                type: savedServiceType,
+                service: serviceLabel,
+                date: adminBookingForm.bookingDate,
+                time: adminBookingForm.bookingTime,
+                isOnlineConsultation,
+                veterinarian: selectedVet ? vetName(selectedVet) : 'Clinic Team',
+                status: 'pending',
+                notes
+            };
+
+            toast.success(`Booking ${result.booking_number} created.`);
+            setAddBookingOpen(false);
+            resetAddBookingDialog();
+            await fetchBookings();
+
+            if (shouldOpenPOS) {
+                sendBookingPaymentToPOS(createdBooking);
+            }
+        } catch (error) {
+            console.error('Error creating admin booking:', error);
+            toast.error(error.message || 'Failed to create booking.');
+        } finally {
+            setIsCreatingBooking(false);
         }
     };
 
@@ -166,6 +397,10 @@ export default function BookingsManagement() {
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
             visit: {
                 id: booking.bookingNumber,
+                bookingId: booking.id,
+                petId: booking.petId || null,
+                ownerUserId: booking.userId || null,
+                sourceType: 'booking',
                 petName: booking.petName || 'Online Consultation',
                 ownerName: booking.ownerName || 'Pet Owner',
                 species: booking.petSpecies || 'Pet',
@@ -178,7 +413,7 @@ export default function BookingsManagement() {
                 ? [{
                     classificationId: 'services',
                     receiptType: 'SERVICE',
-                    name: getServiceDisplayName(booking.service || booking.type || 'Online Consultation'),
+                    name: booking.isOnlineConsultation ? 'Online Consultation' : getServiceDisplayName(booking.service || booking.type || 'Online Consultation'),
                     group: 'Online Consultation',
                     quantity: 1,
                     price: Number(booking.price || 0),
@@ -378,7 +613,8 @@ export default function BookingsManagement() {
             'vaccination': 'Vaccination',
             'grooming': 'Grooming',
             'dental': 'Dental Check-up',
-            'wellness': 'General Check-Up',
+            'General Check-up': 'General Check-up',
+            'general-checkup': 'General Check-up',
             'surgery': 'Surgery',
             'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
@@ -393,6 +629,12 @@ export default function BookingsManagement() {
 
     const getBoardingStayLabel = (type) => (
         type === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+    );
+
+    const getBookingServiceName = (booking) => (
+        booking?.isOnlineConsultation
+            ? 'Online Consultation'
+            : getServiceDisplayName(booking?.service || booking?.type || 'consultation')
     );
 
     const getBoardingAssignmentStatusLabel = (status) => {
@@ -420,7 +662,9 @@ export default function BookingsManagement() {
             ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             bookingNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesType = filterType === 'all' || filterType === 'Service Type' || booking.type === filterType;
+        const matchesType = filterType === 'all'
+            || filterType === 'Service Type'
+            || (filterType === 'online-consultation' ? booking.isOnlineConsultation : booking.type === filterType);
         const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
         const createdDate = new Date(booking.createdAt || booking.date);
         const today = new Date();
@@ -448,13 +692,23 @@ export default function BookingsManagement() {
 
     return (
         <div className="w-full space-y-6">
-            <div>
-                <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-                    Bookings Management
-                </h2>
-                <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                    View and manage all booking appointments
-                </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
+                        Bookings Management
+                    </h2>
+                    <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
+                        View and manage all booking appointments
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    onClick={openAddBookingDialog}
+                    className="w-full gap-2 bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto"
+                >
+                    <Plus className="size-4" />
+                    Add Booking
+                </Button>
             </div>
 
             <div className="flex flex-wrap gap-3 sm:gap-6">
@@ -493,11 +747,11 @@ export default function BookingsManagement() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Service Type">Service Type</SelectItem>
-                            <SelectItem value="consultation">Consultation</SelectItem>
+                            <SelectItem value="online-consultation">Online Consultation</SelectItem>
                             <SelectItem value="vaccination">Vaccination</SelectItem>
                             <SelectItem value="grooming">Grooming</SelectItem>
                             <SelectItem value="dental">Dental</SelectItem>
-                            <SelectItem value="wellness">General Check-Up</SelectItem>
+                            <SelectItem value="General Check-up">General Check-up</SelectItem>
                             <SelectItem value="surgery">Surgery</SelectItem>
                             <SelectItem value="lab-testing">Lab Testing</SelectItem>
                             <SelectItem value="parasite-control">Parasite Control</SelectItem>
@@ -726,7 +980,7 @@ export default function BookingsManagement() {
                                                             Service
                                                         </p>
                                                         <p className="font-['Arimo:Regular',sans-serif] text-[16px]">
-                                                            {getServiceDisplayName(booking.service)}
+                                                            {getBookingServiceName(booking)}
                                                         </p>
                                                     </div>
                                                     {booking.isOnlineConsultation && (
@@ -978,6 +1232,23 @@ export default function BookingsManagement() {
                                                     )}
                                                 </div>
 
+                                                {booking.status !== 'cancelled' && (
+                                                    <div className="border-t pt-4">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => sendBookingPaymentToPOS(booking)}
+                                                            className="w-full border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff]"
+                                                        >
+                                                            <CreditCard className="size-4 mr-2" />
+                                                            Open Point-Of-Sale Payment
+                                                        </Button>
+                                                        <p className="mt-2 text-[12px] text-[#4a5565]">
+                                                            Point-Of-Sale opens blank so staff can add the payment service manually.
+                                                        </p>
+                                                    </div>
+                                                )}
+
                                                 {/* Review Booking Section */}
                                                 {booking.status !== 'completed' && (
                                                     <div className="border-t pt-4">
@@ -1091,6 +1362,195 @@ export default function BookingsManagement() {
             </Table>
             </div>
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
+
+            <Dialog
+                open={addBookingOpen}
+                onOpenChange={(open) => {
+                    if (isCreatingBooking) {
+                        return;
+                    }
+
+                    setAddBookingOpen(open);
+                    if (!open) {
+                        resetAddBookingDialog();
+                    }
+                }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                            Add Booking
+                        </DialogTitle>
+                        <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                            Create an admin booking. Point-Of-Sale opens without a preset service so staff can add the payment line manually.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Pet</Label>
+                            <Input
+                                value={bookingPetSearch}
+                                onChange={(event) => {
+                                    setBookingPetSearch(event.target.value);
+                                    setSelectedBookingPet(null);
+                                }}
+                                placeholder={isLoadingBookingPets ? 'Loading pets...' : 'Search registered pet or owner'}
+                                disabled={isCreatingBooking}
+                            />
+                            {bookingPetSearch.trim().length >= 2 && !selectedBookingPet && (
+                                <div className="max-h-44 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm">
+                                    {isLoadingBookingPets ? (
+                                        <div className="px-3 py-2 text-sm text-slate-500">Loading pets...</div>
+                                    ) : bookingPetSuggestions.length > 0 ? (
+                                        bookingPetSuggestions.map((pet) => (
+                                            <button
+                                                type="button"
+                                                key={pet.pet_id}
+                                                onClick={() => selectBookingPet(pet)}
+                                                className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-slate-50"
+                                            >
+                                                <span className="font-semibold text-slate-900">{pet.pet_name}</span>
+                                                <span className="text-xs text-slate-500">
+                                                    {ownerNameForPet(pet)}{pet.pet_species ? ` / ${pet.pet_species}` : ''}
+                                                </span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2 text-sm text-slate-500">No registered pet found</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Owner</Label>
+                                <Input
+                                    value={selectedBookingPet ? ownerNameForPet(selectedBookingPet) : ''}
+                                    readOnly
+                                    className="bg-slate-50"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Service Category</Label>
+                                <Select
+                                    value={adminBookingForm.serviceType}
+                                    onValueChange={(value) => setAdminBookingForm((current) => ({ ...current, serviceType: value }))}
+                                    disabled={isCreatingBooking}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {ADMIN_BOOKING_SERVICE_TYPES.map((type) => (
+                                            <SelectItem key={type.value} value={type.value}>
+                                                {type.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {adminBookingForm.serviceType === 'online-consultation' && (
+                                <div className="space-y-2">
+                                    <Label>Veterinarian</Label>
+                                    <Select
+                                        value={adminBookingForm.veterinarianId}
+                                        onValueChange={(value) => setAdminBookingForm((current) => ({ ...current, veterinarianId: value }))}
+                                        disabled={isCreatingBooking || isLoadingVeterinarians}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={isLoadingVeterinarians ? 'Loading veterinarians...' : 'Select veterinarian'} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {veterinarians.length > 0 ? (
+                                                veterinarians.map((vet) => (
+                                                    <SelectItem key={vetId(vet)} value={vetId(vet)}>
+                                                        {vetName(vet)}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="no-veterinarians" disabled>
+                                                    No veterinarians available
+                                                </SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <Label>Date</Label>
+                                <Input
+                                    type="date"
+                                    value={adminBookingForm.bookingDate}
+                                    onChange={(event) => setAdminBookingForm((current) => ({ ...current, bookingDate: event.target.value }))}
+                                    disabled={isCreatingBooking}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Time</Label>
+                                <Input
+                                    type="time"
+                                    value={adminBookingForm.bookingTime}
+                                    onChange={(event) => setAdminBookingForm((current) => ({ ...current, bookingTime: event.target.value }))}
+                                    disabled={isCreatingBooking}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Payment</Label>
+                            <Select
+                                value={adminBookingForm.paymentAction}
+                                onValueChange={(value) => setAdminBookingForm((current) => ({ ...current, paymentAction: value }))}
+                                disabled={isCreatingBooking}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pos">Open Point-Of-Sale after booking</SelectItem>
+                                    <SelectItem value="unpaid">Save as unpaid booking</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Notes</Label>
+                            <Textarea
+                                value={adminBookingForm.notes}
+                                onChange={(event) => setAdminBookingForm((current) => ({ ...current, notes: event.target.value }))}
+                                rows={3}
+                                placeholder="Walk-in or admin booking notes"
+                                disabled={isCreatingBooking}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setAddBookingOpen(false)}
+                            disabled={isCreatingBooking}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={createAdminBooking}
+                            disabled={isCreatingBooking}
+                            className="bg-[#155dfc] hover:bg-[#0d4acf]"
+                        >
+                            {isCreatingBooking ? (
+                                <><Loader2 className="size-4 mr-2 animate-spin" /> Creating...</>
+                            ) : adminBookingForm.paymentAction === 'pos' ? (
+                                'Create & Open Point-Of-Sale'
+                            ) : (
+                                'Create Booking'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={!!infoModal}

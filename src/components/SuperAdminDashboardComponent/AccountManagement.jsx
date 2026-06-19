@@ -6,7 +6,7 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2 } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
@@ -89,6 +89,64 @@ export default function AccountManagement() {
     };
 
     const isAccountActive = (status) => status === true || status === 1 || status === '1' || status === 'active';
+    const displayValue = (value, fallback = 'Not provided') => {
+        const text = String(value ?? '').trim();
+        return text || fallback;
+    };
+    const getInitials = (account) => {
+        const first = displayValue(account?.first_Name, '').charAt(0);
+        const last = displayValue(account?.last_Name, '').charAt(0);
+        return `${first}${last}`.trim() || 'IP';
+    };
+    const parseHistory = (value) => {
+        if (!value) return [];
+        try {
+            const decoded = JSON.parse(value);
+            if (Array.isArray(decoded)) {
+                return decoded.map((entry) => {
+                    if (typeof entry === 'string') return entry;
+                    return [
+                        entry.title,
+                        entry.organization,
+                        entry.company,
+                        entry.description,
+                        entry.year || entry.years || entry.date
+                    ].filter(Boolean).join(' - ');
+                }).filter(Boolean);
+            }
+        } catch {
+            return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        }
+        return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    };
+    const ProfileField = ({ icon, label, value, accent = 'text-slate-950' }) => (
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    {createElement(icon, { className: 'size-4' })}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(value)}</p>
+                </div>
+            </div>
+        </div>
+    );
+    const HistoryBlock = ({ title, value }) => {
+        const rows = parseHistory(value);
+        return (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h5 className="text-sm font-black text-slate-950">{title}</h5>
+                {rows.length ? (
+                    <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
+                        {rows.map((line, index) => <li key={`${title}-${index}`}>{line}</li>)}
+                    </ul>
+                ) : (
+                    <p className="mt-3 text-sm font-semibold text-slate-400">Not provided</p>
+                )}
+            </div>
+        );
+    };
 
     const openStatusConfirmation = (user) => {
         const currentStatus = isAccountActive(user.is_active);
@@ -246,82 +304,65 @@ export default function AccountManagement() {
                             </DialogHeader>
 
                             <div className="space-y-6">
-                                <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_52%,#f5f3ff_100%)] p-5">
                                     <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black ${
                                                 selectedUser.type === 'vet' ? 'bg-blue-600' : 'bg-purple-600'
                                             }`}>
-                                                {selectedUser.first_Name[0]}{selectedUser.last_Name[0]}
+                                                {getInitials(selectedUser)}
                                             </div>
                                             <div className="min-w-0">
                                                 <h3 className="truncate text-xl font-bold text-gray-900">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
-                                                <p className="text-sm text-gray-600">{selectedUser.role}</p>
+                                                <p className="text-sm font-semibold text-gray-600">
+                                                    {selectedUser.role} · {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : displayValue(selectedUser.employee_id)}
+                                                </p>
                                             </div>
                                         </div>
                                         {getStatusBadge(selectedUser.is_active)}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="font-bold text-gray-900 mb-3">Personal Information</h4>
-                                        <div className="space-y-3">
-                                            <div className="flex items-start gap-3 text-sm">
-                                                <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                <div>
-                                                    <p className="text-xs text-gray-500">Email Address</p>
-                                                    <p className="font-medium text-gray-900">{selectedUser.mail_Address}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-start gap-3 text-sm">
-                                                <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                <div>
-                                                    <p className="text-xs text-gray-500">Hire Date</p>
-                                                    <p className="font-medium text-gray-900">{formatDisplayDate(selectedUser.hire_date)}</p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                <div className="space-y-4">
+                                    <h4 className="font-bold text-gray-900">Personal Information</h4>
+                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                        <ProfileField icon={Mail} label="Email Address" value={selectedUser.mail_Address} />
+                                        <ProfileField icon={Phone} label="Phone Number" value={selectedUser.phoneNumber || selectedUser.emergencyNumber} />
+                                        <ProfileField icon={MapPin} label="Address" value={selectedUser.personal_Address} />
+                                        <ProfileField icon={Calendar} label="Birthdate" value={selectedUser.birthdate ? formatDisplayDate(selectedUser.birthdate) : ''} />
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <h4 className="font-bold text-gray-900 mb-3">Professional Information</h4>
-                                        {selectedUser.type === 'vet' ? (
-                                            <div className="space-y-3">
-                                                <div className="flex items-start gap-3 text-sm">
-                                                    <Award className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">PRC License</p>
-                                                        <p className="font-medium text-blue-600">{selectedUser.prc_license_number}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-start gap-3 text-sm">
-                                                    <Briefcase className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Specialization</p>
-                                                        <p className="font-medium">{selectedUser.specialization}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                <div className="flex items-start gap-3 text-sm">
-                                                    <UserCog className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Position</p>
-                                                        <p className="font-medium text-purple-600">{selectedUser.postionn}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-start gap-3 text-sm">
-                                                    <CheckCircle className="w-5 h-5 text-gray-400 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
-                                                        <p className="font-medium uppercase">{selectedUser.employment_status}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                <div className="space-y-4">
+                                    <h4 className="font-bold text-gray-900">Professional Profile</h4>
+                                    {selectedUser.type === 'vet' ? (
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                            <ProfileField icon={Award} label="Veterinarian ID" value={selectedUser.veterinarian_id} accent="text-blue-700" />
+                                            <ProfileField icon={Award} label="PRC License" value={selectedUser.prc_license_number} accent="text-blue-700" />
+                                            <ProfileField icon={Briefcase} label="Specialization" value={selectedUser.specialization} />
+                                            <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
+                                            <ProfileField icon={ShieldCheck} label="Accepting Patients" value={Number(selectedUser.is_accepting_patients ?? 1) === 1 ? 'Yes' : 'No'} />
+                                            <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
+                                            <ProfileField icon={CheckCircle} label="Consultation Rate" value={selectedUser.consultation_rate ? `PHP ${selectedUser.consultation_rate}` : ''} />
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                            <ProfileField icon={UserCog} label="Employee ID" value={selectedUser.employee_id} accent="text-purple-700" />
+                                            <ProfileField icon={UserCog} label="Position" value={selectedUser.postionn} accent="text-purple-700" />
+                                            <ProfileField icon={CheckCircle} label="Employment Status" value={selectedUser.employment_status} />
+                                            <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
+                                            <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
+                                            <ProfileField icon={ShieldCheck} label="SSS Number" value={selectedUser.sss_number} />
+                                            <ProfileField icon={ShieldCheck} label="PhilHealth Number" value={selectedUser.philhealth_number} />
+                                            <ProfileField icon={ShieldCheck} label="TIN Number" value={selectedUser.tin_number} />
+                                            <ProfileField icon={ShieldCheck} label="Pag-IBIG Number" value={selectedUser.pagibig_number} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <HistoryBlock title="Education History" value={selectedUser.education_history} />
+                                    <HistoryBlock title="Experience History" value={selectedUser.experience_history} />
                                 </div>
 
                                 <div className="border-t pt-6">
@@ -407,7 +448,7 @@ export default function AccountManagement() {
 
             {/* Create Account Modal */}
             <Dialog open={showCreateAccount} onOpenChange={setShowCreateAccount}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-xl md:text-2xl">Create New Account</DialogTitle>
                         <DialogDescription>Super Admin Authorization Required</DialogDescription>

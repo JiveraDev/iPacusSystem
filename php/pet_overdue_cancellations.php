@@ -49,7 +49,7 @@ try {
         $pdo,
         $numericPetId,
         true,
-        'This queue entry was cancelled because it is more than 2 days old and was not completed.'
+        'This queue entry was cancelled because its service day ended and it was not completed.'
     );
 
     $total = (int)$bookingResult['count'] + (int)$queueResult['count'];

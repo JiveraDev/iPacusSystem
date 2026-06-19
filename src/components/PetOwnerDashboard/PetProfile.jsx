@@ -37,7 +37,6 @@ export default function PetProfile() {
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [queueRecords, setQueueRecords] = useState([]);
   const [bookingRecords, setBookingRecords] = useState([]);
-  const [activityReferenceTime, setActivityReferenceTime] = useState(() => Date.now());
   const [confirmAction, setConfirmAction] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -80,7 +79,6 @@ export default function PetProfile() {
 
       setQueueRecords(Array.isArray(queuesData) ? queuesData : []);
       setBookingRecords(Array.isArray(bookingsData) ? bookingsData : []);
-      setActivityReferenceTime(Date.now());
     } catch (error) {
       console.error("Error fetching pet activity:", error);
       if (!isAutoRefresh) {
@@ -163,24 +161,13 @@ export default function PetProfile() {
     return <Badge className={`${variants[status] || variants.pending} border`}>{labels[status] || "Pending"}</Badge>;
   };
 
-  const isWithinLastTwoDays = (dateValue) => {
-    if (!dateValue) return false;
-    const date = new Date(String(dateValue).replace(" ", "T"));
-    if (Number.isNaN(date.getTime())) return false;
-
-    const ageMs = activityReferenceTime - date.getTime();
-    return ageMs >= 0 && ageMs <= 2 * 24 * 60 * 60 * 1000;
-  };
-
   const shouldShowQueueRecord = (item) => {
     if (item.status === "completed" || item.status === "done") return false;
-    if (item.status === "cancelled") return isWithinLastTwoDays(item.timestamp);
     return true;
   };
 
   const shouldShowBookingRecord = (booking) => {
     if (booking.status === "completed") return false;
-    if (booking.status === "cancelled") return isWithinLastTwoDays(booking.createdAt || booking.date);
     return true;
   };
 
@@ -775,7 +762,7 @@ export default function PetProfile() {
               ) : (
                 <div className="text-center py-6">
                   <p className="font-bold text-slate-900">No active queue entry</p>
-                  <p className="text-sm text-slate-500 mt-1">Only pending queues and cancelled queues from the last two days appear here.</p>
+                  <p className="text-sm text-slate-500 mt-1">Pending queues and cancelled re-entry holders appear here.</p>
                 </div>
               )}
             </CardContent>
@@ -835,7 +822,7 @@ export default function PetProfile() {
               ) : (
                 <div className="px-4 py-12 text-center sm:px-8">
                   <p className="font-bold text-slate-900">No active bookings</p>
-                  <p className="text-sm text-slate-500 mt-1">Only pending bookings and cancelled bookings from the last two days appear here.</p>
+                  <p className="text-sm text-slate-500 mt-1">Pending bookings and cancelled booking records appear here.</p>
                 </div>
               )}
             </CardContent>

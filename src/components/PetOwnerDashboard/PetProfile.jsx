@@ -29,6 +29,8 @@ function isImageUploadPath(path) {
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(path || "").split("?")[0]);
 }
 
+const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
+
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
@@ -42,6 +44,15 @@ export default function PetProfile() {
   const [copied, setCopied] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
   const [consentViewer, setConsentViewer] = useState(null);
+
+  const backTargetLabel = useMemo(() => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return DIRECTORY_ROLES.includes(currentUser.role || "") ? "Pet Directory" : "My Pets";
+    } catch {
+      return "My Pets";
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchPet() {
@@ -477,7 +488,7 @@ export default function PetProfile() {
       <div className="space-y-8 animate-in fade-in duration-300">
         <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="hover:bg-slate-100">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to My Pets
+          Back to {backTargetLabel}
         </Button>
         <Card className="border-slate-200">
           <CardContent className="pt-12 pb-12 text-center">
@@ -490,7 +501,7 @@ export default function PetProfile() {
               It might have been unlinked or the ID is incorrect.
             </p>
             <Button onClick={() => navigate("/dashboard/my-pets")} className="bg-[#155dfc]">
-              Return to My Pets
+              Return to {backTargetLabel}
             </Button>
           </CardContent>
         </Card>
@@ -503,7 +514,7 @@ export default function PetProfile() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="w-fit hover:bg-slate-100">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
+          Back to {backTargetLabel}
         </Button>
         <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 shadow-sm sm:w-auto sm:px-4">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registration ID</span>

@@ -117,7 +117,7 @@ export default function MyPets() {
   }, [directorySearch, isAdminView, pets]);
 
   const openPet = (pet) => {
-    navigate(isAdminView ? `/dashboard/pet-register/${pet.id}` : `/dashboard/my-pets/${pet.id}`);
+    navigate(`/dashboard/my-pets/${pet.id}`);
   };
 
   if (isLoading) {

@@ -94,6 +94,19 @@ export default function PetRegister() {
         }
     };
 
+    const openPetDirectoryProfile = (petId) => {
+        navigate(`/dashboard/my-pets/${petId}`);
+    };
+
+    const handlePetShortcutKeyDown = (event, petId) => {
+        if (event.target !== event.currentTarget) return;
+
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openPetDirectoryProfile(petId);
+        }
+    };
+
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -597,12 +610,17 @@ export default function PetRegister() {
                         filteredRegisteredPets.map((pet) => (
                             <div
                                 key={pet.id}
-                                className={`rounded-[12px] border p-4 ${
+                                role="button"
+                                tabIndex={0}
+                                title="Open pet directory profile"
+                                onClick={() => openPetDirectoryProfile(pet.id)}
+                                onKeyDown={(event) => handlePetShortcutKeyDown(event, pet.id)}
+                                className={`cursor-pointer rounded-[12px] border p-4 transition hover:shadow-md ${
                                     pet.status === 'Emergency'
-                                        ? 'border-red-100 bg-red-50'
+                                        ? 'border-red-100 bg-red-50 hover:bg-red-100'
                                         : pet.status === 'Deceased'
-                                        ? 'border-slate-200 bg-slate-100 opacity-75'
-                                        : 'border-slate-100 bg-white'
+                                        ? 'border-slate-200 bg-slate-100 opacity-75 hover:bg-slate-200'
+                                        : 'border-slate-100 bg-white hover:bg-slate-50'
                                 }`}
                             >
                                 <div className="flex items-start justify-between gap-3">
@@ -619,7 +637,7 @@ export default function PetRegister() {
                                     }`} />
                                 </div>
 
-                                <div className="mt-4">
+                                <div className="mt-4" onClick={(event) => event.stopPropagation()}>
                                     <Select
                                         value={pet.status}
                                         onValueChange={(value) => handleStatusChange(pet.id, value)}
@@ -658,7 +676,6 @@ export default function PetRegister() {
                             <col className="hidden w-[130px] xl:table-column" />
                             <col className="hidden w-[150px] lg:table-column" />
                             <col className="w-[160px]" />
-                            <col className="w-[120px]" />
                         </colgroup>
                         <thead>
                             <tr className="border-b border-slate-100">
@@ -668,13 +685,12 @@ export default function PetRegister() {
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden xl:table-cell">Gender/Age</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden lg:table-cell">Owner</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Status</th>
-                                <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="7" className="py-10 text-center text-slate-400">
+                                    <td colSpan="6" className="py-10 text-center text-slate-400">
                                         Loading pets...
                                     </td>
                                 </tr>
@@ -683,7 +699,12 @@ export default function PetRegister() {
                                     .map((pet) => (
                                         <tr 
                                             key={pet.id} 
-                                            className={`border-b transition ${
+                                            role="button"
+                                            tabIndex={0}
+                                            title="Open pet directory profile"
+                                            onClick={() => openPetDirectoryProfile(pet.id)}
+                                            onKeyDown={(event) => handlePetShortcutKeyDown(event, pet.id)}
+                                            className={`cursor-pointer border-b transition ${
                                                 pet.status === 'Emergency' 
                                                     ? 'bg-red-50 hover:bg-red-100 border-red-100' 
                                                     : pet.status === 'Deceased'
@@ -710,7 +731,7 @@ export default function PetRegister() {
                                         <td className="py-3 px-4 hidden lg:table-cell">
                                             <p className="truncate text-sm font-medium text-blue-600">{pet.tempOwnerName || 'Unlinked'}</p>
                                         </td>
-                                        <td className="py-3 px-4">
+                                        <td className="py-3 px-4" onClick={(event) => event.stopPropagation()}>
                                             <div className="flex items-center gap-2">
                                                 <div className={`size-2 rounded-full shrink-0 ${
                                                     pet.status === 'Emergency' ? 'bg-red-500 animate-pulse' :
@@ -738,21 +759,11 @@ export default function PetRegister() {
                                                 </Select>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                onClick={() => navigate(`/dashboard/pet-register/${pet.id}`)}
-                                                className="h-8 px-3 text-xs font-bold border-[#155dfc] text-[#155dfc] hover:bg-[#155dfc] hover:text-white"
-                                            >
-                                                Edit Profile
-                                            </Button>
-                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="py-10 text-center text-slate-400">
+                                    <td colSpan="6" className="py-10 text-center text-slate-400">
                                         No pets registered yet.
                                     </td>
                                 </tr>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -749,17 +750,24 @@ function rooms_action(PDO $pdo): void
         $pdo->beginTransaction();
         try {
             $hasDescriptionColumn = boarding_column_exists($pdo, 'rooms', 'description');
-            $stmt = $pdo->prepare("SELECT room_id, total_capacity FROM rooms WHERE room_type = ? ORDER BY room_id ASC LIMIT 1 FOR UPDATE");
+            $hasRoomIdColumn = boarding_column_exists($pdo, 'rooms', 'room_id');
+            $selectSql = $hasRoomIdColumn
+                ? "SELECT room_id, total_capacity FROM rooms WHERE room_type = ? ORDER BY room_id ASC LIMIT 1 FOR UPDATE"
+                : "SELECT room_type, total_capacity FROM rooms WHERE room_type = ? LIMIT 1 FOR UPDATE";
+            $stmt = $pdo->prepare($selectSql);
             $stmt->execute([$roomType]);
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($room) {
+                $whereColumn = $hasRoomIdColumn ? 'room_id' : 'room_type';
+                $whereValue = $hasRoomIdColumn ? (int)$room['room_id'] : $roomType;
+
                 if ($hasDescriptionColumn) {
-                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ?, description = COALESCE(NULLIF(?, ''), description) WHERE room_id = ?");
-                    $update->execute([$quantity, $description, (int)$room['room_id']]);
+                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ?, description = COALESCE(NULLIF(?, ''), description) WHERE {$whereColumn} = ?");
+                    $update->execute([$quantity, $description, $whereValue]);
                 } else {
-                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ? WHERE room_id = ?");
-                    $update->execute([$quantity, (int)$room['room_id']]);
+                    $update = $pdo->prepare("UPDATE rooms SET total_capacity = total_capacity + ? WHERE {$whereColumn} = ?");
+                    $update->execute([$quantity, $whereValue]);
                 }
             } else {
                 if ($hasDescriptionColumn) {
@@ -870,7 +878,10 @@ function direct_check_in_action(PDO $pdo): void
     $petId = resolve_boarding_pet_id($pdo, $input['pet_id'] ?? null);
     $roomType = normalize_room_type($input['hotel_boarding_type'] ?? $input['type'] ?? null, $input['room_size'] ?? $input['size'] ?? null);
     $checkOut = $input['check_out_date'] ?? $input['desired_check_out_date'] ?? null;
-    $emergencyContact = trim((string)($input['emergency_contact'] ?? 'Walk-in check-in'));
+    $rawEmergencyContact = trim((string)($input['emergency_contact'] ?? ''));
+    $emergencyContact = $rawEmergencyContact === ''
+        ? 'Walk-in check-in'
+        : rejectInvalidPhilippinePhoneNumber($rawEmergencyContact, 'Emergency contact');
     $notes = trim((string)($input['notes'] ?? ''));
     $price = isset($input['price']) ? (float)$input['price'] : 0;
     $serviceCatalogId = isset($input['service_catalog_id']) ? (int)$input['service_catalog_id'] : 0;
@@ -1480,15 +1491,16 @@ function task_complete_action(PDO $pdo): void
 }
 
 try {
-    require_boarding_tables($pdo, [
-        'rooms',
-        'room_unit_statuses',
-        'boarding_assignments',
-        'boarding_observations',
-        'boarding_tasks',
-    ]);
-
     $action = $_GET['action'] ?? '';
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $requiredTables = ['rooms', 'room_unit_statuses', 'boarding_assignments', 'boarding_observations', 'boarding_tasks'];
+
+    if ($action === 'rooms' && $method === 'POST') {
+        $requiredTables = ['rooms'];
+    }
+
+    require_boarding_tables($pdo, $requiredTables);
+
     switch ($action) {
         case 'rooms':
             rooms_action($pdo);

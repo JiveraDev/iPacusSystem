@@ -12,6 +12,7 @@ import ThemeToggle from "../shared/ThemeToggle.jsx";
 import NotificationPreferencesCard from "../shared/NotificationPreferencesCard.jsx";
 import { uploadImageFile } from "../../services/uploadService";
 import { fetchUser, updateUser } from "../../services/userService";
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 
 function parseProfileDate(value) {
   if (!value) return null;
@@ -53,13 +54,14 @@ export default function PetOwnerProfile({ onLogout }) {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
+    phone: normalizePhilippinePhoneInput(""),
     address: "",
     dateOfBirth: "",
     profileImage: "",
   });
   
   const [imageFile, setImageFile] = useState(null);
+  const [phoneError, setPhoneError] = useState("");
 
   // Helper to normalize user data from various possible property names
   const normalizeUser = (u) => {
@@ -67,7 +69,7 @@ export default function PetOwnerProfile({ onLogout }) {
       firstName: "",
       lastName: "",
       email: "",
-      phone: "",
+      phone: normalizePhilippinePhoneInput(""),
       address: "",
       dateOfBirth: "",
       profileImage: "",
@@ -77,7 +79,7 @@ export default function PetOwnerProfile({ onLogout }) {
       firstName: u.firstName || u.first_Name || u.first_name || "",
       lastName: u.lastName || u.last_Name || u.last_name || "",
       email: u.email || u.mail_Address || "",
-      phone: u.phone || u.phoneNumber || "",
+      phone: normalizePhilippinePhoneInput(u.phone || u.phoneNumber || ""),
       address: u.address || u.personal_Address || "",
       dateOfBirth: u.birthdate || u.dateOfBirth || "",
       profileImage: u.profileImage || u.setProfilePic_url || "",
@@ -151,6 +153,15 @@ export default function PetOwnerProfile({ onLogout }) {
       return;
     }
 
+    const nextPhoneError = getPhilippinePhoneError(profileData.phone, { optional: true });
+    if (nextPhoneError) {
+      setPhoneError(nextPhoneError);
+      toast.error(nextPhoneError);
+      return;
+    }
+
+    setPhoneError("");
+    const normalizedPhone = normalizePhilippinePhoneForSubmit(profileData.phone, { optional: true });
     setIsSaving(true);
     let finalImageUrl = profileData.profileImage;
 
@@ -164,7 +175,7 @@ export default function PetOwnerProfile({ onLogout }) {
       const result = await updateUser(userId, {
         firstName: profileData.firstName,
         lastName: profileData.lastName,
-        phoneNumber: profileData.phone,
+        phoneNumber: normalizedPhone,
         address: profileData.address,
         dateOfBirth: profileData.dateOfBirth,
         profileImage: finalImageUrl
@@ -177,8 +188,8 @@ export default function PetOwnerProfile({ onLogout }) {
         ...user,
         firstName: serverUser?.firstName || profileData.firstName,
         lastName: serverUser?.lastName || profileData.lastName,
-        phoneNumber: serverUser?.phone || profileData.phone,
-        phone: serverUser?.phone || profileData.phone,
+        phoneNumber: serverUser?.phone || normalizedPhone,
+        phone: serverUser?.phone || normalizedPhone,
         address: serverUser?.address || profileData.address,
         personal_Address: serverUser?.address || profileData.address,
         birthdate: serverUser?.dateOfBirth || profileData.dateOfBirth,
@@ -380,11 +391,17 @@ export default function PetOwnerProfile({ onLogout }) {
                     <Input
                       id="phone"
                       value={profileData.phone}
-                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                      onChange={(e) => {
+                        setPhoneError("");
+                        setProfileData({ ...profileData, phone: normalizePhilippinePhoneInput(e.target.value) });
+                      }}
                       disabled={!isEditingProfile || isSaving}
-                      className={inputClass}
-                      placeholder="+63 XXX XXX XXXX"
+                      inputMode="tel"
+                      maxLength={13}
+                      className={`${inputClass} ${phoneError ? "border-red-500" : ""}`}
+                      placeholder="+639"
                     />
+                    {phoneError && <p className="mt-1 text-xs font-medium text-red-600">{phoneError}</p>}
                   </ProfileField>
 
                   <ProfileField htmlFor="dob" label={isEditingProfile ? "Date of Birth" : "Current Age"} icon={<Calendar className="h-4 w-4 text-slate-400" />}>
@@ -423,6 +440,7 @@ export default function PetOwnerProfile({ onLogout }) {
                         setIsEditingProfile(false);
                         setImageFile(null);
                         setImageError(false);
+                        setPhoneError("");
                         setProfileData(normalizeUser(contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}")));
                       }}
                       className="h-11 rounded-lg border-slate-200 px-5 text-sm font-semibold hover:bg-slate-50"

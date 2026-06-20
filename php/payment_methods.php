@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -58,8 +59,8 @@ function payment_methods_ensure_schema(PDO $pdo): void
 
     $defaults = [
         ['qrph', 'QRPH', 'iPawcus Veterinary', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
-        ['maya', 'Maya', 'iPawcus Veterinary', '0917-XXX-XXXX', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
-        ['gcash', 'GCash', 'iPawcus Veterinary', '0917-XXX-XXXX', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
+        ['maya', 'Maya', 'iPawcus Veterinary', '', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
+        ['gcash', 'GCash', 'iPawcus Veterinary', '', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
         ['bank_transfer', 'Bank Transfer', 'iPawcus Veterinary', '', 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.', 40],
     ];
 
@@ -246,6 +247,23 @@ function payment_methods_save(PDO $pdo, array $input): void
         if (!isset($byKey[$requiredKey])) {
             payment_methods_error(400, 'All payment methods must be included.');
         }
+
+        $method = $byKey[$requiredKey];
+        $label = trim((string)($method['label'] ?? ''));
+        if ($label === '') {
+            payment_methods_error(400, 'Payment method label is required.');
+        }
+
+        $accountNumber = trim((string)($method['accountNumber'] ?? $method['account_number'] ?? ''));
+        if (in_array($requiredKey, ['maya', 'gcash'], true) && $accountNumber !== '') {
+            if (!isValidPhilippinePhoneNumber($accountNumber, true)) {
+                payment_methods_error(400, "{$label} number must be a complete Philippine mobile number after +639.");
+            }
+            $accountNumber = normalizePhilippinePhoneNumber($accountNumber);
+        }
+
+        $byKey[$requiredKey]['_normalizedLabel'] = $label;
+        $byKey[$requiredKey]['_normalizedAccountNumber'] = $accountNumber;
     }
 
     $pdo->beginTransaction();
@@ -267,15 +285,13 @@ function payment_methods_save(PDO $pdo, array $input): void
         $sortOrder = 10;
         foreach (PAYMENT_METHOD_KEYS as $key) {
             $method = $byKey[$key];
-            $label = trim((string)($method['label'] ?? ''));
-            if ($label === '') {
-                payment_methods_error(400, 'Payment method label is required.');
-            }
+            $label = $method['_normalizedLabel'];
+            $accountNumber = $method['_normalizedAccountNumber'];
 
             $stmt->execute([
                 $label,
                 trim((string)($method['accountName'] ?? $method['account_name'] ?? '')) ?: null,
-                trim((string)($method['accountNumber'] ?? $method['account_number'] ?? '')) ?: null,
+                $accountNumber ?: null,
                 trim((string)($method['instructions'] ?? '')) ?: null,
                 trim((string)($method['qrImageUrl'] ?? $method['qr_image_url'] ?? '')) ?: null,
                 $sortOrder,

@@ -9,6 +9,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, Check, Home, Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchRoomAvailability } from "../../services/boardingService";
@@ -165,7 +166,7 @@ export default function PetHotel() {
   const [checkOutDate, setCheckOutDate] = useState("");
   const [addOns, setAddOns] = useState([]);
   const [specialRequests, setSpecialRequests] = useState("");
-  const [emergencyContact, setEmergencyContact] = useState("");
+  const [emergencyContact, setEmergencyContact] = useState(() => normalizePhilippinePhoneInput(""));
   const [roomAvailability, setRoomAvailability] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
@@ -216,7 +217,7 @@ export default function PetHotel() {
         const currentUser = getCurrentUser();
         const userId = currentUser.id || currentUser.user_id || currentUser.userId;
 
-        setEmergencyContact(currentUser.phoneNumber || currentUser.phone || "");
+        setEmergencyContact(normalizePhilippinePhoneInput(currentUser.phoneNumber || currentUser.phone || ""));
 
         if (!userId) {
           setPets([]);
@@ -421,10 +422,14 @@ export default function PetHotel() {
       return;
     }
 
-    if (!emergencyContact.trim()) {
-      toast.error("Please provide an emergency contact number.");
+    const emergencyContactError = getPhilippinePhoneError(emergencyContact, {
+      requiredMessage: "Please provide an emergency contact number."
+    });
+    if (emergencyContactError) {
+      toast.error(emergencyContactError);
       return;
     }
+    const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(emergencyContact, { optional: true });
 
     if (!boardingSignature) {
       toast.error("Please sign the boarding liability consent before submitting.");
@@ -487,7 +492,7 @@ export default function PetHotel() {
         check_out_date: checkOutDate,
         room_size: roomSize,
         add_ons: addOnPayload,
-        emergency_contact: emergencyContact.trim(),
+        emergency_contact: normalizedEmergencyContact,
         hotel_boarding_type: serviceType,
         signature: signaturePath,
         consent_forms: consentForms,
@@ -735,8 +740,10 @@ export default function PetHotel() {
                 <Input
                   id="emergencyContact"
                   value={emergencyContact}
-                  onChange={(event) => setEmergencyContact(event.target.value)}
-                  placeholder="Phone number"
+                  onChange={(event) => setEmergencyContact(normalizePhilippinePhoneInput(event.target.value))}
+                  inputMode="tel"
+                  maxLength={13}
+                  placeholder="+639"
                   required
                 />
               </div>

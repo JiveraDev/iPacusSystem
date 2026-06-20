@@ -11,6 +11,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate } from '../../lib/date';
 import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
@@ -39,7 +40,7 @@ const emptyProfile = {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    phone: normalizePhilippinePhoneInput(''),
     licenseNumber: '',
     specialization: '',
     address: '',
@@ -101,6 +102,7 @@ export default function VetProfile({ onLogout }) {
     const [savedProfile, setSavedProfile] = useState(emptyProfile);
     const [imageFile, setImageFile] = useState(null);
     const [imageError, setImageError] = useState(false);
+    const [phoneError, setPhoneError] = useState('');
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -113,7 +115,7 @@ export default function VetProfile({ onLogout }) {
                     firstName: data.first_Name || '',
                     lastName: data.last_Name || '',
                     email: data.mail_Address || '',
-                    phone: data.phoneNumber || '',
+                    phone: normalizePhilippinePhoneInput(data.phoneNumber || ''),
                     licenseNumber: data.prc_license_number || '',
                     specialization: data.specialization || '',
                     address: data.personal_Address || '',
@@ -218,6 +220,15 @@ export default function VetProfile({ onLogout }) {
             return;
         }
 
+        const nextPhoneError = getPhilippinePhoneError(profileData.phone, { optional: true });
+        if (nextPhoneError) {
+            setPhoneError(nextPhoneError);
+            toast.error(nextPhoneError);
+            return;
+        }
+
+        setPhoneError('');
+        const normalizedPhone = normalizePhilippinePhoneForSubmit(profileData.phone, { optional: true });
         setIsSaving(true);
         let finalImageUrl = profileData.profileImage;
 
@@ -231,7 +242,7 @@ export default function VetProfile({ onLogout }) {
                 firstName: profileData.firstName,
                 lastName: profileData.lastName,
                 email: profileData.email,
-                phoneNumber: profileData.phone,
+                phoneNumber: normalizedPhone,
                 address: profileData.address,
                 profileImage: finalImageUrl,
                 licenseNumber: profileData.licenseNumber,
@@ -248,6 +259,7 @@ export default function VetProfile({ onLogout }) {
 
             const normalized = {
                 ...profileData,
+                phone: normalizedPhone,
                 profileImage: finalImageUrl,
                 educationHistory: cleanProfileHistory(profileData.educationHistory),
                 experienceHistory: cleanProfileHistory(profileData.experienceHistory)
@@ -261,8 +273,8 @@ export default function VetProfile({ onLogout }) {
                 last_Name: normalized.lastName,
                 email: normalized.email,
                 mail_Address: normalized.email,
-                phoneNumber: normalized.phone,
-                phone: normalized.phone,
+                phoneNumber: normalizedPhone,
+                phone: normalizedPhone,
                 address: normalized.address,
                 personal_Address: normalized.address,
                 profileImage: finalImageUrl,
@@ -289,6 +301,7 @@ export default function VetProfile({ onLogout }) {
         setProfileData(savedProfile);
         setImageFile(null);
         setImageError(false);
+        setPhoneError('');
         setIsEditing(false);
     };
 
@@ -365,7 +378,20 @@ export default function VetProfile({ onLogout }) {
                                     <ProfileInput label="First Name" icon={User} value={profileData.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, firstName: value })} />
                                     <ProfileInput label="Last Name" icon={User} value={profileData.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, lastName: value })} />
                                     <ProfileInput label="Email Address" icon={Mail} type="email" value={profileData.email} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, email: value })} />
-                                    <ProfileInput label="Phone Number" icon={Phone} value={profileData.phone} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, phone: value })} />
+                                    <ProfileInput
+                                        label="Phone Number"
+                                        icon={Phone}
+                                        value={profileData.phone}
+                                        disabled={!isEditing || isSaving}
+                                        onChange={(value) => {
+                                            setPhoneError('');
+                                            setProfileData({ ...profileData, phone: normalizePhilippinePhoneInput(value) });
+                                        }}
+                                        inputMode="tel"
+                                        maxLength={13}
+                                        placeholder="+639"
+                                        error={phoneError}
+                                    />
                                     <ProfileInput label="Address" icon={MapPin} value={profileData.address} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, address: value })} className="md:col-span-2" />
                                 </div>
                             </section>
@@ -521,7 +547,7 @@ export default function VetProfile({ onLogout }) {
     );
 }
 
-function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '' }) {
+function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '', inputMode, maxLength, placeholder = '', error = '' }) {
     const iconElement = icon ? createElement(icon, { className: 'size-4' }) : null;
 
     return (
@@ -535,8 +561,12 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
-                className="h-11"
+                inputMode={inputMode}
+                maxLength={maxLength}
+                placeholder={placeholder}
+                className={`h-11 ${error ? 'border-red-500' : ''}`}
             />
+            {error && <p className="text-xs font-medium text-red-600">{error}</p>}
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { X } from "lucide-react";
 
 import { cn } from "./utils";
 
@@ -20,6 +21,7 @@ function DialogContent({ className, children, ...props }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
       <button
         type="button"
+        tabIndex={-1}
         className="absolute inset-0 bg-slate-900/50"
         onClick={() => context.onOpenChange?.(false)}
         aria-label="Close dialog"
@@ -32,6 +34,14 @@ function DialogContent({ className, children, ...props }) {
         )}
         {...props}
       >
+        <button
+          type="button"
+          onClick={() => context.onOpenChange?.(false)}
+          aria-label="Close dialog"
+          className="absolute right-3 top-3 z-20 inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+        >
+          <X className="size-4" strokeWidth={2.5} />
+        </button>
         {children}
       </div>
     </div>
@@ -39,7 +49,7 @@ function DialogContent({ className, children, ...props }) {
 }
 
 function DialogHeader({ className, ...props }) {
-  return <div className={cn("mb-4 space-y-1.5", className)} {...props} />;
+  return <div className={cn("mb-4 space-y-1.5 pr-10", className)} {...props} />;
 }
 
 function DialogTitle({ className, ...props }) {

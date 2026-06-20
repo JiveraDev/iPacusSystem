@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 
@@ -33,7 +34,7 @@ try {
     }
     if (isset($input['phoneNumber'])) {
         $fields[] = "phoneNumber = ?";
-        $params[] = $input['phoneNumber'];
+        $params[] = rejectInvalidPhilippinePhoneNumber($input['phoneNumber'], 'Phone number', true);
     }
     if (isset($input['address'])) {
         $fields[] = "personal_Address = ?";

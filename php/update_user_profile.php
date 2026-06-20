@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 $role = $_GET['role'] ?? null;
@@ -61,8 +62,10 @@ try {
     addFieldIfPresent($input, $userFields, $userParams, 'firstName', 'first_Name');
     addFieldIfPresent($input, $userFields, $userParams, 'lastName', 'last_Name');
     addFieldIfPresent($input, $userFields, $userParams, 'email', 'mail_Address');
-    addFieldIfPresent($input, $userFields, $userParams, 'phoneNumber', 'phoneNumber');
-    addFieldIfPresent($input, $userFields, $userParams, 'phone', 'phoneNumber');
+    if (array_key_exists('phoneNumber', $input) || array_key_exists('phone', $input)) {
+        $userFields[] = 'phoneNumber = ?';
+        $userParams[] = rejectInvalidPhilippinePhoneNumber($input['phoneNumber'] ?? $input['phone'], 'Phone number', true);
+    }
     addFieldIfPresent($input, $userFields, $userParams, 'address', 'personal_Address');
     addFieldIfPresent($input, $userFields, $userParams, 'profileImage', 'setProfilePic_url');
     addFieldIfPresent($input, $userFields, $userParams, 'dateOfBirth', 'birthdate');

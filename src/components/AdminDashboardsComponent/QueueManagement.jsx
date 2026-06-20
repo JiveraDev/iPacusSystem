@@ -359,7 +359,7 @@ export default function QueueManagement() {
                     <Table className="w-full table-auto">
                         <TableHeader className="bg-slate-50/50">
                             <TableRow>
-                                <TableHead className="w-10 px-2"></TableHead>
+                                <TableHead className="w-20 px-2"></TableHead>
                                 <TableHead className="w-10 text-center px-1">#</TableHead>
                                 <TableHead className="font-bold text-slate-900">Pet</TableHead>
                                 <TableHead className="hidden md:table-cell">Service</TableHead>
@@ -383,13 +383,14 @@ export default function QueueManagement() {
                                                 variant={isExpanded ? "default" : "outline"}
                                                 size="sm" 
                                                 onClick={() => toggleRow(item.queue_id)} 
-                                                className={`h-8 w-8 p-0 border-slate-200 transition-all duration-200 ${
+                                                className={`h-8 min-w-[68px] px-2 gap-1 border-slate-200 text-[11px] font-bold transition-all duration-200 ${
                                                     isExpanded 
-                                                        ? "bg-blue-600 text-white border-blue-600 rotate-180" 
+                                                        ? "bg-blue-600 text-white border-blue-600" 
                                                         : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shadow-sm"
                                                 }`}
                                             >
-                                                <ChevronDown size={16} strokeWidth={2.5} />
+                                                View
+                                                <ChevronDown className={isExpanded ? "rotate-180" : ""} size={16} strokeWidth={2.5} />
                                             </Button>
                                         </TableCell>
                                         <TableCell className="text-center font-bold text-slate-600 px-1">{item.queue_number}</TableCell>

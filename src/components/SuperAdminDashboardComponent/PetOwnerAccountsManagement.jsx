@@ -613,6 +613,13 @@ export default function PetOwnerAccountsManagement() {
                                         : 'The owner will be blocked from logging in once the status column exists.'}
                                 </DialogDescription>
                             </DialogHeader>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-sm text-slate-600">Pet owner account</p>
+                                <p className="mt-1 font-semibold text-slate-900">{ownerName(pendingStatusOwner)}</p>
+                                <p className="mt-1 break-words text-sm font-semibold text-slate-700">
+                                    {cleanValue(pendingStatusOwner.mail_Address, 'No email')}
+                                </p>
+                            </div>
                             {!isDeactivated(pendingStatusOwner) ? (
                                 <Textarea
                                     value={reason}

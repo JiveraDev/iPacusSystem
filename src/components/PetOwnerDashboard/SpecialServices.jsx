@@ -232,6 +232,7 @@ export default function SpecialServices({ user }) {
     const [editServiceForm, setEditServiceForm] = useState({ ...EMPTY_SERVICE_FORM });
     const [isUpdatingService, setIsUpdatingService] = useState(false);
     const [availabilityDialogService, setAvailabilityDialogService] = useState(null);
+    const [pendingEditDisableConfirmation, setPendingEditDisableConfirmation] = useState(null);
 
     const [newPetName, setNewPetName] = useState("");
     const [newPetSpecies, setNewPetSpecies] = useState("");
@@ -448,10 +449,16 @@ export default function SpecialServices({ user }) {
 
         setEditingService(service);
         setEditServiceForm(buildServiceForm(service));
+        setPendingEditDisableConfirmation(null);
         setEditDialogOpen(true);
     };
 
-    const handleUpdateSpecialService = async () => {
+    const closeEditService = () => {
+        setEditDialogOpen(false);
+        setPendingEditDisableConfirmation(null);
+    };
+
+    const handleUpdateSpecialService = async ({ skipDisableConfirmation = false } = {}) => {
         if (!isAdminUser || !editingService) {
             toast.error("Only admin users can update special services.");
             return;
@@ -459,6 +466,13 @@ export default function SpecialServices({ user }) {
 
         if (!editServiceForm.service_title.trim()) {
             toast.error("Service title is required.");
+            return;
+        }
+
+        if (!skipDisableConfirmation && editingService.isActive !== false && !editServiceForm.is_active) {
+            setPendingEditDisableConfirmation({
+                serviceTitle: editServiceForm.service_title || editingService.serviceTitle || "this service"
+            });
             return;
         }
 
@@ -471,6 +485,7 @@ export default function SpecialServices({ user }) {
 
             toast.success("Special service updated.");
             setEditDialogOpen(false);
+            setPendingEditDisableConfirmation(null);
             setEditingService(null);
             setSelectedServiceIds((current) => editServiceForm.is_active ? current : current.filter((id) => id !== String(editingService.id)));
             await loadServices();
@@ -725,6 +740,7 @@ export default function SpecialServices({ user }) {
                     setEditDialogOpen(open);
                     if (!open) {
                         setEditingService(null);
+                        setPendingEditDisableConfirmation(null);
                     }
                 }}
             >
@@ -835,10 +851,10 @@ export default function SpecialServices({ user }) {
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)} type="button">
+                        <Button variant="outline" onClick={closeEditService} type="button">
                             Cancel
                         </Button>
-                        <Button onClick={handleUpdateSpecialService} disabled={isUpdatingService} type="button">
+                        <Button onClick={() => handleUpdateSpecialService()} disabled={isUpdatingService} type="button">
                             {isUpdatingService ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -849,6 +865,52 @@ export default function SpecialServices({ user }) {
                             )}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={Boolean(pendingEditDisableConfirmation)}
+                onOpenChange={(open) => {
+                    if (!open && !isUpdatingService) {
+                        setPendingEditDisableConfirmation(null);
+                    }
+                }}
+            >
+                <DialogContent>
+                    {pendingEditDisableConfirmation ? (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Disable Special Service</DialogTitle>
+                                <DialogDescription>
+                                    Confirm before this special service is removed from booking availability.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-sm text-slate-600">Special service</p>
+                                <p className="mt-1 font-semibold text-slate-900">{pendingEditDisableConfirmation.serviceTitle}</p>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setPendingEditDisableConfirmation(null)} disabled={isUpdatingService} type="button">
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    disabled={isUpdatingService}
+                                    className="bg-red-600 text-white hover:bg-red-700"
+                                    onClick={() => handleUpdateSpecialService({ skipDisableConfirmation: true })}
+                                >
+                                    {isUpdatingService ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Updating...
+                                        </>
+                                    ) : (
+                                        "Disable Service"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    ) : null}
                 </DialogContent>
             </Dialog>
 

@@ -155,7 +155,8 @@ export default function AccountManagement() {
             currentStatus,
             type: user.type,
             name: `${user.first_Name || ''} ${user.last_Name || ''}`.trim() || 'this account',
-            role: user.role || (user.type === 'vet' ? 'Veterinarian' : 'Admin')
+            role: user.role || (user.type === 'vet' ? 'Veterinarian' : 'Admin'),
+            email: user.mail_Address || user.email || ''
         });
     };
 
@@ -411,6 +412,9 @@ export default function AccountManagement() {
                                 <p className="text-sm text-slate-600">Account</p>
                                 <p className="mt-1 font-semibold text-slate-900">{pendingStatusAction.name}</p>
                                 <p className="text-sm text-slate-500">{pendingStatusAction.role}</p>
+                                {pendingStatusAction.email ? (
+                                    <p className="mt-2 break-words text-sm font-semibold text-slate-700">{pendingStatusAction.email}</p>
+                                ) : null}
                             </div>
 
                             <p className="text-sm text-slate-700">

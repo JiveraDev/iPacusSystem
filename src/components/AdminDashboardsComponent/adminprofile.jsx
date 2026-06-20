@@ -10,6 +10,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate } from '../../lib/date';
 import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
@@ -22,7 +23,7 @@ const emptyProfile = {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    phone: normalizePhilippinePhoneInput(''),
     address: '',
     employeeId: '',
     position: '',
@@ -60,6 +61,7 @@ export default function ProfileManagement({ onLogout }) {
     const [savedProfile, setSavedProfile] = useState(emptyProfile);
     const [imageFile, setImageFile] = useState(null);
     const [imageError, setImageError] = useState(false);
+    const [phoneError, setPhoneError] = useState('');
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -72,7 +74,7 @@ export default function ProfileManagement({ onLogout }) {
                     firstName: data.first_Name || '',
                     lastName: data.last_Name || '',
                     email: data.mail_Address || '',
-                    phone: data.phoneNumber || '',
+                    phone: normalizePhilippinePhoneInput(data.phoneNumber || ''),
                     address: data.personal_Address || '',
                     employeeId: data.employee_id || '',
                     position: data.postionn || 'Admin',
@@ -116,6 +118,15 @@ export default function ProfileManagement({ onLogout }) {
             return;
         }
 
+        const nextPhoneError = getPhilippinePhoneError(profile.phone, { optional: true });
+        if (nextPhoneError) {
+            setPhoneError(nextPhoneError);
+            toast.error(nextPhoneError);
+            return;
+        }
+
+        setPhoneError('');
+        const normalizedPhone = normalizePhilippinePhoneForSubmit(profile.phone, { optional: true });
         setIsSaving(true);
         let finalImageUrl = profile.profileImage;
 
@@ -129,7 +140,7 @@ export default function ProfileManagement({ onLogout }) {
                 firstName: profile.firstName,
                 lastName: profile.lastName,
                 email: profile.email,
-                phoneNumber: profile.phone,
+                phoneNumber: normalizedPhone,
                 address: profile.address,
                 profileImage: finalImageUrl,
                 employeeId: profile.employeeId,
@@ -149,6 +160,7 @@ export default function ProfileManagement({ onLogout }) {
 
             const normalized = {
                 ...profile,
+                phone: normalizedPhone,
                 profileImage: finalImageUrl,
                 educationHistory: cleanProfileHistory(profile.educationHistory),
                 experienceHistory: cleanProfileHistory(profile.experienceHistory)
@@ -162,8 +174,8 @@ export default function ProfileManagement({ onLogout }) {
                 last_Name: normalized.lastName,
                 email: normalized.email,
                 mail_Address: normalized.email,
-                phoneNumber: normalized.phone,
-                phone: normalized.phone,
+                phoneNumber: normalizedPhone,
+                phone: normalizedPhone,
                 address: normalized.address,
                 personal_Address: normalized.address,
                 profileImage: finalImageUrl,
@@ -190,6 +202,7 @@ export default function ProfileManagement({ onLogout }) {
         setProfile(savedProfile);
         setImageFile(null);
         setImageError(false);
+        setPhoneError('');
         setIsEditing(false);
     };
 
@@ -266,7 +279,20 @@ export default function ProfileManagement({ onLogout }) {
                                     <ProfileInput label="First Name" icon={User} value={profile.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, firstName: value })} />
                                     <ProfileInput label="Last Name" icon={User} value={profile.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, lastName: value })} />
                                     <ProfileInput label="Email Address" icon={Mail} type="email" value={profile.email} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, email: value })} />
-                                    <ProfileInput label="Phone Number" icon={Phone} value={profile.phone} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, phone: value })} />
+                                    <ProfileInput
+                                        label="Phone Number"
+                                        icon={Phone}
+                                        value={profile.phone}
+                                        disabled={!isEditing || isSaving}
+                                        onChange={(value) => {
+                                            setPhoneError('');
+                                            setProfile({ ...profile, phone: normalizePhilippinePhoneInput(value) });
+                                        }}
+                                        inputMode="tel"
+                                        maxLength={13}
+                                        placeholder="+639"
+                                        error={phoneError}
+                                    />
                                     <ProfileInput label="Address" icon={MapPin} value={profile.address} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, address: value })} className="md:col-span-2" />
                                 </div>
                             </section>
@@ -407,7 +433,7 @@ export default function ProfileManagement({ onLogout }) {
     );
 }
 
-function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '' }) {
+function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '', inputMode, maxLength, placeholder = '', error = '' }) {
     const iconElement = icon ? createElement(icon, { className: 'size-4' }) : null;
 
     return (
@@ -421,8 +447,12 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
-                className="h-11"
+                inputMode={inputMode}
+                maxLength={maxLength}
+                placeholder={placeholder}
+                className={`h-11 ${error ? 'border-red-500' : ''}`}
             />
+            {error && <p className="text-xs font-medium text-red-600">{error}</p>}
         </div>
     );
 }

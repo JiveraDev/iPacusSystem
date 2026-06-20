@@ -17,6 +17,7 @@ import { Label } from '../../ui/label';
 import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
 import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
+import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
@@ -127,7 +128,7 @@ export default function BookingsManagement() {
     const [currentCancellationBooking, setCurrentCancellationBooking] = useState(null);
     const [cancellationData, setCancellationData] = useState({
         message: '',
-        walletNumber: '',
+        walletNumber: normalizePhilippinePhoneInput(''),
         transactionNumber: ''
     });
     const [reviewDrafts, setReviewDrafts] = useState({});
@@ -436,7 +437,7 @@ export default function BookingsManagement() {
         setCurrentCancellationBooking(booking);
         setCancellationData({
             message: '',
-            walletNumber: '',
+            walletNumber: normalizePhilippinePhoneInput(''),
             transactionNumber: ''
         });
         setCancellationDialogOpen(true);
@@ -449,8 +450,16 @@ export default function BookingsManagement() {
             return;
         }
 
-        if (currentCancellationBooking.paymentProof && (!cancellationData.walletNumber.trim() || !cancellationData.transactionNumber.trim())) {
+        const walletRequired = Boolean(currentCancellationBooking.paymentProof);
+        const walletNumber = normalizePhilippinePhoneForSubmit(cancellationData.walletNumber, { optional: !walletRequired });
+
+        if (walletRequired && (!isValidPhilippinePhone(cancellationData.walletNumber) || !cancellationData.transactionNumber.trim())) {
             toast.error('Please provide the wallet number and transaction number for the manual return process.');
+            return;
+        }
+
+        if (!isValidPhilippinePhone(cancellationData.walletNumber, { optional: !walletRequired })) {
+            toast.error('Wallet number must be complete after +639.');
             return;
         }
 
@@ -458,7 +467,7 @@ export default function BookingsManagement() {
             await updateBookingStatusService(currentCancellationBooking.id, {
                 status: 'cancelled',
                 cancellation_message: cancellationData.message.trim(),
-                wallet_number: cancellationData.walletNumber.trim(),
+                wallet_number: walletNumber,
                 transaction_number: cancellationData.transactionNumber.trim()
             });
 
@@ -847,7 +856,7 @@ export default function BookingsManagement() {
                                                 <Eye className="size-4" />
                                             </Button>
                                         </SheetTrigger>
-                                        <SheetContent side="right" showClose={false} className="sm:max-w-xl overflow-y-auto">
+                                        <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
                                             <div className="sticky top-0 bg-white z-10 border-b p-6">
                                                 <SheetHeader className="mb-0">
                                                     <div className="flex items-start justify-between gap-4">
@@ -1645,8 +1654,10 @@ export default function BookingsManagement() {
                                 <Input
                                     id="walletNumber"
                                     value={cancellationData.walletNumber}
-                                    onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: event.target.value })}
-                                    placeholder="Wallet number used for the return process"
+                                    onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: normalizePhilippinePhoneInput(event.target.value) })}
+                                    inputMode="tel"
+                                    maxLength={13}
+                                    placeholder="+639"
                                 />
                             </div>
                             <div className="space-y-2">

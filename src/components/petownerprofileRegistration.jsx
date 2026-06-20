@@ -6,13 +6,14 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ArrowLeft, User, Mail, Phone, MapPin, Dog } from 'lucide-react';
 import { searchAddresses } from "../services/addressAutocomplete.js";
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../lib/philippinePhone';
 export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const [formData, setFormData] = useState({
         firstName:'',
         lastName:'',
         address: '',
-        phoneNumber: '',
-        emergencyContact: '',
+        phoneNumber: normalizePhilippinePhoneInput(''),
+        emergencyContact: normalizePhilippinePhoneInput(''),
     })
 
     const [errors, setErrors] = useState({})
@@ -23,7 +24,11 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const blurTimeoutRef = useRef(null)
 
     const handleChange = (field, value) => {
-        setFormData({ ...formData, [field]: value })
+        const nextValue = ["phoneNumber", "emergencyContact"].includes(field)
+            ? normalizePhilippinePhoneInput(value)
+            : value
+
+        setFormData({ ...formData, [field]: nextValue })
 
         if (field === "address") {
             setAddressLookupError("")
@@ -111,8 +116,15 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
 
         if (!formData.firstName) newErrors.firstName = "First name is required"
         if (!formData.lastName) newErrors.lastName = "Last name is required"
-        if (!formData.phoneNumber)
-            newErrors.phoneNumber = "Phone number is required"
+        const phoneError = getPhilippinePhoneError(formData.phoneNumber, {
+            requiredMessage: "Phone number is required"
+        })
+        const emergencyContactError = getPhilippinePhoneError(formData.emergencyContact, {
+            optional: true
+        })
+
+        if (phoneError) newErrors.phoneNumber = phoneError
+        if (emergencyContactError) newErrors.emergencyContact = emergencyContactError
         if (!formData.address) newErrors.address = "Address is required"
 
         if (Object.keys(newErrors).length > 0) {
@@ -121,7 +133,13 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         }
 
         setErrors({})
-        onComplete({ ...formData, email, role: "Pet Owner" })
+        onComplete({
+            ...formData,
+            phoneNumber: normalizePhilippinePhoneForSubmit(formData.phoneNumber),
+            emergencyContact: normalizePhilippinePhoneForSubmit(formData.emergencyContact, { optional: true }),
+            email,
+            role: "Pet Owner"
+        })
     }
 
     return (
@@ -245,7 +263,9 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     </Label>
                                     <Input
                                         id="phoneNumber"
-                                        placeholder="+63 917 123 4567"
+                                        inputMode="tel"
+                                        maxLength={13}
+                                        placeholder="+639"
                                         value={formData.phoneNumber}
                                         onChange={e => handleChange("phoneNumber", e.target.value)}
                                         className={`bg-gray-100 border-gray-300 ${
@@ -324,13 +344,22 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     </Label>
                                     <Input
                                         id="emergencyContact"
-                                        placeholder="+63 917 987 6543"
+                                        inputMode="tel"
+                                        maxLength={13}
+                                        placeholder="+639"
                                         value={formData.emergencyContact}
                                         onChange={e =>
                                             handleChange("emergencyContact", e.target.value)
                                         }
-                                        className="bg-gray-100 border-gray-300"
+                                        className={`bg-gray-100 border-gray-300 ${
+                                            errors.emergencyContact ? "border-red-500" : ""
+                                        }`}
                                     />
+                                    {errors.emergencyContact && (
+                                        <p className="text-red-500 text-xs mt-1">
+                                            {errors.emergencyContact}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -7,6 +7,7 @@ import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2 } from "lucide-react";
 import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
+import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookingById, updateBookingStatus } from "../../services/bookingService";
@@ -25,7 +26,7 @@ export default function ConsultConfirmation() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationData, setCancellationData] = useState({
     message: "",
-    walletNumber: "",
+    walletNumber: normalizePhilippinePhoneInput(""),
     transactionNumber: ""
   });
 
@@ -41,7 +42,7 @@ export default function ConsultConfirmation() {
           const senderNumberMatch = String(consult.notes || "").match(/\[Sender Number:\s*(.*?)\]/i);
           setCancellationData((current) => ({
             ...current,
-            walletNumber: senderNumberMatch?.[1] || ""
+            walletNumber: normalizePhilippinePhoneInput(senderNumberMatch?.[1] || "")
           }));
         }
         const onlineData = await fetchOnlineConsultations({ bookingId: consult.id }).catch(() => []);
@@ -113,12 +114,18 @@ export default function ConsultConfirmation() {
       return;
     }
 
+    const walletNumber = normalizePhilippinePhoneForSubmit(cancellationData.walletNumber, { optional: true });
+    if (!isValidPhilippinePhone(cancellationData.walletNumber, { optional: true })) {
+      toast.error("Wallet number must be complete after +639.");
+      return;
+    }
+
     setIsCancelling(true);
     try {
       await updateBookingStatus(consultation.id, {
         status: "cancelled",
         cancellation_message: cancellationData.message.trim(),
-        wallet_number: cancellationData.walletNumber.trim(),
+        wallet_number: walletNumber,
         transaction_number: cancellationData.transactionNumber.trim()
       });
 
@@ -438,8 +445,10 @@ export default function ConsultConfirmation() {
                 <label className="text-sm font-medium text-gray-900">Wallet Number</label>
                 <Input
                   value={cancellationData.walletNumber}
-                  onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: event.target.value })}
-                  placeholder="Wallet number used for payment"
+                  onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: normalizePhilippinePhoneInput(event.target.value) })}
+                  inputMode="tel"
+                  maxLength={13}
+                  placeholder="+639"
                 />
               </div>
               <div className="space-y-2">

@@ -12,7 +12,7 @@ import {
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -109,6 +109,7 @@ export default function ServiceCatalogManagement() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+    const [pendingDeactivationAction, setPendingDeactivationAction] = useState(null);
 
     const loadCatalog = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -177,6 +178,10 @@ export default function ServiceCatalogManagement() {
     }, [searchQuery, services]);
 
     const materialNameQuery = materialDraft.materialName.trim();
+    const selectedService = useMemo(
+        () => services.find((service) => String(service.serviceId) === String(selectedServiceId)),
+        [selectedServiceId, services]
+    );
     const materialMatches = useMemo(() => {
         const query = normalizeText(materialNameQuery);
         if (!query) return inventoryItems.slice(0, 6);
@@ -192,6 +197,7 @@ export default function ServiceCatalogManagement() {
         setServiceForm(emptyServiceForm);
         setMaterials([]);
         setMaterialDraft(emptyMaterialDraft);
+        setPendingDeactivationAction(null);
         setIsServiceModalOpen(true);
     };
 
@@ -200,6 +206,7 @@ export default function ServiceCatalogManagement() {
         setServiceForm(serviceToForm(service));
         setMaterials(service.materials || []);
         setMaterialDraft(emptyMaterialDraft);
+        setPendingDeactivationAction(null);
         setIsServiceModalOpen(true);
     };
 
@@ -255,7 +262,23 @@ export default function ServiceCatalogManagement() {
         setMaterials((current) => current.filter((material) => materialKey(material) !== key));
     };
 
-    const saveService = async () => {
+    const requestDeactivateService = () => {
+        if (selectedServiceId === 'new') return;
+
+        setPendingDeactivationAction({
+            mode: 'deactivate',
+            serviceName: serviceForm.serviceName || selectedService?.serviceName || 'this service',
+            serviceType: serviceTypeLabel(serviceForm.serviceType || selectedService?.serviceType)
+        });
+    };
+
+    const closeDeactivationConfirmation = () => {
+        if (!isSaving) {
+            setPendingDeactivationAction(null);
+        }
+    };
+
+    const saveService = async ({ skipDeactivationConfirmation = false } = {}) => {
         if (!serviceForm.serviceName.trim()) {
             toast.error('Service name is required.');
             return;
@@ -264,6 +287,20 @@ export default function ServiceCatalogManagement() {
         const basePrice = Number(serviceForm.basePrice);
         if (!Number.isFinite(basePrice) || basePrice < 0) {
             toast.error('Base price must be zero or greater.');
+            return;
+        }
+
+        if (
+            !skipDeactivationConfirmation
+            && selectedServiceId !== 'new'
+            && selectedService?.isActive !== false
+            && serviceForm.isActive === false
+        ) {
+            setPendingDeactivationAction({
+                mode: 'save',
+                serviceName: serviceForm.serviceName || selectedService?.serviceName || 'this service',
+                serviceType: serviceTypeLabel(serviceForm.serviceType || selectedService?.serviceType)
+            });
             return;
         }
 
@@ -300,6 +337,7 @@ export default function ServiceCatalogManagement() {
             }
 
             toast.success('Service catalog saved.');
+            setPendingDeactivationAction(null);
             setSelectedServiceId(String(serviceId));
             await loadCatalog();
             setIsServiceModalOpen(false);
@@ -312,7 +350,6 @@ export default function ServiceCatalogManagement() {
 
     const deactivateService = async () => {
         if (selectedServiceId === 'new') return;
-        if (!window.confirm('Deactivate this service?')) return;
 
         setIsSaving(true);
         try {
@@ -323,6 +360,7 @@ export default function ServiceCatalogManagement() {
             }
 
             toast.success('Service deactivated.');
+            setPendingDeactivationAction(null);
             selectNewService();
             setIsServiceModalOpen(false);
             loadCatalog();
@@ -331,6 +369,17 @@ export default function ServiceCatalogManagement() {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const confirmServiceDeactivation = () => {
+        if (!pendingDeactivationAction) return;
+
+        if (pendingDeactivationAction.mode === 'save') {
+            saveService({ skipDeactivationConfirmation: true });
+            return;
+        }
+
+        deactivateService();
     };
 
     return (
@@ -440,12 +489,12 @@ export default function ServiceCatalogManagement() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {selectedServiceId !== 'new' && (
-                                <Button type="button" variant="outline" onClick={deactivateService} disabled={isSaving}>
+                                <Button type="button" variant="outline" onClick={requestDeactivateService} disabled={isSaving}>
                                     <Trash2 className="size-4" />
                                     Deactivate
                                 </Button>
                             )}
-                            <Button type="button" onClick={saveService} disabled={isSaving || Boolean(schemaMessage)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                            <Button type="button" onClick={() => saveService()} disabled={isSaving || Boolean(schemaMessage)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                                 {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                                 Save
                             </Button>
@@ -612,6 +661,41 @@ export default function ServiceCatalogManagement() {
                         </div>
                     </section>
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={Boolean(pendingDeactivationAction)} onOpenChange={(open) => !open && closeDeactivationConfirmation()}>
+                    <DialogContent className="max-w-md">
+                        {pendingDeactivationAction ? (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle>Deactivate Service</DialogTitle>
+                                    <DialogDescription>
+                                        Confirm before this service is removed from active catalog use.
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-sm text-slate-600">Service</p>
+                                    <p className="mt-1 font-semibold text-slate-900">{pendingDeactivationAction.serviceName}</p>
+                                    <p className="text-sm text-slate-500">{pendingDeactivationAction.serviceType}</p>
+                                </div>
+
+                                <p className="text-sm text-slate-700">
+                                    Pet owners and staff will not be able to select this service while it is inactive.
+                                </p>
+
+                                <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={closeDeactivationConfirmation} disabled={isSaving}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="button" onClick={confirmServiceDeactivation} disabled={isSaving} className="bg-red-600 text-white hover:bg-red-700">
+                                        {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                                        Deactivate Service
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        ) : null}
                     </DialogContent>
                 </Dialog>
             </div>

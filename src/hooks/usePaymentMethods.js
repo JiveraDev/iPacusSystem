@@ -17,7 +17,7 @@ export const PAYMENT_METHOD_FALLBACK = [
         value: 'maya',
         label: 'Maya',
         accountName: 'iPawcus Veterinary',
-        accountNumber: '0917-XXX-XXXX',
+        accountNumber: '',
         instructions: 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.',
         qrImageUrl: '',
         requiresProof: true
@@ -27,7 +27,7 @@ export const PAYMENT_METHOD_FALLBACK = [
         value: 'gcash',
         label: 'GCash',
         accountName: 'iPawcus Veterinary',
-        accountNumber: '0917-XXX-XXXX',
+        accountNumber: '',
         instructions: 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.',
         qrImageUrl: '',
         requiresProof: true

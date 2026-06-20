@@ -8,7 +8,8 @@ import {
     CreditCard,
     Hotel,
     Loader2,
-    Stethoscope
+    Stethoscope,
+    X
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -391,7 +392,9 @@ export default function NotificationBell({
 
     const isNavVariant = variant === 'nav';
     const panelClassName = isNavVariant
-        ? 'fixed bottom-32 left-4 z-50 w-[min(27rem,calc(100vw-2rem))]'
+        ? `fixed bottom-4 left-4 right-4 z-50 max-h-[calc(100vh-2rem)] md:bottom-6 md:right-auto md:w-[27rem] md:max-w-[calc(100vw-21rem)] ${
+            collapsed ? 'md:left-24' : 'md:left-[19rem]'
+        }`
         : 'absolute right-0 z-50 mt-2 w-[min(27rem,calc(100vw-2rem))]';
     const buttonClassName = isNavVariant
         ? `relative flex items-center rounded-xl border border-slate-200 text-left text-slate-700 shadow-sm transition hover:bg-slate-50 ${
@@ -448,17 +451,29 @@ export default function NotificationBell({
                                     {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
                                 </p>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleMarkAllRead}
-                                disabled={isUpdating || unreadCount === 0}
-                                className="h-8 px-2 text-xs"
-                            >
-                                {isUpdating ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
-                                Read all
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleMarkAllRead}
+                                    disabled={isUpdating || unreadCount === 0}
+                                    className="h-8 px-2 text-xs"
+                                >
+                                    {isUpdating ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+                                    Read all
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setIsOpen(false)}
+                                    aria-label="Close notifications"
+                                    className="size-8 rounded-full bg-white p-0 text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                                >
+                                    <X className="size-4" />
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="mt-4 flex gap-2 rounded-lg bg-slate-100 p-1">

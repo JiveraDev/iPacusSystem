@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
@@ -18,6 +19,9 @@ if (!$email || !$password || !$firstName || !$lastName || !$address || !$phoneNu
     echo json_encode(['message' => 'Missing required user fields.']);
     exit;
 }
+
+$phoneNumber = rejectInvalidPhilippinePhoneNumber($phoneNumber, 'Phone number');
+$emergencyContact = rejectInvalidPhilippinePhoneNumber($emergencyContact, 'Emergency contact', true);
 
 try {
     authOtpRequireSchema($pdo);

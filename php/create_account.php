@@ -88,7 +88,7 @@ try {
         $email,
         'Clinic Address Placeholder',
         $hashedPassword,
-        '000-000-0000',
+        '+639',
         $role
     ];
 

@@ -37,6 +37,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import {
     assignBoardingRoom,
     checkInBoardingBooking,
@@ -110,7 +111,7 @@ const emptyDirectCheckInForm = {
     roomNumber: '',
     serviceCatalogId: '',
     checkOutDate: '',
-    emergencyContact: '',
+    emergencyContact: normalizePhilippinePhoneInput(''),
     notes: ''
 };
 
@@ -876,6 +877,7 @@ export default function PetBoardingManagement() {
         setActionLoading('add-room');
         try {
             await createBoardingRooms({
+                room_type: `${addRoomForm.type}-${addRoomForm.roomSize}`,
                 hotel_boarding_type: addRoomForm.type,
                 room_size: addRoomForm.roomSize,
                 quantity,
@@ -905,6 +907,13 @@ export default function PetBoardingManagement() {
             return;
         }
 
+        const emergencyContactError = getPhilippinePhoneError(directCheckInForm.emergencyContact, { optional: true });
+        if (emergencyContactError) {
+            toast.error(emergencyContactError);
+            return;
+        }
+
+        const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(directCheckInForm.emergencyContact, { optional: true });
         setActionLoading('direct-check-in');
         try {
             const result = await directBoardingCheckIn({
@@ -913,7 +922,7 @@ export default function PetBoardingManagement() {
                 room_size: directCheckInForm.roomSize,
                 room_number: directCheckInForm.roomNumber || null,
                 check_out_date: directCheckInForm.checkOutDate,
-                emergency_contact: directCheckInForm.emergencyContact,
+                emergency_contact: normalizedEmergencyContact,
                 service_catalog_id: directCheckInForm.serviceCatalogId,
                 service_catalog_name: getCatalogServiceName(selectedBoardingCatalogService),
                 price: directCheckInEstimatedTotal,
@@ -2365,7 +2374,10 @@ export default function PetBoardingManagement() {
                             <Label>Emergency Contact</Label>
                             <Input
                                 value={directCheckInForm.emergencyContact}
-                                onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, emergencyContact: event.target.value })}
+                                onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, emergencyContact: normalizePhilippinePhoneInput(event.target.value) })}
+                                inputMode="tel"
+                                maxLength={13}
+                                placeholder="+639"
                             />
                         </div>
                         <div className="space-y-2 sm:col-span-2">

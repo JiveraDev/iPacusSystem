@@ -11,6 +11,7 @@ import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { resolveImageUrl } from '../../lib/image';
+import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { uploadImageFile } from '../../services/uploadService';
 import { fetchPaymentMethods, requestPaymentMethodsOtp, updatePaymentMethods } from '../../services/paymentMethodService';
 import { PAYMENT_METHOD_FALLBACK } from '../../hooks/usePaymentMethods';
@@ -22,6 +23,8 @@ const METHOD_HELP = {
     bank_transfer: 'Bank account name, bank name, account number, and transfer notes.'
 };
 
+const MOBILE_WALLET_METHODS = new Set(['maya', 'gcash']);
+
 function currentUserId(user) {
     return user?.user_id || user?.userId || user?.id || null;
 }
@@ -32,17 +35,23 @@ function currentUserEmail(user) {
 
 function normalizeMethod(method) {
     const key = method.methodKey || method.key || method.value;
+    const rawAccountNumber = method.accountNumber || '';
+    const accountNumber = /x/i.test(rawAccountNumber) ? '' : rawAccountNumber;
 
     return {
         methodKey: key,
         value: key,
         label: method.label || key,
         accountName: method.accountName || '',
-        accountNumber: method.accountNumber || '',
+        accountNumber: isMobileWalletMethod(key) ? normalizePhilippinePhoneInput(accountNumber) : accountNumber,
         instructions: method.instructions || '',
         qrImageUrl: method.qrImageUrl || '',
         requiresProof: true
     };
+}
+
+function isMobileWalletMethod(methodKey) {
+    return MOBILE_WALLET_METHODS.has(String(methodKey || '').toLowerCase());
 }
 
 export default function PaymentMethodsManagement() {
@@ -109,13 +118,26 @@ export default function PaymentMethodsManagement() {
             return;
         }
 
+        const invalidWalletMethod = methods.find((method) => (
+            isMobileWalletMethod(method.methodKey)
+            && !isValidPhilippinePhone(method.accountNumber, { optional: true })
+        ));
+        if (invalidWalletMethod) {
+            toast.error(`${invalidWalletMethod.label} number must be complete after +639.`);
+            return;
+        }
+
         setIsSaving(true);
         try {
-            let nextMethods = methods;
+            let nextMethods = methods.map((method) => (
+                isMobileWalletMethod(method.methodKey)
+                    ? { ...method, accountNumber: normalizePhilippinePhoneForSubmit(method.accountNumber, { optional: true }) }
+                    : method
+            ));
 
             if (qrFile) {
                 const qrImageUrl = await uploadImageFile(qrFile, 'payment_qr');
-                nextMethods = methods.map(method => (
+                nextMethods = nextMethods.map(method => (
                     method.methodKey === 'qrph' ? { ...method, qrImageUrl } : method
                 ));
             }
@@ -198,8 +220,14 @@ export default function PaymentMethodsManagement() {
                                         <Label>{method.methodKey === 'bank_transfer' ? 'Bank / Account Details' : 'Number / Account Details'}</Label>
                                         <Input
                                             value={method.accountNumber}
-                                            onChange={(event) => updateMethod(method.methodKey, { accountNumber: event.target.value })}
-                                            placeholder={method.methodKey === 'bank_transfer' ? 'Bank name, account number, branch' : 'Wallet number or account identifier'}
+                                            onChange={(event) => updateMethod(method.methodKey, {
+                                                accountNumber: isMobileWalletMethod(method.methodKey)
+                                                    ? normalizePhilippinePhoneInput(event.target.value)
+                                                    : event.target.value
+                                            })}
+                                            inputMode={isMobileWalletMethod(method.methodKey) ? 'tel' : undefined}
+                                            maxLength={isMobileWalletMethod(method.methodKey) ? 13 : undefined}
+                                            placeholder={method.methodKey === 'bank_transfer' ? 'Bank name, account number, branch' : '+639'}
                                             disabled={isSaving}
                                         />
                                     </div>

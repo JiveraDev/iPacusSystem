@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -37,6 +38,8 @@ if (!in_array($status, $allowedBookingStatuses, true)) {
     ]);
     exit;
 }
+
+$walletNumber = rejectInvalidPhilippinePhoneNumber($walletNumber, 'Wallet number', true);
 
 if ($status === 'completed') {
     http_response_code(409);

@@ -485,9 +485,9 @@ export default function Todos({ user }) {
                             onClick={() => setIsAgendaOpen(false)}
                             aria-label="Hide next 7 days"
                             aria-expanded={isAgendaOpen}
-                            className="absolute -left-4 top-5 z-10 size-8 rounded-full border-slate-200 bg-white p-0 shadow-md hover:bg-slate-50"
+                            className="absolute -left-5 top-5 z-10 size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
                         >
-                            <ChevronRight className="size-4" />
+                            <ChevronRight className="size-5" strokeWidth={2.75} />
                         </Button>
                         <div className="border-b border-slate-100 p-4 pl-6">
                             <h2 className="flex items-center gap-2 text-lg font-black text-slate-950">
@@ -530,9 +530,9 @@ export default function Todos({ user }) {
                     onClick={() => setIsAgendaOpen(true)}
                     aria-label="Show next 7 days"
                     aria-expanded={isAgendaOpen}
-                    className="fixed right-0 top-48 z-40 flex h-20 w-11 flex-col items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r-0 border-slate-200 bg-white p-0 shadow-lg hover:bg-slate-50"
+                    className="fixed right-3 top-48 z-40 flex size-14 flex-col items-center justify-center gap-1 rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
                 >
-                    <ChevronLeft className="size-4" />
+                    <ChevronLeft className="size-5" strokeWidth={2.75} />
                     <Clock className="size-4 text-[#155dfc]" />
                     {upcomingTasks.length > 0 && (
                         <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">

@@ -15,6 +15,7 @@ import { createBooking } from "../../services/bookingService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { resolveImageUrl } from "../../lib/image";
+import { isValidPhilippinePhone, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 
@@ -39,7 +40,19 @@ export default function ConsultPayment() {
   const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
   const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
+  const senderRequiresPhilippineMobile = ["gcash", "maya"].includes(String(selectedMethod?.value || "").toLowerCase());
   const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
+  const isMobileWalletPaymentMethod = (value) => ["gcash", "maya"].includes(String(value || "").toLowerCase());
+
+  const handlePaymentMethodChange = (value) => {
+    setFormData({
+      ...formData,
+      paymentMethod: value,
+      senderNumber: isMobileWalletPaymentMethod(value)
+        ? normalizePhilippinePhoneInput(formData.senderNumber)
+        : formData.senderNumber
+    });
+  };
 
   useEffect(() => {
     const pending = sessionStorage.getItem("pendingBooking");
@@ -93,6 +106,15 @@ export default function ConsultPayment() {
       toast.error("Please upload proof of payment");
       return;
     }
+
+    const rawSenderNumber = formData.senderNumber;
+    const senderNumber = senderRequiresPhilippineMobile
+      ? normalizePhilippinePhoneInput(rawSenderNumber)
+      : formData.senderNumber.trim();
+    if (senderRequiresPhilippineMobile && !isValidPhilippinePhone(rawSenderNumber)) {
+      toast.error("Sender number must be complete after +639.");
+      return;
+    }
     
     setIsProcessing(true);
 
@@ -135,7 +157,7 @@ export default function ConsultPayment() {
         notes: [
           `[Topic: ${bookingData.discussionTopic}]`,
           bookingData.notes ? bookingData.notes : "",
-          formData.senderNumber ? `[Sender Number: ${formData.senderNumber}]` : "",
+          senderNumber ? `[Sender Number: ${senderNumber}]` : "",
           formData.referenceNumber ? `[Transaction Reference: ${formData.referenceNumber}]` : ""
         ].filter(Boolean).join("\n"),
         petType: bookingData.petSpecies,
@@ -289,7 +311,7 @@ export default function ConsultPayment() {
               <Label htmlFor="paymentMethod">Payment Method *</Label>
               <Select
                 value={formData.paymentMethod}
-                onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
+                onValueChange={handlePaymentMethodChange}
                 disabled={isLoadingPaymentMethods}
                 searchPlaceholder="Search payment method"
               >
@@ -366,9 +388,16 @@ export default function ConsultPayment() {
               <Label htmlFor="senderNumber">Sender Number / Account Details</Label>
               <Textarea
                 id="senderNumber"
-                placeholder="Enter the sender's number or account name used for payment"
-                value={formData.senderNumber}
-                onChange={(e) => setFormData({ ...formData, senderNumber: e.target.value })}
+                placeholder={senderRequiresPhilippineMobile ? "+639" : "Enter the sender's number or account name used for payment"}
+                value={senderRequiresPhilippineMobile ? normalizePhilippinePhoneInput(formData.senderNumber) : formData.senderNumber}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  senderNumber: senderRequiresPhilippineMobile
+                    ? normalizePhilippinePhoneInput(e.target.value)
+                    : e.target.value
+                })}
+                inputMode={senderRequiresPhilippineMobile ? "tel" : undefined}
+                maxLength={senderRequiresPhilippineMobile ? 13 : undefined}
                 rows={3}
               />
               <p className="text-xs text-gray-500">

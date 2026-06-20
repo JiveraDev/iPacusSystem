@@ -32,15 +32,17 @@ const routes = {
 
 function isStatusDisplayHost(hostname = '') {
   const normalizedHost = String(hostname || '').toLowerCase();
-  return normalizedHost === 'status.ipawcus.com' || normalizedHost.startsWith('status.');
+  return normalizedHost === 'status.ipawcus.com'
+    || normalizedHost.startsWith('status.')
+    || normalizedHost.startsWith('tv.');
 }
 
 function getViewFromPath(pathname) {
-  if (pathname === routes.statusDisplay || pathname.startsWith(`${routes.statusDisplay}/`)) {
+  if (isStatusDisplayHost(window.location.hostname)) {
     return 'statusDisplay';
   }
 
-  if (pathname === '/' && isStatusDisplayHost(window.location.hostname)) {
+  if (pathname === routes.statusDisplay || pathname.startsWith(`${routes.statusDisplay}/`)) {
     return 'statusDisplay';
   }
 

@@ -27,7 +27,9 @@ import {
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
 import { resolveImageUrl } from "../lib/image";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
+import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
 
 // Lazy load screens
@@ -391,6 +393,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth < 960);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -506,6 +509,18 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const profileImageSrc = useMemo(() => {
     return resolveImageUrl(getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]));
   }, [user]);
+  const userEmail = getUserValue(user, ["email", "mail_Address"]);
+
+  const requestLogout = () => {
+    setIsMobileNavOpen(false);
+    setIsLogoutDialogOpen(true);
+  };
+
+  const confirmLogout = () => {
+    setIsLogoutDialogOpen(false);
+    toast.success(userEmail ? `Signed out from ${userEmail}.` : "Signed out successfully.");
+    onLogout?.();
+  };
 
   const renderSidebarContent = ({ isMobileDrawer = false } = {}) => {
     const isCollapsed = !isMobileDrawer && isSidebarCollapsed;
@@ -525,10 +540,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0"
+            className="flex size-10 flex-shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-[#155dfc] shadow-sm transition hover:border-blue-200 hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            {isCollapsed ? <ChevronRight className="size-5" strokeWidth={2.75} /> : <ChevronLeft className="size-5" strokeWidth={2.75} />}
           </button>
         </div>
       )}
@@ -659,7 +675,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
 
           <button
             type="button"
-            onClick={onLogout}
+            onClick={requestLogout}
             title={isCollapsed ? "Log Out" : ""}
             className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
           >
@@ -680,6 +696,37 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
       <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
         <ToastViewport />
+        <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Log Out</DialogTitle>
+              <DialogDescription>
+                {userEmail
+                  ? `You are about to log out of ${userEmail}.`
+                  : "You are about to log out of this account."}
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm leading-6 text-slate-600">
+              Any unsaved changes on the current page may be lost. Continue logging out?
+            </p>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setIsLogoutDialogOpen(false)}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Log Out
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         
         {isCompactLayout && (
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">

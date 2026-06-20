@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/phone_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -558,6 +559,8 @@ if ($isHotelBoarding) {
         echo json_encode(['message' => 'Missing hotel or boarding stay details.']);
         exit;
     }
+
+    $emergencyContact = rejectInvalidPhilippinePhoneNumber($emergencyContact, 'Emergency contact');
 
     if (strtotime($checkOutDate) <= strtotime($checkInDate)) {
         http_response_code(400);

@@ -1,6 +1,6 @@
 # iPawcus System Inventory and Gantt Details
 
-Prepared: 2026-06-19
+Prepared: 2026-06-20
 
 This document is a planning inventory for the current project. It lists the visible pages, component files, backend endpoints, database areas, workflows, notifications, design parts, and suggested Gantt work packages.
 
@@ -26,6 +26,11 @@ This document is a planning inventory for the current project. It lists the visi
   - Consent signatures should be captured into `consent_form_records` when the migration is present, with legacy booking/queue fields still used as fallback data.
   - POS billing now consumes linked inventory materials/items and reverses stock movements when visit charges are replaced.
   - Booking/queue lifecycle maintenance now handles expired queues, missed approved bookings, auto-reschedule notes, and recovery reporting.
+  - Contact phone inputs now enforce a locked `+639` Philippine mobile prefix and normalize common pasted values.
+  - Logout and deactivation actions now require confirmation before continuing.
+  - Shared view modals and sheets should expose a visible `X` close control.
+  - Notification panels should avoid covering the dashboard navigation, and collapse controls should show clear chevron states.
+  - Boarding room creation should only require the `rooms` table and should tolerate room schemas with or without `room_id`.
   - Future task: improve upload preview for non-image files such as PDF or office documents. Current shared preview support is strongest for images through `PhotoViewer`.
 
 ## System Areas

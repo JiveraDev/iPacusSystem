@@ -1,6 +1,6 @@
 # iPawcus Documentation Index
 
-Updated: 2026-06-19
+Updated: 2026-06-20
 
 This folder contains planning, backlog, and deployment notes for the current iPawcus React/PHP project.
 
@@ -9,6 +9,7 @@ This folder contains planning, backlog, and deployment notes for the current iPa
 | `system_inventory_gantt_details.md` | System inventory, module map, workflows, schema notes, Gantt-ready work packages, and manual QA checklist. |
 | `git_backlog_assumptions.md` | Git-history-based backlog assumptions, current working-tree evidence, backlog IDs, release phases, risks, and cleanup items. |
 | `tv_status_display_deployment.md` | Deployment notes for serving the TV status display through `/status-display`, `/tv-status`, or the status subdomain. |
+| `20260620_quality_fix_notes.md` | Latest UX/API fix notes for phone inputs, confirmations, modals, notifications, collapse controls, and boarding room creation. |
 
 ## Latest Planning Coverage
 
@@ -19,12 +20,14 @@ This folder contains planning, backlog, and deployment notes for the current iPa
 - Booking/queue lifecycle maintenance and recovery reporting.
 - POS billing and inventory stock movement linkage.
 - Updated Gantt/backlog items for verification and deployment risks.
+- Latest UX/API stability pass: locked `+639` phone inputs, logout/deactivation confirmations, visible modal close buttons, notification/collapse control polish, queue `View` actions, and boarding add-room fixes.
 
 ## Current Verification Notes
 
 - `npm run lint` passed.
 - `npm run build` passed.
 - PHP syntax checks passed for the changed and newly added endpoints.
+- Latest targeted verification includes `php -l php\boarding_management.php`, `npm run lint`, and `npm run build`.
 
 ## Deployment Notes
 

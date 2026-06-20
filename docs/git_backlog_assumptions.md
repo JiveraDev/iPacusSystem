@@ -1,6 +1,6 @@
 # Git-Based Backlog Assumptions
 
-Prepared: 2026-06-19
+Prepared: 2026-06-20
 
 This document turns the Git history and current working-tree changes into backlog assumptions. It is meant for planning and Gantt chart work, not as a legal audit of the code.
 
@@ -13,6 +13,7 @@ This document turns the Git history and current working-tree changes into backlo
 - Latest full DB export in workspace: `DDL/database_ddl_20260618_034832.sql`
 - New explicit migration: `DDL/20260619_create_consent_form_records.sql`
 - Older canonical DB file supplied by user: `DDL/database_ddl_20260613_054826.sql`
+- Additional 2026-06-20 quality pass covers queue action labels, locked Philippine phone prefixes, logout/deactivation confirmations, shared modal close controls, notification/collapse visual fixes, and boarding room creation stability.
 
 Important: many commits have generic messages such as `committng`, `additional content`, and `adddded fixing`. For those commits, backlog themes are inferred from changed files and are marked as assumptions.
 
@@ -84,6 +85,20 @@ These items are pending in the working tree as of 2026-06-19 and should be cover
 | POS inventory consumption | `visit_billing.php`, `POSmanagement.jsx`, `service_catalog.php`, `inventory.php`, `StockInPage.jsx` | Visit charges can consume linked inventory items/materials and reverse movements on charge replacement | QA insufficient stock, batch FIFO behavior, reversal records, payment posting, and stock reports |
 | General Check-up label/enum cleanup | `DDL/database_ddl_*.sql`, `serviceLabels.js`, booking/service components | The old `wellness` booking enum label is being replaced with `General Check-up` variants | Confirm existing rows/migrations handle old `wellness` values before production import |
 | Jitsi deployment doc removal | `docs/jitsi-self-host.md` is deleted in the working tree | Online consult implementation remains, but the previous self-hosting doc is no longer in this repo | Confirm whether deployment docs moved elsewhere or should be restored before release |
+
+## 2026-06-20 Quality Fix Evidence
+
+These items document the latest UX/API polish pass and should be included in the next release QA scope.
+
+| Item | Evidence | Backlog Assumption | Needed Follow-Up |
+| --- | --- | --- | --- |
+| Queue action label polish | Queue management action button text now exposes `View` | Queue rows are easier to scan and the details action is less ambiguous | Confirm the button still opens the correct queue details flow |
+| Locked Philippine phone prefix | Shared phone normalization and contact forms use a fixed `+639` display prefix | Contact/mobile fields are being standardized to Philippine mobile format | QA registration, profiles, booking/contact forms, payment method contacts, and optional phone fields |
+| Logout confirmation | Dashboard logout now requires confirmation and shows a toast with the active email | Accidental logout risk is reduced | Confirm cancel/confirm behavior for each dashboard role |
+| Deactivation confirmations | Service catalog, account management, pet owner controls, and related service availability disables require confirmation | Destructive account/status changes are safer | Confirm reactivation paths still work and deactivation messaging is clear |
+| Shared modal close controls | Dialog/sheet content has a visible `X` close control | View modals should not rely only on escape/backdrop behavior | QA booking, queue, pet, media, account, and detail modals |
+| Notification and collapse visual fixes | Notification panel placement avoids the nav; collapse controls have clearer chevron styling | Dashboard controls should remain usable with expanded/collapsed navigation | Test desktop expanded/collapsed sidebar, mobile drawer, and floating panels |
+| Boarding add-room stability | Add-room sends explicit `room_type`; backend requires only `rooms` for room creation and tolerates schemas with or without `room_id` | Hotel/boarding room creation should work in older local databases and current schema exports | QA first add and repeated add by room type/size, then verify capacity updates |
 
 ## Gantt-Ready Backlog Table
 

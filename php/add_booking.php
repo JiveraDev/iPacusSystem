@@ -227,6 +227,100 @@ function hasActiveOnlineConsultation(PDO $pdo, int $petId): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function getActiveBoardingConflict(PDO $pdo, array $petIds, int $excludeBookingId = 0): ?array
+{
+    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
+    if (empty($petIds) || !tableExists($pdo, 'boarding_assignments')) {
+        return null;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $bookingPetsJoin = '';
+    $petJoinExpression = 'b.pet_id';
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    $params = $petIds;
+
+    if (tableExists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
+        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds);
+    }
+
+    $params[] = $excludeBookingId;
+    $stmt = $pdo->prepare("
+        SELECT
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name,
+            ba.room_type,
+            ba.room_number,
+            ba.status
+        FROM boarding_assignments ba
+        JOIN bookings b ON b.booking_id = ba.booking_id
+        {$bookingPetsJoin}
+        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
+        WHERE ba.status IN ('reserved', 'occupied')
+          AND b.status <> 'cancelled'
+          AND {$petCondition}
+          AND b.booking_id <> ?
+        ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $conflict ?: null;
+}
+
+function getOverlappingBoardingBookingConflict(PDO $pdo, array $petIds, string $checkInDate, string $checkOutDate, int $excludeBookingId = 0): ?array
+{
+    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
+    if (empty($petIds)) {
+        return null;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $bookingPetsJoin = '';
+    $petJoinExpression = 'b.pet_id';
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    $params = $petIds;
+
+    if (tableExists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
+        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds);
+    }
+
+    $params[] = $excludeBookingId;
+    $params[] = $checkOutDate;
+    $params[] = $checkInDate;
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name,
+            b.check_in_date,
+            b.check_out_date,
+            b.status
+        FROM bookings b
+        {$bookingPetsJoin}
+        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
+        WHERE b.service_type = 'boarding'
+          AND b.status IN ('pending', 'confirmed')
+          AND {$petCondition}
+          AND b.booking_id <> ?
+          AND b.check_in_date < ?
+          AND b.check_out_date > ?
+        ORDER BY b.check_in_date ASC, b.booking_id ASC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $conflict ?: null;
+}
+
 function getSpecialServiceBookedPetCount(PDO $pdo, int $specialServiceId): int
 {
     if (!tableExists($pdo, 'special_service_booking_items')) {
@@ -617,6 +711,21 @@ if ($isHotelBoarding) {
     if (!tableExists($pdo, 'rooms')) {
         http_response_code(500);
         echo json_encode(['message' => 'Room capacity table is missing. Run php/rooms_setup.sql first.']);
+        exit;
+    }
+
+    $activeConflict = getActiveBoardingConflict($pdo, $petIds);
+    if ($activeConflict) {
+        http_response_code(409);
+        $roomLabel = ucfirst(str_replace('-', ' ', (string)$activeConflict['room_type'])) . ' #' . (int)$activeConflict['room_number'];
+        echo json_encode(['message' => "{$activeConflict['pet_name']} already has an active boarding stay in {$roomLabel}. Check out the current stay before booking another room."]);
+        exit;
+    }
+
+    $overlapConflict = getOverlappingBoardingBookingConflict($pdo, $petIds, (string)$checkInDate, (string)$checkOutDate);
+    if ($overlapConflict) {
+        http_response_code(409);
+        echo json_encode(['message' => "{$overlapConflict['pet_name']} already has a boarding booking that overlaps these dates ({$overlapConflict['booking_number']})."]);
         exit;
     }
 }

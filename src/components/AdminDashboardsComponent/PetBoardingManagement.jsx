@@ -15,12 +15,14 @@ import {
     Hotel,
     LayoutGrid,
     Loader2,
+    Package,
     PawPrint,
     Plus,
     Printer,
     Receipt,
     Search,
     Table2,
+    Trash2,
     Upload,
     Wrench
 } from 'lucide-react';
@@ -38,6 +40,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
+import { fetchInventoryItems } from '../../services/inventoryApi';
 import {
     assignBoardingRoom,
     checkInBoardingBooking,
@@ -138,6 +141,16 @@ const emptyDocumentForm = {
     file: null,
     fileName: ''
 };
+
+const emptyMaterialForm = {
+    assignmentId: '',
+    inventoryId: '',
+    quantity: '1',
+    unitPrice: '',
+    notes: ''
+};
+
+const BOARDING_MATERIAL_STORAGE_KEY = 'ipawcus-boarding-material-usage';
 
 function todayIso() {
     return new Date().toISOString().split('T')[0];
@@ -329,6 +342,59 @@ function countStayDays(startDate, endDate) {
     return Number.isFinite(days) && days > 0 ? days : 1;
 }
 
+function countOverdueDays(expectedOutDate, currentDate = todayIso()) {
+    if (!expectedOutDate) return 0;
+    const start = new Date(`${String(expectedOutDate).slice(0, 10)}T00:00:00`);
+    const end = new Date(`${String(currentDate).slice(0, 10)}T00:00:00`);
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+
+    return Number.isFinite(days) && days > 0 ? days : 0;
+}
+
+function normalizeInventoryItemsResponse(response) {
+    const items = Array.isArray(response?.items)
+        ? response.items
+        : Array.isArray(response)
+            ? response
+            : [];
+
+    return items.map((item) => {
+        const itemId = Number(item.itemId || item.item_id || item.id || 0);
+        const quantity = Number(item.quantity ?? item.stock ?? item.total_quantity ?? 0);
+        const costPrice = Number(item.costPrice ?? item.cost_price ?? item.unitCost ?? item.unit_cost ?? item.sellingPrice ?? 0);
+
+        return {
+            id: String(item.id || itemId),
+            itemId,
+            name: item.name || item.itemName || item.item_name || 'Inventory item',
+            sku: item.sku || '',
+            category: String(item.category || '').toUpperCase(),
+            unit: item.unit || 'pcs',
+            quantity: Number.isFinite(quantity) ? quantity : 0,
+            costPrice: Number.isFinite(costPrice) ? costPrice : 0
+        };
+    }).filter((item) => item.id && item.itemId > 0);
+}
+
+function loadBoardingMaterialUsage() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(BOARDING_MATERIAL_STORAGE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function saveBoardingMaterialUsage(value) {
+    localStorage.setItem(BOARDING_MATERIAL_STORAGE_KEY, JSON.stringify(value));
+}
+
+function getAssignmentMaterialLines(materialUsage, assignmentId) {
+    if (!assignmentId) return [];
+    const lines = materialUsage[String(assignmentId)];
+    return Array.isArray(lines) ? lines : [];
+}
+
 function getCatalogServiceId(service) {
     return String(service?.serviceId || service?.service_id || '');
 }
@@ -348,14 +414,48 @@ function getCatalogServiceLabel(service) {
     return code ? `${name} (${code})` : name;
 }
 
-function buildPaymentPrefill(unit) {
+function buildPaymentPrefill(unit, materialLines = []) {
     const assignment = unit.assignment || {};
     const checkInDate = assignment.actualCheckInAt || assignment.checkInDate;
     const checkOutDate = assignment.desiredCheckOutDate || assignment.checkOutDate;
     const stayDays = countStayDays(checkInDate, checkOutDate);
+    const overdueDays = countOverdueDays(checkOutDate);
     const totalPrice = Number(assignment.price || 0);
     const fallbackDailyRate = unit.hotelBoardingType === 'hotel' ? 1000 : 800;
+    const dailyRate = totalPrice > 0 && stayDays > 0 ? totalPrice / stayDays : fallbackDailyRate;
     const linePrice = totalPrice > 0 ? totalPrice : fallbackDailyRate * stayDays;
+    const materialCharges = materialLines.map((line) => ({
+        name: `Material: ${line.itemName}`,
+        group: 'Boarding',
+        quantity: Number(line.quantity) || 1,
+        price: Number(line.unitPrice) || 0,
+        inventoryId: line.inventoryId,
+        receiptType: 'SERVICE',
+        classificationId: 'services'
+    }));
+    const charges = [
+        {
+            name: `${unit.roomLabel} stay`,
+            group: 'Boarding',
+            quantity: 1,
+            price: linePrice,
+            receiptType: 'SERVICE',
+            classificationId: 'services'
+        }
+    ];
+
+    if (overdueDays > 0) {
+        charges.push({
+            name: `Overdue boarding extension (${overdueDays} day${overdueDays === 1 ? '' : 's'})`,
+            group: 'Boarding',
+            quantity: overdueDays,
+            price: dailyRate,
+            receiptType: 'SERVICE',
+            classificationId: 'services'
+        });
+    }
+
+    charges.push(...materialCharges);
 
     return {
         source: 'boarding',
@@ -374,21 +474,17 @@ function buildPaymentPrefill(unit) {
             complaint: `${unit.roomLabel} from ${formatDate(checkInDate)} to ${formatDate(checkOutDate)}`,
             status: 'Ready for payment'
         },
-        charges: [
-            {
-                name: `${unit.roomLabel} stay`,
-                group: 'Boarding',
-                quantity: 1,
-                price: linePrice,
-                receiptType: 'SERVICE',
-                classificationId: 'services'
-            }
-        ],
+        charges,
+        message: overdueDays > 0 || materialCharges.length > 0
+            ? 'Boarding checkout loaded with stay charge, overdue days, and recorded materials.'
+            : 'Boarding checkout loaded. Review the invoice before posting payment.',
         summary: {
             roomLabel: unit.roomLabel,
             stayDays,
+            overdueDays,
             checkInDate,
-            checkOutDate
+            checkOutDate,
+            materialCount: materialCharges.length
         }
     };
 }
@@ -515,6 +611,8 @@ export default function PetBoardingManagement() {
     const [observations, setObservations] = useState([]);
     const [documents, setDocuments] = useState([]);
     const [pets, setPets] = useState([]);
+    const [inventoryItems, setInventoryItems] = useState([]);
+    const [materialUsage, setMaterialUsage] = useState(loadBoardingMaterialUsage);
     const [boardingBookings, setBoardingBookings] = useState([]);
     const [serviceCatalog, setServiceCatalog] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -530,14 +628,20 @@ export default function PetBoardingManagement() {
     const [isObservationOpen, setIsObservationOpen] = useState(false);
     const [isTaskOpen, setIsTaskOpen] = useState(false);
     const [isDocumentOpen, setIsDocumentOpen] = useState(false);
+    const [isMaterialOpen, setIsMaterialOpen] = useState(false);
     const [isDesiredOutOpen, setIsDesiredOutOpen] = useState(false);
     const [addRoomForm, setAddRoomForm] = useState(emptyAddRoomForm);
     const [directCheckInForm, setDirectCheckInForm] = useState(emptyDirectCheckInForm);
     const [observationForm, setObservationForm] = useState(emptyObservationForm);
     const [taskForm, setTaskForm] = useState(emptyTaskForm);
     const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
+    const [materialForm, setMaterialForm] = useState(emptyMaterialForm);
     const [desiredOutDate, setDesiredOutDate] = useState('');
     const [actionLoading, setActionLoading] = useState('');
+
+    useEffect(() => {
+        saveBoardingMaterialUsage(materialUsage);
+    }, [materialUsage]);
 
     const fetchBoardingData = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -545,12 +649,13 @@ export default function PetBoardingManagement() {
         }
 
         try {
-            const [roomsResult, monitoringResult, petsResult, bookingsResult, catalogResult] = await Promise.allSettled([
+            const [roomsResult, monitoringResult, petsResult, bookingsResult, catalogResult, inventoryResult] = await Promise.allSettled([
                 fetchBoardingRooms(),
                 fetchBoardingMonitoring(),
                 fetchAllPets(),
                 fetchBookings(),
-                fetchServiceCatalog()
+                fetchServiceCatalog(),
+                fetchInventoryItems()
             ]);
 
             if (roomsResult.status === 'fulfilled') {
@@ -589,6 +694,10 @@ export default function PetBoardingManagement() {
                 }
             } else if (!isAutoRefresh) {
                 setCatalogSchemaMessage(catalogResult.reason.message || 'Failed to load service catalog.');
+            }
+
+            if (inventoryResult.status === 'fulfilled') {
+                setInventoryItems(normalizeInventoryItemsResponse(inventoryResult.value));
             }
         } catch (error) {
             if (!isAutoRefresh) {
@@ -736,6 +845,13 @@ export default function PetBoardingManagement() {
         ? directCheckInUnitPrice * Math.max(directCheckInStayDays, 1)
         : 0;
 
+    const visibleMaterialUsage = useMemo(() => (
+        Object.values(materialUsage)
+            .flatMap((lines) => Array.isArray(lines) ? lines : [])
+            .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+            .slice(0, 80)
+    ), [materialUsage]);
+
     const stats = useMemo(() => ({
         total: filteredUnits.length,
         available: filteredUnits.filter((unit) => unit.status === 'available').length,
@@ -743,8 +859,9 @@ export default function PetBoardingManagement() {
         occupied: filteredUnits.filter((unit) => unit.status === 'occupied').length,
         maintenance: filteredUnits.filter((unit) => unit.status === 'maintenance').length,
         overdue: tasks.filter((task) => task.status === 'overdue').length,
-        pending: tasks.filter((task) => task.status === 'pending').length
-    }), [filteredUnits, tasks]);
+        pending: tasks.filter((task) => task.status === 'pending').length,
+        materials: visibleMaterialUsage.length
+    }), [filteredUnits, tasks, visibleMaterialUsage.length]);
 
     const selectedAssignmentId = selectedUnit?.assignment?.assignmentId ? String(selectedUnit.assignment.assignmentId) : '';
 
@@ -760,7 +877,19 @@ export default function PetBoardingManagement() {
         documents.filter((document) => String(document.assignmentId || '') === selectedAssignmentId)
     ), [documents, selectedAssignmentId]);
 
+    const selectedUnitMaterials = useMemo(() => (
+        getAssignmentMaterialLines(materialUsage, selectedAssignmentId)
+    ), [materialUsage, selectedAssignmentId]);
+
     const visibleDocuments = useMemo(() => documents.slice(0, 50), [documents]);
+
+    const activeInventoryItems = useMemo(() => (
+        inventoryItems.filter((item) => item.quantity > 0)
+    ), [inventoryItems]);
+
+    const selectedMaterialItem = useMemo(() => (
+        inventoryItems.find((item) => item.id === materialForm.inventoryId) || null
+    ), [inventoryItems, materialForm.inventoryId]);
 
     const selectedDocumentSubject = useMemo(() => (
         documentSubjects.find((subject) => subject.value === documentForm.assignmentId)
@@ -788,6 +917,15 @@ export default function PetBoardingManagement() {
             assignmentId
         });
         setIsTaskOpen(true);
+    };
+
+    const openMaterialUsage = (unit = selectedUnit) => {
+        const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : activeAssignments[0]?.value || '';
+        setMaterialForm({
+            ...emptyMaterialForm,
+            assignmentId
+        });
+        setIsMaterialOpen(true);
     };
 
     const openDocumentUpload = (unit = selectedUnit) => {
@@ -974,6 +1112,13 @@ export default function PetBoardingManagement() {
             await checkOutBoardingBooking(unit.assignment.bookingId);
 
             toast.success('Pet checked out.');
+            if (unit.assignment.assignmentId) {
+                setMaterialUsage((current) => {
+                    const next = { ...current };
+                    delete next[String(unit.assignment.assignmentId)];
+                    return next;
+                });
+            }
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
@@ -1002,6 +1147,80 @@ export default function PetBoardingManagement() {
         } finally {
             setActionLoading('');
         }
+    };
+
+    const addMaterialUsage = () => {
+        if (!materialForm.assignmentId || !materialForm.inventoryId) {
+            toast.error('Select a pet room and inventory item.');
+            return;
+        }
+
+        const quantity = Number(materialForm.quantity);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            toast.error('Enter a valid material quantity.');
+            return;
+        }
+
+        const unitPrice = Number(materialForm.unitPrice || 0);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+            toast.error('Enter a valid material price.');
+            return;
+        }
+
+        const item = selectedMaterialItem;
+        if (!item) {
+            toast.error('Selected inventory item was not found.');
+            return;
+        }
+
+        if (quantity > item.quantity) {
+            toast.error(`${item.name} has only ${item.quantity} ${item.unit} in stock.`);
+            return;
+        }
+
+        const selectedAssignment = activeAssignments.find(({ value }) => value === materialForm.assignmentId);
+        const line = {
+            id: `mat-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            assignmentId: materialForm.assignmentId,
+            bookingId: selectedAssignment?.assignment?.bookingId || null,
+            petName: selectedAssignment?.assignment?.petName || 'Pet',
+            roomLabel: selectedAssignment?.unit?.roomLabel || '',
+            inventoryId: item.id,
+            itemId: item.itemId,
+            itemName: item.name,
+            category: item.category,
+            quantity,
+            unit: item.unit,
+            unitPrice,
+            notes: materialForm.notes.trim(),
+            createdAt: new Date().toISOString(),
+            createdByName: currentUserName
+        };
+
+        setMaterialUsage((current) => {
+            const key = String(materialForm.assignmentId);
+            return {
+                ...current,
+                [key]: [...getAssignmentMaterialLines(current, key), line]
+            };
+        });
+        toast.success('Boarding material added to checkout.');
+        setIsMaterialOpen(false);
+        setMaterialForm(emptyMaterialForm);
+    };
+
+    const removeMaterialUsage = (assignmentId, lineId) => {
+        setMaterialUsage((current) => {
+            const key = String(assignmentId);
+            const nextLines = getAssignmentMaterialLines(current, key).filter((line) => line.id !== lineId);
+            const next = { ...current };
+            if (nextLines.length > 0) {
+                next[key] = nextLines;
+            } else {
+                delete next[key];
+            }
+            return next;
+        });
     };
 
     const addObservation = async () => {
@@ -1162,7 +1381,9 @@ export default function PetBoardingManagement() {
     };
 
     const goToPayment = (unit) => {
-        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill(unit)));
+        const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : '';
+        const materialLines = getAssignmentMaterialLines(materialUsage, assignmentId);
+        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill(unit, materialLines)));
         navigate('/dashboard/pos');
     };
 
@@ -1814,6 +2035,10 @@ export default function PetBoardingManagement() {
                                     <ClipboardList className="size-4" />
                                     Add Observation
                                 </Button>
+                                <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0}>
+                                    <Package className="size-4" />
+                                    Add Material
+                                </Button>
                                 <Button variant="outline" onClick={() => openDocumentUpload()} disabled={documentSubjects.length === 0 || Boolean(documentSchemaMessage)}>
                                     <Upload className="size-4" />
                                     Upload Document
@@ -1829,11 +2054,12 @@ export default function PetBoardingManagement() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-5">
                             {[
                                 { label: 'Pending Tasks', value: stats.pending, icon: Clock, className: 'bg-amber-50 text-amber-700' },
                                 { label: 'Missed Tasks', value: stats.overdue, icon: AlertCircle, className: 'bg-red-50 text-red-700' },
                                 { label: 'Observations', value: observations.length, icon: ClipboardList, className: 'bg-blue-50 text-blue-700' },
+                                { label: 'Materials', value: stats.materials, icon: Package, className: 'bg-cyan-50 text-cyan-700' },
                                 { label: 'Documents', value: documents.length, icon: FileText, className: 'bg-emerald-50 text-emerald-700' }
                             ].map((item) => {
                                 const Icon = item.icon;
@@ -1938,6 +2164,53 @@ export default function PetBoardingManagement() {
                             )}
                         </section>
                     </div>
+
+                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h4 className="font-black text-[#101828]">Materials Used</h4>
+                                <p className="text-sm font-semibold text-slate-500">Inventory items recorded during monitoring and added to checkout payment.</p>
+                            </div>
+                            <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0}>
+                                <Package className="size-4" />
+                                Add Material
+                            </Button>
+                        </div>
+
+                        {visibleMaterialUsage.length === 0 ? (
+                            <div className="flex min-h-36 flex-col items-center justify-center px-5 text-center text-slate-500">
+                                <Package className="mb-3 size-9" />
+                                <p className="font-semibold">No boarding materials recorded.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {visibleMaterialUsage.map((line) => (
+                                    <div key={line.id} className="flex flex-col gap-3 p-4 transition hover:bg-slate-50 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge className="bg-cyan-50 text-cyan-700">{line.roomLabel || 'Boarding stay'}</Badge>
+                                                <span className="text-xs font-semibold text-slate-500">{formatDateTime(line.createdAt)}</span>
+                                            </div>
+                                            <p className="mt-2 font-black text-[#101828]">{line.itemName}</p>
+                                            <p className="text-sm font-semibold text-slate-500">
+                                                {line.petName} / {line.quantity} {line.unit} x {formatPhpCurrency(line.unitPrice)}
+                                            </p>
+                                            {line.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{line.notes}</p>}
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => removeMaterialUsage(line.assignmentId, line.id)}
+                                        >
+                                            <Trash2 className="size-4" />
+                                            Remove
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
 
                     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -2048,6 +2321,10 @@ export default function PetBoardingManagement() {
                                                 <CalendarClock className="size-4" />
                                                 Schedule Task
                                             </Button>
+                                            <Button variant="outline" size="sm" onClick={() => openMaterialUsage(selectedUnit)} disabled={activeInventoryItems.length === 0}>
+                                                <Package className="size-4" />
+                                                Add Material
+                                            </Button>
                                             <Button variant="outline" size="sm" onClick={() => openDocumentUpload(selectedUnit)} disabled={Boolean(documentSchemaMessage)}>
                                                 <Upload className="size-4" />
                                                 Upload Document
@@ -2062,7 +2339,7 @@ export default function PetBoardingManagement() {
                                             </Button>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3">
+                                    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-4">
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <p className="font-black text-slate-700">Observations</p>
@@ -2121,6 +2398,41 @@ export default function PetBoardingManagement() {
                                                                     Mark Done
                                                                 </Button>
                                                             )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="font-black text-slate-700">Materials</p>
+                                                <Badge className="bg-cyan-50 text-cyan-700">{selectedUnitMaterials.length}</Badge>
+                                            </div>
+                                            {selectedUnitMaterials.length === 0 ? (
+                                                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-500">
+                                                    No materials recorded for checkout.
+                                                </p>
+                                            ) : (
+                                                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                                                    {selectedUnitMaterials.map((line) => (
+                                                        <div key={line.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <Badge className="bg-cyan-50 text-cyan-700">
+                                                                    {line.quantity} {line.unit}
+                                                                </Badge>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => removeMaterialUsage(line.assignmentId, line.id)}
+                                                                >
+                                                                    <Trash2 className="size-4" />
+                                                                </Button>
+                                                            </div>
+                                                            <p className="mt-2 font-black text-[#101828]">{line.itemName}</p>
+                                                            <p className="text-xs font-semibold text-slate-500">{formatPhpCurrency(line.unitPrice)} each</p>
+                                                            {line.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{line.notes}</p>}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -2488,6 +2800,92 @@ export default function PetBoardingManagement() {
                         <Button onClick={addTask} disabled={actionLoading === 'task'} className="bg-[#155dfc]">
                             {actionLoading === 'task' ? <Loader2 className="size-4 animate-spin" /> : <CalendarClock className="size-4" />}
                             Save Task
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isMaterialOpen} onOpenChange={setIsMaterialOpen}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Add Boarding Material</DialogTitle>
+                        <DialogDescription>
+                            Record inventory used while monitoring a boarded pet. These lines are added to POS checkout.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Pet Room *</Label>
+                            {renderAssignmentSelect(materialForm.assignmentId, (value) => setMaterialForm({ ...materialForm, assignmentId: value }))}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Inventory Item *</Label>
+                            <Select
+                                value={materialForm.inventoryId}
+                                onValueChange={(value) => {
+                                    const item = inventoryItems.find((inventoryItem) => inventoryItem.id === value);
+                                    setMaterialForm({
+                                        ...materialForm,
+                                        inventoryId: value,
+                                        unitPrice: item ? String(item.costPrice || 0) : materialForm.unitPrice
+                                    });
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue
+                                        placeholder={activeInventoryItems.length === 0 ? 'No stocked items available' : 'Select inventory item'}
+                                        displayValue={selectedMaterialItem ? `${selectedMaterialItem.name} - ${selectedMaterialItem.quantity} ${selectedMaterialItem.unit}` : undefined}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {activeInventoryItems.map((item) => (
+                                        <SelectItem key={item.id} value={item.id}>
+                                            {item.name} - {item.quantity} {item.unit}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Quantity *</Label>
+                                <Input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={materialForm.quantity}
+                                    onChange={(event) => setMaterialForm({ ...materialForm, quantity: event.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Checkout Price Each</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={materialForm.unitPrice}
+                                    onChange={(event) => setMaterialForm({ ...materialForm, unitPrice: event.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Notes</Label>
+                            <Textarea
+                                value={materialForm.notes}
+                                onChange={(event) => setMaterialForm({ ...materialForm, notes: event.target.value })}
+                                rows={3}
+                                placeholder="Example: Extra food, shampoo, dressing material..."
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsMaterialOpen(false)}>Cancel</Button>
+                        <Button onClick={addMaterialUsage} className="bg-[#155dfc]">
+                            <Package className="size-4" />
+                            Add Material
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -256,6 +256,141 @@ function fetch_latest_assignment(PDO $pdo, int $bookingId): ?array
     return $assignment ?: null;
 }
 
+function fetch_booking_pet_ids(PDO $pdo, array $booking): array
+{
+    $bookingId = (int)($booking['booking_id'] ?? 0);
+    $petIds = [];
+
+    if ($bookingId > 0 && boarding_table_exists($pdo, 'booking_pets')) {
+        $stmt = $pdo->prepare("
+            SELECT pet_id
+            FROM booking_pets
+            WHERE booking_id = ?
+        ");
+        $stmt->execute([$bookingId]);
+        $petIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    if (empty($petIds) && !empty($booking['pet_id'])) {
+        $petIds[] = (int)$booking['pet_id'];
+    }
+
+    return array_values(array_unique(array_filter($petIds, fn($petId) => $petId > 0)));
+}
+
+function assert_pets_not_in_active_boarding(PDO $pdo, array $petIds, int $excludeBookingId = 0): void
+{
+    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
+    if (empty($petIds)) {
+        return;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $params = $petIds;
+    $params[] = $excludeBookingId;
+
+    $bookingPetsJoin = '';
+    $petJoinExpression = 'b.pet_id';
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    if (boarding_table_exists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
+        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds, [$excludeBookingId]);
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name,
+            ba.room_type,
+            ba.room_number,
+            ba.status
+        FROM boarding_assignments ba
+        JOIN bookings b ON b.booking_id = ba.booking_id
+        {$bookingPetsJoin}
+        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
+        WHERE ba.status IN ('reserved', 'occupied')
+          AND b.status <> 'cancelled'
+          AND {$petCondition}
+          AND b.booking_id <> ?
+        ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($conflict) {
+        $roomLabel = room_type_label((string)$conflict['room_type']) . ' #' . (int)$conflict['room_number'];
+        boarding_error(
+            409,
+            sprintf(
+                '%s already has an active boarding stay in %s (%s). Check out the current stay before assigning another room.',
+                $conflict['pet_name'] ?: 'Selected pet',
+                $roomLabel,
+                $conflict['booking_number'] ?: 'booking'
+            )
+        );
+    }
+}
+
+function assert_pets_no_overlapping_boarding_booking(PDO $pdo, array $petIds, string $checkInDate, string $checkOutDate, int $excludeBookingId = 0): void
+{
+    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
+    if (empty($petIds)) {
+        return;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $bookingPetsJoin = '';
+    $petJoinExpression = 'b.pet_id';
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    $params = $petIds;
+
+    if (boarding_table_exists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
+        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds);
+    }
+
+    $params[] = $excludeBookingId;
+    $params[] = $checkOutDate;
+    $params[] = $checkInDate;
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name,
+            b.check_in_date,
+            b.check_out_date
+        FROM bookings b
+        {$bookingPetsJoin}
+        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
+        WHERE b.service_type = 'boarding'
+          AND b.status IN ('pending', 'confirmed')
+          AND {$petCondition}
+          AND b.booking_id <> ?
+          AND b.check_in_date < ?
+          AND b.check_out_date > ?
+        ORDER BY b.check_in_date ASC, b.booking_id ASC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($conflict) {
+        boarding_error(
+            409,
+            sprintf(
+                '%s already has a boarding booking that overlaps this stay (%s).',
+                $conflict['pet_name'] ?: 'Selected pet',
+                $conflict['booking_number'] ?: 'booking'
+            )
+        );
+    }
+}
+
 function assignment_response(PDO $pdo, int $bookingId): array
 {
     $stmt = $pdo->prepare("
@@ -375,6 +510,10 @@ function assign_room_action(PDO $pdo): void
             boarding_error(400, 'Booking stay dates are invalid.');
         }
 
+        $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
+        assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
+        assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
+
         $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId);
         $requestedRoom = isset($input['room_number']) && $input['room_number'] !== ''
             ? (int)$input['room_number']
@@ -424,6 +563,10 @@ function check_in_action(PDO $pdo): void
         if ($checkOut === '') {
             boarding_error(400, 'Check-out date is required before check-in.');
         }
+
+        $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
+        assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
+        assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
 
         $assignment = fetch_active_assignment($pdo, $bookingId, true);
         if (!$assignment) {
@@ -501,6 +644,10 @@ function desired_check_out_action(PDO $pdo): void
         if (strtotime((string)$newCheckOut) <= strtotime($startDate)) {
             boarding_error(400, 'Desired out date must be after check-in date.');
         }
+
+        $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
+        assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
+        assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $startDate, (string)$newCheckOut, $bookingId);
 
         $available = get_available_room_numbers(
             $pdo,
@@ -943,6 +1090,9 @@ function direct_check_in_action(PDO $pdo): void
 
     $pdo->beginTransaction();
     try {
+        assert_pets_not_in_active_boarding($pdo, [$petId]);
+        assert_pets_no_overlapping_boarding_booking($pdo, [$petId], $today, (string)$checkOut);
+
         $availableRooms = get_available_room_numbers($pdo, $roomType, $today, (string)$checkOut);
         $roomNumber = $requestedRoom ?: ($availableRooms[0] ?? 0);
         if ($roomNumber <= 0 || !in_array($roomNumber, $availableRooms, true)) {

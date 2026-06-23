@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, FileText, Loader2, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
@@ -8,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { fetchReportsDashboard, REPORT_QUICK_RANGES } from '../../services/reportService';
+import { formatPhpCurrency } from '../../lib/currency';
+import { formatReportDateLabel } from '../../lib/date';
 import ReportChartCard from './ReportChartCard';
 import ReportKpiCard from './ReportKpiCard';
 import ReportTable from './ReportTable';
@@ -29,6 +32,11 @@ function normalizeRole(role) {
 
 function isSuperAdmin(user) {
     return ['super_admin', 'superadmin'].includes(normalizeRole(user?.role));
+}
+
+function isPieChartItem(chartItem) {
+    const chartType = String(chartItem?.chart?.type || '').trim().toLowerCase();
+    return chartType === 'pie' || chartType === 'doughnut';
 }
 
 function dateInputValue(date) {
@@ -93,6 +101,137 @@ function quickRangeDates(value) {
     };
 }
 
+function humanizeValue(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    const labels = {
+        out_of_stock: 'Out of Stock',
+        low_stock: 'Low Stock',
+        near_expiry: 'Near Expiry',
+        expired: 'Expired',
+        unpaid: 'Unpaid',
+        partial: 'Partial',
+        paid: 'Paid',
+        pending: 'Pending',
+        completed: 'Completed',
+        done: 'Done',
+        ok: 'OK'
+    };
+
+    if (labels[normalized]) {
+        return labels[normalized];
+    }
+
+    return String(value || '')
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function pluralize(count, singular, plural = `${singular}s`) {
+    return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getAttentionConfig(title) {
+    const normalizedTitle = String(title || '').toLowerCase();
+
+    if (normalizedTitle.includes('billing')) {
+        return {
+            icon: ReceiptText,
+            label: 'Billing',
+            accentClass: 'border-l-amber-400',
+            iconClass: 'bg-amber-50 text-amber-700',
+            emptyTitle: 'No pending billing',
+            emptyText: 'All visible visits are paid or outside the selected date range.'
+        };
+    }
+
+    if (normalizedTitle.includes('inventory')) {
+        return {
+            icon: PackageSearch,
+            label: 'Stock',
+            accentClass: 'border-l-red-400',
+            iconClass: 'bg-red-50 text-red-700',
+            emptyTitle: 'Inventory is clear',
+            emptyText: 'No low-stock, out-of-stock, expired, or near-expiry items are in this range.'
+        };
+    }
+
+    return {
+        icon: CalendarClock,
+        label: 'Follow-up',
+        accentClass: 'border-l-blue-400',
+        iconClass: 'bg-blue-50 text-blue-700',
+        emptyTitle: 'No follow-ups due',
+        emptyText: 'There are no follow-up records needing attention for this date range.'
+    };
+}
+
+function isDateColumn(column) {
+    const key = String(column?.key || '').toLowerCase();
+
+    return key.includes('date') || key.includes('expiry') || key.endsWith('_at') || key.endsWith('at');
+}
+
+function isCurrencyColumn(column) {
+    const key = String(column?.key || '').toLowerCase();
+
+    return ['total_bill', 'paid', 'balance', 'amount_paid', 'total_paid', 'total_sales'].includes(key)
+        || key.includes('revenue')
+        || key.includes('amount');
+}
+
+function isStatusColumn(column) {
+    return String(column?.key || '').toLowerCase().includes('status');
+}
+
+function statusBadgeClass(value) {
+    const status = String(value || '').toLowerCase();
+
+    if (['out_of_stock', 'expired', 'cancelled', 'failed', 'overdue'].includes(status)) {
+        return 'border-red-200 bg-red-50 text-red-700';
+    }
+
+    if (['near_expiry', 'low_stock', 'partial', 'pending', 'unpaid'].includes(status)) {
+        return 'border-amber-200 bg-amber-50 text-amber-800';
+    }
+
+    if (['paid', 'completed', 'done', 'ok', 'sent'].includes(status)) {
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    }
+
+    return 'border-slate-200 bg-slate-50 text-slate-700';
+}
+
+function formatAttentionValue(value, column) {
+    if (value === null || value === undefined || value === '') {
+        return 'N/A';
+    }
+
+    if (isDateColumn(column)) {
+        return formatReportDateLabel(value, { fallback: 'N/A' });
+    }
+
+    if (isCurrencyColumn(column)) {
+        return formatPhpCurrency(value);
+    }
+
+    if (typeof value === 'number') {
+        return Number.isInteger(value) ? String(value) : value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    }
+
+    if (Array.isArray(value)) {
+        return value.join(', ');
+    }
+
+    if (typeof value === 'object') {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+}
+
 export default function SuperAdminReportsDashboard() {
     const user = useDashboardUser();
     const navigate = useNavigate();
@@ -155,6 +294,8 @@ export default function SuperAdminReportsDashboard() {
             .map(chartId => chartItems.find(item => item.id === chartId))
             .filter(Boolean);
     }, [dashboard]);
+    const fullWidthCharts = useMemo(() => charts.filter(chartItem => !isPieChartItem(chartItem)), [charts]);
+    const pieCharts = useMemo(() => charts.filter(isPieChartItem), [charts]);
 
     if (!isSuperAdmin(user)) {
         return (
@@ -257,39 +398,43 @@ export default function SuperAdminReportsDashboard() {
                         </Card>
                     ) : null}
 
-                    <section className="space-y-4">
-                        <div>
-                            <h2 className="text-lg font-black text-slate-950">Movement and Revenue Trends</h2>
-                            <p className="text-sm font-semibold text-slate-500">Line charts show how clinic activity changes across the selected period.</p>
-                        </div>
-                        <div className="grid gap-4 xl:grid-cols-2">
-                            {charts.slice(0, 4).map(chartItem => (
-                                <ReportChartCard
-                                    key={chartItem.id}
-                                    title={chartItem.title}
-                                    summary={chartItem.summary}
-                                    chart={chartItem.chart}
-                                />
-                            ))}
-                        </div>
-                    </section>
+                    {fullWidthCharts.length ? (
+                        <section className="space-y-4">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-950">Movement, Revenue, and Utilization Charts</h2>
+                                <p className="text-sm font-semibold text-slate-500">Line and bar charts span the full row for easier wide-screen reading.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {fullWidthCharts.map(chartItem => (
+                                    <ReportChartCard
+                                        key={chartItem.id}
+                                        title={chartItem.title}
+                                        summary={chartItem.summary}
+                                        chart={chartItem.chart}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
 
-                    <section className="space-y-4">
-                        <div>
-                            <h2 className="text-lg font-black text-slate-950">Service Mix and Clinic Resources</h2>
-                            <p className="text-sm font-semibold text-slate-500">Catalog utilization, patient mix, revenue split, and inventory alerts.</p>
-                        </div>
-                        <div className="grid gap-4 xl:grid-cols-2">
-                            {charts.slice(4).map(chartItem => (
-                                <ReportChartCard
-                                    key={chartItem.id}
-                                    title={chartItem.title}
-                                    summary={chartItem.summary}
-                                    chart={chartItem.chart}
-                                />
-                            ))}
-                        </div>
-                    </section>
+                    {pieCharts.length ? (
+                        <section className="space-y-4">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-950">Service Mix and Clinic Resources</h2>
+                                <p className="text-sm font-semibold text-slate-500">Pie and doughnut charts are grouped two per row on wider screens.</p>
+                            </div>
+                            <div className="grid gap-4 xl:grid-cols-2">
+                                {pieCharts.map(chartItem => (
+                                    <ReportChartCard
+                                        key={chartItem.id}
+                                        title={chartItem.title}
+                                        summary={chartItem.summary}
+                                        chart={chartItem.chart}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
 
                     {dashboard?.monitoring ? (
                         <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm">
@@ -320,31 +465,105 @@ export default function SuperAdminReportsDashboard() {
                         </Card>
                     ) : null}
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="mb-4 flex items-center gap-3">
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                                <Users className="size-5" />
+                    <section className="space-y-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                    <Users className="size-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-950">Operational Attention</h2>
+                                    <p className="text-sm font-semibold text-slate-500">Billing, stock, and follow-up items that need review in the selected date range.</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-lg font-black text-slate-950">Operational Attention</h2>
-                                <p className="text-sm font-semibold text-slate-500">Detailed records that need billing, inventory, or follow-up action.</p>
-                            </div>
+                            <Badge className="border-slate-200 bg-white text-slate-600">
+                                {pluralize((dashboard?.summary_tables || []).reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
+                            </Badge>
                         </div>
                         <div className="grid gap-4 xl:grid-cols-3">
                             {(dashboard?.summary_tables || []).map(table => (
-                                <Card key={table.title} className="border-slate-200 shadow-none">
-                                    <CardContent className="space-y-4 p-4">
-                                        <div>
-                                            <h3 className="text-base font-black text-slate-950">{table.title}</h3>
-                                            <p className="mt-1 text-sm font-semibold text-slate-500">Recent records that need owner/admin attention.</p>
-                                        </div>
-                                        <ReportTable columns={table.columns || []} rows={table.rows || []} maxRows={5} compact />
-                                    </CardContent>
-                                </Card>
+                                <OperationalAttentionCard key={table.title} table={table} />
                             ))}
                         </div>
-                    </div>
+                    </section>
                 </>
+            )}
+        </div>
+    );
+}
+
+function OperationalAttentionCard({ table }) {
+    const allRows = Array.isArray(table?.rows) ? table.rows : [];
+    const rows = allRows.slice(0, 5);
+    const columns = Array.isArray(table?.columns) ? table.columns : [];
+    const config = getAttentionConfig(table?.title);
+    const Icon = config.icon;
+
+    return (
+        <div className={`overflow-hidden rounded-xl border border-slate-200 border-l-4 ${config.accentClass} bg-white shadow-sm`}>
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
+                <div className="flex min-w-0 items-start gap-3">
+                    <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${config.iconClass}`}>
+                        <Icon className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="truncate text-base font-black text-slate-950">{table?.title}</h3>
+                            <Badge className="border-slate-200 bg-slate-50 text-slate-600">{config.label}</Badge>
+                        </div>
+                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                    {rows.length ? 'Review these records before closing the operating day.' : config.emptyText}
+                        </p>
+                    </div>
+                </div>
+                <Badge className={rows.length ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}>
+                    {allRows.length ? pluralize(allRows.length, 'item') : 'Clear'}
+                </Badge>
+            </div>
+
+            {rows.length && columns.length ? (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                            <tr>
+                                {columns.map(column => (
+                                    <th key={column.key} className="whitespace-nowrap px-3 py-3 font-black">
+                                        {column.label}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {rows.map((row, rowIndex) => (
+                                <tr key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`} className="align-top hover:bg-slate-50/70">
+                                    {columns.map(column => (
+                                        <td key={column.key} className="max-w-[14rem] px-3 py-3 text-slate-700">
+                                            {isStatusColumn(column) ? (
+                                                <Badge className={`${statusBadgeClass(row[column.key])} max-w-full`}>
+                                                    <span className="truncate">{humanizeValue(row[column.key] || 'N/A')}</span>
+                                                </Badge>
+                                            ) : (
+                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950' : ''} line-clamp-2`}>
+                                                    {formatAttentionValue(row[column.key], column)}
+                                                </span>
+                                            )}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="flex min-h-36 items-center justify-center p-6 text-center">
+                    <div>
+                        <div className={`mx-auto flex size-10 items-center justify-center rounded-lg ${config.iconClass}`}>
+                            <Icon className="size-5" />
+                        </div>
+                        <p className="mt-3 text-sm font-black text-slate-900">{config.emptyTitle}</p>
+                        <p className="mt-1 max-w-xs text-sm font-semibold leading-5 text-slate-500">{config.emptyText}</p>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -138,6 +138,71 @@ function formatDisplayDateRange(startDate, endDate, options = {}) {
   return `${formatDisplayDate(startDate, options)} to ${formatDisplayDate(endDate, options)}`;
 }
 
+function getIsoWeekStart(year, week) {
+  const date = new Date(year, 0, 4);
+  const day = date.getDay() || 7;
+
+  date.setDate(date.getDate() - day + 1 + ((week - 1) * 7));
+
+  return date;
+}
+
+function formatReportDateLabel(value, options = {}) {
+  if (value === null || value === undefined || value === "") {
+    return options.fallback || "N/A";
+  }
+
+  const text = String(value).trim();
+  if (!text) return options.fallback || "N/A";
+
+  const dateTimeMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?$/);
+  if (dateTimeMatch) {
+    const [, year, month, day, hour, minute] = dateTimeMatch.map(Number);
+    const date = new Date(year, month - 1, day, hour, minute);
+
+    return `${formatDisplayDate(date)} at ${date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })}`;
+  }
+
+  const dateMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    const [, year, month, day] = dateMatch.map(Number);
+
+    return formatDisplayDate(new Date(year, month - 1, day));
+  }
+
+  const monthMatch = text.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const [, year, month] = monthMatch.map(Number);
+    const date = new Date(year, month - 1, 1);
+
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  const weekMatch = text.match(/^(\d{4})-W(\d{1,2})$/);
+  if (weekMatch) {
+    const [, year, week] = weekMatch.map(Number);
+
+    return `Week of ${formatDisplayDate(getIsoWeekStart(year, week))}`;
+  }
+
+  return options.fallback || text;
+}
+
+function formatReportDateRange(startDate, endDate, options = {}) {
+  if (!startDate && !endDate) return options.fallback || "N/A";
+  if (!endDate) return formatReportDateLabel(startDate, options);
+  if (!startDate) return formatReportDateLabel(endDate, options);
+
+  return `${formatReportDateLabel(startDate, options)} to ${formatReportDateLabel(endDate, options)}`;
+}
+
 function calculateAge(birthDate) {
   if (!birthDate) return "";
   const birth = new Date(birthDate);
@@ -186,4 +251,4 @@ function calculateAge(birthDate) {
   return totalDays > 0 ? plural(totalDays, "day") : "Newborn";
 }
 
-export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, formatDisplayTime, isSameDay, parseISO, calculateAge };
+export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, formatDisplayTime, formatReportDateLabel, formatReportDateRange, isSameDay, parseISO, calculateAge };

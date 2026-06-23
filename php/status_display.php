@@ -244,10 +244,7 @@ try {
             )
             WHERE (
                     q.status IN ('waiting', 'in-progress')
-                    AND (
-                        DATE(q.timestamp) = ?
-                        OR vqa.status = 'received'
-                    )
+                    AND DATE(q.timestamp) = ?
                 )
                OR (q.status = 'completed' AND DATE(q.timestamp) = ?)
             ORDER BY

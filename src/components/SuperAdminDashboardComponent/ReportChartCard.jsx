@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { Card, CardContent } from '../../ui/card';
+import { formatReportDateLabel } from '../../lib/date';
 
 ChartJS.register(
     ArcElement,
@@ -50,8 +51,46 @@ function hasChartData(chart) {
         && chart.datasets.some(dataset => Array.isArray(dataset.data) && dataset.data.some(value => Number(value) > 0));
 }
 
+function isWholeNumber(value) {
+    const number = Number(value);
+
+    return Number.isFinite(number) && Math.abs(number - Math.round(number)) < 0.000001;
+}
+
+function chartUsesWholeNumbers(chart) {
+    const values = (Array.isArray(chart?.datasets) ? chart.datasets : [])
+        .flatMap(dataset => Array.isArray(dataset.data) ? dataset.data : [])
+        .map(Number)
+        .filter(Number.isFinite);
+
+    return values.length > 0 && values.every(isWholeNumber);
+}
+
+function formatChartNumber(value, { forceWhole = false } = {}) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return value;
+    }
+
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: forceWhole || isWholeNumber(number) ? 0 : 2
+    }).format(number);
+}
+
+function getTooltipValue(context) {
+    if (context.parsed && typeof context.parsed === 'object') {
+        return context.parsed.y ?? context.parsed.r ?? context.raw;
+    }
+
+    return context.parsed ?? context.raw;
+}
+
 function buildChartData(chart) {
-    const labels = Array.isArray(chart?.labels) ? chart.labels : [];
+    const labels = Array.isArray(chart?.labels)
+        ? chart.labels.map(label => formatReportDateLabel(label, { fallback: String(label ?? '') }))
+        : [];
     const datasets = Array.isArray(chart?.datasets) ? chart.datasets : [];
 
     return {
@@ -81,6 +120,7 @@ function buildChartData(chart) {
 
 export default function ReportChartCard({ title, summary, chart, compact = false }) {
     const chartData = buildChartData(chart);
+    const forceWholeNumberTicks = chartUsesWholeNumbers(chart);
     const options = {
         responsive: true,
         maintainAspectRatio: false,
@@ -97,6 +137,11 @@ export default function ReportChartCard({ title, summary, chart, compact = false
                 intersect: false,
                 mode: 'index',
                 callbacks: {
+                    label: (context) => {
+                        const label = context.dataset?.label ? `${context.dataset.label}: ` : '';
+
+                        return `${label}${formatChartNumber(getTooltipValue(context))}`;
+                    },
                     afterLabel: (context) => {
                         const breakdown = context.dataset?.breedBreakdown;
                         const label = context.label;
@@ -108,7 +153,7 @@ export default function ReportChartCard({ title, summary, chart, compact = false
                         return Object.entries(breakdown[label])
                             .sort((first, second) => Number(second[1]) - Number(first[1]))
                             .slice(0, 5)
-                            .map(([breed, count]) => `${breed}: ${count}`);
+                            .map(([breed, count]) => `${breed}: ${formatChartNumber(count, { forceWhole: true })}`);
                     }
                 }
             }
@@ -119,7 +164,11 @@ export default function ReportChartCard({ title, summary, chart, compact = false
                 grid: { display: false }
             },
             y: {
-                ticks: { color: '#64748b' },
+                ticks: {
+                    color: '#64748b',
+                    precision: forceWholeNumberTicks ? 0 : undefined,
+                    callback: (value) => formatChartNumber(value, { forceWhole: forceWholeNumberTicks })
+                },
                 grid: { color: '#e2e8f0' },
                 beginAtZero: true
             }

@@ -293,22 +293,12 @@ function maintenance_fetch_expired_queue_ids(PDO $pdo, ?int $petId = null): arra
         $params[] = $petId;
     }
 
-    $activeAssignmentCondition = maintenance_table_exists($pdo, 'vet_queue_assignments')
-        ? "AND NOT EXISTS (
-                SELECT 1
-                FROM vet_queue_assignments vqa
-                WHERE vqa.queue_id = q.queue_id
-                  AND vqa.status = 'received'
-            )"
-        : '';
-
     $stmt = $pdo->prepare("
         SELECT q.queue_id
         FROM queues q
         WHERE LOWER(COALESCE(q.status, '')) IN ('waiting', 'in-progress')
           AND DATE(q.timestamp) < ?
           {$petCondition}
-          {$activeAssignmentCondition}
         ORDER BY q.queue_id ASC
         LIMIT 500
     ");
@@ -332,7 +322,7 @@ function maintenance_cancel_expired_queues(PDO $pdo, ?int $petId = null, bool $n
                 $startedTransaction = true;
             }
 
-            $cancelled = maintenance_cancel_queue($pdo, $queueId, $reason, $notify, false);
+            $cancelled = maintenance_cancel_queue($pdo, $queueId, $reason, $notify, true);
 
             if ($startedTransaction) {
                 $pdo->commit();

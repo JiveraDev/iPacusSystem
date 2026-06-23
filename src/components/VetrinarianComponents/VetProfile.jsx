@@ -2,9 +2,7 @@ import { createElement, useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Checkbox } from '../../ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent } from '../../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { User, Mail, Phone, MapPin, Award, Calendar, Save, Video, Camera, Loader2 } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
@@ -190,21 +188,6 @@ export default function VetProfile({ onLogout }) {
         }
     };
 
-    const specializationOptions = [
-        'Small Animal Medicine',
-        'Large Animal Medicine',
-        'Emergency & Critical Care',
-        'Surgery',
-        'Internal Medicine',
-        'Dermatology',
-        'Cardiology',
-        'Oncology',
-        'Orthopedics',
-        'Dentistry',
-        'Exotic Animal Medicine',
-        'General Practice'
-    ];
-
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -245,12 +228,6 @@ export default function VetProfile({ onLogout }) {
                 phoneNumber: normalizedPhone,
                 address: profileData.address,
                 profileImage: finalImageUrl,
-                licenseNumber: profileData.licenseNumber,
-                specialization: profileData.specialization,
-                consultationRate: profileData.consultationRate,
-                hireDate: profileData.hireDate,
-                isActive: profileData.isActive ? 1 : 0,
-                yearsOfExperience: profileData.yearsOfExperience,
                 educationHistory: cleanProfileHistory(profileData.educationHistory),
                 experienceHistory: cleanProfileHistory(profileData.experienceHistory)
             };
@@ -404,38 +381,42 @@ export default function VetProfile({ onLogout }) {
                                             <Award className="size-4" />
                                             Specialization
                                         </Label>
-                                        {isEditing ? (
-                                            <Select value={profileData.specialization} onValueChange={(value) => setProfileData({ ...profileData, specialization: value })} disabled={isSaving}>
-                                                <SelectTrigger className="h-11">
-                                                    <SelectValue placeholder="Select specialization" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {specializationOptions.map(spec => (
-                                                        <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <DisplayValue value={profileData.specialization} />
-                                        )}
+                                        <DisplayValue value={profileData.specialization} />
                                     </div>
-                                    <ProfileInput label="License Number" icon={Award} value={profileData.licenseNumber} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, licenseNumber: value })} />
-                                    <ProfileInput label="Total Years of Experience" icon={Calendar} type="number" value={profileData.yearsOfExperience} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, yearsOfExperience: value })} />
-                                    <ProfileInput label="Consultation Rate (PHP)" icon={Award} type="number" value={profileData.consultationRate} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, consultationRate: value })} />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Award className="size-4" />
+                                            License Number
+                                        </Label>
+                                        <DisplayValue value={profileData.licenseNumber} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Calendar className="size-4" />
+                                            Total Years of Experience
+                                        </Label>
+                                        <DisplayValue value={profileData.yearsOfExperience} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Award className="size-4" />
+                                            Consultation Rate (PHP)
+                                        </Label>
+                                        <DisplayValue value={profileData.consultationRate} />
+                                    </div>
                                     <div className="space-y-2">
                                         <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
                                             <Calendar className="size-4" />
                                             Hire Date
                                         </Label>
-                                        {isEditing ? (
-                                            <Input type="date" value={profileData.hireDate} onChange={(event) => setProfileData({ ...profileData, hireDate: event.target.value })} disabled={isSaving} className="h-11" />
-                                        ) : (
-                                            <DisplayValue value={formatDisplayDate(profileData.hireDate)} />
-                                        )}
+                                        <DisplayValue value={formatDisplayDate(profileData.hireDate)} />
                                     </div>
-                                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                        <Checkbox checked={profileData.isActive} onCheckedChange={(checked) => isEditing && setProfileData({ ...profileData, isActive: Boolean(checked) })} disabled={!isEditing || isSaving} />
-                                        <Label className="font-bold text-slate-700">Currently Active</Label>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Award className="size-4" />
+                                            Currently Active
+                                        </Label>
+                                        <DisplayValue value={profileData.isActive ? 'Yes' : 'No'} />
                                     </div>
                                 </div>
                             </section>

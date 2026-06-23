@@ -2,8 +2,7 @@ import { createElement, useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Card, CardContent } from '../../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { User, Save, Mail, Phone, MapPin, Briefcase, Calendar, BadgeCheck, Camera, Loader2, IdCard } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
@@ -143,15 +142,10 @@ export default function ProfileManagement({ onLogout }) {
                 phoneNumber: normalizedPhone,
                 address: profile.address,
                 profileImage: finalImageUrl,
-                employeeId: profile.employeeId,
-                position: profile.position,
-                hireDate: profile.hireDate,
-                employmentStatus: profile.employmentStatus,
                 sssNumber: profile.sssNumber,
                 philhealthNumber: profile.philhealthNumber,
                 tinNumber: profile.tinNumber,
                 pagibigNumber: profile.pagibigNumber,
-                yearsOfExperience: profile.yearsOfExperience,
                 educationHistory: cleanProfileHistory(profile.educationHistory),
                 experienceHistory: cleanProfileHistory(profile.experienceHistory)
             };
@@ -300,60 +294,40 @@ export default function ProfileManagement({ onLogout }) {
                             <section className="border-t border-slate-100 pt-8">
                                 <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Employment Information</h3>
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                    <ProfileInput label="Employee ID" icon={IdCard} value={profile.employeeId} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, employeeId: value })} />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <IdCard className="size-4" />
+                                            Employee ID
+                                        </Label>
+                                        <DisplayValue value={profile.employeeId} />
+                                    </div>
                                     <div className="space-y-2">
                                         <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
                                             <Briefcase className="size-4" />
                                             Position / Role
                                         </Label>
-                                        {isEditing ? (
-                                            <Select value={profile.position} onValueChange={(value) => setProfile({ ...profile, position: value })} disabled={isSaving}>
-                                                <SelectTrigger className="h-11">
-                                                    <SelectValue placeholder="Select position" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Clinic Administrator">Clinic Administrator</SelectItem>
-                                                    <SelectItem value="Administrative Staff">Administrative Staff</SelectItem>
-                                                    <SelectItem value="Receptionist">Receptionist</SelectItem>
-                                                    <SelectItem value="Nurse">Nurse</SelectItem>
-                                                    <SelectItem value="Assistant">Assistant</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <DisplayValue value={profile.position} />
-                                        )}
+                                        <DisplayValue value={profile.position} />
                                     </div>
-                                    <ProfileInput label="Total Years of Experience" icon={Calendar} type="number" value={profile.yearsOfExperience} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, yearsOfExperience: value })} />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                            <Calendar className="size-4" />
+                                            Total Years of Experience
+                                        </Label>
+                                        <DisplayValue value={profile.yearsOfExperience} />
+                                    </div>
                                     <div className="space-y-2">
                                         <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
                                             <BadgeCheck className="size-4" />
                                             Employment Status
                                         </Label>
-                                        {isEditing ? (
-                                            <Select value={profile.employmentStatus} onValueChange={(value) => setProfile({ ...profile, employmentStatus: value })} disabled={isSaving}>
-                                                <SelectTrigger className="h-11">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="full-time">Full-time</SelectItem>
-                                                    <SelectItem value="part-time">Part-time</SelectItem>
-                                                    <SelectItem value="contract">Contract</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <DisplayValue value={profile.employmentStatus} />
-                                        )}
+                                        <DisplayValue value={profile.employmentStatus} />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
                                             <Calendar className="size-4" />
                                             Hire Date
                                         </Label>
-                                        {isEditing ? (
-                                            <Input type="date" value={profile.hireDate} onChange={(event) => setProfile({ ...profile, hireDate: event.target.value })} disabled={isSaving} className="h-11" />
-                                        ) : (
-                                            <DisplayValue value={formatDisplayDate(profile.hireDate)} />
-                                        )}
+                                        <DisplayValue value={formatDisplayDate(profile.hireDate)} />
                                     </div>
                                 </div>
                             </section>

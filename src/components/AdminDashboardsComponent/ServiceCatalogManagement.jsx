@@ -371,6 +371,36 @@ export default function ServiceCatalogManagement() {
         }
     };
 
+    const activateService = async () => {
+        if (selectedServiceId === 'new' || !selectedService) return;
+
+        setIsSaving(true);
+        try {
+            const data = await saveServiceCatalogItem(selectedServiceId, {
+                serviceCode: selectedService.serviceCode,
+                serviceName: selectedService.serviceName,
+                serviceType: selectedService.serviceType,
+                description: selectedService.description,
+                basePrice: Number(selectedService.basePrice) || 0,
+                isMajorService: selectedService.serviceType !== 'other' && Boolean(selectedService.isMajorService),
+                isActive: true,
+                createdByUserId: userId || null
+            });
+
+            if (data.success === false) {
+                throw new Error(data.message || 'Failed to activate service.');
+            }
+
+            toast.success('Service activated.');
+            setServiceForm((current) => ({ ...current, isActive: true }));
+            await loadCatalog();
+        } catch (error) {
+            toast.error(error.message || 'Failed to activate service.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const confirmServiceDeactivation = () => {
         if (!pendingDeactivationAction) return;
 
@@ -489,10 +519,17 @@ export default function ServiceCatalogManagement() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {selectedServiceId !== 'new' && (
-                                <Button type="button" variant="outline" onClick={requestDeactivateService} disabled={isSaving}>
-                                    <Trash2 className="size-4" />
-                                    Deactivate
-                                </Button>
+                                selectedService?.isActive === false ? (
+                                    <Button type="button" variant="outline" onClick={activateService} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                                        Activate
+                                    </Button>
+                                ) : (
+                                    <Button type="button" variant="outline" onClick={requestDeactivateService} disabled={isSaving}>
+                                        <Trash2 className="size-4" />
+                                        Deactivate
+                                    </Button>
+                                )
                             )}
                             <Button type="button" onClick={() => saveService()} disabled={isSaving || Boolean(schemaMessage)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                                 {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}

@@ -21,6 +21,13 @@ function currentUserRole() {
     }
 }
 
+export function updatePersonnelAccountDetails(userId, payload) {
+    return patchJson(`/accounts/${userId}/profile`, {
+        ...payload,
+        role: currentUserRole()
+    }, { apiPrefix: true });
+}
+
 export function fetchPetOwnerAccounts() {
     const query = new URLSearchParams({ role: currentUserRole() });
     return apiRequest(`/pet-owner-accounts?${query.toString()}`, { apiPrefix: true });

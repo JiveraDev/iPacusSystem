@@ -25,7 +25,7 @@ export default function QueueManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
-    const [missedAgeFilter, setMissedAgeFilter] = useState('7d');
+    const [missedAgeFilter, setMissedAgeFilter] = useState('2d');
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
     const [veterinarians, setVeterinarians] = useState([]);
@@ -221,14 +221,25 @@ export default function QueueManagement() {
     const missedQueue = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const ageLimits = { '7d': 7, '14d': 14, '30d': 30 };
-        const limitDays = ageLimits[missedAgeFilter] || 7;
+        const ageLimits = { '1d': 1, '2d': 2 };
+        const limitDays = ageLimits[missedAgeFilter] || 2;
         const missedMap = new Map();
+        const todayPetIds = new Set(
+            queue
+                .filter(item => {
+                    const itemDate = new Date(item.timestamp);
+                    itemDate.setHours(0, 0, 0, 0);
+                    return itemDate.getTime() === today.getTime();
+                })
+                .map(item => String(item.pet_id))
+                .filter(Boolean)
+        );
 
         filteredQueue.forEach(item => {
             const itemDate = new Date(item.timestamp);
             if (itemDate >= today) return;
-            if (item.status !== 'cancelled') return;
+            if (String(item.status || '').toLowerCase() !== 'cancelled') return;
+            if (todayPetIds.has(String(item.pet_id))) return;
 
             const diffTime = Math.abs(today - itemDate);
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -242,7 +253,7 @@ export default function QueueManagement() {
         });
 
         return Array.from(missedMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    }, [filteredQueue, missedAgeFilter]);
+    }, [filteredQueue, missedAgeFilter, queue]);
 
     const activeCount = todayFilteredQueue.filter(item => !['completed', 'done', 'cancelled'].includes(item.status)).length;
     const completedCount = todayFilteredQueue.filter(item => ['completed', 'done'].includes(item.status)).length;
@@ -529,11 +540,10 @@ export default function QueueManagement() {
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-base font-bold text-slate-800">Missed Queue / Re-entry Holders</h3>
                     <Select value={missedAgeFilter} onValueChange={setMissedAgeFilter}>
-                        <SelectTrigger className="h-8 w-28 text-xs bg-white"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-36 text-xs bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="7d">Last 7 Days</SelectItem>
-                            <SelectItem value="14d">2 Weeks</SelectItem>
-                            <SelectItem value="30d">1 Month</SelectItem>
+                            <SelectItem value="1d">Yesterday</SelectItem>
+                            <SelectItem value="2d">Last 2 Days</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

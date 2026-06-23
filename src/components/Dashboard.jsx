@@ -89,12 +89,13 @@ const VetRecordUpdateRequests = lazy(() => import("./VetrinarianComponents/VetRe
 const ApprovedOnlineConsultation = lazy(() => import("./VetrinarianComponents/ApprovedOnlineConsultation.jsx"));
 const VetOnlineConsultDiagnosis = lazy(() => import("./VetrinarianComponents/VetOnlineConsultDiagnosis.jsx"));
 const PetOwnerProfile = lazy(() => import("./PetOwnerDashboard/PetOwnerProfile.jsx"));
+const NotificationsPage = lazy(() => import("./shared/NotificationsPage.jsx"));
 
 
 
 // debug bypas starts here
 
-const DEBUG_BYPASS = true;
+const DEBUG_BYPASS = false;
 
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 
@@ -186,6 +187,7 @@ const screenMap = {
     return <HomeScreen {...props} />;
   },
   "/dashboard/consult": ConsultScreen,
+  "/dashboard/notifications": NotificationsPage,
   "/dashboard/consult/booking": ConsultBookingScreen,
   "/dashboard/consult/payment": ConsultPaymentScreen,
   "/dashboard/consult/confirmation/:bookingId": ConsultConfirmationScreen,

@@ -1,6 +1,6 @@
 <?php
 
-function consent_record_table_exists(PDO $pdo): bool
+function consent_record_table_exists_raw(PDO $pdo): bool
 {
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
@@ -11,6 +11,61 @@ function consent_record_table_exists(PDO $pdo): bool
     $stmt->execute();
 
     return (int)$stmt->fetchColumn() > 0;
+}
+
+function consent_record_ensure_table(PDO $pdo): bool
+{
+    if (consent_record_table_exists_raw($pdo)) {
+        return true;
+    }
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS consent_form_records (
+              consent_record_id int(11) NOT NULL AUTO_INCREMENT,
+              consent_file_id int(11) DEFAULT NULL,
+              consent_type varchar(180) DEFAULT NULL,
+              owner_user_id int(11) DEFAULT NULL,
+              pet_id int(11) DEFAULT NULL,
+              booking_id int(11) DEFAULT NULL,
+              queue_id int(11) DEFAULT NULL,
+              visit_id int(11) DEFAULT NULL,
+              service_name varchar(180) DEFAULT NULL,
+              status enum('pending','signed','released','cancelled') NOT NULL DEFAULT 'pending',
+              source enum('booking','queue','vet_my_list','diagnosis','manual') NOT NULL DEFAULT 'manual',
+              requested_at datetime NOT NULL DEFAULT current_timestamp(),
+              signed_at datetime DEFAULT NULL,
+              released_at datetime DEFAULT NULL,
+              signed_file_path varchar(500) DEFAULT NULL,
+              physical_file_path varchar(500) DEFAULT NULL,
+              signer_name varchar(180) DEFAULT NULL,
+              processed_by_user_id int(11) DEFAULT NULL,
+              processed_by_name varchar(180) DEFAULT NULL,
+              notes text DEFAULT NULL,
+              created_at timestamp NOT NULL DEFAULT current_timestamp(),
+              updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+              PRIMARY KEY (consent_record_id),
+              KEY consent_records_file_idx (consent_file_id),
+              KEY consent_records_owner_idx (owner_user_id),
+              KEY consent_records_pet_idx (pet_id),
+              KEY consent_records_booking_idx (booking_id),
+              KEY consent_records_queue_idx (queue_id),
+              KEY consent_records_visit_idx (visit_id),
+              KEY consent_records_status_idx (status, created_at),
+              KEY consent_records_requested_idx (requested_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+    } catch (Throwable $e) {
+        error_log('Consent record table creation failed: ' . $e->getMessage());
+        return false;
+    }
+
+    return consent_record_table_exists_raw($pdo);
+}
+
+function consent_record_table_exists(PDO $pdo): bool
+{
+    return consent_record_ensure_table($pdo);
 }
 
 function consent_record_nullable_text($value): ?string

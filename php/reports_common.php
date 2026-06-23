@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/consent_record_helpers.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -113,7 +114,7 @@ function reports_date_range(array $payload): array
         'end_date' => $end->format('Y-m-d'),
         'start_datetime' => $start->setTime(0, 0, 0)->format('Y-m-d H:i:s'),
         'end_datetime' => $end->setTime(23, 59, 59)->format('Y-m-d H:i:s'),
-        'label' => $start->format('M j, Y') . ' to ' . $end->format('M j, Y'),
+        'label' => $start->format('F j, Y') . ' to ' . $end->format('F j, Y'),
     ];
 }
 
@@ -264,6 +265,18 @@ function reports_bar_chart(array $rows, string $labelKey, string $valueKey, stri
     ];
 }
 
+function reports_line_chart(array $rows, string $labelKey, string $valueKey, string $label): array
+{
+    return [
+        'type' => 'line',
+        'labels' => array_map(static fn($row) => (string)($row[$labelKey] ?? ''), $rows),
+        'datasets' => [[
+            'label' => $label,
+            'data' => array_map(static fn($row) => (float)($row[$valueKey] ?? 0), $rows),
+        ]],
+    ];
+}
+
 function reports_doughnut_chart(array $labels, array $values, string $label): array
 {
     return [
@@ -273,6 +286,46 @@ function reports_doughnut_chart(array $labels, array $values, string $label): ar
             'label' => $label,
             'data' => array_map('floatval', array_values($values)),
         ]],
+    ];
+}
+
+function reports_revenue_breakdown_trend(PDO $pdo, array $range, array &$missing): array
+{
+    if (!reports_has_tables($pdo, ['visits', 'visit_charges'], $missing)) {
+        return reports_empty_chart('line');
+    }
+
+    $period = reports_period_expression('v.created_at', $range);
+    $rows = reports_fetch_all($pdo, "
+        SELECT
+            {$period['expression']} AS period_label,
+            COALESCE(SUM(CASE WHEN vc.charge_type IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS product_revenue,
+            COALESCE(SUM(CASE WHEN vc.charge_type NOT IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS service_revenue
+        FROM visits v
+        LEFT JOIN visit_charges vc ON vc.visit_id = v.visit_id
+        WHERE v.created_at BETWEEN ? AND ?
+        GROUP BY period_label
+        ORDER BY period_label ASC
+    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Revenue breakdown trend data could not be loaded.');
+
+    $services = [];
+    $products = [];
+    foreach ($rows as $row) {
+        $periodLabel = (string)$row['period_label'];
+        $services[$periodLabel] = reports_money($row['service_revenue']);
+        $products[$periodLabel] = reports_money($row['product_revenue']);
+    }
+
+    $merged = reports_merge_period_values([
+        ['label' => 'Services', 'values' => $services],
+        ['label' => 'Medicine/Product', 'values' => $products],
+    ]);
+
+    return [
+        'type' => 'line',
+        'labels' => $merged['labels'],
+        'datasets' => $merged['datasets'],
+        'period_label' => $period['label'],
     ];
 }
 
@@ -1081,7 +1134,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
             'text' => "The most used service is {$mostUsed}. The least used service in the selected period is {$leastUsed}.",
             'bullets' => [],
         ],
-        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'service_name', 'usage_count', 'Usage'),
+        'chart' => reports_line_chart(array_slice($rows, 0, 10), 'service_name', 'usage_count', 'Usage'),
         'missing_data' => $missing,
     ];
 }
@@ -1821,10 +1874,191 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
     ];
 }
 
+function reports_consent_record_date_expression(PDO $pdo): ?string
+{
+    $hasStatus = reports_column_exists($pdo, 'consent_form_records', 'status');
+    $hasSignedAt = reports_column_exists($pdo, 'consent_form_records', 'signed_at');
+    $hasReleasedAt = reports_column_exists($pdo, 'consent_form_records', 'released_at');
+    $hasRequestedAt = reports_column_exists($pdo, 'consent_form_records', 'requested_at');
+    $hasCreatedAt = reports_column_exists($pdo, 'consent_form_records', 'created_at');
+    $parts = [];
+
+    if ($hasStatus && $hasReleasedAt) {
+        $parts[] = "CASE WHEN cfr.status = 'released' THEN cfr.released_at ELSE NULL END";
+    }
+    if ($hasStatus && $hasSignedAt) {
+        $parts[] = "CASE WHEN cfr.status = 'signed' THEN cfr.signed_at ELSE NULL END";
+    }
+    if ($hasSignedAt) {
+        $parts[] = 'cfr.signed_at';
+    }
+    if ($hasReleasedAt) {
+        $parts[] = 'cfr.released_at';
+    }
+    if ($hasRequestedAt) {
+        $parts[] = 'cfr.requested_at';
+    }
+    if ($hasCreatedAt) {
+        $parts[] = 'cfr.created_at';
+    }
+
+    if (empty($parts)) {
+        return null;
+    }
+
+    return 'COALESCE(' . implode(', ', $parts) . ')';
+}
+
+function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable): array
+{
+    if (!reports_table_exists($pdo, 'bookings') || !reports_column_exists($pdo, 'bookings', 'signature_path')) {
+        return [];
+    }
+
+    $hasUsers = reports_table_exists($pdo, 'users');
+    $hasPets = reports_table_exists($pdo, 'pets_information');
+    $dateExpression = reports_column_exists($pdo, 'bookings', 'created_at')
+        ? 'b.created_at'
+        : 'CAST(b.booking_date AS DATETIME)';
+    $userJoin = $hasUsers ? 'LEFT JOIN users owner ON owner.user_id = b.user_id' : '';
+    $petJoin = $hasPets ? 'LEFT JOIN pets_information p ON p.pet_id = b.pet_id' : '';
+    $ownerSelect = $hasUsers
+        ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,"
+        : "'Unknown Owner' AS client_name,";
+    $petSelect = $hasPets
+        ? "COALESCE(p.pet_name, b.unregistered_pet_name, 'Unknown Pet') AS pet_name,"
+        : "COALESCE(b.unregistered_pet_name, 'Unknown Pet') AS pet_name,";
+    $excludeTracked = $hasRecordTable && reports_column_exists($pdo, 'consent_form_records', 'booking_id')
+        ? 'AND NOT EXISTS (SELECT 1 FROM consent_form_records tracked WHERE tracked.booking_id = b.booking_id)'
+        : '';
+
+    return reports_fetch_all($pdo, "
+        SELECT
+            CONCAT('legacy-booking-', b.booking_id) AS consent_record_id,
+            'Booking Consent' AS consent_type,
+            {$ownerSelect}
+            {$petSelect}
+            b.service_type AS service,
+            'signed' AS status,
+            'legacy_booking' AS source,
+            DATE({$dateExpression}) AS requested_date,
+            {$dateExpression} AS signed_at,
+            NULL AS released_at
+        FROM bookings b
+        {$userJoin}
+        {$petJoin}
+        WHERE b.signature_path IS NOT NULL
+          AND TRIM(b.signature_path) <> ''
+          AND {$dateExpression} BETWEEN ? AND ?
+          {$excludeTracked}
+        ORDER BY {$dateExpression} DESC
+    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Legacy booking consent signatures could not be loaded.');
+}
+
+function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable): array
+{
+    if (!reports_table_exists($pdo, 'queues') || !reports_column_exists($pdo, 'queues', 'signiture_self_service_path')) {
+        return [];
+    }
+
+    $hasUsers = reports_table_exists($pdo, 'users');
+    $hasPets = reports_table_exists($pdo, 'pets_information');
+    $dateExpression = reports_column_exists($pdo, 'queues', 'timestamp')
+        ? 'q.timestamp'
+        : 'NOW()';
+    $userJoin = $hasUsers ? 'LEFT JOIN users owner ON owner.user_id = q.user_id' : '';
+    $petJoin = $hasPets ? 'LEFT JOIN pets_information p ON p.pet_id = q.pet_id' : '';
+    $ownerSelect = $hasUsers
+        ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,"
+        : "'Unknown Owner' AS client_name,";
+    $petSelect = $hasPets ? "COALESCE(p.pet_name, 'Unknown Pet') AS pet_name," : "'Unknown Pet' AS pet_name,";
+    $excludeTracked = $hasRecordTable && reports_column_exists($pdo, 'consent_form_records', 'queue_id')
+        ? 'AND NOT EXISTS (SELECT 1 FROM consent_form_records tracked WHERE tracked.queue_id = q.queue_id)'
+        : '';
+
+    return reports_fetch_all($pdo, "
+        SELECT
+            CONCAT('legacy-queue-', q.queue_id) AS consent_record_id,
+            COALESCE(NULLIF(TRIM(q.service_name), ''), 'Queue Consent') AS consent_type,
+            {$ownerSelect}
+            {$petSelect}
+            q.service_name AS service,
+            'signed' AS status,
+            'legacy_queue' AS source,
+            DATE({$dateExpression}) AS requested_date,
+            {$dateExpression} AS signed_at,
+            NULL AS released_at
+        FROM queues q
+        {$userJoin}
+        {$petJoin}
+        WHERE q.signiture_self_service_path IS NOT NULL
+          AND TRIM(q.signiture_self_service_path) <> ''
+          AND {$dateExpression} BETWEEN ? AND ?
+          {$excludeTracked}
+        ORDER BY {$dateExpression} DESC
+    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Legacy queue consent signatures could not be loaded.');
+}
+
+function reports_consent_record_response(array $rows, array $missing): array
+{
+    $counts = ['signed' => 0, 'pending' => 0, 'released' => 0, 'cancelled' => 0];
+    foreach ($rows as $row) {
+        $status = strtolower((string)$row['status']);
+        if (isset($counts[$status])) {
+            $counts[$status] += 1;
+        }
+    }
+
+    usort($rows, static function ($first, $second) {
+        $firstDate = strtotime((string)($first['signed_at'] ?? $first['requested_date'] ?? '')) ?: 0;
+        $secondDate = strtotime((string)($second['signed_at'] ?? $second['requested_date'] ?? '')) ?: 0;
+
+        return $secondDate <=> $firstDate;
+    });
+
+    return [
+        'type' => 'consent_form',
+        'title' => 'Consent Form Report',
+        'columns' => [
+            ['key' => 'consent_type', 'label' => 'Consent Type'],
+            ['key' => 'client_name', 'label' => 'Client'],
+            ['key' => 'pet_name', 'label' => 'Pet'],
+            ['key' => 'service', 'label' => 'Service'],
+            ['key' => 'status', 'label' => 'Status'],
+            ['key' => 'source', 'label' => 'Source'],
+            ['key' => 'requested_date', 'label' => 'Requested'],
+            ['key' => 'signed_at', 'label' => 'Signed'],
+            ['key' => 'released_at', 'label' => 'Released'],
+        ],
+        'rows' => $rows,
+        'totals' => [
+            'total_records' => count($rows),
+            'signed' => $counts['signed'],
+            'pending' => $counts['pending'],
+            'released' => $counts['released'],
+            'cancelled' => $counts['cancelled'],
+        ],
+        'summary' => [
+            'text' => "Consent records total " . count($rows) . "; signed {$counts['signed']} and pending {$counts['pending']}.",
+            'bullets' => [],
+        ],
+        'chart' => reports_doughnut_chart(
+            ['Signed', 'Pending', 'Released', 'Cancelled'],
+            [$counts['signed'], $counts['pending'], $counts['released'], $counts['cancelled']],
+            'Consent Status'
+        ),
+        'missing_data' => $missing,
+    ];
+}
+
 function reports_consent_form_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
-    if (reports_table_exists($pdo, 'consent_form_records')) {
+    consent_record_table_exists($pdo);
+    $recordTableExists = reports_table_exists($pdo, 'consent_form_records');
+    $rows = [];
+
+    if ($recordTableExists) {
         $hasFiles = reports_table_exists($pdo, 'consent_files');
         $hasPets = reports_table_exists($pdo, 'pets_information');
         $hasUsers = reports_table_exists($pdo, 'users');
@@ -1840,11 +2074,7 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
         $recordIdSelect = reports_column_exists($pdo, 'consent_form_records', 'consent_record_id')
             ? 'cfr.consent_record_id'
             : (reports_column_exists($pdo, 'consent_form_records', 'id') ? 'cfr.id' : '0');
-        $dateColumn = reports_column_exists($pdo, 'consent_form_records', 'created_at')
-            ? 'cfr.created_at'
-            : (reports_column_exists($pdo, 'consent_form_records', 'requested_at')
-                ? 'cfr.requested_at'
-                : (reports_column_exists($pdo, 'consent_form_records', 'signed_at') ? 'cfr.signed_at' : null));
+        $dateColumn = reports_consent_record_date_expression($pdo);
 
         $fileJoin = $hasFiles && $hasConsentFileId ? 'LEFT JOIN consent_files cf ON cf.file_id = cfr.consent_file_id' : '';
         $petJoin = $hasPets && $hasPetId ? 'LEFT JOIN pets_information p ON p.pet_id = cfr.pet_id' : '';
@@ -1887,48 +2117,16 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
             {$where}
             ORDER BY {$orderBy}
         ", $params, $missing, 'Signed consent record data could not be loaded.');
+    }
 
-        $counts = ['signed' => 0, 'pending' => 0, 'released' => 0, 'cancelled' => 0];
-        foreach ($rows as $row) {
-            $status = strtolower((string)$row['status']);
-            if (isset($counts[$status])) {
-                $counts[$status] += 1;
-            }
-        }
+    $legacyRows = array_merge(
+        reports_consent_legacy_booking_rows($pdo, $range, $missing, $recordTableExists),
+        reports_consent_legacy_queue_rows($pdo, $range, $missing, $recordTableExists)
+    );
+    $rows = array_merge($rows, $legacyRows);
 
-        return [
-            'type' => 'consent_form',
-            'title' => 'Consent Form Report',
-            'columns' => [
-                ['key' => 'consent_type', 'label' => 'Consent Type'],
-                ['key' => 'client_name', 'label' => 'Client'],
-                ['key' => 'pet_name', 'label' => 'Pet'],
-                ['key' => 'service', 'label' => 'Service'],
-                ['key' => 'status', 'label' => 'Status'],
-                ['key' => 'source', 'label' => 'Source'],
-                ['key' => 'requested_date', 'label' => 'Requested'],
-                ['key' => 'signed_at', 'label' => 'Signed'],
-                ['key' => 'released_at', 'label' => 'Released'],
-            ],
-            'rows' => $rows,
-            'totals' => [
-                'total_records' => count($rows),
-                'signed' => $counts['signed'],
-                'pending' => $counts['pending'],
-                'released' => $counts['released'],
-                'cancelled' => $counts['cancelled'],
-            ],
-            'summary' => [
-                'text' => "Consent records total " . count($rows) . "; signed {$counts['signed']} and pending {$counts['pending']}.",
-                'bullets' => [],
-            ],
-            'chart' => reports_doughnut_chart(
-                ['Signed', 'Pending', 'Released', 'Cancelled'],
-                [$counts['signed'], $counts['pending'], $counts['released'], $counts['cancelled']],
-                'Consent Status'
-            ),
-            'missing_data' => $missing,
-        ];
+    if ($recordTableExists || !empty($rows)) {
+        return reports_consent_record_response($rows, $missing);
     }
 
     if (!reports_has_tables($pdo, ['consent_files'], $missing)) {
@@ -2206,6 +2404,29 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
     return $report;
 }
 
+function reports_consent_file_count(PDO $pdo, array $range, array &$missing): int
+{
+    if (!reports_table_exists($pdo, 'consent_files')) {
+        $missing[] = 'Missing table: consent_files';
+        return 0;
+    }
+
+    $dateColumn = reports_column_exists($pdo, 'consent_files', 'uploaded_at') ? 'uploaded_at' : null;
+    if ($dateColumn === null) {
+        return reports_int($pdo->query('SELECT COUNT(*) FROM consent_files')->fetchColumn());
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM consent_files WHERE {$dateColumn} BETWEEN ? AND ?");
+        $stmt->execute([$range['start_datetime'], $range['end_datetime']]);
+
+        return reports_int($stmt->fetchColumn());
+    } catch (Throwable $e) {
+        $missing[] = 'Consent file count could not be loaded.';
+        return 0;
+    }
+}
+
 function reports_dashboard(PDO $pdo, array $range): array
 {
     $sales = reports_build_report($pdo, 'sales', $range);
@@ -2221,11 +2442,13 @@ function reports_dashboard(PDO $pdo, array $range): array
     $consent = reports_build_report($pdo, 'consent_form', $range);
     $dashboardMissing = [];
     $revenueDiagnosisTrend = reports_revenue_diagnosis_trend($pdo, $range, $dashboardMissing);
+    $revenueBreakdownTrend = reports_revenue_breakdown_trend($pdo, $range, $dashboardMissing);
     $onlineAppointmentTrend = reports_online_appointment_trend($pdo, $range, $dashboardMissing);
     $queueBookingTrend = reports_queue_booking_trend($pdo, $range, $dashboardMissing);
     $boardingTrend = reports_boarding_trend($pdo, $range, $dashboardMissing);
     $animalDistribution = reports_pet_distribution_chart($pdo, $dashboardMissing);
     $staffMonitoring = reports_staff_monitoring($pdo, $dashboardMissing);
+    $consentFileCount = reports_consent_file_count($pdo, $range, $dashboardMissing);
 
     $salesTotals = $sales['totals'] ?? [];
     $billingTotals = $billing['totals'] ?? [];
@@ -2234,7 +2457,6 @@ function reports_dashboard(PDO $pdo, array $range): array
     $consultationTotals = $consultations['totals'] ?? [];
     $followUpTotals = $followUps['totals'] ?? [];
     $inventoryTotals = $inventory['totals'] ?? [];
-    $consentTotals = $consent['totals'] ?? [];
 
     $kpis = [
         reports_metric('Total Sales', $salesTotals['total_sales'] ?? 0, 'currency'),
@@ -2250,7 +2472,7 @@ function reports_dashboard(PDO $pdo, array $range): array
         reports_metric('Low Stock Items', $inventoryTotals['low_stock'] ?? 0),
         reports_metric('Near Expiry Items', $inventoryTotals['near_expiry'] ?? 0),
         reports_metric('Pending Follow-Ups', $followUpTotals['pending'] ?? 0),
-        reports_metric('Consent Records', $consentTotals['total_records'] ?? ($consentTotals['total_files'] ?? 0)),
+        reports_metric('Consent Files', $consentFileCount),
     ];
 
     $charts = [
@@ -2269,12 +2491,8 @@ function reports_dashboard(PDO $pdo, array $range): array
         [
             'id' => 'revenue_breakdown',
             'title' => 'Revenue Breakdown',
-            'summary' => 'Service revenue compared with medicine and product revenue.',
-            'chart' => reports_doughnut_chart(
-                ['Services', 'Medicine/Product'],
-                [$salesTotals['service_sales'] ?? 0, $salesTotals['product_sales'] ?? 0],
-                'Revenue'
-            ),
+            'summary' => 'Service revenue compared with medicine and product revenue over the selected period.',
+            'chart' => $revenueBreakdownTrend,
         ],
         [
             'id' => 'service_utilization',

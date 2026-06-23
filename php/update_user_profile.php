@@ -37,23 +37,6 @@ function addJsonFieldIfPresent(array $input, array &$fields, array &$params, str
     }
 }
 
-function normalizeYears($value)
-{
-    if ($value === '' || $value === null) {
-        return null;
-    }
-
-    if (is_numeric($value)) {
-        return (int)$value;
-    }
-
-    if (preg_match('/\d+/', (string)$value, $matches)) {
-        return (int)$matches[0];
-    }
-
-    return null;
-}
-
 try {
     $pdo->beginTransaction();
 
@@ -81,18 +64,8 @@ try {
     if ($normalizedRole === 'veterinarian' || $normalizedRole === 'vet') {
         $profileFields = [];
         $profileParams = [];
-        addFieldIfPresent($input, $profileFields, $profileParams, 'licenseNumber', 'prc_license_number');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'specialization', 'specialization');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'consultationRate', 'consultation_rate');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'hireDate', 'hire_date');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'isActive', 'is_active');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'educationHistory', 'education_history');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'experienceHistory', 'experience_history');
-
-        if (array_key_exists('yearsOfExperience', $input)) {
-            $profileFields[] = 'years_of_experience = ?';
-            $profileParams[] = normalizeYears($input['yearsOfExperience']);
-        }
 
         if (!empty($profileFields)) {
             $profileParams[] = $userId;
@@ -103,21 +76,12 @@ try {
     } elseif ($normalizedRole === 'admin' || $normalizedRole === 'super_admin' || $normalizedRole === 'superadmin') {
         $profileFields = [];
         $profileParams = [];
-        addFieldIfPresent($input, $profileFields, $profileParams, 'employeeId', 'employee_id');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'position', 'postionn');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'hireDate', 'hire_date');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'employmentStatus', 'employment_status');
         addFieldIfPresent($input, $profileFields, $profileParams, 'sssNumber', 'sss_number');
         addFieldIfPresent($input, $profileFields, $profileParams, 'philhealthNumber', 'philhealth_number');
         addFieldIfPresent($input, $profileFields, $profileParams, 'tinNumber', 'tin_number');
         addFieldIfPresent($input, $profileFields, $profileParams, 'pagibigNumber', 'pagibig_number');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'educationHistory', 'education_history');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'experienceHistory', 'experience_history');
-
-        if (array_key_exists('yearsOfExperience', $input)) {
-            $profileFields[] = 'years_of_experience = ?';
-            $profileParams[] = normalizeYears($input['yearsOfExperience']);
-        }
 
         if (!empty($profileFields)) {
             $profileParams[] = $userId;

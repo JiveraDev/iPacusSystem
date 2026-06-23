@@ -6,12 +6,32 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { createAccount, fetchAccounts as fetchAccountsService, updateAccountStatus } from '../../services/accountService';
+import { createAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
+
+const PERSONNEL_POSITION_OPTIONS = [
+    { value: 'Nurse', label: 'Senior Nurse' },
+    { value: 'Staff', label: 'Clinic Staff' },
+    { value: 'Receptionist', label: 'Receptionist' },
+    { value: 'Assistant', label: 'Assistant' },
+    { value: 'Clinic Administrator', label: 'Clinic Administrator' },
+    { value: 'Administrative Staff', label: 'Administrative Staff' }
+];
+
+const EMPLOYMENT_STATUS_OPTIONS = [
+    { value: 'full-time', label: 'Full-time' },
+    { value: 'part-time', label: 'Part-time' },
+    { value: 'contract', label: 'Contract' }
+];
+
+const employmentStatusLabels = EMPLOYMENT_STATUS_OPTIONS.reduce((labels, option) => ({
+    ...labels,
+    [option.value]: option.label
+}), {});
 
 export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
@@ -19,6 +39,9 @@ export default function AccountManagement() {
     const [showCreateAccount, setShowCreateAccount] = useState(false);
     const [pendingStatusAction, setPendingStatusAction] = useState(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
+    const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time' });
+    const [isSavingPersonnel, setIsSavingPersonnel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [accounts, setAccounts] = useState({ veterinarians: [], staff: [] });
 
@@ -98,6 +121,23 @@ export default function AccountManagement() {
         const last = displayValue(account?.last_Name, '').charAt(0);
         return `${first}${last}`.trim() || 'IP';
     };
+    const formatEmploymentStatus = (value) => employmentStatusLabels[String(value || '').toLowerCase()] || displayValue(value);
+    const getPersonnelFormFromUser = (user) => ({
+        position: String(user?.postionn || '').trim(),
+        employmentStatus: String(user?.employment_status || 'full-time').trim().toLowerCase()
+    });
+    const openAccountDetails = (user, type) => {
+        const detailsUser = { ...user, type };
+        setSelectedUser(detailsUser);
+        setPersonnelForm(getPersonnelFormFromUser(detailsUser));
+        setIsEditingPersonnel(false);
+        setShowDetails(true);
+    };
+    const closeAccountDetails = () => {
+        if (isSavingPersonnel) return;
+        setShowDetails(false);
+        setIsEditingPersonnel(false);
+    };
     const parseHistory = (value) => {
         if (!value) return [];
         try {
@@ -128,6 +168,50 @@ export default function AccountManagement() {
                 <div className="min-w-0">
                     <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
                     <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(value)}</p>
+                </div>
+            </div>
+        </div>
+    );
+    const EditableProfileSelectField = ({
+        icon,
+        label,
+        value,
+        displayText,
+        options,
+        isEditing,
+        disabled,
+        onChange,
+        accent = 'text-slate-950',
+        allowCustom = false
+    }) => (
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    {createElement(icon, { className: 'size-4' })}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+                    {isEditing ? (
+                        <Select
+                            value={value}
+                            onValueChange={onChange}
+                            disabled={disabled}
+                            allowCustom={allowCustom}
+                            onCreateOption={onChange}
+                            customOptionLabel={(option) => `Use "${option}"`}
+                        >
+                            <SelectTrigger className="mt-2 h-10 bg-white">
+                                <SelectValue placeholder={`Select ${label.toLowerCase()}`} displayValue={displayText || value} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {options.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(displayText || value)}</p>
+                    )}
                 </div>
             </div>
         </div>
@@ -187,6 +271,73 @@ export default function AccountManagement() {
         }
     };
 
+    const handleStartPersonnelEdit = () => {
+        setPersonnelForm(getPersonnelFormFromUser(selectedUser));
+        setIsEditingPersonnel(true);
+    };
+
+    const handleCancelPersonnelEdit = () => {
+        setPersonnelForm(getPersonnelFormFromUser(selectedUser));
+        setIsEditingPersonnel(false);
+    };
+
+    const handleSavePersonnelDetails = async () => {
+        if (!selectedUser || selectedUser.type !== 'staff') return;
+
+        const position = personnelForm.position.trim();
+        const employmentStatus = personnelForm.employmentStatus;
+
+        if (!position) {
+            toast.error('Position is required.');
+            return;
+        }
+
+        if (!employmentStatusLabels[employmentStatus]) {
+            toast.error('Select a valid employment status.');
+            return;
+        }
+
+        setIsSavingPersonnel(true);
+        try {
+            const response = await updatePersonnelAccountDetails(selectedUser.user_id, {
+                type: selectedUser.type,
+                position,
+                employmentStatus
+            });
+            const updatedAccount = response.account || {
+                ...selectedUser,
+                postionn: position,
+                employment_status: employmentStatus
+            };
+
+            setSelectedUser((current) => current ? {
+                ...current,
+                postionn: updatedAccount.postionn ?? position,
+                employment_status: updatedAccount.employment_status ?? employmentStatus
+            } : current);
+            setAccounts((current) => ({
+                ...current,
+                staff: current.staff.map((account) => (
+                    String(account.user_id) === String(selectedUser.user_id)
+                        ? {
+                            ...account,
+                            postionn: updatedAccount.postionn ?? position,
+                            employment_status: updatedAccount.employment_status ?? employmentStatus
+                        }
+                        : account
+                ))
+            }));
+            setIsEditingPersonnel(false);
+            toast.success('Personnel details updated successfully.');
+            fetchAccounts({ isAutoRefresh: true });
+        } catch (error) {
+            console.error('Personnel update error:', error);
+            toast.error(error.message || 'Failed to update personnel details.');
+        } finally {
+            setIsSavingPersonnel(false);
+        }
+    };
+
     const getStatusBadge = (status) => {
         if (isAccountActive(status)) {
             return <Badge className="bg-green-500 text-white">Active</Badge>;
@@ -239,10 +390,7 @@ export default function AccountManagement() {
             </div>
 
             <Button
-                onClick={() => {
-                    setSelectedUser({ ...user, type });
-                    setShowDetails(true);
-                }}
+                onClick={() => openAccountDetails(user, type)}
                 variant="outline"
                 className="w-full"
             >
@@ -295,7 +443,7 @@ export default function AccountManagement() {
             </div>
 
             {/* View Details Modal */}
-            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+            <Dialog open={showDetails} onOpenChange={(open) => open ? setShowDetails(true) : closeAccountDetails()}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     {selectedUser && (
                         <>
@@ -349,8 +497,28 @@ export default function AccountManagement() {
                                     ) : (
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                                             <ProfileField icon={UserCog} label="Employee ID" value={selectedUser.employee_id} accent="text-purple-700" />
-                                            <ProfileField icon={UserCog} label="Position" value={selectedUser.postionn} accent="text-purple-700" />
-                                            <ProfileField icon={CheckCircle} label="Employment Status" value={selectedUser.employment_status} />
+                                            <EditableProfileSelectField
+                                                icon={UserCog}
+                                                label="Position"
+                                                value={personnelForm.position}
+                                                displayText={isEditingPersonnel ? personnelForm.position : selectedUser.postionn}
+                                                options={PERSONNEL_POSITION_OPTIONS}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(value) => setPersonnelForm((current) => ({ ...current, position: value }))}
+                                                accent="text-purple-700"
+                                                allowCustom
+                                            />
+                                            <EditableProfileSelectField
+                                                icon={CheckCircle}
+                                                label="Employment Status"
+                                                value={personnelForm.employmentStatus}
+                                                displayText={formatEmploymentStatus(isEditingPersonnel ? personnelForm.employmentStatus : selectedUser.employment_status)}
+                                                options={EMPLOYMENT_STATUS_OPTIONS}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(value) => setPersonnelForm((current) => ({ ...current, employmentStatus: value }))}
+                                            />
                                             <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
                                             <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
                                             <ProfileField icon={ShieldCheck} label="SSS Number" value={selectedUser.sss_number} />
@@ -368,12 +536,54 @@ export default function AccountManagement() {
 
                                 <div className="border-t pt-6">
                                     <h4 className="font-bold text-gray-900 mb-3 text-sm">Administrative Actions</h4>
-                                    <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                                        {selectedUser.type === 'staff' && (
+                                            isEditingPersonnel ? (
+                                                <>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={handleCancelPersonnelEdit}
+                                                        disabled={isSavingPersonnel}
+                                                        className="flex-1"
+                                                    >
+                                                        <X className="size-4 mr-2" /> Cancel Edit
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        onClick={handleSavePersonnelDetails}
+                                                        disabled={isSavingPersonnel}
+                                                        className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                                                    >
+                                                        {isSavingPersonnel ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Saving...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Save className="size-4 mr-2" /> Save Employment Info
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={handleStartPersonnelEdit}
+                                                    className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                                >
+                                                    <Pencil className="size-4 mr-2" /> Edit Employment Info
+                                                </Button>
+                                            )
+                                        )}
                                         {(selectedUser.is_active === 1 || selectedUser.is_active === '1') ? (
                                             <Button 
                                                 variant="outline" 
                                                 className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
                                                 onClick={() => openStatusConfirmation(selectedUser)}
+                                                disabled={isSavingPersonnel}
                                             >
                                                 <Ban className="size-4 mr-2" /> Deactivate Account
                                             </Button>
@@ -381,11 +591,12 @@ export default function AccountManagement() {
                                             <Button 
                                                 className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                                                 onClick={() => openStatusConfirmation(selectedUser)}
+                                                disabled={isSavingPersonnel}
                                             >
                                                 <CheckCircle className="size-4 mr-2" /> Activate Account
                                             </Button>
                                         )}
-                                        <Button variant="ghost" onClick={() => setShowDetails(false)}>Close</Button>
+                                        <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel}>Close</Button>
                                     </div>
                                 </div>
                             </div>

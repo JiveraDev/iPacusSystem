@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { cn } from "./utils";
 
@@ -57,21 +58,74 @@ function Select({
 }) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [contentStyle, setContentStyle] = React.useState(null);
   const containerRef = React.useRef(null);
+  const contentRef = React.useRef(null);
+
+  const updateContentPosition = React.useCallback(() => {
+    const trigger = containerRef.current;
+    if (!trigger || typeof window === "undefined") return;
+
+    const rect = trigger.getBoundingClientRect();
+    const padding = 8;
+    const contentWidth = contentRef.current?.offsetWidth || rect.width;
+    const contentHeight = contentRef.current?.offsetHeight || 0;
+    const availableBelow = window.innerHeight - rect.bottom - padding;
+    const availableAbove = rect.top - padding;
+    const shouldOpenUp = contentHeight > availableBelow && availableAbove > availableBelow;
+    const availableHeight = Math.max(120, shouldOpenUp ? availableAbove - 4 : availableBelow - 4);
+    const estimatedHeight = contentHeight || Math.min(320, availableHeight);
+    const maxTop = window.innerHeight - padding - Math.min(estimatedHeight, window.innerHeight - (padding * 2));
+    let top = shouldOpenUp ? rect.top - estimatedHeight - 4 : rect.bottom + 4;
+    let left = rect.left;
+
+    if (left + contentWidth > window.innerWidth - padding) {
+      left = window.innerWidth - padding - contentWidth;
+    }
+
+    setContentStyle({
+      top: `${Math.max(padding, Math.min(top, maxTop))}px`,
+      left: `${Math.max(padding, left)}px`,
+      minWidth: `${rect.width}px`,
+      maxHeight: `${Math.min(availableHeight, window.innerHeight - (padding * 2))}px`,
+      visibility: "visible",
+    });
+  }, []);
 
   React.useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      const target = event.target;
+      const isTriggerClick = containerRef.current?.contains(target);
+      const isContentClick = contentRef.current?.contains(target);
+
+      if (!isTriggerClick && !isContentClick) {
         setOpen(false);
       }
     };
+
+    if (!open) return undefined;
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [open]);
+
+  React.useLayoutEffect(() => {
+    if (!open) return undefined;
+
+    updateContentPosition();
+    window.addEventListener("resize", updateContentPosition);
+    window.addEventListener("scroll", updateContentPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateContentPosition);
+      window.removeEventListener("scroll", updateContentPosition, true);
+    };
+  }, [open, updateContentPosition]);
 
   React.useEffect(() => {
     if (!open) {
       setSearchQuery("");
+      setContentStyle(null);
     }
   }, [open]);
 
@@ -103,6 +157,9 @@ function Select({
       allowCustom,
       customOptionLabel,
       onCreateOption: handleCreateOption,
+      contentRef,
+      contentStyle,
+      updateContentPosition,
     }}>
       <div ref={containerRef} className="relative w-full min-w-0">
         {children}
@@ -161,9 +218,18 @@ function SelectContent({ children, className }) {
     allowCustom,
     customOptionLabel,
     onCreateOption,
+    contentRef,
+    contentStyle,
+    updateContentPosition,
   } = React.useContext(SelectContext);
 
-  if (!open) return null;
+  React.useLayoutEffect(() => {
+    if (open) {
+      updateContentPosition?.();
+    }
+  }, [children, open, searchQuery, updateContentPosition]);
+
+  if (!open || typeof document === "undefined") return null;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const childItems = flattenChildren(children);
@@ -204,10 +270,19 @@ function SelectContent({ children, className }) {
     && !exactMatch
     && typeof onCreateOption === "function";
 
-  return (
+  const portalStyle = contentStyle || {
+    top: 0,
+    left: 0,
+    minWidth: 0,
+    visibility: "hidden",
+  };
+
+  return createPortal(
     <div
+      ref={contentRef}
+      style={portalStyle}
       className={cn(
-        "absolute z-50 mt-1 min-w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-slate-200 bg-white text-slate-950 shadow-md animate-in fade-in zoom-in-95",
+        "fixed z-[1000] max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-slate-200 bg-white text-slate-950 shadow-md animate-in fade-in zoom-in-95",
         className
       )}
     >
@@ -251,7 +326,8 @@ function SelectContent({ children, className }) {
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,3 +1,11 @@
+import { formatReportDateLabel } from '../../lib/date';
+
+function isDateColumn(column) {
+    const key = String(column?.key || '').toLowerCase();
+
+    return key.includes('date') || key.endsWith('_at') || key.endsWith('at');
+}
+
 function displayValue(value) {
     if (value === null || value === undefined || value === '') {
         return 'N/A';
@@ -12,6 +20,18 @@ function displayValue(value) {
     }
 
     return String(value);
+}
+
+function displayCellValue(value, column) {
+    if (value === null || value === undefined || value === '') {
+        return 'N/A';
+    }
+
+    if (isDateColumn(column)) {
+        return formatReportDateLabel(value, { fallback: String(value) });
+    }
+
+    return displayValue(value);
 }
 
 export default function ReportTable({ columns = [], rows = [], maxRows, compact = false }) {
@@ -42,7 +62,7 @@ export default function ReportTable({ columns = [], rows = [], maxRows, compact 
                         <tr key={row.id || row.visit_id || row.booking_id || row.queue_id || `${rowIndex}-${columns[0]?.key}`} className="align-top">
                             {columns.map(column => (
                                 <td key={column.key} className={`${compact ? 'px-3 py-2' : 'px-3 py-3'} max-w-[18rem] text-slate-700`}>
-                                    <span className="line-clamp-3">{displayValue(row[column.key])}</span>
+                                    <span className="line-clamp-3">{displayCellValue(row[column.key], column)}</span>
                                 </td>
                             ))}
                         </tr>

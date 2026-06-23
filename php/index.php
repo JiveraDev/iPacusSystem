@@ -342,6 +342,14 @@ switch ($path) {
                 http_response_code(405);
                 echo json_encode(['message' => 'Method not allowed.']);
             }
+        } elseif (preg_match('/^\/accounts\/(\d+)\/profile$/', $path, $matches)) {
+            $_GET['userId'] = $matches[1];
+            if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+                require_once __DIR__ . '/update_account_profile.php';
+            } else {
+                http_response_code(405);
+                echo json_encode(['message' => 'Method not allowed.']);
+            }
         } elseif (preg_match('/^\/pet-owner-accounts\/(\d+)\/status$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             $_GET['action'] = 'status';

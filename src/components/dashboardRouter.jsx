@@ -56,6 +56,7 @@ const routePatterns = [
   { pattern: "/dashboard/services/pet-hotel", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/services/special-services", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/services", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/notifications", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/todos", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/profile", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/bookings", allowedRoles: ALL_ROLES },

@@ -1,4 +1,4 @@
-import logoImg from '../../assets/logo-no-bg.png';
+import logoImg from '../assets/logo-no-bg.png';
 
 function resolveText(value, fallback = '') {
     return String(value || fallback).trim();

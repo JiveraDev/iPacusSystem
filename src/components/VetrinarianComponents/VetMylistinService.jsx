@@ -27,7 +27,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
-import { createConsentDocumentImage } from '../shared/consentDocumentImage.js';
+import { createConsentDocumentImage } from '../../services/consentDocumentImage.js';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { saveConsentFormRecord } from '../../services/consentRecordService';
 import { fetchProfile } from '../../services/profileService';

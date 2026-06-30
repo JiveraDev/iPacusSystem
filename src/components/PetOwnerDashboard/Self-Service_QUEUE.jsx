@@ -17,7 +17,7 @@ import {
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import ConsentDocument from "../shared/ConsentDocument.jsx";
-import { createConsentDocumentImage } from "../shared/consentDocumentImage.js";
+import { createConsentDocumentImage } from "../../services/consentDocumentImage.js";
 import { resolveImageUrl } from "../../lib/image";
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { toast } from "../../reusecomponent/toast.jsx";

@@ -23,14 +23,14 @@ function pet_media_payload(): array
     return is_array($input) ? array_merge($_GET, $input) : $_GET;
 }
 
-function pet_media_require_super_admin(array $payload): void
+function pet_media_require_media_access(array $payload): void
 {
     $role = pet_media_normalize_role($payload['role'] ?? $payload['user_role'] ?? ($_SERVER['HTTP_X_USER_ROLE'] ?? ''));
 
-    if (!in_array($role, ['super_admin', 'superadmin'], true)) {
+    if (!in_array($role, ['super_admin', 'superadmin', 'veterinarian'], true)) {
         pet_media_json([
             'success' => false,
-            'message' => 'Only Super Admin can access pet media monitoring.',
+            'message' => 'Only Super Admin and Veterinarian accounts can access pet media monitoring.',
         ], 403);
     }
 }
@@ -430,22 +430,8 @@ function pet_media_fetch(PDO $pdo, array $range): array
             ORDER BY {$orderBy}
         ");
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $base = pet_media_base($row);
-            pet_media_add($media, $seen, $base, $row['signed_file_path'] ?? '', 'consent', $row['file_name'] ?? $row['consent_type'] ?? 'Signed Consent', [
-                'createdAt' => $row['signed_at'] ?? $row['created_at'] ?? '',
-                'recordId' => (int)$row['consent_record_id'],
-                'status' => $row['status'] ?? '',
-                'uploadedBy' => $row['processed_by_name'] ?? '',
-            ]);
-            pet_media_add($media, $seen, $base, $row['physical_file_path'] ?? '', 'consent', 'Physical Consent Upload', [
-                'createdAt' => $row['signed_at'] ?? $row['created_at'] ?? '',
-                'recordId' => (int)$row['consent_record_id'],
-                'status' => $row['status'] ?? '',
-                'uploadedBy' => $row['processed_by_name'] ?? '',
-            ]);
+            // Signed consent images are intentionally excluded from media monitoring.
         }
-    } else {
-        $missing[] = 'consent_form_records table is missing; only legacy booking and queue consent images can be shown.';
     }
 
     if (pet_media_table_exists($pdo, 'bookings')) {
@@ -477,12 +463,6 @@ function pet_media_fetch(PDO $pdo, array $range): array
                     'recordId' => (int)$row['booking_id'],
                 ]);
             }
-            foreach (pet_media_split_paths($row['signature_path'] ?? '') as $path) {
-                pet_media_add($media, $seen, $base, $path, 'consent', 'Booking Consent Signature', [
-                    'createdAt' => $row['created_at'] ?? '',
-                    'recordId' => (int)$row['booking_id'],
-                ]);
-            }
         }
     }
 
@@ -509,10 +489,6 @@ function pet_media_fetch(PDO $pdo, array $range): array
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $base = pet_media_base($row);
             pet_media_add($media, $seen, $base, $row['image_path'] ?? '', 'queue', 'Queue Concern Image', [
-                'createdAt' => $row['created_at'] ?? '',
-                'recordId' => (int)$row['queue_id'],
-            ]);
-            pet_media_add($media, $seen, $base, $row['signiture_self_service_path'] ?? '', 'consent', 'Queue Consent Signature', [
                 'createdAt' => $row['created_at'] ?? '',
                 'recordId' => (int)$row['queue_id'],
             ]);
@@ -552,6 +528,9 @@ function pet_media_fetch(PDO $pdo, array $range): array
                 foreach (pet_media_extract_uploads($row[$column] ?? null) as $upload) {
                     $path = $upload['url'] ?? '';
                     $category = strtolower(trim((string)($upload['category'] ?? '')));
+                    if (in_array($category, ['additional_consent', 'consent', 'signed_consent', 'physical_consent'], true)) {
+                        continue;
+                    }
                     $label = $upload['label'] ?? $upload['name'] ?? 'Diagnosis Upload';
                     if ($category !== '') {
                         $label = ucwords(str_replace(['_', '-'], ' ', $category));
@@ -639,7 +618,6 @@ function pet_media_fetch(PDO $pdo, array $range): array
         'totals' => [
             'images' => count($media),
             'pets' => count($pets),
-            'consent' => $sourceCounts['consent'] ?? 0,
             'diagnosis' => $sourceCounts['diagnosis'] ?? 0,
             'booking' => $sourceCounts['booking'] ?? 0,
             'queue' => $sourceCounts['queue'] ?? 0,
@@ -652,7 +630,7 @@ function pet_media_fetch(PDO $pdo, array $range): array
 
 try {
     $payload = pet_media_payload();
-    pet_media_require_super_admin($payload);
+    pet_media_require_media_access($payload);
     $range = pet_media_date_range($payload);
     pet_media_json(pet_media_fetch($pdo, $range));
 } catch (Throwable $e) {

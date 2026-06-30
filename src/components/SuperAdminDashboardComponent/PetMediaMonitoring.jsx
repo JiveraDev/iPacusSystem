@@ -1,8 +1,7 @@
-import { createElement, useCallback, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, Camera, ImageIcon, Loader2, RefreshCw, ShieldCheck, Stethoscope } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { AlertTriangle, CalendarDays, ImageIcon, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
-import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -13,10 +12,9 @@ import { fetchPetMediaMonitoring } from '../../services/petMediaMonitoringServic
 
 const SOURCE_OPTIONS = [
     { value: 'all', label: 'All Sources' },
-    { value: 'consent', label: 'Consent Images' },
     { value: 'diagnosis', label: 'Diagnosis Uploads' },
-    { value: 'booking', label: 'Booking Images' },
-    { value: 'queue', label: 'Queue Images' },
+    { value: 'booking', label: 'Pet Owner Uploads' },
+    { value: 'queue', label: 'Queue Uploads' },
     { value: 'boarding', label: 'Boarding Images' }
 ];
 
@@ -32,8 +30,8 @@ function normalizeRole(role) {
     return String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 
-function isSuperAdmin(user) {
-    return ['super_admin', 'superadmin'].includes(normalizeRole(user?.role));
+function canAccessMediaMonitoring(user) {
+    return ['super_admin', 'superadmin', 'veterinarian'].includes(normalizeRole(user?.role));
 }
 
 function sourceLabel(value) {
@@ -93,7 +91,6 @@ function quickRangeDates(value) {
 }
 
 function sourceTone(source) {
-    if (source === 'consent') return 'bg-emerald-50 text-emerald-700';
     if (source === 'diagnosis') return 'bg-blue-50 text-blue-700';
     if (source === 'boarding') return 'bg-violet-50 text-violet-700';
     if (source === 'queue') return 'bg-amber-50 text-amber-700';
@@ -121,11 +118,11 @@ export default function PetMediaMonitoring() {
     const [customStart, setCustomStart] = useState(() => quickRangeDates('this_month').start);
     const [customEnd, setCustomEnd] = useState(() => quickRangeDates('this_month').end);
     const [sourceFilter, setSourceFilter] = useState('all');
-    const [selectedPetId, setSelectedPetId] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [viewer, setViewer] = useState(null);
 
     const loadMedia = useCallback(async ({ isAutoRefresh = false } = {}) => {
-        if (!isSuperAdmin(user)) {
+        if (!canAccessMediaMonitoring(user)) {
             setIsLoading(false);
             return;
         }
@@ -156,7 +153,7 @@ export default function PetMediaMonitoring() {
     }, [customEnd, customStart, range, user]);
 
     useAutoRefresh(loadMedia, {
-        enabled: isSuperAdmin(user),
+        enabled: canAccessMediaMonitoring(user),
         refreshKey: `pet-media-monitoring:${range}:${customStart}:${customEnd}`
     });
 
@@ -166,46 +163,31 @@ export default function PetMediaMonitoring() {
 
     const media = useMemo(() => {
         const rows = Array.isArray(mediaData?.media) ? mediaData.media : [];
+        const query = searchQuery.trim().toLowerCase();
 
         return rows.filter(item => {
             const matchesSource = sourceFilter === 'all' || item.source === sourceFilter;
-            const matchesPet = selectedPetId === 'all' || String(item.petId || 'unlinked') === selectedPetId;
+            const searchable = [
+                item.petName,
+                item.ownerName,
+                item.serviceName,
+                item.label,
+                item.name,
+                item.bookingNumber,
+                item.queueNumber,
+                item.uploadedBy
+            ].join(' ').toLowerCase();
+            const matchesSearch = !query || searchable.includes(query);
 
-            return matchesSource && matchesPet;
+            return matchesSource && matchesSearch;
         });
-    }, [mediaData, selectedPetId, sourceFilter]);
+    }, [mediaData, searchQuery, sourceFilter]);
 
-    const petGroups = useMemo(() => {
-        const rows = Array.isArray(mediaData?.media) ? mediaData.media : [];
-        const groups = new Map();
-
-        rows
-            .filter(item => sourceFilter === 'all' || item.source === sourceFilter)
-            .forEach(item => {
-                const key = String(item.petId || 'unlinked');
-                const existing = groups.get(key) || {
-                    petId: item.petId,
-                    petName: item.petName || 'Unlinked Pet',
-                    ownerName: item.ownerName || 'Unknown Owner',
-                    petSpecies: item.petSpecies || '',
-                    petBreed: item.petBreed || '',
-                    mediaCount: 0
-                };
-                existing.mediaCount += 1;
-                groups.set(key, existing);
-            });
-
-        return Array.from(groups.values()).sort((a, b) => b.mediaCount - a.mediaCount || a.petName.localeCompare(b.petName));
-    }, [mediaData, sourceFilter]);
-
-    const totals = mediaData?.totals || {};
-    const allFilteredCount = petGroups.reduce((sum, pet) => sum + pet.mediaCount, 0);
-
-    if (!isSuperAdmin(user)) {
+    if (!canAccessMediaMonitoring(user)) {
         return (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6">
                 <h1 className="text-xl font-black text-red-900">Media monitoring is restricted</h1>
-                <p className="mt-2 text-sm font-semibold text-red-700">Only Super Admin accounts can open pet media monitoring.</p>
+                <p className="mt-2 text-sm font-semibold text-red-700">Only Super Admin and Veterinarian accounts can open pet media monitoring.</p>
             </div>
         );
     }
@@ -217,18 +199,17 @@ export default function PetMediaMonitoring() {
                     <div>
                         <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-white/85 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
                             <ShieldCheck className="size-3.5" />
-                            Super Admin Monitoring
+                            Clinic Media Monitoring
                         </div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-950">Pet Media Monitoring</h1>
                         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                            Consent copies, booking and queue concern images, diagnosis uploads, and boarding images.
+                            Diagnosis images, prescription images, pet owner uploads, queue uploads, and boarding images.
                         </p>
                     </div>
 
                     <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm sm:grid-cols-[11rem_12rem_9rem_9rem_auto]">
                         <Select value={range} onValueChange={(value) => {
                             setRange(value);
-                            setSelectedPetId('all');
                         }}>
                             <SelectTrigger>
                                 <SelectValue displayValue={dateRangeLabel(range)} />
@@ -241,7 +222,6 @@ export default function PetMediaMonitoring() {
                         </Select>
                         <Select value={sourceFilter} onValueChange={(value) => {
                             setSourceFilter(value);
-                            setSelectedPetId('all');
                         }}>
                             <SelectTrigger>
                                 <SelectValue displayValue={sourceLabel(sourceFilter)} />
@@ -287,12 +267,12 @@ export default function PetMediaMonitoring() {
                 </div>
             ) : null}
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                <Metric icon={ImageIcon} label="Images" value={totals.images || 0} />
-                <Metric icon={Camera} label="Pets With Media" value={totals.pets || 0} />
-                <Metric icon={ShieldCheck} label="Consent" value={totals.consent || 0} />
-                <Metric icon={Stethoscope} label="Diagnosis" value={totals.diagnosis || 0} />
-                <Metric icon={Camera} label="Filtered" value={allFilteredCount} />
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search pet, owner, service, booking, queue, diagnosis, or file name"
+                />
             </div>
 
             {isLoading && !mediaData ? (
@@ -300,49 +280,7 @@ export default function PetMediaMonitoring() {
                     <Loader2 className="size-8 animate-spin text-[#155dfc]" />
                 </div>
             ) : (
-                <div className="grid gap-5 xl:grid-cols-[21rem_1fr]">
-                    <aside className="space-y-3">
-                        <button
-                            type="button"
-                            onClick={() => setSelectedPetId('all')}
-                            className={`w-full rounded-xl border p-4 text-left transition ${selectedPetId === 'all' ? 'border-[#155dfc] bg-blue-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <p className="font-black text-slate-950">All Pet Media</p>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Grouped monitoring view</p>
-                                </div>
-                                <Badge className="border-0 bg-slate-900 text-white">{allFilteredCount}</Badge>
-                            </div>
-                        </button>
-
-                        <div className="max-h-[38rem] space-y-2 overflow-y-auto pr-1">
-                            {petGroups.map(pet => {
-                                const key = String(pet.petId || 'unlinked');
-                                return (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        onClick={() => setSelectedPetId(key)}
-                                        className={`w-full rounded-xl border p-4 text-left transition ${selectedPetId === key ? 'border-[#155dfc] bg-blue-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="truncate font-black text-slate-950">{pet.petName}</p>
-                                                <p className="mt-1 truncate text-xs font-semibold text-slate-500">{pet.ownerName}</p>
-                                                <p className="mt-1 truncate text-xs font-semibold text-slate-400">
-                                                    {[pet.petSpecies, pet.petBreed].filter(Boolean).join(' / ') || 'No pet type'}
-                                                </p>
-                                            </div>
-                                            <Badge className="border-0 bg-slate-100 text-slate-700">{pet.mediaCount}</Badge>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </aside>
-
-                    <section className="min-w-0">
+                <section className="min-w-0">
                         {media.length === 0 ? (
                             <div className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
                                 <div>
@@ -359,7 +297,6 @@ export default function PetMediaMonitoring() {
                             </div>
                         )}
                     </section>
-                </div>
             )}
 
             <PhotoViewer
@@ -369,22 +306,6 @@ export default function PetMediaMonitoring() {
                 onOpenChange={(open) => !open && setViewer(null)}
             />
         </div>
-    );
-}
-
-function Metric({ icon, label, value }) {
-    return (
-        <Card className="border-slate-200 bg-white shadow-sm">
-            <CardContent className="flex items-center justify-between gap-4 p-4">
-                <div>
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
-                    <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-                </div>
-                <div className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                    {icon ? createElement(icon, { className: 'size-5' }) : null}
-                </div>
-            </CardContent>
-        </Card>
     );
 }
 

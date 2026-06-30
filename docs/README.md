@@ -1,97 +1,79 @@
 # iPawcus Documentation Index
 
-Updated: 2026-06-20
+Updated: 2026-06-30
 
-This folder contains planning, backlog, and deployment notes for the current iPawcus React/PHP project.
+This folder contains the current planning, architecture, backlog, deployment, and release notes for the iPawcus React/PHP project.
 
 | Document | Purpose |
 | --- | --- |
-| `system_inventory_gantt_details.md` | System inventory, module map, workflows, schema notes, Gantt-ready work packages, and manual QA checklist. |
-| `git_backlog_assumptions.md` | Git-history-based backlog assumptions, current working-tree evidence, backlog IDs, release phases, risks, and cleanup items. |
-| `tv_status_display_deployment.md` | Deployment notes for serving the TV status display through `/status-display`, `/tv-status`, or the status subdomain. |
-| `20260620_quality_fix_notes.md` | Latest UX/API fix notes for phone inputs, confirmations, modals, notifications, collapse controls, and boarding room creation. |
+| `system_inventory_gantt_details.md` | System inventory, route and endpoint map, workflows, schema notes, Gantt-ready work packages, and manual QA checklist. |
+| `git_backlog_assumptions.md` | Git-history-based backlog assumptions, current repository evidence, release phases, risks, and cleanup priorities. |
+| `tv_status_display_deployment.md` | Deployment notes for the React and standalone TV status displays. |
+| `20260630_project_update.md` | June 30 whole-project update covering API access, protected media, consent assignments, booking/queue/POS, dashboards, notifications, reports, and suggested commit message. |
+| `20260625_repository_update.md` | June 22-25 repository changes, schema alignment notes, notification-page work, and verification scope. |
+| `20260620_quality_fix_notes.md` | Historical notes for the June 20 phone, confirmation, modal, notification, and boarding fixes. |
 
-## Latest Planning Coverage
+## Current Repository Snapshot
 
-- Super Admin reports dashboard and report export/print center.
-- TV status display route and deployment notes.
-- Pet media monitoring and pet owner account controls.
-- Consent form record migration and consent ledger persistence.
-- Booking/queue lifecycle maintenance and recovery reporting.
-- POS billing and inventory stock movement linkage.
-- Updated Gantt/backlog items for verification and deployment risks.
-- Latest UX/API stability pass: locked `+639` phone inputs, logout/deactivation confirmations, visible modal close buttons, notification/collapse control polish, queue `View` actions, and boarding add-room fixes.
+- Branch: `master`
+- Reviewed HEAD: `07fe6fb` from 2026-06-23
+- Commit count at review: 59
+- Frontend: React 19, Vite 8, Tailwind CSS
+- Backend: PHP 8.x with routing through `php/index.php`
+- Current full schema export: `DDL/database_ddl_20260622_070744.sql`
+- Upgrade script from the June 18 export: `DDL/realign_20260618_to_20260622.sql`
+- Standalone TV display: `Subdomain_folder`
 
-## Current Verification Notes
+The June 25 repository snapshot remains as a historical baseline; the June 30 project note records the current broader working-tree update.
 
-- `npm run lint` passed.
-- `npm run build` passed.
-- PHP syntax checks passed for the changed and newly added endpoints.
-- Latest targeted verification includes `php -l php\boarding_management.php`, `npm run lint`, and `npm run build`.
+## Latest Coverage
 
-## Deployment Notes
+- Responsive notification center with `/dashboard/notifications`, shared notification feed state, filtering, pagination, mark-read actions, and quiet refresh.
+- Super Admin personnel employment profile editing through `PATCH /accounts/{id}/profile`.
+- Updated report charts, consent reporting fallbacks, date handling, and dashboard presentation.
+- June 30 whole-project update: API access tokens, role policies, protected media delivery, consent-template assignment, booking/queue references, POS payment proof, live dashboard summaries, notifications/TODOs, reporting comparisons, and dashboard navigation grouping.
+- React and standalone TV status displays, including subdomain deployment.
+- Super Admin reports, pet media monitoring, pet owner account controls, lifecycle recovery, and POS/inventory linkage.
+- June 20 UX/API fixes for Philippine mobile inputs, confirmations, modal close controls, and boarding room creation.
 
-- Run `DDL/20260619_create_consent_form_records.sql` before relying on consent ledger reports/media monitoring.
-- Add the owner status columns documented in `system_inventory_gantt_details.md` before enabling pet owner deactivation.
-- Confirm `visit_payments.payment_method` supports `cash` before posting cash POS payments.
-- Keep the dashboard debug bypass unchanged until a separate security hardening task is approved.
-  Set Aside For Later
+## Verification Snapshot
 
-    1. Role/API Security Enforcement
-        - Put real role checks in PHP APIs.
-        - Frontend role checks stay only for UI.
-        - API must block unauthorized access with 403.
-        - Protect Super Admin reports, pet directory, POS, inventory, diagnosis, bookings, queue, etc.
+Completed on 2026-06-25:
 
-    2. Full Booking / Queue / POS Lifecycle Review
-        - Booking status rules.
-        - Queue day expiration rules.
-        - Vet My List rules.
-        - Diagnosis completion must create POS bill in one backend transaction.
-        - Pending payment must stay visible until paid.
-        - Pet owner pending payment todo must stay active.
+- `npm run lint`
+- `npm run build`
+- `php -l php/update_account_profile.php`
+- `php -l php/status_display.php`
+- `php -l Subdomain_folder/index.php`
+- `php -l Subdomain_folder/status.php`
+- `git diff --check`
 
-    3. POS Improvements
-        - Rebrand to Point-Of-Sale.
-        - Cash-only option for now.
-        - Transaction number input only when needed.
-        - Fix walk-in sale payment/preview invoice button.
-        - Add prescription holder/inclusion idea.
-        - Improve prescription/product search using variant names.
+## Deployment Priorities
 
-    4. Inventory / Service Catalog / Materials
-        - Review service catalog material usage.
-        - Strengthen backend for materials used.
-        - Clarify medicine vs product IDs in POS.
-        - Inventory/report lifecycle inspection.
+1. Resolve the `consent_form_records` schema mismatch before production deployment. The June 22 full export uses a reduced table definition, while `DDL/20260619_create_consent_form_records.sql` and current helper code use additional audit, source, visit, and file-path columns.
+2. If upgrading a database based on `DDL/database_ddl_20260618_034832.sql`, review and run `DDL/realign_20260618_to_20260622.sql` in a backup/staging database first.
+3. Add `cash` to `visit_payments.payment_method` before enabling cash POS posting. The June 22 export still limits the enum to `qrph`, `gcash`, `maya`, and `bank_transfer`.
+4. Keep the existing debug-bypass values in `src/components/Dashboard.jsx` and `src/components/dashboardRouter.jsx` unchanged unless a separate security task explicitly authorizes that work.
+5. Remove or rotate any real credentials that have been placed in tracked environment example files or Git history. Example files must contain placeholders only.
 
-    5. Reports / Super Admin
-        - Reports Dashboard.
-        - Export/Print Report Center.
-        - Service utilization, revenue graphs, animal distribution, inventory status, queue/booking trends, boarding/hotel/kennel reports.
-        - Consent reporting needs real signed consent records table.
+## Set Aside for Later
 
-    6. Consent / Media Monitoring
-        - Let Super Admin view consent result images and pet-related uploaded images.
-        - Fix signed consent record loading/date filtering where needed.
-        - Exclude profile-only images from monitoring if not relevant.
+### Role and API Security
 
-    7. Pet Owner Accounts
-        - Separate pet owner page.
-        - Card/table modal view.
-        - Pet owner profile summary with picture.
-        - Possible account deactivation.
-        - Possible removal of ownership from pets.
+- Enforce authorization in PHP APIs; frontend route checks are not a security boundary.
+- Protect reports, account management, pet records, POS, inventory, diagnosis, bookings, and queue operations with server-side role checks.
+- Reconcile the intentionally preserved dashboard and dashboard-router debug-bypass configuration in a dedicated hardening task.
 
-    8. Push Notifications
-        - Diagnose why login/push is not working.
-        - Queue approval notification behavior.
-        - SSL/local issuer certificate issue.
+### Workflow and Financial QA
 
-    9. UI / UX Cleanup
-        - Searchable dropdowns everywhere needed, especially inventory.
-        - Supplier input should allow adding new suppliers.
-        - TV display cleanup and spacing adjustment.
-        - Vet/Admin online monitoring redesign and remove last seen.
+- Review booking, queue, veterinarian assignment, diagnosis, visit, invoice, payment, and owner-todo transitions end to end.
+- Ensure diagnosis completion and POS bill creation are transactional where required.
+- Verify pending payments remain visible until settled.
+- Validate stock consumption, reversal, batch selection, and insufficient-stock behavior.
 
-  Main next big engineering task should probably be API role enforcement, because it protects everything else.
+### Remaining Product Work
+
+- Add PDF and non-image document preview behavior.
+- Complete PDF/Excel report export if required; current report output supports browser print and CSV.
+- Improve inventory/product search and supplier creation.
+- Finish production push-notification and Jitsi environment validation.

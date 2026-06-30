@@ -1,3 +1,26 @@
+import { getApiUrl, getStoredAuthToken } from '../services/apiClient';
+
+const RUNTIME_UPLOAD_DIRECTORIES = new Set([
+  'boarding_documents',
+  'concerns',
+  'diagnosis',
+  'inventory_items',
+  'inventory_receipts',
+  'payment_qr',
+  'payments',
+  'pet_profile_images',
+  'signatures',
+  'uploads'
+]);
+
+function appendAccessToken(url) {
+  const token = getStoredAuthToken();
+  if (!token) return url;
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}access_token=${encodeURIComponent(token)}`;
+}
+
 /**
  * Resolves an image path to a full URL, handling Vite's public folder and absolute URLs.
  * @param {string} profileImage - The path or URL to the image
@@ -5,12 +28,12 @@
  */
 export const resolveImageUrl = (profileImage) => {
   if (!profileImage) return null;
-  
+
   // 1. Blobs/Previews (already absolute or temporary)
   if (profileImage.startsWith('blob:') || profileImage.startsWith('data:')) {
     return profileImage;
   }
-  
+
   // 2. Already absolute URLs
   if (profileImage.startsWith('http')) {
     return profileImage;
@@ -19,14 +42,20 @@ export const resolveImageUrl = (profileImage) => {
   // 3. Vite Assets from 'public' folder
   // Contents of 'public/' are served at the root '/' by Vite.
   // If path is '/public/uploads/xxx.png', it's actually at '/uploads/xxx.png'
-  let path = String(profileImage).trim();
-  
+  let path = String(profileImage).trim().replace(/\\/g, '/');
+
   // Strip '/public' or 'public' prefix if present
   const cleanPath = path.replace(/^\/?public\//, '/');
-  
+
+  const uploadPath = cleanPath.replace(/^\/+/, '');
+  const uploadDirectory = uploadPath.split('/')[0];
+  if (RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
+    return appendAccessToken(getApiUrl(`/uploads/media/${uploadPath}`));
+  }
+
   // Ensure it starts with a single slash
   const finalPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
-  
+
   // Request from current origin (Vite dev server)
   return finalPath;
 };

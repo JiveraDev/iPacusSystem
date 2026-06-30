@@ -511,6 +511,24 @@ function resolveFileUrl(path) {
     return `/${value.replace(/^\/+/, '').replace(/^public\//, '')}`;
 }
 
+function getBoardingDocumentUrl(document) {
+    return resolveFileUrl(document?.documentPath || document?.url || '');
+}
+
+function isImageBoardingDocument(document) {
+    const mimeType = document?.mimeType || document?.mime_type || '';
+    const url = document?.documentPath || document?.url || document?.fileName || document?.file_name || '';
+
+    return mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(url));
+}
+
+function isPdfBoardingDocument(document) {
+    const mimeType = document?.mimeType || document?.mime_type || '';
+    const url = document?.documentPath || document?.url || document?.fileName || document?.file_name || '';
+
+    return mimeType === 'application/pdf' || /\.pdf$/i.test(String(url));
+}
+
 function documentTypeLabel(value) {
     return DOCUMENT_TYPE_LABELS[value] || value || 'Document';
 }
@@ -610,6 +628,7 @@ export default function PetBoardingManagement() {
     const [tasks, setTasks] = useState([]);
     const [observations, setObservations] = useState([]);
     const [documents, setDocuments] = useState([]);
+    const [previewDocument, setPreviewDocument] = useState(null);
     const [pets, setPets] = useState([]);
     const [inventoryItems, setInventoryItems] = useState([]);
     const [materialUsage, setMaterialUsage] = useState(loadBoardingMaterialUsage);
@@ -1389,6 +1408,9 @@ export default function PetBoardingManagement() {
 
     const currentFacilityMeta = getFacilityMeta(facilityView);
     const CurrentFacilityIcon = currentFacilityMeta.Icon;
+    const previewDocumentUrl = getBoardingDocumentUrl(previewDocument);
+    const previewDocumentIsImage = isImageBoardingDocument(previewDocument);
+    const previewDocumentIsPdf = isPdfBoardingDocument(previewDocument);
 
     const renderFacilityToggle = () => (
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1 shadow-inner">
@@ -2243,15 +2265,15 @@ export default function PetBoardingManagement() {
                                             {document.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{document.notes}</p>}
                                         </div>
                                         <div className="flex flex-wrap gap-2">
-                                            <a
-                                                href={resolveFileUrl(document.documentPath || document.url)}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setPreviewDocument(document)}
                                             >
-                                                <Eye className="mr-2 size-4" />
-                                                Open
-                                            </a>
+                                                <Eye className="size-4" />
+                                                Preview
+                                            </Button>
                                             <Button
                                                 type="button"
                                                 variant="outline"
@@ -2457,14 +2479,16 @@ export default function PetBoardingManagement() {
                                                             </Badge>
                                                             <p className="mt-2 font-black text-[#101828]">{document.title}</p>
                                                             <p className="text-xs font-semibold text-slate-500">{formatDateTime(document.createdAt)}</p>
-                                                            <a
-                                                                href={resolveFileUrl(document.documentPath || document.url)}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => setPreviewDocument(document)}
+                                                                className="mt-3 h-8 bg-white px-3 text-xs"
                                                             >
-                                                                Open
-                                                            </a>
+                                                                <Eye className="size-3" />
+                                                                Preview
+                                                            </Button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -2968,6 +2992,55 @@ export default function PetBoardingManagement() {
                             Save Document
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={Boolean(previewDocument)} onOpenChange={(open) => !open && setPreviewDocument(null)}>
+                <DialogContent className="max-h-[92vh] max-w-5xl overflow-hidden">
+                    <DialogHeader>
+                        <DialogTitle>{previewDocument?.title || previewDocument?.fileName || 'Boarding Document'}</DialogTitle>
+                        <DialogDescription>
+                            {[
+                                previewDocument ? documentTypeLabel(previewDocument.documentType) : '',
+                                previewDocument?.petName,
+                                previewDocument?.bookingNumber
+                            ].filter(Boolean).join(' - ')}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-[55vh] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        {previewDocumentIsImage && previewDocumentUrl ? (
+                            <div className="flex h-[65vh] items-center justify-center p-3">
+                                <img
+                                    src={previewDocumentUrl}
+                                    alt={previewDocument?.title || 'Boarding document preview'}
+                                    className="max-h-full max-w-full object-contain"
+                                />
+                            </div>
+                        ) : previewDocumentIsPdf && previewDocumentUrl ? (
+                            <iframe
+                                title={previewDocument?.title || 'Boarding document preview'}
+                                src={previewDocumentUrl}
+                                className="h-[65vh] w-full bg-white"
+                            />
+                        ) : (
+                            <div className="flex h-[55vh] flex-col items-center justify-center p-6 text-center">
+                                <FileText className="mb-3 size-12 text-slate-300" />
+                                <p className="font-black text-slate-900">{previewDocument?.fileName || previewDocument?.title || 'Document preview unavailable'}</p>
+                                <p className="mt-2 max-w-md text-sm font-semibold text-slate-500">
+                                    This file type cannot be rendered inline. Download it to view the full document.
+                                </p>
+                                {previewDocumentUrl && (
+                                    <a
+                                        href={previewDocumentUrl}
+                                        download
+                                        className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-[#155dfc] px-4 text-sm font-bold text-white hover:bg-[#0d4acf]"
+                                    >
+                                        Download Document
+                                    </a>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
 

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/account_status_helpers.php';
+require_once __DIR__ . '/auth_access_helpers.php';
 
 const DEACTIVATED_ACCOUNT_MESSAGE = 'Account is deactivated. Contact the Super Admin.';
 
@@ -143,9 +144,13 @@ try {
         exit;
     }
 
+    $accessToken = ipawcus_create_access_token($pdo, (int)$user['user_id']);
+
     echo json_encode([
         'message' => 'Login successful.',
-        'access_token' => 'dummy-token-' . bin2hex(random_bytes(16)),
+        'access_token' => $accessToken['token'],
+        'token_type' => 'Bearer',
+        'expires_at' => $accessToken['expires_at'],
         'user' => [
             'id' => $user['user_id'],
             'email' => $user['mail_Address'],

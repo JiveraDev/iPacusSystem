@@ -7,6 +7,35 @@ require_once __DIR__ . '/phone_number_helpers.php';
 
 header("Content-Type: application/json");
 
+function booking_status_column_exists(PDO $pdo, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'bookings'
+          AND column_name = ?
+    ");
+    $stmt->execute([$columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function booking_status_ensure_payment_columns(PDO $pdo): void
+{
+    if (!booking_status_column_exists($pdo, 'payment_proof_url')) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_proof_url VARCHAR(255) NULL");
+    }
+
+    if (!booking_status_column_exists($pdo, 'payment_method')) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_method VARCHAR(40) NULL AFTER payment_proof_url");
+    }
+
+    if (!booking_status_column_exists($pdo, 'payment_reference')) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_reference VARCHAR(120) NULL AFTER payment_method");
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
     http_response_code(405);
     echo json_encode(['message' => 'Method not allowed']);
@@ -22,6 +51,17 @@ $transactionNumber = trim((string)($input['transaction_number'] ?? ''));
 $reviewServiceType = trim((string)($input['service_type'] ?? $input['serviceType'] ?? ''));
 $hasReviewNotes = array_key_exists('review_notes', $input) || array_key_exists('notes', $input);
 $reviewNotes = trim((string)($input['review_notes'] ?? $input['notes'] ?? ''));
+$hasPaymentProof = array_key_exists('payment_proof_url', $input) || array_key_exists('paymentProofUrl', $input);
+$paymentProofUrl = trim((string)($input['payment_proof_url'] ?? $input['paymentProofUrl'] ?? ''));
+$paymentProofUrl = $paymentProofUrl !== '' ? $paymentProofUrl : null;
+$hasPaymentMethod = array_key_exists('payment_method', $input) || array_key_exists('paymentMethod', $input);
+$allowedPaymentMethods = ['cash', 'qrph', 'gcash', 'maya', 'bank_transfer'];
+$paymentMethod = strtolower(trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? '')));
+$paymentMethod = in_array($paymentMethod, $allowedPaymentMethods, true) ? $paymentMethod : null;
+$hasPaymentReference = array_key_exists('payment_reference', $input) || array_key_exists('paymentReference', $input);
+$paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
+$paymentReference = $paymentReference !== '' ? $paymentReference : null;
+$hasPaymentUpdate = $hasPaymentProof || $hasPaymentMethod || $hasPaymentReference;
 
 if (!$bookingId || !$status) {
     http_response_code(400);
@@ -51,6 +91,9 @@ if ($status === 'completed') {
 
 try {
     runLifecycleMaintenance($pdo);
+    if ($hasPaymentUpdate) {
+        booking_status_ensure_payment_columns($pdo);
+    }
 
     $pdo->beginTransaction();
     $onlineConsultation = null;
@@ -95,6 +138,10 @@ try {
         }
     }
 
+    $effectiveStatus = ($booking['status'] === 'completed' && $status === 'confirmed' && $hasPaymentUpdate)
+        ? 'completed'
+        : $status;
+
     if ($status === 'cancelled' && ($cancellationMessage !== '' || $walletNumber !== '' || $transactionNumber !== '')) {
         $notesStmt = $pdo->prepare("SELECT notes FROM bookings WHERE booking_id = ? LIMIT 1");
         $notesStmt->execute([$bookingId]);
@@ -113,16 +160,46 @@ try {
         $parts[] = 'Recorded At: ' . date('Y-m-d H:i:s');
 
         $updatedNotes = trim($currentNotes !== '' ? $currentNotes . "\n\n" . implode("\n", $parts) : implode("\n", $parts));
-        $stmt = $pdo->prepare("UPDATE bookings SET status = ?, notes = ? WHERE booking_id = ?");
-        $stmt->execute([$status, $updatedNotes, $bookingId]);
+        $fields = ['status = ?', 'notes = ?'];
+        $values = [$effectiveStatus, $updatedNotes];
+        if ($hasPaymentProof) {
+            $fields[] = 'payment_proof_url = ?';
+            $values[] = $paymentProofUrl;
+        }
+        if ($hasPaymentMethod) {
+            $fields[] = 'payment_method = ?';
+            $values[] = $paymentMethod;
+        }
+        if ($hasPaymentReference) {
+            $fields[] = 'payment_reference = ?';
+            $values[] = $paymentReference;
+        }
+        $values[] = $bookingId;
+        $stmt = $pdo->prepare("UPDATE bookings SET " . implode(', ', $fields) . " WHERE booking_id = ?");
+        $stmt->execute($values);
     } else {
-        $stmt = $pdo->prepare("UPDATE bookings SET status = ? WHERE booking_id = ?");
-        $stmt->execute([$status, $bookingId]);
+        $fields = ['status = ?'];
+        $values = [$effectiveStatus];
+        if ($hasPaymentProof) {
+            $fields[] = 'payment_proof_url = ?';
+            $values[] = $paymentProofUrl;
+        }
+        if ($hasPaymentMethod) {
+            $fields[] = 'payment_method = ?';
+            $values[] = $paymentMethod;
+        }
+        if ($hasPaymentReference) {
+            $fields[] = 'payment_reference = ?';
+            $values[] = $paymentReference;
+        }
+        $values[] = $bookingId;
+        $stmt = $pdo->prepare("UPDATE bookings SET " . implode(', ', $fields) . " WHERE booking_id = ?");
+        $stmt->execute($values);
     }
 
-    if ($status === 'confirmed') {
+    if ($effectiveStatus === 'confirmed') {
         $onlineConsultation = createOnlineConsultationForBooking($pdo, (int)$bookingId);
-    } elseif ($status === 'cancelled') {
+    } elseif ($effectiveStatus === 'cancelled') {
         cancelOnlineConsultationForBooking($pdo, (int)$bookingId);
     }
 
@@ -130,9 +207,9 @@ try {
 
     $pdo->commit();
 
-    if ($status !== $previousStatus && in_array($status, ['confirmed', 'cancelled'], true)) {
+    if ($effectiveStatus !== $previousStatus && in_array($effectiveStatus, ['confirmed', 'cancelled'], true)) {
         try {
-            notification_send_booking_event($pdo, (int)$bookingId, $status === 'confirmed' ? 'confirmed' : 'cancelled', [
+            notification_send_booking_event($pdo, (int)$bookingId, $effectiveStatus === 'confirmed' ? 'confirmed' : 'cancelled', [
                 'cancellation_message' => $cancellationMessage,
                 'wallet_number' => $walletNumber,
                 'transaction_number' => $transactionNumber,

@@ -14,6 +14,30 @@ import {
     submitOnlineConsultationDiagnosis
 } from '../../services/onlineConsultationService';
 
+const emptyDiagnosisForm = {
+    diagnosis: '',
+    recommendations: '',
+    treatment: '',
+    medications: '',
+    notes: ''
+};
+
+function getDraftKey(onlineConsultationId) {
+    return `vet-online-consult-draft-${onlineConsultationId}`;
+}
+
+function readDraft(onlineConsultationId) {
+    try {
+        return JSON.parse(localStorage.getItem(getDraftKey(onlineConsultationId)) || 'null');
+    } catch {
+        return null;
+    }
+}
+
+function removeDraft(onlineConsultationId) {
+    localStorage.removeItem(getDraftKey(onlineConsultationId));
+}
+
 function getStatusBadge(status) {
     const normalized = String(status || '').toLowerCase();
 
@@ -39,13 +63,8 @@ export default function VetOnlineConsultDiagnosis() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isStarting, setIsStarting] = useState(false);
-    const [diagnosisForm, setDiagnosisForm] = useState({
-        diagnosis: '',
-        recommendations: '',
-        treatment: '',
-        medications: '',
-        notes: ''
-    });
+    const [lastAutosavedAt, setLastAutosavedAt] = useState('');
+    const [diagnosisForm, setDiagnosisForm] = useState(emptyDiagnosisForm);
 
     useEffect(() => {
         const loadConsultation = async () => {
@@ -59,13 +78,16 @@ export default function VetOnlineConsultDiagnosis() {
                 }
 
                 setConsultation(loaded);
-                setDiagnosisForm({
+                const serverForm = {
                     diagnosis: loaded.diagnosis || '',
                     recommendations: loaded.recommendations || '',
                     treatment: loaded.treatment || '',
                     medications: loaded.medications || '',
                     notes: loaded.diagnosisNotes || ''
-                });
+                };
+                const savedDraft = readDraft(onlineConsultationId);
+                setDiagnosisForm(savedDraft?.form ? { ...serverForm, ...savedDraft.form } : serverForm);
+                setLastAutosavedAt(savedDraft?.savedAt || '');
             } catch (error) {
                 console.error('Failed to load online consultation:', error);
                 toast.error(error.message || 'Failed to load online consultation');
@@ -78,6 +100,28 @@ export default function VetOnlineConsultDiagnosis() {
             loadConsultation();
         }
     }, [onlineConsultationId]);
+
+    useEffect(() => {
+        if (!onlineConsultationId || isLoading || !consultation) return undefined;
+
+        const timeoutId = window.setTimeout(() => {
+            const savedAt = new Date().toISOString();
+            localStorage.setItem(getDraftKey(onlineConsultationId), JSON.stringify({
+                form: diagnosisForm,
+                savedAt
+            }));
+            setLastAutosavedAt(savedAt);
+        }, 700);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [consultation, diagnosisForm, isLoading, onlineConsultationId]);
+
+    const updateDiagnosisField = (field, value) => {
+        setDiagnosisForm((current) => ({
+            ...current,
+            [field]: value
+        }));
+    };
 
     const startConsultation = async () => {
         if (!consultation) return;
@@ -109,6 +153,7 @@ export default function VetOnlineConsultDiagnosis() {
             const updated = await submitOnlineConsultationDiagnosis(consultation.id, diagnosisForm);
 
             setConsultation(updated);
+            removeDraft(onlineConsultationId);
             toast.success('Diagnosis saved and consultation completed.');
             navigate('/dashboard/vet/online-consultations');
         } catch (error) {
@@ -182,6 +227,11 @@ export default function VetOnlineConsultDiagnosis() {
                         <p className="text-sm text-slate-500">
                             {consultation.petName || 'Unnamed Pet'} with {consultation.ownerName || 'Pet Owner'} - {formatDisplayDateTime(consultation.scheduledStart)}
                         </p>
+                        {lastAutosavedAt && (
+                            <p className="mt-1 text-xs font-medium text-emerald-600">
+                                Draft autosaved {formatDisplayDateTime(lastAutosavedAt)}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -260,64 +310,64 @@ export default function VetOnlineConsultDiagnosis() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                             <Label className="mb-2 block text-sm font-semibold text-slate-900">
                                 Diagnosis *
                             </Label>
                             <Textarea
                                 value={diagnosisForm.diagnosis}
-                                onChange={(event) => setDiagnosisForm({ ...diagnosisForm, diagnosis: event.target.value })}
+                                onChange={(event) => updateDiagnosisField('diagnosis', event.target.value)}
                                 placeholder="Enter diagnosis based on the online consultation..."
-                                className="min-h-[170px] bg-slate-50"
+                                className="min-h-[170px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
                             />
                         </div>
 
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                             <Label className="mb-2 block text-sm font-semibold text-slate-900">
                                 Recommendations
                             </Label>
                             <Textarea
                                 value={diagnosisForm.recommendations}
-                                onChange={(event) => setDiagnosisForm({ ...diagnosisForm, recommendations: event.target.value })}
+                                onChange={(event) => updateDiagnosisField('recommendations', event.target.value)}
                                 placeholder="Follow-up instructions, monitoring, or care plan..."
-                                className="min-h-[130px] bg-slate-50"
+                                className="min-h-[130px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
                             />
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                                 <Label className="mb-2 block text-sm font-semibold text-slate-900">
                                     Treatment
                                 </Label>
                                 <Textarea
                                     value={diagnosisForm.treatment}
-                                    onChange={(event) => setDiagnosisForm({ ...diagnosisForm, treatment: event.target.value })}
+                                    onChange={(event) => updateDiagnosisField('treatment', event.target.value)}
                                     placeholder="Treatment plan..."
-                                    className="min-h-[110px] bg-slate-50"
+                                    className="min-h-[110px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
                                 />
                             </div>
-                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                                 <Label className="mb-2 block text-sm font-semibold text-slate-900">
                                     Medications
                                 </Label>
                                 <Textarea
                                     value={diagnosisForm.medications}
-                                    onChange={(event) => setDiagnosisForm({ ...diagnosisForm, medications: event.target.value })}
+                                    onChange={(event) => updateDiagnosisField('medications', event.target.value)}
                                     placeholder="Medication, dosage, and instructions..."
-                                    className="min-h-[110px] bg-slate-50"
+                                    className="min-h-[110px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
                                 />
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                             <Label className="mb-2 block text-sm font-semibold text-slate-900">
                                 Internal Notes
                             </Label>
                             <Textarea
                                 value={diagnosisForm.notes}
-                                onChange={(event) => setDiagnosisForm({ ...diagnosisForm, notes: event.target.value })}
+                                onChange={(event) => updateDiagnosisField('notes', event.target.value)}
                                 placeholder="Optional clinic notes..."
-                                className="min-h-[90px] bg-slate-50"
+                                className="min-h-[90px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
                             />
                         </div>
                     </div>

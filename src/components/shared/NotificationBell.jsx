@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import NotificationFeed from './NotificationFeed.jsx';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
+import { prepareNotificationRedirect } from '../../lib/notificationRedirect';
 
 const NOTIFICATIONS_ROUTE = '/dashboard/notifications';
 const NOTIFICATIONS_RETURN_PATH_KEY = 'ipawcus-notifications-return-path';
@@ -74,7 +75,7 @@ export default function NotificationBell({
         await markNotificationAsOpened(notification);
         setIsOpen(false);
 
-        const redirectPath = notification.petRedirectPath || notification.redirectPath;
+        const redirectPath = prepareNotificationRedirect(notification.petRedirectPath || notification.redirectPath);
         if (redirectPath && typeof navigate === 'function') {
             navigate(redirectPath);
         }

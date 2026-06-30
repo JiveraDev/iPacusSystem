@@ -33,6 +33,7 @@ const SUPERADMIN_ROLES = DEBUG_BYPASS
 // ends here
 
 const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
+const MEDIA_MONITORING_ROLES = [...new Set([...SUPERADMIN_ROLES, ...VETERINARIAN_ROLES])];
 
 const routePatterns = [
   { pattern: "/dashboard/consult/confirmation/home-service", allowedRoles: ALL_ROLES },
@@ -77,7 +78,7 @@ const routePatterns = [
   { pattern: "/dashboard/vet/online-consultations", allowedRoles: VETERINARIAN_ROLES },
   { pattern: "/dashboard/reports/export", allowedRoles: SUPERADMIN_ROLES },
   { pattern: "/dashboard/reports", allowedRoles: SUPERADMIN_ROLES },
-  { pattern: "/dashboard/pet-media-monitoring", allowedRoles: SUPERADMIN_ROLES },
+  { pattern: "/dashboard/pet-media-monitoring", allowedRoles: MEDIA_MONITORING_ROLES },
   { pattern: "/dashboard/pet-owner-accounts", allowedRoles: SUPERADMIN_ROLES },
   { pattern: "/dashboard/pet-register/:petId", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/pet-register", allowedRoles: ALL_ROLES },

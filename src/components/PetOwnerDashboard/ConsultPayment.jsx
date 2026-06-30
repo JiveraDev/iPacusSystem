@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -12,10 +12,12 @@ import { ArrowLeft, Upload, CheckCircle, AlertCircle, X, ShieldCheck, Eye } from
 import SignatureCapture from "../SignatureCapture";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
+import { fetchConsentFiles } from "../../services/consentFileService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { resolveImageUrl } from "../../lib/image";
 import { isValidPhilippinePhone, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
+import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 
@@ -25,6 +27,8 @@ export default function ConsultPayment() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState(null);
   const [viewer, setViewer] = useState(null);
+  const [consentTemplates, setConsentTemplates] = useState([]);
+  const [isLoadingConsent, setIsLoadingConsent] = useState(false);
   const [consents, setConsents] = useState({
     terms: false,
     privacy: false,
@@ -43,6 +47,10 @@ export default function ConsultPayment() {
   const senderRequiresPhilippineMobile = ["gcash", "maya"].includes(String(selectedMethod?.value || "").toLowerCase());
   const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
   const isMobileWalletPaymentMethod = (value) => ["gcash", "maya"].includes(String(value || "").toLowerCase());
+  const onlineConsentTemplate = useMemo(
+    () => pickConsentForContext(consentTemplates, "online-consultation"),
+    [consentTemplates]
+  );
 
   const handlePaymentMethodChange = (value) => {
     setFormData({
@@ -62,6 +70,37 @@ export default function ConsultPayment() {
     }
     setBookingData(JSON.parse(pending));
   }, [navigate]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadConsentTemplates = async () => {
+      setIsLoadingConsent(true);
+      try {
+        const data = await fetchConsentFiles();
+        if (!isActive) return;
+
+        setConsentTemplates(Array.isArray(data)
+          ? data.map(normalizeConsentTemplate).filter((template) => template.id)
+          : []);
+      } catch (error) {
+        if (isActive) {
+          setConsentTemplates([]);
+          toast.error(error.message || "Could not load online consultation consent form.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingConsent(false);
+        }
+      }
+    };
+
+    loadConsentTemplates();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const dataURLtoFile = (dataurl, filename) => {
     if (!dataurl) return null;
@@ -92,6 +131,10 @@ export default function ConsultPayment() {
     
     if (!consents.terms || !consents.privacy || !consents.teleconsult) {
       toast.error("Please agree to all consultation consent items");
+      return;
+    }
+    if (!onlineConsentTemplate) {
+      toast.error("No online consultation consent form is assigned. Please contact the clinic.");
       return;
     }
     if (!signature) {
@@ -132,6 +175,11 @@ export default function ConsultPayment() {
         const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
         finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
       }
+      const ownerName = [
+        currentUser.firstName || currentUser.first_Name || currentUser.first_name,
+        currentUser.lastName || currentUser.last_Name || currentUser.last_name
+      ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
+      const signedAt = new Date().toISOString();
 
       const uploadedConcernUrls = [];
       if (Array.isArray(bookingData.concernImages)) {
@@ -173,7 +221,18 @@ export default function ConsultPayment() {
         payment_proof_url: receiptUrl,
         payment_method: formData.paymentMethod,
         payment_reference: formData.referenceNumber,
-        price: formData.amount || "500"
+        price: formData.amount || "500",
+        consent_forms: [{
+          id: onlineConsentTemplate.id,
+          title: onlineConsentTemplate.title,
+          category: onlineConsentTemplate.category || "online-consultation",
+          content: onlineConsentTemplate.content,
+          signerName: ownerName,
+          signedAt,
+          signaturePath: finalSignatureUrl,
+          serviceType: "Online Consultation"
+        }],
+        consent_status: "signed"
       };
 
       // 3. Submit to DB
@@ -239,6 +298,24 @@ export default function ConsultPayment() {
           <CardDescription>Confirm the online consultation consent before submitting payment</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-gray-900">
+                {isLoadingConsent
+                  ? "Loading consent form..."
+                  : onlineConsentTemplate?.title || "No online consultation consent assigned"}
+              </p>
+              {onlineConsentTemplate && (
+                <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-blue-700">
+                  {onlineConsentTemplate.category || "online-consultation"}
+                </span>
+              )}
+            </div>
+            <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
+              {onlineConsentTemplate?.content || "An admin must assign an online consultation consent form in Consent Management before this booking can be submitted."}
+            </p>
+          </div>
+
           <div className="space-y-4 rounded-lg border bg-gray-50 p-4">
             <div className="flex items-start gap-3">
               <Checkbox
@@ -292,7 +369,7 @@ export default function ConsultPayment() {
             <SignatureCapture
               signature={signature}
               onSignatureChange={setSignature}
-              disabled={!consents.terms || !consents.privacy || !consents.teleconsult}
+              disabled={!consents.terms || !consents.privacy || !consents.teleconsult || !onlineConsentTemplate || isLoadingConsent}
             />
           </div>
         </CardContent>
@@ -458,7 +535,11 @@ export default function ConsultPayment() {
               slowLabel="Still submitting payment..."
             />
 
-            <Button type="submit" className="w-full h-12 text-base" disabled={isProcessing || isLoadingPaymentMethods}>
+            <Button
+              type="submit"
+              className="w-full h-12 text-base"
+              disabled={isProcessing || isLoadingPaymentMethods || isLoadingConsent || !onlineConsentTemplate}
+            >
               {isProcessing ? "Submitting Payment..." : "Submit Payment"}
             </Button>
           </form>

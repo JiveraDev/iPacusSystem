@@ -16,6 +16,7 @@ import { fetchRoomAvailability } from "../../services/boardingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
 import { fetchUserPets } from "../../services/petService";
 import { uploadDataUrlImage } from "../../services/uploadService";
+import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 
@@ -89,19 +90,6 @@ const SPECIES_PET_LIMITS = {
   bird: 3
 };
 
-const DEFAULT_BOARDING_CONSENT = {
-  id: "default-boarding-consent",
-  title: "Pet Hotel & Boarding Liability Consent",
-  category: "boarding",
-  content: [
-    "I authorize iPawcus Veterinary Clinic to board and care for my pet during the selected stay dates.",
-    "I understand that boarding involves normal risks including stress, minor injury, illness exposure, appetite changes, and behavior changes.",
-    "I confirm that I have disclosed relevant medical, vaccination, medication, diet, allergy, temperament, and emergency contact information.",
-    "I authorize the clinic to contact me or the listed emergency contact if urgent care decisions are needed.",
-    "I understand that payment and boarding activation may proceed only after this consent is signed."
-  ].join("\n\n")
-};
-
 function formatMoney(value) {
   return `PHP ${Number(value || 0).toLocaleString("en-US")}`;
 }
@@ -140,21 +128,6 @@ function getRoomPetLimit(size) {
   return ROOM_PET_LIMITS[size] || 3;
 }
 
-function normalizeConsentTemplate(file) {
-  return {
-    id: String(file.file_id || file.id || ""),
-    title: file.file_name || file.title || "Consent Form",
-    content: file.content || "",
-    category: file.category || "General"
-  };
-}
-
-function pickBoardingConsentTemplate(templates) {
-  return templates.find((template) => String(template.category || "").toLowerCase() === "boarding")
-    || templates.find((template) => /boarding|hotel|kennel/i.test(`${template.title} ${template.category}`))
-    || DEFAULT_BOARDING_CONSENT;
-}
-
 export default function PetHotel() {
   const navigate = useNavigate();
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
@@ -190,7 +163,7 @@ export default function PetHotel() {
   const selectedSpecies = selectedPetData.length > 0 ? normalizeSpecies(selectedPetData[0].species) : "";
   const selectedSpeciesLimit = selectedSpecies ? getSpeciesPetLimit(selectedSpecies) : 3;
   const boardingConsentTemplate = useMemo(
-    () => pickBoardingConsentTemplate(consentTemplates),
+    () => pickConsentForContext(consentTemplates, "boarding"),
     [consentTemplates]
   );
 
@@ -430,6 +403,11 @@ export default function PetHotel() {
       return;
     }
     const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(emergencyContact, { optional: true });
+
+    if (!boardingConsentTemplate) {
+      toast.error("No boarding consent form is assigned. Please contact the clinic.");
+      return;
+    }
 
     if (!boardingSignature) {
       toast.error("Please sign the boarding liability consent before submitting.");
@@ -782,14 +760,18 @@ export default function PetHotel() {
               <div className="rounded-lg border border-blue-100 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <p className="font-bold text-gray-900">
-                    {isLoadingConsent ? "Loading consent form..." : boardingConsentTemplate.title}
+                    {isLoadingConsent
+                      ? "Loading consent form..."
+                      : boardingConsentTemplate?.title || "No boarding consent assigned"}
                   </p>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-                    {boardingConsentTemplate.category || "boarding"}
-                  </span>
+                  {boardingConsentTemplate && (
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                      {boardingConsentTemplate.category || "boarding"}
+                    </span>
+                  )}
                 </div>
                 <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-sm font-medium leading-6 text-gray-700">
-                  {boardingConsentTemplate.content}
+                  {boardingConsentTemplate?.content || "An admin must assign a boarding consent form in Consent Management before this booking can be submitted."}
                 </p>
               </div>
 
@@ -798,7 +780,7 @@ export default function PetHotel() {
                 <SignatureCapture
                   signature={boardingSignature}
                   onSignatureChange={setBoardingSignature}
-                  disabled={isSubmitting || isLoadingConsent}
+                  disabled={isSubmitting || isLoadingConsent || !boardingConsentTemplate}
                 />
               </div>
             </section>
@@ -809,9 +791,13 @@ export default function PetHotel() {
               type="submit"
               className="w-full"
               size="lg"
-              disabled={isSubmitting || isLoadingPets || pets.length === 0 || !boardingSignature}
+              disabled={isSubmitting || isLoadingPets || pets.length === 0 || !boardingConsentTemplate || !boardingSignature}
             >
-              {isSubmitting ? "Submitting Booking..." : boardingSignature ? "Submit Booking" : "Sign Consent to Continue"}
+              {isSubmitting
+                ? "Submitting Booking..."
+                : !boardingConsentTemplate
+                  ? "Assign Consent Before Signing"
+                  : boardingSignature ? "Submit Booking" : "Sign Consent to Continue"}
             </Button>
           </form>
         </CardContent>

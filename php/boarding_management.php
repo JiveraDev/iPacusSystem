@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/phone_number_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -58,6 +59,34 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
             500,
             'Boarding database schema is missing: ' . implode(', ', $missingTables) . '. Run DDL/boarding_management_migration_20260603.sql first.'
         );
+    }
+}
+
+function ensure_boarding_rooms_schema(PDO $pdo): void
+{
+    if (!boarding_table_exists($pdo, 'rooms')) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS rooms (
+                room_id INT AUTO_INCREMENT PRIMARY KEY,
+                room_type VARCHAR(40) NOT NULL,
+                total_capacity INT NOT NULL DEFAULT 0,
+                description TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+            )
+        ");
+        return;
+    }
+
+    if (!boarding_column_exists($pdo, 'rooms', 'room_type')) {
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN room_type VARCHAR(40) NOT NULL DEFAULT 'boarding-small'");
+    }
+
+    if (!boarding_column_exists($pdo, 'rooms', 'total_capacity')) {
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN total_capacity INT NOT NULL DEFAULT 0");
+    }
+
+    if (!boarding_column_exists($pdo, 'rooms', 'description')) {
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN description TEXT NULL");
     }
 }
 
@@ -1100,7 +1129,7 @@ function direct_check_in_action(PDO $pdo): void
         }
 
         $parts = split_room_type($roomType);
-        $bookingNumber = 'BK-' . strtoupper(bin2hex(random_bytes(4)));
+        $bookingNumber = ipawcus_generate_booking_number($pdo, $today);
         $fullNotes = trim("[Walk-in Boarding Check-in]\n" . $notes);
         $stmt = $pdo->prepare("
             INSERT INTO bookings (
@@ -1644,6 +1673,10 @@ try {
     $action = $_GET['action'] ?? '';
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $requiredTables = ['rooms', 'room_unit_statuses', 'boarding_assignments', 'boarding_observations', 'boarding_tasks'];
+
+    if ($action === 'rooms') {
+        ensure_boarding_rooms_schema($pdo);
+    }
 
     if ($action === 'rooms' && $method === 'POST') {
         $requiredTables = ['rooms'];

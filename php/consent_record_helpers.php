@@ -371,6 +371,7 @@ function consent_record_capture_queue(PDO $pdo, array $data): void
 
     try {
         consent_record_save($pdo, [
+            'consent_file_id' => $data['consent_file_id'] ?? $data['consentFileId'] ?? null,
             'consent_type' => $data['consent_type'] ?? (($data['service_name'] ?? 'Service') . ' Consent'),
             'owner_user_id' => $data['owner_user_id'] ?? null,
             'pet_id' => $data['pet_id'] ?? null,
@@ -379,7 +380,8 @@ function consent_record_capture_queue(PDO $pdo, array $data): void
             'status' => 'signed',
             'source' => 'queue',
             'signed_file_path' => $signaturePath,
-            'signed_at' => date('Y-m-d H:i:s'),
+            'signed_at' => $data['signed_at'] ?? $data['signedAt'] ?? date('Y-m-d H:i:s'),
+            'signer_name' => $data['signer_name'] ?? $data['signerName'] ?? null,
             'notes' => $data['notes'] ?? 'Captured during queue creation.',
         ], false);
     } catch (Throwable $e) {

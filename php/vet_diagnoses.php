@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
     define('VISIT_BILLING_HELPERS_ONLY', true);
@@ -231,6 +232,7 @@ function vetDiagnosisFormatRow(array $row): array
         'diagnosisId' => (int)$row['diagnosis_id'],
         'queueId' => $row['queue_id'] !== null ? (int)$row['queue_id'] : null,
         'queueNumber' => $row['queue_number'] !== null ? (int)$row['queue_number'] : null,
+        'queueReference' => $row['queue_number'] !== null ? ipawcus_format_queue_reference($row['queue_number'], $row['queue_timestamp'] ?? null) : '',
         'bookingId' => $row['booking_id'] !== null ? (int)$row['booking_id'] : null,
         'bookingNumber' => $row['booking_number'] ?? null,
         'assignmentId' => $row['assignment_id'] !== null ? (int)$row['assignment_id'] : null,
@@ -642,6 +644,7 @@ try {
             SELECT
                 vd.*,
                 q.queue_number,
+                q.timestamp AS queue_timestamp,
                 b.booking_number,
                 p.pet_name,
                 p.pet_species,
@@ -940,6 +943,7 @@ try {
         SELECT
             vd.*,
             q.queue_number,
+            q.timestamp AS queue_timestamp,
             b.booking_number,
             p.pet_name,
             p.pet_species,

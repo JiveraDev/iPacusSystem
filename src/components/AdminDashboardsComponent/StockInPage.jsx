@@ -9,6 +9,7 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { toast } from '../../reusecomponent/toast.jsx';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -315,9 +316,12 @@ export default function StockInPage() {
           };
         })
       });
+      toast.success(`Stock-in recorded for ${items.length} item${items.length === 1 ? '' : 's'}.`);
       navigate('/dashboard/inventory');
     } catch (error) {
-      setErrorMessage(error.message || 'Failed to record stock in.');
+      const message = error.message || 'Failed to record stock in.';
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -16,12 +16,16 @@ import {
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
+import ConsentDocument from "../shared/ConsentDocument.jsx";
+import { createConsentDocumentImage } from "../shared/consentDocumentImage.js";
 import { resolveImageUrl } from "../../lib/image";
+import { formatQueueReference } from "../../lib/referenceNumbers";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { addQueueItem, updateQueueStatus } from "../../services/queueService";
 import { checkSelfServiceAccess, fetchPublicWanIp } from "../../services/selfServiceService";
 import { fetchUserPets } from "../../services/petService";
+import { fetchConsentFiles } from "../../services/consentFileService";
 import { uploadDataUrlImage } from "../../services/uploadService";
 
 const SERVICES = [
@@ -35,64 +39,60 @@ const SERVICES = [
     "Parasite Control or Deworming"
 ];
 
-const SERVICE_CONSENTS = {
-    "General Check-up": {
-        title: "General Check-up Service Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to perform a comprehensive physical examination on my pet.",
-            "I understand that the veterinarian will assess my pet's overall health, vital signs, and may recommend additional tests or treatments."
-        ]
-    },
-    "Surgery": {
-        title: "Surgical Procedure Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to perform the necessary surgical procedure on my pet.",
-            "I understand that all surgery involves risks including infection, adverse reactions to anesthesia, and in rare cases, death."
-        ]
-    },
-    "Dental Services": {
-        title: "Dental Service Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to perform dental examination, cleaning, and necessary dental procedures on my pet.",
-            "I understand that dental procedures may require anesthesia and carry associated risks."
-        ]
-    },
-    "Pet Boarding": {
-        title: "Pet Boarding Service Consent",
-        items: [
-            "I certify that my pet is in good health and has not been exposed to any contagious diseases in the past 30 days.",
-            "I agree that my pet has current vaccinations as required by Vetfocus Care Animal Clinic."
-        ]
-    },
-    "Vaccination": {
-        title: "Vaccination Service Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to administer vaccines to my pet as recommended.",
-            "I understand that vaccines may cause mild reactions including lethargy, soreness, or mild fever."
-        ]
-    },
-    "Laboratory Testing": {
-        title: "Laboratory Testing Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to collect specimens and perform laboratory tests on my pet.",
-            "I understand that some tests may require blood samples, urine samples, or other specimen collection."
-        ]
-    },
-    "Emergency Care": {
-        title: "Emergency Care Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to provide immediate emergency medical care to my pet.",
-            "I understand that emergency situations may require rapid decision-making and life-saving interventions."
-        ]
-    },
-    "Parasite Control or Deworming": {
-        title: "Parasite Control & Deworming Consent",
-        items: [
-            "I authorize Vetfocus Care Animal Clinic to perform parasite screening and administer deworming treatment to my pet.",
-            "I understand that fecal examination may be required to identify parasites."
-        ]
-    }
+const SERVICE_CONSENT_ALIASES = {
+    "General Check-up": ["general check-up", "general checkup", "consultation"],
+    Surgery: ["surgery", "special surgery", "kapon"],
+    "Dental Services": ["dental services", "dental", "dental check-up", "dental checkup"],
+    "Pet Boarding": ["pet boarding", "boarding", "pet hotel & boarding", "pet hotel boarding", "kennel boarding"],
+    Vaccination: ["vaccination", "vaccine"],
+    "Laboratory Testing": ["laboratory testing", "lab testing", "laboratory", "lab"],
+    "Emergency Care": ["emergency care", "emergency"],
+    "Parasite Control or Deworming": ["parasite control or deworming", "parasite control", "parasite-control", "deworming"]
 };
+
+function normalizeConsentKey(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeConsentTemplate(file) {
+    return {
+        id: String(file.file_id || file.id || ""),
+        fileId: file.file_id || file.id || null,
+        title: file.file_name || file.title || "Consent Form",
+        content: file.content || "",
+        category: file.category || "General"
+    };
+}
+
+function findConsentTemplateForService(templates, serviceName) {
+    if (!serviceName) return null;
+
+    const serviceKey = normalizeConsentKey(serviceName);
+    const aliasKeys = (SERVICE_CONSENT_ALIASES[serviceName] || [serviceName]).map(normalizeConsentKey);
+    const keys = new Set([serviceKey, ...aliasKeys]);
+
+    return templates.find((template) => keys.has(normalizeConsentKey(template.category)))
+        || templates.find((template) => {
+            const searchable = normalizeConsentKey(`${template.title} ${template.category}`);
+            return Array.from(keys).some((key) => key && searchable.includes(key));
+        })
+        || null;
+}
+
+function getCurrentUser() {
+    try {
+        return JSON.parse(localStorage.getItem("currentUser") || "{}");
+    } catch {
+        return {};
+    }
+}
+
+function getOwnerName(user) {
+    return [
+        user.firstName || user.first_Name || user.first_name,
+        user.lastName || user.last_Name || user.last_name
+    ].filter(Boolean).join(" ").trim() || user.name || user.fullName || "Pet owner";
+}
 
 export default function QueueDashboard() {
 
@@ -109,6 +109,8 @@ export default function QueueDashboard() {
     const [uploadedImages, setUploadedImages] = useState([]);
     const [viewingImage, setViewingImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [consentTemplates, setConsentTemplates] = useState([]);
+    const [isLoadingConsentTemplates, setIsLoadingConsentTemplates] = useState(false);
 
     useEffect(() => {
         const checkAccess = async () => {
@@ -144,7 +146,7 @@ export default function QueueDashboard() {
 
     const loadPets = async () => {
         try {
-            const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+            const currentUser = getCurrentUser();
             const userId = currentUser.id || currentUser.user_id || currentUser.userId;
             if (!userId) {
                 setPets([]);
@@ -174,6 +176,34 @@ export default function QueueDashboard() {
     };
 
     useAutoRefresh(loadPets, { refreshKey: submitted });
+
+    const loadConsentTemplates = async ({ isAutoRefresh = false } = {}) => {
+        if (!isAutoRefresh) {
+            setIsLoadingConsentTemplates(true);
+        }
+
+        try {
+            const data = await fetchConsentFiles();
+            setConsentTemplates(Array.isArray(data)
+                ? data.map(normalizeConsentTemplate).filter((template) => template.id)
+                : []);
+        } catch (error) {
+            console.error("Failed to load self-service consent templates:", error);
+            if (!isAutoRefresh) {
+                toast.error("Could not load assigned consent forms.");
+            }
+        } finally {
+            if (!isAutoRefresh) {
+                setIsLoadingConsentTemplates(false);
+            }
+        }
+    };
+
+    useAutoRefresh(loadConsentTemplates, {
+        enabled: isAccessAllowed,
+        intervalMs: 15000,
+        refreshKey: "self-service-queue-consent-templates"
+    });
 
     const handleCancelQueue = async (queueId, petName) => {
         if (!window.confirm(`Are you sure you want to cancel the queue for ${petName}?`)) {
@@ -231,19 +261,37 @@ export default function QueueDashboard() {
             return;
         }
 
+        const selectedConsent = findConsentTemplateForService(consentTemplates, selectedService);
+        if (!selectedConsent) {
+            toast.error("No consent form is assigned to this service. Please ask an admin to assign one in Consent Files Management.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+            const currentUser = getCurrentUser();
             const userId = currentUser.id || currentUser.user_id || currentUser.userId;
+            const signerName = getOwnerName(currentUser);
             const selectedPetData = pets.find((pet) => pet.id === selectedPet);
             if (!selectedPetData) {
                 toast.error("Please select a pet.");
                 return;
             }
 
-            let signaturePath = null;
-            if (signature?.startsWith("data:image")) {
-                signaturePath = await uploadDataUrlImage(signature, "booking_signature", "queue_signature");
+            const signedAtDate = new Date();
+            const signedAtIso = signedAtDate.toISOString();
+            const signedConsentImage = await createConsentDocumentImage({
+                title: selectedConsent.title,
+                content: selectedConsent.content,
+                signatureImage: signature,
+                signerName,
+                signedAt: signedAtDate.toLocaleString(),
+                veterinarianName: "Clinic Intake",
+                veterinarianLicense: ""
+            });
+            const signaturePath = await uploadDataUrlImage(signedConsentImage, "booking_signature", "queue_consent");
+            if (!signaturePath) {
+                throw new Error("Signed consent document could not be uploaded.");
             }
 
             let imagePath = null;
@@ -259,6 +307,10 @@ export default function QueueDashboard() {
                 complaint: concernStatement || "",
                 image_path: imagePath,
                 signiture_self_service_path: signaturePath,
+                consent_file_id: selectedConsent.fileId,
+                consent_type: selectedConsent.title,
+                consent_signed_at: signedAtIso,
+                signer_name: signerName,
                 queue_source: "self_service"
             }, {
                 headers: publicWanIp ? { "X-Client-Public-IP": publicWanIp } : {}
@@ -302,8 +354,10 @@ export default function QueueDashboard() {
     };
 
     const selectedPetData = pets.find(pet => pet.id === selectedPet);
-    const selectedConsent = selectedService ? SERVICE_CONSENTS[selectedService] : null;
-    const canSubmit = selectedPet && selectedService && signature && !isSubmitting;
+    const selectedConsent = selectedService ? findConsentTemplateForService(consentTemplates, selectedService) : null;
+    const currentUser = getCurrentUser();
+    const ownerName = getOwnerName(currentUser);
+    const canSubmit = selectedPet && selectedService && selectedConsent && signature && !isSubmitting;
 
     if (isAccessLoading) {
         return (
@@ -391,7 +445,11 @@ export default function QueueDashboard() {
                                                                     ? "ring-2 ring-blue-600 bg-blue-50"
                                                                     : "hover:border-blue-300"
                                                             } ${pet.activeQueue ? "opacity-90" : "cursor-pointer"}`}
-                                                            onClick={() => !isSubmitting && !pet.activeQueue && setSelectedPet(pet.id)}
+                                                            onClick={() => {
+                                                                if (isSubmitting || pet.activeQueue) return;
+                                                                setSelectedPet(pet.id);
+                                                                setSignature(null);
+                                                            }}
                                                         >
                                                             <CardContent className="pt-4">
                                                                 <div className="flex items-center gap-3">
@@ -419,7 +477,7 @@ export default function QueueDashboard() {
                                                                             {pet.activeQueue && (
                                                                                 <div className="text-right">
                                                                                     <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full mb-1">
-                                                                                        IN QUEUE #{pet.activeQueue.queue_number}
+                                                                                        IN QUEUE {formatQueueReference(pet.activeQueue)}
                                                                                     </span>
                                                                                     <Button 
                                                                                         size="sm" 
@@ -450,7 +508,10 @@ export default function QueueDashboard() {
                                             <Label htmlFor="service">Select Service *</Label>
                                             <Select
                                                 value={selectedService}
-                                                onValueChange={setSelectedService}
+                                                onValueChange={(service) => {
+                                                    setSelectedService(service);
+                                                    setSignature(null);
+                                                }}
                                                 disabled={isSubmitting}
                                                 searchPlaceholder="Search service"
                                             >
@@ -466,17 +527,35 @@ export default function QueueDashboard() {
                                         </div>
 
                                         {/* Service Consent Display */}
-                                        {selectedConsent && (
-                                            <div className="border rounded-lg p-4 bg-gray-50">
-                                                <h3 className="font-semibold text-gray-900 mb-3">{selectedConsent.title}</h3>
-                                                <div className="space-y-2 mb-4">
-                                                    {selectedConsent.items.map((item, index) => (
-                                                        <div key={index} className="flex gap-2">
-                                                            <span className="text-blue-600 font-semibold text-sm mt-0.5">{index + 1}.</span>
-                                                            <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
-                                                        </div>
-                                                    ))}
+                                        {selectedService && (
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <Label>Assigned Consent Form *</Label>
+                                                    <p className="mt-1 text-sm text-gray-600">
+                                                        This document is assigned by admins in Consent Files Management.
+                                                    </p>
                                                 </div>
+                                                {isLoadingConsentTemplates ? (
+                                                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm font-semibold text-gray-500">
+                                                        Loading assigned consent form...
+                                                    </div>
+                                                ) : selectedConsent ? (
+                                                    <div className="max-h-[34rem] overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                                                        <ConsentDocument
+                                                            title={selectedConsent.title}
+                                                            content={selectedConsent.content}
+                                                            signatureImage={signature}
+                                                            signerName={signature ? ownerName : ""}
+                                                            signedAt={signature ? "Pending submission" : ""}
+                                                            veterinarianName="Clinic Intake"
+                                                            variant="compact"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                                                        No consent form is assigned to {selectedService}. Ask an admin to assign a consent template to this service category.
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
@@ -552,11 +631,11 @@ export default function QueueDashboard() {
                                         )}
 
                                         {/* Signature Capture */}
-                                        {selectedService && (
+                                        {selectedService && selectedConsent && (
                                             <div className="space-y-3">
                                                 <Label>Signature Approval *</Label>
                                                 <p className="text-sm text-gray-600">
-                                                    By signing below, I acknowledge that I have read and agree to the service consent terms for{" "}
+                                                    By signing below, I acknowledge that I have read and agree to the assigned consent form for{" "}
                                                     <span className="font-semibold text-blue-600">{selectedService}</span>
                                                     {selectedPetData && (
                                                         <span> for my pet <span className="font-semibold text-blue-600">{selectedPetData.name}</span></span>

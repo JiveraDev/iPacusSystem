@@ -4,6 +4,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -787,7 +788,7 @@ try {
         }
     }
 
-    $bookingNumber = 'BK-' . strtoupper(bin2hex(random_bytes(4)));
+    $bookingNumber = ipawcus_generate_booking_number($pdo, $bookingDate);
     $primaryPetId = $petIds[0] ?? null;
     $addOnsValue = is_array($addOns) ? json_encode(array_values($addOns)) : $addOns;
 

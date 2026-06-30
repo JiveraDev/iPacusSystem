@@ -116,6 +116,45 @@ export function getApiUrl(path, { apiPrefix = false } = {}) {
     return `${normalizedBaseUrl}${normalizedPath}`;
 }
 
+export function getStoredApiUser() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        return JSON.parse(window.localStorage.getItem('currentUser') || 'null');
+    } catch {
+        return null;
+    }
+}
+
+export function getStoredAuthToken() {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    return window.localStorage.getItem('authToken') || '';
+}
+
+function applyCurrentUserHeaders(headers) {
+    const token = getStoredAuthToken();
+    const user = getStoredApiUser();
+    const userId = user?.id || user?.user_id || user?.userId || '';
+    const role = user?.role || user?.user_role || '';
+
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (userId && !headers.has('X-User-Id')) {
+        headers.set('X-User-Id', String(userId));
+    }
+
+    if (role && !headers.has('X-User-Role')) {
+        headers.set('X-User-Role', String(role));
+    }
+}
+
 export async function readJsonResponse(response, fallback = {}) {
     return response.json().catch(() => fallback);
 }
@@ -142,6 +181,8 @@ export async function apiFetch(path, options = {}) {
     if (body !== undefined && !isFormData && !requestHeaders.has('Content-Type')) {
         requestHeaders.set('Content-Type', 'application/json');
     }
+
+    applyCurrentUserHeaders(requestHeaders);
 
     if (timeoutController) {
         if (signal?.aborted) {

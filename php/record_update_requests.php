@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -376,6 +377,16 @@ function record_request_update(PDO $pdo, array $input): void
     }
 
     $record = record_request_fetch($pdo, ['request_id' => $requestId])[0] ?? null;
+    $assignedAfterUpdate = (int)($record['assignedVeterinarianUserId'] ?? 0);
+    if (
+        $record
+        && $assignedAfterUpdate > 0
+        && in_array($action, ['approve', 'assign'], true)
+        && ($actorUserId === null || $actorUserId !== $assignedAfterUpdate)
+    ) {
+        notification_send_record_update_request_event($pdo, $requestId, $action);
+    }
+
     echo json_encode(['success' => true, 'request' => $record]);
 }
 

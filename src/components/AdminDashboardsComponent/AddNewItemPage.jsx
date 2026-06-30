@@ -9,6 +9,7 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { createInventoryItem, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 import { formatDisplayDate } from '../../lib/date';
+import { toast } from '../../reusecomponent/toast.jsx';
 
 const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'vials', 'bags', 'kg', 'liters'];
 const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -243,9 +244,12 @@ export default function AddNewItemPage() {
         ...pendingItem.payload,
         profile_image_path: profileImagePath
       });
+      toast.success(`${pendingItem.summary.productName} added to inventory.`);
       navigate('/dashboard/inventory');
     } catch (error) {
-      setErrorMessage(error.message || 'Failed to add inventory item.');
+      const message = error.message || 'Failed to add inventory item.';
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

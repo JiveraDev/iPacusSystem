@@ -7,6 +7,28 @@ import { Label } from '../ui/label';
 import { ArrowLeft, User, Mail, Phone, MapPin, Dog } from 'lucide-react';
 import { searchAddresses } from "../services/addressAutocomplete.js";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../lib/philippinePhone';
+
+function normalizeNameInput(value) {
+    return String(value || '')
+        .replace(/[^A-Za-z\s]/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/^\s+/, '');
+}
+
+function getNameError(value, label) {
+    const text = String(value || '').trim();
+
+    if (!text) {
+        return `${label} is required`;
+    }
+
+    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(text)) {
+        return `${label} can only use letters and single spaces`;
+    }
+
+    return '';
+}
+
 export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const [formData, setFormData] = useState({
         firstName:'',
@@ -26,6 +48,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const handleChange = (field, value) => {
         const nextValue = ["phoneNumber", "emergencyContact"].includes(field)
             ? normalizePhilippinePhoneInput(value)
+            : ["firstName", "lastName"].includes(field)
+            ? normalizeNameInput(value)
             : value
 
         setFormData({ ...formData, [field]: nextValue })
@@ -114,8 +138,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             return
         }
 
-        if (!formData.firstName) newErrors.firstName = "First name is required"
-        if (!formData.lastName) newErrors.lastName = "Last name is required"
+        const firstNameError = getNameError(formData.firstName, "First name")
+        const lastNameError = getNameError(formData.lastName, "Last name")
         const phoneError = getPhilippinePhoneError(formData.phoneNumber, {
             requiredMessage: "Phone number is required"
         })
@@ -123,6 +147,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             optional: true
         })
 
+        if (firstNameError) newErrors.firstName = firstNameError
+        if (lastNameError) newErrors.lastName = lastNameError
         if (phoneError) newErrors.phoneNumber = phoneError
         if (emergencyContactError) newErrors.emergencyContact = emergencyContactError
         if (!formData.address) newErrors.address = "Address is required"
@@ -135,6 +161,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         setErrors({})
         onComplete({
             ...formData,
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
             phoneNumber: normalizePhilippinePhoneForSubmit(formData.phoneNumber),
             emergencyContact: normalizePhilippinePhoneForSubmit(formData.emergencyContact, { optional: true }),
             email,

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 
@@ -11,7 +12,7 @@ if (!$userId) {
 
 function fetchUserPetRows(PDO $pdo, $userId): array
 {
-    $sql = "SELECT p.*, q.queue_id, q.status AS queue_status, q.queue_number
+    $sql = "SELECT p.*, q.queue_id, q.status AS queue_status, q.queue_number, q.timestamp AS queue_timestamp
             FROM pets_information p
             JOIN pet_ownership o ON p.pet_id = o.pet_id
             LEFT JOIN queues q ON q.queue_id = (
@@ -59,7 +60,8 @@ try {
             'active_queue' => $pet['queue_id'] ? [
                 'queue_id' => $pet['queue_id'],
                 'status' => $pet['queue_status'],
-                'queue_number' => $pet['queue_number']
+                'queue_number' => $pet['queue_number'],
+                'queue_reference' => ipawcus_format_queue_reference($pet['queue_number'], $pet['queue_timestamp'] ?? null)
             ] : null
         ];
     }, $pets);

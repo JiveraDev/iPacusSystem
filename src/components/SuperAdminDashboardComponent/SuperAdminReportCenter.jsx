@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Download, FileSpreadsheet, FileText, Loader2, Printer, Search } from 'lucide-react';
+import { ArrowLeft, Download, FileSpreadsheet, FileText, Loader2, Printer, Search } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { useDashboardUser } from '../dashboardRouter.jsx';
+import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { generateReport, REPORT_QUICK_RANGES, REPORT_TYPES } from '../../services/reportService';
 import { formatReportDateLabel, formatReportDateRange } from '../../lib/date';
 import ReportPreview from './ReportPreview';
@@ -290,6 +290,7 @@ function getFilterConfig(reportType) {
 
 export default function SuperAdminReportCenter() {
     const user = useDashboardUser();
+    const navigate = useNavigate();
     const [reportType, setReportType] = useState('sales');
     const [range, setRange] = useState('this_month');
     const [customStart, setCustomStart] = useState(defaultMonthStart);
@@ -310,6 +311,14 @@ export default function SuperAdminReportCenter() {
             ? { start: customStart, end: customEnd }
             : quickRangeDates(range)
     ), [customEnd, customStart, range]);
+    const handleCustomStartChange = (value) => {
+        setRange('custom');
+        setCustomStart(value);
+    };
+    const handleCustomEndChange = (value) => {
+        setRange('custom');
+        setCustomEnd(value);
+    };
     const filterConfig = useMemo(() => getFilterConfig(reportType), [reportType]);
 
     const updateFilter = (key, value) => {
@@ -386,6 +395,10 @@ export default function SuperAdminReportCenter() {
                             Generate detailed table reports, preview the output, print clean copies, and export CSV files.
                         </p>
                     </div>
+                    <Button type="button" variant="outline" onClick={() => navigate('/dashboard/reports')} className="gap-2 self-start lg:self-auto">
+                        <ArrowLeft className="size-4" />
+                        Reports Dashboard
+                    </Button>
                 </div>
 
                 <Card className="border-slate-200 shadow-sm">
@@ -431,8 +444,7 @@ export default function SuperAdminReportCenter() {
                                 <Input
                                     type="date"
                                     value={visibleDateRange.start}
-                                    onChange={(event) => setCustomStart(event.target.value)}
-                                    disabled={range !== 'custom'}
+                                    onChange={(event) => handleCustomStartChange(event.target.value)}
                                     className="mt-1"
                                 />
                             </div>
@@ -442,8 +454,7 @@ export default function SuperAdminReportCenter() {
                                 <Input
                                     type="date"
                                     value={visibleDateRange.end}
-                                    onChange={(event) => setCustomEnd(event.target.value)}
-                                    disabled={range !== 'custom'}
+                                    onChange={(event) => handleCustomEndChange(event.target.value)}
                                     className="mt-1"
                                 />
                             </div>

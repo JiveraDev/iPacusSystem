@@ -58,6 +58,29 @@ function pet_owner_todos_user_id(array $input = []): int
     return (int)($_GET['userId'] ?? $_GET['user_id'] ?? $input['userId'] ?? $input['user_id'] ?? 0);
 }
 
+function pet_owner_todos_normalize_role(?string $role): string
+{
+    return strtolower(str_replace(['_', '-'], ' ', trim((string)$role)));
+}
+
+function pet_owner_todos_user_role(PDO $pdo, int $userId): string
+{
+    $providedRole = pet_owner_todos_normalize_role($_GET['role'] ?? $_GET['userRole'] ?? '');
+    if ($providedRole !== '') {
+        return $providedRole;
+    }
+
+    $stmt = $pdo->prepare("SELECT role FROM users WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+
+    return pet_owner_todos_normalize_role($stmt->fetchColumn() ?: '');
+}
+
+function pet_owner_todos_is_veterinarian_role(string $role): bool
+{
+    return $role === 'vet' || str_contains($role, 'veterinarian');
+}
+
 function pet_owner_todos_datetime($value): ?string
 {
     $text = trim((string)($value ?? ''));
@@ -389,6 +412,111 @@ function pet_owner_todos_boarding_tasks(PDO $pdo, int $userId, string $start, st
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
+function pet_owner_todos_vet_online_consultation_tasks(PDO $pdo, int $userId, string $start, string $end): array
+{
+    if (
+        !pet_owner_todos_table_exists($pdo, 'online_consultations')
+        || !pet_owner_todos_table_exists($pdo, 'bookings')
+    ) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            oc.online_consultation_id,
+            oc.scheduled_start,
+            oc.scheduled_end,
+            oc.status,
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID,
+            b.pet_id,
+            CONCAT(owner.first_Name, ' ', owner.last_Name) AS owner_name
+        FROM online_consultations oc
+        JOIN bookings b ON b.booking_id = oc.booking_id
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        LEFT JOIN users owner ON owner.user_id = oc.owner_user_id
+        WHERE oc.veterinarian_user_id = ?
+          AND oc.status IN ('scheduled', 'vet_ready', 'in_progress')
+          AND oc.scheduled_start BETWEEN ? AND ?
+        ORDER BY oc.scheduled_start ASC
+    ");
+    $stmt->execute([$userId, $start, $end]);
+
+    return array_map(function ($row) {
+        $consultationId = (int)$row['online_consultation_id'];
+        $petId = (int)($row['pet_id'] ?? 0);
+        $petName = $row['pet_name'] ?? 'Pet';
+        $ownerName = trim((string)($row['owner_name'] ?? 'Pet owner')) ?: 'Pet owner';
+
+        return pet_owner_todos_format_task([
+            'id' => "vet-online-consultation-{$consultationId}",
+            'source' => 'online_consultation',
+            'sourceId' => $consultationId,
+            'title' => 'Online consultation appointment',
+            'details' => trim(($row['booking_number'] ?? '') . " for {$petName}. Owner: {$ownerName}. Status: " . ($row['status'] ?? 'scheduled')),
+            'category' => 'Online Consultation',
+            'startAt' => $row['scheduled_start'],
+            'endAt' => $row['scheduled_end'],
+            'status' => $row['status'] ?? 'scheduled',
+            'petId' => $petId > 0 ? $petId : null,
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
+            'petName' => $petName,
+            'redirectPath' => '/dashboard/vet/online-consultations',
+            'editable' => false,
+        ]);
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function pet_owner_todos_vet_follow_up_tasks(PDO $pdo, int $userId, string $start, string $end): array
+{
+    if (!pet_owner_todos_table_exists($pdo, 'vet_diagnoses')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            vd.diagnosis_id,
+            vd.pet_id,
+            vd.follow_up_date,
+            vd.service_name,
+            vd.diagnosis,
+            COALESCE(p.pet_name, 'Pet') AS pet_name,
+            p.pet_sharable_ID
+        FROM vet_diagnoses vd
+        JOIN pets_information p ON p.pet_id = vd.pet_id
+        WHERE vd.veterinarian_user_id = ?
+          AND vd.follow_up_date IS NOT NULL
+          AND vd.follow_up_date BETWEEN DATE(?) AND DATE(?)
+        ORDER BY vd.follow_up_date ASC
+    ");
+    $stmt->execute([$userId, $start, $end]);
+
+    return array_map(function ($row) {
+        $diagnosisId = (int)$row['diagnosis_id'];
+        $petId = (int)$row['pet_id'];
+        $followUpAt = date('Y-m-d 09:00:00', strtotime($row['follow_up_date']));
+        $petName = $row['pet_name'] ?? 'Pet';
+
+        return pet_owner_todos_format_task([
+            'id' => "vet-follow-up-{$diagnosisId}",
+            'source' => 'vet_follow_up',
+            'sourceId' => $diagnosisId,
+            'title' => "Follow-up recording for {$petName}",
+            'details' => trim((string)($row['service_name'] ?: 'Clinic follow-up') . ': ' . (string)($row['diagnosis'] ?? '')),
+            'category' => 'Follow-up',
+            'startAt' => $followUpAt,
+            'endAt' => date('Y-m-d H:i:s', strtotime($followUpAt . ' +30 minutes')),
+            'status' => 'pending',
+            'petId' => $petId,
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
+            'petName' => $petName,
+            'redirectPath' => '/dashboard/vet/histories',
+            'editable' => false,
+        ]);
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
 function pet_owner_todos_summary(array $tasks): array
 {
     $now = time();
@@ -442,13 +570,23 @@ function pet_owner_todos_list(PDO $pdo): void
     }
 
     [$start, $end] = pet_owner_todos_range();
-    $tasks = array_merge(
-        pet_owner_todos_booking_tasks($pdo, $userId, $start, $end),
-        pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
-        pet_owner_todos_diagnosis_tasks($pdo, $userId, $start, $end),
-        pet_owner_todos_payment_tasks($pdo, $userId),
-        pet_owner_todos_boarding_tasks($pdo, $userId, $start, $end)
-    );
+    $role = pet_owner_todos_user_role($pdo, $userId);
+
+    if (pet_owner_todos_is_veterinarian_role($role)) {
+        $tasks = array_merge(
+            pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_vet_online_consultation_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_vet_follow_up_tasks($pdo, $userId, $start, $end)
+        );
+    } else {
+        $tasks = array_merge(
+            pet_owner_todos_booking_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_diagnosis_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_payment_tasks($pdo, $userId),
+            pet_owner_todos_boarding_tasks($pdo, $userId, $start, $end)
+        );
+    }
 
     usort($tasks, fn($left, $right) => strtotime($left['startAt']) <=> strtotime($right['startAt']));
 

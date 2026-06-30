@@ -1,6 +1,8 @@
 # 2026-06-20 Quality Fix Notes
 
-This note records the latest small UX and backend stability revisions completed after the 2026-06-19 planning docs.
+Status: historical release note.
+
+This note records the UX and backend stability revisions completed after the 2026-06-19 planning docs. For the current repository snapshot, see `20260625_repository_update.md`.
 
 ## Covered Changes
 
@@ -36,3 +38,5 @@ This note records the latest small UX and backend stability revisions completed 
 - `php -l php\boarding_management.php`
 - `npm run lint`
 - `npm run build`
+
+The later June 23 notification refactor added `/dashboard/notifications`, `NotificationFeed.jsx`, and `useNotificationCenter.js`; include those paths in current responsive regression testing.

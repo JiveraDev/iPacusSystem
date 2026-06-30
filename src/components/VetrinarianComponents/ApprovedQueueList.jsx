@@ -17,6 +17,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, formatDisplayDateTime } from '../../lib/date';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
@@ -86,10 +87,6 @@ function isCompletedQueue(item) {
 
 function hasActiveVetAssignment(item) {
     return Number(item.has_active_assignment || 0) === 1 || normalize(item.assignment_status) === 'received';
-}
-
-function isWaitingQueue(item) {
-    return normalize(item.status) === 'waiting';
 }
 
 function ownerName(item) {
@@ -320,7 +317,7 @@ export default function VetQueueList() {
 
         return approvedQueue.filter(item => {
             const searchableText = [
-                item.queue_number ? `#${item.queue_number}` : '',
+                formatQueueReference(item),
                 item.pet_name,
                 ownerName(item),
                 getServiceDisplayName(item.service_name, ''),
@@ -383,10 +380,6 @@ export default function VetQueueList() {
             return normalize(searchableText).includes(query);
         });
     }, [missedBookings, searchQuery]);
-
-    const waitingCount = queueOnly.filter(isWaitingQueue).length;
-    const urgentCount = approvedQueue.filter(item => normalize(item.priority) === 'urgent').length;
-    const todayConfirmedBookings = confirmedBookings.length;
 
     const toggleRow = (id) => {
         setExpandedRows(prev => {
@@ -623,21 +616,13 @@ export default function VetQueueList() {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <StatBadge label="Available to Receive" value={approvedQueue.length} className="bg-blue-50 text-blue-700" />
-                <StatBadge label="Urgent" value={urgentCount} className="bg-red-50 text-red-700" />
-                <StatBadge label="Today Waiting Approval" value={waitingCount} className="bg-amber-50 text-amber-700" />
-                <StatBadge label="Today Approved Bookings" value={todayConfirmedBookings} className="bg-emerald-50 text-emerald-700" />
-                <StatBadge label="Missed / Rescheduled" value={missedBookings.length} className="bg-sky-50 text-sky-700" />
-            </div>
-
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search queue #, pet, owner, service, or complaint"
+                        placeholder="Search queue ID, pet, owner, service, or complaint"
                         className="h-10 pl-10"
                     />
                 </div>
@@ -660,7 +645,7 @@ export default function VetQueueList() {
                     <TableHeader className="bg-slate-50">
                         <TableRow>
                             <TableHead className="w-10"></TableHead>
-                            <TableHead className="w-20">Queue #</TableHead>
+                            <TableHead className="w-28">Queue ID</TableHead>
                             <TableHead>Pet</TableHead>
                             <TableHead className="hidden md:table-cell">Owner</TableHead>
                             <TableHead className="hidden lg:table-cell">Service</TableHead>
@@ -704,7 +689,7 @@ export default function VetQueueList() {
                                                 <ChevronDown className={`size-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                             </Button>
                                         </TableCell>
-                                        <TableCell className="font-black text-slate-800">#{item.queue_number}</TableCell>
+                                        <TableCell className="font-black text-slate-800">{formatQueueReference(item)}</TableCell>
                                         <TableCell>
                                             <div>
                                                 <p className="font-bold text-slate-900">{item.pet_name || 'Unknown Pet'}</p>
@@ -765,7 +750,8 @@ export default function VetQueueList() {
                 </Table>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-6">
+            <div className="order-2 overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-sky-100 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="text-base font-bold text-slate-900">Missed Bookings / Ready for Reschedule Today</h3>
@@ -853,7 +839,7 @@ export default function VetQueueList() {
                 </Table>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="order-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="text-base font-bold text-slate-900">Confirmed / Approved Bookings</h3>
@@ -939,15 +925,7 @@ export default function VetQueueList() {
                     </TableBody>
                 </Table>
             </div>
-        </div>
-    );
-}
-
-function StatBadge({ label, value, className }) {
-    return (
-        <div className={`rounded-xl px-4 py-3 text-sm font-bold ${className}`}>
-            <p className="text-xs uppercase tracking-wider opacity-80">{label}</p>
-            <p className="mt-1 text-2xl leading-none">{value}</p>
+            </div>
         </div>
     );
 }

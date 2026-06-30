@@ -140,9 +140,9 @@ export default function MedicalRecords() {
         setIsEmailing(true);
         try {
             const response = await emailPetMedicalRecords(petId);
-            toast.success(response.message || 'Medical record copy emailed.');
+            toast.success(response.message || 'Medical record copy sent.');
         } catch (error) {
-            toast.error(error.message || 'Could not email the medical record copy.');
+            toast.error(error.message || 'Could not send the medical record copy.');
         } finally {
             setIsEmailing(false);
         }
@@ -248,7 +248,7 @@ export default function MedicalRecords() {
                         className="h-11 rounded-none border-l border-blue-100 px-4 font-bold text-[#155dfc] hover:bg-blue-50 hover:text-[#0d4acf] sm:min-w-40"
                     >
                         {isEmailing ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
-                        {isEmailing ? 'Emailing...' : 'Email Copy'}
+                        {isEmailing ? 'Sending...' : 'Send copy'}
                     </Button>
                 </div>
             </div>

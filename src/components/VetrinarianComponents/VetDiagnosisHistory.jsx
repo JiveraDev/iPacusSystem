@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
@@ -204,7 +205,7 @@ function recordSearchText(record) {
         record.ownerName,
         record.serviceName,
         record.bookingNumber,
-        record.queueNumber ? `#${record.queueNumber}` : '',
+        formatQueueReference(record),
         record.sourceLabel,
         record.diagnosis,
         record.raw?.chiefComplaint,
@@ -453,7 +454,7 @@ export default function VetDiagnosisHistory() {
                                     <TableCell className="hidden xl:table-cell text-sm font-semibold text-slate-600">
                                         <div>{record.serviceName}</div>
                                         <p className="text-xs font-medium text-slate-400">
-                                            {record.bookingNumber ? `Booking ${record.bookingNumber}` : record.queueNumber ? `Queue #${record.queueNumber}` : 'No reference number'}
+                                            {record.bookingNumber ? `Booking ${record.bookingNumber}` : formatQueueReference(record) || 'No reference number'}
                                         </p>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -560,7 +561,7 @@ function RecordDialog({ record, onClose, onPreview }) {
                         <Detail label="Date" value={formatDisplayDateTime(record.date, undefined, { fallback: 'Not dated' })} />
                         <Detail label="Service" value={record.serviceName} />
                         <Detail label="Booking" value={record.bookingNumber} />
-                        <Detail label="Queue" value={record.queueNumber ? `#${record.queueNumber}` : ''} />
+                        <Detail label="Queue" value={formatQueueReference(record)} />
                         <Detail label="Pet Details" value={record.petDetails} />
                         <Detail label="Record ID" value={`${record.sourceLabel} #${record.recordId}`} />
                         {isBoarding ? (

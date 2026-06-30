@@ -19,7 +19,6 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
-  BarChart3,
   ImageIcon,
   Users,
 } from "lucide-react";
@@ -123,7 +122,15 @@ const SUPERADMIN_ROLES = DEBUG_BYPASS
 // ends here
 
 const SERVICE_ROLES = [...new Set([...PETOWNER_ROLES, ...ADMIN_ROLES])];
+const MEDIA_MONITORING_ROLES = [...new Set([...SUPERADMIN_ROLES, ...VETERINARIAN_ROLES])];
+const TODO_ROLES = [...new Set([...PETOWNER_ROLES, ...VETERINARIAN_ROLES])];
 const PETS_DIRECTORY_LABEL_ROLES = ["admin", "veterinarian", "super admin"];
+const SUPERADMIN_NAV_GROUPS = [
+  { id: "superadmin", label: "Super Admin Navs" },
+  { id: "admin", label: "Admin Navs" },
+  { id: "veterinarian", label: "Veterinarian Navs" },
+  { id: "petowner", label: "Pet Owner Navs" },
+];
 
 function getNavItemLabel(item, userRole) {
   if (item.id === "home" && ["super admin", "super_admin", "superadmin"].includes(String(userRole || "").toLowerCase())) {
@@ -138,17 +145,17 @@ function getNavItemLabel(item, userRole) {
 }
 
 const navItems = [
-  { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES },
-  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES },
-  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES },
-  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES },
-  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES },
-  { id: "record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/record-requests", roles: ADMIN_ROLES },
-  { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES },
-  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES },
-  { id: "pos", label: "Point-Of-Sale", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES },
-  { id: "service-catalog", label: "Service Catalog", icon: Stethoscope, path: "/dashboard/service-catalog", roles: ADMIN_ROLES },
+  { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES, navGroup: "superadmin" },
+  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES, navGroup: "petowner" },
+  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES, navGroup: "admin" },
+  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES, navGroup: "admin" },
+  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pos", label: "Point-Of-Sale", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "service-catalog", label: "Service Catalog", icon: Stethoscope, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
     id: "inventory", 
     label: "Inventory", 
@@ -158,22 +165,22 @@ const navItems = [
       { id: "all-items", label: "All Items", path: "/dashboard/inventory" },
       { id: "add-item", label: "Add New Item", path: "/dashboard/inventory/add" },
       { id: "stock-in", label: "Stock In", path: "/dashboard/inventory/stock-in" },
-    ], roles: ADMIN_ROLES
+    ], roles: ADMIN_ROLES,
+    navGroup: "admin"
   },
-  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES },
-  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ADMIN_ROLES },
-  { id: "vet-approved-queue", label: "Approved List", icon: ListTodo, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES },
-  { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES },
-  { id: "vet-medical-records", label: "Medical Records", icon: FileText, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES },
-  { id: "vet-record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES },
-  { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES },
-  { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES },
-  { id: "report-center", label: "Report Export & Print Center", icon: BarChart3, path: "/dashboard/reports/export", roles: SUPERADMIN_ROLES },
-  { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: ImageIcon, path: "/dashboard/pet-media-monitoring", roles: SUPERADMIN_ROLES },
-  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES },
-  { id: "pet-owner-accounts", label: "Pet Owners", icon: Users, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES },
-  { id: "payment-methods", label: "Payment Methods", icon: CreditCard, path: "/dashboard/payment-methods", roles: SUPERADMIN_ROLES },
-  { id: "todos", label: "TODOs", icon: ListTodo, path: "/dashboard/todos", roles: PETOWNER_ROLES },
+  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES, navGroup: "petowner" },
+  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "vet-approved-queue", label: "Approved List", icon: ListTodo, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-medical-records", label: "Medical Records", icon: FileText, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: ImageIcon, path: "/dashboard/pet-media-monitoring", roles: MEDIA_MONITORING_ROLES, navGroup: "superadmin" },
+  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "pet-owner-accounts", label: "Pet Owners", icon: Users, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "payment-methods", label: "Payment Methods", icon: CreditCard, path: "/dashboard/payment-methods", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "todos", label: "Schedule / TODOs", icon: ListTodo, path: "/dashboard/todos", roles: TODO_ROLES, navGroup: "veterinarian" },
 ];
 
 const screenMap = {
@@ -268,6 +275,29 @@ function normalizeRole(role) {
   return String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
 
+function isSuperAdminRole(role) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "super_admin" || normalizedRole === "superadmin";
+}
+
+function groupNavItemsForSuperAdmin(items) {
+  const grouped = SUPERADMIN_NAV_GROUPS.map((group) => ({ ...group, items: [] }));
+  const groupMap = new Map(grouped.map((group) => [group.id, group]));
+  const seenItems = new Set();
+
+  items.forEach((item) => {
+    if (seenItems.has(item.id)) {
+      return;
+    }
+
+    const targetGroup = groupMap.get(item.navGroup || "petowner") || groupMap.get("petowner");
+    targetGroup.items.push(item);
+    seenItems.add(item.id);
+  });
+
+  return grouped.filter((group) => group.items.length > 0);
+}
+
 function buildStoredUser(user) {
   const id = getUserValue(user, ["id", "userId", "user_id"], Date.now().toString());
   const email = getUserValue(user, ["email"]);
@@ -353,7 +383,7 @@ function getActiveTab(path) {
     return "vet-histories";
   }
   if (path.startsWith("/dashboard/reports/export")) {
-    return "report-center";
+    return "home";
   }
   if (path.startsWith("/dashboard/reports")) {
     return "home";
@@ -476,6 +506,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     });
   }, [userRole]);
 
+  const groupedNavItems = useMemo(() => {
+    if (!isSuperAdminRole(userRole)) {
+      return [{ id: "default", label: "", items: filteredNavItems }];
+    }
+
+    return groupNavItemsForSuperAdmin(filteredNavItems);
+  }, [filteredNavItems, userRole]);
+
   // Authorization check for the current route
   const ScreenComponent = useMemo(() => {
     const Component = screenMap[routeMatch.path] ?? HomeScreen;
@@ -511,7 +549,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const profileImageSrc = useMemo(() => {
     return resolveImageUrl(getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]));
   }, [user]);
-  const userEmail = getUserValue(user, ["email", "mail_Address"]);
+  const logoutAccountLabel = displayName || "Pet Owner";
 
   const requestLogout = () => {
     setIsMobileNavOpen(false);
@@ -520,7 +558,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
 
   const confirmLogout = () => {
     setIsLogoutDialogOpen(false);
-    toast.success(userEmail ? `Signed out from ${userEmail}.` : "Signed out successfully.");
+    toast.success("Logged out successfully.");
     onLogout?.();
   };
 
@@ -563,59 +601,74 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-hide">
-          <nav className="space-y-2">
-            {filteredNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === activeTab;
-              const hasSubItems = item.subItems && item.subItems.length > 0;
-              const itemLabel = getNavItemLabel(item, userRole);
+          <nav className={isSuperAdminRole(userRole) ? "space-y-4" : "space-y-2"}>
+            {groupedNavItems.map((group, groupIndex) => (
+              <div key={group.id} className="space-y-2">
+                {isSuperAdminRole(userRole) && (
+                  isCollapsed ? (
+                    groupIndex > 0 ? <div className="mx-auto h-px w-8 bg-slate-200" aria-hidden="true" /> : null
+                  ) : (
+                    <p className="px-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {group.label}
+                    </p>
+                  )
+                )}
+                <div className="space-y-2">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = item.id === activeTab;
+                    const hasSubItems = item.subItems && item.subItems.length > 0;
+                    const itemLabel = getNavItemLabel(item, userRole);
 
-              return (
-                <div key={item.id} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    title={isCollapsed ? itemLabel : ""}
-                    className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
-                      isCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
-                    } ${
-                      isActive ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
-                    <span className={`font-medium whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden ${
-                      isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
-                    }`}>
-                      {itemLabel}
-                    </span>
-                  </button>
-                  
-                  {hasSubItems && !isCollapsed && (
-                    <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-500 ${
-                      isActive ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
-                    }`}>
-                      {item.subItems.map((subItem) => {
-                        const isSubActive = currentPath === normalizePath(subItem.path);
-                        return (
-                          <button
-                            key={subItem.id}
-                            type="button"
-                            onClick={() => navigate(subItem.path)}
-                            className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors duration-200 ${
-                              isSubActive 
-                                ? "bg-blue-50 text-[#155dfc] font-bold" 
-                                : "text-slate-600 hover:bg-slate-50"
-                            }`}
-                          >
-                            <span className="truncate">{subItem.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                    return (
+                      <div key={item.id} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => navigate(item.path)}
+                          title={isCollapsed ? itemLabel : ""}
+                          className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
+                            isCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
+                          } ${
+                            isActive ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
+                          <span className={`font-medium whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden ${
+                            isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
+                          }`}>
+                            {itemLabel}
+                          </span>
+                        </button>
+                        
+                        {hasSubItems && !isCollapsed && (
+                          <div className={`ml-12 space-y-1 overflow-hidden transition-all duration-500 ${
+                            isActive ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+                          }`}>
+                            {item.subItems.map((subItem) => {
+                              const isSubActive = currentPath === normalizePath(subItem.path);
+                              return (
+                                <button
+                                  key={subItem.id}
+                                  type="button"
+                                  onClick={() => navigate(subItem.path)}
+                                  className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors duration-200 ${
+                                    isSubActive 
+                                      ? "bg-blue-50 text-[#155dfc] font-bold" 
+                                      : "text-slate-600 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <span className="truncate">{subItem.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </nav>
         </div>
 
@@ -701,15 +754,13 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
         <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Confirm Log Out</DialogTitle>
+              <DialogTitle>Log out?</DialogTitle>
               <DialogDescription>
-                {userEmail
-                  ? `You are about to log out of ${userEmail}.`
-                  : "You are about to log out of this account."}
+                Log out of {logoutAccountLabel}?
               </DialogDescription>
             </DialogHeader>
             <p className="text-sm leading-6 text-slate-600">
-              Any unsaved changes on the current page may be lost. Continue logging out?
+              Any unsaved changes will be lost.
             </p>
             <DialogFooter>
               <button

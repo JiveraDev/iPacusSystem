@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth_otp_helpers.php';
-require_once __DIR__ . '/phone_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -254,13 +253,7 @@ function payment_methods_save(PDO $pdo, array $input): void
             payment_methods_error(400, 'Payment method label is required.');
         }
 
-        $accountNumber = trim((string)($method['accountNumber'] ?? $method['account_number'] ?? ''));
-        if (in_array($requiredKey, ['maya', 'gcash'], true) && $accountNumber !== '') {
-            if (!isValidPhilippinePhoneNumber($accountNumber, true)) {
-                payment_methods_error(400, "{$label} number must be a complete Philippine mobile number after +639.");
-            }
-            $accountNumber = normalizePhilippinePhoneNumber($accountNumber);
-        }
+        $accountNumber = preg_replace('/\D+/', '', (string)($method['accountNumber'] ?? $method['account_number'] ?? ''));
 
         $byKey[$requiredKey]['_normalizedLabel'] = $label;
         $byKey[$requiredKey]['_normalizedAccountNumber'] = $accountNumber;

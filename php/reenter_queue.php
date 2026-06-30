@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -51,21 +52,25 @@ try {
         $todayDate = maintenance_today($pdo);
 
         if ($queueDate === $todayDate) {
+            $activeReference = ipawcus_format_queue_reference($active['queue_number'], $active['timestamp'] ?? null);
             http_response_code(409);
             echo json_encode([
-                'message' => "This pet already has an active queue entry for today (#{$active['queue_number']}).",
+                'message' => "This pet already has an active queue entry for today ({$activeReference}).",
                 'queue_id' => $active['queue_id'],
                 'queue_number' => $active['queue_number'],
+                'queue_reference' => $activeReference,
                 'status' => $active['status']
             ]);
             exit;
         }
 
+        $activeReference = ipawcus_format_queue_reference($active['queue_number'], $active['timestamp'] ?? null);
         http_response_code(409);
         echo json_encode([
-            'message' => "This pet still has an active in-service queue entry (#{$active['queue_number']}). Complete, return, or cancel it before re-entry.",
+            'message' => "This pet still has an active in-service queue entry ({$activeReference}). Complete, return, or cancel it before re-entry.",
             'queue_id' => $active['queue_id'],
             'queue_number' => $active['queue_number'],
+            'queue_reference' => $activeReference,
             'status' => $active['status']
         ]);
         exit;
@@ -81,7 +86,7 @@ try {
 
     $complaint = maintenance_append_note(
         $source['complaint'] ?? '',
-        '[Lifecycle] Re-entered from previous queue #' . ($source['queue_number'] ?? $queue_id) . ' (' . maintenance_now($pdo) . ')'
+        '[Lifecycle] Re-entered from previous queue ' . ipawcus_format_queue_reference($source['queue_number'] ?? $queue_id, $source['timestamp'] ?? null) . ' (' . maintenance_now($pdo) . ')'
     );
 
     $insertColumns = ['pet_id', 'user_id', 'service_name', 'queue_number', 'status', 'priority', 'complaint', 'timestamp'];
@@ -115,10 +120,10 @@ try {
     echo json_encode([
         'success' => true,
         'queue_id' => $newQueueId,
-        'queue_number' => $new_queue_number
+        'queue_number' => $new_queue_number,
+        'queue_reference' => ipawcus_format_queue_reference($new_queue_number)
     ]);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to re-enter queue: ' . $e->getMessage()]);
 }
-

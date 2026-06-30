@@ -13,6 +13,7 @@ import { createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { toast } from '../../reusecomponent/toast.jsx';
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
@@ -104,12 +105,15 @@ export default function AllItemsPage() {
     }
 
     if (quantityToRemove > Number(selectedBatch.quantity || 0)) {
-      setErrorMessage(`Stock out quantity cannot exceed ${selectedBatch.quantity} ${stockOutItem.unit} in ${selectedBatch.batchNumber}.`);
+      const message = `Stock out quantity cannot exceed ${selectedBatch.quantity} ${stockOutItem.unit} in ${selectedBatch.batchNumber}.`;
+      setErrorMessage(message);
+      toast.error(message);
       return;
     }
 
     try {
       const currentUser = getCurrentUser();
+      const stockOutName = stockOutItem.name;
       await createStockOut({
         user_id: currentUser?.id || currentUser?.user_id,
         item_id: stockOutItem.itemId || stockOutItem.id,
@@ -127,8 +131,11 @@ export default function AllItemsPage() {
           locationId: String(updatedItem.locationId ?? '')
         });
       }
+      toast.success(`${stockOutName} stock-out recorded.`);
     } catch (error) {
-      setErrorMessage(error.message || 'Failed to record stock out.');
+      const message = error.message || 'Failed to record stock out.';
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -146,12 +153,16 @@ export default function AllItemsPage() {
 
     const unitCost = Number(editItemForm.unitCost);
     if (!Number.isFinite(unitCost) || unitCost < 0) {
-      setErrorMessage('Enter a valid unit cost.');
+      const message = 'Enter a valid unit cost.';
+      setErrorMessage(message);
+      toast.error(message);
       return;
     }
 
     if (!editItemForm.locationId) {
-      setErrorMessage('Select an inventory location.');
+      const message = 'Select an inventory location.';
+      setErrorMessage(message);
+      toast.error(message);
       return;
     }
 
@@ -176,8 +187,11 @@ export default function AllItemsPage() {
         });
       }
       setIsEditingItem(false);
+      toast.success(`${updatedItem?.name || selectedItem.name} inventory details updated.`);
     } catch (error) {
-      setErrorMessage(error.message || 'Failed to update inventory item.');
+      const message = error.message || 'Failed to update inventory item.';
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSavingItem(false);
     }

@@ -34,13 +34,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
 import { fetchInventoryItems } from '../../services/inventoryApi';
+import { updateBookingStatus } from '../../services/bookingService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
+import { uploadDataUrlImage } from '../../services/uploadService';
 import { createVisit, fetchVisits, postVisitPayment } from '../../services/visitBillingService';
 
-const INVOICE_DATE = 'May 30, 2026';
+const INVOICE_DATE = new Date().toLocaleDateString(undefined, {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
 
 const CLASSIFICATIONS = [
   {
@@ -737,6 +744,73 @@ function nextInvoiceNumber(invoiceNumber) {
   return invoiceNumber.replace(/\d+$/, nextNumber);
 }
 
+function createInvoiceProofImage({ invoiceNumber, invoiceDate, visit, charges, total, paymentMethod, paymentReference }) {
+  const width = 760;
+  const rowHeight = 34;
+  const height = Math.max(620, 360 + (charges.length * rowHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = '#155dfc';
+  ctx.fillRect(0, 0, width, 88);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 30px Arial';
+  ctx.fillText('iPawcus Veterinary Clinic', 36, 48);
+  ctx.font = '600 15px Arial';
+  ctx.fillText('Point-Of-Sale Invoice Proof', 36, 72);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '700 24px Arial';
+  ctx.fillText(invoiceNumber, 36, 132);
+  ctx.font = '500 14px Arial';
+  ctx.fillStyle = '#475569';
+  ctx.fillText(`Date: ${invoiceDate}`, 36, 158);
+  ctx.fillText(`Payment: ${String(paymentMethod || 'cash').replace(/_/g, ' ').toUpperCase()}`, 36, 182);
+  ctx.fillText(`Reference: ${paymentReference || 'Cash payment without transaction number'}`, 36, 206);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '700 18px Arial';
+  ctx.fillText('Patient', 36, 252);
+  ctx.font = '500 15px Arial';
+  ctx.fillStyle = '#334155';
+  ctx.fillText(`Pet: ${visit?.petName || 'Patient'}`, 36, 280);
+  ctx.fillText(`Owner: ${visit?.ownerName || 'Pet Owner'}`, 36, 304);
+  ctx.fillText(`Visit: ${visit?.visitType || 'Counter payment'}`, 36, 328);
+
+  let y = 374;
+  ctx.fillStyle = '#f1f5f9';
+  ctx.fillRect(36, y - 24, width - 72, 34);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '700 14px Arial';
+  ctx.fillText('Item', 52, y - 2);
+  ctx.fillText('Qty', 496, y - 2);
+  ctx.fillText('Amount', 590, y - 2);
+
+  ctx.font = '500 14px Arial';
+  charges.forEach((charge) => {
+    y += rowHeight;
+    const name = String(charge.name || charge.description || 'Charge').slice(0, 58);
+    ctx.fillStyle = '#334155';
+    ctx.fillText(name, 52, y);
+    ctx.fillText(String(charge.quantity || 1), 504, y);
+    ctx.fillText(formatPhpCurrency(Number(charge.price || 0) * Number(charge.quantity || 1)), 590, y);
+  });
+
+  y += 54;
+  ctx.fillStyle = '#155dfc';
+  ctx.font = '700 24px Arial';
+  ctx.fillText(`Total Paid: ${formatPhpCurrency(total)}`, 36, y);
+  ctx.font = '500 13px Arial';
+  ctx.fillStyle = '#64748b';
+  ctx.fillText('Generated automatically by iPawcus POS. This image is stored as booking payment proof.', 36, height - 34);
+
+  return canvas.toDataURL('image/png');
+}
+
 function readPosPrefill() {
   try {
     const rawPrefill = localStorage.getItem('ipawcus-pos-prefill');
@@ -958,7 +1032,7 @@ function getPrescriptionInventoryMatches(prescription, inventory, limit = 3) {
 
 function getVisitSourceLabel(visit) {
   if (visit.queueNumber) {
-    return `Queue #${visit.queueNumber}`;
+    return formatQueueReference(visit);
   }
 
   if (visit.bookingNumber) {
@@ -1013,6 +1087,7 @@ function createDatabaseVisit(visit) {
   return {
     id: `visit-${visit.visitId}`,
     visitId: visit.visitId,
+    bookingId: visit.bookingId || null,
     source: 'database',
     petName: visit.petName || 'Patient',
     ownerName: visit.ownerName || 'Pet Owner',
@@ -1088,14 +1163,20 @@ export default function ServicePOS() {
         || new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0)
       ))
   ), [visitBills]);
-  const pendingPaymentCount = useMemo(() => (
-    databaseVisitOptions.filter((visit) => isPendingPaymentStatus(visit.billingStatus)).length
+  const payableDatabaseVisitOptions = useMemo(() => (
+    databaseVisitOptions.filter((visit) => isPendingPaymentStatus(visit.billingStatus))
   ), [databaseVisitOptions]);
+  const pendingPaymentCount = useMemo(() => (
+    payableDatabaseVisitOptions.length
+  ), [payableDatabaseVisitOptions]);
   const visitOptions = useMemo(() => {
-    const prefillOptions = posPrefill?.visit ? [createPrefillVisit(posPrefill)] : [];
+    const prefillVisit = posPrefill?.visit ? createPrefillVisit(posPrefill) : null;
+    const prefillOptions = prefillVisit && normalizeText(prefillVisit.billingStatus || prefillVisit.status) !== 'paid'
+      ? [prefillVisit]
+      : [];
 
-    return [WALK_IN_SALE_VISIT, ...databaseVisitOptions, ...prefillOptions];
-  }, [databaseVisitOptions, posPrefill]);
+    return [WALK_IN_SALE_VISIT, ...payableDatabaseVisitOptions, ...prefillOptions];
+  }, [payableDatabaseVisitOptions, posPrefill]);
   const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || WALK_IN_SALE_ID);
   const selectedVisit = visitOptions.find((visit) => visit.id === selectedVisitId) || visitOptions[0];
   const [charges, setCharges] = useState(() => (
@@ -1113,6 +1194,16 @@ export default function ServicePOS() {
     posPrefill ? (posPrefill.message || 'Payment summary loaded. Review the invoice before posting payment.') : ''
   ));
   const [selectedChargeId, setSelectedChargeId] = useState(charges[0]?.lineId || '');
+
+  useEffect(() => {
+    if (visitOptions.some((visit) => visit.id === selectedVisitId)) {
+      return;
+    }
+
+    setSelectedVisitId(WALK_IN_SALE_ID);
+    setCharges([]);
+    setSelectedChargeId('');
+  }, [selectedVisitId, visitOptions]);
 
   const loadVisitBills = useCallback(async ({ isAutoRefresh = false } = {}) => {
     if (!isAutoRefresh) {
@@ -1252,6 +1343,33 @@ export default function ServicePOS() {
   })();
   const canPreviewInvoice = !invoiceBlockReason && !isPostingPayment;
   const canPostPayment = !paymentBlockReason && !isPostingPayment;
+  const createAndUploadInvoiceProof = async (postedInvoiceNumber, amountPaid) => {
+    const proofImage = createInvoiceProofImage({
+      invoiceNumber: postedInvoiceNumber,
+      invoiceDate: INVOICE_DATE,
+      visit: selectedVisit,
+      charges,
+      total: amountPaid,
+      paymentMethod,
+      paymentReference: hasPaymentReference ? effectivePaymentReference : '',
+    });
+
+    return uploadDataUrlImage(proofImage, 'booking_payment', 'pos_invoice');
+  };
+  const confirmLinkedBookingPayment = async (proofUrl, postedInvoiceNumber) => {
+    if (!selectedVisit?.bookingId) {
+      return false;
+    }
+
+    await updateBookingStatus(selectedVisit.bookingId, {
+      status: 'confirmed',
+      payment_proof_url: proofUrl,
+      payment_method: paymentMethod,
+      payment_reference: hasPaymentReference ? effectivePaymentReference : postedInvoiceNumber,
+    });
+
+    return true;
+  };
   const isWalkInSale = selectedVisit?.id === WALK_IN_SALE_ID;
   const selectedVisitPrescriptions = selectedVisit?.prescriptions || [];
   const visibleCatalog = (catalog[activeTab] || []).filter((item) => {
@@ -1428,11 +1546,13 @@ export default function ServicePOS() {
       setIsPostingPayment(true);
 
       try {
+        const invoiceProofUrl = await createAndUploadInvoiceProof(postedInvoiceNumber, amountToPost);
         const data = await postVisitPayment(selectedVisit.visitId, {
           amount: amountToPost,
           payment_method: paymentMethod,
           payment_status: 'verified',
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
+          proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
           received_by_user_id: getUserIdentifier(currentUser),
           received_by_name: getUserDisplayName(currentUser),
@@ -1459,7 +1579,10 @@ export default function ServicePOS() {
         setPaymentReference('');
         setCashNoReference(paymentMethod === 'cash');
         setInvoiceNumber((current) => nextInvoiceNumber(current));
-        setNotification(`${postedInvoiceNumber} posted. Visit billing status was updated.`);
+        const bookingConfirmed = await confirmLinkedBookingPayment(invoiceProofUrl, postedInvoiceNumber);
+        setNotification(bookingConfirmed
+          ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and invoice proof was saved.`
+          : `${postedInvoiceNumber} posted. Visit billing status was updated.`);
       } catch (error) {
         setNotification(error.message || 'Failed to post visit payment.');
       } finally {
@@ -1480,6 +1603,7 @@ export default function ServicePOS() {
     setIsPostingPayment(true);
 
     try {
+      const invoiceProofUrl = await createAndUploadInvoiceProof(postedInvoiceNumber, amountToPost);
       const visitPayload = {
         source_type: sourceType,
         visit_status: 'completed',
@@ -1489,6 +1613,7 @@ export default function ServicePOS() {
           payment_method: paymentMethod,
           payment_status: 'verified',
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
+          proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
           received_by_user_id: getUserIdentifier(currentUser),
           received_by_name: getUserDisplayName(currentUser),
@@ -1536,7 +1661,10 @@ export default function ServicePOS() {
       setPaymentReference('');
       setCashNoReference(paymentMethod === 'cash');
       setInvoiceNumber((current) => nextInvoiceNumber(current));
-      setNotification(`${postedInvoiceNumber} posted. Walk-in sale was added to patient visit count.`);
+      const bookingConfirmed = await confirmLinkedBookingPayment(invoiceProofUrl, postedInvoiceNumber);
+      setNotification(bookingConfirmed
+        ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and invoice proof was saved.`
+        : `${postedInvoiceNumber} posted. Walk-in sale was added to patient visit count.`);
     } catch (error) {
       setNotification(error.message || 'Failed to post walk-in sale.');
     } finally {
@@ -1694,9 +1822,18 @@ export default function ServicePOS() {
               <SelectContent>
                 {visitOptions.map((visit) => (
                   <SelectItem key={visit.id} value={visit.id}>
-                    {visit.id === WALK_IN_SALE_ID
-                      ? 'Walk-in Sale / Count as visit'
-                      : `${visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - ${visit.petName} (${visit.status})`}
+                    <span className="flex min-w-0 flex-col py-1">
+                      <span className="truncate text-sm font-bold text-slate-900">
+                        {visit.id === WALK_IN_SALE_ID
+                          ? 'Walk-in Sale / Count as visit'
+                          : `${visit.petName} - ${visit.visitType || 'Visit'}`}
+                      </span>
+                      {visit.id !== WALK_IN_SALE_ID && (
+                        <span className="truncate text-xs font-semibold text-slate-500">
+                          {visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - Balance {formatPhpCurrency(Math.max(0, Number(visit.total || 0) - Number(visit.paid || 0)))}
+                        </span>
+                      )}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1709,20 +1846,14 @@ export default function ServicePOS() {
             )}
 
             <div className="mt-4 space-y-3">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-blue-700">
-                    <PawPrint className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-lg font-black text-[#101828]">
-                      {isWalkInSale ? 'Walk-in Sale' : selectedVisit.petName}
-                    </p>
-                    <p className="text-sm font-semibold text-blue-700">
-                      {isWalkInSale ? 'Counter payment' : [selectedVisit.species, selectedVisit.visitType].filter(Boolean).join(' - ')}
-                    </p>
-                  </div>
-                </div>
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                <VisitSummaryRow icon={PawPrint} label="Patient" value={isWalkInSale ? 'Walk-in Sale' : selectedVisit.petName} />
+                {!isWalkInSale && (
+                  <VisitSummaryRow icon={Stethoscope} label="Visit" value={[selectedVisit.species, selectedVisit.visitType].filter(Boolean).join(' - ')} />
+                )}
+                {!isWalkInSale && (
+                  <VisitSummaryRow icon={User} label="Owner" value={selectedVisit.ownerName} />
+                )}
               </div>
 
               {isWalkInSale ? (
@@ -1731,7 +1862,6 @@ export default function ServicePOS() {
                 </p>
               ) : (
                 <>
-                  <InfoRow icon={User} label="Owner" value={selectedVisit.ownerName} />
                   {selectedVisit.diagnosisSummary && (
                     <div>
                       <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis Summary</p>
@@ -1891,7 +2021,7 @@ export default function ServicePOS() {
                 title={invoiceBlockReason || undefined}
               >
                 <FileText className="mr-2 size-5" />
-                {isPostingPayment ? 'Posting Payment...' : 'Preview Invoice Receipt'}
+                {isPostingPayment ? 'Posting Payment...' : 'Pay Balance'}
               </Button>
             </div>
           </section>
@@ -2166,12 +2296,12 @@ export default function ServicePOS() {
   );
 }
 
-function InfoRow({ icon, label, value }) {
+function VisitSummaryRow({ icon, label, value }) {
   const Icon = icon;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
         <Icon className="size-4" />
       </span>
       <div className="min-w-0">

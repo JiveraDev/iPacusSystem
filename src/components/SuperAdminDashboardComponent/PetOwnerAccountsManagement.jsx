@@ -359,18 +359,14 @@ export default function PetOwnerAccountsManagement() {
                                     <StatusBadge owner={owner} />
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid gap-3 sm:grid-cols-2">
                                     <div className="rounded-xl bg-slate-50 p-3">
                                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Pets</p>
                                         <p className="mt-1 text-xl font-black text-slate-950">{owner.pet_count}</p>
                                     </div>
                                     <div className="rounded-xl bg-slate-50 p-3">
-                                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Bookings</p>
-                                        <p className="mt-1 text-xl font-black text-slate-950">{owner.booking_count}</p>
-                                    </div>
-                                    <div className="rounded-xl bg-slate-50 p-3">
-                                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Queues</p>
-                                        <p className="mt-1 text-xl font-black text-slate-950">{owner.queue_count}</p>
+                                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Status</p>
+                                        <p className="mt-1 text-xl font-black text-slate-950">{isDeactivated(owner) ? 'Inactive' : 'Active'}</p>
                                     </div>
                                 </div>
 
@@ -393,7 +389,7 @@ export default function PetOwnerAccountsManagement() {
                                     <th className="px-4 py-3 font-black">Owner</th>
                                     <th className="px-4 py-3 font-black">Contact</th>
                                     <th className="px-4 py-3 font-black">Pets</th>
-                                    <th className="px-4 py-3 font-black">Activity</th>
+                                    <th className="px-4 py-3 font-black">Pet Count</th>
                                     <th className="px-4 py-3 font-black">Status</th>
                                 </tr>
                             </thead>
@@ -436,19 +432,9 @@ export default function PetOwnerAccountsManagement() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <div className="grid min-w-[10rem] grid-cols-3 gap-2 text-center">
-                                                <div>
-                                                    <p className="text-xs font-black text-slate-950">{owner.pet_count}</p>
-                                                    <p className="text-[10px] font-bold uppercase text-slate-400">Pets</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-black text-slate-950">{owner.booking_count}</p>
-                                                    <p className="text-[10px] font-bold uppercase text-slate-400">Bookings</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-black text-slate-950">{owner.queue_count}</p>
-                                                    <p className="text-[10px] font-bold uppercase text-slate-400">Queues</p>
-                                                </div>
+                                            <div className="min-w-[6rem]">
+                                                <p className="text-sm font-black text-slate-950">{owner.pet_count}</p>
+                                                <p className="text-[10px] font-bold uppercase text-slate-400">Pets</p>
                                             </div>
                                         </td>
                                         <td className="px-4 py-4">
@@ -483,7 +469,7 @@ export default function PetOwnerAccountsManagement() {
                                             </div>
                                             <DialogTitle className="text-2xl font-black tracking-tight text-slate-950">{ownerName(selectedOwner)}</DialogTitle>
                                             <DialogDescription className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                                                Pet owner profile, linked pets, activity summary, and account controls.
+                                                Pet owner profile, linked pets, and account controls.
                                             </DialogDescription>
                                             <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 md:grid-cols-2">
                                                 <div className="flex min-w-0 items-center gap-2">
@@ -501,10 +487,8 @@ export default function PetOwnerAccountsManagement() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
                                         <ProfileDetail label="Owned Pets" value={selectedOwner.pet_count} />
-                                        <ProfileDetail label="Bookings" value={selectedOwner.booking_count} />
-                                        <ProfileDetail label="Queues" value={selectedOwner.queue_count} />
                                         <ProfileDetail label="Joined" value={formatDate(selectedOwner.created_at)} />
                                     </div>
                                 </div>

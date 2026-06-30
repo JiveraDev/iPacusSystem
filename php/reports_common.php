@@ -118,6 +118,43 @@ function reports_date_range(array $payload): array
     ];
 }
 
+function reports_previous_comparison_range(array $range): ?array
+{
+    if (($range['range'] ?? '') === 'custom') {
+        return null;
+    }
+
+    $timezone = new DateTimeZone(REPORTS_TIMEZONE);
+    $start = new DateTimeImmutable($range['start_date'], $timezone);
+    $end = new DateTimeImmutable($range['end_date'], $timezone);
+
+    if ($range['range'] === 'today') {
+        $previousStart = $start->modify('-1 day');
+        $previousEnd = $end->modify('-1 day');
+    } elseif ($range['range'] === 'this_week') {
+        $previousStart = $start->modify('-7 days');
+        $previousEnd = $end->modify('-7 days');
+    } elseif ($range['range'] === 'this_quarter') {
+        $previousStart = $start->modify('-3 months');
+        $previousEnd = $start->modify('-1 day');
+    } elseif ($range['range'] === 'this_year') {
+        $previousStart = $start->modify('-1 year');
+        $previousEnd = $end->modify('-1 year');
+    } else {
+        $previousStart = $start->modify('first day of previous month');
+        $previousEnd = $start->modify('-1 day');
+    }
+
+    return [
+        'range' => 'comparison',
+        'start_date' => $previousStart->format('Y-m-d'),
+        'end_date' => $previousEnd->format('Y-m-d'),
+        'start_datetime' => $previousStart->setTime(0, 0, 0)->format('Y-m-d H:i:s'),
+        'end_datetime' => $previousEnd->setTime(23, 59, 59)->format('Y-m-d H:i:s'),
+        'label' => $previousStart->format('F j, Y') . ' to ' . $previousEnd->format('F j, Y'),
+    ];
+}
+
 function reports_filters(array $payload): array
 {
     $filters = $payload['filters'] ?? [];
@@ -235,12 +272,21 @@ function reports_full_name(?array $row, string $prefix = ''): string
     return $name !== '' ? $name : ($email !== '' ? $email : 'Unknown');
 }
 
-function reports_metric(string $label, $value, string $format = 'number'): array
+function reports_metric(string $label, $value, string $format = 'number', $previousValue = null, ?string $comparisonLabel = null): array
 {
+    $numericValue = (float)$value;
+    $numericPrevious = $previousValue !== null ? (float)$previousValue : null;
+    $delta = $numericPrevious !== null ? $numericValue - $numericPrevious : null;
+
     return [
         'label' => $label,
         'value' => $value,
         'format' => $format,
+        'previousValue' => $previousValue,
+        'delta' => $delta,
+        'direction' => $delta === null ? 'neutral' : ($delta > 0 ? 'up' : ($delta < 0 ? 'down' : 'flat')),
+        'percentageChange' => $numericPrevious && $numericPrevious !== 0.0 ? round(($delta / abs($numericPrevious)) * 100, 1) : null,
+        'comparisonLabel' => $comparisonLabel,
     ];
 }
 
@@ -2434,20 +2480,27 @@ function reports_dashboard(PDO $pdo, array $range): array
     $appointments = reports_build_report($pdo, 'appointment', $range);
     $queue = reports_build_report($pdo, 'queue', $range);
     $consultations = reports_build_report($pdo, 'consultation', $range);
-    $followUps = reports_build_report($pdo, 'follow_up', $range);
     $inventory = reports_build_report($pdo, 'inventory_status', $range);
     $productSales = reports_build_report($pdo, 'medicine_product_sales', $range);
     $serviceUtilization = reports_build_report($pdo, 'service_utilization', $range);
     $vetActivity = reports_build_report($pdo, 'veterinarian_activity', $range);
     $consent = reports_build_report($pdo, 'consent_form', $range);
     $dashboardMissing = [];
+    $comparisonRange = reports_previous_comparison_range($range);
+    $comparisonLabel = $comparisonRange['label'] ?? null;
+    $comparisonSales = $comparisonRange ? reports_build_report($pdo, 'sales', $comparisonRange) : null;
+    $comparisonBilling = $comparisonRange ? reports_build_report($pdo, 'billing', $comparisonRange) : null;
+    $comparisonAppointments = $comparisonRange ? reports_build_report($pdo, 'appointment', $comparisonRange) : null;
+    $comparisonQueue = $comparisonRange ? reports_build_report($pdo, 'queue', $comparisonRange) : null;
+    $comparisonConsultations = $comparisonRange ? reports_build_report($pdo, 'consultation', $comparisonRange) : null;
+    $comparisonInventory = $comparisonRange ? reports_build_report($pdo, 'inventory_status', $comparisonRange) : null;
+    $comparisonConsentCount = $comparisonRange ? reports_consent_file_count($pdo, $comparisonRange, $dashboardMissing) : null;
     $revenueDiagnosisTrend = reports_revenue_diagnosis_trend($pdo, $range, $dashboardMissing);
     $revenueBreakdownTrend = reports_revenue_breakdown_trend($pdo, $range, $dashboardMissing);
     $onlineAppointmentTrend = reports_online_appointment_trend($pdo, $range, $dashboardMissing);
     $queueBookingTrend = reports_queue_booking_trend($pdo, $range, $dashboardMissing);
     $boardingTrend = reports_boarding_trend($pdo, $range, $dashboardMissing);
     $animalDistribution = reports_pet_distribution_chart($pdo, $dashboardMissing);
-    $staffMonitoring = reports_staff_monitoring($pdo, $dashboardMissing);
     $consentFileCount = reports_consent_file_count($pdo, $range, $dashboardMissing);
 
     $salesTotals = $sales['totals'] ?? [];
@@ -2455,24 +2508,28 @@ function reports_dashboard(PDO $pdo, array $range): array
     $appointmentTotals = $appointments['totals'] ?? [];
     $queueTotals = $queue['totals'] ?? [];
     $consultationTotals = $consultations['totals'] ?? [];
-    $followUpTotals = $followUps['totals'] ?? [];
     $inventoryTotals = $inventory['totals'] ?? [];
+    $comparisonSalesTotals = $comparisonSales['totals'] ?? [];
+    $comparisonBillingTotals = $comparisonBilling['totals'] ?? [];
+    $comparisonAppointmentTotals = $comparisonAppointments['totals'] ?? [];
+    $comparisonQueueTotals = $comparisonQueue['totals'] ?? [];
+    $comparisonConsultationTotals = $comparisonConsultations['totals'] ?? [];
+    $comparisonInventoryTotals = $comparisonInventory['totals'] ?? [];
 
     $kpis = [
-        reports_metric('Total Sales', $salesTotals['total_sales'] ?? 0, 'currency'),
-        reports_metric('Total Paid Amount', $salesTotals['paid_amount'] ?? 0, 'currency'),
-        reports_metric('Total Unpaid Balance', $billingTotals['unpaid_balance'] ?? 0, 'currency'),
-        reports_metric('Total Appointments', $appointmentTotals['total_appointments'] ?? 0),
-        reports_metric('Completed Appointments', $appointmentTotals['completed'] ?? 0),
-        reports_metric('Missed / Rescheduled', $appointmentTotals['missed_rescheduled'] ?? 0),
-        reports_metric('Total Queue Visits', $queueTotals['total_queue_entries'] ?? 0),
-        reports_metric('Total Consultations', $consultationTotals['total_consultations'] ?? 0),
-        reports_metric('Online Consultations', $consultationTotals['online'] ?? 0),
-        reports_metric('Face-to-Face Consultations', $consultationTotals['face_to_face'] ?? 0),
-        reports_metric('Low Stock Items', $inventoryTotals['low_stock'] ?? 0),
-        reports_metric('Near Expiry Items', $inventoryTotals['near_expiry'] ?? 0),
-        reports_metric('Pending Follow-Ups', $followUpTotals['pending'] ?? 0),
-        reports_metric('Consent Files', $consentFileCount),
+        reports_metric('Total Sales', $salesTotals['total_sales'] ?? 0, 'currency', $comparisonSalesTotals['total_sales'] ?? null, $comparisonLabel),
+        reports_metric('Total Paid Amount', $salesTotals['paid_amount'] ?? 0, 'currency', $comparisonSalesTotals['paid_amount'] ?? null, $comparisonLabel),
+        reports_metric('Total Unpaid Balance', $billingTotals['unpaid_balance'] ?? 0, 'currency', $comparisonBillingTotals['unpaid_balance'] ?? null, $comparisonLabel),
+        reports_metric('Total Appointments', $appointmentTotals['total_appointments'] ?? 0, 'number', $comparisonAppointmentTotals['total_appointments'] ?? null, $comparisonLabel),
+        reports_metric('Completed Appointments', $appointmentTotals['completed'] ?? 0, 'number', $comparisonAppointmentTotals['completed'] ?? null, $comparisonLabel),
+        reports_metric('Missed / Rescheduled', $appointmentTotals['missed_rescheduled'] ?? 0, 'number', $comparisonAppointmentTotals['missed_rescheduled'] ?? null, $comparisonLabel),
+        reports_metric('Total Queue Visits', $queueTotals['total_queue_entries'] ?? 0, 'number', $comparisonQueueTotals['total_queue_entries'] ?? null, $comparisonLabel),
+        reports_metric('Total Consultations', $consultationTotals['total_consultations'] ?? 0, 'number', $comparisonConsultationTotals['total_consultations'] ?? null, $comparisonLabel),
+        reports_metric('Online Consultations', $consultationTotals['online'] ?? 0, 'number', $comparisonConsultationTotals['online'] ?? null, $comparisonLabel),
+        reports_metric('Face-to-Face Consultations', $consultationTotals['face_to_face'] ?? 0, 'number', $comparisonConsultationTotals['face_to_face'] ?? null, $comparisonLabel),
+        reports_metric('Low Stock Items', $inventoryTotals['low_stock'] ?? 0, 'number', $comparisonInventoryTotals['low_stock'] ?? null, $comparisonLabel),
+        reports_metric('Near Expiry Items', $inventoryTotals['near_expiry'] ?? 0, 'number', $comparisonInventoryTotals['near_expiry'] ?? null, $comparisonLabel),
+        reports_metric('Consent Files', $consentFileCount, 'number', $comparisonConsentCount, $comparisonLabel),
     ];
 
     $charts = [
@@ -2557,7 +2614,7 @@ function reports_dashboard(PDO $pdo, array $range): array
     ];
 
     $missing = [];
-    foreach ([$sales, $billing, $appointments, $queue, $consultations, $followUps, $inventory, $productSales, $serviceUtilization, $vetActivity, $consent] as $report) {
+    foreach ([$sales, $billing, $appointments, $queue, $consultations, $inventory, $productSales, $serviceUtilization, $vetActivity, $consent] as $report) {
         $missing = array_merge($missing, $report['missing_data'] ?? []);
     }
     $missing = array_values(array_unique($missing));
@@ -2581,16 +2638,13 @@ function reports_dashboard(PDO $pdo, array $range): array
             ],
             [
                 'title' => 'Inventory Attention',
-                'columns' => $inventory['columns'],
+                'columns' => [
+                    ['key' => 'item_name', 'label' => 'Name'],
+                    ['key' => 'stock_status', 'label' => 'Stock Status'],
+                ],
                 'rows' => array_values(array_slice(array_filter($inventory['rows'], static fn($row) => in_array($row['stock_status'] ?? '', ['low_stock', 'out_of_stock', 'near_expiry', 'expired'], true)), 0, 6)),
             ],
-            [
-                'title' => 'Upcoming Follow-Ups',
-                'columns' => $followUps['columns'],
-                'rows' => array_values(array_slice($followUps['rows'], 0, 6)),
-            ],
         ],
-        'monitoring' => $staffMonitoring,
         'missing_data' => array_values(array_unique(array_merge($missing, $dashboardMissing))),
     ];
 }

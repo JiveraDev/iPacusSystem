@@ -9,6 +9,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { formatPhpCurrency } from "../../lib/currency";
+import { formatQueueReference } from "../../lib/referenceNumbers";
 import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
@@ -31,6 +32,10 @@ function isImageUploadPath(path) {
 
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
 
+function isPetOwnerRole(role) {
+  return ["pet_owner", "pet owner"].includes(String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_"));
+}
+
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
@@ -51,6 +56,14 @@ export default function PetProfile() {
       return DIRECTORY_ROLES.includes(currentUser.role || "") ? "Pet Directory" : "My Pets";
     } catch {
       return "My Pets";
+    }
+  }, []);
+  const canRequestRecordUpdate = useMemo(() => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return isPetOwnerRole(currentUser.role);
+    } catch {
+      return false;
     }
   }, []);
 
@@ -194,7 +207,7 @@ export default function PetProfile() {
       type: "queue",
       id: activeQueue.queue_id,
       title: "Cancel queue entry?",
-      description: `Queue #${activeQueue.queue_number} for ${pet?.name || "this pet"} will be cancelled.`
+      description: `${formatQueueReference(activeQueue)} for ${pet?.name || "this pet"} will be cancelled.`
     });
   };
 
@@ -249,8 +262,8 @@ export default function PetProfile() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Queue Number</p>
-              <p className="font-semibold text-lg">#{queue.queue_number}</p>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Queue ID</p>
+              <p className="font-semibold text-lg">{formatQueueReference(queue)}</p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Status</p>
@@ -692,15 +705,32 @@ export default function PetProfile() {
         <div className="lg:col-span-2 space-y-8">
           {/* Action Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="group hover:shadow-xl transition-all cursor-pointer bg-white border-slate-200 hover:border-green-200 rounded-2xl overflow-hidden" 
-                  onClick={() => navigate(`/dashboard/my-pets/${petId}/request-update`)}>
+            <Card
+              className={`group overflow-hidden rounded-2xl border-slate-200 bg-white transition-all ${
+                canRequestRecordUpdate
+                  ? "cursor-pointer hover:border-green-200 hover:shadow-xl"
+                  : "cursor-not-allowed opacity-60"
+              }`}
+              aria-disabled={!canRequestRecordUpdate}
+              onClick={() => {
+                if (canRequestRecordUpdate) {
+                  navigate(`/dashboard/my-pets/${petId}/request-update`);
+                }
+              }}
+            >
               <CardContent className="p-6 flex items-center gap-5">
-                <div className="h-14 w-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all duration-300">
+                <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                  canRequestRecordUpdate
+                    ? "bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white"
+                    : "bg-slate-100 text-slate-400"
+                }`}>
                   <FileText className="h-7 w-7" />
                 </div>
                 <div>
                   <h4 className="font-black text-slate-900 text-lg tracking-tight">Update Record</h4>
-                  <p className="text-sm text-slate-500 font-medium">Submit data correction request</p>
+                  <p className="text-sm text-slate-500 font-medium">
+                    {canRequestRecordUpdate ? "Submit data correction request" : "Available to pet owner accounts only"}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -742,7 +772,7 @@ export default function PetProfile() {
                       {activeQueue ? "Current Queue" : "Recent Cancelled Queue"}
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-3xl font-black text-slate-900">#{displayedQueue.queue_number}</span>
+                      <span className="text-3xl font-black text-slate-900">{formatQueueReference(displayedQueue)}</span>
                       {getQueueStatusBadge(displayedQueue.status)}
                     </div>
                     <p className="text-sm text-slate-500 mt-3">
@@ -953,7 +983,7 @@ function buildConsentRecords(bookings, queues) {
       sourceLabel: "Queue Consent",
       sourceId: queue.queue_id,
       path: queue.signiture_self_service_path,
-      identifier: queue.queue_number ? `Queue #${queue.queue_number}` : `Queue #${queue.queue_id}`,
+      identifier: formatQueueReference(queue) || `Queue ID ${queue.queue_id}`,
       service: getServiceDisplayName(queue.service_name, "Queue"),
       dateLabel: formatDisplayDateTime(queue.timestamp),
       ownerLabel: "Pet owner",

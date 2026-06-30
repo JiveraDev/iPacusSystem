@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -13,7 +13,6 @@ import { formatPhpCurrency } from '../../lib/currency';
 import { formatReportDateLabel } from '../../lib/date';
 import ReportChartCard from './ReportChartCard';
 import ReportKpiCard from './ReportKpiCard';
-import ReportTable from './ReportTable';
 
 const GENERAL_CHART_IDS = [
     'revenue_diagnosis_trend',
@@ -250,6 +249,14 @@ export default function SuperAdminReportsDashboard() {
             ? { start: customStart, end: customEnd }
             : quickRangeDates(range)
     ), [customEnd, customStart, range]);
+    const handleCustomStartChange = (value) => {
+        setRange('custom');
+        setCustomStart(value);
+    };
+    const handleCustomEndChange = (value) => {
+        setRange('custom');
+        setCustomEnd(value);
+    };
 
     const loadDashboard = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!isSuperAdmin(user)) {
@@ -340,8 +347,7 @@ export default function SuperAdminReportsDashboard() {
                         <Input
                             type="date"
                             value={visibleDateRange.start}
-                            onChange={(event) => setCustomStart(event.target.value)}
-                            disabled={range !== 'custom'}
+                            onChange={(event) => handleCustomStartChange(event.target.value)}
                             className="mt-1"
                         />
                     </div>
@@ -350,8 +356,7 @@ export default function SuperAdminReportsDashboard() {
                         <Input
                             type="date"
                             value={visibleDateRange.end}
-                            onChange={(event) => setCustomEnd(event.target.value)}
-                            disabled={range !== 'custom'}
+                            onChange={(event) => handleCustomEndChange(event.target.value)}
                             className="mt-1"
                         />
                     </div>
@@ -436,35 +441,6 @@ export default function SuperAdminReportsDashboard() {
                         </section>
                     ) : null}
 
-                    {dashboard?.monitoring ? (
-                        <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm">
-                            <CardContent className="grid gap-5 p-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex size-11 items-center justify-center rounded-xl bg-white/10">
-                                            <ShieldCheck className="size-5 text-emerald-300" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-black">{dashboard.monitoring.title}</h3>
-                                            <p className="text-sm font-semibold leading-6 text-slate-300">{dashboard.monitoring.summary}</p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {Object.entries(dashboard.monitoring.totals || {}).slice(0, 6).map(([key, value]) => (
-                                            <div key={key} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{key.replaceAll('_', ' ')}</p>
-                                                <p className="mt-1 text-2xl font-black text-white">{value}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="rounded-xl border border-white/10 bg-white p-1 text-slate-900">
-                                    <ReportTable columns={dashboard.monitoring.columns || []} rows={dashboard.monitoring.rows || []} maxRows={8} compact />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : null}
-
                     <section className="space-y-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div className="flex items-center gap-3">
@@ -473,14 +449,14 @@ export default function SuperAdminReportsDashboard() {
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-black text-slate-950">Operational Attention</h2>
-                                    <p className="text-sm font-semibold text-slate-500">Billing, stock, and follow-up items that need review in the selected date range.</p>
+                                    <p className="text-sm font-semibold text-slate-500">Billing and stock items that need review in the selected date range.</p>
                                 </div>
                             </div>
                             <Badge className="border-slate-200 bg-white text-slate-600">
                                 {pluralize((dashboard?.summary_tables || []).reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
                             </Badge>
                         </div>
-                        <div className="grid gap-4 xl:grid-cols-3">
+                        <div className="grid gap-4 xl:grid-cols-2">
                             {(dashboard?.summary_tables || []).map(table => (
                                 <OperationalAttentionCard key={table.title} table={table} />
                             ))}

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/consent_file_helpers.php';
 
 $fileId = $_GET['fileId'] ?? null;
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -11,6 +12,8 @@ if (!$fileId) {
 }
 
 try {
+    consent_file_ensure_schema($pdo);
+
     $fields = [];
     $params = [];
 
@@ -33,6 +36,11 @@ try {
     if (array_key_exists('category', $input)) {
         $fields[] = 'category = ?';
         $params[] = $input['category'];
+    }
+
+    if (array_key_exists('pet_owner_contexts', $input)) {
+        $fields[] = 'pet_owner_contexts = ?';
+        $params[] = consent_file_normalize_contexts($input['pet_owner_contexts']);
     }
 
     if (empty($fields)) {

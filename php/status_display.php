@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -141,7 +142,7 @@ function status_display_queue_item(array $row): array
 {
     return array_merge([
         'id' => 'queue-' . (int)$row['queue_id'],
-        'reference' => status_display_reference('Q', $row['queue_number'] ?? null),
+        'reference' => ipawcus_format_queue_reference($row['queue_number'] ?? 0, $row['timestamp'] ?? null),
         'type' => 'queue',
         'stage' => status_display_queue_stage($row),
         'status' => status_display_text($row['queue_status'] ?? null, 'waiting'),

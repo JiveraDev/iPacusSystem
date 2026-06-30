@@ -4,18 +4,19 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
-import { CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, Search, ImageIcon, UserCheck, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2 } from 'lucide-react';
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDateTime } from '../../lib/date';
+import { resolveImageUrl } from '../../lib/image';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchAccounts } from '../../services/accountService';
 import {
     assignQueueToVeterinarian,
     fetchQueues as fetchQueuesService,
-    reenterQueue,
     updateQueueStatus
 } from '../../services/queueService';
 
@@ -25,7 +26,6 @@ export default function QueueManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
-    const [missedAgeFilter, setMissedAgeFilter] = useState('2d');
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
     const [veterinarians, setVeterinarians] = useState([]);
@@ -71,6 +71,15 @@ export default function QueueManagement() {
             }
             return newSet;
         });
+    };
+
+    const handleRowToggleKeyDown = (event, queueId) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        event.preventDefault();
+        toggleRow(queueId);
     };
 
     const handleApprove = async (id) => {
@@ -201,10 +210,12 @@ export default function QueueManagement() {
             const ownerText = item.owner_name
                 ? `${item.owner_name} (${item.owner_status === 'unregistered' ? 'Unregistered' : 'Registered'})`
                 : `${item.first_Name || ''} ${item.last_Name || ''}`.trim();
+            const queueReference = formatQueueReference(item);
             const matchesSearch = 
                 item.pet_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 ownerText.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                `#${item.queue_number}`.includes(searchTerm);
+                String(item.queue_number || '').includes(searchTerm) ||
+                queueReference.toLowerCase().includes(searchTerm.toLowerCase());
             
             const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
             const matchesService = serviceFilter === 'all' || item.service_name === serviceFilter;
@@ -218,43 +229,6 @@ export default function QueueManagement() {
     const activeQueue = todayFilteredQueue.filter(item => !['completed', 'done', 'cancelled'].includes(item.status));
     const completedQueue = todayFilteredQueue.filter(item => ['completed', 'done'].includes(item.status));
     
-    const missedQueue = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const ageLimits = { '1d': 1, '2d': 2 };
-        const limitDays = ageLimits[missedAgeFilter] || 2;
-        const missedMap = new Map();
-        const todayPetIds = new Set(
-            queue
-                .filter(item => {
-                    const itemDate = new Date(item.timestamp);
-                    itemDate.setHours(0, 0, 0, 0);
-                    return itemDate.getTime() === today.getTime();
-                })
-                .map(item => String(item.pet_id))
-                .filter(Boolean)
-        );
-
-        filteredQueue.forEach(item => {
-            const itemDate = new Date(item.timestamp);
-            if (itemDate >= today) return;
-            if (String(item.status || '').toLowerCase() !== 'cancelled') return;
-            if (todayPetIds.has(String(item.pet_id))) return;
-
-            const diffTime = Math.abs(today - itemDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays <= limitDays) {
-                const existing = missedMap.get(item.pet_id);
-                if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
-                    missedMap.set(item.pet_id, item);
-                }
-            }
-        });
-
-        return Array.from(missedMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    }, [filteredQueue, missedAgeFilter, queue]);
-
     const activeCount = todayFilteredQueue.filter(item => !['completed', 'done', 'cancelled'].includes(item.status)).length;
     const completedCount = todayFilteredQueue.filter(item => ['completed', 'done'].includes(item.status)).length;
     const cancelledCount = todayFilteredQueue.filter(item => item.status === 'cancelled').length;
@@ -262,6 +236,12 @@ export default function QueueManagement() {
     const services = useMemo(() => {
         return [...new Set(queue.map(item => item.service_name))].filter(Boolean);
     }, [queue]);
+    const priorityFilterLabel = {
+        all: 'Select Priority',
+        normal: 'Normal',
+        urgent: 'Urgent'
+    }[priorityFilter] || 'Select Priority';
+    const serviceFilterLabel = serviceFilter === 'all' ? 'Select Service' : getServiceDisplayName(serviceFilter);
 
     const getStatusBadge = (status) => {
         const variants = {
@@ -298,20 +278,6 @@ export default function QueueManagement() {
 
     const formatDateTime = (value) => formatDisplayDateTime(value);
 
-    const handleReEnterQueue = async (queueId) => {
-        try {
-            const data = await reenterQueue({ queue_id: queueId });
-            if (data.success) {
-                toast.success('Queue item re-entered for today');
-                fetchQueues();
-            } else {
-                toast.error(data.message || 'Failed to re-enter');
-            }
-        } catch {
-            toast.error('Error re-entering queue');
-        }
-    };
-
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
             {/* Page Header */}
@@ -341,24 +307,24 @@ export default function QueueManagement() {
                 <div className="relative md:col-span-1 lg:col-span-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
                     <Input 
-                        placeholder="Search pet or queue #..." 
+                        placeholder="Search pet or queue ID..." 
                         className="pl-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger><SelectValue placeholder="All Priorities" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select Priority" displayValue={priorityFilterLabel} /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Priorities</SelectItem>
+                        <SelectItem value="all">Select Priority</SelectItem>
                         <SelectItem value="normal">Normal</SelectItem>
                         <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                    <SelectTrigger><SelectValue placeholder="All Services" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select Service" displayValue={serviceFilterLabel} /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Services</SelectItem>
+                        <SelectItem value="all">Select Service</SelectItem>
                         {services.map(s => <SelectItem key={s} value={s}>{getServiceDisplayName(s)}</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -370,7 +336,6 @@ export default function QueueManagement() {
                     <Table className="w-full table-auto">
                         <TableHeader className="bg-slate-50/50">
                             <TableRow>
-                                <TableHead className="w-20 px-2"></TableHead>
                                 <TableHead className="w-10 text-center px-1">#</TableHead>
                                 <TableHead className="font-bold text-slate-900">Pet</TableHead>
                                 <TableHead className="hidden md:table-cell">Service</TableHead>
@@ -382,29 +347,22 @@ export default function QueueManagement() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={8} className="text-center py-10">Loading queue data...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="text-center py-10">Loading queue data...</TableCell></TableRow>
                             ) : activeQueue.length === 0 ? (
-                                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No active queue entries</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">No active queue entries</TableCell></TableRow>
                             ) : activeQueue.flatMap(item => {
                                 const isExpanded = expandedRows.has(item.queue_id);
                                 return [
-                                    <TableRow key={item.queue_id} className={`transition-colors ${isExpanded ? "bg-blue-50/30" : "hover:bg-slate-50/50"}`}>
-                                        <TableCell className="px-2">
-                                            <Button 
-                                                variant={isExpanded ? "default" : "outline"}
-                                                size="sm" 
-                                                onClick={() => toggleRow(item.queue_id)} 
-                                                className={`h-8 min-w-[68px] px-2 gap-1 border-slate-200 text-[11px] font-bold transition-all duration-200 ${
-                                                    isExpanded 
-                                                        ? "bg-blue-600 text-white border-blue-600" 
-                                                        : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shadow-sm"
-                                                }`}
-                                            >
-                                                View
-                                                <ChevronDown className={isExpanded ? "rotate-180" : ""} size={16} strokeWidth={2.5} />
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell className="text-center font-bold text-slate-600 px-1">{item.queue_number}</TableCell>
+                                    <TableRow
+                                        key={item.queue_id}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-expanded={isExpanded}
+                                        onClick={() => toggleRow(item.queue_id)}
+                                        onKeyDown={(event) => handleRowToggleKeyDown(event, item.queue_id)}
+                                        className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#155dfc] ${isExpanded ? "bg-blue-50/30" : "hover:bg-slate-50/50"}`}
+                                    >
+                                        <TableCell className="text-center font-bold text-slate-600 px-1">{formatQueueReference(item)}</TableCell>
                                         <TableCell className="font-semibold text-slate-900">
                                             <div className="truncate max-w-[80px] sm:max-w-none">{item.pet_name}</div>
                                         </TableCell>
@@ -416,7 +374,7 @@ export default function QueueManagement() {
                                         </TableCell>
                                         <TableCell>{getPriorityBadge(item.priority)}</TableCell>
                                         <TableCell>{getStatusBadge(item.status)}</TableCell>
-                                        <TableCell className="text-right pr-4">
+                                        <TableCell className="text-right pr-4" onClick={(event) => event.stopPropagation()}>
                                             <div className="flex flex-wrap justify-end gap-1.5">
                                                 {item.status === 'waiting' ? (
                                                     <>
@@ -464,7 +422,7 @@ export default function QueueManagement() {
                                     </TableRow>,
                                     isExpanded && (
                                         <TableRow key={`${item.queue_id}-details`} className="bg-slate-50/50 border-b">
-                                            <TableCell colSpan={8} className="p-0">
+                                            <TableCell colSpan={7} className="p-0">
                                                 <div className="p-4 sm:p-6 w-full max-w-full overflow-hidden">
                                                     <div className="flex flex-col lg:flex-row gap-6">
                                                         <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
@@ -481,9 +439,9 @@ export default function QueueManagement() {
                                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Issue Image</p>
                                                                 <div 
                                                                     className="relative group w-32 h-32 sm:w-40 sm:h-40 rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm cursor-pointer"
-                                                                    onClick={() => setViewingImage({ src: `/${item.image_path}`, alt: item.pet_name })}
+                                                                    onClick={() => setViewingImage({ src: resolveImageUrl(item.image_path), alt: item.pet_name })}
                                                                 >
-                                                                    <img src={`/${item.image_path}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Concern" />
+                                                                    <img src={resolveImageUrl(item.image_path)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Concern" />
                                                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                         <ImageIcon className="text-white size-5" />
                                                                     </div>
@@ -510,7 +468,7 @@ export default function QueueManagement() {
                         <Table className="w-full table-auto">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow>
-                                    <TableHead className="w-12 text-center px-1">#</TableHead>
+                                    <TableHead className="w-24 text-center px-1">Queue ID</TableHead>
                                     <TableHead className="font-bold text-slate-900">Pet</TableHead>
                                     <TableHead className="hidden sm:table-cell">Service</TableHead>
                                     <TableHead className="hidden md:table-cell">Time</TableHead>
@@ -520,7 +478,7 @@ export default function QueueManagement() {
                             <TableBody>
                                 {completedQueue.map(item => (
                                     <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
-                                        <TableCell className="text-center font-bold text-slate-500 px-1">{item.queue_number}</TableCell>
+                                        <TableCell className="text-center font-bold text-slate-500 px-1">{formatQueueReference(item)}</TableCell>
                                         <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
                                         <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
                                         <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
@@ -534,54 +492,6 @@ export default function QueueManagement() {
                     </div>
                 </div>
             )}
-
-            {/* Missed Section */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                    <h3 className="text-base font-bold text-slate-800">Missed Queue / Re-entry Holders</h3>
-                    <Select value={missedAgeFilter} onValueChange={setMissedAgeFilter}>
-                        <SelectTrigger className="h-8 w-36 text-xs bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1d">Yesterday</SelectItem>
-                            <SelectItem value="2d">Last 2 Days</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                    <Table className="w-full table-auto">
-                        <TableHeader className="bg-slate-50/50">
-                            <TableRow>
-                                <TableHead className="w-12 text-center px-1">#</TableHead>
-                                <TableHead className="font-bold text-slate-900">Pet</TableHead>
-                                <TableHead className="hidden sm:table-cell">Service</TableHead>
-                                <TableHead className="hidden md:table-cell">Date</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right pr-4">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {missedQueue.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400 text-sm">No previous-day queue holders</TableCell></TableRow>
-                            ) : missedQueue.map(item => (
-                                <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
-                                    <TableCell className="text-center font-bold text-slate-500 px-1">{item.queue_number}</TableCell>
-                                    <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
-                                    <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
-                                    <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="destructive" className="text-[10px]">
-                                            Cancelled - re-entry required
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right pr-4">
-                                        <Button size="sm" onClick={() => handleReEnterQueue(item.queue_id)} className="bg-blue-600 hover:bg-blue-700 h-7 text-[11px] px-2 font-bold">Re-enter</Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
 
             {viewingImage && (
                 <PhotoViewer src={viewingImage.src} alt={viewingImage.alt} open={!!viewingImage} onOpenChange={o => !o && setViewingImage(null)} />

@@ -154,6 +154,7 @@ export default function VetRecordUpdateRequests() {
 
     const openMedicalEditor = (request) => {
         window.sessionStorage.setItem('vet-record-update-pet-id', String(request.petId));
+        window.sessionStorage.setItem('vet-record-update-request-id', String(request.requestId));
         navigate('/dashboard/vet/medical-records');
     };
 

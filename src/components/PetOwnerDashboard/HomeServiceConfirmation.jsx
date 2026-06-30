@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -16,10 +16,12 @@ import SignatureCapture from "../SignatureCapture";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
+import { fetchConsentFiles } from "../../services/consentFileService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
 
 export default function HomeServiceConfirmation() {
@@ -28,6 +30,8 @@ export default function HomeServiceConfirmation() {
   const [signature, setSignature] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewer, setViewer] = useState(null);
+  const [consentTemplates, setConsentTemplates] = useState([]);
+  const [isLoadingConsent, setIsLoadingConsent] = useState(false);
   const [consents, setConsents] = useState({
     terms: false,
     privacy: false,
@@ -46,12 +50,47 @@ export default function HomeServiceConfirmation() {
   const selectedMethod = paymentMethods.find((m) => m.value === paymentFormData.paymentMethod);
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
   const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
+  const homeServiceConsentTemplate = useMemo(
+    () => pickConsentForContext(consentTemplates, "home-service"),
+    [consentTemplates]
+  );
 
   useEffect(() => {
     const pendingBooking = sessionStorage.getItem("pendingHomeBooking");
     if (pendingBooking) {
       setBooking(JSON.parse(pendingBooking));
     }
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadConsentTemplates = async () => {
+      setIsLoadingConsent(true);
+      try {
+        const data = await fetchConsentFiles();
+        if (!isActive) return;
+
+        setConsentTemplates(Array.isArray(data)
+          ? data.map(normalizeConsentTemplate).filter((template) => template.id)
+          : []);
+      } catch (error) {
+        if (isActive) {
+          setConsentTemplates([]);
+          toast.error(error.message || "Could not load home service consent form.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingConsent(false);
+        }
+      }
+    };
+
+    loadConsentTemplates();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const dataURLtoFile = (dataurl, filename) => {
@@ -85,6 +124,10 @@ export default function HomeServiceConfirmation() {
       toast.error("Please agree to all terms and conditions.");
       return;
     }
+    if (!homeServiceConsentTemplate) {
+      toast.error("No home service consent form is assigned. Please contact the clinic.");
+      return;
+    }
     if (!signature) {
       toast.error("Please provide your signature.");
       return;
@@ -111,6 +154,12 @@ export default function HomeServiceConfirmation() {
         const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
         finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
       }
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const ownerName = [
+        currentUser.firstName || currentUser.first_Name || currentUser.first_name,
+        currentUser.lastName || currentUser.last_Name || currentUser.last_name
+      ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
+      const signedAt = new Date().toISOString();
 
       // 3. Upload Additional Images (Concerns)
       let uploadedConcernUrls = [];
@@ -136,7 +185,18 @@ export default function HomeServiceConfirmation() {
         payment_reference: paymentFormData.referenceNumber,
         price: paymentFormData.amount,
         specific_location: booking.specific_location,
-        Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls[0] : null
+        Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls[0] : null,
+        consent_forms: [{
+          id: homeServiceConsentTemplate.id,
+          title: homeServiceConsentTemplate.title,
+          category: homeServiceConsentTemplate.category || "home-service",
+          content: homeServiceConsentTemplate.content,
+          signerName: ownerName,
+          signedAt,
+          signaturePath: finalSignatureUrl,
+          serviceType: "Home Service"
+        }],
+        consent_status: "signed"
       };
 
       // 5. Submit to DB
@@ -233,6 +293,24 @@ export default function HomeServiceConfirmation() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+                <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-gray-900">
+                            {isLoadingConsent
+                                ? "Loading consent form..."
+                                : homeServiceConsentTemplate?.title || "No home service consent assigned"}
+                        </p>
+                        {homeServiceConsentTemplate && (
+                            <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-blue-700">
+                                {homeServiceConsentTemplate.category || "home-service"}
+                            </span>
+                        )}
+                    </div>
+                    <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                        {homeServiceConsentTemplate?.content || "An admin must assign a home service consent form in Consent Management before this booking can be submitted."}
+                    </p>
+                </div>
+
                 <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
                     <div className="flex items-start space-x-3">
                         <Checkbox id="terms" checked={consents.terms} onCheckedChange={(v) => setConsents({...consents, terms: v})} />
@@ -260,7 +338,7 @@ export default function HomeServiceConfirmation() {
                     <SignatureCapture 
                         signature={signature} 
                         onSignatureChange={setSignature} 
-                        disabled={!consents.terms || !consents.privacy || !consents.visit}
+                        disabled={!consents.terms || !consents.privacy || !consents.visit || !homeServiceConsentTemplate || isLoadingConsent}
                     />
                 </div>
             </CardContent>
@@ -394,7 +472,7 @@ export default function HomeServiceConfirmation() {
                 <Button 
                   type="submit" 
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg" 
-                  disabled={isSubmitting || isLoadingPaymentMethods}
+                  disabled={isSubmitting || isLoadingPaymentMethods || isLoadingConsent || !homeServiceConsentTemplate}
                 >
                   {isSubmitting ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Finalizing Booking...</>

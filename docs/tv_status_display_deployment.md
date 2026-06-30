@@ -1,5 +1,7 @@
 # TV Status Display Deployment
 
+Updated: 2026-06-25
+
 The TV display can run in two ways:
 
 - Standalone PHP/HTML/JS folder for a subdomain document root.
@@ -58,6 +60,13 @@ Recommended setup:
 
 The standalone page fetches `status.php` from the same folder, so it does not need the React build or SPA rewrite rules.
 
+Security notes:
+
+- Keep `.env` or `config.php` outside version control and use a database account with read-only access to the tables required by `status.php`.
+- Do not place production credentials in `.env.example` or `config.example.php`.
+- Restrict direct access to configuration files through the web server.
+- The standalone endpoint reads the database directly, so it does not inherit authorization, CORS, or availability behavior from the main PHP router.
+
 ## React Subdomain Setup
 
 The original React display still works. For that approach, point `status.ipawcus.com` to the same deployed React build as the main frontend.
@@ -86,3 +95,9 @@ The app detects hostnames beginning with `status.` and renders the TV display at
 - Open `https://status.ipawcus.com/` after deployment.
 - Confirm the TV page refreshes without manual reload.
 - Confirm no owner names, phone numbers, complaints, or diagnosis text are visible.
+- Compare the standalone and React displays against the same database and confirm they classify queue, booking, completion, and payment states consistently.
+- Test the display after lifecycle maintenance changes and around the `Asia/Manila` date boundary.
+
+## Database Compatibility
+
+The TV display depends on operational booking, queue, visit, and payment data but should not require consent-ledger columns. For the wider application deployment, use the database alignment guidance in `system_inventory_gantt_details.md` and `20260625_repository_update.md`.

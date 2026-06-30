@@ -59,6 +59,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
         setIsSubmitting(true);
         try {
+            const queuedPetName = selectedPet.pet_name || 'Pet';
             await addQueueItem({
                 pet_id: selectedPet.pet_id,
                 user_id: selectedPet.user_id,
@@ -75,7 +76,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
             setPriority('normal');
             setComplaint('');
             setVerified(false);
-            toast.success('Queue item added successfully');
+            toast.success(`${queuedPetName} was added to the queue.`);
             return;
         } catch (error) {
             toast.error(error.message || 'Failed to add queue item');
@@ -87,7 +88,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
     return (
         <Dialog open={isOpen} onOpenChange={(nextOpen) => !isSubmitting && setIsOpen(nextOpen)}>
             <DialogTrigger asChild>
-                <Button className="w-full bg-[#155dfc] sm:w-auto">Add to Queue</Button>
+                <Button className="w-full bg-[#155dfc] sm:w-auto">Add Queue</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
@@ -164,7 +165,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                     <SubmissionStatus active={isSubmitting} label="Adding queue entry..." slowLabel="Still adding queue entry..." />
                 </div>
                 <Button onClick={handleSubmit} disabled={!verified || isSubmitting}>
-                    {isSubmitting ? 'Adding to Queue...' : 'Add to Queue'}
+                    {isSubmitting ? 'Adding to Queue...' : 'Submit Queue'}
                 </Button>
             </DialogContent>
         </Dialog>

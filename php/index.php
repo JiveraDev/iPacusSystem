@@ -2,7 +2,7 @@
 // 1. Force CORS headers immediately (Essential for local testing)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE, PATCH");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Client-Public-IP, X-Notification-Reminder-Key");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Client-Public-IP, X-Notification-Reminder-Key, X-User-Id, X-User-Role, X-Access-Token");
 
 // 2. Handle OPTIONS preflight request immediately
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -38,6 +38,13 @@ $path = preg_replace('/^\/api/', '', $path);
 $path = rtrim($path, '/');
 
 header('Content-Type: application/json');
+
+require_once __DIR__ . '/role_access.php';
+$routeAccessPolicy = ipawcus_route_access_policy($path, $_SERVER['REQUEST_METHOD']);
+if (empty($routeAccessPolicy['public'])) {
+    require_once __DIR__ . '/db.php';
+    ipawcus_enforce_route_access($pdo, $path, $_SERVER['REQUEST_METHOD']);
+}
 
 switch ($path) {
     case '/login':
@@ -301,6 +308,9 @@ switch ($path) {
         } elseif (preg_match('/^\/todos\/(\d+)$/', $path, $matches)) {
             $_GET['todoId'] = $matches[1];
             require_once __DIR__ . '/pet_owner_todos.php';
+        } elseif (preg_match('/^\/uploads\/media\/(.+)$/', $path, $matches)) {
+            $_GET['path'] = $matches[1];
+            require_once __DIR__ . '/upload_media.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/queues$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/get_pet_queues.php';

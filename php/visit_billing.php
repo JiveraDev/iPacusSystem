@@ -797,8 +797,17 @@ function visit_billing_save_visit_payload(PDO $pdo, array $input): array
         'booking_id' => $bookingId,
     ]);
     $visitId = visit_billing_fetch_visit_id($pdo, $visitLookupInput);
+    $existingBillingStatus = null;
+    $existingVisitStatus = null;
 
     if ($visitId !== null) {
+        $existingStmt = $pdo->prepare("SELECT billing_status, visit_status FROM visits WHERE visit_id = ? LIMIT 1");
+        $existingStmt->execute([$visitId]);
+        $existingVisit = $existingStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $existingBillingStatus = $existingVisit['billing_status'] ?? null;
+        $existingVisitStatus = $existingVisit['visit_status'] ?? null;
+        $isExistingPaid = $existingBillingStatus === 'paid';
+
         $stmt = $pdo->prepare("
             UPDATE visits
             SET owner_user_id = ?,
@@ -817,10 +826,11 @@ function visit_billing_save_visit_payload(PDO $pdo, array $input): array
             $bookingId,
             $diagnosisId,
             $sourceType,
-            $visitStatus,
+            $isExistingPaid ? ($existingVisitStatus ?: $visitStatus) : $visitStatus,
             $visitId
         ]);
     } else {
+        $isExistingPaid = false;
         $stmt = $pdo->prepare("
             INSERT INTO visits (
                 pet_id,
@@ -846,9 +856,9 @@ function visit_billing_save_visit_payload(PDO $pdo, array $input): array
         $visitId = (int)$pdo->lastInsertId();
     }
 
-    if (!empty($charges)) {
+    if (!empty($charges) && !$isExistingPaid) {
         visit_billing_save_charges($pdo, $visitId, $charges, true);
-    } else {
+    } elseif (!$isExistingPaid) {
         visit_billing_update_status($pdo, $visitId);
     }
 
@@ -916,8 +926,13 @@ function visit_billing_upsert_visit(PDO $pdo): void
             'booking_id' => $bookingId,
         ]);
         $visitId = visit_billing_fetch_visit_id($pdo, $visitLookupInput);
+        $existingBillingStatus = null;
 
         if ($visitId !== null) {
+            $existingStmt = $pdo->prepare("SELECT billing_status FROM visits WHERE visit_id = ? LIMIT 1");
+            $existingStmt->execute([$visitId]);
+            $existingBillingStatus = $existingStmt->fetchColumn() ?: null;
+
             $stmt = $pdo->prepare("
                 UPDATE visits
                 SET owner_user_id = ?,
@@ -965,13 +980,17 @@ function visit_billing_upsert_visit(PDO $pdo): void
             $visitId = (int)$pdo->lastInsertId();
         }
 
+        $paymentInput = $input['payment'] ?? $input['paymentPayload'] ?? null;
+        if ($existingBillingStatus === 'paid' && is_array($paymentInput)) {
+            visit_billing_error(409, 'This booking service is already paid. The existing invoice will not be changed.');
+        }
+
         if (!empty($charges)) {
             visit_billing_save_charges($pdo, $visitId, $charges, true);
         } else {
             visit_billing_update_status($pdo, $visitId);
         }
 
-        $paymentInput = $input['payment'] ?? $input['paymentPayload'] ?? null;
         $paymentId = null;
         if (is_array($paymentInput)) {
             $paymentId = visit_billing_insert_payment_payload($pdo, $visitId, $paymentInput);
@@ -1033,6 +1052,7 @@ function visit_billing_fetch_visit(PDO $pdo, int $visitId): ?array
             CONCAT(owner.first_Name, ' ', owner.last_Name) AS owner_name,
             CONCAT(vet.first_Name, ' ', vet.last_Name) AS veterinarian_name,
             q.queue_number,
+            q.timestamp AS queue_timestamp,
             b.booking_number
             {$diagnosisSelect}
         FROM visits v
@@ -1119,6 +1139,7 @@ function visit_billing_fetch_visit(PDO $pdo, int $visitId): ?array
         'veterinarianName' => trim((string)($visit['veterinarian_name'] ?? '')),
         'queueId' => $visit['queue_id'] !== null ? (int)$visit['queue_id'] : null,
         'queueNumber' => $visit['queue_number'] !== null ? (int)$visit['queue_number'] : null,
+        'queueReference' => $visit['queue_number'] !== null ? ipawcus_format_queue_reference($visit['queue_number'], $visit['queue_timestamp'] ?? null) : '',
         'bookingId' => $visit['booking_id'] !== null ? (int)$visit['booking_id'] : null,
         'bookingNumber' => $visit['booking_number'],
         'diagnosisId' => $visit['diagnosis_id'] !== null ? (int)$visit['diagnosis_id'] : null,

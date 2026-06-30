@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { useNavigate } from '../dashboardRouter.jsx';
+import { prepareNotificationRedirect } from '../../lib/notificationRedirect';
 import NotificationFeed from './NotificationFeed.jsx';
 
 const NOTIFICATIONS_RETURN_PATH_KEY = 'ipawcus-notifications-return-path';
@@ -32,7 +33,7 @@ export default function NotificationsPage({ user }) {
     const handleNotificationClick = async (notification) => {
         await markNotificationAsOpened(notification);
 
-        const redirectPath = notification.petRedirectPath || notification.redirectPath;
+        const redirectPath = prepareNotificationRedirect(notification.petRedirectPath || notification.redirectPath);
         if (redirectPath) {
             navigate(redirectPath);
         }

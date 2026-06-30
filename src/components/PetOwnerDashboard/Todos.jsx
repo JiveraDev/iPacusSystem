@@ -7,11 +7,14 @@ import {
     Clock,
     CreditCard,
     Loader2,
+    PanelRightClose,
+    PanelRightOpen,
     Pencil,
     Plus,
     RefreshCw,
     Stethoscope,
-    Trash2
+    Trash2,
+    Video
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -53,8 +56,19 @@ const CATEGORY_STYLES = {
     Other: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', border: 'border-slate-200' }
 };
 
+CATEGORY_STYLES['Online Consultation'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
+
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
+}
+
+function normalizeRole(role) {
+    return String(role || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+}
+
+function isVeterinarianRole(role) {
+    const normalized = normalizeRole(role);
+    return normalized === 'vet' || normalized.includes('veterinarian');
 }
 
 function parseTaskDate(value) {
@@ -155,6 +169,7 @@ function petProfilePath(task) {
 export default function Todos({ user }) {
     const navigate = useNavigate();
     const userId = getUserId(user);
+    const isVeterinarian = isVeterinarianRole(user?.role);
     const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
     const [selectedDate, setSelectedDate] = useState(null);
     const [tasks, setTasks] = useState([]);
@@ -179,7 +194,8 @@ export default function Todos({ user }) {
         try {
             const data = await fetchPetOwnerTodos(userId, {
                 start: dateInputValue(range.start),
-                end: dateInputValue(range.end)
+                end: dateInputValue(range.end),
+                role: user?.role || ''
             });
             setTasks(Array.isArray(data.tasks) ? data.tasks : []);
             return data;
@@ -198,7 +214,7 @@ export default function Todos({ user }) {
     useAutoRefresh(loadTasks, {
         enabled: Boolean(userId),
         intervalMs: 10000,
-        refreshKey: `pet-owner-todos-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
+        refreshKey: `todos-${normalizeRole(user?.role)}-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
     });
 
     const calendarDays = useMemo(() => {
@@ -370,9 +386,13 @@ export default function Todos({ user }) {
         <div className="space-y-6 lg:space-y-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">TODOs & Schedule</h1>
+                    <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">
+                        {isVeterinarian ? 'Schedule & TODOs' : 'TODOs & Schedule'}
+                    </h1>
                     <p className="mt-2 text-sm font-medium text-slate-500">
-                        Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.
+                        {isVeterinarian
+                            ? 'Online consultation appointments, follow-up recording, and personal tasks.'
+                            : 'Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.'}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -476,8 +496,7 @@ export default function Todos({ user }) {
                     </CardContent>
                 </Card>
 
-                {isAgendaOpen && (
-                    <aside className="relative rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start">
+                <aside className={`relative rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start ${isAgendaOpen ? '' : 'xl:hidden'}`}>
                         <Button
                             type="button"
                             variant="outline"
@@ -485,9 +504,9 @@ export default function Todos({ user }) {
                             onClick={() => setIsAgendaOpen(false)}
                             aria-label="Hide next 7 days"
                             aria-expanded={isAgendaOpen}
-                            className="absolute -left-5 top-5 z-10 size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
+                            className="absolute -left-5 top-5 z-10 hidden size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
                         >
-                            <ChevronRight className="size-5" strokeWidth={2.75} />
+                            <PanelRightClose className="size-5" strokeWidth={2.4} />
                         </Button>
                         <div className="border-b border-slate-100 p-4 pl-6">
                             <h2 className="flex items-center gap-2 text-lg font-black text-slate-950">
@@ -520,7 +539,6 @@ export default function Todos({ user }) {
                             )}
                         </div>
                     </aside>
-                )}
             </div>
 
             {!isAgendaOpen && (
@@ -530,10 +548,9 @@ export default function Todos({ user }) {
                     onClick={() => setIsAgendaOpen(true)}
                     aria-label="Show next 7 days"
                     aria-expanded={isAgendaOpen}
-                    className="fixed right-3 top-48 z-40 flex size-14 flex-col items-center justify-center gap-1 rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
+                    className="fixed right-3 top-48 z-40 hidden size-12 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
                 >
-                    <ChevronLeft className="size-5" strokeWidth={2.75} />
-                    <Clock className="size-4 text-[#155dfc]" />
+                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
                     {upcomingTasks.length > 0 && (
                         <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">
                             {upcomingTasks.length}
@@ -642,7 +659,7 @@ export default function Todos({ user }) {
                                 </div>
                                 <Button type="button" onClick={saveTask} disabled={isSaving} className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                                     {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                                    {editingTask ? 'Save Task' : 'Add Task'}
+                                    Save Task
                                 </Button>
                             </div>
                         </div>
@@ -655,7 +672,9 @@ export default function Todos({ user }) {
 
 function TaskIcon({ task }) {
     if (task.source === 'payment') return <CreditCard className="size-4" />;
+    if (task.source === 'online_consultation') return <Video className="size-4" />;
     if (task.source === 'diagnosis') return <Stethoscope className="size-4" />;
+    if (task.source === 'vet_follow_up') return <Stethoscope className="size-4" />;
     if (task.source === 'booking' || task.source === 'boarding' || task.source === 'boarding_task') {
         return <CalendarDays className="size-4" />;
     }

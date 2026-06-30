@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/mail_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 function notification_column_exists(PDO $pdo, string $tableName, string $columnName): bool
 {
@@ -265,6 +266,48 @@ function notification_user_name(?array $user): string
 
     $name = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')));
     return $name !== '' ? $name : 'there';
+}
+
+function notification_normalize_role(?string $role): string
+{
+    return strtolower(str_replace(['_', '-'], ' ', trim((string)$role)));
+}
+
+function notification_fetch_users_by_roles(PDO $pdo, array $roles): array
+{
+    $wantedRoles = array_values(array_unique(array_map('notification_normalize_role', $roles)));
+    if (!$wantedRoles) {
+        return [];
+    }
+
+    $stmt = $pdo->query("SELECT user_id, role FROM users WHERE role IS NOT NULL");
+    $users = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $user) {
+        $role = notification_normalize_role($user['role'] ?? '');
+        if (in_array($role, $wantedRoles, true)) {
+            $users[] = $user;
+        }
+    }
+
+    return $users;
+}
+
+function notification_create_event_for_roles(PDO $pdo, array $roles, array $payload): void
+{
+    foreach (notification_fetch_users_by_roles($pdo, $roles) as $user) {
+        $userId = (int)($user['user_id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $dedupeKey = trim((string)($payload['dedupe_key'] ?? ''));
+        notification_create_event($pdo, [
+            ...$payload,
+            'user_id' => $userId,
+            'dedupe_key' => $dedupeKey !== '' ? "{$dedupeKey}-user-{$userId}" : null,
+        ]);
+    }
 }
 
 function notification_create(PDO $pdo, array $payload): ?int
@@ -1227,6 +1270,63 @@ function notification_fetch_todo_reminder_tasks(PDO $pdo): array
         }
     }
 
+    if (notification_table_exists($pdo, 'online_consultations') && notification_table_exists($pdo, 'bookings')) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'vet-online-consultation' AS source,
+                oc.online_consultation_id AS source_id,
+                oc.veterinarian_user_id AS user_id,
+                'Online consultation appointment' AS title,
+                TRIM(CONCAT(COALESCE(b.booking_number, ''), ' ', COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet'))) AS details,
+                'Online Consultation' AS category,
+                oc.scheduled_start AS start_at,
+                b.pet_id,
+                COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+                '/dashboard/vet/online-consultations' AS redirect_path
+            FROM online_consultations oc
+            JOIN bookings b ON b.booking_id = oc.booking_id
+            LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+            WHERE oc.veterinarian_user_id IS NOT NULL
+              AND oc.status IN ('scheduled', 'vet_ready', 'in_progress')
+              AND oc.scheduled_start >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND oc.scheduled_start <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+            ORDER BY oc.scheduled_start ASC
+            LIMIT 200
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
+    if (notification_table_exists($pdo, 'vet_diagnoses')) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'vet-follow-up-recording' AS source,
+                vd.diagnosis_id AS source_id,
+                vd.veterinarian_user_id AS user_id,
+                'Follow-up recording' AS title,
+                TRIM(CONCAT(COALESCE(vd.service_name, 'Clinic follow-up'), ': ', COALESCE(vd.diagnosis, ''))) AS details,
+                'Follow-up' AS category,
+                CONCAT(vd.follow_up_date, ' 09:00:00') AS start_at,
+                vd.pet_id,
+                COALESCE(p.pet_name, 'Pet') AS pet_name,
+                '/dashboard/vet/histories' AS redirect_path
+            FROM vet_diagnoses vd
+            JOIN pets_information p ON p.pet_id = vd.pet_id
+            WHERE vd.follow_up_date IS NOT NULL
+              AND vd.veterinarian_user_id IS NOT NULL
+              AND CONCAT(vd.follow_up_date, ' 09:00:00') >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND CONCAT(vd.follow_up_date, ' 09:00:00') <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+            ORDER BY vd.follow_up_date ASC
+            LIMIT 200
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
     if (notification_table_exists($pdo, 'boarding_tasks') && notification_table_exists($pdo, 'bookings')) {
         $stmt = $pdo->prepare("
             SELECT
@@ -1462,6 +1562,34 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         'email_html' => $emailHtml,
         'email_text' => $emailText,
     ]);
+
+    if ($event === 'submitted') {
+        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+            'type' => 'clinic_booking_submitted',
+            'category' => 'booking_updates',
+            'title' => 'Booking waiting for review',
+            'message' => "{$bookingNumber} for {$petName} is waiting for admin review.",
+            'push_message' => "{$serviceName} booking {$bookingNumber} needs review.",
+            'redirect_path' => '/dashboard/bookings',
+            'dedupe_key' => "clinic-booking-submitted-{$bookingId}",
+            'force_in_app' => true,
+        ]);
+    }
+
+    if ($event === 'confirmed' && (int)($booking['is_online_consultation'] ?? 0) === 1 && (int)($booking['veterinarian_id'] ?? 0) > 0) {
+        $vetUserId = (int)$booking['veterinarian_id'];
+        notification_create_event($pdo, [
+            'user_id' => $vetUserId,
+            'type' => 'online_consultation_appointment',
+            'category' => 'schedule_reminders',
+            'title' => 'Online consultation appointment',
+            'message' => "{$bookingNumber} for {$petName} is confirmed{$schedulePhrase}.",
+            'push_message' => "Online consultation for {$petName} is confirmed{$schedulePhrase}.",
+            'redirect_path' => '/dashboard/vet/online-consultations',
+            'dedupe_key' => "vet-online-consultation-confirmed-{$bookingId}-vet-{$vetUserId}",
+            'force_in_app' => true,
+        ]);
+    }
 }
 
 function notification_booking_schedule_datetime(array $booking): ?DateTimeImmutable
@@ -1663,7 +1791,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
 
     $ownerUserId = (int)$queue['user_id'];
     $petName = trim((string)($queue['pet_name'] ?? 'your pet'));
-    $queueNumber = '#' . (int)$queue['queue_number'];
+    $queueNumber = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
     $serviceName = trim((string)($queue['service_name'] ?? 'Clinic queue')) ?: 'Clinic queue';
     $status = trim((string)($queue['status'] ?? 'waiting'));
     $reason = trim((string)($context['reason'] ?? ''));
@@ -1722,7 +1850,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     $rows = [
         'Reason' => $reason,
         'Pet' => $petName,
-        'Queue Number' => $queueNumber,
+        'Queue ID' => $queueNumber,
         'Service' => $serviceName,
         'Status' => ucwords(str_replace('-', ' ', $status)),
     ];
@@ -1747,6 +1875,110 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         'email_html' => $emailHtml,
         'email_text' => $emailText,
     ]);
+
+    if ($event === 'created') {
+        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+            'type' => 'clinic_queue_created',
+            'category' => 'queue_updates',
+            'title' => 'New queue entry',
+            'message' => "{$petName} was added to queue {$queueNumber} for {$serviceName}.",
+            'push_message' => "New queue entry {$queueNumber}: {$petName}.",
+            'redirect_path' => '/dashboard/queue',
+            'dedupe_key' => "clinic-queue-created-{$queueId}",
+            'force_in_app' => true,
+        ]);
+    }
+}
+
+function notification_send_queue_assignment_to_vet(PDO $pdo, int $queueId, int $vetUserId, string $veterinarianName = ''): void
+{
+    if ($vetUserId <= 0) {
+        return;
+    }
+
+    $queue = notification_fetch_queue($pdo, $queueId);
+    if (!$queue) {
+        return;
+    }
+
+    $petName = trim((string)($queue['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $queueNumber = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
+    $serviceName = trim((string)($queue['service_name'] ?? 'Clinic service')) ?: 'Clinic service';
+
+    notification_create_event($pdo, [
+        'user_id' => $vetUserId,
+        'type' => 'queue_assigned_to_vet',
+        'category' => 'queue_updates',
+        'title' => 'Queue assigned to you',
+        'message' => "{$petName} from {$queueNumber} was assigned to your My List for {$serviceName}.",
+        'push_message' => "{$petName} was assigned to you from {$queueNumber}.",
+        'redirect_path' => '/dashboard/vet/my-list',
+        'dedupe_key' => "queue-assigned-to-vet-{$queueId}-{$vetUserId}",
+        'force_in_app' => true,
+    ]);
+}
+
+function notification_fetch_record_update_request(PDO $pdo, int $requestId): ?array
+{
+    $stmt = $pdo->prepare("
+        SELECT
+            r.*,
+            p.pet_name,
+            p.pet_species,
+            p.pet_breed,
+            CONCAT(owner.first_Name, ' ', owner.last_Name) AS owner_name,
+            CONCAT(vet.first_Name, ' ', vet.last_Name) AS veterinarian_name
+        FROM pet_record_update_requests r
+        JOIN pets_information p ON p.pet_id = r.pet_id
+        LEFT JOIN users owner ON owner.user_id = r.owner_user_id
+        LEFT JOIN users vet ON vet.user_id = r.assigned_veterinarian_user_id
+        WHERE r.request_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$requestId]);
+    $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $request ?: null;
+}
+
+function notification_send_record_update_request_event(PDO $pdo, int $requestId, string $event, array $context = []): void
+{
+    $request = notification_fetch_record_update_request($pdo, $requestId);
+    if (!$request || empty($request['assigned_veterinarian_user_id'])) {
+        return;
+    }
+
+    $vetUserId = (int)$request['assigned_veterinarian_user_id'];
+    if ($vetUserId <= 0) {
+        return;
+    }
+
+    $petName = trim((string)($request['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $requestNumber = trim((string)($request['request_number'] ?? ('Request #' . $requestId)));
+    $requestedChanges = trim((string)($request['requested_changes'] ?? ''));
+    $paymentStatus = trim((string)($request['payment_status'] ?? 'verified'));
+    $paidLabel = in_array($paymentStatus, ['verified', 'waived'], true) ? 'Paid' : 'Payment submitted';
+    $redirectPath = '/dashboard/vet/medical-records?petId=' . (int)$request['pet_id'] . '&requestId=' . $requestId;
+    $title = $event === 'approved'
+        ? 'Record update approved'
+        : 'Record update assigned';
+
+    $message = "{$requestNumber} for {$petName} is marked {$paidLabel} and urgent. Open Medical Records to review the owner request.";
+    if ($requestedChanges !== '') {
+        $message .= ' Request: ' . substr($requestedChanges, 0, 140);
+    }
+
+    notification_create_event($pdo, [
+        'user_id' => $vetUserId,
+        'type' => 'record_update_request_assigned',
+        'category' => 'diagnosis_updates',
+        'title' => $title,
+        'message' => $message,
+        'push_message' => "{$requestNumber} for {$petName}: {$paidLabel}, urgent record update.",
+        'redirect_path' => $redirectPath,
+        'dedupe_key' => "record-update-request-{$event}-{$requestId}-vet-{$vetUserId}",
+        'force_in_app' => true,
+    ]);
 }
 
 function notification_fetch_visit_summary(PDO $pdo, int $visitId): ?array
@@ -1761,6 +1993,7 @@ function notification_fetch_visit_summary(PDO $pdo, int $visitId): ?array
             u.mail_Address,
             b.booking_number,
             q.queue_number,
+            q.timestamp AS queue_timestamp,
             COALESCE(charges.total_charges, 0) AS total_charges,
             COALESCE(payments.total_paid, 0) AS total_paid
         FROM visits v
@@ -1842,7 +2075,7 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
     $total = (float)($visit['total_charges'] ?? 0);
     $paid = (float)($visit['total_paid'] ?? 0);
     $balance = max(0, $total - $paid);
-    $reference = $visit['booking_number'] ?: ($visit['queue_number'] ? 'Queue #' . $visit['queue_number'] : 'Visit #' . $visitId);
+    $reference = $visit['booking_number'] ?: ($visit['queue_number'] ? ipawcus_format_queue_reference($visit['queue_number'], $visit['queue_timestamp'] ?? null) : 'Visit #' . $visitId);
     $redirectPath = notification_pet_redirect_path($visit['pet_id'] ?? null);
     $hasEmailReceiver = filter_var(trim((string)($visit['mail_Address'] ?? '')), FILTER_VALIDATE_EMAIL);
 
@@ -1922,7 +2155,8 @@ function notification_fetch_diagnosis_summary(PDO $pdo, int $diagnosisId): ?arra
             owner.last_Name,
             owner.mail_Address,
             b.booking_number,
-            q.queue_number
+            q.queue_number,
+            q.timestamp AS queue_timestamp
         FROM vet_diagnoses vd
         JOIN pets_information p ON p.pet_id = vd.pet_id
         LEFT JOIN queues q ON q.queue_id = vd.queue_id
@@ -1949,7 +2183,7 @@ function notification_send_diagnosis_event(PDO $pdo, int $diagnosisId): void
     $serviceName = trim((string)($diagnosis['service_name'] ?? 'Clinic visit')) ?: 'Clinic visit';
     $notes = trim((string)($diagnosis['notes'] ?? ''));
     $followUp = trim((string)($diagnosis['follow_up_date'] ?? ''));
-    $reference = $diagnosis['booking_number'] ?: ($diagnosis['queue_number'] ? 'Queue #' . $diagnosis['queue_number'] : 'Diagnosis #' . $diagnosisId);
+    $reference = $diagnosis['booking_number'] ?: ($diagnosis['queue_number'] ? ipawcus_format_queue_reference($diagnosis['queue_number'], $diagnosis['queue_timestamp'] ?? null) : 'Diagnosis #' . $diagnosisId);
     $title = 'Diagnosis completed';
     $message = "A diagnosis record for {$petName} is now available.";
 

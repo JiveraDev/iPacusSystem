@@ -28,6 +28,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import SignatureCapture from '../SignatureCapture';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { fetchBoardingDocuments } from '../../services/boardingService';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { fetchProfile } from '../../services/profileService';
@@ -37,6 +38,8 @@ import { uploadDataUrlImage, uploadFormData } from '../../services/uploadService
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
+const DIAGNOSIS_DRAFT_STORAGE_PREFIX = 'ipawcus-vet-diagnosis-draft';
+const DIAGNOSIS_DRAFT_SCHEMA_VERSION = 1;
 
 const PRESCRIPTION_FREQUENCIES = [
     { value: 'per day', label: 'Per day' },
@@ -98,12 +101,13 @@ function createPrescriptionDraft() {
     };
 }
 
-function createCustomSection(serviceName = '') {
+function createCustomSection(serviceName = '', serviceId = '', majorSymptoms = '') {
     return {
         id: createId(),
+        serviceId: serviceId ? String(serviceId) : '',
         label: serviceName,
         value: '',
-        majorSymptoms: '',
+        majorSymptoms,
         prescription: [],
         prescriptionDraft: createPrescriptionDraft(),
         uploads: []
@@ -127,6 +131,7 @@ function readDiagnosisContext() {
         mode: storedContext.mode || 'edit',
         queueId: params.get('queueId') || storedContext.queueId || '',
         queueNumber: storedContext.queueNumber || '',
+        queueReference: storedContext.queueReference || '',
         bookingId: storedContext.bookingId || '',
         bookingNumber,
         assignmentId: storedContext.assignmentId || '',
@@ -157,6 +162,8 @@ function readDiagnosisContext() {
         bookingConcernPaths: storedContext.bookingConcernPaths || '',
         bookingSignaturePath: storedContext.bookingSignaturePath || '',
         signedConsentDocumentPath: storedContext.signedConsentDocumentPath || '',
+        signedConsentType: storedContext.signedConsentType || '',
+        signedConsentAt: storedContext.signedConsentAt || '',
         physicalConsentPath: storedContext.physicalConsentPath || '',
         physicalConsentPreview: storedContext.physicalConsentPreview || ''
     };
@@ -183,6 +190,11 @@ function getUserName(user) {
     return fullName || user?.name || user?.email || 'Veterinarian';
 }
 
+function isCustomDiagnosisCatalogService(service) {
+    const text = `${service?.serviceName || ''} ${service?.category || ''}`.toLowerCase();
+    return !/\bgeneral\b/.test(text) && !/surgery/.test(text);
+}
+
 function resolveFileUrl(path) {
     if (!path) return '';
 
@@ -204,6 +216,10 @@ function splitUploadPaths(value) {
         .split(/[\n,]+/)
         .map(item => item.trim())
         .filter(Boolean);
+}
+
+function combineUploadPathValues(...values) {
+    return values.flatMap(splitUploadPaths).join('\n');
 }
 
 function pathFileName(path) {
@@ -246,19 +262,25 @@ function buildSourceUploads(context) {
 
 function buildSignedConsentUploads(context) {
     const uploads = [];
-    const appendPaths = (paths, label, source) => {
+    const appendPaths = (paths, label, source, extra = {}) => {
         splitUploadPaths(paths).forEach((path, index) => {
             uploads.push({
                 id: `${source}-${label}-${index}-${path}`,
                 label,
                 source,
                 name: pathFileName(path),
-                url: path
+                url: path,
+                ...extra
             });
         });
     };
 
-    appendPaths(context.signedConsentDocumentPath, 'Signed consent document', 'consent');
+    appendPaths(
+        context.signedConsentDocumentPath,
+        context.signedConsentType || 'Signed consent document',
+        'consent',
+        { signedAt: context.signedConsentAt || '' }
+    );
     appendPaths(context.physicalConsentPath || context.physicalConsentPreview, 'Physical consent image', 'consent');
     appendPaths(context.queueSignaturePath, 'Queue signature', 'consent');
     appendPaths(context.bookingSignaturePath, 'Booking signature', 'consent');
@@ -321,6 +343,7 @@ function mergeQueueContext(baseContext, queueItem) {
         ...baseContext,
         queueId: normalizeContextValue(queueItem.queue_id || baseContext.queueId),
         queueNumber: normalizeContextValue(queueItem.queue_number || baseContext.queueNumber),
+        queueReference: queueItem.queue_reference || baseContext.queueReference || formatQueueReference(queueItem),
         bookingId: normalizeContextValue(queueItem.booking_id || baseContext.bookingId),
         bookingNumber: normalizeContextValue(bookingNumber),
         assignmentId: normalizeContextValue(queueItem.assignment_id || baseContext.assignmentId),
@@ -353,8 +376,10 @@ function mergeQueueContext(baseContext, queueItem) {
         queueSignaturePath: queueItem.signiture_self_service_path || baseContext.queueSignaturePath || '',
         bookingConcernPaths: queueItem.booking_concern_paths || baseContext.bookingConcernPaths || '',
         bookingSignaturePath: queueItem.booking_signature_path || baseContext.bookingSignaturePath || '',
-        signedConsentDocumentPath: baseContext.signedConsentDocumentPath || '',
-        physicalConsentPath: baseContext.physicalConsentPath || '',
+        signedConsentDocumentPath: combineUploadPathValues(baseContext.signedConsentDocumentPath, queueItem.signed_consent_document_path),
+        signedConsentType: baseContext.signedConsentType || queueItem.signed_consent_type || '',
+        signedConsentAt: baseContext.signedConsentAt || queueItem.signed_consent_at || '',
+        physicalConsentPath: combineUploadPathValues(baseContext.physicalConsentPath, queueItem.physical_consent_path),
         physicalConsentPreview: baseContext.physicalConsentPreview || ''
     };
 }
@@ -411,6 +436,140 @@ function normalizeAdditionalConsent(attachment) {
     };
 }
 
+function buildDiagnosisDraftStorageKey(context, veterinarianUserId) {
+    const vetKey = normalizeContextValue(veterinarianUserId || 'unknown-vet');
+    const subjectKey = context.queueId
+        ? `queue-${context.queueId}`
+        : context.bookingId
+            ? `booking-${context.bookingId}`
+            : context.bookingNumber
+                ? `booking-number-${context.bookingNumber}`
+                : context.petId
+                    ? `pet-${context.petId}`
+                    : '';
+
+    return subjectKey ? `${DIAGNOSIS_DRAFT_STORAGE_PREFIX}:${vetKey}:${subjectKey}` : '';
+}
+
+function readDiagnosisDraft(storageKey) {
+    if (!storageKey) return null;
+
+    try {
+        const draft = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        return draft?.schemaVersion === DIAGNOSIS_DRAFT_SCHEMA_VERSION ? draft : null;
+    } catch {
+        return null;
+    }
+}
+
+function persistDiagnosisDraft(storageKey, draft) {
+    if (!storageKey || !draft) return;
+
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(draft));
+    } catch {
+        // Large pending browser-only data, such as signatures, can exceed local storage.
+    }
+}
+
+function clearDiagnosisDraft(storageKey) {
+    if (!storageKey) return;
+
+    try {
+        localStorage.removeItem(storageKey);
+    } catch {
+        // Draft cleanup is best effort.
+    }
+}
+
+function serializeAttachmentForDraft(attachment) {
+    if (!attachment || attachment.file) return null;
+
+    const preview = attachment.preview && !String(attachment.preview).startsWith('blob:')
+        ? attachment.preview
+        : '';
+    const url = attachment.url || attachment.relativeUrl || '';
+
+    if (!preview && !url) return null;
+
+    return {
+        id: attachment.id || createId(),
+        name: attachment.name || pathFileName(url),
+        url,
+        relativeUrl: attachment.relativeUrl || attachment.url || '',
+        mimeType: attachment.mimeType || attachment.type || '',
+        uploadedAt: attachment.uploadedAt || '',
+        category: attachment.category || attachment.attachmentCategory || 'diagnosis_upload',
+        preview
+    };
+}
+
+function serializeAdditionalConsentForDraft(consent) {
+    if (!consent) return null;
+
+    return {
+        id: consent.id || createId(),
+        name: consent.name || `Signed consent - ${consent.title || 'Consent Form'}`,
+        url: consent.url || consent.relativeUrl || consent.signatureUrl || '',
+        relativeUrl: consent.relativeUrl || consent.url || consent.signatureUrl || '',
+        mimeType: consent.mimeType || 'image/png',
+        uploadedAt: consent.uploadedAt || '',
+        category: ADDITIONAL_CONSENT_CATEGORY,
+        templateId: consent.templateId || '',
+        title: consent.title || 'Consent Form',
+        content: consent.content || '',
+        signerName: consent.signerName || '',
+        signedAt: consent.signedAt || '',
+        signatureDataUrl: consent.signatureDataUrl || '',
+        signatureUrl: consent.signatureUrl || consent.url || consent.relativeUrl || '',
+        preview: consent.preview && !String(consent.preview).startsWith('blob:') ? consent.preview : consent.signatureDataUrl || ''
+    };
+}
+
+function serializeCustomSectionForDraft(section) {
+    return {
+        id: section.id || createId(),
+        serviceId: section.serviceId || '',
+        label: section.label || '',
+        value: section.value || '',
+        majorSymptoms: section.majorSymptoms || '',
+        prescription: Array.isArray(section.prescription) ? section.prescription.map(cleanPrescription) : [],
+        prescriptionDraft: section.prescriptionDraft ? cleanPrescription(section.prescriptionDraft) : createPrescriptionDraft(),
+        uploads: (section.uploads || []).map(serializeAttachmentForDraft).filter(Boolean)
+    };
+}
+
+function normalizeDraftFormData(formData, context) {
+    const complaint = buildInitialChiefComplaint(context);
+
+    return {
+        ...emptyDiagnosisForm,
+        ...(formData || {}),
+        chiefComplaint: formData?.chiefComplaint ?? complaint,
+        majorSymptoms: formData?.majorSymptoms || complaint,
+        vitalSigns: {
+            ...emptyDiagnosisForm.vitalSigns,
+            ...(formData?.vitalSigns || {})
+        },
+        prescription: Array.isArray(formData?.prescription)
+            ? formData.prescription.map(cleanPrescription)
+            : []
+    };
+}
+
+function normalizeDraftCustomSection(section, context) {
+    return {
+        id: section.id || createId(),
+        serviceId: section.serviceId || '',
+        label: section.label || context.serviceName || '',
+        value: section.value || '',
+        majorSymptoms: section.majorSymptoms || buildInitialChiefComplaint(context),
+        prescription: Array.isArray(section.prescription) ? section.prescription.map(cleanPrescription) : [],
+        prescriptionDraft: section.prescriptionDraft ? cleanPrescription(section.prescriptionDraft) : createPrescriptionDraft(),
+        uploads: Array.isArray(section.uploads) ? section.uploads.map(normalizeSavedAttachment) : []
+    };
+}
+
 function formatSignedAt(value) {
     if (!value) return '';
 
@@ -444,8 +603,18 @@ export default function VetDiagnosis() {
     const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
     const generalFileInputRef = useRef(null);
     const referenceFileInputRef = useRef(null);
+    const skipNextDraftPersistRef = useRef(false);
     const initialContext = useMemo(readDiagnosisContext, []);
+    const initialDraftStorageKey = useMemo(
+        () => buildDiagnosisDraftStorageKey(initialContext, veterinarianUserId),
+        [initialContext, veterinarianUserId]
+    );
+    const initialDraft = useMemo(() => readDiagnosisDraft(initialDraftStorageKey), [initialDraftStorageKey]);
     const [context, setContext] = useState(initialContext);
+    const draftStorageKey = useMemo(
+        () => buildDiagnosisDraftStorageKey(context, veterinarianUserId),
+        [context, veterinarianUserId]
+    );
     const sourceUploads = useMemo(() => buildSourceUploads(context), [context]);
     const consentUploads = useMemo(() => buildSignedConsentUploads(context), [context]);
     const contextIsVaccination = useMemo(() => isVaccinationService(context.serviceName), [context.serviceName]);
@@ -457,38 +626,67 @@ export default function VetDiagnosis() {
         ...boardingDocumentUploads
     ], [boardingDocumentUploads, consentUploads, sourceUploads]);
 
-    const [diagnosisType, setDiagnosisType] = useState('general');
-    const [formData, setFormData] = useState(() => ({
-        ...emptyDiagnosisForm,
-        chiefComplaint: buildInitialChiefComplaint(context),
-        vitalSigns: {
-            ...emptyDiagnosisForm.vitalSigns,
-            weight: context.petWeight || ''
-        }
-    }));
-    const [currentPrescription, setCurrentPrescription] = useState(createPrescriptionDraft);
-    const [customFields, setCustomFields] = useState(() => [createCustomSection(context.serviceName)]);
-    const [uploadedImages, setUploadedImages] = useState([]);
+    const [diagnosisType, setDiagnosisType] = useState(() => initialDraft?.diagnosisType || 'general');
+    const [formData, setFormData] = useState(() => (
+        initialDraft?.formData
+            ? normalizeDraftFormData(initialDraft.formData, initialContext)
+            : {
+                ...emptyDiagnosisForm,
+                chiefComplaint: buildInitialChiefComplaint(initialContext),
+                vitalSigns: {
+                    ...emptyDiagnosisForm.vitalSigns,
+                    weight: initialContext.petWeight || ''
+                }
+            }
+    ));
+    const [currentPrescription, setCurrentPrescription] = useState(() => (
+        initialDraft?.currentPrescription
+            ? cleanPrescription(initialDraft.currentPrescription)
+            : createPrescriptionDraft()
+    ));
+    const [customFields, setCustomFields] = useState(() => (
+        Array.isArray(initialDraft?.customFields) && initialDraft.customFields.length > 0
+            ? initialDraft.customFields.map(section => normalizeDraftCustomSection(section, initialContext))
+            : []
+    ));
+    const [uploadedImages, setUploadedImages] = useState(() => (
+        Array.isArray(initialDraft?.uploadedImages)
+            ? initialDraft.uploadedImages.map(normalizeSavedAttachment)
+            : []
+    ));
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingRecord, setIsLoadingRecord] = useState(false);
-    const [loadedDiagnosisId, setLoadedDiagnosisId] = useState(null);
+    const [loadedDiagnosisId, setLoadedDiagnosisId] = useState(() => initialDraft?.loadedDiagnosisId || null);
     const [schemaWarning, setSchemaWarning] = useState('');
     const [previewImage, setPreviewImage] = useState(null);
     const [isLoadingContext, setIsLoadingContext] = useState(Boolean(initialContext.queueId || initialContext.bookingId || initialContext.bookingNumber));
     const [consentTemplates, setConsentTemplates] = useState([]);
     const [isLoadingConsentTemplates, setIsLoadingConsentTemplates] = useState(false);
-    const [consentDraft, setConsentDraft] = useState({ templateId: '', signature: null });
-    const [additionalConsents, setAdditionalConsents] = useState([]);
-    const [shouldRecordVaccination, setShouldRecordVaccination] = useState(false);
+    const [consentDraft, setConsentDraft] = useState(() => ({
+        templateId: initialDraft?.consentDraft?.templateId || '',
+        signature: initialDraft?.consentDraft?.signature || null
+    }));
+    const [additionalConsents, setAdditionalConsents] = useState(() => (
+        Array.isArray(initialDraft?.additionalConsents)
+            ? initialDraft.additionalConsents.map(normalizeAdditionalConsent)
+            : []
+    ));
+    const consentFormsForDisplay = useMemo(() => additionalConsents, [additionalConsents]);
+    const [shouldRecordVaccination, setShouldRecordVaccination] = useState(() => Boolean(initialDraft?.shouldRecordVaccination));
     const [vaccinationRecord, setVaccinationRecord] = useState(() => ({
         ...emptyVaccinationRecord,
-        veterinarianName,
-        veterinarianLicense: currentUser?.licenseNumber || currentUser?.prc_license_number || ''
+        ...(initialDraft?.vaccinationRecord || {}),
+        veterinarianName: initialDraft?.vaccinationRecord?.veterinarianName || veterinarianName,
+        veterinarianLicense: initialDraft?.vaccinationRecord?.veterinarianLicense || currentUser?.licenseNumber || currentUser?.prc_license_number || ''
     }));
     const [serviceCatalog, setServiceCatalog] = useState([]);
-    const [selectedServiceId, setSelectedServiceId] = useState('');
-    const [visitCharges, setVisitCharges] = useState([]);
+    const [selectedServiceId, setSelectedServiceId] = useState(() => initialDraft?.selectedServiceId || '');
+    const [selectedCustomServiceId, setSelectedCustomServiceId] = useState(() => initialDraft?.selectedCustomServiceId || '');
+    const [visitCharges, setVisitCharges] = useState(() => (
+        Array.isArray(initialDraft?.visitCharges) ? initialDraft.visitCharges : []
+    ));
     const [billingSchemaMessage, setBillingSchemaMessage] = useState('');
+    const [isDraftReady, setIsDraftReady] = useState(() => Boolean(initialDraft));
 
     const hydrateDiagnosisRecord = useCallback((record) => {
         setLoadedDiagnosisId(record.diagnosisId || record.id || null);
@@ -523,9 +721,10 @@ export default function VetDiagnosis() {
         setCustomFields(sections.length > 0
             ? sections.map(section => ({
                 id: section.id || createId(),
+                serviceId: section.serviceId || section.service_id || '',
                 label: section.label || section.serviceName || '',
                 value: section.value || section.notes || '',
-                majorSymptoms: section.majorSymptoms || '',
+                majorSymptoms: section.majorSymptoms || buildInitialChiefComplaint(context),
                 prescription: Array.isArray(section.prescriptions)
                     ? section.prescriptions.map(cleanPrescription)
                     : Array.isArray(section.prescription)
@@ -538,7 +737,7 @@ export default function VetDiagnosis() {
                         ? section.uploads.map(normalizeSavedAttachment)
                         : []
             }))
-            : [createCustomSection(context.serviceName)]
+            : []
         );
 
         if (record.vaccinationRecord) {
@@ -720,6 +919,8 @@ export default function VetDiagnosis() {
                     }
 
                     const shouldUpdateComplaint = !currentComplaint || currentComplaint === previousComplaint.trim();
+                    const currentMajorSymptoms = current.majorSymptoms.trim();
+                    const shouldUpdateMajorSymptoms = !currentMajorSymptoms || currentMajorSymptoms === previousComplaint.trim();
                     const nextVitalSigns = {
                         ...current.vitalSigns,
                         weight: current.vitalSigns.weight || nextContext.petWeight || ''
@@ -728,6 +929,7 @@ export default function VetDiagnosis() {
                     return {
                         ...current,
                         chiefComplaint: shouldUpdateComplaint ? nextComplaint : current.chiefComplaint,
+                        majorSymptoms: shouldUpdateMajorSymptoms ? nextComplaint : current.majorSymptoms,
                         vitalSigns: nextVitalSigns
                     };
                 });
@@ -737,7 +939,7 @@ export default function VetDiagnosis() {
                         return current;
                     }
 
-                    return [{ ...current[0], label: nextContext.serviceName }];
+                    return [{ ...current[0], label: nextContext.serviceName, majorSymptoms: current[0].majorSymptoms || nextComplaint }];
                 });
             } catch (error) {
                 if (isActive) {
@@ -780,7 +982,13 @@ export default function VetDiagnosis() {
 
                 const record = Array.isArray(data.records) ? data.records[0] : null;
                 if (record) {
-                    hydrateDiagnosisRecord(record);
+                    const savedDraft = readDiagnosisDraft(draftStorageKey);
+
+                    if (savedDraft) {
+                        setLoadedDiagnosisId(current => current || record.diagnosisId || record.id || null);
+                    } else {
+                        hydrateDiagnosisRecord(record);
+                    }
                 }
             } catch (error) {
                 if (isActive && context.mode === 'view') {
@@ -789,6 +997,7 @@ export default function VetDiagnosis() {
             } finally {
                 if (isActive) {
                     setIsLoadingRecord(false);
+                    setIsDraftReady(true);
                 }
             }
         };
@@ -798,7 +1007,66 @@ export default function VetDiagnosis() {
         return () => {
             isActive = false;
         };
-    }, [context.mode, context.petId, context.queueId, hydrateDiagnosisRecord]);
+    }, [context.mode, context.petId, context.queueId, draftStorageKey, hydrateDiagnosisRecord]);
+
+    useEffect(() => {
+        if (context.queueId || context.petId) return;
+        setIsDraftReady(true);
+    }, [context.petId, context.queueId]);
+
+    useEffect(() => {
+        if (!isDraftReady || isSaving || !draftStorageKey) return;
+
+        if (skipNextDraftPersistRef.current) {
+            skipNextDraftPersistRef.current = false;
+            return;
+        }
+
+        const draft = {
+            schemaVersion: DIAGNOSIS_DRAFT_SCHEMA_VERSION,
+            updatedAt: new Date().toISOString(),
+            contextSnapshot: context,
+            loadedDiagnosisId,
+            diagnosisType,
+            formData: {
+                ...formData,
+                prescription: formData.prescription.map(cleanPrescription)
+            },
+            currentPrescription: cleanPrescription(currentPrescription),
+            customFields: customFields.map(serializeCustomSectionForDraft),
+            uploadedImages: uploadedImages.map(serializeAttachmentForDraft).filter(Boolean),
+            consentDraft: {
+                templateId: consentDraft.templateId || '',
+                signature: consentDraft.signature || null
+            },
+            additionalConsents: additionalConsents.map(serializeAdditionalConsentForDraft).filter(Boolean),
+            shouldRecordVaccination,
+            vaccinationRecord,
+            selectedServiceId,
+            selectedCustomServiceId,
+            visitCharges
+        };
+
+        persistDiagnosisDraft(draftStorageKey, draft);
+    }, [
+        additionalConsents,
+        consentDraft,
+        context,
+        currentPrescription,
+        customFields,
+        diagnosisType,
+        draftStorageKey,
+        formData,
+        isDraftReady,
+        isSaving,
+        loadedDiagnosisId,
+        selectedCustomServiceId,
+        selectedServiceId,
+        shouldRecordVaccination,
+        uploadedImages,
+        vaccinationRecord,
+        visitCharges
+    ]);
 
     const updateForm = (field, value) => {
         setFormData(current => ({ ...current, [field]: value }));
@@ -833,10 +1101,6 @@ export default function VetDiagnosis() {
             ...current,
             prescription: current.prescription.filter(item => item.id !== id)
         }));
-    };
-
-    const addCustomField = () => {
-        setCustomFields(current => [...current, createCustomSection()]);
     };
 
     const updateCustomField = (id, field, value) => {
@@ -1086,6 +1350,7 @@ export default function VetDiagnosis() {
         for (const section of sections) {
             uploadedSections.push({
                 id: section.id,
+                serviceId: section.serviceId || null,
                 label: section.label.trim(),
                 value: section.value.trim(),
                 majorSymptoms: section.majorSymptoms.trim(),
@@ -1101,22 +1366,25 @@ export default function VetDiagnosis() {
         () => serviceCatalog.find(service => String(service.serviceId) === String(selectedServiceId)),
         [selectedServiceId, serviceCatalog]
     );
+    const customDiagnosisServiceOptions = useMemo(
+        () => serviceCatalog.filter(isCustomDiagnosisCatalogService),
+        [serviceCatalog]
+    );
+    const selectedCustomService = useMemo(
+        () => customDiagnosisServiceOptions.find(service => String(service.serviceId) === String(selectedCustomServiceId)),
+        [customDiagnosisServiceOptions, selectedCustomServiceId]
+    );
 
     const visitChargesTotal = useMemo(() => (
         visitCharges.reduce((total, charge) => total + ((Number(charge.quantity) || 0) * (Number(charge.unitPrice) || 0)), 0)
     ), [visitCharges]);
 
-    const addServiceVisitCharge = () => {
-        if (!selectedCatalogService) {
-            toast.error('Select a catalog service first.');
-            return;
-        }
-
+    const buildVisitChargeLinesForService = (service) => {
         const serviceChargeId = createId();
-        const materialCharges = (selectedCatalogService.materials || []).map((material) => ({
+        const materialCharges = (service.materials || []).map((material) => ({
             id: createId(),
             chargeType: 'consumable',
-            serviceId: selectedCatalogService.serviceId,
+            serviceId: service.serviceId,
             itemId: material.itemId,
             description: `${material.itemName}${material.billablePolicy === 'included' ? ' (included)' : ''}`,
             quantity: Number(material.qtyUsed) || 1,
@@ -1125,22 +1393,56 @@ export default function VetDiagnosis() {
             createdByUserId: veterinarianUserId || null
         }));
 
-        setVisitCharges(current => [
-            ...current,
+        return [
             {
                 id: serviceChargeId,
                 chargeType: 'service',
-                serviceId: selectedCatalogService.serviceId,
+                serviceId: service.serviceId,
                 itemId: null,
-                description: selectedCatalogService.serviceName,
+                description: service.serviceName,
                 quantity: 1,
-                unitPrice: Number(selectedCatalogService.basePrice) || 0,
+                unitPrice: Number(service.basePrice) || 0,
                 billablePolicy: 'separate',
                 createdByUserId: veterinarianUserId || null
             },
             ...materialCharges
+        ];
+    };
+
+    const addServiceVisitCharge = () => {
+        if (!selectedCatalogService) {
+            toast.error('Select a catalog service first.');
+            return;
+        }
+
+        setVisitCharges(current => [
+            ...current,
+            ...buildVisitChargeLinesForService(selectedCatalogService)
         ]);
         setSelectedServiceId('');
+    };
+
+    const addCustomField = () => {
+        if (billingSchemaMessage) {
+            toast.error(billingSchemaMessage);
+            return;
+        }
+
+        if (!selectedCustomService) {
+            toast.error('Select a catalog service for the custom diagnosis block.');
+            return;
+        }
+
+        const complaint = buildInitialChiefComplaint(context);
+        setCustomFields(current => [
+            ...current,
+            createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId, complaint)
+        ]);
+        setVisitCharges(current => [
+            ...current,
+            ...buildVisitChargeLinesForService(selectedCustomService)
+        ]);
+        setSelectedCustomServiceId('');
     };
 
     const updateVisitCharge = (id, field, value) => {
@@ -1319,6 +1621,8 @@ export default function VetDiagnosis() {
                 hydrateDiagnosisRecord(data.diagnosis);
             }
 
+            skipNextDraftPersistRef.current = true;
+            clearDiagnosisDraft(draftStorageKey);
             toast.success('Diagnosis saved and patient marked done.');
             if (printAfterSave) {
                 printPrescriptionFromCurrentForm();
@@ -1346,6 +1650,7 @@ export default function VetDiagnosis() {
 
     const handleCancel = () => {
         if (window.confirm('Cancel this diagnosis? Unsaved changes will be lost.')) {
+            clearDiagnosisDraft(draftStorageKey);
             goBackToMyList();
         }
     };
@@ -1379,6 +1684,7 @@ export default function VetDiagnosis() {
                         sourceUploads={sourceUploads}
                         consentUploads={consentUploads}
                         additionalConsents={additionalConsents}
+                        consentForms={consentFormsForDisplay}
                         boardingDocumentUploads={boardingDocumentUploads}
                         onPreview={setPreviewImage}
                     />
@@ -1439,6 +1745,10 @@ export default function VetDiagnosis() {
                 <CustomDiagnosisForm
                     customFields={customFields}
                     addCustomField={addCustomField}
+                    serviceCatalog={customDiagnosisServiceOptions}
+                    selectedCustomServiceId={selectedCustomServiceId}
+                    setSelectedCustomServiceId={setSelectedCustomServiceId}
+                    schemaMessage={billingSchemaMessage}
                     updateCustomField={updateCustomField}
                     updateCustomPrescriptionDraft={updateCustomPrescriptionDraft}
                     addCustomPrescription={addCustomPrescription}
@@ -1465,6 +1775,7 @@ export default function VetDiagnosis() {
                 setDraft={setConsentDraft}
                 selectedTemplate={selectedConsentTemplate}
                 additionalConsents={additionalConsents}
+                consentForms={consentFormsForDisplay}
                 addAdditionalConsent={addAdditionalConsent}
                 removeAdditionalConsent={removeAdditionalConsent}
                 ownerName={context.ownerName}
@@ -1483,65 +1794,69 @@ export default function VetDiagnosis() {
                 schemaMessage={billingSchemaMessage}
             />
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <Label className="text-sm font-bold text-slate-900">Diagnosis Uploads</Label>
-                        <p className="mt-1 text-sm font-medium text-slate-500">
-                            Attach lab reports, X-rays, wound photos, or other files created during diagnosis.
-                        </p>
-                    </div>
-                    <input
-                        ref={generalFileInputRef}
-                        type="file"
-                        accept={DOCUMENT_UPLOAD_ACCEPT}
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                    />
-                    <Button type="button" variant="outline" onClick={() => generalFileInputRef.current?.click()} className="gap-2">
-                        <Upload className="size-4" />
-                        Upload Files
-                    </Button>
-                </div>
+            {diagnosisType === 'general' && (
+                <>
+                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <Label className="text-sm font-bold text-slate-900">Diagnosis Uploads</Label>
+                                <p className="mt-1 text-sm font-medium text-slate-500">
+                                    Attach lab reports, X-rays, wound photos, or other files created during diagnosis.
+                                </p>
+                            </div>
+                            <input
+                                ref={generalFileInputRef}
+                                type="file"
+                                accept={DOCUMENT_UPLOAD_ACCEPT}
+                                multiple
+                                onChange={handleImageUpload}
+                                className="hidden"
+                            />
+                            <Button type="button" variant="outline" onClick={() => generalFileInputRef.current?.click()} className="gap-2">
+                                <Upload className="size-4" />
+                                Upload Files
+                            </Button>
+                        </div>
 
-                <AttachmentGrid
-                    attachments={diagnosisAttachments}
-                    emptyMessage="No diagnosis uploads attached."
-                    onRemove={removeGeneralAttachment}
-                    onPreview={setPreviewImage}
-                />
-            </section>
+                        <AttachmentGrid
+                            attachments={diagnosisAttachments}
+                            emptyMessage="No diagnosis uploads attached."
+                            onRemove={removeGeneralAttachment}
+                            onPreview={setPreviewImage}
+                        />
+                    </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <Label className="text-sm font-bold text-slate-900">Reference Documents</Label>
-                        <p className="mt-1 text-sm font-medium text-slate-500">
-                            Attach boarding reports, monitoring documents, PDFs, or external clinic references.
-                        </p>
-                    </div>
-                    <input
-                        ref={referenceFileInputRef}
-                        type="file"
-                        accept={DOCUMENT_UPLOAD_ACCEPT}
-                        multiple
-                        onChange={handleReferenceUpload}
-                        className="hidden"
-                    />
-                    <Button type="button" variant="outline" onClick={() => referenceFileInputRef.current?.click()} className="gap-2">
-                        <Upload className="size-4" />
-                        Upload Documents
-                    </Button>
-                </div>
+                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <Label className="text-sm font-bold text-slate-900">Reference Documents</Label>
+                                <p className="mt-1 text-sm font-medium text-slate-500">
+                                    Attach boarding reports, monitoring documents, PDFs, or external clinic references.
+                                </p>
+                            </div>
+                            <input
+                                ref={referenceFileInputRef}
+                                type="file"
+                                accept={DOCUMENT_UPLOAD_ACCEPT}
+                                multiple
+                                onChange={handleReferenceUpload}
+                                className="hidden"
+                            />
+                            <Button type="button" variant="outline" onClick={() => referenceFileInputRef.current?.click()} className="gap-2">
+                                <Upload className="size-4" />
+                                Upload Documents
+                            </Button>
+                        </div>
 
-                <AttachmentGrid
-                    attachments={referenceAttachments}
-                    emptyMessage="No reference documents attached."
-                    onRemove={removeGeneralAttachment}
-                    onPreview={setPreviewImage}
-                />
-            </section>
+                        <AttachmentGrid
+                            attachments={referenceAttachments}
+                            emptyMessage="No reference documents attached."
+                            onRemove={removeGeneralAttachment}
+                            onPreview={setPreviewImage}
+                        />
+                    </section>
+                </>
+            )}
 
             <div className="flex flex-col-reverse gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
@@ -1664,24 +1979,27 @@ function AdditionalConsentSection({
     setDraft,
     selectedTemplate,
     additionalConsents,
+    consentForms,
     addAdditionalConsent,
     removeAdditionalConsent,
     ownerName,
     onPreview
 }) {
+    const visibleConsentForms = consentForms || additionalConsents;
+
     return (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
                         <FileText className="size-5 text-[#155dfc]" />
-                        <h3 className="text-lg font-bold text-slate-900">Additional Consent Forms</h3>
+                        <h3 className="text-lg font-bold text-slate-900">Consent Forms</h3>
                         <Badge className="border-0 bg-blue-50 text-blue-700">
-                            {additionalConsents.length} signed
+                            {visibleConsentForms.length} signed
                         </Badge>
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                        Optional. Add another signed owner consent when the current visit needs coverage beyond the intake consent.
+                        Signed owner consent forms connected to this visit.
                     </p>
                 </div>
 
@@ -1689,13 +2007,13 @@ function AdditionalConsentSection({
                     <SheetTrigger asChild>
                         <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto">
                             <PanelRightOpen className="size-4" />
-                            Open Consent Sheet
+                            Add Consent
                         </Button>
                     </SheetTrigger>
                     <SheetContent side="right" className="overflow-y-auto sm:max-w-2xl">
                         <div className="p-5">
                             <SheetHeader>
-                                <SheetTitle>Additional Consent Forms</SheetTitle>
+                                <SheetTitle>Consent Forms</SheetTitle>
                                 <SheetDescription>
                                     Select a consent template and collect the pet owner signature for this diagnosis.
                                 </SheetDescription>
@@ -1711,7 +2029,10 @@ function AdditionalConsentSection({
                                             disabled={isLoading || consentTemplates.length === 0}
                                         >
                                             <SelectTrigger className="bg-white">
-                                                <SelectValue placeholder={isLoading ? 'Loading consent forms...' : 'Select consent form'} />
+                                                <SelectValue
+                                                    placeholder={isLoading ? 'Loading consent forms...' : 'Select consent form'}
+                                                    displayValue={selectedTemplate?.title}
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {consentTemplates.map(template => (
@@ -1771,13 +2092,13 @@ function AdditionalConsentSection({
             </div>
 
             <div className="mt-5">
-                {additionalConsents.length === 0 ? (
+                {visibleConsentForms.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-400">
-                        No additional consent forms added for this diagnosis.
+                        No signed consent forms found for this diagnosis.
                     </p>
                 ) : (
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {additionalConsents.map(consent => (
+                        {visibleConsentForms.map(consent => (
                             <div key={consent.id} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <button
                                     type="button"
@@ -1792,15 +2113,19 @@ function AdditionalConsentSection({
                                         {consent.signerName || ownerName || 'Pet owner'} {consent.signedAt ? `- ${formatSignedAt(consent.signedAt)}` : ''}
                                     </p>
                                 </button>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeAdditionalConsent(consent.id)}
-                                    className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                >
-                                    <Trash2 className="size-4" />
-                                </Button>
+                                {consent.sourceConsent ? (
+                                    <Badge className="shrink-0 border-0 bg-green-50 text-green-700">Intake</Badge>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeAdditionalConsent(consent.id)}
+                                        className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -1927,7 +2252,9 @@ function VisitChargesSection({
     );
 }
 
-function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, additionalConsents, boardingDocumentUploads, onPreview }) {
+function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, additionalConsents, consentForms, boardingDocumentUploads, onPreview }) {
+    const visibleConsentForms = consentForms || additionalConsents;
+
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -1979,7 +2306,7 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                             <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">Visit Details</h3>
                             <div className="grid gap-3 text-sm">
                                 <SheetDetail label="Service" value={context.serviceName} />
-                                <SheetDetail label="Queue Number" value={context.queueNumber ? `#${context.queueNumber}` : ''} />
+                                <SheetDetail label="Queue ID" value={context.queueReference || (context.queueNumber ? formatQueueReference({ queueNumber: context.queueNumber }) : '')} />
                                 <SheetDetail label="Booking Number" value={context.bookingNumber} />
                                 <SheetDetail label="Complaint" value={removeBookingMarker(context.complaint)} />
                                 <SheetDetail label="Booking Notes" value={context.bookingNotes} />
@@ -2034,22 +2361,22 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
 
                         <section className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Additional Consents</h3>
-                                <Badge className="border-0 bg-slate-100 text-slate-700">{additionalConsents.length}</Badge>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Consent Forms</h3>
+                                <Badge className="border-0 bg-slate-100 text-slate-700">{visibleConsentForms.length}</Badge>
                             </div>
 
-                            {additionalConsents.length === 0 ? (
+                            {visibleConsentForms.length === 0 ? (
                                 <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-400">
-                                    No additional consent forms signed for this diagnosis.
+                                    No consent forms signed for this diagnosis.
                                 </p>
                             ) : (
                                 <div className="space-y-3">
-                                    {additionalConsents.map(consent => (
+                                    {visibleConsentForms.map(consent => (
                                         <AttachmentCard
                                             key={consent.id}
                                             attachment={{
                                                 ...consent,
-                                                label: consent.title || 'Additional consent',
+                                                label: consent.title || 'Consent form',
                                                 name: consent.title || consent.name || 'Signed consent',
                                                 preview: consent.preview || consent.signatureDataUrl,
                                                 url: consent.url || consent.signatureUrl,
@@ -2707,6 +3034,10 @@ function PrescriptionEditor({
 function CustomDiagnosisForm({
     customFields,
     addCustomField,
+    serviceCatalog,
+    selectedCustomServiceId,
+    setSelectedCustomServiceId,
+    schemaMessage,
     updateCustomField,
     updateCustomPrescriptionDraft,
     addCustomPrescription,
@@ -2716,38 +3047,82 @@ function CustomDiagnosisForm({
     removeCustomAttachment,
     onPreview
 }) {
+    const selectedService = serviceCatalog.find(service => String(service.serviceId) === String(selectedCustomServiceId));
+
     return (
         <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 className="text-lg font-bold text-slate-900">Custom Diagnosis Services</h3>
                     <p className="text-sm font-medium text-slate-500">
-                        Add multiple service blocks. Each block has major symptoms, prescription, and uploads.
+                        Add service blocks from the active service catalog. Each block carries its own symptoms, prescription, and uploads.
                     </p>
                 </div>
-                <Button type="button" variant="outline" onClick={addCustomField}>
-                    <Plus className="size-4" />
-                    Add Service
-                </Button>
+                <div className="grid w-full gap-2 sm:w-[420px] sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <Select
+                        value={selectedCustomServiceId}
+                        onValueChange={setSelectedCustomServiceId}
+                        disabled={serviceCatalog.length === 0 || Boolean(schemaMessage)}
+                    >
+                        <SelectTrigger className="bg-white">
+                            <SelectValue
+                                placeholder="Select service"
+                                displayValue={selectedService ? `${selectedService.serviceName} - ${formatPhpCurrency(selectedService.basePrice)}` : undefined}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {serviceCatalog.map(service => (
+                                <SelectItem key={service.serviceId} value={String(service.serviceId)}>
+                                    {service.serviceName} - {formatPhpCurrency(service.basePrice)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={addCustomField} disabled={!selectedCustomServiceId || Boolean(schemaMessage)}>
+                        <Plus className="size-4" />
+                        Add
+                    </Button>
+                </div>
             </div>
 
-            {customFields.map((field, index) => (
+            {schemaMessage && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                    {schemaMessage}
+                </div>
+            )}
+
+            {customFields.map((field, index) => {
+                const fieldService = serviceCatalog.find(service => String(service.serviceId) === String(field.serviceId));
+                const fieldTitle = fieldService?.serviceName || field.label || `Service ${index + 1}`;
+
+                return (
                 <div key={field.id} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0 flex-1 space-y-2">
-                            <Label className="text-sm font-bold text-slate-900">Service / Custom Field {index + 1}</Label>
-                            <Input
-                                value={field.label}
-                                onChange={(event) => updateCustomField(field.id, 'label', event.target.value)}
-                                placeholder="Example: Dermatology, laboratory review, wound care"
-                                className="bg-white"
-                            />
+                            <Label className="text-sm font-bold text-slate-900">Service {index + 1}</Label>
+                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-black text-slate-900">{fieldTitle}</p>
+                                    {fieldService && (
+                                        <Badge className="border-0 bg-blue-50 text-blue-700">
+                                            {formatPhpCurrency(fieldService.basePrice)}
+                                        </Badge>
+                                    )}
+                                </div>
+                                {!field.serviceId && (
+                                    <Input
+                                        value={field.label}
+                                        onChange={(event) => updateCustomField(field.id, 'label', event.target.value)}
+                                        placeholder="Legacy service label"
+                                        className="mt-3 bg-white"
+                                    />
+                                )}
+                            </div>
                         </div>
                         <Button
                             type="button"
                             variant="ghost"
                             onClick={() => removeCustomField(field.id)}
-                            disabled={customFields.length === 1}
                             className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                             <Trash2 className="size-4" />
@@ -2806,7 +3181,8 @@ function CustomDiagnosisForm({
                         />
                     </div>
                 </div>
-            ))}
+                );
+            })}
         </section>
     );
 }

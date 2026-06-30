@@ -17,10 +17,24 @@ function currentUserId(user) {
   return user?.user_id || user?.userId || user?.id || null;
 }
 
+function getStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem("currentUser") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function isPetOwnerRole(role) {
+  return ["pet_owner", "pet owner"].includes(String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_"));
+}
+
 export default function RequestUpdateRecord() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const currentUser = useDashboardUser();
+  const dashboardUser = useDashboardUser();
+  const currentUser = dashboardUser || getStoredUser();
+  const canRequestRecordUpdate = isPetOwnerRole(currentUser?.role);
   const [selectedMethod, setSelectedMethod] = useState("");
   const [paymentProof, setPaymentProof] = useState(null);
   const [notes, setNotes] = useState("");
@@ -118,6 +132,27 @@ export default function RequestUpdateRecord() {
                 View All Pets
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!canRequestRecordUpdate) {
+    return (
+      <div className="space-y-8 max-w-2xl mx-auto">
+        <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Pet Profile
+        </Button>
+
+        <Card className="border-slate-200">
+          <CardContent className="py-12 text-center">
+            <X className="mx-auto mb-4 h-12 w-12 text-slate-400" />
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">Pet Owner Access Only</h3>
+            <p className="mx-auto max-w-md text-sm font-medium leading-6 text-slate-500">
+              Record update requests can only be submitted by pet owner accounts.
+            </p>
           </CardContent>
         </Card>
       </div>

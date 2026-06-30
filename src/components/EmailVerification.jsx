@@ -119,9 +119,3 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
         </div>
     );
 }
-
-EmailVerification.propTypes = {
-    initialEmail: PropTypes.string,
-    onBack: PropTypes.func.isRequired,
-    onVerified: PropTypes.func.isRequired,
-};

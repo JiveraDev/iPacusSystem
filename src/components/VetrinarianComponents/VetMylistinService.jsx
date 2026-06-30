@@ -21,6 +21,7 @@ import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, formatDisplayDateTime } from '../../lib/date';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
@@ -38,33 +39,6 @@ import {
 import { deleteUpload, uploadDataUrlImage } from '../../services/uploadService';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
-
-const FALLBACK_CONSENT_FORMS = [
-    {
-        file_id: 'general',
-        file_name: 'General Medical Consent',
-        category: 'consultation',
-        content: [
-            'GENERAL MEDICAL CONSENT FORM',
-            '',
-            'I authorize Ipawcus Veterinary Clinic to perform necessary examination, diagnostic, and treatment procedures for my pet.',
-            '',
-            'I understand that all medical procedures carry risk and that I am responsible for the charges incurred.'
-        ].join('\n')
-    },
-    {
-        file_id: 'surgery',
-        file_name: 'Surgical Procedure Consent',
-        category: 'surgery',
-        content: [
-            'SURGICAL PROCEDURE CONSENT FORM',
-            '',
-            'I authorize the veterinarian to perform the discussed surgical procedure and related care for my pet.',
-            '',
-            'I understand that anesthesia and surgery carry inherent risks.'
-        ].join('\n')
-    }
-];
 
 function normalize(value) {
     return String(value || '').trim().toLowerCase();
@@ -185,7 +159,7 @@ export default function VetMyList() {
     const veterinarianName = getUserName(currentUser);
     const fileInputRef = useRef(null);
     const [queue, setQueue] = useState([]);
-    const [consentForms, setConsentForms] = useState(FALLBACK_CONSENT_FORMS);
+    const [consentForms, setConsentForms] = useState([]);
     const [consentRecords, setConsentRecords] = useState(readStoredConsents);
     const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
     const [searchQuery, setSearchQuery] = useState('');
@@ -280,11 +254,9 @@ export default function VetMyList() {
         try {
             const data = await fetchConsentFiles();
 
-            if (Array.isArray(data) && data.length > 0) {
-                setConsentForms(data);
-            }
+            setConsentForms(Array.isArray(data) ? data : []);
         } catch {
-            setConsentForms(FALLBACK_CONSENT_FORMS);
+            setConsentForms([]);
         }
     };
 
@@ -611,6 +583,7 @@ export default function VetMyList() {
                 mode,
                 queueId: String(item.queue_id),
                 queueNumber: item.queue_number ? String(item.queue_number) : '',
+                queueReference: formatQueueReference(item),
                 petId: String(item.pet_id || ''),
                 petName: item.pet_name || 'Unknown Pet',
                 petSpecies: item.pet_species || '',
@@ -641,6 +614,8 @@ export default function VetMyList() {
                 queueSignaturePath: item.signiture_self_service_path || '',
                 assignmentId: item.assignment_id ? String(item.assignment_id) : '',
                 signedConsentDocumentPath: consentRecord?.signedDocumentPath || '',
+                signedConsentType: consentRecord?.consentName || '',
+                signedConsentAt: consentRecord?.signedAt || '',
                 physicalConsentPath: consentRecord?.physicalConsentPath || '',
                 physicalConsentPreview: consentRecord?.physicalConsentPreview || ''
             }));
@@ -703,7 +678,7 @@ export default function VetMyList() {
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search pet, owner, queue #, service, or complaint"
+                        placeholder="Search pet, owner, queue ID, service, or complaint"
                         className="h-10 pl-10"
                     />
                 </div>
@@ -752,19 +727,14 @@ export default function VetMyList() {
                 {filteredCompletedItems.length === 0 ? (
                     <EmptyState message="No completed queue patients found." compact />
                 ) : (
-                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        {filteredCompletedItems.map(item => (
-                            <CompletedPatientCard
-                                key={item.queue_id}
-                                item={item}
-                                consentRecord={getConsentRecord(item)}
-                                isUpdating={updatingQueueId === item.queue_id}
-                                onView={() => viewRecord(item)}
-                                onUploadConsent={() => openUploadDialog(item)}
-                                onReopen={() => updateQueueStatus(item.queue_id, 'in-progress')}
-                            />
-                        ))}
-                    </div>
+                    <CompletedPatientsTable
+                        items={filteredCompletedItems}
+                        getConsentRecord={getConsentRecord}
+                        updatingQueueId={updatingQueueId}
+                        onView={viewRecord}
+                        onUploadConsent={openUploadDialog}
+                        onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
+                    />
                 )}
             </section>
 
@@ -799,7 +769,10 @@ export default function VetMyList() {
                                     <Label>Consent Form</Label>
                                     <Select value={selectedConsentId} onValueChange={setSelectedConsentId}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select consent form" />
+                                            <SelectValue
+                                                placeholder="Select consent form"
+                                                displayValue={selectedConsent?.file_name || selectedConsent?.name}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {consentForms.map(form => (
@@ -932,7 +905,7 @@ function filterItems(items, searchQuery) {
 
     return items.filter(item => {
         const searchableText = [
-            item.queue_number ? `#${item.queue_number}` : '',
+            formatQueueReference(item),
             item.pet_name,
             ownerName(item),
             getServiceDisplayName(item.service_name, ''),
@@ -1028,36 +1001,74 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
     );
 }
 
-function CompletedPatientCard({ item, consentRecord, isUpdating, onView, onUploadConsent, onReopen }) {
-    const hasConsent = Boolean(consentRecord?.signedAt);
-
+function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onView, onUploadConsent, onReopen }) {
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <PatientSummary item={item} />
-                <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <Badge className="border-0 bg-green-50 text-green-700">Done</Badge>
-                    {getConsentBadge(consentRecord)}
-                </div>
-            </div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+                <table className="min-w-[900px] w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th className="px-4 py-3">Queue</th>
+                            <th className="px-4 py-3">Patient</th>
+                            <th className="px-4 py-3">Service</th>
+                            <th className="px-4 py-3">Completed</th>
+                            <th className="px-4 py-3">Consent</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {items.map((item) => {
+                            const consentRecord = getConsentRecord(item);
+                            const hasConsent = Boolean(consentRecord?.signedAt);
+                            const isUpdating = updatingQueueId === item.queue_id;
 
-            <PatientDetails item={item} />
-
-            <div className={`mt-5 grid gap-2 ${hasConsent ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
-                <Button type="button" variant="outline" onClick={onView}>
-                    <Eye className="size-4" />
-                    View
-                </Button>
-                {!hasConsent && (
-                    <Button type="button" variant="outline" onClick={onUploadConsent}>
-                        <Upload className="size-4" />
-                        Upload Consent
-                    </Button>
-                )}
-                <Button type="button" onClick={onReopen} disabled={isUpdating} className="bg-slate-900 text-white hover:bg-slate-800">
-                    {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
-                    Reopen
-                </Button>
+                            return (
+                                <tr key={item.queue_id} className="align-top transition hover:bg-blue-50/40">
+                                    <td className="px-4 py-4">
+                                        <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <p className="font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</p>
+                                        <p className="mt-1 text-xs font-semibold text-slate-500">{ownerName(item)}</p>
+                                        <p className="mt-1 text-xs text-slate-400">
+                                            {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
+                                        </p>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <p className="font-semibold text-slate-700">{getServiceDisplayName(item.service_name, 'Queue')}</p>
+                                        {item.complaint && (
+                                            <p className="mt-1 line-clamp-2 max-w-xs text-xs text-slate-500">{item.complaint}</p>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-4 font-semibold text-slate-600">
+                                        {formatQueueTime(item.completed_at || item.timestamp)}
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        {getConsentBadge(consentRecord)}
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="flex justify-end gap-2">
+                                            <Button type="button" variant="outline" size="sm" onClick={() => onView(item)} className="gap-1">
+                                                <Eye className="size-4" />
+                                                View
+                                            </Button>
+                                            {!hasConsent && (
+                                                <Button type="button" variant="outline" size="sm" onClick={() => onUploadConsent(item)} className="gap-1">
+                                                    <Upload className="size-4" />
+                                                    Consent
+                                                </Button>
+                                            )}
+                                            <Button type="button" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} className="gap-1 bg-slate-900 text-white hover:bg-slate-800">
+                                                {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
+                                                Reopen
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
@@ -1068,7 +1079,7 @@ function PatientSummary({ item }) {
         <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
                 <h4 className="truncate text-xl font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</h4>
-                <Badge className="border-0 bg-blue-50 text-blue-700">Queue #{item.queue_number}</Badge>
+                <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
             </div>
             <p className="mt-1 text-sm font-semibold text-slate-500">
                 {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}

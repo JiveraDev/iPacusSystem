@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -705,6 +706,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 vd.source_uploads,
                 vd.finalized_at,
                 q.queue_number,
+                q.timestamp AS queue_timestamp,
                 b.booking_number,
                 CONCAT(vet.first_Name, ' ', vet.last_Name) AS visit_veterinarian_name
             FROM visits v
@@ -744,6 +746,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 'diagnosisId' => $diagnosisId,
                 'queueId' => $visit['queue_id'] !== null ? (int)$visit['queue_id'] : null,
                 'queueNumber' => $visit['queue_number'] !== null ? (int)$visit['queue_number'] : null,
+                'queueReference' => $visit['queue_number'] !== null ? ipawcus_format_queue_reference($visit['queue_number'], $visit['queue_timestamp'] ?? null) : '',
                 'bookingId' => $visit['booking_id'] !== null ? (int)$visit['booking_id'] : null,
                 'bookingNumber' => $visit['booking_number'] ?? null,
                 'title' => $visit['diagnosis_service_name'] ?: ($charges[0]['description'] ?? 'Clinic visit'),
@@ -792,6 +795,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
             SELECT
                 vd.*,
                 q.queue_number,
+                q.timestamp AS queue_timestamp,
                 b.booking_number
             FROM vet_diagnoses vd
             LEFT JOIN queues q ON q.queue_id = vd.queue_id
@@ -811,6 +815,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 'diagnosisId' => $diagnosisId,
                 'queueId' => $diagnosis['queue_id'] !== null ? (int)$diagnosis['queue_id'] : null,
                 'queueNumber' => $diagnosis['queue_number'] !== null ? (int)$diagnosis['queue_number'] : null,
+                'queueReference' => $diagnosis['queue_number'] !== null ? ipawcus_format_queue_reference($diagnosis['queue_number'], $diagnosis['queue_timestamp'] ?? null) : '',
                 'bookingId' => $diagnosis['booking_id'] !== null ? (int)$diagnosis['booking_id'] : null,
                 'bookingNumber' => $diagnosis['booking_number'] ?? null,
                 'title' => $diagnosis['service_name'] ?: 'Diagnosis record',

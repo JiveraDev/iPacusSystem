@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -54,7 +55,13 @@ try {
     ");
     $stmt->execute([$petId]);
 
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $queues = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($queues as &$queue) {
+        $queue['queue_reference'] = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
+    }
+    unset($queue);
+
+    echo json_encode($queues);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to fetch pet queues: ' . $e->getMessage()]);

@@ -1,14 +1,14 @@
-import { createElement, useEffect, useMemo, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     AlertCircle,
     CalendarDays,
-    ChevronLeft,
-    ChevronRight,
     CheckCircle2,
     ClipboardList,
     Copy,
     FileText,
     Loader2,
+    PanelRightClose,
+    PanelRightOpen,
     PawPrint,
     Pencil,
     Plus,
@@ -32,6 +32,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
+import { formatQueueReference } from '../../lib/referenceNumbers';
 import {
     addPetMedicalRecordGroupItem,
     createPetMedicalRecordGroup,
@@ -42,6 +43,7 @@ import {
     updatePetMedicalRecordGroup,
     updatePetMedicalRecordGroupItem
 } from '../../services/petService';
+import { fetchRecordUpdateRequests } from '../../services/recordUpdateRequestService';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -61,7 +63,7 @@ function recordKey(record) {
 
 function sourceLabel(record) {
     if (record.bookingNumber) return `Booking ${record.bookingNumber}`;
-    if (record.queueNumber) return `Queue #${record.queueNumber}`;
+    if (record.queueNumber) return formatQueueReference(record);
     return record.sourceType === 'visit' ? `Visit #${record.sourceId}` : `Diagnosis #${record.sourceId}`;
 }
 
@@ -89,6 +91,25 @@ function prescriptionCount(record) {
         ), 0);
 }
 
+function readRecordUpdateContext() {
+    if (typeof window === 'undefined') {
+        return { petId: '', requestId: '' };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const petId = window.sessionStorage.getItem('vet-record-update-pet-id') || params.get('petId') || '';
+    const requestId = window.sessionStorage.getItem('vet-record-update-request-id') || params.get('requestId') || '';
+
+    window.sessionStorage.removeItem('vet-record-update-pet-id');
+    window.sessionStorage.removeItem('vet-record-update-request-id');
+
+    return { petId: String(petId || ''), requestId: String(requestId || '') };
+}
+
+function isRecordRequestPaid(request) {
+    return ['verified', 'waived'].includes(String(request?.paymentStatus || '').toLowerCase());
+}
+
 export default function VetPetsEMR() {
     const currentUser = useDashboardUser();
     const currentUserId = userId(currentUser);
@@ -108,8 +129,10 @@ export default function VetPetsEMR() {
     const [isPetPreviewOpen, setIsPetPreviewOpen] = useState(true);
     const [isServiceRecordsOpen, setIsServiceRecordsOpen] = useState(true);
     const [viewer, setViewer] = useState(null);
+    const [recordUpdateContext] = useState(readRecordUpdateContext);
+    const [highlightedRequest, setHighlightedRequest] = useState(null);
 
-    const loadPets = async ({ isAutoRefresh = false } = {}) => {
+    const loadPets = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
             setIsLoadingPets(true);
         }
@@ -118,9 +141,12 @@ export default function VetPetsEMR() {
             const data = await fetchAllPets();
             const nextPets = Array.isArray(data) ? data : [];
             setPets(nextPets);
-            const requestedPetId = window.sessionStorage.getItem('vet-record-update-pet-id');
+            const requestedPetId = recordUpdateContext.petId;
             if (requestedPetId) {
-                window.sessionStorage.removeItem('vet-record-update-pet-id');
+                const requestedPet = nextPets.find(pet => String(pet.db_id || pet.id) === String(requestedPetId));
+                if (requestedPet) {
+                    setPetSearch(requestedPet.petName || requestedPet.name || petLabel(requestedPet));
+                }
             }
             setSelectedPetId(current => current || (requestedPetId ? String(requestedPetId) : ''));
             return nextPets;
@@ -134,7 +160,7 @@ export default function VetPetsEMR() {
                 setIsLoadingPets(false);
             }
         }
-    };
+    }, [recordUpdateContext.petId]);
 
     const loadRecords = async ({ isAutoRefresh = false } = {}) => {
         if (!selectedPetId) return null;
@@ -170,7 +196,35 @@ export default function VetPetsEMR() {
 
     useEffect(() => {
         loadPets();
-    }, []);
+    }, [loadPets]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const requestId = recordUpdateContext.requestId;
+
+        if (!requestId) {
+            setHighlightedRequest(null);
+            return () => {
+                isMounted = false;
+            };
+        }
+
+        fetchRecordUpdateRequests({ requestId })
+            .then((data) => {
+                if (!isMounted) return;
+                const request = Array.isArray(data.requests) ? data.requests[0] : null;
+                setHighlightedRequest(request || null);
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setHighlightedRequest(null);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [recordUpdateContext.requestId]);
 
     useAutoRefresh(loadRecords, {
         enabled: Boolean(selectedPetId),
@@ -413,6 +467,7 @@ export default function VetPetsEMR() {
                                             visiblePetOptions.map((pet) => {
                                                 const petId = String(pet.db_id || pet.id);
                                                 const isSelected = petId === String(selectedPetId);
+                                                const isHighlightedRequestPet = highlightedRequest && String(highlightedRequest.petId) === petId;
                                                 const meta = [
                                                     pet.species,
                                                     pet.breed,
@@ -442,9 +497,17 @@ export default function VetPetsEMR() {
                                                                 </span>
                                                             )}
                                                         </span>
-                                                        {isSelected && (
-                                                            <Badge className="shrink-0 border-0 bg-[#155dfc] text-white">Selected</Badge>
-                                                        )}
+                                                        <span className="flex shrink-0 flex-col items-end gap-1">
+                                                            {isHighlightedRequestPet && (
+                                                                <Badge className="border-0 bg-red-50 text-red-700">Urgent</Badge>
+                                                            )}
+                                                            {isHighlightedRequestPet && isRecordRequestPaid(highlightedRequest) && (
+                                                                <Badge className="border-0 bg-green-50 text-green-700">Paid</Badge>
+                                                            )}
+                                                            {isSelected && (
+                                                                <Badge className="border-0 bg-[#155dfc] text-white">Selected</Badge>
+                                                            )}
+                                                        </span>
                                                     </button>
                                                 );
                                             })
@@ -461,12 +524,16 @@ export default function VetPetsEMR() {
                     </CardContent>
                 </Card>
 
-                {isPetPreviewOpen && (
+                {highlightedRequest && String(highlightedRequest.petId) === String(selectedPetId) && (
+                    <RecordUpdateHighlight request={highlightedRequest} />
+                )}
+
+                <div className={isPetPreviewOpen ? '' : 'xl:hidden'}>
                     <PetPreviewCard
                         pet={selectedPet}
                         onCollapse={() => setIsPetPreviewOpen(false)}
                     />
-                )}
+                </div>
             </section>
 
             {!selectedPetId ? (
@@ -482,10 +549,9 @@ export default function VetPetsEMR() {
                     onClick={() => setIsPetPreviewOpen(true)}
                     aria-label="Show pet information"
                     aria-expanded={isPetPreviewOpen}
-                    className="fixed right-3 top-28 z-40 flex size-14 flex-col items-center justify-center gap-1 rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
+                    className="fixed right-3 top-28 z-40 hidden size-14 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:flex"
                 >
-                    <ChevronLeft className="size-5" strokeWidth={2.75} />
-                    <PawPrint className="size-4 text-[#155dfc]" />
+                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
                 </Button>
             )}
 
@@ -553,8 +619,7 @@ export default function VetPetsEMR() {
                     )}
                 </main>
 
-                {isServiceRecordsOpen && (
-                    <aside className="relative min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start">
+                <aside className={`relative min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start ${isServiceRecordsOpen ? '' : 'xl:hidden'}`}>
                         <Button
                             type="button"
                             variant="outline"
@@ -562,9 +627,9 @@ export default function VetPetsEMR() {
                             onClick={() => setIsServiceRecordsOpen(false)}
                             aria-label="Hide service records"
                             aria-expanded={isServiceRecordsOpen}
-                            className="absolute -left-5 top-5 z-10 size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
+                            className="absolute -left-5 top-5 z-10 hidden size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
                         >
-                            <ChevronRight className="size-5" strokeWidth={2.75} />
+                            <PanelRightClose className="size-5" strokeWidth={2.4} />
                         </Button>
 
                         <div className="border-b border-slate-100 p-4 pl-6">
@@ -598,7 +663,6 @@ export default function VetPetsEMR() {
                             )}
                         </div>
                     </aside>
-                )}
             </section>
             )}
 
@@ -609,10 +673,9 @@ export default function VetPetsEMR() {
                     onClick={() => setIsServiceRecordsOpen(true)}
                     aria-label="Show service records"
                     aria-expanded={isServiceRecordsOpen}
-                    className="fixed right-3 top-48 z-40 flex size-14 flex-col items-center justify-center gap-1 rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50"
+                    className="fixed right-3 top-48 z-40 hidden size-14 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:flex"
                 >
-                    <ChevronLeft className="size-5" strokeWidth={2.75} />
-                    <ClipboardList className="size-4 text-[#155dfc]" />
+                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
                     {serviceHistory.length > 0 && (
                         <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">
                             {serviceHistory.length}
@@ -747,9 +810,9 @@ function PetPreviewCard({ pet, onCollapse }) {
                     size="sm"
                     onClick={onCollapse}
                     aria-label="Hide pet information"
-                    className="h-9 w-full gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 sm:w-auto"
+                    className="hidden h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
                 >
-                    <ChevronRight className="size-4" strokeWidth={2.75} />
+                    <PanelRightClose className="size-4" strokeWidth={2.4} />
                     Hide
                 </Button>
             </div>
@@ -765,6 +828,36 @@ function PetPreviewCard({ pet, onCollapse }) {
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function RecordUpdateHighlight({ request }) {
+    return (
+        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-black text-red-950">Record Update Request</h3>
+                        <Badge className="border-0 bg-red-600 text-white">Urgent</Badge>
+                        {isRecordRequestPaid(request) && (
+                            <Badge className="border-0 bg-green-600 text-white">Paid</Badge>
+                        )}
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-red-800">
+                        {request.requestNumber} - {request.petName || 'Selected pet'}
+                    </p>
+                </div>
+                <Badge className="w-fit border-0 bg-white text-red-700">
+                    {request.status ? String(request.status).replace(/_/g, ' ') : 'assigned'}
+                </Badge>
+            </div>
+            <div className="mt-3 rounded-lg border border-red-100 bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Owner Requested Details</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800">
+                    {request.requestedChanges || 'No request details provided.'}
+                </p>
+            </div>
+        </div>
     );
 }
 

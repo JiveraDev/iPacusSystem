@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -132,7 +133,7 @@ try {
     }
 
     $activeQueueStmt = $pdo->prepare("
-        SELECT queue_id, queue_number, status
+        SELECT queue_id, queue_number, status, timestamp
         FROM queues
         WHERE pet_id = ?
           AND status IN ('waiting', 'in-progress')
@@ -146,11 +147,11 @@ try {
 
     if ($activeQueue && (!$queue || (int)$activeQueue['queue_id'] !== (int)$queue['queue_id'])) {
         http_response_code(409);
-        throw new RuntimeException("This pet already has an active queue entry today (#{$activeQueue['queue_number']}).");
+        throw new RuntimeException("This pet already has an active queue entry today (" . ipawcus_format_queue_reference($activeQueue['queue_number'], $activeQueue['timestamp'] ?? null) . ").");
     }
 
     $activeServiceStmt = $pdo->prepare("
-        SELECT q.queue_id, q.queue_number
+        SELECT q.queue_id, q.queue_number, q.timestamp
         FROM queues q
         JOIN vet_queue_assignments vqa ON vqa.queue_id = q.queue_id
         WHERE q.pet_id = ?
@@ -165,7 +166,7 @@ try {
 
     if ($activeServiceQueue && (!$queue || (int)$activeServiceQueue['queue_id'] !== (int)$queue['queue_id'])) {
         http_response_code(409);
-        throw new RuntimeException("This pet is still in service on queue #{$activeServiceQueue['queue_number']}.");
+        throw new RuntimeException("This pet is still in service on queue " . ipawcus_format_queue_reference($activeServiceQueue['queue_number'], $activeServiceQueue['timestamp'] ?? null) . ".");
     }
 
     if ($queue && $hasBookingIdColumn && empty($queue['booking_id'])) {
@@ -267,6 +268,7 @@ try {
     $responseQueue['assignment_status'] = $assignment['status'] ?? null;
     $responseQueue['received_at'] = $assignment['received_at'] ?? null;
     $responseQueue['has_active_assignment'] = $assignment ? 1 : 0;
+    $responseQueue['queue_reference'] = ipawcus_format_queue_reference($responseQueue['queue_number'] ?? 0, $responseQueue['timestamp'] ?? null);
 
     echo json_encode([
         'success' => true,

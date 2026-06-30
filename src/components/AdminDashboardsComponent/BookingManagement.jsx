@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Search, Filter, Eye, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
@@ -111,6 +111,10 @@ function ActionButtonMedia({ image, alt, fallback }) {
     );
 }
 
+function bookingDetailsTriggerId(bookingId) {
+    return `booking-details-trigger-${String(bookingId).replace(/[^A-Za-z0-9_-]/g, '-')}`;
+}
+
 export default function BookingsManagement() {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
@@ -135,6 +139,7 @@ export default function BookingsManagement() {
     const [addBookingOpen, setAddBookingOpen] = useState(false);
     const [isLoadingBookingPets, setIsLoadingBookingPets] = useState(false);
     const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+    const [confirmingBookingId, setConfirmingBookingId] = useState(null);
     const [bookingPets, setBookingPets] = useState([]);
     const [veterinarians, setVeterinarians] = useState([]);
     const [isLoadingVeterinarians, setIsLoadingVeterinarians] = useState(false);
@@ -394,6 +399,33 @@ export default function BookingsManagement() {
         }
     };
 
+    const confirmBooking = async (booking) => {
+        if (confirmingBookingId) return;
+
+        setConfirmingBookingId(booking.id);
+        try {
+            const draft = getReviewDraft(booking);
+            const updated = await updateBookingStatus(booking.id, 'confirmed', {
+                service_type: draft.serviceType,
+                review_notes: draft.notes
+            });
+
+            if (updated) {
+                toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully.`);
+                if (booking.isOnlineConsultation && !booking.paymentProof) {
+                    sendOnlineBookingToPOS({
+                        ...booking,
+                        type: draft.serviceType,
+                        service: getServiceDisplayName(draft.serviceType),
+                        notes: draft.notes
+                    });
+                }
+            }
+        } finally {
+            setConfirmingBookingId(null);
+        }
+    };
+
     const sendOnlineBookingToPOS = (booking) => {
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
             visit: {
@@ -441,6 +473,19 @@ export default function BookingsManagement() {
             transactionNumber: ''
         });
         setCancellationDialogOpen(true);
+    };
+
+    const openBookingDetails = (bookingId) => {
+        document.getElementById(bookingDetailsTriggerId(bookingId))?.click();
+    };
+
+    const handleBookingRowKeyDown = (event, bookingId) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        event.preventDefault();
+        openBookingDetails(bookingId);
     };
 
     const confirmCancellationRequest = async () => {
@@ -656,7 +701,7 @@ export default function BookingsManagement() {
         return labels[status] || getServiceDisplayName(status || 'Pending');
     };
 
-    const filteredBookings = bookings.filter(booking => {
+    const bookingMatchesBaseFilters = (booking) => {
         if (booking.type === 'boarding' && booking.hotelBoardingType) {
             return false;
         }
@@ -674,7 +719,6 @@ export default function BookingsManagement() {
         const matchesType = filterType === 'all'
             || filterType === 'Service Type'
             || (filterType === 'online-consultation' ? booking.isOnlineConsultation : booking.type === filterType);
-        const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
         const createdDate = new Date(booking.createdAt || booking.date);
         const today = new Date();
         const ageLimitDays = {
@@ -688,7 +732,15 @@ export default function BookingsManagement() {
             ? isToday
             : filterAge === 'all' || booking.status === 'cancelled' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
 
-        return matchesSearch && matchesType && matchesStatus && matchesAge;
+        return matchesSearch && matchesType && matchesAge;
+    };
+
+    const summaryBookings = bookings.filter(bookingMatchesBaseFilters);
+
+    const filteredBookings = summaryBookings.filter(booking => {
+        const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
+
+        return matchesStatus;
     }).sort((a, b) => {
         const statusOrder = {
             'pending': 1,
@@ -724,13 +776,13 @@ export default function BookingsManagement() {
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Total Bookings:</span>
                     <span className="bg-[#eff6ff] text-[#155dfc] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-                        {bookings.length}
+                        {summaryBookings.length}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Confirmed:</span>
                     <span className="bg-[#e0f2e9] text-[#0c6a3c] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-                        {bookings.filter(item => item.status === 'confirmed').length}
+                        {summaryBookings.filter(item => item.status === 'confirmed').length}
                     </span>
                 </div>
             </div>
@@ -808,12 +860,21 @@ export default function BookingsManagement() {
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Pet / Owner</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif] hidden md:table-cell">Date & Time</TableHead>
                             <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
-                            <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
+                            <TableHead className="w-px p-0">
+                                <span className="sr-only">Details</span>
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredBookings.map((booking) => (
-                            <TableRow key={booking.id}>
+                            <TableRow
+                                key={booking.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => openBookingDetails(booking.id)}
+                                onKeyDown={(event) => handleBookingRowKeyDown(event, booking.id)}
+                                className="cursor-pointer transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#155dfc]"
+                            >
                                 <TableCell className="font-['Arimo:Bold',sans-serif]">{booking.bookingNumber}</TableCell>
                                 <TableCell className="hidden md:table-cell">{getTypeBadge(booking.type, booking.isHomeService, booking.isOnlineConsultation)}</TableCell>
                                 <TableCell>
@@ -848,12 +909,11 @@ export default function BookingsManagement() {
                                         )}
                                     </div>
                                 </TableCell>
-                                <TableCell>
-                                    <div className="flex gap-2">
+                                <TableCell className="w-px p-0" onClick={(event) => event.stopPropagation()}>
                                         <Sheet>
                                         <SheetTrigger asChild>
-                                            <Button variant="outline" size="sm">
-                                                <Eye className="size-4" />
+                                            <Button id={bookingDetailsTriggerId(booking.id)} variant="outline" size="sm" className="sr-only">
+                                                Open booking details for {booking.bookingNumber}
                                             </Button>
                                         </SheetTrigger>
                                         <SheetContent side="right" className="sm:max-w-xl overflow-y-auto">
@@ -1308,28 +1368,18 @@ export default function BookingsManagement() {
 
                                                             {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                                 <Button
-                                                                    onClick={async () => {
-                                                                        const draft = getReviewDraft(booking);
-                                                                        const updated = await updateBookingStatus(booking.id, 'confirmed', {
-                                                                            service_type: draft.serviceType,
-                                                                            review_notes: draft.notes
-                                                                        });
-                                                                        if (updated) {
-                                                                            toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully`);
-                                                                            if (booking.isOnlineConsultation && !booking.paymentProof) {
-                                                                                sendOnlineBookingToPOS({
-                                                                                    ...booking,
-                                                                                    type: draft.serviceType,
-                                                                                    service: getServiceDisplayName(draft.serviceType),
-                                                                                    notes: draft.notes
-                                                                                });
-                                                                            }
-                                                                        }
-                                                                    }}
+                                                                    onClick={() => confirmBooking(booking)}
+                                                                    disabled={confirmingBookingId === booking.id}
                                                                     className="bg-[#0c6a3c] hover:bg-[#09522f] text-white w-full"
                                                                 >
-                                                                    <CheckCircle className="size-4 mr-2" />
-                                                                    {booking.isOnlineConsultation ? 'Approve Online Consultation' : 'Confirm Booking'}
+                                                                    {confirmingBookingId === booking.id ? (
+                                                                        <Loader2 className="size-4 mr-2 animate-spin" />
+                                                                    ) : (
+                                                                        <CheckCircle className="size-4 mr-2" />
+                                                                    )}
+                                                                    {confirmingBookingId === booking.id
+                                                                        ? 'Confirming...'
+                                                                        : booking.isOnlineConsultation ? 'Approve Online Consultation' : 'Confirm Booking'}
                                                                 </Button>
                                                             )}
 
@@ -1363,7 +1413,6 @@ export default function BookingsManagement() {
                                             </div>
                                         </SheetContent>
                                     </Sheet>
-                                </div>
                             </TableCell>
                         </TableRow>
                     ))}
@@ -1391,7 +1440,7 @@ export default function BookingsManagement() {
                             Add Booking
                         </DialogTitle>
                         <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                            Create an admin booking. Point-Of-Sale opens without a preset service so staff can add the payment line manually.
+                            Create an admin booking for counter payment. After POS payment is posted, the invoice image becomes proof and the booking is auto-confirmed.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1518,7 +1567,7 @@ export default function BookingsManagement() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="pos">Open Point-Of-Sale after booking</SelectItem>
+                                    <SelectItem value="pos">Counter payment, then auto-confirm</SelectItem>
                                     <SelectItem value="unpaid">Save as unpaid booking</SelectItem>
                                 </SelectContent>
                             </Select>

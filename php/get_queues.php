@@ -2,8 +2,22 @@
 require_once 'db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
+
+function queue_table_exists(PDO $pdo, string $tableName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+    ");
+    $stmt->execute([$tableName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
 
 try {
     autoCancelStaleQueues($pdo);
@@ -56,6 +70,31 @@ try {
             LIMIT 1
         )"
         : "";
+    $hasConsentRecords = queue_table_exists($pdo, 'consent_form_records');
+    $consentRecordSelect = $hasConsentRecords
+        ? "
+            cfr.consent_record_id AS signed_consent_record_id,
+            cfr.consent_type AS signed_consent_type,
+            cfr.signed_file_path AS signed_consent_document_path,
+            cfr.physical_file_path AS physical_consent_path,
+            cfr.signed_at AS signed_consent_at,"
+        : "
+            NULL AS signed_consent_record_id,
+            NULL AS signed_consent_type,
+            NULL AS signed_consent_document_path,
+            NULL AS physical_consent_path,
+            NULL AS signed_consent_at,";
+    $consentRecordJoin = $hasConsentRecords
+        ? "
+        LEFT JOIN consent_form_records cfr ON cfr.consent_record_id = (
+            SELECT latest_cfr.consent_record_id
+            FROM consent_form_records latest_cfr
+            WHERE latest_cfr.queue_id = q.queue_id
+              AND (latest_cfr.signed_file_path IS NOT NULL OR latest_cfr.physical_file_path IS NOT NULL)
+            ORDER BY latest_cfr.consent_record_id DESC
+            LIMIT 1
+        )"
+        : "";
 
     $stmt = $pdo->prepare("
         SELECT 
@@ -84,6 +123,7 @@ try {
             u.phoneNumber as contactNumber, 
             {$queueSourceSelect} AS queue_source,
             {$assignmentSelect}
+            {$consentRecordSelect}
             COALESCE(
                 NULLIF(TRIM(CONCAT(COALESCE(u.first_Name, ''), ' ', COALESCE(u.last_Name, ''))), ''),
                 p.pet_Temp_owner,
@@ -137,10 +177,16 @@ try {
         LEFT JOIN users u ON q.user_id = u.user_id
         {$bookingJoin}
         {$assignmentJoin}
+        {$consentRecordJoin}
         ORDER BY q.timestamp DESC
     ");
     $stmt->execute();
     $queues = $stmt->fetchAll();
+
+    foreach ($queues as &$queue) {
+        $queue['queue_reference'] = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
+    }
+    unset($queue);
 
     echo json_encode($queues);
 } catch (PDOException $e) {

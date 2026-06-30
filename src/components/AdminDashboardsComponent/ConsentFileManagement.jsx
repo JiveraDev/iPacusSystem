@@ -6,10 +6,12 @@ import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { Checkbox } from '../../ui/checkbox';
 import { Upload, FileText, Trash2, Edit3, Eye, Plus, AlertTriangle } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
+import { PET_OWNER_CONSENT_CONTEXTS, parseConsentContexts } from '../../lib/consentAssignments';
 import {
     createConsentFile,
     deleteConsentFile,
@@ -25,6 +27,7 @@ export default function ConsentFilesManagement() {
     // Upload States
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadCategory, setUploadCategory] = useState('');
+    const [uploadPetOwnerContexts, setUploadPetOwnerContexts] = useState([]);
 
     // Modal States
     const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -35,13 +38,20 @@ export default function ConsentFilesManagement() {
     const [editTitle, setEditTitle] = useState('');
     const [editContent, setEditContent] = useState('');
     const [editCategory, setEditCategory] = useState('');
+    const [editPetOwnerContexts, setEditPetOwnerContexts] = useState([]);
 
     const categories = [
         { value: 'General Check-up', label: 'General Check-up' },
-        { value: 'vaccination', label: 'Vaccination' },
+        { value: 'Vaccination', label: 'Vaccination' },
+        { value: 'Surgery', label: 'Surgery' },
+        { value: 'Dental Services', label: 'Dental Services' },
+        { value: 'Pet Boarding', label: 'Pet Boarding' },
+        { value: 'Laboratory Testing', label: 'Laboratory Testing' },
+        { value: 'Emergency Care', label: 'Emergency Care' },
+        { value: 'Parasite Control or Deworming', label: 'Parasite Control / Deworming' },
         { value: 'grooming', label: 'Grooming' },
-        { value: 'dental', label: 'Dental Check-up' },
-        { value: 'surgery', label: 'Surgery' },
+        { value: 'surgery', label: 'Surgery (legacy)' },
+        { value: 'dental', label: 'Dental Check-up (legacy)' },
         { value: 'kapon', label: 'Kapon / Special Surgery' },
         { value: 'parasite-control', label: 'Parasite Control' },
         { value: 'boarding', label: 'Pet Hotel & Boarding' },
@@ -50,6 +60,23 @@ export default function ConsentFilesManagement() {
         { value: 'home-service', label: 'Home Service' },
         { value: 'lab-testing', label: 'Lab Testing' }
     ];
+
+    const categoryLabels = categories.reduce((labels, category) => ({
+        ...labels,
+        [category.value]: category.label
+    }), {
+        vaccination: 'Vaccination'
+    });
+
+    const toggleContext = (currentContexts, context, checked) => {
+        if (checked) {
+            return currentContexts.includes(context)
+                ? currentContexts
+                : [...currentContexts, context];
+        }
+
+        return currentContexts.filter((item) => item !== context);
+    };
 
     const fetchConsentFiles = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -101,11 +128,13 @@ export default function ConsentFilesManagement() {
                 formData.append('content', text);
                 formData.append('file_size', formatFileSize(uploadFile.size));
                 formData.append('category', uploadCategory);
+                formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts));
 
                 await createConsentFile(formData);
                 toast.success("Consent form added successfully");
                 setUploadFile(null);
                 setUploadCategory('');
+                setUploadPetOwnerContexts([]);
                 const fileInput = document.getElementById('consent-file-input');
                 if (fileInput) fileInput.value = '';
                 fetchConsentFiles();
@@ -126,7 +155,8 @@ export default function ConsentFilesManagement() {
             await updateConsentFile(selectedFile.file_id, {
                 file_name: editTitle,
                 content: editContent,
-                category: editCategory
+                category: editCategory,
+                pet_owner_contexts: JSON.stringify(editPetOwnerContexts)
             });
             toast.success("Consent form updated");
             setEditModalOpen(false);
@@ -209,6 +239,24 @@ export default function ConsentFilesManagement() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 md:col-span-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Pet-owner readable assignment
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                            {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
+                                <label key={context.value} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                                    <Checkbox
+                                        checked={uploadPetOwnerContexts.includes(context.value)}
+                                        onCheckedChange={(checked) => setUploadPetOwnerContexts((current) => (
+                                            toggleContext(current, context.value, Boolean(checked))
+                                        ))}
+                                    />
+                                    {context.label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
                     <Button 
                         onClick={handleUploadSubmit}
                         disabled={isUploading || !uploadFile || !uploadCategory}
@@ -244,6 +292,7 @@ export default function ConsentFilesManagement() {
                                             setEditTitle(file.file_name || '');
                                             setEditContent(file.content || '');
                                             setEditCategory(file.category || '');
+                                            setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts));
                                             setEditModalOpen(true);
                                         }}
                                     >
@@ -268,11 +317,27 @@ export default function ConsentFilesManagement() {
                             </h4>
                             <div className="flex items-center gap-2 mb-4">
                                 <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-2 bg-slate-100 text-slate-600">
-                                    {categories.find(c => c.value === file.category)?.label || file.category}
+                                    {categoryLabels[file.category] || file.category}
                                 </Badge>
                                 <span className="text-[11px] text-gray-400">
                                     {file.file_size}
                                 </span>
+                            </div>
+                            <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    Pet-owner flows
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).length > 0 ? (
+                                        parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).map((context) => (
+                                            <Badge key={context} className="border-0 bg-blue-100 text-[10px] font-bold text-blue-700">
+                                                {PET_OWNER_CONSENT_CONTEXTS.find((item) => item.value === context)?.label || context}
+                                            </Badge>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs font-medium text-slate-400">Not assigned</span>
+                                    )}
+                                </div>
                             </div>
 
                             <Button 
@@ -338,6 +403,24 @@ export default function ConsentFilesManagement() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                                Pet-owner readable assignment
+                            </p>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
+                                    <label key={context.value} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                                        <Checkbox
+                                            checked={editPetOwnerContexts.includes(context.value)}
+                                            onCheckedChange={(checked) => setEditPetOwnerContexts((current) => (
+                                                toggleContext(current, context.value, Boolean(checked))
+                                            ))}
+                                        />
+                                        {context.label}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-xs text-gray-500">Document Content</Label>

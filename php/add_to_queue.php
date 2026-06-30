@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -99,6 +100,10 @@ $priority = $data['priority'] ?? 'normal';
 $complaint = $data['complaint'] ?? '';
 $image_path = $data['image_path'] ?? null;
 $signiture_self_service_path = $data['signiture_self_service_path'] ?? null;
+$consent_file_id = $data['consent_file_id'] ?? $data['consentFileId'] ?? null;
+$consent_type = $data['consent_type'] ?? $data['consentType'] ?? null;
+$consent_signed_at = $data['consent_signed_at'] ?? $data['consentSignedAt'] ?? $data['signed_at'] ?? null;
+$signer_name = $data['signer_name'] ?? $data['signerName'] ?? null;
 $queue_source = $data['queue_source'] ?? 'admin';
 
 if (!is_string($queue_source) || trim($queue_source) === '') {
@@ -152,23 +157,26 @@ try {
     if ($activeQueue) {
         $queueDate = date('Y-m-d', strtotime($activeQueue['timestamp']));
         $todayDate = date('Y-m-d');
+        $activeQueueReference = ipawcus_format_queue_reference($activeQueue['queue_number'], $activeQueue['timestamp'] ?? null);
 
         if ($queueDate === $todayDate) {
             // If it's from today, block it as usual
             http_response_code(409);
             echo json_encode([
-                'message' => "This pet already has an active queue entry for today (#{$activeQueue['queue_number']}). Please complete or cancel it before adding another queue.",
+                'message' => "This pet already has an active queue entry for today ({$activeQueueReference}). Please complete or cancel it before adding another queue.",
                 'queue_id' => $activeQueue['queue_id'],
                 'queue_number' => $activeQueue['queue_number'],
+                'queue_reference' => $activeQueueReference,
                 'status' => $activeQueue['status']
             ]);
             exit;
         } else {
             http_response_code(409);
             echo json_encode([
-                'message' => "This pet still has an active in-service queue entry (#{$activeQueue['queue_number']}). Complete, return, or cancel it before adding another queue.",
+                'message' => "This pet still has an active in-service queue entry ({$activeQueueReference}). Complete, return, or cancel it before adding another queue.",
                 'queue_id' => $activeQueue['queue_id'],
                 'queue_number' => $activeQueue['queue_number'],
+                'queue_reference' => $activeQueueReference,
                 'status' => $activeQueue['status']
             ]);
             exit;
@@ -249,10 +257,14 @@ try {
 
     consent_record_capture_queue($pdo, [
         'queue_id' => $queueId,
+        'consent_file_id' => $consent_file_id,
+        'consent_type' => $consent_type ?: (($service_name ?? 'Service') . ' Consent'),
         'owner_user_id' => $user_id,
         'pet_id' => $pet_id,
         'service_name' => $service_name,
         'signed_file_path' => $signiture_self_service_path,
+        'signed_at' => $consent_signed_at,
+        'signer_name' => $signer_name,
         'notes' => $queue_source === 'self_service'
             ? 'Captured during self-service queue creation.'
             : 'Captured during queue creation.',
@@ -264,7 +276,12 @@ try {
         error_log('Queue creation notification failed: ' . $notificationError->getMessage());
     }
 
-    echo json_encode(['success' => true]);
+    echo json_encode([
+        'success' => true,
+        'queue_id' => $queueId,
+        'queue_number' => $new_queue_number,
+        'queue_reference' => ipawcus_format_queue_reference($new_queue_number)
+    ]);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to add to queue: ' . $e->getMessage()]);

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -24,6 +24,23 @@ const GENERAL_CHART_IDS = [
     'revenue_breakdown',
     'inventory_alerts'
 ];
+
+const KPI_CHART_TARGETS = {
+    'Total Sales': 'revenue_diagnosis_trend',
+    'Total Paid Amount': 'revenue_breakdown',
+    'Total Appointments': 'queue_booking_trend',
+    'Completed Appointments': 'queue_booking_trend',
+    'Missed / Rescheduled': 'queue_booking_trend',
+    'Total Queue Visits': 'queue_booking_trend',
+    'Total Consultations': 'consultation_type',
+    'Online Consultations': 'consultation_type',
+    'Clinic Visits': 'revenue_diagnosis_trend'
+};
+
+const KPI_TABLE_TARGETS = {
+    'Restocking Needed': 'report-table-inventory-attention',
+    'Near Expiry Items': 'report-table-inventory-attention'
+};
 
 function normalizeRole(role) {
     return String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -132,6 +149,29 @@ function pluralize(count, singular, plural = `${singular}s`) {
     return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function chartTargetForKpi(label, chartById) {
+    const targetId = KPI_CHART_TARGETS[String(label || '').trim()];
+    return targetId && chartById.has(targetId) ? targetId : '';
+}
+
+function tableTargetForKpi(label) {
+    return KPI_TABLE_TARGETS[String(label || '').trim()] || '';
+}
+
+function attentionTableTargetId(title) {
+    const normalizedTitle = String(title || '').toLowerCase();
+
+    if (normalizedTitle.includes('inventory')) {
+        return 'report-table-inventory-attention';
+    }
+
+    if (normalizedTitle.includes('billing')) {
+        return 'report-table-billing-attention';
+    }
+
+    return 'report-table-operational-attention';
+}
+
 function getAttentionConfig(title) {
     const normalizedTitle = String(title || '').toLowerCase();
 
@@ -234,12 +274,14 @@ function formatAttentionValue(value, column) {
 export default function SuperAdminReportsDashboard() {
     const user = useDashboardUser();
     const navigate = useNavigate();
+    const highlightTimerRef = useRef(null);
     const [range, setRange] = useState('this_month');
     const [customStart, setCustomStart] = useState(defaultMonthStart);
     const [customEnd, setCustomEnd] = useState(defaultMonthEnd);
     const [dashboard, setDashboard] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [highlightedTargetId, setHighlightedTargetId] = useState('');
 
     const selectedRangeLabel = useMemo(() => (
         REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
@@ -295,6 +337,12 @@ export default function SuperAdminReportsDashboard() {
         refreshKey: `${range}:${customStart}:${customEnd}`
     });
 
+    useEffect(() => () => {
+        if (highlightTimerRef.current) {
+            window.clearTimeout(highlightTimerRef.current);
+        }
+    }, []);
+
     const charts = useMemo(() => {
         const chartItems = Array.isArray(dashboard?.charts) ? dashboard.charts : [];
         return GENERAL_CHART_IDS
@@ -303,6 +351,31 @@ export default function SuperAdminReportsDashboard() {
     }, [dashboard]);
     const fullWidthCharts = useMemo(() => charts.filter(chartItem => !isPieChartItem(chartItem)), [charts]);
     const pieCharts = useMemo(() => charts.filter(isPieChartItem), [charts]);
+    const chartById = useMemo(() => new Map(charts.map(chartItem => [chartItem.id, chartItem])), [charts]);
+    const scrollToTarget = useCallback((targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) {
+            return;
+        }
+
+        setHighlightedTargetId(targetId);
+
+        const headerOffset = 92;
+        const top = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+        window.scrollTo({
+            top: Math.max(top, 0),
+            behavior: 'smooth'
+        });
+
+        if (highlightTimerRef.current) {
+            window.clearTimeout(highlightTimerRef.current);
+        }
+
+        highlightTimerRef.current = window.setTimeout(() => {
+            setHighlightedTargetId('');
+            highlightTimerRef.current = null;
+        }, 1600);
+    }, []);
 
     if (!isSuperAdmin(user)) {
         return (
@@ -315,22 +388,22 @@ export default function SuperAdminReportsDashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#155dfc]">
+                    <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#155dfc] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200">
                         <Activity className="size-3.5" />
                         Super Admin Intelligence
                     </div>
-                    <h1 className="text-3xl font-black tracking-tight text-slate-950">Reports Dashboard</h1>
-                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+                    <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">Reports Dashboard</h1>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
                         Clinic performance, service activity, billing, inventory, and patient case overview
                     </p>
                 </div>
 
-                <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur sm:grid-cols-[12rem_9rem_9rem_auto]">
+                <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-950/70 sm:grid-cols-[12rem_9rem_9rem_auto]">
                     <div>
-                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Date Range</Label>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
                         <Select value={range} onValueChange={setRange}>
                             <SelectTrigger className="mt-1">
                                 <SelectValue displayValue={selectedRangeLabel} />
@@ -343,7 +416,7 @@ export default function SuperAdminReportsDashboard() {
                         </Select>
                     </div>
                     <div>
-                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Start</Label>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Start</Label>
                         <Input
                             type="date"
                             value={visibleDateRange.start}
@@ -352,7 +425,7 @@ export default function SuperAdminReportsDashboard() {
                         />
                     </div>
                     <div>
-                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500">End</Label>
+                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">End</Label>
                         <Input
                             type="date"
                             value={visibleDateRange.end}
@@ -379,15 +452,28 @@ export default function SuperAdminReportsDashboard() {
             ) : null}
 
             {isLoading && !dashboard ? (
-                <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
                     <Loader2 className="size-8 animate-spin text-[#155dfc]" />
                 </div>
             ) : (
                 <>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {(dashboard?.kpis || []).map(kpi => (
-                            <ReportKpiCard key={kpi.label} {...kpi} />
-                        ))}
+                        {(dashboard?.kpis || []).map(kpi => {
+                            const targetChartId = chartTargetForKpi(kpi.label, chartById);
+                            const targetChart = targetChartId ? chartById.get(targetChartId) : null;
+                            const targetTableId = tableTargetForKpi(kpi.label);
+                            const targetId = targetChart ? `report-chart-${targetChart.id}` : targetTableId;
+                            const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : undefined);
+
+                            return (
+                                <ReportKpiCard
+                                    key={kpi.label}
+                                    {...kpi}
+                                    targetTitle={targetTitle}
+                                    onSelectChart={targetId ? () => scrollToTarget(targetId) : undefined}
+                                />
+                            );
+                        })}
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
@@ -406,17 +492,26 @@ export default function SuperAdminReportsDashboard() {
                     {fullWidthCharts.length ? (
                         <section className="space-y-4">
                             <div>
-                                <h2 className="text-lg font-black text-slate-950">Movement, Revenue, and Utilization Charts</h2>
-                                <p className="text-sm font-semibold text-slate-500">Line and bar charts span the full row for easier wide-screen reading.</p>
+                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Movement, Revenue, and Utilization Charts</h2>
+                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Line and bar charts span the full row for easier wide-screen reading.</p>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 {fullWidthCharts.map(chartItem => (
-                                    <ReportChartCard
+                                    <div
                                         key={chartItem.id}
-                                        title={chartItem.title}
-                                        summary={chartItem.summary}
-                                        chart={chartItem.chart}
-                                    />
+                                        id={`report-chart-${chartItem.id}`}
+                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                            highlightedTargetId === `report-chart-${chartItem.id}`
+                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                : ''
+                                        }`}
+                                    >
+                                        <ReportChartCard
+                                            title={chartItem.title}
+                                            summary={chartItem.summary}
+                                            chart={chartItem.chart}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                         </section>
@@ -425,17 +520,26 @@ export default function SuperAdminReportsDashboard() {
                     {pieCharts.length ? (
                         <section className="space-y-4">
                             <div>
-                                <h2 className="text-lg font-black text-slate-950">Service Mix and Clinic Resources</h2>
-                                <p className="text-sm font-semibold text-slate-500">Pie and doughnut charts are grouped two per row on wider screens.</p>
+                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Service Mix and Clinic Resources</h2>
+                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Pie and doughnut charts are grouped two per row on wider screens.</p>
                             </div>
                             <div className="grid gap-4 xl:grid-cols-2">
                                 {pieCharts.map(chartItem => (
-                                    <ReportChartCard
+                                    <div
                                         key={chartItem.id}
-                                        title={chartItem.title}
-                                        summary={chartItem.summary}
-                                        chart={chartItem.chart}
-                                    />
+                                        id={`report-chart-${chartItem.id}`}
+                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                            highlightedTargetId === `report-chart-${chartItem.id}`
+                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                : ''
+                                        }`}
+                                    >
+                                        <ReportChartCard
+                                            title={chartItem.title}
+                                            summary={chartItem.summary}
+                                            chart={chartItem.chart}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                         </section>
@@ -444,22 +548,36 @@ export default function SuperAdminReportsDashboard() {
                     <section className="space-y-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
                                     <Users className="size-5" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-slate-950">Operational Attention</h2>
-                                    <p className="text-sm font-semibold text-slate-500">Billing and stock items that need review in the selected date range.</p>
+                                    <h2 className="text-lg font-black text-slate-950 dark:text-white">Operational Attention</h2>
+                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Billing and stock items that need review in the selected date range.</p>
                                 </div>
                             </div>
-                            <Badge className="border-slate-200 bg-white text-slate-600">
+                            <Badge className="border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                                 {pluralize((dashboard?.summary_tables || []).reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
                             </Badge>
                         </div>
                         <div className="grid gap-4 xl:grid-cols-2">
-                            {(dashboard?.summary_tables || []).map(table => (
-                                <OperationalAttentionCard key={table.title} table={table} />
-                            ))}
+                            {(dashboard?.summary_tables || []).map(table => {
+                                const targetId = attentionTableTargetId(table?.title);
+
+                                return (
+                                    <div
+                                        key={table.title}
+                                        id={targetId}
+                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                            highlightedTargetId === targetId
+                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                : ''
+                                        }`}
+                                    >
+                                        <OperationalAttentionCard table={table} />
+                                    </div>
+                                );
+                            })}
                         </div>
                     </section>
                 </>
@@ -476,18 +594,18 @@ function OperationalAttentionCard({ table }) {
     const Icon = config.icon;
 
     return (
-        <div className={`overflow-hidden rounded-xl border border-slate-200 border-l-4 ${config.accentClass} bg-white shadow-sm`}>
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
+        <div className={`overflow-hidden rounded-xl border border-slate-200 border-l-4 ${config.accentClass} bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900`}>
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
                 <div className="flex min-w-0 items-start gap-3">
                     <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${config.iconClass}`}>
                         <Icon className="size-4" />
                     </div>
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-base font-black text-slate-950">{table?.title}</h3>
-                            <Badge className="border-slate-200 bg-slate-50 text-slate-600">{config.label}</Badge>
+                            <h3 className="truncate text-base font-black text-slate-950 dark:text-white">{table?.title}</h3>
+                            <Badge className="border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">{config.label}</Badge>
                         </div>
-                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-500 dark:text-slate-300">
                     {rows.length ? 'Review these records before closing the operating day.' : config.emptyText}
                         </p>
                     </div>
@@ -500,7 +618,7 @@ function OperationalAttentionCard({ table }) {
             {rows.length && columns.length ? (
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                             <tr>
                                 {columns.map(column => (
                                     <th key={column.key} className="whitespace-nowrap px-3 py-3 font-black">
@@ -509,17 +627,17 @@ function OperationalAttentionCard({ table }) {
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {rows.map((row, rowIndex) => (
-                                <tr key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`} className="align-top hover:bg-slate-50/70">
+                                <tr key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`} className="align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70">
                                     {columns.map(column => (
-                                        <td key={column.key} className="max-w-[14rem] px-3 py-3 text-slate-700">
+                                        <td key={column.key} className="max-w-[14rem] px-3 py-3 text-slate-700 dark:text-slate-200">
                                             {isStatusColumn(column) ? (
                                                 <Badge className={`${statusBadgeClass(row[column.key])} max-w-full`}>
                                                     <span className="truncate">{humanizeValue(row[column.key] || 'N/A')}</span>
                                                 </Badge>
                                             ) : (
-                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950' : ''} line-clamp-2`}>
+                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950 dark:text-white' : ''} line-clamp-2`}>
                                                     {formatAttentionValue(row[column.key], column)}
                                                 </span>
                                             )}
@@ -536,8 +654,8 @@ function OperationalAttentionCard({ table }) {
                         <div className={`mx-auto flex size-10 items-center justify-center rounded-lg ${config.iconClass}`}>
                             <Icon className="size-5" />
                         </div>
-                        <p className="mt-3 text-sm font-black text-slate-900">{config.emptyTitle}</p>
-                        <p className="mt-1 max-w-xs text-sm font-semibold leading-5 text-slate-500">{config.emptyText}</p>
+                        <p className="mt-3 text-sm font-black text-slate-900 dark:text-white">{config.emptyTitle}</p>
+                        <p className="mt-1 max-w-xs text-sm font-semibold leading-5 text-slate-500 dark:text-slate-300">{config.emptyText}</p>
                     </div>
                 </div>
             )}

@@ -33,6 +33,7 @@ export async function loginUser(payload) {
     // Return both user and token
     return {
         user: data.user,
-        token: data.access_token
+        token: data.access_token,
+        expiresAt: data.expires_at || ''
     };
 }

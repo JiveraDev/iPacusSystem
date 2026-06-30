@@ -284,12 +284,39 @@ export default function LandingPageContent({ onLogin, onRegister }) {
         closeMobileMenu();
         onRegister?.();
     };
+    const handleHashNavigation = (event, href) => {
+        event.preventDefault();
+        closeMobileMenu();
+
+        const targetId = String(href || '').replace(/^#/, '');
+        const target = targetId === 'top'
+            ? document.getElementById('top')
+            : document.getElementById(targetId);
+
+        if (!target) {
+            return;
+        }
+
+        window.history.pushState({}, '', href);
+
+        window.requestAnimationFrame(() => {
+            const headerOffset = (document.querySelector('header')?.offsetHeight || 76) + 8;
+            const top = targetId === 'top'
+                ? 0
+                : target.getBoundingClientRect().top + window.scrollY - headerOffset;
+
+            window.scrollTo({
+                top: Math.max(top, 0),
+                behavior: 'smooth',
+            });
+        });
+    };
 
     return (
         <div className="min-w-0 overflow-x-hidden bg-[#f6f8fb] text-slate-950">
             <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Care home" onClick={closeMobileMenu}>
+                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Care home" onClick={(event) => handleHashNavigation(event, '#top')}>
                         <img src={logoImage} alt="Vetfocus Care logo" className="h-11 w-11 shrink-0 object-contain" />
                         <div className="min-w-0">
                             <div className="text-base font-bold leading-tight text-slate-950 sm:text-lg">{clinicDetails.product}</div>
@@ -299,7 +326,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
 
                     <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-600 lg:flex">
                         {navigationItems.map((item) => (
-                            <a key={item.href} href={item.href} className="transition hover:text-slate-950">
+                            <a key={item.href} href={item.href} onClick={(event) => handleHashNavigation(event, item.href)} className="transition hover:text-slate-950">
                                 {item.label}
                             </a>
                         ))}
@@ -343,7 +370,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                 <a
                                     key={item.href}
                                     href={item.href}
-                                    onClick={closeMobileMenu}
+                                    onClick={(event) => handleHashNavigation(event, item.href)}
                                     className="rounded-lg px-3 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                                 >
                                     {item.label}
@@ -405,6 +432,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                 </button>
                                 <a
                                     href="#workflow"
+                                    onClick={(event) => handleHashNavigation(event, '#workflow')}
                                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.35] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
                                 >
                                     See Clinic Flow
@@ -831,7 +859,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                     </div>
                     <div className="flex flex-wrap gap-4 text-sm text-white/70">
                         {navigationItems.map((item) => (
-                            <a key={item.href} href={item.href} className="hover:text-white">
+                            <a key={item.href} href={item.href} onClick={(event) => handleHashNavigation(event, item.href)} className="hover:text-white">
                                 {item.label}
                             </a>
                         ))}

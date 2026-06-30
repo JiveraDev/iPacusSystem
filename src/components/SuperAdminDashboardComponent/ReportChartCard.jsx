@@ -13,6 +13,7 @@ import {
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { Card, CardContent } from '../../ui/card';
 import { formatReportDateLabel } from '../../lib/date';
+import { useTheme } from '../../hooks/useTheme';
 
 ChartJS.register(
     ArcElement,
@@ -119,8 +120,12 @@ function buildChartData(chart) {
 }
 
 export default function ReportChartCard({ title, summary, chart, compact = false }) {
+    const { isDark } = useTheme();
     const chartData = buildChartData(chart);
     const forceWholeNumberTicks = chartUsesWholeNumbers(chart);
+    const axisTextColor = isDark ? '#cbd5e1' : '#64748b';
+    const legendTextColor = isDark ? '#e2e8f0' : '#334155';
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
     const options = {
         responsive: true,
         maintainAspectRatio: false,
@@ -129,7 +134,7 @@ export default function ReportChartCard({ title, summary, chart, compact = false
                 position: compact ? 'bottom' : 'top',
                 labels: {
                     boxWidth: 12,
-                    color: '#334155',
+                    color: legendTextColor,
                     font: { size: 11, weight: '600' }
                 }
             },
@@ -160,16 +165,16 @@ export default function ReportChartCard({ title, summary, chart, compact = false
         },
         scales: chart?.type === 'doughnut' || chart?.type === 'pie' ? undefined : {
             x: {
-                ticks: { color: '#64748b', maxRotation: 0, autoSkip: true },
+                ticks: { color: axisTextColor, maxRotation: 0, autoSkip: true },
                 grid: { display: false }
             },
             y: {
                 ticks: {
-                    color: '#64748b',
+                    color: axisTextColor,
                     precision: forceWholeNumberTicks ? 0 : undefined,
                     callback: (value) => formatChartNumber(value, { forceWhole: forceWholeNumberTicks })
                 },
-                grid: { color: '#e2e8f0' },
+                grid: { color: gridColor },
                 beginAtZero: true
             }
         }
@@ -180,17 +185,17 @@ export default function ReportChartCard({ title, summary, chart, compact = false
     const ChartComponent = chartType === 'line' ? Line : (chartType === 'doughnut' || chartType === 'pie' ? Doughnut : Bar);
 
     return (
-        <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 shadow-sm">
+        <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
             <CardContent className="space-y-4 p-5">
                 <div>
-                    <h3 className="text-base font-black text-slate-950">{title}</h3>
-                    {summary ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{summary}</p> : null}
+                    <h3 className="text-base font-black text-slate-950 dark:text-white">{title}</h3>
+                    {summary ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">{summary}</p> : null}
                 </div>
                 <div className={heightClass}>
                     {hasData ? (
                         <ChartComponent data={chartData} options={options} />
                     ) : (
-                        <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500">
+                        <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             No chart data for this date range.
                         </div>
                     )}

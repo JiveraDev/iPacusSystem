@@ -1664,6 +1664,7 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         $row['reorder_level'] = reports_int($row['reorder_level']);
         $counts[$row['stock_status']] = ($counts[$row['stock_status']] ?? 0) + 1;
     }
+    unset($row);
 
     return [
         'type' => 'inventory_status',
@@ -2450,27 +2451,75 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
     return $report;
 }
 
-function reports_consent_file_count(PDO $pdo, array $range, array &$missing): int
+function reports_consent_management_count(PDO $pdo, array &$missing): int
 {
     if (!reports_table_exists($pdo, 'consent_files')) {
         $missing[] = 'Missing table: consent_files';
         return 0;
     }
 
-    $dateColumn = reports_column_exists($pdo, 'consent_files', 'uploaded_at') ? 'uploaded_at' : null;
-    if ($dateColumn === null) {
+    try {
         return reports_int($pdo->query('SELECT COUNT(*) FROM consent_files')->fetchColumn());
+    } catch (Throwable $e) {
+        $missing[] = 'Consent management count could not be loaded.';
+        return 0;
+    }
+}
+
+function reports_clinic_visit_count(PDO $pdo, array $range, array &$missing): int
+{
+    if (!reports_table_exists($pdo, 'visits')) {
+        $missing[] = 'Missing table: visits';
+        return 0;
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM consent_files WHERE {$dateColumn} BETWEEN ? AND ?");
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM visits
+            WHERE created_at BETWEEN ? AND ?
+              AND COALESCE(visit_status, '') <> 'cancelled'
+        ");
         $stmt->execute([$range['start_datetime'], $range['end_datetime']]);
 
         return reports_int($stmt->fetchColumn());
     } catch (Throwable $e) {
-        $missing[] = 'Consent file count could not be loaded.';
+        $missing[] = 'Clinic visit count could not be loaded.';
         return 0;
     }
+}
+
+function reports_inventory_material_type_overview(array $rows): array
+{
+    $categoryCounts = [];
+    foreach ($rows as $row) {
+        $category = trim((string)($row['category'] ?? ''));
+        $category = $category !== '' ? $category : 'Uncategorized';
+        $categoryCounts[$category] = ($categoryCounts[$category] ?? 0) + 1;
+    }
+
+    arsort($categoryCounts);
+
+    if (empty($categoryCounts)) {
+        return [
+            'summary' => 'No active inventory materials are available.',
+            'chart' => reports_empty_chart('doughnut'),
+        ];
+    }
+
+    $categorySummary = [];
+    foreach ($categoryCounts as $category => $count) {
+        $categorySummary[] = $category . ' ' . $count;
+    }
+
+    return [
+        'summary' => 'Inventory material types: ' . implode(', ', $categorySummary) . '.',
+        'chart' => reports_doughnut_chart(
+            array_keys($categoryCounts),
+            array_values($categoryCounts),
+            'Inventory Material Types'
+        ),
+    ];
 }
 
 function reports_dashboard(PDO $pdo, array $range): array
@@ -2493,15 +2542,15 @@ function reports_dashboard(PDO $pdo, array $range): array
     $comparisonAppointments = $comparisonRange ? reports_build_report($pdo, 'appointment', $comparisonRange) : null;
     $comparisonQueue = $comparisonRange ? reports_build_report($pdo, 'queue', $comparisonRange) : null;
     $comparisonConsultations = $comparisonRange ? reports_build_report($pdo, 'consultation', $comparisonRange) : null;
-    $comparisonInventory = $comparisonRange ? reports_build_report($pdo, 'inventory_status', $comparisonRange) : null;
-    $comparisonConsentCount = $comparisonRange ? reports_consent_file_count($pdo, $comparisonRange, $dashboardMissing) : null;
     $revenueDiagnosisTrend = reports_revenue_diagnosis_trend($pdo, $range, $dashboardMissing);
     $revenueBreakdownTrend = reports_revenue_breakdown_trend($pdo, $range, $dashboardMissing);
     $onlineAppointmentTrend = reports_online_appointment_trend($pdo, $range, $dashboardMissing);
     $queueBookingTrend = reports_queue_booking_trend($pdo, $range, $dashboardMissing);
     $boardingTrend = reports_boarding_trend($pdo, $range, $dashboardMissing);
     $animalDistribution = reports_pet_distribution_chart($pdo, $dashboardMissing);
-    $consentFileCount = reports_consent_file_count($pdo, $range, $dashboardMissing);
+    $consentManagementCount = reports_consent_management_count($pdo, $dashboardMissing);
+    $clinicVisitCount = reports_clinic_visit_count($pdo, $range, $dashboardMissing);
+    $inventoryMaterialTypes = reports_inventory_material_type_overview($inventory['rows'] ?? []);
 
     $salesTotals = $sales['totals'] ?? [];
     $billingTotals = $billing['totals'] ?? [];
@@ -2514,7 +2563,8 @@ function reports_dashboard(PDO $pdo, array $range): array
     $comparisonAppointmentTotals = $comparisonAppointments['totals'] ?? [];
     $comparisonQueueTotals = $comparisonQueue['totals'] ?? [];
     $comparisonConsultationTotals = $comparisonConsultations['totals'] ?? [];
-    $comparisonInventoryTotals = $comparisonInventory['totals'] ?? [];
+    $comparisonClinicVisitCount = $comparisonRange ? reports_clinic_visit_count($pdo, $comparisonRange, $dashboardMissing) : null;
+    $restockingNeededCount = ($inventoryTotals['low_stock'] ?? 0) + ($inventoryTotals['out_of_stock'] ?? 0);
 
     $kpis = [
         reports_metric('Total Sales', $salesTotals['total_sales'] ?? 0, 'currency', $comparisonSalesTotals['total_sales'] ?? null, $comparisonLabel),
@@ -2526,10 +2576,10 @@ function reports_dashboard(PDO $pdo, array $range): array
         reports_metric('Total Queue Visits', $queueTotals['total_queue_entries'] ?? 0, 'number', $comparisonQueueTotals['total_queue_entries'] ?? null, $comparisonLabel),
         reports_metric('Total Consultations', $consultationTotals['total_consultations'] ?? 0, 'number', $comparisonConsultationTotals['total_consultations'] ?? null, $comparisonLabel),
         reports_metric('Online Consultations', $consultationTotals['online'] ?? 0, 'number', $comparisonConsultationTotals['online'] ?? null, $comparisonLabel),
-        reports_metric('Face-to-Face Consultations', $consultationTotals['face_to_face'] ?? 0, 'number', $comparisonConsultationTotals['face_to_face'] ?? null, $comparisonLabel),
-        reports_metric('Low Stock Items', $inventoryTotals['low_stock'] ?? 0, 'number', $comparisonInventoryTotals['low_stock'] ?? null, $comparisonLabel),
-        reports_metric('Near Expiry Items', $inventoryTotals['near_expiry'] ?? 0, 'number', $comparisonInventoryTotals['near_expiry'] ?? null, $comparisonLabel),
-        reports_metric('Consent Files', $consentFileCount, 'number', $comparisonConsentCount, $comparisonLabel),
+        reports_metric('Clinic Visits', $clinicVisitCount, 'number', $comparisonClinicVisitCount, $comparisonLabel),
+        reports_metric('Restocking Needed', $restockingNeededCount, 'number') + ['comparisonText' => 'Current low or out-of-stock items'],
+        reports_metric('Near Expiry Items', $inventoryTotals['near_expiry'] ?? 0, 'number') + ['comparisonText' => 'Current near-expiry stock'],
+        reports_metric('Consent Forms', $consentManagementCount, 'number') + ['comparisonText' => 'Total in consent management'],
     ];
 
     $charts = [
@@ -2595,9 +2645,9 @@ function reports_dashboard(PDO $pdo, array $range): array
         ],
         [
             'id' => 'inventory_alerts',
-            'title' => 'Inventory Alerts',
-            'summary' => $inventory['summary']['text'] ?? '',
-            'chart' => $inventory['chart'],
+            'title' => 'Inventory Material Types',
+            'summary' => $inventoryMaterialTypes['summary'] ?? '',
+            'chart' => $inventoryMaterialTypes['chart'] ?? reports_empty_chart('doughnut'),
         ],
         [
             'id' => 'medicine_product_sales',

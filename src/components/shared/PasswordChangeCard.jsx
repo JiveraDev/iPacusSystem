@@ -6,6 +6,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { KeyRound, Loader2 } from 'lucide-react';
 import PasswordInput from './PasswordInput.jsx';
 import { updateUserPassword } from '../../services/userService';
+import { clearStoredAuthSession } from '../../services/apiClient';
 
 export default function PasswordChangeCard({ userId, onForgotPassword }) {
     const [form, setForm] = useState({
@@ -63,15 +64,13 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
 
     const handleForgotPassword = () => {
         toast.success('Please log in again to continue password recovery.');
-        localStorage.removeItem('authToken');
+        clearStoredAuthSession();
 
         if (onForgotPassword) {
             onForgotPassword();
             return;
         }
 
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('authToken');
         window.history.pushState({}, '', '/landing/login');
         window.dispatchEvent(new PopStateEvent('popstate'));
     };

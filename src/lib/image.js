@@ -1,4 +1,4 @@
-import { getApiUrl, getStoredAuthToken } from '../services/apiClient';
+import { API_BASE_URL, getApiUrl, getStoredAuthToken } from '../services/apiClient';
 
 const RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'boarding_documents',
@@ -19,6 +19,26 @@ function appendAccessToken(url) {
 
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}access_token=${encodeURIComponent(token)}`;
+}
+
+function normalizePublicPath(value) {
+  let path = String(value || '').trim().replace(/\\/g, '/');
+  path = path.replace(/^\/?public\//i, '/');
+  path = path.replace(/\/{2,}/g, '/');
+
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function runtimeUploadPath(cleanPath) {
+  let uploadPath = cleanPath.replace(/^\/+/, '');
+
+  if (uploadPath.startsWith('uploads/media/')) {
+    uploadPath = uploadPath.slice('uploads/media/'.length);
+  }
+
+  const uploadDirectory = uploadPath.split('/')[0];
+
+  return RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory) ? uploadPath : '';
 }
 
 /**
@@ -42,20 +62,13 @@ export const resolveImageUrl = (profileImage) => {
   // 3. Vite Assets from 'public' folder
   // Contents of 'public/' are served at the root '/' by Vite.
   // If path is '/public/uploads/xxx.png', it's actually at '/uploads/xxx.png'
-  let path = String(profileImage).trim().replace(/\\/g, '/');
+  const cleanPath = normalizePublicPath(profileImage);
+  const uploadPath = runtimeUploadPath(cleanPath);
 
-  // Strip '/public' or 'public' prefix if present
-  const cleanPath = path.replace(/^\/?public\//, '/');
-
-  const uploadPath = cleanPath.replace(/^\/+/, '');
-  const uploadDirectory = uploadPath.split('/')[0];
-  if (RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
+  if (API_BASE_URL && uploadPath) {
     return appendAccessToken(getApiUrl(`/uploads/media/${uploadPath}`));
   }
 
-  // Ensure it starts with a single slash
-  const finalPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
-
   // Request from current origin (Vite dev server)
-  return finalPath;
+  return cleanPath;
 };

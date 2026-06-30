@@ -228,7 +228,7 @@ function FilterSelect({ label, value, onChange, options, allowCustom = false }) 
 
     return (
         <div>
-            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</Label>
+            <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">{label}</Label>
             <Select
                 value={value || 'all'}
                 onValueChange={onChange}
@@ -388,10 +388,10 @@ export default function SuperAdminReportCenter() {
             </style>
 
             <div className="report-print-hidden">
-                <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-black text-slate-950">Report Export & Print Center</h1>
-                        <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                        <h1 className="text-2xl font-black text-slate-950 dark:text-white">Report Export & Print Center</h1>
+                        <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">
                             Generate detailed table reports, preview the output, print clean copies, and export CSV files.
                         </p>
                     </div>
@@ -401,11 +401,11 @@ export default function SuperAdminReportCenter() {
                     </Button>
                 </div>
 
-                <Card className="border-slate-200 shadow-sm">
+                <Card className="border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <CardContent className="space-y-5 p-5">
                         <div className="grid gap-4 lg:grid-cols-[minmax(16rem,1.4fr)_12rem_10rem_10rem]">
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Report Type</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Report Type</Label>
                                 <Select
                                     value={reportType}
                                     onValueChange={(value) => {
@@ -426,7 +426,7 @@ export default function SuperAdminReportCenter() {
                             </div>
 
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Date Range</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
                                 <Select value={range} onValueChange={setRange}>
                                     <SelectTrigger className="mt-1">
                                         <SelectValue displayValue={selectedRangeLabel} />
@@ -440,7 +440,7 @@ export default function SuperAdminReportCenter() {
                             </div>
 
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Start Date</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Start Date</Label>
                                 <Input
                                     type="date"
                                     value={visibleDateRange.start}
@@ -450,7 +450,7 @@ export default function SuperAdminReportCenter() {
                             </div>
 
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500">End Date</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">End Date</Label>
                                 <Input
                                     type="date"
                                     value={visibleDateRange.end}
@@ -471,14 +471,14 @@ export default function SuperAdminReportCenter() {
                                     allowCustom={filter.allowCustom}
                                 />
                             )) : (
-                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                                     No extra filters are needed for this report.
                                 </div>
                             )}
 
                             {['consultation', 'follow_up', 'veterinarian_activity'].includes(reportType) ? (
                                 <div>
-                                    <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Veterinarian ID</Label>
+                                    <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Veterinarian ID</Label>
                                     <Input
                                         value={filters.veterinarian || ''}
                                         onChange={(event) => updateFilter('veterinarian', event.target.value)}
@@ -510,7 +510,7 @@ export default function SuperAdminReportCenter() {
                                 <FileSpreadsheet className="size-4" />
                                 Export Excel
                             </Button>
-                            <p className="flex items-center text-xs font-semibold text-slate-500">
+                            <p className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-300">
                                 PDF/Excel export can be added after dependency setup.
                             </p>
                         </div>
@@ -523,7 +523,7 @@ export default function SuperAdminReportCenter() {
             </div>
 
             {isLoading && !report ? (
-                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
                     <Loader2 className="size-8 animate-spin text-[#155dfc]" />
                 </div>
             ) : (

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import imgImageVfcLogo from "../assets/circular_logo.png";
+import { AUTH_EMAIL_KEY, AUTH_EXPIRES_AT_KEY, AUTH_MESSAGE_KEY } from "../services/apiClient";
 import { LoginError, loginUser } from "../services/userLogin";
 import { toast } from "../reusecomponent/toast.jsx";
 
@@ -11,15 +12,37 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
 
+    useEffect(() => {
+        const authMessage = sessionStorage.getItem(AUTH_MESSAGE_KEY);
+        const authEmail = sessionStorage.getItem(AUTH_EMAIL_KEY);
+
+        sessionStorage.removeItem(AUTH_MESSAGE_KEY);
+        sessionStorage.removeItem(AUTH_EMAIL_KEY);
+
+        if (authEmail) {
+            setEmail(authEmail);
+        }
+
+        if (authMessage) {
+            setErrorMessage(authMessage);
+            toast.error(authMessage);
+        }
+    }, []);
+
     const handleSubmit = async (event) => {
         event.preventDefault();
         setIsSubmitting(true);
         setErrorMessage("");
 
         try {
-            const { user, token } = await loginUser({ email, password });
+            const { user, token, expiresAt } = await loginUser({ email, password });
             localStorage.setItem("currentUser", JSON.stringify(user));
             localStorage.setItem("authToken", token);
+            if (expiresAt) {
+                localStorage.setItem(AUTH_EXPIRES_AT_KEY, expiresAt);
+            } else {
+                localStorage.removeItem(AUTH_EXPIRES_AT_KEY);
+            }
             toast.success(`Welcome back, ${user.firstName || "User"}!`);
             onLogin(user);
         } catch (error) {

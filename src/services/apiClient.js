@@ -1,9 +1,15 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export const SERVER_STATUS_EVENT = 'ipawcus:server-status-change';
+export const AUTH_MESSAGE_KEY = 'ipawcus-auth-message';
+export const AUTH_EMAIL_KEY = 'ipawcus-auth-email';
+export const AUTH_EXPIRES_AT_KEY = 'ipawcus-auth-expires-at';
 
 const SERVER_UNAVAILABLE_MESSAGE = 'This site is temporarily unavailable due to maintenance. Please try again in a moment.';
 const DEFAULT_GET_TIMEOUT_MS = 15000;
 const DEFAULT_MUTATION_TIMEOUT_MS = 120000;
+const AUTH_REQUIRED_CODE = 'api_auth_required';
+const AUTH_EXPIRED_MESSAGE = 'Please log in again to continue.';
+const LOGIN_ROUTE = '/landing/login';
 
 let serverStatus = {
     isDown: false,
@@ -12,6 +18,7 @@ let serverStatus = {
     status: 0,
     checkedAt: ''
 };
+let isRedirectingToLogin = false;
 
 export class ApiError extends Error {
     constructor(message, details = {}) {
@@ -136,6 +143,30 @@ export function getStoredAuthToken() {
     return window.localStorage.getItem('authToken') || '';
 }
 
+export function clearStoredAuthSession() {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.removeItem('authToken');
+    window.localStorage.removeItem(AUTH_EXPIRES_AT_KEY);
+    window.localStorage.removeItem('currentUser');
+}
+
+export function isStoredAuthTokenExpired() {
+    if (typeof window === 'undefined' || !getStoredAuthToken()) {
+        return false;
+    }
+
+    const expiresAt = window.localStorage.getItem(AUTH_EXPIRES_AT_KEY);
+    if (!expiresAt) {
+        return false;
+    }
+
+    const expiresAtMs = Date.parse(expiresAt);
+    return !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+}
+
 function applyCurrentUserHeaders(headers) {
     const token = getStoredAuthToken();
     const user = getStoredApiUser();
@@ -153,6 +184,74 @@ function applyCurrentUserHeaders(headers) {
     if (role && !headers.has('X-User-Role')) {
         headers.set('X-User-Role', String(role));
     }
+}
+
+function getUserEmail(user) {
+    return String(user?.email || user?.mail_Address || '').trim();
+}
+
+function isPublicRequestPath(path) {
+    const normalizedPath = `/${String(path || '').split('?')[0].replace(/^\/+/, '')}`;
+
+    return [
+        '/login',
+        '/register',
+        '/users',
+        '/health',
+        '/self-service/access',
+        '/status-display',
+        '/tv-status',
+        '/notifications/reminders/run'
+    ].includes(normalizedPath) || normalizedPath.startsWith('/auth/');
+}
+
+export function expireStoredAuthSession(message = AUTH_EXPIRED_MESSAGE, options = {}) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const loginEmail = getUserEmail(getStoredApiUser());
+    clearStoredAuthSession();
+
+    if (loginEmail) {
+        window.sessionStorage.setItem(AUTH_EMAIL_KEY, loginEmail);
+    }
+
+    window.sessionStorage.setItem(AUTH_MESSAGE_KEY, message || AUTH_EXPIRED_MESSAGE);
+
+    if (options.redirect === false) {
+        return;
+    }
+
+    if (isRedirectingToLogin) {
+        return;
+    }
+
+    isRedirectingToLogin = true;
+
+    if (window.location.pathname !== LOGIN_ROUTE) {
+        window.location.assign(LOGIN_ROUTE);
+    }
+}
+
+function enforceStoredAuthExpiration(path) {
+    if (isPublicRequestPath(path) || !isStoredAuthTokenExpired()) {
+        return;
+    }
+
+    expireStoredAuthSession(AUTH_EXPIRED_MESSAGE);
+    throw new ApiError(AUTH_EXPIRED_MESSAGE, {
+        status: 401,
+        data: { code: AUTH_REQUIRED_CODE }
+    });
+}
+
+function handleAuthRequired(data = {}) {
+    if (data.code !== AUTH_REQUIRED_CODE) {
+        return;
+    }
+
+    expireStoredAuthSession(data.message || AUTH_EXPIRED_MESSAGE);
 }
 
 export async function readJsonResponse(response, fallback = {}) {
@@ -182,6 +281,7 @@ export async function apiFetch(path, options = {}) {
         requestHeaders.set('Content-Type', 'application/json');
     }
 
+    enforceStoredAuthExpiration(path);
     applyCurrentUserHeaders(requestHeaders);
 
     if (timeoutController) {
@@ -212,6 +312,11 @@ export async function apiFetch(path, options = {}) {
             }), { status: response.status });
         } else {
             reportServerAvailable();
+        }
+
+        if (response.status === 401) {
+            const authData = await readJsonResponse(response.clone(), {});
+            handleAuthRequired(authData);
         }
 
         return response;
@@ -262,6 +367,8 @@ export async function apiRequest(path, options = {}) {
         if (response.status >= 500 || data.code === 'database_unavailable') {
             reportServerUnavailable(error, { status: response.status, data });
         }
+
+        handleAuthRequired(data);
 
         throw error;
     }

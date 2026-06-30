@@ -5,7 +5,10 @@ import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
 import ServerDownPage from "./components/ServerDownPage.jsx";
 import {
   checkServerHealth,
+  clearStoredAuthSession,
+  expireStoredAuthSession,
   getServerStatusSnapshot,
+  isStoredAuthTokenExpired,
   subscribeToServerStatus
 } from "./services/apiClient.js";
 
@@ -89,6 +92,25 @@ function getRouteRedirect(viewName, storedUser, registrationEmail = '') {
   return { view: viewName, path: null };
 }
 
+function getStoredUserForSession() {
+  const storedUser = localStorage.getItem('currentUser');
+  if (!storedUser) {
+    return null;
+  }
+
+  if (isStoredAuthTokenExpired()) {
+    expireStoredAuthSession(undefined, { redirect: false });
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser);
+  } catch {
+    clearStoredAuthSession();
+    return null;
+  }
+}
+
 const initialRegistrationData = {
   email: '',
   password: '',
@@ -103,12 +125,11 @@ const initialRegistrationData = {
 
 function App() {
   const [view, setView] = useState(() => {
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = getStoredUserForSession();
     return getRouteRedirect(getViewFromPath(window.location.pathname), storedUser).view;
   });
   const [currentUser, setCurrentUser] = useState(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    return storedUser ? JSON.parse(storedUser) : null;
+    return getStoredUserForSession();
   });
   const [registrationData, setRegistrationData] = useState(initialRegistrationData);
   const [registrationFlowKey, setRegistrationFlowKey] = useState(0);
@@ -122,10 +143,10 @@ function App() {
   useEffect(() => {
     const handlePopState = () => {
       const nextView = getViewFromPath(window.location.pathname);
-      const storedUser = localStorage.getItem('currentUser');
+      const storedUser = getStoredUserForSession();
 
       if (nextView === 'statusDisplay') {
-        setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
+        setCurrentUser(storedUser);
         setView(nextView);
         return;
       }
@@ -139,18 +160,18 @@ function App() {
       if (['login', 'landing', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(nextView) && storedUser) {
         window.history.replaceState({}, '', routes.dashboard);
         setView('dashboard');
-        setCurrentUser(JSON.parse(storedUser));
+        setCurrentUser(storedUser);
         return;
       }
 
-      setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
+      setCurrentUser(storedUser);
       setView(nextView);
     };
 
     window.addEventListener('popstate', handlePopState);
 
     // Initial check for authenticated user on public routes
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = getStoredUserForSession();
     const currentView = getViewFromPath(window.location.pathname);
     const redirect = getRouteRedirect(currentView, storedUser);
     
@@ -259,7 +280,7 @@ function App() {
   }, []);
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('currentUser');
+    clearStoredAuthSession();
     setCurrentUser(null);
     navigateTo(routes.login);
   }, [navigateTo]);

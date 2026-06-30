@@ -2,6 +2,8 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/role_access.php';
 
+$pdo = ipawcus_get_pdo();
+
 $relativePath = trim((string)($_GET['path'] ?? ''), "/\\");
 $relativePath = str_replace('\\', '/', $relativePath);
 

@@ -43,6 +43,7 @@ require_once __DIR__ . '/role_access.php';
 $routeAccessPolicy = ipawcus_route_access_policy($path, $_SERVER['REQUEST_METHOD']);
 if (empty($routeAccessPolicy['public'])) {
     require_once __DIR__ . '/db.php';
+    $pdo = ipawcus_get_pdo();
     ipawcus_enforce_route_access($pdo, $path, $_SERVER['REQUEST_METHOD']);
 }
 
@@ -283,7 +284,7 @@ switch ($path) {
     case '/health':
         try {
             require_once __DIR__ . '/db.php';
-            $pdo->query('SELECT 1');
+            $pdo = ipawcus_refresh_pdo_if_needed();
             echo json_encode(['ok' => true, 'message' => 'PHP API and database are healthy']);
         } catch (Throwable $e) {
             http_response_code(503);

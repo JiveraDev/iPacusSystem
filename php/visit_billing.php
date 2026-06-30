@@ -69,16 +69,12 @@ function visit_billing_missing_message(): string
 
 function visit_billing_error(int $statusCode, string $message): void
 {
-    global $pdo;
-
     if (defined('VISIT_BILLING_THROW_ERRORS') && VISIT_BILLING_THROW_ERRORS) {
         http_response_code($statusCode);
         throw new RuntimeException($message);
     }
 
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
+    ipawcus_rollback_current_transaction();
 
     http_response_code($statusCode);
     echo json_encode(['success' => false, 'message' => $message]);

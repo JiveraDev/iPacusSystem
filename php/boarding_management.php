@@ -39,11 +39,7 @@ function boarding_json_input(): array
 
 function boarding_error(int $statusCode, string $message): void
 {
-    global $pdo;
-
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
+    ipawcus_rollback_current_transaction();
 
     http_response_code($statusCode);
     echo json_encode(['message' => $message]);

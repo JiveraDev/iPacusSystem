@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';

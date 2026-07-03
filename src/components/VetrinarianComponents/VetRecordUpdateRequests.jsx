@@ -110,9 +110,6 @@ export default function VetRecordUpdateRequests() {
         });
     }, [requests, searchQuery, veterinarianUserId]);
 
-    const availableCount = visibleRequests.filter(request => request.status === 'approved').length;
-    const assignedCount = visibleRequests.filter(request => request.status === 'assigned').length;
-    const completedCount = visibleRequests.filter(request => request.status === 'completed').length;
     const isRequestActionLoading = (action, request) => actionLoading === `${action}-${request?.requestId}`;
 
     const openRequest = (request) => {
@@ -185,21 +182,16 @@ export default function VetRecordUpdateRequests() {
                 </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-                <Stat icon={ClipboardList} label="Available" value={availableCount} />
-                <Stat icon={Stethoscope} label="Assigned" value={assignedCount} />
-                <Stat icon={CheckCircle2} label="Completed" value={completedCount} />
-            </div>
+
 
             <Card>
                 <CardContent className="p-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <div>
                         <Input
                             value={searchQuery}
                             onChange={(event) => setSearchQuery(event.target.value)}
                             placeholder="Search request, pet, owner, or requested update"
-                            className="pl-9"
+                            leftIcon={<Search className="size-4" />}
                         />
                     </div>
                 </CardContent>

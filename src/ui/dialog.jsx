@@ -18,7 +18,7 @@ function DialogContent({ className, children, ...props }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4 scrollbar-hide">
       <button
         type="button"
         tabIndex={-1}
@@ -28,7 +28,7 @@ function DialogContent({ className, children, ...props }) {
       />
       <div
         className={cn(
-          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:p-6",
+          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:p-6 scrollbar-hide",
           !hasCustomMaxWidth && "max-w-lg",
           className
         )}

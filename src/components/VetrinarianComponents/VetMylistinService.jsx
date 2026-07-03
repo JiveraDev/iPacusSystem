@@ -673,13 +673,13 @@ export default function VetMyList() {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <div>
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search pet, owner, queue ID, service, or complaint"
-                        className="h-10 pl-10"
+                        className="h-10"
+                        leftIcon={<Search className="size-4" />}
                     />
                 </div>
             </div>
@@ -699,7 +699,7 @@ export default function VetMyList() {
                 {isLoading ? (
                     <LoadingState />
                 ) : filteredReceivedItems.length === 0 ? (
-                    <EmptyState message="No received queue patients found." />
+                    <EmptyState message="No received queue patients Today." />
                 ) : (
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                         {filteredReceivedItems.map(item => (
@@ -725,7 +725,7 @@ export default function VetMyList() {
                 </div>
 
                 {filteredCompletedItems.length === 0 ? (
-                    <EmptyState message="No completed queue patients found." compact />
+                    <EmptyState message="No completed queue patients Today." compact />
                 ) : (
                     <CompletedPatientsTable
                         items={filteredCompletedItems}

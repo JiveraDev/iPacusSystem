@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
 
 const MAINTENANCE_TIMEZONE = 'Asia/Manila';
 const MAINTENANCE_ORIGINAL_BOOKING_NOTE = '[Original Booking Date: %s]';
@@ -430,11 +431,12 @@ function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $t
 {
     $bookingId = (int)$booking['booking_id'];
     $previousDate = (string)$booking['booking_date'];
-    $note = '[Lifecycle] Auto-rescheduled due to missed approved booking / not reached during scheduled date. Previous date: '
-        . $previousDate
-        . '. Recorded at: '
-        . maintenance_now($pdo);
-    $note = maintenance_append_original_booking_note_if_missing($booking, $note);
+    $notes = bookingStripLifecycleNotes($booking['notes'] ?? '', false);
+    $notes = maintenance_append_original_booking_note_if_missing(
+        array_merge($booking, ['notes' => $notes]),
+        $notes
+    );
+    $notes = maintenance_append_note($notes, '[Rescheduled]');
 
     $stmt = $pdo->prepare("
         UPDATE bookings
@@ -445,7 +447,7 @@ function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $t
     ");
     $stmt->execute([
         $today,
-        maintenance_append_note($booking['notes'] ?? '', $note),
+        $notes,
         $bookingId,
     ]);
 

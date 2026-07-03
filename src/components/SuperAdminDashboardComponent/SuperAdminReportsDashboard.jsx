@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
+import { AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -38,6 +38,7 @@ const KPI_CHART_TARGETS = {
 };
 
 const KPI_TABLE_TARGETS = {
+    'Total Unpaid Balance': 'report-table-billing-attention',
     'Restocking Needed': 'report-table-inventory-attention',
     'Near Expiry Items': 'report-table-inventory-attention'
 };
@@ -170,6 +171,30 @@ function attentionTableTargetId(title) {
     }
 
     return 'report-table-operational-attention';
+}
+
+function isInventoryAttentionTable(title) {
+    return String(title || '').toLowerCase().includes('inventory');
+}
+
+function queueInventoryItemSelection(row) {
+    const itemId = row?.item_id || row?.itemId || row?.id;
+
+    if (!itemId) {
+        return false;
+    }
+
+    try {
+        sessionStorage.setItem('ipawcus-inventory-report-selection', JSON.stringify({
+            itemId: String(itemId),
+            itemName: row?.item_name || row?.name || '',
+            source: 'reports'
+        }));
+    } catch {
+        return false;
+    }
+
+    return true;
 }
 
 function getAttentionConfig(title) {
@@ -391,10 +416,6 @@ export default function SuperAdminReportsDashboard() {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#155dfc] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200">
-                        <Activity className="size-3.5" />
-                        Super Admin Intelligence
-                    </div>
                     <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">Reports Dashboard</h1>
                     <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
                         Clinic performance, service activity, billing, inventory, and patient case overview
@@ -435,7 +456,7 @@ export default function SuperAdminReportsDashboard() {
                     </div>
                     <div className="flex items-end gap-2">
                         <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2">
-                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            {isLoading ? <Loader2 className="size-7 animate-spin" /> : <RefreshCw className="size-7" />}
                             Refresh
                         </Button>
                         <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="gap-2">
@@ -463,7 +484,11 @@ export default function SuperAdminReportsDashboard() {
                             const targetChart = targetChartId ? chartById.get(targetChartId) : null;
                             const targetTableId = tableTargetForKpi(kpi.label);
                             const targetId = targetChart ? `report-chart-${targetChart.id}` : targetTableId;
-                            const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : undefined);
+                            const targetTitle = targetChart?.title || (
+                                targetTableId === 'report-table-billing-attention'
+                                    ? 'Pending Billing'
+                                    : targetTableId ? 'Inventory Attention' : undefined
+                            );
 
                             return (
                                 <ReportKpiCard
@@ -587,11 +612,21 @@ export default function SuperAdminReportsDashboard() {
 }
 
 function OperationalAttentionCard({ table }) {
+    const navigate = useNavigate();
     const allRows = Array.isArray(table?.rows) ? table.rows : [];
     const rows = allRows.slice(0, 5);
     const columns = Array.isArray(table?.columns) ? table.columns : [];
     const config = getAttentionConfig(table?.title);
     const Icon = config.icon;
+    const canOpenInventoryRows = isInventoryAttentionTable(table?.title);
+
+    const openInventoryRow = (row) => {
+        if (!canOpenInventoryRows || !queueInventoryItemSelection(row)) {
+            return;
+        }
+
+        navigate('/dashboard/inventory');
+    };
 
     return (
         <div className={`overflow-hidden rounded-xl border border-slate-200 border-l-4 ${config.accentClass} bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900`}>
@@ -616,7 +651,7 @@ function OperationalAttentionCard({ table }) {
             </div>
 
             {rows.length && columns.length ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto scrollbar-hide">
                     <table className="min-w-full text-left text-sm">
                         <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                             <tr>
@@ -628,8 +663,27 @@ function OperationalAttentionCard({ table }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {rows.map((row, rowIndex) => (
-                                <tr key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`} className="align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70">
+                            {rows.map((row, rowIndex) => {
+                                const isInteractiveRow = canOpenInventoryRows && Boolean(row.item_id || row.itemId || row.id);
+
+                                return (
+                                <tr
+                                    key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
+                                    className={`align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50/60 dark:focus-within:bg-slate-800' : ''}`}
+                                    role={isInteractiveRow ? 'button' : undefined}
+                                    tabIndex={isInteractiveRow ? 0 : undefined}
+                                    onClick={() => openInventoryRow(row)}
+                                    onKeyDown={(event) => {
+                                        if (!isInteractiveRow) {
+                                            return;
+                                        }
+
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            openInventoryRow(row);
+                                        }
+                                    }}
+                                >
                                     {columns.map(column => (
                                         <td key={column.key} className="max-w-[14rem] px-3 py-3 text-slate-700 dark:text-slate-200">
                                             {isStatusColumn(column) ? (
@@ -644,7 +698,8 @@ function OperationalAttentionCard({ table }) {
                                         </td>
                                     ))}
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

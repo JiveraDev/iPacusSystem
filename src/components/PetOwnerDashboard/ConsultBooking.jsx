@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { ArrowLeft, Image as ImageIcon, Upload, X } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Image as ImageIcon, PawPrint, Plus, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
@@ -401,30 +401,58 @@ export default function ConsultBooking() {
 
   if (pets.length === 0 && !isNewPet) {
     return (
-      <div className="space-y-8 max-w-3xl">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/consult")}>
+      <div className="mx-auto max-w-4xl space-y-5">
+        <Button variant="ghost" onClick={() => navigate("/dashboard/consult")} className="px-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Consultations
         </Button>
-        <Card>
-          <CardContent className="pt-6 text-center py-12">
-            <h3 className="font-semibold text-lg mb-2">No Pets Registered</h3>
-            <p className="text-gray-600 mb-4">
-              You can add your first pet or book a consultation for a new unregistered pet.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate("/dashboard/my-pets/add")}>
-                Add Your First Pet
-              </Button>
-              <Button variant="outline" onClick={() => {
-                setSelectedPet("new-pet");
-                setIsNewPet(true);
-              }}>
-                🐾 Book for New Pet
-              </Button>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="grid md:grid-cols-[0.9fr_1.1fr]">
+            <div className="bg-slate-950 p-6 text-white sm:p-8">
+              <div className="flex size-14 items-center justify-center rounded-xl bg-white/10 text-white">
+                <PawPrint className="size-7" />
+              </div>
+              <h1 className="mt-6 text-2xl font-black tracking-tight sm:text-3xl">No Pets Registered</h1>
+              <p className="mt-3 max-w-sm text-sm font-medium leading-6 text-slate-300">
+                Start with a saved pet profile, or continue this consultation with new pet details.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="p-6 sm:p-8">
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  onClick={() => navigate("/dashboard/my-pets/add")}
+                  className="h-auto w-full justify-start gap-4 rounded-xl bg-[#155dfc] px-5 py-4 text-left text-white hover:bg-blue-700"
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                    <Plus className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-base font-bold">Add Your First Pet</span>
+                    <span className="mt-1 block text-sm font-medium text-blue-100">Create a reusable profile for future visits.</span>
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedPet("new-pet");
+                    setIsNewPet(true);
+                  }}
+                  className="h-auto w-full justify-start gap-4 rounded-xl border-slate-200 bg-white px-5 py-4 text-left text-slate-950 hover:bg-slate-50"
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <CalendarPlus className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-base font-bold">Book for New Pet</span>
+                    <span className="mt-1 block text-sm font-medium text-slate-500">Enter pet details only for this consultation.</span>
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
@@ -477,7 +505,7 @@ export default function ConsultBooking() {
                     </SelectItem>
                   ))}
                   <SelectItem value="new-pet">
-                    🐾 New Pet (Not Registered)
+                    New Pet (Not Registered)
                   </SelectItem>
                 </SelectContent>
               </Select>

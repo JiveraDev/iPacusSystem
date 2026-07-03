@@ -180,13 +180,12 @@ export default function DisposalLogsPage() {
       {/* Filters */}
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
+          <div>
             <Input
               placeholder="Search by product, SKU, or disposal ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              leftIcon={<Search className="size-4" />}
             />
           </div>
 

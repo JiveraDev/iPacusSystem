@@ -105,6 +105,10 @@ function pet_media_date_range(array $payload): array
     } elseif ($range === 'this_week') {
         $start = $now->modify('monday this week')->setTime(0, 0, 0);
         $end = $start->modify('+6 days');
+    } elseif ($range === 'this_quarter') {
+        $quarterStartMonth = (int)(floor(((int)$now->format('n') - 1) / 3) * 3) + 1;
+        $start = $now->setDate((int)$now->format('Y'), $quarterStartMonth, 1)->setTime(0, 0, 0);
+        $end = $start->modify('+3 months')->modify('-1 day');
     } elseif ($range === 'this_year') {
         $start = $now->setDate((int)$now->format('Y'), 1, 1)->setTime(0, 0, 0);
         $end = $now->setDate((int)$now->format('Y'), 12, 31)->setTime(0, 0, 0);

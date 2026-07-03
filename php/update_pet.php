@@ -23,6 +23,11 @@ if (!is_array($input)) {
     exit;
 }
 
+function updatePetNormalizeRole($role): string
+{
+    return strtolower(str_replace([' ', '-'], '_', trim((string)$role)));
+}
+
 // Map frontend keys to DB columns
 $allowedFields = [
     'petName' => 'pet_name',
@@ -36,10 +41,51 @@ $allowedFields = [
     'color' => 'pet_color_marking',
     'allergies' => 'pet_allergies',
     'tempOwner' => 'pet_Temp_owner',
+    'tempOwnerName' => 'pet_Temp_owner',
     'setpetImage_url' => 'setpetImage_url',
     'profileImage' => 'setpetImage_url', // alias
     'age' => 'pet_age'
 ];
+
+$idColumn = (strpos($petId, 'PET-') === 0) ? "pet_sharable_ID" : "pet_id";
+$hasTempOwnerUpdate = array_key_exists('tempOwner', $input) || array_key_exists('tempOwnerName', $input);
+
+try {
+    if ($hasTempOwnerUpdate) {
+        $role = updatePetNormalizeRole($_SERVER['HTTP_X_USER_ROLE'] ?? ($input['role'] ?? ''));
+        if (!in_array($role, ['admin', 'super_admin', 'superadmin'], true)) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Only Admin or Super Admin can update a temporary owner name.']);
+            exit;
+        }
+
+        $ownershipStmt = $pdo->prepare("
+            SELECT p.pet_id, po.link_id
+            FROM pets_information p
+            LEFT JOIN pet_ownership po ON po.pet_id = p.pet_id
+            WHERE p.$idColumn = ?
+            LIMIT 1
+        ");
+        $ownershipStmt->execute([$petId]);
+        $ownership = $ownershipStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$ownership) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Pet not found.']);
+            exit;
+        }
+
+        if (!empty($ownership['link_id'])) {
+            http_response_code(409);
+            echo json_encode(['message' => 'Temporary owner name can only be updated when the pet has no registered owner.']);
+            exit;
+        }
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['message' => 'Failed to validate pet ownership: ' . $e->getMessage()]);
+    exit;
+}
 
 $setParts = [];
 $params = [];
@@ -50,6 +96,10 @@ foreach ($allowedFields as $inputKey => $dbColumn) {
         $value = $input[$inputKey];
         if ($inputKey === 'weight' && is_string($value)) {
             $value = floatval(preg_replace('/[^0-9.]/', '', $value));
+        }
+        if ($dbColumn === 'pet_Temp_owner') {
+            $value = trim((string)($value ?? ''));
+            $value = $value !== '' ? $value : null;
         }
         
         // Avoid adding the same column twice if both aliases are used
@@ -66,8 +116,6 @@ if (empty($setParts)) {
     exit;
 }
 
-// Check if it's a sharable ID or numeric ID for the WHERE clause
-$idColumn = (strpos($petId, 'PET-') === 0) ? "pet_sharable_ID" : "pet_id";
 $params[] = $petId;
 
 try {

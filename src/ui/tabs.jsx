@@ -30,7 +30,7 @@ function Tabs({ defaultValue, value, onValueChange, className, children, ...prop
 function TabsList({ className, ...props }) {
   return (
     <div
-      className={cn("inline-grid max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 text-slate-600", className)}
+      className={cn("inline-grid max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 text-slate-600 scrollbar-hide", className)}
       {...props}
     />
   );

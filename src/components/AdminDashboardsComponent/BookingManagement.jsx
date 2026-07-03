@@ -789,15 +789,12 @@ export default function BookingsManagement() {
 
             <div className="mb-6 flex flex-col gap-4 min-[1100px]:flex-row min-[1100px]:items-center min-[1100px]:flex-nowrap">
                 <div className="w-full min-[1100px]:min-w-[260px] min-[1100px]:flex-1">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
-                        <Input
-                            placeholder="Search by pet name, owner, or booking number..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
+                    <Input
+                        placeholder="Search by pet name, owner, or booking number..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        leftIcon={<Search className="size-4" />}
+                    />
                 </div>
 
                 <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 min-[1100px]:flex min-[1100px]:w-auto min-[1100px]:flex-none min-[1100px]:flex-nowrap min-[1100px]:items-center">
@@ -843,9 +840,9 @@ export default function BookingsManagement() {
                         <SelectContent>
                             <SelectItem value="all">All Dates</SelectItem>
                             <SelectItem value="today">Today</SelectItem>
-                            <SelectItem value="7d">Last 7 Days</SelectItem>
-                            <SelectItem value="14d">Last 2 Weeks</SelectItem>
-                            <SelectItem value="30d">Last 1 Month</SelectItem>
+                            <SelectItem value="7 days">Last 7 Days</SelectItem>
+                            <SelectItem value="2 weeks">Last 2 Weeks</SelectItem>
+                            <SelectItem value="1 month">Last 1 Month</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -899,7 +896,7 @@ export default function BookingsManagement() {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-wrap items-center">
                                         {booking.hasCancellationRequest ? (
                                             <Badge className="bg-red-100 text-red-700 border-red-200 border px-2.5 py-0.5 rounded-full font-medium">
                                                 Cancellation Requested

@@ -373,13 +373,13 @@ export default function VetDiagnosisHistory() {
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <div>
                         <Input
                             value={searchQuery}
                             onChange={(event) => setSearchQuery(event.target.value)}
                             placeholder="Search pet, owner, service, booking, diagnosis, or symptoms"
-                            className="h-10 pl-10"
+                            className="h-10"
+                            leftIcon={<Search className="size-4" />}
                         />
                     </div>
                     <Select value={sourceFilter} onValueChange={setSourceFilter}>

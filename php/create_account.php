@@ -23,6 +23,18 @@ function createAccountUserColumnExists(PDO $pdo, string $columnName): bool
     return $columnCache[$columnName];
 }
 
+function createAccountNormalizeRole(?string $role): ?string
+{
+    $normalized = strtolower(str_replace([' ', '-'], '_', trim((string)$role)));
+
+    return match ($normalized) {
+        'veterinarian', 'vet' => 'Veterinarian',
+        'admin', 'staff' => 'Admin',
+        'super_admin', 'superadmin' => 'Super Admin',
+        default => null,
+    };
+}
+
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -30,7 +42,7 @@ $firstName = $input['firstName'] ?? null;
 $lastName = $input['lastName'] ?? null;
 $email = $input['email'] ?? null;
 $password = $input['password'] ?? null;
-$role = $input['role'] ?? null; // 'Veterinarian' or 'Admin'
+$role = createAccountNormalizeRole($input['role'] ?? null);
 $masterKey = (string)($input['masterKey'] ?? '');
 
 $expectedMasterKey = trim((string)(getenv('MASTER_KEY') ?: getenv('VITE_MASTER_KEY') ?: ''));
@@ -54,7 +66,7 @@ $licenseNumber = $input['licenseNumber'] ?? null;
 $specialization = $input['specialization'] ?? 'General Practice';
 
 // Staff Specific
-$position = $input['position'] ?? 'Staff';
+$position = $role === 'Super Admin' ? 'Super Admin' : ($input['position'] ?? 'Staff');
 $employmentStatus = $input['employmentStatus'] ?? 'full-time';
 
 if (!$firstName || !$lastName || !$email || !$password || !$role) {
@@ -64,7 +76,7 @@ if (!$firstName || !$lastName || !$email || !$password || !$role) {
 }
 
 try {
-    $adminHasActiveColumn = $role === 'Veterinarian' ? false : ensureAdminAccountStatusColumn($pdo);
+    $adminHasActiveColumn = $role !== 'Veterinarian' ? ensureAdminAccountStatusColumn($pdo) : false;
 
     $pdo->beginTransaction();
 
@@ -115,7 +127,7 @@ try {
         ");
         $vetStmt->execute([$userId, $vetId, $licenseNumber, $specialization, $hireDate]);
     } else {
-        // 3. Insert into admin_profiles
+        // 3. Insert into admin_profiles for staff and Super Admin profile compatibility.
         $empId = 'EMP-' . strtoupper(bin2hex(random_bytes(3)));
         if ($adminHasActiveColumn) {
             $adminStmt = $pdo->prepare("

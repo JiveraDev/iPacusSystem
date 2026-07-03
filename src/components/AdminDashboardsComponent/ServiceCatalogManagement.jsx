@@ -450,13 +450,12 @@ export default function ServiceCatalogManagement() {
             <div className="grid gap-6">
                 <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                     <div className="border-b border-slate-100 p-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                        <div>
                             <Input
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                                 placeholder="Search service"
-                                className="pl-9"
+                                leftIcon={<Search className="size-4" />}
                             />
                         </div>
                     </div>

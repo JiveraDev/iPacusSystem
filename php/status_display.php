@@ -287,6 +287,7 @@ try {
             WHERE b.status = 'confirmed'
               AND b.booking_date = ?
               AND COALESCE(b.notes, '') NOT LIKE '%[Lifecycle] Auto-rescheduled due to missed approved booking%'
+              AND COALESCE(b.notes, '') NOT LIKE '%[Rescheduled]%'
               AND NOT EXISTS (
                   SELECT 1
                   FROM queues q

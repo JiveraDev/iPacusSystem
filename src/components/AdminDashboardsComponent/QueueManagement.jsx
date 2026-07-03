@@ -304,13 +304,12 @@ export default function QueueManagement() {
 
             {/* Filters */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 bg-white p-4 rounded-xl border border-slate-200">
-                <div className="relative md:col-span-1 lg:col-span-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
+                <div className="md:col-span-1 lg:col-span-2">
                     <Input 
                         placeholder="Search pet or queue ID..." 
-                        className="pl-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        leftIcon={<Search className="size-4" />}
                     />
                 </div>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>

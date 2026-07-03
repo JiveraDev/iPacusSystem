@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -58,6 +59,7 @@ try {
     $queues = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($queues as &$queue) {
         $queue['queue_reference'] = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
+        $queue['complaint'] = cleanBookingQueueComplaint($queue['complaint'] ?? '');
     }
     unset($queue);
 

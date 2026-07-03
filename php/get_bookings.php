@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -289,7 +290,7 @@ try {
             'time' => $b['booking_time'],
             'status' => $b['status'],
             'price' => $b['price'],
-            'notes' => $b['notes'],
+            'notes' => bookingCleanVisibleNotes($b['notes'] ?? ''),
             'hasCancellationRequest' => $hasCancellationRequest,
             'isHomeService' => $isHomeService,
             'address' => $b['address'],

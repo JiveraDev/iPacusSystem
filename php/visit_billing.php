@@ -99,10 +99,15 @@ function visit_billing_ensure_payment_method_schema(PDO $pdo): void
         return;
     }
 
-    visit_billing_error(
-        409,
-        "Database change required before POS cash payments can be posted: ALTER TABLE visit_payments MODIFY payment_method ENUM('cash','qrph','gcash','maya','bank_transfer') NOT NULL DEFAULT 'gcash';"
-    );
+    try {
+        $pdo->exec("
+            ALTER TABLE visit_payments
+            MODIFY payment_method ENUM('cash','qrph','gcash','maya','bank_transfer') NOT NULL DEFAULT 'gcash'
+        ");
+    } catch (Throwable $error) {
+        error_log('Visit payment method schema update failed: ' . $error->getMessage());
+        visit_billing_error(409, 'POS cash payments are not ready. Please ask an admin to update the visit payment method list.');
+    }
 }
 
 function visit_billing_nullable_int($value): ?int

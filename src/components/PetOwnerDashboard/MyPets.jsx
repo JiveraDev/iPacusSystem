@@ -140,13 +140,13 @@ export default function MyPets() {
       {isAdminView && (
         <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-xl">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <div className="w-full lg:max-w-xl">
               <Input
                 value={directorySearch}
                 onChange={(event) => setDirectorySearch(event.target.value)}
                 placeholder="Search pet, owner, species, breed, status, or clinic ID"
-                className="h-10 pl-10"
+                className="h-10"
+                leftIcon={<Search className="size-4" />}
               />
             </div>
             <div className="flex w-full gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">

@@ -440,20 +440,17 @@ export default function HomeServices() {
               {/* Address Autocomplete */}
               <div className="space-y-2 relative">
                 <Label>Service Address *</Label>
-                <div className="relative">
-                  <Input
-                    placeholder="Search your address..."
-                    value={address}
-                    onChange={(e) => {
-                      setAddress(e.target.value);
-                      setShowSuggestions(true);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    className="pl-10"
-                  />
-                  <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                  {isSearchingAddress && <Loader2 className="absolute right-3 top-2.5 h-5 w-5 animate-spin text-blue-600" />}
-                </div>
+                <Input
+                  placeholder="Search your address..."
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  leftIcon={<Search className="size-4" />}
+                  rightIcon={isSearchingAddress ? <Loader2 className="size-4 animate-spin text-blue-600" /> : null}
+                />
 
                 {showSuggestions && addressSuggestions.length > 0 && (
                   <div className="absolute z-50 w-full bg-white border rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">

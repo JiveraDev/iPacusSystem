@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, Loader2, PhoneOff, Video } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle, Loader2, Maximize2, Minimize2, PhoneOff, Video } from 'lucide-react';
 import { useNavigate, useParams } from '../dashboardRouter.jsx';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -7,6 +7,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
+import { useVideoCall } from '../../context/VideoCallProvider.jsx';
 import {
     endOnlineConsultation,
     fetchOnlineConsultation,
@@ -59,12 +60,34 @@ function getStatusBadge(status) {
 export default function VetOnlineConsultDiagnosis() {
     const navigate = useNavigate();
     const { onlineConsultationId } = useParams();
+    const { activeCall, isMinimized, startCall, minimizeCall, maximizeCall, endCall } = useVideoCall();
     const [consultation, setConsultation] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isStarting, setIsStarting] = useState(false);
     const [lastAutosavedAt, setLastAutosavedAt] = useState('');
     const [diagnosisForm, setDiagnosisForm] = useState(emptyDiagnosisForm);
+
+    const buildCallDetails = useCallback((source) => ({
+        consultationId: source?.id || onlineConsultationId,
+        role: 'veterinarian',
+        meetingUrl: source?.meetingUrl,
+        meetingCode: source?.meetingCode,
+        title: 'Online Consultation',
+        petName: source?.petName,
+        ownerName: source?.ownerName,
+        veterinarianName: source?.veterinarianName,
+        scheduledStart: source?.scheduledStart,
+        returnPath: `/dashboard/vet/online-consultations/${source?.id || onlineConsultationId}/diagnosis`
+    }), [onlineConsultationId]);
+
+    const openConsultationCall = useCallback((source = consultation, options = {}) => {
+        if (!source?.meetingUrl) {
+            return;
+        }
+
+        startCall(buildCallDetails(source), options);
+    }, [buildCallDetails, consultation, startCall]);
 
     useEffect(() => {
         const loadConsultation = async () => {
@@ -102,6 +125,14 @@ export default function VetOnlineConsultDiagnosis() {
     }, [onlineConsultationId]);
 
     useEffect(() => {
+        const status = String(consultation?.status || '').toLowerCase();
+
+        if (consultation?.meetingUrl && ['vet_ready', 'in_progress'].includes(status)) {
+            openConsultationCall(consultation);
+        }
+    }, [consultation, openConsultationCall]);
+
+    useEffect(() => {
         if (!onlineConsultationId || isLoading || !consultation) return undefined;
 
         const timeoutId = window.setTimeout(() => {
@@ -131,6 +162,7 @@ export default function VetOnlineConsultDiagnosis() {
             const updated = await startOnlineConsultation(consultation.id);
 
             setConsultation(updated);
+            openConsultationCall(updated);
             toast.success('Consultation started. Waiting for the pet owner to join.');
         } catch (error) {
             console.error('Failed to start consultation:', error);
@@ -153,6 +185,7 @@ export default function VetOnlineConsultDiagnosis() {
             const updated = await submitOnlineConsultationDiagnosis(consultation.id, diagnosisForm);
 
             setConsultation(updated);
+            endCall();
             removeDraft(onlineConsultationId);
             toast.success('Diagnosis saved and consultation completed.');
             navigate('/dashboard/vet/online-consultations');
@@ -172,6 +205,7 @@ export default function VetOnlineConsultDiagnosis() {
             const updated = await endOnlineConsultation(consultation.id);
 
             setConsultation(updated);
+            endCall();
             toast.success('Consultation marked completed.');
             navigate('/dashboard/vet/online-consultations');
         } catch (error) {
@@ -205,6 +239,22 @@ export default function VetOnlineConsultDiagnosis() {
     const canUseRoom = Boolean(consultation.meetingUrl) && consultation.status !== 'completed' && consultation.status !== 'cancelled';
     const callStarted = ['vet_ready', 'in_progress'].includes(String(consultation.status || '').toLowerCase());
     const isFinal = ['completed', 'cancelled'].includes(String(consultation.status || '').toLowerCase());
+    const isCurrentCall = Boolean(activeCall?.meetingUrl && activeCall.meetingUrl === consultation.meetingUrl);
+    const handleBackToConsults = () => {
+        if (isCurrentCall) {
+            minimizeCall();
+        }
+
+        navigate('/dashboard/vet/online-consultations');
+    };
+    const handleOpenCall = () => {
+        if (isCurrentCall) {
+            maximizeCall();
+            return;
+        }
+
+        openConsultationCall(consultation);
+    };
 
     return (
         <div className="flex h-[calc(100vh-120px)] min-h-[680px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -213,7 +263,7 @@ export default function VetOnlineConsultDiagnosis() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate('/dashboard/vet/online-consultations')}
+                        onClick={handleBackToConsults}
                         className="gap-2"
                     >
                         <ArrowLeft className="h-4 w-4" />
@@ -242,6 +292,12 @@ export default function VetOnlineConsultDiagnosis() {
                             Start Meeting
                         </Button>
                     )}
+                    {callStarted && canUseRoom && (
+                        <Button variant="outline" onClick={isMinimized ? handleOpenCall : minimizeCall} className="gap-2">
+                            {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                            {isMinimized ? 'Open Call' : 'Minimize'}
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -261,12 +317,27 @@ export default function VetOnlineConsultDiagnosis() {
 
                     <div className="relative flex-1">
                         {canUseRoom && callStarted ? (
-                            <iframe
-                                title="Jitsi online consultation"
-                                src={consultation.meetingUrl}
-                                allow="camera; microphone; fullscreen; display-capture; autoplay"
-                                className="h-full min-h-[520px] w-full border-0"
-                            />
+                            <div className="flex h-full min-h-[520px] flex-col items-center justify-center p-8 text-center text-white">
+                                <Video className="mb-4 h-12 w-12 text-white/60" />
+                                <h2 className="text-xl font-bold">{isMinimized ? 'Call minimized' : 'Meeting room active'}</h2>
+                                <p className="mt-2 max-w-md text-sm text-white/70">
+                                    {consultation.meetingCode || 'Private consultation room'}
+                                </p>
+                                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                                    <Button onClick={handleOpenCall} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
+                                        <Maximize2 className="h-4 w-4" />
+                                        Open Call
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        onClick={minimizeCall}
+                                        className="gap-2 border border-white/20 text-white hover:bg-white/10"
+                                    >
+                                        <Minimize2 className="h-4 w-4" />
+                                        Minimize
+                                    </Button>
+                                </div>
+                            </div>
                         ) : (
                             <div className="flex h-full min-h-[520px] flex-col items-center justify-center p-8 text-center text-white">
                                 <Video className="mb-4 h-12 w-12 text-white/60" />

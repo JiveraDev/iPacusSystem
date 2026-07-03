@@ -403,7 +403,7 @@ export default function SuperAdminReportCenter() {
 
                 <Card className="border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <CardContent className="space-y-5 p-5">
-                        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,1.4fr)_12rem_10rem_10rem]">
+                        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,1fr)]">
                             <div>
                                 <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Report Type</Label>
                                 <Select
@@ -424,7 +424,9 @@ export default function SuperAdminReportCenter() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </div>
 
+                        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/70 sm:grid-cols-[12rem_9rem_9rem_auto]">
                             <div>
                                 <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
                                 <Select value={range} onValueChange={setRange}>
@@ -440,7 +442,7 @@ export default function SuperAdminReportCenter() {
                             </div>
 
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Start Date</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Start</Label>
                                 <Input
                                     type="date"
                                     value={visibleDateRange.start}
@@ -450,13 +452,24 @@ export default function SuperAdminReportCenter() {
                             </div>
 
                             <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">End Date</Label>
+                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">End</Label>
                                 <Input
                                     type="date"
                                     value={visibleDateRange.end}
                                     onChange={(event) => handleCustomEndChange(event.target.value)}
                                     className="mt-1"
                                 />
+                            </div>
+
+                            <div className="flex flex-wrap items-end gap-2">
+                                <Button type="button" onClick={previewReport} disabled={isLoading} className="gap-2">
+                                    {isLoading ? <Loader2 className="size-7 animate-spin" /> : <Search className="size-4" />}
+                                    Preview Report
+                                </Button>
+                                <Button type="button" variant="outline" onClick={() => window.print()} disabled={!report} className="gap-2">
+                                    <Printer className="size-4" />
+                                    Print Report
+                                </Button>
                             </div>
                         </div>
 
@@ -490,14 +503,6 @@ export default function SuperAdminReportCenter() {
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                            <Button type="button" onClick={previewReport} disabled={isLoading} className="gap-2">
-                                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-                                Preview Report
-                            </Button>
-                            <Button type="button" variant="outline" onClick={() => window.print()} disabled={!report} className="gap-2">
-                                <Printer className="size-4" />
-                                Print Report
-                            </Button>
                             <Button type="button" variant="outline" onClick={() => exportReportCsv(report)} disabled={!report} className="gap-2">
                                 <Download className="size-4" />
                                 Export CSV

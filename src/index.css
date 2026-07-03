@@ -79,6 +79,63 @@ html.dark {
   button {
     max-width: 100%;
   }
+
+  input,
+  textarea,
+  select {
+    min-width: 0;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"] {
+    color-scheme: light;
+    min-inline-size: 8.75rem;
+  }
+
+  button,
+  [role="button"] {
+    min-width: 0;
+    touch-action: manipulation;
+  }
+
+  button > svg,
+  [role="button"] > svg {
+    flex-shrink: 0;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 639px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+
+    button,
+    [role="button"] {
+      overflow-wrap: anywhere;
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    input[type="month"] {
+      min-inline-size: 0;
+      width: 100%;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    main,
+    [data-dashboard-content] {
+      min-width: 0;
+    }
+  }
 }
 
 html.dark body,
@@ -331,6 +388,13 @@ html.dark [data-slot="textarea"] {
   color: var(--theme-text) !important;
 }
 
+html.dark input[type="date"],
+html.dark input[type="time"],
+html.dark input[type="datetime-local"],
+html.dark input[type="month"] {
+  color-scheme: dark;
+}
+
 html.dark input::placeholder,
 html.dark textarea::placeholder {
   color: var(--theme-text-soft) !important;
@@ -565,6 +629,15 @@ html.dark table {
   color: var(--theme-text);
 }
 
+html.dark [data-slot="table-scroll"] {
+  background-color: var(--theme-surface) !important;
+  border-color: var(--theme-border) !important;
+}
+
+html.dark [data-slot="input-icon"] {
+  color: var(--theme-text-soft) !important;
+}
+
 html.dark .theme-static-light table {
   color: #0f172a !important;
 }
@@ -640,6 +713,12 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   }
 
+  .responsive-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    align-items: end;
+  }
+
   .responsive-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
@@ -654,6 +733,21 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
+  }
+
+  .responsive-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 112rem;
+    margin-inline: auto;
+  }
+
+  .icon-button {
+    display: inline-flex;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
   }
 
   @media (max-width: 639px) {

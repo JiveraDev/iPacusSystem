@@ -150,10 +150,6 @@ export default function RecordUpdateRequestsManagement() {
         });
     }, [requests, searchQuery, statusFilter]);
 
-    const pendingCount = requests.filter(request => request.status === 'pending_admin_review').length;
-    const activeCount = requests.filter(request => !['completed', 'rejected', 'cancelled'].includes(request.status)).length;
-    const verifiedPaymentCount = requests.filter(request => request.paymentStatus === 'verified').length;
-
     const openReview = (request) => {
         setSelectedRequest(request);
         setSelectedVetId(request.assignedVeterinarianUserId ? String(request.assignedVeterinarianUserId) : '');
@@ -202,21 +198,15 @@ export default function RecordUpdateRequestsManagement() {
                 </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-                <Stat icon={FileText} label="Active Requests" value={activeCount} />
-                <Stat icon={ShieldCheck} label="Pending Admin" value={pendingCount} />
-                <Stat icon={CheckCircle2} label="Verified Payments" value={verifiedPaymentCount} />
-            </div>
 
             <Card>
                 <CardContent className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <div>
                         <Input
                             value={searchQuery}
                             onChange={(event) => setSearchQuery(event.target.value)}
                             placeholder="Search request, pet, owner, notes, or payment"
-                            className="pl-9"
+                            leftIcon={<Search className="size-4" />}
                         />
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>

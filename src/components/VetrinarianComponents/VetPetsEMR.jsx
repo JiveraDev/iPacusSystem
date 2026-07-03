@@ -1,11 +1,11 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     CalendarDays,
     CheckCircle2,
     ClipboardList,
-    Copy,
     FileText,
+    GripVertical,
     Loader2,
     PanelRightClose,
     PanelRightOpen,
@@ -64,7 +64,57 @@ function recordKey(record) {
 function sourceLabel(record) {
     if (record.bookingNumber) return `Booking ${record.bookingNumber}`;
     if (record.queueNumber) return formatQueueReference(record);
+    if (record.sourceType === 'vaccination') return `Vaccination #${record.sourceId}`;
     return record.sourceType === 'visit' ? `Visit #${record.sourceId}` : `Diagnosis #${record.sourceId}`;
+}
+
+const MEDICAL_RECORD_DRAG_TYPE = 'application/x-ipawcus-medical-record';
+
+function dragPayload(kind, record) {
+    return JSON.stringify({ kind, record });
+}
+
+function readDraggedRecord(event) {
+    const raw = event.dataTransfer.getData(MEDICAL_RECORD_DRAG_TYPE)
+        || event.dataTransfer.getData('application/json');
+
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed?.record || parsed;
+}
+
+function addedToGroup(record, groupId) {
+    return asArray(record?.addedToGroups).some(group => String(group.groupId) === String(groupId));
+}
+
+function vaccinationTitle(vaccine) {
+    return vaccine?.name || 'Vaccination record';
+}
+
+function vaccinationSummary(vaccine) {
+    return [
+        `Vaccine: ${vaccine?.name || 'N/A'}`,
+        `Date given: ${formatDisplayDate(vaccine?.date)}`,
+        `Next due: ${formatDisplayDate(vaccine?.nextDue)}`,
+        `Veterinarian: ${vaccine?.applicator || vaccine?.veterinarianName || 'N/A'}`,
+        vaccine?.notes ? `Notes: ${vaccine.notes}` : ''
+    ].filter(Boolean).join('\n');
+}
+
+function vaccinationSourceRecord(vaccine) {
+    return {
+        id: `vaccination-${vaccine?.id}`,
+        sourceType: 'vaccination',
+        sourceId: vaccine?.id,
+        title: vaccinationTitle(vaccine),
+        summary: vaccinationSummary(vaccine),
+        serviceDate: vaccine?.date || vaccine?.nextDue || '',
+        status: vaccine?.status || 'completed',
+        veterinarianName: vaccine?.applicator || vaccine?.veterinarianName || '',
+        addedToGroups: vaccine?.addedToGroups || [],
+        isAddedToOrganizedRecord: vaccine?.isAddedToOrganizedRecord || false
+    };
 }
 
 function editorLabel(name) {
@@ -91,6 +141,11 @@ function prescriptionCount(record) {
         ), 0);
 }
 
+function formatCurrency(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? `PHP ${amount.toFixed(2)}` : 'PHP 0.00';
+}
+
 function readRecordUpdateContext() {
     if (typeof window === 'undefined') {
         return { petId: '', requestId: '' };
@@ -110,6 +165,29 @@ function isRecordRequestPaid(request) {
     return ['verified', 'waived'].includes(String(request?.paymentStatus || '').toLowerCase());
 }
 
+function autosaveText(status) {
+    if (status === 'saving') return 'Autosaving...';
+    if (status === 'saved') return 'Autosaved';
+    if (status === 'error') return 'Autosave failed';
+    return '';
+}
+
+function groupDraftSignature(draft) {
+    return JSON.stringify({
+        title: String(draft?.title || '').trim(),
+        summary: draft?.summary || '',
+        visibleToOwner: draft?.visibleToOwner !== false
+    });
+}
+
+function itemDraftSignature(draft) {
+    return JSON.stringify({
+        title: String(draft?.title || '').trim() || 'Clinical record',
+        summary: draft?.summary || '',
+        revisionNotes: draft?.revisionNotes || ''
+    });
+}
+
 export default function VetPetsEMR() {
     const currentUser = useDashboardUser();
     const currentUserId = userId(currentUser);
@@ -121,16 +199,23 @@ export default function VetPetsEMR() {
     const [isLoadingRecords, setIsLoadingRecords] = useState(false);
     const [isPetSearchOpen, setIsPetSearchOpen] = useState(false);
     const [selectedGroupId, setSelectedGroupId] = useState('');
-    const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-    const [editingGroup, setEditingGroup] = useState(null);
+    const [editingGroupId, setEditingGroupId] = useState('');
     const [groupDraft, setGroupDraft] = useState({ title: '', summary: '', visibleToOwner: true });
+    const [isSavingGroup, setIsSavingGroup] = useState(false);
+    const [groupAutosaveStatus, setGroupAutosaveStatus] = useState('idle');
     const [editingItem, setEditingItem] = useState(null);
     const [itemDraft, setItemDraft] = useState({ title: '', summary: '', revisionNotes: '' });
+    const [itemAutosaveStatus, setItemAutosaveStatus] = useState('idle');
     const [isPetPreviewOpen, setIsPetPreviewOpen] = useState(true);
     const [isServiceRecordsOpen, setIsServiceRecordsOpen] = useState(true);
     const [viewer, setViewer] = useState(null);
+    const [previewRecord, setPreviewRecord] = useState(null);
     const [recordUpdateContext] = useState(readRecordUpdateContext);
     const [highlightedRequest, setHighlightedRequest] = useState(null);
+    const groupAutosaveTimerRef = useRef(null);
+    const itemAutosaveTimerRef = useRef(null);
+    const groupSavedSignatureRef = useRef('');
+    const itemSavedSignatureRef = useRef('');
 
     const loadPets = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -162,7 +247,7 @@ export default function VetPetsEMR() {
         }
     }, [recordUpdateContext.petId]);
 
-    const loadRecords = async ({ isAutoRefresh = false } = {}) => {
+    const loadRecords = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!selectedPetId) return null;
 
         if (!isAutoRefresh) {
@@ -192,7 +277,7 @@ export default function VetPetsEMR() {
                 setIsLoadingRecords(false);
             }
         }
-    };
+    }, [selectedPetId]);
 
     useEffect(() => {
         loadPets();
@@ -253,6 +338,115 @@ export default function VetPetsEMR() {
     const selectedGroup = groups.find(group => String(group.groupId) === String(selectedGroupId));
     const visiblePetOptions = filteredPets.slice(0, 8);
 
+    useEffect(() => {
+        if (groupAutosaveTimerRef.current) {
+            window.clearTimeout(groupAutosaveTimerRef.current);
+            groupAutosaveTimerRef.current = null;
+        }
+
+        if (!editingGroupId || !selectedPetId || isSavingGroup) {
+            return undefined;
+        }
+
+        const title = groupDraft.title.trim();
+        if (!title) {
+            setGroupAutosaveStatus('idle');
+            return undefined;
+        }
+
+        const group = groups.find(item => String(item.groupId) === String(editingGroupId));
+        const draftSignature = groupDraftSignature(groupDraft);
+        const savedSignature = groupSavedSignatureRef.current || (group ? groupDraftSignature(group) : '');
+
+        if (draftSignature === savedSignature) {
+            setGroupAutosaveStatus('saved');
+            return undefined;
+        }
+
+        setGroupAutosaveStatus('saving');
+        const timerId = window.setTimeout(async () => {
+            try {
+                await updatePetMedicalRecordGroup(selectedPetId, {
+                    groupId: editingGroupId,
+                    title,
+                    summary: groupDraft.summary,
+                    visibleToOwner: groupDraft.visibleToOwner,
+                    userId: currentUserId
+                });
+                groupSavedSignatureRef.current = draftSignature;
+                setGroupAutosaveStatus('saved');
+            } catch {
+                setGroupAutosaveStatus('error');
+            }
+        }, 900);
+
+        groupAutosaveTimerRef.current = timerId;
+        return () => {
+            window.clearTimeout(timerId);
+            if (groupAutosaveTimerRef.current === timerId) {
+                groupAutosaveTimerRef.current = null;
+            }
+        };
+    }, [
+        currentUserId,
+        editingGroupId,
+        groupDraft,
+        groups,
+        isSavingGroup,
+        selectedPetId
+    ]);
+
+    useEffect(() => {
+        if (itemAutosaveTimerRef.current) {
+            window.clearTimeout(itemAutosaveTimerRef.current);
+            itemAutosaveTimerRef.current = null;
+        }
+
+        if (!editingItem || !selectedPetId) {
+            return undefined;
+        }
+
+        const itemId = editingItem.itemId;
+        const title = itemDraft.title.trim() || 'Clinical record';
+        const draftSignature = itemDraftSignature(itemDraft);
+        const savedSignature = itemSavedSignatureRef.current || itemDraftSignature(editingItem);
+
+        if (draftSignature === savedSignature) {
+            setItemAutosaveStatus('saved');
+            return undefined;
+        }
+
+        setItemAutosaveStatus('saving');
+        const timerId = window.setTimeout(async () => {
+            try {
+                await updatePetMedicalRecordGroupItem(selectedPetId, {
+                    itemId,
+                    title,
+                    summary: itemDraft.summary,
+                    revisionNotes: itemDraft.revisionNotes,
+                    userId: currentUserId
+                });
+                itemSavedSignatureRef.current = draftSignature;
+                setItemAutosaveStatus('saved');
+            } catch {
+                setItemAutosaveStatus('error');
+            }
+        }, 900);
+
+        itemAutosaveTimerRef.current = timerId;
+        return () => {
+            window.clearTimeout(timerId);
+            if (itemAutosaveTimerRef.current === timerId) {
+                itemAutosaveTimerRef.current = null;
+            }
+        };
+    }, [
+        currentUserId,
+        editingItem,
+        itemDraft,
+        selectedPetId
+    ]);
+
     const selectPet = (pet) => {
         const nextPetId = String(pet?.db_id || pet?.id || '');
         if (!nextPetId) return;
@@ -264,64 +458,100 @@ export default function VetPetsEMR() {
             setSelectedPetId(nextPetId);
             setRecordsData(null);
             setSelectedGroupId('');
+            setEditingGroupId('');
+            setEditingItem(null);
+            setPreviewRecord(null);
+            setGroupAutosaveStatus('idle');
+            setItemAutosaveStatus('idle');
+            groupSavedSignatureRef.current = '';
+            itemSavedSignatureRef.current = '';
         }
     };
 
-    const openCreateGroup = () => {
-        setEditingGroup(null);
-        setGroupDraft({
+    const openCreateGroup = async () => {
+        if (!selectedPetId || isSavingGroup) return;
+
+        const nextDraft = {
             title: `${selectedPet?.name || selectedPet?.petName || 'Pet'} Clinical Summary`,
             summary: '',
             visibleToOwner: true
-        });
-        setGroupDialogOpen(true);
+        };
+
+        setIsSavingGroup(true);
+        try {
+            const data = await createPetMedicalRecordGroup(selectedPetId, {
+                ...nextDraft,
+                userId: currentUserId
+            });
+            const nextGroupId = String(data?.groupId || '');
+            if (nextGroupId) {
+                setSelectedGroupId(nextGroupId);
+                setEditingGroupId(nextGroupId);
+                setGroupDraft(nextDraft);
+                groupSavedSignatureRef.current = groupDraftSignature(nextDraft);
+                setGroupAutosaveStatus('saved');
+            }
+            toast.success('Organized summary created.');
+            await loadRecords({ isAutoRefresh: true });
+        } catch (error) {
+            toast.error(error.message || 'Failed to create organized summary.');
+        } finally {
+            setIsSavingGroup(false);
+        }
     };
 
     const openEditGroup = (group) => {
-        setEditingGroup(group);
-        setGroupDraft({
+        const nextDraft = {
             title: group.title || '',
             summary: group.summary || '',
             visibleToOwner: group.visibleToOwner !== false
-        });
-        setGroupDialogOpen(true);
+        };
+        setEditingGroupId(String(group.groupId));
+        groupSavedSignatureRef.current = groupDraftSignature(nextDraft);
+        setGroupAutosaveStatus('saved');
+        setGroupDraft(nextDraft);
     };
 
-    const saveGroup = async () => {
-        if (!selectedPetId) return;
+    const saveGroup = async (groupId = editingGroupId) => {
+        if (!selectedPetId || !groupId) return;
         if (!groupDraft.title.trim()) {
             toast.error('Group title is required.');
             return;
         }
 
-        try {
-            if (editingGroup) {
-                await updatePetMedicalRecordGroup(selectedPetId, {
-                    groupId: editingGroup.groupId,
-                    title: groupDraft.title,
-                    summary: groupDraft.summary,
-                    visibleToOwner: groupDraft.visibleToOwner,
-                    userId: currentUserId
-                });
-                toast.success('Organized record updated.');
-            } else {
-                const data = await createPetMedicalRecordGroup(selectedPetId, {
-                    title: groupDraft.title,
-                    summary: groupDraft.summary,
-                    visibleToOwner: groupDraft.visibleToOwner,
-                    userId: currentUserId
-                });
-                if (data?.groupId) {
-                    setSelectedGroupId(String(data.groupId));
-                }
-                toast.success('Organized record created.');
-            }
+        if (groupAutosaveTimerRef.current) {
+            window.clearTimeout(groupAutosaveTimerRef.current);
+            groupAutosaveTimerRef.current = null;
+        }
 
-            setGroupDialogOpen(false);
+        setIsSavingGroup(true);
+        setGroupAutosaveStatus('saving');
+        try {
+            await updatePetMedicalRecordGroup(selectedPetId, {
+                groupId,
+                title: groupDraft.title,
+                summary: groupDraft.summary,
+                visibleToOwner: groupDraft.visibleToOwner,
+                userId: currentUserId
+            });
+            toast.success('Organized summary updated.');
+            groupSavedSignatureRef.current = groupDraftSignature(groupDraft);
+            setGroupAutosaveStatus('saved');
+            setEditingGroupId('');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to save organized record.');
+            setGroupAutosaveStatus('error');
+            toast.error(error.message || 'Failed to save organized summary.');
+        } finally {
+            setIsSavingGroup(false);
         }
+    };
+
+    const cancelGroupEdit = () => {
+        setEditingGroupId('');
+        setGroupAutosaveStatus('idle');
+        groupSavedSignatureRef.current = '';
+        setGroupDraft({ title: '', summary: '', visibleToOwner: true });
     };
 
     const removeGroup = async (group) => {
@@ -341,6 +571,14 @@ export default function VetPetsEMR() {
             toast.error('Create or select an organized record first.');
             return;
         }
+        if (!record?.sourceType || !record?.sourceId) {
+            toast.error('This record cannot be added to an organized summary.');
+            return;
+        }
+        if (addedToGroup(record, targetGroupId)) {
+            toast.success('That record is already in this organized summary.');
+            return;
+        }
 
         try {
             await addPetMedicalRecordGroupItem(selectedPetId, {
@@ -351,25 +589,36 @@ export default function VetPetsEMR() {
                 summary: record.summary,
                 userId: currentUserId
             });
-            toast.success('Service record copied into the organized record.');
+            toast.success(record.sourceType === 'vaccination'
+                ? 'Vaccination copied into the organized summary.'
+                : 'Service record added to the organized summary.');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to copy service record.');
+            toast.error(error.message || 'Failed to add record to the organized summary.');
         }
     };
 
     const openEditItem = (item) => {
-        setEditingItem(item);
-        setItemDraft({
+        const nextDraft = {
             title: item.title || '',
             summary: item.summary || '',
             revisionNotes: item.revisionNotes || ''
-        });
+        };
+        setEditingItem(item);
+        itemSavedSignatureRef.current = itemDraftSignature(nextDraft);
+        setItemAutosaveStatus('saved');
+        setItemDraft(nextDraft);
     };
 
     const saveItem = async () => {
         if (!editingItem) return;
 
+        if (itemAutosaveTimerRef.current) {
+            window.clearTimeout(itemAutosaveTimerRef.current);
+            itemAutosaveTimerRef.current = null;
+        }
+
+        setItemAutosaveStatus('saving');
         try {
             await updatePetMedicalRecordGroupItem(selectedPetId, {
                 itemId: editingItem.itemId,
@@ -379,9 +628,13 @@ export default function VetPetsEMR() {
                 userId: currentUserId
             });
             toast.success('Grouped summary updated.');
+            itemSavedSignatureRef.current = itemDraftSignature(itemDraft);
+            setItemAutosaveStatus('saved');
             setEditingItem(null);
+            itemSavedSignatureRef.current = '';
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
+            setItemAutosaveStatus('error');
             toast.error(error.message || 'Failed to update grouped summary.');
         }
     };
@@ -398,13 +651,14 @@ export default function VetPetsEMR() {
 
     const handleDropOnGroup = (event, group) => {
         event.preventDefault();
-        const rawRecord = event.dataTransfer.getData('application/json');
-        if (!rawRecord) return;
+        event.dataTransfer.dropEffect = 'copy';
 
         try {
-            copyRecordToGroup(JSON.parse(rawRecord), group.groupId);
+            const record = readDraggedRecord(event);
+            if (!record) return;
+            copyRecordToGroup(record, group.groupId);
         } catch {
-            toast.error('The dragged service record could not be read.');
+            toast.error('The dragged medical record could not be read.');
         }
     };
 
@@ -417,9 +671,9 @@ export default function VetPetsEMR() {
                         Curate paid or finished service records into owner-ready organized summaries.
                     </p>
                 </div>
-                <Button onClick={openCreateGroup} disabled={!selectedPetId} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                    <Plus className="size-4" />
-                    New Organized Record
+                <Button onClick={openCreateGroup} disabled={!selectedPetId || isSavingGroup} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                    {isSavingGroup ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    New Organized Summary
                 </Button>
             </div>
 
@@ -440,7 +694,6 @@ export default function VetPetsEMR() {
                                     }
                                 }}
                             >
-                                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                                 <Input
                                     value={petSearch}
                                     onChange={(event) => {
@@ -449,7 +702,8 @@ export default function VetPetsEMR() {
                                     }}
                                     onFocus={() => setIsPetSearchOpen(true)}
                                     placeholder="Type to search pets"
-                                    className="h-11 pl-9 text-base"
+                                    className="h-11 text-base"
+                                    leftIcon={<Search className="size-4" />}
                                 />
 
                                 {isPetSearchOpen && (
@@ -597,7 +851,7 @@ export default function VetPetsEMR() {
                         <EmptyPanel
                             icon={ClipboardList}
                             title="No organized records"
-                            message="Create a group, then copy finished service records from the side panel."
+                            message="Create an organized summary, then drop service or vaccination records into it."
                         />
                     ) : (
                         <div className="space-y-4">
@@ -610,6 +864,13 @@ export default function VetPetsEMR() {
                                     onDrop={(event) => handleDropOnGroup(event, group)}
                                     onEdit={() => openEditGroup(group)}
                                     onDelete={() => removeGroup(group)}
+                                    isEditing={String(editingGroupId) === String(group.groupId)}
+                                    draft={groupDraft}
+                                    onDraftChange={setGroupDraft}
+                                    onSaveEdit={() => saveGroup(group.groupId)}
+                                    onCancelEdit={cancelGroupEdit}
+                                    isSaving={isSavingGroup}
+                                    autosaveStatus={groupAutosaveStatus}
                                     onEditItem={openEditItem}
                                     onRemoveItem={removeItem}
                                     onPreview={setViewer}
@@ -639,7 +900,7 @@ export default function VetPetsEMR() {
                                         <ClipboardList className="size-5 text-[#155dfc]" />
                                         Service Records
                                     </h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Drag or copy into a group.</p>
+                                    <p className="mt-1 text-xs font-semibold text-slate-500">Drag into a group summary.</p>
                                 </div>
                                 <Badge className="border-0 bg-slate-100 text-slate-700">{serviceHistory.length}</Badge>
                             </div>
@@ -655,8 +916,7 @@ export default function VetPetsEMR() {
                                     <ServiceRecordCard
                                         key={recordKey(record)}
                                         record={record}
-                                        disabled={!selectedGroupId}
-                                        onCopy={() => copyRecordToGroup(record)}
+                                        onOpenPreview={() => setPreviewRecord(record)}
                                         onPreview={setViewer}
                                     />
                                 ))
@@ -684,46 +944,54 @@ export default function VetPetsEMR() {
                 </Button>
             )}
 
-            <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
-                <DialogContent className="max-w-2xl">
+            <Dialog open={Boolean(previewRecord)} onOpenChange={(open) => !open && setPreviewRecord(null)}>
+                <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingGroup ? 'Edit Organized Record' : 'New Organized Record'}</DialogTitle>
+                        <DialogTitle>{previewRecord?.title || 'Service Record'}</DialogTitle>
                         <DialogDescription>
-                            This is the owner-visible summary container. Service records copied into it keep their original diagnosis data.
+                            {previewRecord ? `${sourceLabel(previewRecord)} - ${formatDisplayDate(previewRecord.serviceDate)}` : ''}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Title</Label>
-                            <Input value={groupDraft.title} onChange={(event) => setGroupDraft(current => ({ ...current, title: event.target.value }))} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Group Summary</Label>
-                            <Textarea
-                                value={groupDraft.summary}
-                                onChange={(event) => setGroupDraft(current => ({ ...current, summary: event.target.value }))}
-                                placeholder="Summarize this treatment group, condition, or service sequence."
-                            />
-                        </div>
-                        <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700">
-                            <Checkbox
-                                checked={groupDraft.visibleToOwner}
-                                onCheckedChange={(checked) => setGroupDraft(current => ({ ...current, visibleToOwner: checked }))}
-                            />
-                            Visible to pet owner print view
-                        </label>
-                    </div>
+                    <SourceRecordDetails record={previewRecord} onPreview={setViewer} />
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={saveGroup} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">Save</Button>
+                        <Button variant="outline" onClick={() => setPreviewRecord(null)}>Close</Button>
+                        <Button
+                            onClick={() => previewRecord && copyRecordToGroup(previewRecord)}
+                            disabled={!selectedGroupId || (previewRecord && addedToGroup(previewRecord, selectedGroupId))}
+                            className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                        >
+                            Add to Target Summary
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={Boolean(editingItem)} onOpenChange={(open) => !open && setEditingItem(null)}>
+            <Dialog
+                open={Boolean(editingItem)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setEditingItem(null);
+                        setItemAutosaveStatus('idle');
+                        itemSavedSignatureRef.current = '';
+                    }
+                }}
+            >
                 <DialogContent className="max-w-5xl">
                     <DialogHeader>
-                        <DialogTitle>Modify Grouped Diagnosis Summary</DialogTitle>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <DialogTitle>Modify Grouped Diagnosis Summary</DialogTitle>
+                            {autosaveText(itemAutosaveStatus) && (
+                                <Badge className={`w-fit border-0 ${
+                                    itemAutosaveStatus === 'error'
+                                        ? 'bg-red-50 text-red-700'
+                                        : itemAutosaveStatus === 'saving'
+                                            ? 'bg-amber-50 text-amber-700'
+                                            : 'bg-green-50 text-green-700'
+                                }`}>
+                                    {autosaveText(itemAutosaveStatus)}
+                                </Badge>
+                            )}
+                        </div>
                         <DialogDescription>
                             Edit the curated summary without changing the original diagnosis or billing record.
                         </DialogDescription>
@@ -776,7 +1044,6 @@ export default function VetPetsEMR() {
 function PetPreviewCard({ pet, onCollapse }) {
     const imageSrc = resolveImageUrl(pet?.profileImage || pet?.setpetImage_url || '');
     const petName = pet?.name || pet?.petName || 'No pet selected';
-    const ownerName = pet?.ownerName || pet?.tempOwnerName || 'N/A';
     const petId = pet?.id || pet?.pet_sharable_ID || pet?.dbId || pet?.db_id || 'N/A';
 
     return (
@@ -818,9 +1085,8 @@ function PetPreviewCard({ pet, onCollapse }) {
             </div>
 
             <CardContent className="p-4">
-                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-5">
                     <PreviewInfo label="Pet ID" value={petId} />
-                    <PreviewInfo label="Owner" value={ownerName} />
                     <PreviewInfo label="Sex" value={pet?.gender || 'N/A'} />
                     <PreviewInfo label="Age" value={pet?.age || 'N/A'} />
                     <PreviewInfo label="Weight" value={pet?.weight ? `${pet.weight} kg` : 'N/A'} />
@@ -880,23 +1146,43 @@ function VaccinationPanel({ vaccinations }) {
                 <div className="p-5 text-sm font-semibold text-slate-400">No vaccination records saved for this pet.</div>
             ) : (
                 <div className="divide-y divide-slate-100">
-                    {vaccinations.map((vaccine, index) => (
-                        <div
-                            key={vaccine.id || index}
-                            className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.7fr] md:items-center"
-                        >
-                            <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
-                            <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
-                            <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
-                            <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
-                            <div className="flex items-center justify-between gap-3 md:block">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
-                                <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                                    {vaccine.status || 'completed'}
-                                </Badge>
+                    {vaccinations.map((vaccine, index) => {
+                        const source = vaccinationSourceRecord(vaccine);
+                        const canDrag = Boolean(source.sourceId);
+
+                        return (
+                            <div
+                                key={vaccine.id || index}
+                                draggable={canDrag}
+                                onDragStart={(event) => {
+                                    if (!canDrag) return;
+                                    event.dataTransfer.setData(MEDICAL_RECORD_DRAG_TYPE, dragPayload('vaccination', source));
+                                    event.dataTransfer.setData('application/json', JSON.stringify(source));
+                                    event.dataTransfer.setData('text/plain', source.title);
+                                    event.dataTransfer.effectAllowed = 'copy';
+                                }}
+                                className="grid cursor-grab gap-3 px-5 py-4 text-sm transition hover:bg-blue-50/30 active:cursor-grabbing md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.9fr] md:items-center"
+                            >
+                                <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
+                                <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
+                                <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
+                                <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
+                                <div className="flex flex-wrap items-center justify-between gap-2 md:justify-start">
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
+                                    <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+                                        {vaccine.status || 'completed'}
+                                    </Badge>
+                                    {vaccine.isAddedToOrganizedRecord && (
+                                        <Badge className="gap-1 border-0 bg-blue-50 text-[#155dfc]">
+                                            <CheckCircle2 className="size-3" />
+                                            Copied
+                                        </Badge>
+                                    )}
+                                    <GripVertical className="hidden size-4 text-slate-300 md:block" />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </section>
@@ -944,45 +1230,119 @@ function EmptyPanel({ icon, title, message }) {
     );
 }
 
-function RecordGroup({ group, selected, onSelect, onDrop, onEdit, onDelete, onEditItem, onRemoveItem, onPreview }) {
+function RecordGroup({
+    group,
+    selected,
+    isEditing,
+    draft,
+    isSaving,
+    onSelect,
+    onDrop,
+    onEdit,
+    onDelete,
+    onDraftChange,
+    onSaveEdit,
+    onCancelEdit,
+    autosaveStatus,
+    onEditItem,
+    onRemoveItem,
+    onPreview
+}) {
     return (
         <article
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+            }}
             onDrop={onDrop}
             className={`overflow-hidden rounded-xl border bg-white shadow-sm transition ${selected ? 'border-[#155dfc] ring-2 ring-blue-100' : 'border-slate-200'}`}
         >
             <header className="border-b border-slate-100 bg-slate-50 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <button type="button" onClick={onSelect} className="min-w-0 text-left">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-black text-slate-950">{group.title}</h3>
-                            {selected && <Badge className="border-0 bg-blue-50 text-[#155dfc]">Target</Badge>}
-                            {!group.visibleToOwner && <Badge className="border-0 bg-amber-50 text-amber-700">Internal</Badge>}
+                {isEditing ? (
+                    <div className="space-y-3">
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+                            <div className="space-y-2">
+                                <Label>Title</Label>
+                                <Input
+                                    value={draft.title}
+                                    onChange={(event) => onDraftChange(current => ({ ...current, title: event.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Group Summary</Label>
+                                <Textarea
+                                    value={draft.summary}
+                                    onChange={(event) => onDraftChange(current => ({ ...current, summary: event.target.value }))}
+                                    placeholder="Summarize this treatment group, condition, or service sequence."
+                                    className="min-h-24"
+                                />
+                            </div>
                         </div>
-                        {group.summary && <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600">{group.summary}</p>}
-                        {group.updatedByName && (
-                            <p className="mt-2 text-xs font-black uppercase tracking-widest text-slate-400">
-                                Edited by {editorLabel(group.updatedByName)}
-                            </p>
-                        )}
-                    </button>
-                    <div className="flex shrink-0 gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={onEdit} className="gap-1">
-                            <Pencil className="size-3" />
-                            Edit
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={onDelete} className="gap-1 border-red-200 text-red-600 hover:bg-red-50">
-                            <Trash2 className="size-3" />
-                            Delete
-                        </Button>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm font-bold text-slate-700">
+                                <Checkbox
+                                    checked={draft.visibleToOwner}
+                                    onCheckedChange={(checked) => onDraftChange(current => ({ ...current, visibleToOwner: checked }))}
+                                />
+                                Visible to pet owner print view
+                            </label>
+                            <div className="flex flex-col gap-2 sm:items-end">
+                                {autosaveText(autosaveStatus) && (
+                                    <Badge className={`w-fit border-0 ${
+                                        autosaveStatus === 'error'
+                                            ? 'bg-red-50 text-red-700'
+                                            : autosaveStatus === 'saving'
+                                                ? 'bg-amber-50 text-amber-700'
+                                                : 'bg-green-50 text-green-700'
+                                    }`}>
+                                        {autosaveText(autosaveStatus)}
+                                    </Badge>
+                                )}
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                    <Button type="button" variant="outline" onClick={onCancelEdit}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="button" onClick={onSaveEdit} disabled={isSaving} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                                        {isSaving && <Loader2 className="size-4 animate-spin" />}
+                                        Apply Summary
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <button type="button" onClick={onSelect} className="min-w-0 text-left">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-black text-slate-950">{group.title}</h3>
+                                {selected && <Badge className="border-0 bg-blue-50 text-[#155dfc]">Target</Badge>}
+                                {!group.visibleToOwner && <Badge className="border-0 bg-amber-50 text-amber-700">Internal</Badge>}
+                            </div>
+                            {group.summary && <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600">{group.summary}</p>}
+                            {group.updatedByName && (
+                                <p className="mt-2 text-xs font-black uppercase tracking-widest text-slate-400">
+                                    Edited by {editorLabel(group.updatedByName)}
+                                </p>
+                            )}
+                        </button>
+                        <div className="flex shrink-0 gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={onEdit} className="gap-1">
+                                <Pencil className="size-3" />
+                                Edit
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={onDelete} className="gap-1 border-red-200 text-red-600 hover:bg-red-50">
+                                <Trash2 className="size-3" />
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </header>
 
             <div className="divide-y divide-slate-100">
                 {asArray(group.items).length === 0 ? (
                     <div className="p-5 text-sm font-semibold text-slate-400">
-                        Drop service records here or use Copy on the side panel.
+                        Drop service records or vaccination rows here.
                     </div>
                 ) : (
                     group.items.map((item) => (
@@ -1036,17 +1396,31 @@ function GroupedItem({ item, onEdit, onRemove, onPreview }) {
     );
 }
 
-function ServiceRecordCard({ record, disabled, onCopy, onPreview }) {
+function ServiceRecordCard({ record, onOpenPreview, onPreview }) {
     const attachments = [...asArray(record.attachments), ...asArray(record.sourceUploads)];
+    const openPreview = () => {
+        onOpenPreview?.();
+    };
 
     return (
         <article
+            role="button"
+            tabIndex={0}
             draggable
+            onClick={openPreview}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openPreview();
+                }
+            }}
             onDragStart={(event) => {
+                event.dataTransfer.setData(MEDICAL_RECORD_DRAG_TYPE, dragPayload('service', record));
                 event.dataTransfer.setData('application/json', JSON.stringify(record));
+                event.dataTransfer.setData('text/plain', record.title || 'Service record');
                 event.dataTransfer.effectAllowed = 'copy';
             }}
-            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+            className="cursor-grab rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-200 hover:shadow active:cursor-grabbing"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1065,10 +1439,7 @@ function ServiceRecordCard({ record, disabled, onCopy, onPreview }) {
                         {formatDisplayDate(record.serviceDate)}
                     </p>
                 </div>
-                <Button type="button" size="sm" onClick={onCopy} disabled={disabled} className="h-8 gap-1 bg-[#155dfc] px-2 text-xs text-white hover:bg-[#0d4acf]">
-                    <Copy className="size-3" />
-                    Copy
-                </Button>
+                <GripVertical className="mt-1 size-4 shrink-0 text-slate-300" />
             </div>
             {record.summary && (
                 <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-xs font-semibold leading-5 text-slate-600">{record.summary}</p>
@@ -1107,6 +1478,7 @@ function AttachmentStrip({ attachments, onPreview, compact = false }) {
                             href={url}
                             target="_blank"
                             rel="noreferrer"
+                            onClick={(event) => event.stopPropagation()}
                             className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
                             title={title}
                         >
@@ -1119,7 +1491,12 @@ function AttachmentStrip({ attachments, onPreview, compact = false }) {
                     <button
                         key={attachment.id || `${url}-${index}`}
                         type="button"
-                        onClick={() => canPreview && onPreview({ src: url, alt: title })}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (canPreview) {
+                                onPreview({ src: url, alt: title });
+                            }
+                        }}
                         disabled={!canPreview || !url}
                         className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
                         title={title}
@@ -1142,6 +1519,15 @@ function SourceRecordDetails({ record, onPreview }) {
         ...asArray(record.prescriptions),
         ...asArray(record.customSections).flatMap(section => asArray(section.prescriptions || section.prescription))
     ];
+    const customSections = asArray(record.customSections).filter(section => {
+        if (!section || typeof section !== 'object') return false;
+        return Boolean(section.value || section.notes || section.majorSymptoms || section.description);
+    });
+    const vitalSigns = record.vitalSigns && typeof record.vitalSigns === 'object' && !Array.isArray(record.vitalSigns)
+        ? Object.entries(record.vitalSigns).filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+        : [];
+    const charges = asArray(record.charges);
+    const totals = record.totals || {};
 
     return (
         <div className="space-y-4 text-sm">
@@ -1151,9 +1537,39 @@ function SourceRecordDetails({ record, onPreview }) {
                 <Detail label="Vet" value={record.veterinarianName || 'Clinic Team'} />
                 <Detail label="Billing" value={record.billingStatus || record.status || 'N/A'} />
             </div>
+            <TextBlock icon={AlertCircle} label="Chief Complaint" value={record.chiefComplaint} />
+            <TextBlock icon={ClipboardList} label="Major Symptoms" value={record.majorSymptoms || record.symptoms} />
+            <TextBlock icon={ClipboardList} label="Physical Exam" value={record.physicalExam} />
             <TextBlock icon={Stethoscope} label="Diagnosis" value={record.diagnosis || record.summary} />
             <TextBlock icon={ClipboardList} label="Treatment" value={record.treatment} />
+            <TextBlock icon={ClipboardList} label="Lab Results" value={record.labResults} />
+            <TextBlock icon={CalendarDays} label="Follow-up" value={record.followUp ? formatDisplayDate(record.followUp) : ''} />
             <TextBlock icon={AlertCircle} label="Notes" value={record.notes} />
+            {vitalSigns.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Vital Signs</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {vitalSigns.map(([label, value]) => (
+                            <Detail key={label} label={label.replace(/_/g, ' ')} value={String(value)} />
+                        ))}
+                    </div>
+                </div>
+            )}
+            {customSections.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Additional History</p>
+                    <div className="space-y-2">
+                        {customSections.map((section, index) => (
+                            <TextBlock
+                                key={section.id || index}
+                                icon={FileText}
+                                label={section.title || section.label || section.type || `Clinical Note ${index + 1}`}
+                                value={section.value || section.notes || section.majorSymptoms || section.description}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
             {prescriptions.length > 0 && (
                 <div className="rounded-lg border border-blue-100 bg-white p-3">
                     <p className="mb-2 font-black text-[#155dfc]">Prescriptions</p>
@@ -1163,6 +1579,25 @@ function SourceRecordDetails({ record, onPreview }) {
                                 {prescription.medicine || prescription.name || 'Medication'}
                             </p>
                         ))}
+                    </div>
+                </div>
+            )}
+            {charges.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Billing Lines</p>
+                    <div className="divide-y divide-slate-100">
+                        {charges.map((charge, index) => (
+                            <div key={charge.id || index} className="grid gap-2 py-2 sm:grid-cols-[minmax(0,1fr)_5rem_7rem] sm:items-center">
+                                <p className="font-bold text-slate-800">{charge.description || charge.serviceName || charge.itemName || 'Charge'}</p>
+                                <p className="text-xs font-semibold text-slate-500">Qty {charge.quantity || 1}</p>
+                                <p className="font-black text-slate-900">{formatCurrency(charge.subtotal ?? charge.unitPrice ?? 0)}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3">
+                        <Detail label="Charges" value={formatCurrency(totals.charges)} />
+                        <Detail label="Paid" value={formatCurrency(totals.paid)} />
+                        <Detail label="Balance" value={formatCurrency(totals.balance)} />
                     </div>
                 </div>
             )}

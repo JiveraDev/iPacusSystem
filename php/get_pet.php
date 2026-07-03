@@ -80,7 +80,7 @@ function getPetPrescriptionDocuments(PDO $pdo, int $petId): array
 
 try {
     // Check if it's a sharable ID or numeric ID
-    $sql = "SELECT p.*, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name 
+    $sql = "SELECT p.*, po.user_id AS owner_user_id, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name
             FROM pets_information p
             LEFT JOIN pet_ownership po ON p.pet_id = po.pet_id
             LEFT JOIN users u ON po.user_id = u.user_id
@@ -141,7 +141,10 @@ try {
         'weight' => $pet['pet_weight'],
         'color' => $pet['pet_color_marking'],
         'microchipId' => $pet['pet_microchip'],
-        'ownerName' => $pet['owner_name'] ?: $pet['pet_Temp_owner'],
+        'ownerName' => $pet['owner_name'] ?: null,
+        'ownerUserId' => $pet['owner_user_id'] !== null ? (int)$pet['owner_user_id'] : null,
+        'hasOwnership' => $pet['owner_user_id'] !== null,
+        'tempOwnerName' => $pet['pet_Temp_owner'] ?: null,
         'profileImage' => $pet['setpetImage_url'],
         'allergies_raw' => $pet['pet_allergies'],
         'allergies' => $pet['pet_allergies'] ? [['allergen' => $pet['pet_allergies'], 'severity' => 'Known']] : [],

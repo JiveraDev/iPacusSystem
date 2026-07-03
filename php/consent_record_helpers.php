@@ -13,10 +13,102 @@ function consent_record_table_exists_raw(PDO $pdo): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function consent_record_column_exists(PDO $pdo, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'consent_form_records'
+          AND column_name = ?
+    ");
+    $stmt->execute([$columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function consent_record_column_type(PDO $pdo, string $columnName): string
+{
+    $stmt = $pdo->prepare("
+        SELECT COLUMN_TYPE
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'consent_form_records'
+          AND column_name = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$columnName]);
+
+    return (string)($stmt->fetchColumn() ?: '');
+}
+
+function consent_record_apply_schema_change(PDO $pdo, string $sql): bool
+{
+    try {
+        $pdo->exec($sql);
+        return true;
+    } catch (Throwable $e) {
+        error_log('Consent record schema update failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function consent_record_ensure_columns(PDO $pdo): bool
+{
+    $requiredColumns = [
+        'consent_file_id' => "ALTER TABLE consent_form_records ADD COLUMN consent_file_id int(11) DEFAULT NULL AFTER consent_record_id",
+        'consent_type' => "ALTER TABLE consent_form_records ADD COLUMN consent_type varchar(180) DEFAULT NULL AFTER consent_file_id",
+        'owner_user_id' => "ALTER TABLE consent_form_records ADD COLUMN owner_user_id int(11) DEFAULT NULL AFTER consent_type",
+        'pet_id' => "ALTER TABLE consent_form_records ADD COLUMN pet_id int(11) DEFAULT NULL AFTER owner_user_id",
+        'booking_id' => "ALTER TABLE consent_form_records ADD COLUMN booking_id int(11) DEFAULT NULL AFTER pet_id",
+        'queue_id' => "ALTER TABLE consent_form_records ADD COLUMN queue_id int(11) DEFAULT NULL AFTER booking_id",
+        'visit_id' => "ALTER TABLE consent_form_records ADD COLUMN visit_id int(11) DEFAULT NULL AFTER queue_id",
+        'service_name' => "ALTER TABLE consent_form_records ADD COLUMN service_name varchar(180) DEFAULT NULL AFTER visit_id",
+        'status' => "ALTER TABLE consent_form_records ADD COLUMN status enum('pending','signed','released','cancelled') NOT NULL DEFAULT 'pending' AFTER service_name",
+        'source' => "ALTER TABLE consent_form_records ADD COLUMN source enum('booking','queue','vet_my_list','diagnosis','manual') NOT NULL DEFAULT 'manual' AFTER status",
+        'requested_at' => "ALTER TABLE consent_form_records ADD COLUMN requested_at datetime NOT NULL DEFAULT current_timestamp() AFTER source",
+        'signed_at' => "ALTER TABLE consent_form_records ADD COLUMN signed_at datetime DEFAULT NULL AFTER requested_at",
+        'released_at' => "ALTER TABLE consent_form_records ADD COLUMN released_at datetime DEFAULT NULL AFTER signed_at",
+        'signed_file_path' => "ALTER TABLE consent_form_records ADD COLUMN signed_file_path varchar(500) DEFAULT NULL AFTER released_at",
+        'physical_file_path' => "ALTER TABLE consent_form_records ADD COLUMN physical_file_path varchar(500) DEFAULT NULL AFTER signed_file_path",
+        'signer_name' => "ALTER TABLE consent_form_records ADD COLUMN signer_name varchar(180) DEFAULT NULL AFTER physical_file_path",
+        'processed_by_user_id' => "ALTER TABLE consent_form_records ADD COLUMN processed_by_user_id int(11) DEFAULT NULL AFTER signer_name",
+        'processed_by_name' => "ALTER TABLE consent_form_records ADD COLUMN processed_by_name varchar(180) DEFAULT NULL AFTER processed_by_user_id",
+        'notes' => "ALTER TABLE consent_form_records ADD COLUMN notes text DEFAULT NULL AFTER processed_by_name",
+        'created_at' => "ALTER TABLE consent_form_records ADD COLUMN created_at timestamp NOT NULL DEFAULT current_timestamp() AFTER notes",
+        'updated_at' => "ALTER TABLE consent_form_records ADD COLUMN updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() AFTER created_at",
+    ];
+
+    $isReady = true;
+    foreach ($requiredColumns as $columnName => $sql) {
+        if (!consent_record_column_exists($pdo, $columnName)) {
+            $isReady = consent_record_apply_schema_change($pdo, $sql) && $isReady;
+        }
+    }
+
+    $statusType = consent_record_column_type($pdo, 'status');
+    if ($statusType !== '' && stripos($statusType, "'released'") === false) {
+        $isReady = consent_record_apply_schema_change(
+            $pdo,
+            "ALTER TABLE consent_form_records MODIFY status enum('pending','signed','released','cancelled') NOT NULL DEFAULT 'pending'"
+        ) && $isReady;
+    }
+
+    $sourceType = consent_record_column_type($pdo, 'source');
+    if ($sourceType !== '' && stripos($sourceType, "'vet_my_list'") === false) {
+        $isReady = consent_record_apply_schema_change(
+            $pdo,
+            "ALTER TABLE consent_form_records MODIFY source enum('booking','queue','vet_my_list','diagnosis','manual') NOT NULL DEFAULT 'manual'"
+        ) && $isReady;
+    }
+
+    return $isReady;
+}
+
 function consent_record_ensure_table(PDO $pdo): bool
 {
     if (consent_record_table_exists_raw($pdo)) {
-        return true;
+        return consent_record_ensure_columns($pdo);
     }
 
     try {
@@ -60,7 +152,7 @@ function consent_record_ensure_table(PDO $pdo): bool
         return false;
     }
 
-    return consent_record_table_exists_raw($pdo);
+    return consent_record_table_exists_raw($pdo) && consent_record_ensure_columns($pdo);
 }
 
 function consent_record_table_exists(PDO $pdo): bool

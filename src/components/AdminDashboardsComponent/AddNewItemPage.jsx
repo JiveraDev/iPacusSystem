@@ -555,21 +555,17 @@ export default function AddNewItemPage() {
               <Label htmlFor="costPrice" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                 Unit Cost *
               </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                  PHP
-                </span>
-                <Input
-                  id="costPrice"
-                  name="costPrice"
-                  type="number"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="pl-12"
-                  required
-                />
-              </div>
+              <Input
+                id="costPrice"
+                name="costPrice"
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                className="pl-12"
+                leftIcon={<span className="text-xs font-semibold">PHP</span>}
+                required
+              />
             </div>
           </div>
         </div>

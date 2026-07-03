@@ -6,12 +6,13 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X, Search } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
+import { resolveImageUrl } from '../../lib/image';
 
 const PERSONNEL_POSITION_OPTIONS = [
     { value: 'Nurse', label: 'Senior Nurse' },
@@ -43,7 +44,10 @@ export default function AccountManagement() {
     const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time' });
     const [isSavingPersonnel, setIsSavingPersonnel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [accounts, setAccounts] = useState({ veterinarians: [], staff: [] });
+    const [accounts, setAccounts] = useState({ veterinarians: [], staff: [], superadmins: [] });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
 
     // Create Account Form State
     const [createForm, setCreateForm] = useState({
@@ -76,7 +80,14 @@ export default function AccountManagement() {
         }
         try {
             const data = await fetchAccountsService();
-            setAccounts(data);
+            const nextAccounts = {
+                veterinarians: data.veterinarians || [],
+                staff: data.staff || [],
+                superadmins: data.superadmins || []
+            };
+
+            setAccounts(nextAccounts);
+            setSelectedUser((currentUser) => syncSelectedAccount(currentUser, nextAccounts));
         } catch (error) {
             console.error("Error fetching accounts:", error);
             toast.error("Failed to load accounts");
@@ -86,6 +97,16 @@ export default function AccountManagement() {
     };
 
     useAutoRefresh(fetchAccounts);
+
+    const handleCreateRoleChange = (role) => {
+        setCreateForm((currentForm) => ({
+            ...currentForm,
+            role,
+            position: role === 'Super Admin'
+                ? 'Super Admin'
+                : (currentForm.position === 'Super Admin' ? 'Nurse' : currentForm.position)
+        }));
+    };
 
     const handleCreateAccount = async (e) => {
         e.preventDefault();
@@ -120,6 +141,33 @@ export default function AccountManagement() {
         const first = displayValue(account?.first_Name, '').charAt(0);
         const last = displayValue(account?.last_Name, '').charAt(0);
         return `${first}${last}`.trim() || 'IP';
+    };
+    const getAccountImage = (account) => resolveImageUrl(
+        account?.setProfilePic_url ||
+        account?.profileImage ||
+        account?.profile_image ||
+        account?.profile_picture ||
+        ''
+    );
+    const findAccountInBucket = (currentUser, nextAccounts) => {
+        if (!currentUser) {
+            return null;
+        }
+
+        const bucket = currentUser.type === 'vet'
+            ? nextAccounts.veterinarians
+            : currentUser.type === 'staff'
+                ? nextAccounts.staff
+                : currentUser.type === 'superadmin'
+                    ? nextAccounts.superadmins
+                    : [];
+
+        return bucket.find((account) => String(account.user_id) === String(currentUser.user_id)) || null;
+    };
+    const syncSelectedAccount = (currentUser, nextAccounts) => {
+        const syncedAccount = findAccountInBucket(currentUser, nextAccounts);
+
+        return syncedAccount ? { ...syncedAccount, type: currentUser.type } : currentUser;
     };
     const formatEmploymentStatus = (value) => employmentStatusLabels[String(value || '').toLowerCase()] || displayValue(value);
     const getPersonnelFormFromUser = (user) => ({
@@ -345,102 +393,331 @@ export default function AccountManagement() {
         return <Badge className="bg-gray-500 text-white">Disabled</Badge>;
     };
 
-    const EmptyCard = ({ title, description, icon }) => (
-        <Card className="border-dashed border-2 border-slate-200 bg-slate-50/10 flex flex-col justify-center min-h-[250px] shadow-none pointer-events-none">
-            <CardContent className="flex items-center justify-center p-6">
-                <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        {createElement(icon, { className: 'h-8 w-8 text-slate-200' })}
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-400 uppercase tracking-tight">{title}</h3>
-                    <p className="text-slate-300 text-sm mt-1">{description}</p>
-                </div>
-            </CardContent>
-        </Card>
-    );
+    const getAccountCardTone = (type) => {
+        if (type === 'vet') {
+            return {
+                avatarClass: 'bg-blue-100',
+                iconClass: 'text-blue-600',
+                icon: Stethoscope,
+                subtitle: 'text-blue-700'
+            };
+        }
 
-    const UserCard = ({ user, type }) => (
-        <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
-            <div className="mb-4 flex items-start justify-between gap-3">
+        if (type === 'superadmin') {
+            return {
+                avatarClass: 'bg-emerald-100',
+                iconClass: 'text-emerald-600',
+                icon: ShieldCheck,
+                subtitle: 'text-emerald-700'
+            };
+        }
+
+        return {
+            avatarClass: 'bg-purple-100',
+            iconClass: 'text-purple-600',
+            icon: UserCog,
+            subtitle: 'text-purple-700'
+        };
+    };
+
+    const getRoleLabel = (type) => {
+        if (type === 'vet') return 'Veterinarian';
+        if (type === 'superadmin') return 'Super Admin';
+        return 'Admin / Staff';
+    };
+
+    const getRoleBadgeClass = (type) => {
+        if (type === 'vet') return 'border-blue-200 bg-blue-50 text-blue-700';
+        if (type === 'superadmin') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        return 'border-violet-200 bg-violet-50 text-violet-700';
+    };
+
+    const getAccountName = (account) => {
+        return displayValue(`${account?.first_Name || ''} ${account?.last_Name || ''}`.trim(), account?.mail_Address || 'Account');
+    };
+
+    const getAccountProfileText = (account) => {
+        if (account.type === 'vet') {
+            return displayValue(account.specialization, 'Veterinarian');
+        }
+
+        if (account.type === 'superadmin') {
+            return 'System access';
+        }
+
+        return displayValue(account.postionn, 'Clinic personnel');
+    };
+
+    const getAccountMetaText = (account) => {
+        if (account.type === 'vet') {
+            return account.prc_license_number ? `PRC ${account.prc_license_number}` : displayValue(account.veterinarian_id, 'No license set');
+        }
+
+        if (account.type === 'superadmin') {
+            return displayValue(account.employee_id, 'Super Admin');
+        }
+
+        return formatEmploymentStatus(account.employment_status);
+    };
+
+    const getAccountStatus = (account) => {
+        if (account.type === 'superadmin') {
+            return 'privileged';
+        }
+
+        return isAccountActive(account.is_active) ? 'active' : 'disabled';
+    };
+
+    const allAccountRows = [
+        ...accounts.superadmins.map((account) => ({ ...account, type: 'superadmin' })),
+        ...accounts.staff.map((account) => ({ ...account, type: 'staff' })),
+        ...accounts.veterinarians.map((account) => ({ ...account, type: 'vet' }))
+    ];
+
+    const accountSearchQuery = searchQuery.trim().toLowerCase();
+
+    const filteredAccountRows = allAccountRows.filter((account) => {
+        if (roleFilter !== 'all' && account.type !== roleFilter) {
+            return false;
+        }
+
+        if (statusFilter !== 'all' && getAccountStatus(account) !== statusFilter) {
+            return false;
+        }
+
+        if (!accountSearchQuery) {
+            return true;
+        }
+
+        return [
+            getAccountName(account),
+            account.mail_Address,
+            getRoleLabel(account.type),
+            getAccountProfileText(account),
+            getAccountMetaText(account),
+            account.phoneNumber,
+            account.employee_id,
+            account.veterinarian_id
+        ].join(' ').toLowerCase().includes(accountSearchQuery);
+    });
+
+    const resetAccountFilters = () => {
+        setSearchQuery('');
+        setRoleFilter('all');
+        setStatusFilter('all');
+    };
+
+    const ProfileAvatar = ({ account, type, size = 'card' }) => {
+        const [failedSrc, setFailedSrc] = useState('');
+        const imageSrc = getAccountImage(account);
+        const resolvedImageSrc = imageSrc && failedSrc !== imageSrc ? imageSrc : null;
+        const tone = getAccountCardTone(type);
+        const sizeClass = size === 'modal' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-sm';
+
+        return (
+            <div className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full ${tone.avatarClass} font-black ${tone.iconClass}`}>
+                {resolvedImageSrc ? (
+                    <img
+                        src={resolvedImageSrc}
+                        alt={`${displayValue(`${account?.first_Name || ''} ${account?.last_Name || ''}`, 'Account')} profile`}
+                        className="h-full w-full object-cover"
+                        onError={() => setFailedSrc(resolvedImageSrc)}
+                    />
+                ) : (
+                    <span>{getInitials(account)}</span>
+                )}
+            </div>
+        );
+    };
+
+    const StatusBadge = ({ account }) => {
+        if (account.type === 'superadmin') {
+            return <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">Privileged</Badge>;
+        }
+
+        return getStatusBadge(account.is_active);
+    };
+
+    const AccountMobileRow = ({ account }) => (
+        <button
+            type="button"
+            onClick={() => openAccountDetails(account, account.type)}
+            className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/30 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+        >
+            <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                    <div className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center ${
-                        type === 'vet' ? 'bg-blue-100' : 'bg-purple-100'
-                    }`}>
-                        {type === 'vet' ? <Stethoscope className="w-6 h-6 text-blue-600" /> : <UserCog className="w-6 h-6 text-purple-600" />}
-                    </div>
+                    <ProfileAvatar account={account} type={account.type} />
                     <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <h3 className="truncate text-base font-bold text-gray-900 md:text-lg">{user.first_Name} {user.last_Name}</h3>
-                        </div>
-                        <p className="truncate text-sm text-gray-600">{type === 'vet' ? user.specialization : user.postionn}</p>
+                        <p className="truncate text-sm font-black text-slate-950">{getAccountName(account)}</p>
+                        <p className="truncate text-xs font-semibold text-slate-500">{account.mail_Address}</p>
                     </div>
                 </div>
-                {getStatusBadge(user.is_active)}
+                <StatusBadge account={account} />
             </div>
-
-            <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    <span className="truncate">{user.mail_Address}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Briefcase className="w-4 h-4 text-gray-400" />
-                    <span>{type === 'vet' ? `Lic: ${user.prc_license_number}` : user.employment_status}</span>
-                </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+                <Badge className={getRoleBadgeClass(account.type)}>{getRoleLabel(account.type)}</Badge>
+                <Badge className="border-slate-200 bg-slate-50 text-slate-600">{getAccountProfileText(account)}</Badge>
             </div>
-
-            <Button
-                onClick={() => openAccountDetails(user, type)}
-                variant="outline"
-                className="w-full"
-            >
-                View Details
-            </Button>
-        </Card>
+            <p className="mt-3 truncate text-xs font-semibold text-slate-500">{getAccountMetaText(account)}</p>
+        </button>
     );
 
     return (
-        <div className="space-y-6 md:space-y-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-5">
+            <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Account Management</h1>
-                    <p className="text-sm text-gray-500">Manage staff and veterinarians</p>
+                    <h1 className="text-2xl font-black tracking-tight text-slate-950">Account Management</h1>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">Manage clinic users, profile details, and account access.</p>
                 </div>
-                <Button onClick={() => setShowCreateAccount(true)} className="w-full bg-blue-600 text-white sm:w-auto">
-                    <UserPlus className="w-4 h-4 mr-2" />
+                <Button onClick={() => setShowCreateAccount(true)} className="w-full gap-2 bg-blue-600 text-white sm:w-auto">
+                    <UserPlus className="size-4" />
                     Create Account
                 </Button>
             </div>
 
-            <div>
-                <div className="mb-6">
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Staff & Nurses</h2>
-                    <p className="text-sm md:text-base text-gray-600">Active and approved clinic staff and nursing personnel</p>
-                </div>
-                <div className="responsive-grid gap-4 md:gap-6">
-                    {isLoading ? [1,2].map(i => <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />) :
-                     accounts.staff.length > 0 ? accounts.staff.map((user) => (
-                        <UserCard key={user.user_id} user={user} type="staff" />
-                    )) : (
-                        <EmptyCard title="No Staff Found" description="Approved staff and nursing records will appear here." icon={UserCog} />
-                    )}
-                </div>
-            </div>
+            <Card className="border-slate-200 shadow-sm">
+                <CardContent className="p-4">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_13rem_12rem_auto]">
+                        <div>
+                            <Input
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="Search name, email, license, position"
+                                leftIcon={<Search className="size-4" />}
+                            />
+                        </div>
+                        <Select value={roleFilter} onValueChange={setRoleFilter}>
+                            <SelectTrigger>
+                                <SelectValue displayValue={roleFilter === 'all' ? 'All roles' : getRoleLabel(roleFilter)} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All roles</SelectItem>
+                                <SelectItem value="superadmin">Super Admin</SelectItem>
+                                <SelectItem value="staff">Admin / Staff</SelectItem>
+                                <SelectItem value="vet">Veterinarian</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger>
+                                <SelectValue displayValue={
+                                    statusFilter === 'all'
+                                        ? 'All access'
+                                        : statusFilter === 'active'
+                                            ? 'Active'
+                                            : statusFilter === 'disabled'
+                                                ? 'Disabled'
+                                                : 'Privileged'
+                                } />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All access</SelectItem>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="disabled">Disabled</SelectItem>
+                                <SelectItem value="privileged">Privileged</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button type="button" variant="outline" onClick={resetAccountFilters} className="w-full lg:w-auto">
+                            Clear
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
-            <div>
-                <div className="mb-6">
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">Veterinarians</h2>
-                    <p className="text-sm md:text-base text-gray-600">Active and approved licensed veterinarians</p>
+            <Card className="overflow-hidden border-slate-200 shadow-sm">
+                <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">Account Directory</h2>
+                        <p className="text-xs font-semibold text-slate-500">Open a row to review profile and access details.</p>
+                    </div>
+                    {isLoading ? (
+                        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                            <Loader2 className="size-4 animate-spin" />
+                            Loading
+                        </div>
+                    ) : null}
                 </div>
-                <div className="responsive-grid gap-4 md:gap-6">
-                    {isLoading ? [1,2,3].map(i => <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />) :
-                     accounts.veterinarians.length > 0 ? accounts.veterinarians.map((user) => (
-                        <UserCard key={user.user_id} user={user} type="vet" />
-                    )) : (
-                        <EmptyCard title="No Veterinarians Found" description="Licensed doctors added to the system will appear here." icon={Stethoscope} />
+
+                <div className="hidden overflow-x-auto scrollbar-hide md:block">
+                    <table className="min-w-full text-left text-sm">
+                        <thead className="bg-white text-[11px] uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th className="px-4 py-3 font-black">Account</th>
+                                <th className="px-4 py-3 font-black">Role</th>
+                                <th className="px-4 py-3 font-black">Profile</th>
+                                <th className="px-4 py-3 font-black">Contact</th>
+                                <th className="px-4 py-3 font-black">Access</th>
+                                <th className="px-4 py-3 text-right font-black">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {isLoading ? (
+                                [1, 2, 3, 4].map((item) => (
+                                    <tr key={`account-loading-${item}`}>
+                                        <td colSpan={6} className="px-4 py-4">
+                                            <div className="h-10 animate-pulse rounded-lg bg-slate-100" />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : filteredAccountRows.length ? (
+                                filteredAccountRows.map((account) => (
+                                    <tr key={`${account.type}-${account.user_id}`} className="align-middle transition hover:bg-blue-50/30">
+                                        <td className="px-4 py-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <ProfileAvatar account={account} type={account.type} />
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-black text-slate-950">{getAccountName(account)}</p>
+                                                    <p className="truncate text-xs font-semibold text-slate-500">{account.mail_Address}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge className={getRoleBadgeClass(account.type)}>{getRoleLabel(account.type)}</Badge>
+                                        </td>
+                                        <td className="max-w-[16rem] px-4 py-3">
+                                            <p className="truncate font-bold text-slate-800">{getAccountProfileText(account)}</p>
+                                            <p className="truncate text-xs font-semibold text-slate-500">{getAccountMetaText(account)}</p>
+                                        </td>
+                                        <td className="max-w-[14rem] px-4 py-3">
+                                            <p className="truncate font-semibold text-slate-700">{displayValue(account.phoneNumber || account.emergencyNumber, 'No phone')}</p>
+                                            <p className="truncate text-xs font-semibold text-slate-500">{displayValue(account.personal_Address, 'No address')}</p>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <StatusBadge account={account} />
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button type="button" variant="outline" size="sm" onClick={() => openAccountDetails(account, account.type)}>
+                                                View
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-12 text-center">
+                                        <p className="font-black text-slate-900">No accounts found</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-500">Adjust the search or filters to show more accounts.</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="space-y-3 p-3 md:hidden">
+                    {isLoading ? (
+                        [1, 2, 3].map((item) => <div key={`account-mobile-loading-${item}`} className="h-24 animate-pulse rounded-xl bg-slate-100" />)
+                    ) : filteredAccountRows.length ? (
+                        filteredAccountRows.map((account) => (
+                            <AccountMobileRow key={`${account.type}-${account.user_id}`} account={account} />
+                        ))
+                    ) : (
+                        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                            <p className="font-black text-slate-900">No accounts found</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-500">Adjust the search or filters to show more accounts.</p>
+                        </div>
                     )}
                 </div>
-            </div>
+            </Card>
 
             {/* View Details Modal */}
             <Dialog open={showDetails} onOpenChange={(open) => open ? setShowDetails(true) : closeAccountDetails()}>
@@ -456,19 +733,17 @@ export default function AccountManagement() {
                                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_52%,#f5f3ff_100%)] p-5">
                                     <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex min-w-0 items-center gap-3">
-                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black ${
-                                                selectedUser.type === 'vet' ? 'bg-blue-600' : 'bg-purple-600'
-                                            }`}>
-                                                {getInitials(selectedUser)}
-                                            </div>
+                                            <ProfileAvatar account={selectedUser} type={selectedUser.type} size="modal" />
                                             <div className="min-w-0">
                                                 <h3 className="truncate text-xl font-bold text-gray-900">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
                                                 <p className="text-sm font-semibold text-gray-600">
-                                                    {selectedUser.role} · {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : displayValue(selectedUser.employee_id)}
+                                                    {selectedUser.role} - {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : selectedUser.type === 'superadmin' ? displayValue(selectedUser.employee_id, 'Super Admin') : displayValue(selectedUser.employee_id)}
                                                 </p>
                                             </div>
                                         </div>
-                                        {getStatusBadge(selectedUser.is_active)}
+                                        {selectedUser.type === 'superadmin' ? (
+                                            <Badge className="bg-emerald-50 text-emerald-700">Super Admin</Badge>
+                                        ) : getStatusBadge(selectedUser.is_active)}
                                     </div>
                                 </div>
 
@@ -493,6 +768,12 @@ export default function AccountManagement() {
                                             <ProfileField icon={ShieldCheck} label="Accepting Patients" value={Number(selectedUser.is_accepting_patients ?? 1) === 1 ? 'Yes' : 'No'} />
                                             <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
                                             <ProfileField icon={CheckCircle} label="Consultation Rate" value={selectedUser.consultation_rate ? `PHP ${selectedUser.consultation_rate}` : ''} />
+                                        </div>
+                                    ) : selectedUser.type === 'superadmin' ? (
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                            <ProfileField icon={ShieldCheck} label="Access Role" value={selectedUser.role || 'Super Admin'} accent="text-emerald-700" />
+                                            <ProfileField icon={UserCog} label="Employee ID" value={selectedUser.employee_id} accent="text-emerald-700" />
+                                            <ProfileField icon={Calendar} label="Start Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -578,23 +859,25 @@ export default function AccountManagement() {
                                                 </Button>
                                             )
                                         )}
-                                        {(selectedUser.is_active === 1 || selectedUser.is_active === '1') ? (
-                                            <Button 
-                                                variant="outline" 
-                                                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                                                onClick={() => openStatusConfirmation(selectedUser)}
-                                                disabled={isSavingPersonnel}
-                                            >
-                                                <Ban className="size-4 mr-2" /> Deactivate Account
-                                            </Button>
-                                        ) : (
-                                            <Button 
-                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                                                onClick={() => openStatusConfirmation(selectedUser)}
-                                                disabled={isSavingPersonnel}
-                                            >
-                                                <CheckCircle className="size-4 mr-2" /> Activate Account
-                                            </Button>
+                                        {selectedUser.type !== 'superadmin' && (
+                                            (selectedUser.is_active === 1 || selectedUser.is_active === '1') ? (
+                                                <Button
+                                                    variant="outline"
+                                                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                                                    onClick={() => openStatusConfirmation(selectedUser)}
+                                                    disabled={isSavingPersonnel}
+                                                >
+                                                    <Ban className="size-4 mr-2" /> Deactivate Account
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                                    onClick={() => openStatusConfirmation(selectedUser)}
+                                                    disabled={isSavingPersonnel}
+                                                >
+                                                    <CheckCircle className="size-4 mr-2" /> Activate Account
+                                                </Button>
+                                            )
                                         )}
                                         <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel}>Close</Button>
                                     </div>
@@ -673,18 +956,19 @@ export default function AccountManagement() {
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Account Type</Label>
-                                <Select value={createForm.role} onValueChange={(v) => setCreateForm({...createForm, role: v})}>
+                                <Select value={createForm.role} onValueChange={handleCreateRoleChange}>
                                     <SelectTrigger className="bg-gray-100 border-gray-300">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="Super Admin">Super Admin</SelectItem>
                                         <SelectItem value="Veterinarian">Veterinarian</SelectItem>
                                         <SelectItem value="Admin">Admin / Staff</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div>
-                                <Label className="text-gray-900 mb-2 block">Hiring Date</Label>
+                                <Label className="text-gray-900 mb-2 block">{createForm.role === 'Super Admin' ? 'Access Start Date' : 'Hiring Date'}</Label>
                                 <Input type="date" value={createForm.hireDate} onChange={(e) => setCreateForm({...createForm, hireDate: e.target.value})} className="bg-gray-100" />
                             </div>
                         </div>
@@ -720,6 +1004,20 @@ export default function AccountManagement() {
                                 <div>
                                     <Label className="text-blue-900">Specialization</Label>
                                     <Input placeholder="e.g. Small Animal Surgery" value={createForm.specialization} onChange={(e) => setCreateForm({...createForm, specialization: e.target.value})} className="bg-white" />
+                                </div>
+                            </div>
+                        ) : createForm.role === 'Super Admin' ? (
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700">
+                                        <ShieldCheck className="size-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-emerald-950">Super Admin Account</p>
+                                        <p className="mt-1 text-sm font-semibold text-emerald-700">
+                                            This account will be created with the Super Admin role.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         ) : (

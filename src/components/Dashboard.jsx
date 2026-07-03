@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ToastViewport } from "../reusecomponent/toast.jsx";
 import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
+import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
 
 // Lazy load screens
 const HomeScreen = lazy(() => import("./PetOwnerDashboard/Home.jsx"));
@@ -569,23 +570,42 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     <div className="flex h-full flex-col">
       {!isMobileDrawer && (
         <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-500 ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className={`flex items-center transition-all duration-500 ease-in-out overflow-hidden ${isCollapsed ? "max-w-0 opacity-0 pointer-events-none" : "max-w-xs opacity-100 gap-3"}`}>
-            <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
-            <div className="whitespace-nowrap">
-              <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
-              <p className="text-xs text-slate-500">Dashboard</p>
-            </div>
-          </div>
-          
-          <button
-            type="button"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="flex size-10 flex-shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-[#155dfc] shadow-sm transition hover:border-blue-200 hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? <ChevronRight className="size-5" strokeWidth={2.75} /> : <ChevronLeft className="size-5" strokeWidth={2.75} />}
-          </button>
+          {isCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="group relative flex size-12 flex-shrink-0 items-center justify-center rounded-full border border-transparent bg-white transition hover:border-blue-100 hover:bg-blue-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <img
+                src={logo}
+                alt="iPawcus logo"
+                className="size-10 object-contain transition duration-200 group-hover:scale-90 group-hover:opacity-0 group-focus-visible:scale-90 group-focus-visible:opacity-0"
+              />
+              <ChevronRight className="absolute size-5 text-[#155dfc] opacity-0 transition duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" strokeWidth={2.75} />
+            </button>
+          ) : (
+            <>
+              <div className="flex max-w-xs items-center gap-3 overflow-hidden opacity-100 transition-all duration-500 ease-in-out">
+                <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
+                <div className="whitespace-nowrap">
+                  <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
+                  <p className="text-xs text-slate-500">Dashboard</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="flex size-10 flex-shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-[#155dfc] shadow-sm transition hover:border-blue-200 hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="size-5" strokeWidth={2.75} />
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -749,109 +769,111 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
 
   return (
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
-      <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
-        <ToastViewport />
-        <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Log out?</DialogTitle>
-              <DialogDescription>
-                Log out of {logoutAccountLabel}?
-              </DialogDescription>
-            </DialogHeader>
-            <p className="text-sm leading-6 text-slate-600">
-              Any unsaved changes will be lost.
-            </p>
-            <DialogFooter>
-              <button
-                type="button"
-                onClick={() => setIsLogoutDialogOpen(false)}
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmLogout}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                Log Out
-              </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {isCompactLayout && (
-          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="iPawcus logo" className="h-10 w-10 object-contain" />
-              <div>
-                <p className="text-base font-bold text-[#155dfc]">iPawcus</p>
-                <p className="text-xs text-slate-500">Dashboard</p>
+      <VideoCallProvider>
+        <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
+          <ToastViewport />
+          <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Log out?</DialogTitle>
+                <DialogDescription>
+                  Log out of {logoutAccountLabel}?
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm leading-6 text-slate-600">
+                Any unsaved changes will be lost.
+              </p>
+              <DialogFooter>
+                <button
+                  type="button"
+                  onClick={() => setIsLogoutDialogOpen(false)}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmLogout}
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  Log Out
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {isCompactLayout && (
+            <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
+              <div className="flex items-center gap-3">
+                <img src={logo} alt="iPawcus logo" className="h-10 w-10 object-contain" />
+                <div>
+                  <p className="text-base font-bold text-[#155dfc]">iPawcus</p>
+                  <p className="text-xs text-slate-500">Dashboard</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsMobileNavOpen((current) => !current)}
-                className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
-                aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
-              >
-                {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </button>
-            </div>
-          </header>
-        )}
-
-        <div className="flex min-h-screen min-w-0">
-          {isCompactLayout ? (
-            <>
-              <div
-                className={`fixed inset-0 z-40 bg-slate-950/25 transition-opacity duration-300 ${
-                  isMobileNavOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-                }`}
-                onClick={() => setIsMobileNavOpen(false)}
-              />
-
-              <aside
-                className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 flex flex-col ${
-                  isMobileNavOpen ? "open" : ""
-                }`}
-              >
-                {renderSidebarContent({ isMobileDrawer: true })}
-              </aside>
-            </>
-          ) : (
-            <aside 
-              className={`fixed left-0 top-0 h-screen transition-all duration-300 border-r border-slate-200 bg-white z-40 ${
-                isSidebarCollapsed ? "w-20" : "w-72"
-              }`}
-            >
-              {renderSidebarContent()}
-            </aside>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileNavOpen((current) => !current)}
+                  className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
+                  aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
+                >
+                  {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </button>
+              </div>
+            </header>
           )}
 
-          <div 
-            className={`min-w-0 flex-1 transition-all duration-300 ${
-              !isCompactLayout ? (isSidebarCollapsed ? "pl-20" : "pl-72") : ""
-            }`}
-          >
-            <main className="mx-auto w-full max-w-7xl min-w-0 p-4 sm:p-6 lg:p-10">
-              <Suspense fallback={
-                <div className="flex h-64 w-full items-center justify-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
-                    <p className="text-sm font-medium text-slate-500">Loading page...</p>
+          <div className="flex min-h-screen min-w-0">
+            {isCompactLayout ? (
+              <>
+                <div
+                  className={`fixed inset-0 z-40 bg-slate-950/25 transition-opacity duration-300 ${
+                    isMobileNavOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                  onClick={() => setIsMobileNavOpen(false)}
+                />
+
+                <aside
+                  className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 flex flex-col ${
+                    isMobileNavOpen ? "open" : ""
+                  }`}
+                >
+                  {renderSidebarContent({ isMobileDrawer: true })}
+                </aside>
+              </>
+            ) : (
+              <aside
+                className={`fixed left-0 top-0 h-screen transition-all duration-300 border-r border-slate-200 bg-white z-40 ${
+                  isSidebarCollapsed ? "w-20" : "w-72"
+                }`}
+              >
+                {renderSidebarContent()}
+              </aside>
+            )}
+
+            <div
+              className={`min-w-0 flex-1 transition-all duration-300 ${
+                !isCompactLayout ? (isSidebarCollapsed ? "pl-20" : "pl-72") : ""
+              }`}
+            >
+              <main data-dashboard-content className="mx-auto w-full max-w-[112rem] min-w-0 p-3 sm:p-5 lg:p-8 2xl:p-10">
+                <Suspense fallback={
+                  <div className="flex h-64 w-full items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+                      <p className="text-sm font-medium text-slate-500">Loading page...</p>
+                    </div>
                   </div>
-                </div>
-              }>
-                {/* eslint-disable-next-line react-hooks/static-components */}
-                <ScreenComponent user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
-              </Suspense>
-            </main>
+                }>
+                  {/* eslint-disable-next-line react-hooks/static-components */}
+                  <ScreenComponent user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
+                </Suspense>
+              </main>
+            </div>
           </div>
         </div>
-      </div>
+      </VideoCallProvider>
     </DashboardRouterProvider>
   );
 }

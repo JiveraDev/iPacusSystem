@@ -342,7 +342,7 @@ export default function ConsentFilesManagement() {
 
                             <Button 
                                 variant="outline" 
-                                className="w-full border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all font-bold text-xs gap-2"
+                                className="w-full border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-blue-500 hover:border-blue-600 transition-all font-bold text-xs gap-2"
                                 onClick={() => {
                                     setSelectedFile(file);
                                     setViewModalOpen(true);

@@ -1995,13 +1995,12 @@ export default function PetBoardingManagement() {
                                             Check-in
                                         </Button>
                                     </div>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    <div>
                                         <Input
                                             value={searchQuery}
                                             onChange={(event) => setSearchQuery(event.target.value)}
                                             placeholder="Search room, pet, owner, booking..."
-                                            className="pl-9"
+                                            leftIcon={<Search className="size-4" />}
                                         />
                                     </div>
                                 </div>
@@ -3146,15 +3145,14 @@ function SearchablePetField({ value, pets = [], onChange }) {
     return (
         <div ref={containerRef} className="relative space-y-2 sm:col-span-2">
             <Label>Pet *</Label>
-            <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <div>
                 <Input
                     value={query}
                     onChange={handleQueryChange}
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
                     placeholder="Search pet name, species, owner, or ID..."
-                    className="pl-9"
+                    leftIcon={<Search className="size-4" />}
                     role="combobox"
                     aria-expanded={isOpen}
                     aria-autocomplete="list"

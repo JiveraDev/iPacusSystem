@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -46,20 +47,18 @@ try {
         throw new RuntimeException('Booking not found.');
     }
 
-    $lifecycleNote = '[Lifecycle] Manual reschedule from '
-        . ($booking['booking_date'] ?? 'unset')
-        . ' to '
-        . $bookingDate
-        . ($reason !== '' ? '. Reason: ' . $reason : '')
-        . '. Recorded at: '
-        . maintenance_now($pdo);
-    $lifecycleNote = maintenance_append_original_booking_note_if_missing($booking, $lifecycleNote);
+    $notes = bookingStripLifecycleNotes($booking['notes'] ?? '', false);
+    $notes = maintenance_append_original_booking_note_if_missing(
+        array_merge($booking, ['notes' => $notes]),
+        $notes
+    );
+    $notes = maintenance_append_note($notes, '[Rescheduled]');
 
     $update = $pdo->prepare("UPDATE bookings SET booking_date = ?, booking_time = ?, notes = ? WHERE booking_id = ?");
     $update->execute([
         $bookingDate,
         $bookingTime,
-        maintenance_append_note($booking['notes'] ?? '', $lifecycleNote),
+        $notes,
         $bookingId
     ]);
 

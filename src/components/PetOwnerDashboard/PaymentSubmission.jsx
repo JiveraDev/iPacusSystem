@@ -237,19 +237,17 @@ export default function PaymentSubmission() {
             {/* Amount */}
             <div className="space-y-2">
               <Label htmlFor="amount">Amount to Pay *</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500 font-semibold">PHP</span>
-                <Input
-                  id="amount"
-                  type="number"
-                  required
-                  readOnly={!!paymentData?.amount}
-                  className="pl-14 bg-gray-50 font-bold text-lg text-blue-600"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  disabled={isSubmitting}
-                />
-              </div>
+              <Input
+                id="amount"
+                type="number"
+                required
+                readOnly={!!paymentData?.amount}
+                className="pl-14 bg-gray-50 font-bold text-lg text-blue-600"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                disabled={isSubmitting}
+                leftIcon={<span className="text-xs font-semibold">PHP</span>}
+              />
               {paymentData?.amount && (
                   <p className="text-[10px] text-amber-600 font-medium italic">* This is the fixed transport fee for Home Service.</p>
               )}

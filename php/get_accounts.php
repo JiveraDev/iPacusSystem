@@ -24,9 +24,18 @@ try {
     $staffStmt = $pdo->query($staffSql);
     $staff = $staffStmt->fetchAll();
 
+    // 3. Fetch Super Admins
+    $superAdminSql = "SELECT u.*, a.*, {$staffActiveSelect}
+                      FROM users u
+                      LEFT JOIN admin_profiles a ON u.user_id = a.user_id
+                      WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin')";
+    $superAdminStmt = $pdo->query($superAdminSql);
+    $superAdmins = $superAdminStmt->fetchAll();
+
     echo json_encode([
         'veterinarians' => $veterinarians,
-        'staff' => $staff
+        'staff' => $staff,
+        'superadmins' => $superAdmins
     ]);
 
 } catch (Exception $e) {

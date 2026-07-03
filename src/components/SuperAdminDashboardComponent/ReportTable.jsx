@@ -46,7 +46,7 @@ export default function ReportTable({ columns = [], rows = [], maxRows, compact 
     }
 
     return (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 print:border-slate-200">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 print:border-slate-200 scrollbar-hide">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800 print:divide-slate-200">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300 print:bg-slate-50 print:text-slate-500">
                     <tr>

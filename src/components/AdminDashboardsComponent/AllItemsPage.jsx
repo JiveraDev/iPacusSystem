@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
@@ -15,6 +15,8 @@ import { formatPhpCurrency } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 
+const REPORT_INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
+
 export default function AllItemsPage() {
   const navigate = useNavigate();
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -22,9 +24,9 @@ export default function AllItemsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('Select Categories');
+  const [locationFilter, setLocationFilter] = useState('Select Location');
+  const [statusFilter, setStatusFilter] = useState('Select Status');
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -79,7 +81,7 @@ export default function AllItemsPage() {
     }
   };
 
-  const handleItemClick = (item) => {
+  const openItemDetails = (item) => {
     setSelectedItem(item);
     setEditItemForm({
       unitCost: String(item.costPrice ?? ''),
@@ -88,6 +90,48 @@ export default function AllItemsPage() {
     setIsEditingItem(false);
     setIsDetailModalOpen(true);
   };
+
+  const handleItemClick = (item) => {
+    openItemDetails(item);
+  };
+
+  useEffect(() => {
+    if (isLoading || inventoryItems.length === 0) {
+      return;
+    }
+
+    let pendingSelection = null;
+    try {
+      const rawSelection = sessionStorage.getItem(REPORT_INVENTORY_SELECTION_KEY);
+      pendingSelection = rawSelection ? JSON.parse(rawSelection) : null;
+    } catch {
+      sessionStorage.removeItem(REPORT_INVENTORY_SELECTION_KEY);
+      return;
+    }
+
+    const pendingItemId = pendingSelection?.itemId;
+    if (!pendingItemId) {
+      return;
+    }
+
+    const matchedItem = inventoryItems.find((item) => (
+      String(item.itemId || item.item_id || item.id) === String(pendingItemId)
+    ));
+
+    sessionStorage.removeItem(REPORT_INVENTORY_SELECTION_KEY);
+
+    if (!matchedItem) {
+      toast.error('Inventory item from reports was not found.');
+      return;
+    }
+
+    setSearchQuery('');
+    setCategoryFilter('Select Categories');
+    setLocationFilter('Select Location');
+    setStatusFilter('Select Status');
+    setSelectedItems([matchedItem.id]);
+    openItemDetails(matchedItem);
+  }, [inventoryItems, isLoading]);
 
   const openStockOutModal = (item) => {
     const batches = getItemBatches(item, 'newest');
@@ -201,9 +245,9 @@ export default function AllItemsPage() {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (item.genericName && item.genericName.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
-    const matchesLocation = locationFilter === 'all' || item.location === locationFilter;
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    const matchesCategory = categoryFilter === 'Select Categories' || item.category === categoryFilter;
+    const matchesLocation = locationFilter === 'Select Location' || item.location === locationFilter;
+    const matchesStatus = statusFilter === 'Select Status' || item.status === statusFilter;
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
   });
 
@@ -257,13 +301,12 @@ export default function AllItemsPage() {
       <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {/* Search */}
-          <div className="relative md:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#4a5565]" />
+          <div className="md:col-span-2">
             <Input
               placeholder="Search by name, SKU, or generic name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              leftIcon={<Search className="size-4" />}
             />
           </div>
 
@@ -274,7 +317,7 @@ export default function AllItemsPage() {
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="Select Categories">All Categories</SelectItem>
               <SelectItem value="Medicines">Medicines</SelectItem>
               <SelectItem value="Vaccines">Vaccines</SelectItem>
               <SelectItem value="Medical Supplies">Medical Supplies</SelectItem>
@@ -288,10 +331,10 @@ export default function AllItemsPage() {
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger>
               <Filter className="size-4 mr-2" />
-              <SelectValue placeholder="All Locations" />
+              <SelectValue placeholder="Select Locations" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Locations</SelectItem>
+              <SelectItem value="Select Location">All Locations</SelectItem>
               {locations.map((location) => (
                 <SelectItem key={location.id} value={location.name}>{location.name}</SelectItem>
               ))}
@@ -305,7 +348,7 @@ export default function AllItemsPage() {
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="Select Status">All Status</SelectItem>
               <SelectItem value="in-stock">In Stock</SelectItem>
               <SelectItem value="low-stock">Low Stock</SelectItem>
               <SelectItem value="out-of-stock">Out of Stock</SelectItem>
@@ -420,15 +463,11 @@ export default function AllItemsPage() {
                   </TableHead>
                   <TableHead className="w-[80px]">Image</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Product Name</TableHead>
-                  <TableHead className="font-['Arimo:Bold',sans-serif]">SKU</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Category</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Brand</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Location</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Quantity</TableHead>
-                  <TableHead className="font-['Arimo:Bold',sans-serif]">Unit Cost</TableHead>
-                  <TableHead className="font-['Arimo:Bold',sans-serif]">Batch / Expiry</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
-                  <TableHead className="font-['Arimo:Bold',sans-serif] w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,9 +499,6 @@ export default function AllItemsPage() {
                     <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
                       {item.name}
                     </TableCell>
-                    <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                      {item.sku}
-                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.category}</Badge>
                     </TableCell>
@@ -475,21 +511,10 @@ export default function AllItemsPage() {
                     <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
                       {item.quantity} {item.unit}
                     </TableCell>
-                    <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-                      {formatPhpCurrency(item.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                      {getNearestExpiryBatch(item)?.batchNumber || 'No batch'} - {formatInventoryDate(getNearestExpiryBatch(item)?.expiryDate, { compact: true })}
-                    </TableCell>
                     <TableCell>
                       <InventoryStatusBadge status={item.status} />
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => handleItemClick(item)}>
-                        <Eye className="size-4 mr-2" />
-                        View
-                      </Button>
-                    </TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>
@@ -1035,10 +1060,6 @@ function getItemBatches(item, sortBy = 'newest') {
 
 function GET_TOTAL_BATCH_QUANTITY(batches) {
   return batches.reduce((sum, batch) => sum + Number(batch.quantity || 0), 0);
-}
-
-function getNearestExpiryBatch(item) {
-  return getItemBatches(item, 'expiry')[0];
 }
 
 function compareBatches(a, b, sortBy) {

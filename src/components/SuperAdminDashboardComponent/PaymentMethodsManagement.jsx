@@ -268,12 +268,7 @@ export default function PaymentMethodsManagement() {
                                             className="hidden"
                                         />
                                     </label>
-                                    {qrPreviewUrl && (
-                                        <Button type="button" variant="outline" onClick={() => setViewer({ src: qrPreviewUrl, alt: 'QRPH payment code' })} className="gap-2">
-                                            <Eye className="size-4" />
-                                            View Image
-                                        </Button>
-                                    )}
+
                                 </div>
                             </div>
                         </CardContent>

@@ -2046,13 +2046,13 @@ export default function ServicePOS() {
               </div>
 
               <div className="space-y-4 p-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <div>
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search item"
-                    className="h-10 pl-9"
+                    className="h-10"
+                    leftIcon={<Search className="size-4" />}
                   />
                 </div>
 

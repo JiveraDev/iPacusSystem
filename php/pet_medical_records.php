@@ -240,9 +240,16 @@ function pet_medical_fetch_vaccinations(PDO $pdo, int $petId): array
     ");
     $stmt->execute([$petId]);
 
-    return array_map(function ($row) {
+    $sourceGroups = pet_medical_source_group_map($pdo, $petId);
+
+    return array_map(function ($row) use ($sourceGroups) {
+        $id = (int)$row['id'];
+        $addedToGroups = $sourceGroups['vaccination:' . $id] ?? [];
+
         return [
-            'id' => (int)$row['id'],
+            'id' => $id,
+            'sourceType' => 'vaccination',
+            'sourceId' => $id,
             'name' => $row['name'],
             'date' => $row['date'],
             'nextDue' => $row['nextDue'],
@@ -253,8 +260,68 @@ function pet_medical_fetch_vaccinations(PDO $pdo, int $petId): array
             'veterinarianUserId' => $row['veterinarianUserId'] !== null ? (int)$row['veterinarianUserId'] : null,
             'sourceDiagnosisId' => $row['sourceDiagnosisId'] !== null ? (int)$row['sourceDiagnosisId'] : null,
             'status' => $row['status'] ?: 'completed',
+            'addedToGroups' => $addedToGroups,
+            'isAddedToOrganizedRecord' => !empty($addedToGroups),
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function pet_medical_vaccination_record_summary(array $vaccine): string
+{
+    $lines = [
+        'Vaccine: ' . ($vaccine['name'] ?? 'N/A'),
+        'Date given: ' . pet_medical_format_date_label($vaccine['date'] ?? ''),
+        'Next due: ' . pet_medical_format_date_label($vaccine['nextDue'] ?? ''),
+        'Veterinarian: ' . (($vaccine['applicator'] ?? '') ?: ($vaccine['veterinarianName'] ?? 'N/A')),
+    ];
+
+    if (!empty($vaccine['notes'])) {
+        $lines[] = 'Notes: ' . $vaccine['notes'];
+    }
+
+    return implode("\n", $lines);
+}
+
+function pet_medical_vaccination_group_record(array $vaccine): array
+{
+    $summary = pet_medical_vaccination_record_summary($vaccine);
+
+    return [
+        'id' => 'vaccination-' . (int)$vaccine['id'],
+        'sourceType' => 'vaccination',
+        'sourceId' => (int)$vaccine['id'],
+        'vaccinationId' => (int)$vaccine['id'],
+        'title' => ($vaccine['name'] ?? '') ?: 'Vaccination record',
+        'serviceName' => 'Vaccination',
+        'serviceDate' => ($vaccine['date'] ?? '') ?: ($vaccine['nextDue'] ?? null),
+        'status' => ($vaccine['status'] ?? '') ?: 'completed',
+        'billingStatus' => null,
+        'veterinarianName' => ($vaccine['applicator'] ?? '') ?: ($vaccine['veterinarianName'] ?? ''),
+        'chiefComplaint' => '',
+        'majorSymptoms' => '',
+        'symptoms' => '',
+        'physicalExam' => '',
+        'diagnosis' => 'Vaccination record',
+        'treatment' => ($vaccine['name'] ?? '') ?: 'Vaccination',
+        'labResults' => '',
+        'followUp' => $vaccine['nextDue'] ?? '',
+        'notes' => $vaccine['notes'] ?? '',
+        'summary' => $summary,
+        'vitalSigns' => [],
+        'prescriptions' => [],
+        'customSections' => [
+            [
+                'label' => 'Vaccination Details',
+                'value' => $summary,
+            ],
+        ],
+        'attachments' => [],
+        'sourceUploads' => [],
+        'charges' => [],
+        'totals' => ['charges' => 0, 'paid' => 0, 'balance' => 0],
+        'addedToGroups' => $vaccine['addedToGroups'] ?? [],
+        'isAddedToOrganizedRecord' => !empty($vaccine['addedToGroups'] ?? []),
+    ];
 }
 
 function pet_medical_fetch_allergies(PDO $pdo, int $petId, array $pet): array
@@ -1254,6 +1321,16 @@ function pet_medical_send_email_copy(PDO $pdo, int $petId): void
 
 function pet_medical_service_record_by_source(PDO $pdo, int $petId, string $sourceType, int $sourceId): ?array
 {
+    if ($sourceType === 'vaccination') {
+        foreach (pet_medical_fetch_vaccinations($pdo, $petId) as $vaccine) {
+            if ((int)$vaccine['id'] === $sourceId) {
+                return pet_medical_vaccination_group_record($vaccine);
+            }
+        }
+
+        return null;
+    }
+
     foreach (pet_medical_fetch_service_history($pdo, $petId) as $record) {
         if ($record['sourceType'] === $sourceType && (int)$record['sourceId'] === $sourceId) {
             return $record;
@@ -1373,7 +1450,22 @@ function pet_medical_add_item(PDO $pdo, int $petId, array $input): void
 
     $record = pet_medical_service_record_by_source($pdo, $petId, $sourceType, $sourceId);
     if (!$record) {
-        pet_medical_error(404, 'Source service record was not found.');
+        pet_medical_error(404, 'Source medical record was not found.');
+    }
+
+    $duplicateStmt = $pdo->prepare("
+        SELECT item_id
+        FROM pet_medical_record_group_items
+        WHERE group_id = ?
+          AND source_type = ?
+          AND source_id = ?
+        LIMIT 1
+    ");
+    $duplicateStmt->execute([$groupId, $sourceType, $sourceId]);
+    $existingItemId = $duplicateStmt->fetchColumn();
+    if ($existingItemId) {
+        echo json_encode(['success' => true, 'itemId' => (int)$existingItemId, 'duplicate' => true]);
+        return;
     }
 
     $maxStmt = $pdo->prepare("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM pet_medical_record_group_items WHERE group_id = ?");

@@ -223,10 +223,31 @@ function owner_accounts_remove_ownership(PDO $pdo, array $payload): void
 
     $stmt = $pdo->prepare("DELETE FROM pet_ownership WHERE user_id = ? AND pet_id = ?");
     $stmt->execute([$userId, $petId]);
+    $ownershipRemoved = $stmt->rowCount() > 0;
+
+    if ($ownershipRemoved) {
+        $ownerStmt = $pdo->prepare("
+            SELECT COALESCE(
+                NULLIF(TRIM(CONCAT(COALESCE(u.first_Name, ''), ' ', COALESCE(u.last_Name, ''))), ''),
+                u.mail_Address,
+                ''
+            ) AS owner_name
+            FROM pet_ownership po
+            JOIN users u ON u.user_id = po.user_id
+            WHERE po.pet_id = ?
+            ORDER BY po.link_id DESC
+            LIMIT 1
+        ");
+        $ownerStmt->execute([$petId]);
+        $remainingOwnerName = trim((string)$ownerStmt->fetchColumn());
+
+        $updatePet = $pdo->prepare("UPDATE pets_information SET pet_Temp_owner = ? WHERE pet_id = ?");
+        $updatePet->execute([$remainingOwnerName !== '' ? $remainingOwnerName : null, $petId]);
+    }
 
     owner_accounts_json([
         'success' => true,
-        'message' => $stmt->rowCount() > 0 ? 'Pet ownership removed.' : 'Ownership link was not found.',
+        'message' => $ownershipRemoved ? 'Pet ownership removed.' : 'Ownership link was not found.',
     ]);
 }
 

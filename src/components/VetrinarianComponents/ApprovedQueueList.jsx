@@ -156,7 +156,7 @@ function isNormalPhysicalBooking(booking) {
 }
 
 function isAutoRescheduledBooking(booking) {
-    return /\[Lifecycle\]\s*Auto-rescheduled due to missed approved booking/i.test(String(booking.notes || ''));
+    return /\[Rescheduled\]|\[Lifecycle\]\s*Auto-rescheduled due to missed approved booking/i.test(String(booking.notes || ''));
 }
 
 function getStoredUser() {
@@ -617,13 +617,13 @@ export default function VetQueueList() {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <div>
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search queue ID, pet, owner, service, or complaint"
-                        className="h-10 pl-10"
+                        className="h-10"
+                        leftIcon={<Search className="size-4" />}
                     />
                 </div>
             </div>

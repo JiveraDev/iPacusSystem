@@ -102,6 +102,7 @@ try {
     $hasQueueSourceColumn = in_array('queue_source', $queueColumns, true);
     $hasVerifiedByAdminColumn = in_array('verified_by_admin', $queueColumns, true);
     $marker = bookingQueueMarker((string)$booking['booking_number']);
+    $cleanComplaint = buildBookingQueueComplaint($booking);
     $queue = null;
 
     if ($hasBookingIdColumn) {
@@ -186,7 +187,7 @@ try {
             $newQueueNumber,
             'in-progress',
             'normal',
-            buildBookingQueueComplaint($booking)
+            $cleanComplaint
         ];
         $placeholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
 
@@ -223,6 +224,12 @@ try {
         $updateQueue->execute([(int)$queue['queue_id']]);
         $queue['status'] = 'in-progress';
         $queue['timestamp'] = date('Y-m-d H:i:s');
+    }
+
+    if ($queue && trim((string)($queue['complaint'] ?? '')) !== trim($cleanComplaint)) {
+        $updateComplaint = $pdo->prepare("UPDATE queues SET complaint = ? WHERE queue_id = ?");
+        $updateComplaint->execute([$cleanComplaint, (int)$queue['queue_id']]);
+        $queue['complaint'] = $cleanComplaint;
     }
 
     $activeAssignmentStmt = $pdo->prepare("

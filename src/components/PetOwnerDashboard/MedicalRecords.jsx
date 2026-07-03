@@ -273,7 +273,6 @@ export default function MedicalRecords() {
                         <PetInfo label="Pet" value={pet.name || pet.petName} strong />
                         <PetInfo label="Species / Breed" value={[pet.species, pet.breed].filter(Boolean).join(' / ') || 'N/A'} />
                         <PetInfo label="Sex" value={pet.gender || 'N/A'} />
-                        <PetInfo label="Owner" value={pet.ownerName || 'N/A'} />
                         <PetInfo label="Pet ID" value={pet.id || pet.dbId} />
                         <PetInfo label="Weight" value={pet.weight ? `${pet.weight} kg` : 'N/A'} />
                         <PetInfo label="Microchip" value={pet.microchipId || 'N/A'} />

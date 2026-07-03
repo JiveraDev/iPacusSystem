@@ -2,6 +2,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { cn } from "./utils";
+import { Input } from "./input";
 
 const SelectContext = React.createContext(null);
 
@@ -87,6 +88,7 @@ function Select({
       top: `${Math.max(padding, Math.min(top, maxTop))}px`,
       left: `${Math.max(padding, left)}px`,
       minWidth: `${rect.width}px`,
+      maxWidth: `calc(100vw - ${padding * 2}px)`,
       maxHeight: `${Math.min(availableHeight, window.innerHeight - (padding * 2))}px`,
       visibility: "visible",
     });
@@ -183,12 +185,12 @@ function SelectTrigger({ className, children, ...props }) {
         }
       }}
       className={cn(
-        "flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold leading-5 text-slate-900 shadow-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0",
         className
       )}
     >
       {children}
-      <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", open && "rotate-180")} />
+      <ChevronDown className={cn("opacity-50 transition-transform duration-200", open && "rotate-180")} />
     </button>
   );
 }
@@ -199,7 +201,7 @@ function SelectValue({ placeholder, displayValue }) {
   const { value } = React.useContext(SelectContext);
 
   return (
-    <span className="block truncate">
+    <span className="block min-w-0 flex-1 truncate">
       {displayValue || value || <span className="text-slate-500">{placeholder}</span>}
     </span>
   );
@@ -282,15 +284,14 @@ function SelectContent({ children, className }) {
       ref={contentRef}
       style={portalStyle}
       className={cn(
-        "fixed z-[1000] max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-slate-200 bg-white text-slate-950 shadow-md animate-in fade-in zoom-in-95",
+        "fixed z-[1000] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl animate-in fade-in zoom-in-95",
         className
       )}
     >
       {searchable && (
         <div className="sticky top-0 z-10 border-b border-slate-100 bg-white p-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
+            <Input
               autoFocus
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -301,7 +302,8 @@ function SelectContent({ children, className }) {
                 }
               }}
               placeholder={searchPlaceholder}
-              className="h-9 w-full rounded-md border border-slate-200 bg-white pl-8 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-[#155dfc] focus:ring-2 focus:ring-blue-100"
+              leftIcon={<Search />}
+              className="h-9 min-h-9 text-sm"
             />
           </div>
         </div>
@@ -317,9 +319,9 @@ function SelectContent({ children, className }) {
           <button
             type="button"
             onClick={() => onCreateOption(searchQuery.trim())}
-            className="mt-1 flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm font-semibold text-[#155dfc] outline-none hover:bg-blue-50"
+            className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-[#155dfc] outline-none hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-[#155dfc]"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4 shrink-0" />
             {typeof customOptionLabel === "function"
               ? customOptionLabel(searchQuery.trim())
               : `Add "${searchQuery.trim()}"`}
@@ -347,13 +349,13 @@ function SelectItem({ value: itemValue, children, className, disabled = false })
       aria-disabled={disabled}
       data-disabled={disabled ? "" : undefined}
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 hover:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex min-h-9 w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 hover:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         isSelected && "bg-slate-50 font-medium text-[#155dfc]",
         className
       )}
     >
       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        {isSelected && <Check className="h-4 w-4" />}
+        {isSelected && <Check className="size-4" />}
       </span>
       {children}
     </div>

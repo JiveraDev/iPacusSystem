@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
+import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck, Pencil, Save, X } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
@@ -36,6 +37,10 @@ function isPetOwnerRole(role) {
   return ["pet_owner", "pet owner"].includes(String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_"));
 }
 
+function isTemporaryOwnerManagerRole(role) {
+  return ["admin", "super_admin", "superadmin"].includes(String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_"));
+}
+
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
@@ -49,6 +54,9 @@ export default function PetProfile() {
   const [copied, setCopied] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
   const [consentViewer, setConsentViewer] = useState(null);
+  const [isEditingTempOwner, setIsEditingTempOwner] = useState(false);
+  const [isSavingTempOwner, setIsSavingTempOwner] = useState(false);
+  const [tempOwnerDraft, setTempOwnerDraft] = useState("");
 
   const backTargetLabel = useMemo(() => {
     try {
@@ -66,6 +74,14 @@ export default function PetProfile() {
       return false;
     }
   }, []);
+  const canManageTemporaryOwner = useMemo(() => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return isTemporaryOwnerManagerRole(currentUser.role);
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchPet() {
@@ -73,6 +89,8 @@ export default function PetProfile() {
         const data = await findPetService(petId);
         // data is now formatted correctly by the backend
         setPet(data);
+        setTempOwnerDraft(data.tempOwnerName || "");
+        setIsEditingTempOwner(false);
       } catch (error) {
         console.error("Error fetching pet:", error);
         toast.error("Could not load pet profile");
@@ -141,6 +159,29 @@ export default function PetProfile() {
     navigate(`/dashboard/my-pets/${petId}/medical-records`);
   };
 
+  const handleSaveTemporaryOwner = async () => {
+    if (!pet?.db_id) return;
+
+    const nextTempOwnerName = tempOwnerDraft.trim();
+    setIsSavingTempOwner(true);
+    try {
+      await updatePetDetails(pet.db_id, { tempOwner: nextTempOwnerName || null });
+      setPet((current) => current ? {
+        ...current,
+        tempOwnerName: nextTempOwnerName || null,
+        hasOwnership: false,
+        ownerUserId: null
+      } : current);
+      setTempOwnerDraft(nextTempOwnerName);
+      setIsEditingTempOwner(false);
+      toast.success(nextTempOwnerName ? "Temporary owner name updated." : "Temporary owner name cleared.");
+    } catch (error) {
+      toast.error(error.message || "Could not update temporary owner name.");
+    } finally {
+      setIsSavingTempOwner(false);
+    }
+  };
+
   const formatDateTime = (dateValue, timeValue) => {
     return formatDisplayDateTime(dateValue, timeValue);
   };
@@ -200,6 +241,8 @@ export default function PetProfile() {
   const consentRecords = useMemo(() => buildConsentRecords(bookingRecords, queueRecords), [bookingRecords, queueRecords]);
   const activeQueue = visibleQueueRecords.find(item => item.status !== "cancelled");
   const displayedQueue = activeQueue || visibleQueueRecords[0];
+  const hasRegisteredOwner = Boolean(pet?.hasOwnership || pet?.ownerUserId || pet?.ownerName);
+  const canEditTemporaryOwner = canManageTemporaryOwner && pet && !hasRegisteredOwner;
 
   const openQueueCancelDialog = () => {
     if (!activeQueue) return;
@@ -644,13 +687,77 @@ export default function PetProfile() {
             </CardHeader>
             <CardContent className="space-y-3 p-4 sm:p-6">
               <PetInfoRow label="Primary Breed" value={pet.breed || 'N/A'} />
-              <PetInfoRow label="Owner Name" value={pet.ownerName || 'N/A'} />
               <PetInfoRow label="Estimated Age" value={calculateAge(pet.birthDate) || pet.age || 'N/A'} />
               <PetInfoRow label="Sex / Gender" value={pet.gender || 'N/A'} />
               <PetInfoRow label="Body Weight" value={pet.weight ? `${pet.weight} kg` : 'N/A'} highlight />
               <PetInfoRow label="Coloration" value={pet.color || 'N/A'} />
             </CardContent>
           </Card>
+
+          {canEditTemporaryOwner && (
+            <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Temporary Owner
+                  </CardTitle>
+                  {!isEditingTempOwner && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setTempOwnerDraft(pet.tempOwnerName || "");
+                        setIsEditingTempOwner(true);
+                      }}
+                      className="h-8 gap-2"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Change
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 p-4 sm:p-6">
+                {isEditingTempOwner ? (
+                  <div className="space-y-3">
+                    <Input
+                      value={tempOwnerDraft}
+                      onChange={(event) => setTempOwnerDraft(event.target.value)}
+                      placeholder="Temporary owner name"
+                      disabled={isSavingTempOwner}
+                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        onClick={handleSaveTemporaryOwner}
+                        disabled={isSavingTempOwner}
+                        className="flex-1 bg-[#155dfc] text-white hover:bg-blue-700"
+                      >
+                        {isSavingTempOwner ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setTempOwnerDraft(pet.tempOwnerName || "");
+                          setIsEditingTempOwner(false);
+                        }}
+                        disabled={isSavingTempOwner}
+                        className="flex-1"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <PetInfoRow label="Name" value={pet.tempOwnerName || 'Not set'} />
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {pet.microchipId && (
             <Card className="bg-blue-600 border-none shadow-lg shadow-blue-200 rounded-2xl overflow-hidden">

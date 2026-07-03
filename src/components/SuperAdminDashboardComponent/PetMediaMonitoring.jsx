@@ -1,14 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, ImageIcon, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { resolveImageUrl } from '../../lib/image';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { fetchPetMediaMonitoring } from '../../services/petMediaMonitoringService';
+import { REPORT_QUICK_RANGES } from '../../services/reportService';
 
 const SOURCE_OPTIONS = [
     { value: 'all', label: 'All Sources' },
@@ -16,14 +18,6 @@ const SOURCE_OPTIONS = [
     { value: 'booking', label: 'Pet Owner Uploads' },
     { value: 'queue', label: 'Queue Uploads' },
     { value: 'boarding', label: 'Boarding Images' }
-];
-
-const DATE_RANGE_OPTIONS = [
-    { value: 'today', label: 'Today' },
-    { value: 'this_week', label: 'This Week' },
-    { value: 'this_month', label: 'This Month' },
-    { value: 'this_year', label: 'This Year' },
-    { value: 'custom', label: 'Custom Date Range' }
 ];
 
 function normalizeRole(role) {
@@ -36,10 +30,6 @@ function canAccessMediaMonitoring(user) {
 
 function sourceLabel(value) {
     return SOURCE_OPTIONS.find(option => option.value === value)?.label || value || 'Image';
-}
-
-function dateRangeLabel(value) {
-    return DATE_RANGE_OPTIONS.find(option => option.value === value)?.label || 'This Month';
 }
 
 function dateInputValue(date) {
@@ -76,6 +66,10 @@ function quickRangeDates(value) {
         const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
         start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
         end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    } else if (value === 'this_quarter') {
+        const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+        start = new Date(today.getFullYear(), quarterStartMonth, 1);
+        end = new Date(today.getFullYear(), quarterStartMonth + 3, 0);
     } else if (value === 'this_year') {
         start = new Date(today.getFullYear(), 0, 1);
         end = new Date(today.getFullYear(), 11, 31);
@@ -120,6 +114,22 @@ export default function PetMediaMonitoring() {
     const [sourceFilter, setSourceFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewer, setViewer] = useState(null);
+    const selectedRangeLabel = useMemo(() => (
+        REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
+    ), [range]);
+    const visibleDateRange = useMemo(() => (
+        range === 'custom'
+            ? { start: customStart, end: customEnd }
+            : quickRangeDates(range)
+    ), [customEnd, customStart, range]);
+    const handleCustomStartChange = (value) => {
+        setRange('custom');
+        setCustomStart(value);
+    };
+    const handleCustomEndChange = (value) => {
+        setRange('custom');
+        setCustomEnd(value);
+    };
 
     const loadMedia = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!canAccessMediaMonitoring(user)) {
@@ -157,10 +167,6 @@ export default function PetMediaMonitoring() {
         refreshKey: `pet-media-monitoring:${range}:${customStart}:${customEnd}`
     });
 
-    const visibleDateRange = range === 'custom'
-        ? { start: customStart, end: customEnd }
-        : quickRangeDates(range);
-
     const media = useMemo(() => {
         const rows = Array.isArray(mediaData?.media) ? mediaData.media : [];
         const query = searchQuery.trim().toLowerCase();
@@ -197,61 +203,50 @@ export default function PetMediaMonitoring() {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_46%,#f0fdf4_100%)] p-5 shadow-sm">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                     <div>
-                        <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-white/85 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
-                            <ShieldCheck className="size-3.5" />
-                            Clinic Media Monitoring
-                        </div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-950">Pet Media Monitoring</h1>
                         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
                             Diagnosis images, prescription images, pet owner uploads, queue uploads, and boarding images.
                         </p>
                     </div>
 
-                    <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm sm:grid-cols-[11rem_12rem_9rem_9rem_auto]">
-                        <Select value={range} onValueChange={(value) => {
-                            setRange(value);
-                        }}>
-                            <SelectTrigger>
-                                <SelectValue displayValue={dateRangeLabel(range)} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DATE_RANGE_OPTIONS.map(option => (
-                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select value={sourceFilter} onValueChange={(value) => {
-                            setSourceFilter(value);
-                        }}>
-                            <SelectTrigger>
-                                <SelectValue displayValue={sourceLabel(sourceFilter)} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SOURCE_OPTIONS.map(option => (
-                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <div className="relative">
-                            <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm sm:grid-cols-[12rem_9rem_9rem_auto]">
+                        <div>
+                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Date Range</Label>
+                            <Select value={range} onValueChange={setRange}>
+                                <SelectTrigger className="mt-1">
+                                    <SelectValue displayValue={selectedRangeLabel} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {REPORT_QUICK_RANGES.map(item => (
+                                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Start</Label>
                             <Input
                                 type="date"
                                 value={visibleDateRange.start}
-                                onChange={(event) => setCustomStart(event.target.value)}
-                                disabled={range !== 'custom'}
-                                className="pl-9"
+                                onChange={(event) => handleCustomStartChange(event.target.value)}
+                                className="mt-1"
                             />
                         </div>
-                        <Input
-                            type="date"
-                            value={visibleDateRange.end}
-                            onChange={(event) => setCustomEnd(event.target.value)}
-                            disabled={range !== 'custom'}
-                        />
-                        <Button type="button" variant="outline" onClick={() => loadMedia()} disabled={isLoading} className="gap-2">
-                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                            Refresh
-                        </Button>
+                        <div>
+                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">End</Label>
+                            <Input
+                                type="date"
+                                value={visibleDateRange.end}
+                                onChange={(event) => handleCustomEndChange(event.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => loadMedia()} disabled={isLoading} className="gap-2">
+                                {isLoading ? <Loader2 className="size-7 animate-spin" /> : <RefreshCw className="size-7" />}
+                                Refresh
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -267,7 +262,19 @@ export default function PetMediaMonitoring() {
                 </div>
             ) : null}
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[14rem_1fr]">
+                <Select value={sourceFilter} onValueChange={(value) => {
+                    setSourceFilter(value);
+                }}>
+                    <SelectTrigger>
+                        <SelectValue displayValue={sourceLabel(sourceFilter)} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {SOURCE_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}

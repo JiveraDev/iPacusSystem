@@ -1,4 +1,6 @@
 import * as React from "react";
+import { DatePickerInput } from "@mantine/dates";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "./utils";
 
@@ -30,19 +32,116 @@ function InputIcon({ side = "left", className, children }) {
   );
 }
 
+function normalizeDateValue(value) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  return "";
+}
+
+function createChangeEvent({ value, name, id }) {
+  return {
+    target: { value, name, id },
+    currentTarget: { value, name, id },
+  };
+}
+
 const Input = React.forwardRef(({
   className,
   containerClassName,
   type,
   leftIcon,
   rightIcon,
+  value,
+  defaultValue,
+  onChange,
+  min,
+  max,
+  name,
+  id,
+  placeholder,
+  disabled,
+  required,
+  readOnly,
   ...props
 }, ref) => {
+  if (type === "date") {
+    const isControlled = value !== undefined;
+    const dateValueProps = isControlled
+      ? { value: normalizeDateValue(value) || null }
+      : { defaultValue: normalizeDateValue(defaultValue) || null };
+
+    return (
+      <DatePickerInput
+        ref={ref}
+        id={id}
+        name={name}
+        placeholder={placeholder || "Select date"}
+        valueFormat="MM/DD/YYYY"
+        minDate={normalizeDateValue(min) || undefined}
+        maxDate={normalizeDateValue(max) || undefined}
+        disabled={disabled}
+        required={required}
+        readOnly={readOnly}
+        leftSection={leftIcon || undefined}
+        leftSectionPointerEvents="none"
+        rightSection={rightIcon || <CalendarIcon className="size-4" />}
+        rightSectionPointerEvents="none"
+        popoverProps={{
+          withinPortal: true,
+          zIndex: 120,
+          shadow: "md",
+          radius: "md",
+        }}
+        className={cn("w-full min-w-0", containerClassName)}
+        classNames={{
+          input: cn(
+            inputBaseClasses,
+            leftIcon && "pl-10",
+            "min-w-[8.75rem] pr-10 text-left font-normal",
+            className,
+          ),
+          day: "rounded-md text-sm font-semibold",
+          calendarHeaderControl: "rounded-md",
+          calendarHeaderLevel: "text-sm font-black text-slate-900",
+          weekday: "text-xs font-black uppercase text-slate-500",
+        }}
+        onChange={(nextValue) => {
+          const nextDate = normalizeDateValue(nextValue);
+          onChange?.(createChangeEvent({ value: nextDate, name, id }));
+        }}
+        {...dateValueProps}
+        {...props}
+      />
+    );
+  }
+
   const input = (
     <input
       ref={ref}
       type={type}
       data-slot="input"
+      id={id}
+      name={name}
+      value={value}
+      defaultValue={defaultValue}
+      onChange={onChange}
+      min={min}
+      max={max}
+      placeholder={placeholder}
+      disabled={disabled}
+      required={required}
+      readOnly={readOnly}
       className={cn(
         inputBaseClasses,
         leftIcon && "pl-10",

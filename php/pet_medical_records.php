@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 
 header('Content-Type: application/json');
@@ -80,6 +81,68 @@ function pet_medical_nullable_text($value): ?string
     $text = trim((string)($value ?? ''));
 
     return $text === '' ? null : $text;
+}
+
+function pet_medical_compare_value($value): string
+{
+    if ($value === null) {
+        return '';
+    }
+
+    if (is_bool($value)) {
+        return $value ? '1' : '0';
+    }
+
+    return trim((string)$value);
+}
+
+function pet_medical_changed_fields(array $current, array $next): array
+{
+    $changed = [];
+
+    foreach ($next as $field => $nextValue) {
+        $currentValue = $current[$field] ?? null;
+        if (pet_medical_compare_value($currentValue) !== pet_medical_compare_value($nextValue)) {
+            $changed[$field] = $nextValue;
+        }
+    }
+
+    return $changed;
+}
+
+function pet_medical_notify_owner_record_updated(
+    PDO $pdo,
+    int $petId,
+    string $scope,
+    int $recordId,
+    string $recordTitle
+): void {
+    try {
+        $pet = pet_medical_pet_summary($pdo, $petId);
+        $ownerUserId = (int)($pet['ownerUserId'] ?? 0);
+        if ($ownerUserId <= 0) {
+            return;
+        }
+
+        $petName = trim((string)($pet['name'] ?? 'Pet')) ?: 'Pet';
+        $cleanTitle = trim($recordTitle) ?: 'Medical record';
+        $bucket = (int)floor(time() / 600);
+
+        notification_create_event($pdo, [
+            'user_id' => $ownerUserId,
+            'type' => 'medical_record_updated',
+            'category' => 'diagnosis_updates',
+            'title' => 'Medical record updated',
+            'message' => "{$petName}'s medical record was updated: {$cleanTitle}.",
+            'push_title' => 'Medical record updated',
+            'push_message' => "{$petName}'s medical record was updated.",
+            'redirect_path' => '/dashboard/my-pets/' . (int)$pet['dbId'] . '/medical-records',
+            'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}",
+            'force_in_app' => true,
+        ]);
+    } catch (Throwable $error) {
+        error_log('Medical record owner notification failed: ' . $error->getMessage());
+    }
 }
 
 function pet_medical_ensure_schema(PDO $pdo): void
@@ -1395,6 +1458,34 @@ function pet_medical_update_group(PDO $pdo, int $petId, array $input): void
     $visible = array_key_exists('visibleToOwner', $input)
         ? (int)(bool)$input['visibleToOwner']
         : (array_key_exists('visible_to_owner', $input) ? (int)(bool)$input['visible_to_owner'] : 1);
+    $summary = pet_medical_nullable_text($input['summary'] ?? null);
+    $sortOrder = pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null);
+    $userId = pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null);
+
+    $currentStmt = $pdo->prepare("
+        SELECT group_id, title, summary, visible_to_owner, sort_order
+        FROM pet_medical_record_groups
+        WHERE group_id = ?
+          AND pet_id = ?
+        LIMIT 1
+    ");
+    $currentStmt->execute([$groupId, $petId]);
+    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$current) {
+        pet_medical_error(404, 'Record group was not found.');
+    }
+
+    $next = [
+        'title' => $title,
+        'summary' => $summary,
+        'visible_to_owner' => $visible,
+        'sort_order' => $sortOrder ?? (int)$current['sort_order'],
+    ];
+    $changedFields = pet_medical_changed_fields($current, $next);
+    if (!$changedFields) {
+        echo json_encode(['success' => true, 'changed' => false]);
+        return;
+    }
 
     $stmt = $pdo->prepare("
         UPDATE pet_medical_record_groups
@@ -1408,15 +1499,19 @@ function pet_medical_update_group(PDO $pdo, int $petId, array $input): void
     ");
     $stmt->execute([
         $title,
-        pet_medical_nullable_text($input['summary'] ?? null),
+        $summary,
         $visible,
-        pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null),
-        pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null),
+        $sortOrder,
+        $userId,
         $groupId,
         $petId,
     ]);
 
-    echo json_encode(['success' => true]);
+    if ($visible === 1 || (int)$current['visible_to_owner'] === 1) {
+        pet_medical_notify_owner_record_updated($pdo, $petId, 'group', $groupId, $title);
+    }
+
+    echo json_encode(['success' => true, 'changed' => true]);
 }
 
 function pet_medical_delete_group(PDO $pdo, int $petId, array $input): void
@@ -1512,6 +1607,46 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
         pet_medical_error(400, 'itemId is required.');
     }
 
+    $currentStmt = $pdo->prepare("
+        SELECT
+            i.item_id,
+            i.title,
+            i.summary,
+            i.revision_notes,
+            i.sort_order,
+            g.group_id,
+            g.title AS group_title,
+            g.visible_to_owner
+        FROM pet_medical_record_group_items i
+        JOIN pet_medical_record_groups g ON g.group_id = i.group_id
+        WHERE i.item_id = ?
+          AND g.pet_id = ?
+        LIMIT 1
+    ");
+    $currentStmt->execute([$itemId, $petId]);
+    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$current) {
+        pet_medical_error(404, 'Record item was not found.');
+    }
+
+    $title = pet_medical_nullable_text($input['title'] ?? null) ?: 'Clinical record';
+    $summary = pet_medical_nullable_text($input['summary'] ?? null);
+    $revisionNotes = pet_medical_nullable_text($input['revisionNotes'] ?? $input['revision_notes'] ?? null);
+    $sortOrder = pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null);
+    $userId = pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null);
+
+    $next = [
+        'title' => $title,
+        'summary' => $summary,
+        'revision_notes' => $revisionNotes,
+        'sort_order' => $sortOrder ?? (int)$current['sort_order'],
+    ];
+    $changedFields = pet_medical_changed_fields($current, $next);
+    if (!$changedFields) {
+        echo json_encode(['success' => true, 'changed' => false]);
+        return;
+    }
+
     $stmt = $pdo->prepare("
         UPDATE pet_medical_record_group_items i
         JOIN pet_medical_record_groups g ON g.group_id = i.group_id
@@ -1524,16 +1659,20 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
           AND g.pet_id = ?
     ");
     $stmt->execute([
-        pet_medical_nullable_text($input['title'] ?? null) ?: 'Clinical record',
-        pet_medical_nullable_text($input['summary'] ?? null),
-        pet_medical_nullable_text($input['revisionNotes'] ?? $input['revision_notes'] ?? null),
-        pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null),
-        pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null),
+        $title,
+        $summary,
+        $revisionNotes,
+        $sortOrder,
+        $userId,
         $itemId,
         $petId,
     ]);
 
-    echo json_encode(['success' => true]);
+    if ((int)$current['visible_to_owner'] === 1) {
+        pet_medical_notify_owner_record_updated($pdo, $petId, 'item', $itemId, $title);
+    }
+
+    echo json_encode(['success' => true, 'changed' => true]);
 }
 
 function pet_medical_remove_item(PDO $pdo, int $petId, array $input): void

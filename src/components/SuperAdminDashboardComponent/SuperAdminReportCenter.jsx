@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { generateReport, REPORT_QUICK_RANGES, REPORT_TYPES } from '../../services/reportService';
 import { formatReportDateLabel, formatReportDateRange } from '../../lib/date';
+import ReportDateInput from './ReportDateInput';
 import ReportPreview from './ReportPreview';
 
 const PAYMENT_METHODS = [
@@ -426,7 +427,7 @@ export default function SuperAdminReportCenter() {
                             </div>
                         </div>
 
-                        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/70 sm:grid-cols-[12rem_9rem_9rem_auto]">
+                        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/70 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,14rem)_minmax(11.5rem,12.5rem)_minmax(11.5rem,12.5rem)_auto]">
                             <div>
                                 <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
                                 <Select value={range} onValueChange={setRange}>
@@ -441,27 +442,19 @@ export default function SuperAdminReportCenter() {
                                 </Select>
                             </div>
 
-                            <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Start</Label>
-                                <Input
-                                    type="date"
-                                    value={visibleDateRange.start}
-                                    onChange={(event) => handleCustomStartChange(event.target.value)}
-                                    className="mt-1"
-                                />
-                            </div>
+                            <ReportDateInput
+                                label="Start"
+                                value={visibleDateRange.start}
+                                onChange={handleCustomStartChange}
+                            />
 
-                            <div>
-                                <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">End</Label>
-                                <Input
-                                    type="date"
-                                    value={visibleDateRange.end}
-                                    onChange={(event) => handleCustomEndChange(event.target.value)}
-                                    className="mt-1"
-                                />
-                            </div>
+                            <ReportDateInput
+                                label="End"
+                                value={visibleDateRange.end}
+                                onChange={handleCustomEndChange}
+                            />
 
-                            <div className="flex flex-wrap items-end gap-2">
+                            <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-1">
                                 <Button type="button" onClick={previewReport} disabled={isLoading} className="gap-2">
                                     {isLoading ? <Loader2 className="size-7 animate-spin" /> : <Search className="size-4" />}
                                     Preview Report

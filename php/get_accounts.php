@@ -7,28 +7,31 @@ header("Content-Type: application/json");
 try {
     $adminHasActiveColumn = ensureAdminAccountStatusColumn($pdo);
     $staffActiveSelect = $adminHasActiveColumn ? 'a.is_active AS is_active' : '1 AS is_active';
+    $hasUserAccountStatus = accountColumnExists($pdo, 'users', 'account_status');
+    $accountStatusSelect = $hasUserAccountStatus ? 'u.account_status' : "'active' AS account_status";
+    $activeAccountWhere = $hasUserAccountStatus ? " AND COALESCE(u.account_status, 'active') <> 'deactivated'" : '';
 
     // 1. Fetch Veterinarians
-    $vetSql = "SELECT u.*, v.*, v.is_active AS is_active
+    $vetSql = "SELECT u.*, v.*, {$accountStatusSelect}, v.is_active AS is_active
                FROM users u 
                JOIN veterinarian_profiles v ON u.user_id = v.user_id 
-               WHERE u.role = 'Veterinarian'";
+               WHERE u.role = 'Veterinarian'{$activeAccountWhere}";
     $vetStmt = $pdo->query($vetSql);
     $veterinarians = $vetStmt->fetchAll();
 
     // 2. Fetch Admin/Staff
-    $staffSql = "SELECT u.*, a.*, {$staffActiveSelect}
+    $staffSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
                  FROM users u 
                  JOIN admin_profiles a ON u.user_id = a.user_id 
-                 WHERE u.role = 'Admin'";
+                 WHERE u.role = 'Admin'{$activeAccountWhere}";
     $staffStmt = $pdo->query($staffSql);
     $staff = $staffStmt->fetchAll();
 
     // 3. Fetch Super Admins
-    $superAdminSql = "SELECT u.*, a.*, {$staffActiveSelect}
+    $superAdminSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
                       FROM users u
                       LEFT JOIN admin_profiles a ON u.user_id = a.user_id
-                      WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin')";
+                      WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin'){$activeAccountWhere}";
     $superAdminStmt = $pdo->query($superAdminSql);
     $superAdmins = $superAdminStmt->fetchAll();
 

@@ -138,6 +138,132 @@ html.dark {
   }
 }
 
+@layer components {
+  .todo-calendar-shell {
+    min-height: 34rem;
+    overflow-x: auto;
+    padding: 1rem;
+  }
+
+  .todo-rbc {
+    min-width: 48rem;
+    min-height: 42rem;
+    color: var(--theme-text);
+    font-family: inherit;
+  }
+
+  .todo-rbc .rbc-month-view,
+  .todo-rbc .rbc-time-view,
+  .todo-rbc .rbc-agenda-view {
+    overflow: hidden;
+    border-color: var(--theme-border);
+    border-radius: 8px;
+    background: var(--theme-surface);
+  }
+
+  .todo-rbc .rbc-header {
+    border-color: var(--theme-border);
+    padding: 0.75rem 0.5rem;
+    color: var(--theme-text-muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .todo-rbc .rbc-month-row,
+  .todo-rbc .rbc-day-bg,
+  .todo-rbc .rbc-time-content,
+  .todo-rbc .rbc-time-header-content,
+  .todo-rbc .rbc-timeslot-group,
+  .todo-rbc .rbc-agenda-table,
+  .todo-rbc .rbc-agenda-table tbody > tr > td,
+  .todo-rbc .rbc-agenda-table thead > tr > th {
+    border-color: var(--theme-border);
+  }
+
+  .todo-rbc .rbc-date-cell {
+    padding: 0.5rem;
+    color: var(--theme-text-muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+  }
+
+  .todo-rbc .rbc-off-range-bg {
+    background: var(--theme-surface-soft);
+  }
+
+  .todo-rbc .rbc-today {
+    background: rgba(21, 93, 252, 0.08);
+  }
+
+  .todo-rbc .rbc-selected-cell,
+  .todo-rbc .rbc-slot-selection {
+    border-color: rgba(21, 93, 252, 0.28);
+    background: rgba(21, 93, 252, 0.16);
+    color: #0f3fb4;
+  }
+
+  .todo-rbc .rbc-day-slot .rbc-time-slot {
+    transition: background-color 120ms ease;
+  }
+
+  .todo-rbc .rbc-day-slot .rbc-time-slot:hover {
+    background: rgba(21, 93, 252, 0.06);
+  }
+
+  .todo-rbc .rbc-time-slot.rbc-now {
+    color: #155dfc;
+    font-weight: 900;
+  }
+
+  .todo-rbc .todo-calendar-selected-day,
+  .todo-rbc .todo-calendar-selected-day.rbc-today {
+    background: rgba(21, 93, 252, 0.14);
+  }
+
+  .todo-rbc .rbc-event {
+    min-height: 1.45rem;
+    padding: 0.16rem 0.45rem;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  .todo-rbc .rbc-event:focus,
+  .todo-rbc .rbc-day-slot .rbc-event:focus {
+    outline: 2px solid rgba(21, 93, 252, 0.35);
+    outline-offset: 1px;
+  }
+
+  .todo-rbc .rbc-show-more {
+    color: #155dfc;
+    font-size: 0.72rem;
+    font-weight: 900;
+  }
+
+  .todo-rbc .rbc-agenda-time-cell,
+  .todo-rbc .rbc-agenda-date-cell {
+    color: var(--theme-text-muted);
+    font-weight: 800;
+  }
+
+  .todo-rbc .rbc-current-time-indicator {
+    background: #155dfc;
+  }
+
+  @media (max-width: 767px) {
+    .todo-calendar-shell {
+      margin-inline: -1rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .todo-rbc {
+      min-width: 42rem;
+      min-height: 36rem;
+    }
+  }
+}
+
 html.dark body,
 html.dark #root {
   background: var(--theme-page);

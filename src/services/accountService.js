@@ -1,4 +1,4 @@
-import { apiRequest, patchJson, postJson } from './apiClient';
+import { apiRequest, deleteRequest, patchJson, postJson } from './apiClient';
 
 export function fetchAccounts() {
     return apiRequest('/accounts', { apiPrefix: true });
@@ -26,6 +26,16 @@ export function updatePersonnelAccountDetails(userId, payload) {
         ...payload,
         role: currentUserRole()
     }, { apiPrefix: true });
+}
+
+export function deleteAccount(userId, payload) {
+    return deleteRequest(`/accounts/${userId}`, {
+        apiPrefix: true,
+        body: JSON.stringify({
+            ...payload,
+            role: currentUserRole()
+        })
+    });
 }
 
 export function fetchPetOwnerAccounts() {

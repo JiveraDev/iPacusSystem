@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
+import dayjs from 'dayjs';
+import { Calendar, dayjsLocalizer, Views } from 'react-big-calendar';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 import {
     CalendarDays,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
-    Clock,
     CreditCard,
     Loader2,
-    PanelRightClose,
-    PanelRightOpen,
     Pencil,
     Plus,
     RefreshCw,
@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Badge } from '../../ui/badge';
 import { Checkbox } from '../../ui/checkbox';
-import { format, isSameDay } from '../../lib/date';
+import { format } from '../../lib/date';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 import {
@@ -35,6 +35,8 @@ import {
     updatePetOwnerTodo
 } from '../../services/todoService';
 import { useNavigate } from '../dashboardRouter.jsx';
+
+const calendarLocalizer = dayjsLocalizer(dayjs);
 
 const CATEGORY_OPTIONS = [
     'Personal Task',
@@ -57,6 +59,24 @@ const CATEGORY_STYLES = {
 };
 
 CATEGORY_STYLES['Online Consultation'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
+
+const CATEGORY_COLORS = {
+    Booking: '#2563eb',
+    Boarding: '#0891b2',
+    Payment: '#059669',
+    'Follow-up': '#7c3aed',
+    Medication: '#d97706',
+    'Personal Task': '#475569',
+    'Online Consultation': '#2563eb',
+    Other: '#64748b'
+};
+
+const CALENDAR_VIEWS = [
+    { value: Views.MONTH, label: 'Month' },
+    { value: Views.WEEK, label: 'Week' },
+    { value: Views.DAY, label: 'Day' },
+    { value: Views.AGENDA, label: 'Agenda' }
+];
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
@@ -90,6 +110,16 @@ function timeInputValue(date) {
     return `${hours}:${minutes}`;
 }
 
+function isMidnight(date) {
+    return date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0;
+}
+
+function withTime(date, hours, minutes = 0) {
+    const next = new Date(date);
+    next.setHours(hours, minutes, 0, 0);
+    return next;
+}
+
 function startOfMonth(date) {
     return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -104,6 +134,28 @@ function addDays(date, amount) {
     return next;
 }
 
+function addMinutes(date, amount) {
+    const next = new Date(date);
+    next.setMinutes(next.getMinutes() + amount);
+    return next;
+}
+
+function startOfDay(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function endOfDay(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+}
+
+function startOfWeek(date) {
+    return startOfDay(addDays(date, -date.getDay()));
+}
+
+function endOfWeek(date) {
+    return endOfDay(addDays(startOfWeek(date), 6));
+}
+
 function calendarRange(monthDate) {
     const firstDay = startOfMonth(monthDate);
     const lastDay = endOfMonth(monthDate);
@@ -113,7 +165,35 @@ function calendarRange(monthDate) {
     return { start, end };
 }
 
-function monthLabel(date) {
+function visibleCalendarRange(date, view) {
+    if (view === Views.WEEK) {
+        return { start: startOfWeek(date), end: endOfWeek(date) };
+    }
+
+    if (view === Views.DAY) {
+        return { start: startOfDay(date), end: endOfDay(date) };
+    }
+
+    if (view === Views.AGENDA) {
+        return { start: startOfDay(date), end: endOfDay(addDays(date, 30)) };
+    }
+
+    return calendarRange(date);
+}
+
+function calendarTitle(date, view) {
+    if (view === Views.WEEK) {
+        return `${format(startOfWeek(date), 'PPP')} - ${format(endOfWeek(date), 'PPP')}`;
+    }
+
+    if (view === Views.DAY) {
+        return format(date, 'PPPP');
+    }
+
+    if (view === Views.AGENDA) {
+        return 'Upcoming Schedule';
+    }
+
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
@@ -122,16 +202,69 @@ function combineDateTime(dateValue, timeValue) {
     return `${dateValue} ${timeValue || '09:00'}:00`;
 }
 
-function displayTime(value) {
-    const date = parseTaskDate(value);
-    if (!date) return '';
-    return format(date, 'p');
+function rangeForm(startDate, endDate = null) {
+    const start = startDate || new Date();
+    const end = endDate && endDate > start ? endDate : addMinutes(start, 45);
+
+    return {
+        title: '',
+        details: '',
+        category: 'Personal Task',
+        date: dateInputValue(start),
+        time: timeInputValue(start),
+        endDate: dateInputValue(end),
+        endTime: timeInputValue(end)
+    };
 }
 
-function displayDateTime(value) {
-    const date = parseTaskDate(value);
-    if (!date) return 'Not scheduled';
-    return `${format(date, 'PPP')} at ${format(date, 'p')}`;
+function normalizeSlotRange(slot, view, fallbackDate = new Date()) {
+    const rawStart = slot?.start instanceof Date ? slot.start : fallbackDate;
+    const rawEnd = slot?.end instanceof Date ? slot.end : null;
+    const selectedSlots = Array.isArray(slot?.slots) ? slot.slots : [];
+    const selectedDates = selectedSlots.filter(value => value instanceof Date);
+    const isMonthRange = view === Views.MONTH;
+
+    if (isMonthRange && isMidnight(rawStart)) {
+        const start = withTime(rawStart, 9);
+
+        if (selectedDates.length > 1) {
+            const lastSelectedDate = selectedDates[selectedDates.length - 1];
+            return { start, end: withTime(lastSelectedDate, 17) };
+        }
+
+        return { start, end: addMinutes(start, 45) };
+    }
+
+    const start = isMidnight(rawStart) ? withTime(rawStart, 9) : rawStart;
+    const end = rawEnd && rawEnd > start ? rawEnd : addMinutes(start, 45);
+
+    return { start, end };
+}
+
+function displayTimeRange(startValue, endValue) {
+    const start = parseTaskDate(startValue);
+    const end = parseTaskDate(endValue);
+
+    if (!start) return '';
+    if (!end || end <= start) return format(start, 'p');
+    if (dateInputValue(start) === dateInputValue(end)) {
+        return `${format(start, 'p')} - ${format(end, 'p')}`;
+    }
+
+    return `${format(start, 'MMM d, p')} - ${format(end, 'MMM d, p')}`;
+}
+
+function displayTaskSchedule(task) {
+    const start = parseTaskDate(task.startAt);
+    const end = parseTaskDate(task.endAt);
+
+    if (!start) return 'Not scheduled';
+    if (!end || end <= start) return `${format(start, 'PPP')} at ${format(start, 'p')}`;
+    if (dateInputValue(start) === dateInputValue(end)) {
+        return `${format(start, 'PPP')} from ${format(start, 'p')} to ${format(end, 'p')}`;
+    }
+
+    return `${format(start, 'PPP p')} - ${format(end, 'PPP p')}`;
 }
 
 function taskStyle(task) {
@@ -148,13 +281,8 @@ function isTaskOverdue(task) {
 }
 
 function emptyForm(date = new Date()) {
-    return {
-        title: '',
-        details: '',
-        category: 'Personal Task',
-        date: dateInputValue(date),
-        time: '09:00'
-    };
+    const start = isMidnight(date) ? withTime(date, 9) : date;
+    return rangeForm(start, addMinutes(start, 45));
 }
 
 function petProfilePath(task) {
@@ -170,7 +298,8 @@ export default function Todos({ user }) {
     const navigate = useNavigate();
     const userId = getUserId(user);
     const isVeterinarian = isVeterinarianRole(user?.role);
-    const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
+    const [calendarDate, setCalendarDate] = useState(() => new Date());
+    const [calendarView, setCalendarView] = useState(Views.MONTH);
     const [selectedDate, setSelectedDate] = useState(null);
     const [tasks, setTasks] = useState([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -178,10 +307,9 @@ export default function Todos({ user }) {
     const [isSaving, setIsSaving] = useState(false);
     const [loadError, setLoadError] = useState('');
     const [editingTask, setEditingTask] = useState(null);
-    const [isAgendaOpen, setIsAgendaOpen] = useState(true);
     const [form, setForm] = useState(() => emptyForm(new Date()));
 
-    const range = useMemo(() => calendarRange(currentMonth), [currentMonth]);
+    const range = useMemo(() => visibleCalendarRange(calendarDate, calendarView), [calendarDate, calendarView]);
 
     const loadTasks = async ({ isAutoRefresh = false } = {}) => {
         if (!userId) return null;
@@ -217,18 +345,6 @@ export default function Todos({ user }) {
         refreshKey: `todos-${normalizeRole(user?.role)}-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
     });
 
-    const calendarDays = useMemo(() => {
-        const days = [];
-        let current = new Date(range.start);
-
-        while (current <= range.end) {
-            days.push(new Date(current));
-            current = addDays(current, 1);
-        }
-
-        return days;
-    }, [range]);
-
     const tasksByDay = useMemo(() => {
         const grouped = new Map();
 
@@ -256,43 +372,47 @@ export default function Todos({ user }) {
         return tasksByDay.get(dateInputValue(selectedDate)) || [];
     }, [selectedDate, tasksByDay]);
 
-    const upcomingTasks = useMemo(() => (
+    const calendarEvents = useMemo(() => (
         tasks
-            .filter(task => {
-                const date = parseTaskDate(task.startAt);
-                if (!date || isTaskDone(task)) return false;
-                const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000;
-                return date.getTime() <= sevenDays;
+            .map(task => {
+                const start = parseTaskDate(task.startAt);
+                if (!start) return null;
+                const savedEnd = parseTaskDate(task.endAt);
+                const end = savedEnd && savedEnd > start ? savedEnd : addMinutes(start, 45);
+
+                return {
+                    id: task.id,
+                    title: task.title || 'Task',
+                    start,
+                    end,
+                    resource: task
+                };
             })
-            .sort((left, right) => (parseTaskDate(left.startAt)?.getTime() || 0) - (parseTaskDate(right.startAt)?.getTime() || 0))
-            .slice(0, 8)
+            .filter(Boolean)
     ), [tasks]);
 
     const openDay = (date) => {
-        setSelectedDate(date);
+        const { start, end } = normalizeSlotRange({ start: date }, calendarView, calendarDate);
+        setSelectedDate(start);
         setEditingTask(null);
-        setForm(emptyForm(date));
-        setIsDialogOpen(true);
-    };
-
-    const openCreate = () => {
-        const date = selectedDate || new Date();
-        setSelectedDate(date);
-        setEditingTask(null);
-        setForm(emptyForm(date));
+        setForm(rangeForm(start, end));
         setIsDialogOpen(true);
     };
 
     const openEdit = (task) => {
         const date = parseTaskDate(task.startAt) || new Date();
+        setSelectedDate(date);
         setEditingTask(task);
         setForm({
             title: task.title || '',
             details: task.details || '',
             category: task.category || 'Personal Task',
             date: dateInputValue(date),
-            time: timeInputValue(date)
+            time: timeInputValue(date),
+            endDate: dateInputValue(parseTaskDate(task.endAt) || addMinutes(date, 45)),
+            endTime: timeInputValue(parseTaskDate(task.endAt) || addMinutes(date, 45))
         });
+        setIsDialogOpen(true);
     };
 
     const resetForm = () => {
@@ -311,11 +431,22 @@ export default function Todos({ user }) {
             return;
         }
 
+        const startAt = combineDateTime(form.date, form.time);
+        const endAt = combineDateTime(form.endDate || form.date, form.endTime || form.time);
+        const startDate = parseTaskDate(startAt);
+        const endDate = parseTaskDate(endAt);
+
+        if (endDate && startDate && endDate <= startDate) {
+            toast.error('End time must be after the start time.');
+            return;
+        }
+
         const payload = {
             title: form.title.trim(),
             details: form.details.trim(),
             category: form.category,
-            startAt: combineDateTime(form.date, form.time)
+            startAt,
+            endAt: endDate ? endAt : null
         };
 
         setIsSaving(true);
@@ -371,8 +502,26 @@ export default function Todos({ user }) {
         }
     };
 
-    const changeMonth = (amount) => {
-        setCurrentMonth(current => startOfMonth(new Date(current.getFullYear(), current.getMonth() + amount, 1)));
+    const navigateCalendar = (action) => {
+        if (action === 'TODAY') {
+            const today = new Date();
+            setCalendarDate(today);
+            setSelectedDate(today);
+            return;
+        }
+
+        const direction = action === 'PREV' ? -1 : 1;
+        setCalendarDate(current => {
+            if (calendarView === Views.MONTH || calendarView === Views.AGENDA) {
+                return new Date(current.getFullYear(), current.getMonth() + direction, 1);
+            }
+
+            if (calendarView === Views.WEEK) {
+                return addDays(current, direction * 7);
+            }
+
+            return addDays(current, direction);
+        });
     };
 
     const openTaskPet = (task) => {
@@ -380,6 +529,52 @@ export default function Todos({ user }) {
         if (path) {
             navigate(path);
         }
+    };
+
+    const handleSelectEvent = (event) => {
+        const task = event.resource;
+        const date = parseTaskDate(task.startAt) || event.start || new Date();
+
+        if (task.editable) {
+            openEdit(task);
+            return;
+        }
+
+        openDay(date);
+    };
+
+    const handleSelectSlot = (slot) => {
+        const { start, end } = normalizeSlotRange(slot, calendarView, calendarDate || new Date());
+        setSelectedDate(start);
+        setEditingTask(null);
+        setForm(rangeForm(start, end));
+        setIsDialogOpen(true);
+    };
+
+    const handleViewChange = (view) => {
+        setCalendarView(view);
+    };
+
+    const eventPropGetter = (event) => {
+        const task = event.resource;
+        const color = CATEGORY_COLORS[task.category] || CATEGORY_COLORS[task.source === 'personal' ? 'Personal Task' : 'Other'];
+
+        return {
+            style: {
+                backgroundColor: color,
+                borderColor: color,
+                color: '#ffffff',
+                opacity: isTaskDone(task) ? 0.68 : 1
+            }
+        };
+    };
+
+    const dayPropGetter = (date) => {
+        if (selectedDate && dateInputValue(date) === dateInputValue(selectedDate)) {
+            return { className: 'todo-calendar-selected-day' };
+        }
+
+        return {};
     };
 
     return (
@@ -400,10 +595,6 @@ export default function Todos({ user }) {
                         {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                         Refresh
                     </Button>
-                    <Button type="button" onClick={openCreate} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                        <Plus className="size-4" />
-                        Add Task
-                    </Button>
                 </div>
             </div>
 
@@ -413,151 +604,82 @@ export default function Todos({ user }) {
                 </div>
             )}
 
-            <div className={`grid gap-6 transition-[grid-template-columns] duration-300 xl:items-start ${isAgendaOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
-                <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
-                    <CardHeader className="border-b border-slate-100">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+                <CardHeader className="border-b border-slate-100">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div>
                             <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-950">
                                 <CalendarDays className="size-5 text-[#155dfc]" />
-                                {monthLabel(currentMonth)}
+                                {calendarTitle(calendarDate, calendarView)}
                             </CardTitle>
+                            <p className="mt-1 text-sm font-semibold text-slate-500">
+                                Personal tasks and clinic schedule in one timeline.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                            <div className="grid grid-cols-4 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                                {CALENDAR_VIEWS.map(option => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => handleViewChange(option.value)}
+                                        className={`h-9 rounded-md px-3 text-xs font-black transition ${calendarView === option.value ? 'bg-white text-[#155dfc] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
                             <div className="flex items-center gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => changeMonth(-1)} aria-label="Previous month">
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('PREV')} aria-label="Previous period">
                                     <ChevronLeft className="size-4" />
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => setCurrentMonth(startOfMonth(new Date()))}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('TODAY')}>
                                     Today
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => changeMonth(1)} aria-label="Next month">
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('NEXT')} aria-label="Next period">
                                     <ChevronRight className="size-4" />
                                 </Button>
                             </div>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <div className="min-w-[44rem] p-4 lg:min-w-0">
-                                <div className="grid grid-cols-7 gap-2 pb-2">
-                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                                        <div key={day} className="px-2 py-1 text-center text-xs font-black uppercase tracking-wide text-slate-400">
-                                            {day}
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="grid grid-cols-7 gap-2">
-                                    {calendarDays.map(day => {
-                                        const key = dateInputValue(day);
-                                        const dayTasks = tasksByDay.get(key) || [];
-                                        const isOutsideMonth = day.getMonth() !== currentMonth.getMonth();
-                                        const isToday = isSameDay(day, new Date());
+                    </div>
 
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={key}
-                                                onClick={() => openDay(day)}
-                                                className={`relative min-h-32 rounded-lg border p-2 pt-11 text-left align-top transition hover:border-blue-300 hover:bg-blue-50/30 ${isToday ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'} ${isOutsideMonth ? 'opacity-50' : ''}`}
-                                            >
-                                                <span className="absolute left-2 right-2 top-2 flex items-start justify-between gap-2">
-                                                    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${isToday ? 'bg-[#155dfc] text-white' : 'text-slate-700'}`}>
-                                                        {day.getDate()}
-                                                    </span>
-                                                    {dayTasks.length > 0 && (
-                                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-600">
-                                                            {dayTasks.length}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                                <span className="block space-y-1">
-                                                    {dayTasks.slice(0, 3).map(task => {
-                                                        const style = taskStyle(task);
-                                                        return (
-                                                            <span
-                                                                key={task.id}
-                                                                className={`block truncate rounded-md px-2 py-1 text-xs font-bold ${style.badge}`}
-                                                                title={task.title}
-                                                            >
-                                                                {displayTime(task.startAt)} {task.title}
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    {dayTasks.length > 3 && (
-                                                        <span className="block px-2 text-xs font-bold text-slate-400">
-                                                            +{dayTasks.length - 3} more
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="todo-calendar-shell">
+                        {isLoading && tasks.length === 0 ? (
+                            <div className="flex min-h-[34rem] items-center justify-center gap-2 text-sm font-semibold text-slate-500">
+                                <Loader2 className="size-4 animate-spin" />
+                                Loading schedules...
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        ) : (
+                            <Calendar
+                                localizer={calendarLocalizer}
+                                events={calendarEvents}
+                                date={calendarDate}
+                                view={calendarView}
+                                views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+                                toolbar={false}
+                                selectable="ignoreEvents"
+                                popup
+                                showMultiDayTimes
+                                longPressThreshold={180}
+                                step={30}
+                                timeslots={2}
+                                onNavigate={setCalendarDate}
+                                onView={handleViewChange}
+                                onSelectEvent={handleSelectEvent}
+                                onSelectSlot={handleSelectSlot}
+                                eventPropGetter={eventPropGetter}
+                                dayPropGetter={dayPropGetter}
+                                components={{ event: CalendarEvent }}
+                                className="todo-rbc"
+                            />
+                        )}
+                    </div>
 
-                <aside className={`relative rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start ${isAgendaOpen ? '' : 'xl:hidden'}`}>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAgendaOpen(false)}
-                            aria-label="Hide next 7 days"
-                            aria-expanded={isAgendaOpen}
-                            className="absolute -left-5 top-5 z-10 hidden size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
-                        >
-                            <PanelRightClose className="size-5" strokeWidth={2.4} />
-                        </Button>
-                        <div className="border-b border-slate-100 p-4 pl-6">
-                            <h2 className="flex items-center gap-2 text-lg font-black text-slate-950">
-                                <Clock className="size-5 text-[#155dfc]" />
-                                Next 7 Days
-                            </h2>
-                        </div>
-                        <div className="max-h-[36rem] space-y-3 overflow-y-auto p-4">
-                            {isLoading && tasks.length === 0 ? (
-                                <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-slate-500">
-                                    <Loader2 className="size-4 animate-spin" />
-                                    Loading schedules...
-                                </div>
-                            ) : upcomingTasks.length === 0 ? (
-                                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-400">
-                                    No upcoming tasks.
-                                </div>
-                            ) : (
-                                upcomingTasks.map(task => (
-                                    <TaskRow
-                                        key={task.id}
-                                        task={task}
-                                        onComplete={completeTask}
-                                        onEdit={openEdit}
-                                        onDelete={removeTask}
-                                        onOpenPet={openTaskPet}
-                                        compact
-                                    />
-                                ))
-                            )}
-                        </div>
-                    </aside>
-            </div>
-
-            {!isAgendaOpen && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAgendaOpen(true)}
-                    aria-label="Show next 7 days"
-                    aria-expanded={isAgendaOpen}
-                    className="fixed right-3 top-48 z-40 hidden size-12 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
-                >
-                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
-                    {upcomingTasks.length > 0 && (
-                        <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">
-                            {upcomingTasks.length}
-                        </span>
-                    )}
-                </Button>
-            )}
+                </CardContent>
+            </Card>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="max-w-3xl">
@@ -612,7 +734,7 @@ export default function Todos({ user }) {
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <Label htmlFor="todo-date">Date</Label>
+                                        <Label htmlFor="todo-date">Start Date</Label>
                                         <Input
                                             id="todo-date"
                                             type="date"
@@ -621,12 +743,42 @@ export default function Todos({ user }) {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="todo-time">Time</Label>
+                                        <Label htmlFor="todo-time">Start Time</Label>
                                         <Input
                                             id="todo-time"
                                             type="time"
                                             value={form.time}
-                                            onChange={(event) => setForm(current => ({ ...current, time: event.target.value }))}
+                                            onChange={(event) => setForm(current => {
+                                                const nextTime = event.target.value;
+                                                const startAt = parseTaskDate(combineDateTime(current.date, nextTime));
+                                                const endAt = parseTaskDate(combineDateTime(current.endDate || current.date, current.endTime));
+
+                                                if (startAt && (!endAt || endAt <= startAt)) {
+                                                    const nextEnd = addMinutes(startAt, 45);
+                                                    return { ...current, time: nextTime, endDate: dateInputValue(nextEnd), endTime: timeInputValue(nextEnd) };
+                                                }
+
+                                                return { ...current, time: nextTime };
+                                            })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="todo-end-date">End Date</Label>
+                                        <Input
+                                            id="todo-end-date"
+                                            type="date"
+                                            value={form.endDate || form.date}
+                                            min={form.date || undefined}
+                                            onChange={(event) => setForm(current => ({ ...current, endDate: event.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="todo-end-time">End Time</Label>
+                                        <Input
+                                            id="todo-end-time"
+                                            type="time"
+                                            value={form.endTime || form.time}
+                                            onChange={(event) => setForm(current => ({ ...current, endTime: event.target.value }))}
                                         />
                                     </div>
                                 </div>
@@ -667,6 +819,19 @@ export default function Todos({ user }) {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function CalendarEvent({ event }) {
+    const task = event.resource;
+
+    return (
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-black leading-4">
+            <span className="truncate">
+                {displayTimeRange(task.startAt, task.endAt)} {event.title}
+            </span>
+            {isTaskDone(task) && <span className="shrink-0 rounded bg-white/20 px-1">Done</span>}
+        </span>
     );
 }
 
@@ -725,7 +890,7 @@ function TaskRow({ task, onComplete, onEdit, onDelete, onOpenPet, compact = fals
                         <p className="mt-1 whitespace-pre-wrap text-sm font-medium leading-5 text-slate-600">{task.details}</p>
                     )}
                     <p className="mt-2 text-xs font-bold text-slate-400">
-                        {displayDateTime(task.startAt)}{task.petName ? ` - ${task.petName}` : ''}
+                        {displayTaskSchedule(task)}{task.petName ? ` - ${task.petName}` : ''}
                     </p>
                 </div>
                 {task.editable && (

@@ -5,13 +5,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X, Search } from 'lucide-react';
+import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { createAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
+import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
 import { resolveImageUrl } from '../../lib/image';
 
 const PERSONNEL_POSITION_OPTIONS = [
@@ -39,9 +40,12 @@ export default function AccountManagement() {
     const [showDetails, setShowDetails] = useState(false);
     const [showCreateAccount, setShowCreateAccount] = useState(false);
     const [pendingStatusAction, setPendingStatusAction] = useState(null);
+    const [pendingDeleteAction, setPendingDeleteAction] = useState(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
     const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time' });
+    const [deleteForm, setDeleteForm] = useState({ masterKey: '', reason: '' });
     const [isSavingPersonnel, setIsSavingPersonnel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [accounts, setAccounts] = useState({ veterinarians: [], staff: [], superadmins: [] });
@@ -182,7 +186,7 @@ export default function AccountManagement() {
         setShowDetails(true);
     };
     const closeAccountDetails = () => {
-        if (isSavingPersonnel) return;
+        if (isSavingPersonnel || isDeletingAccount) return;
         setShowDetails(false);
         setIsEditingPersonnel(false);
     };
@@ -298,6 +302,30 @@ export default function AccountManagement() {
         }
     };
 
+    const openDeleteConfirmation = (user) => {
+        setPendingDeleteAction({
+            userId: user.user_id,
+            type: user.type,
+            name: getAccountName(user),
+            role: getRoleLabel(user.type),
+            email: user.mail_Address || user.email || ''
+        });
+        setDeleteForm({
+            masterKey: '',
+            reason: ''
+        });
+    };
+
+    const closeDeleteConfirmation = () => {
+        if (isDeletingAccount) return;
+
+        setPendingDeleteAction(null);
+        setDeleteForm({
+            masterKey: '',
+            reason: ''
+        });
+    };
+
     const handleToggleStatus = async () => {
         if (!pendingStatusAction) return;
 
@@ -316,6 +344,36 @@ export default function AccountManagement() {
             toast.error(error.message || "An error occurred");
         } finally {
             setIsUpdatingStatus(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!pendingDeleteAction) return;
+
+        if (!deleteForm.masterKey.trim()) {
+            toast.error('Master key is required to remove an account.');
+            return;
+        }
+
+        setIsDeletingAccount(true);
+        try {
+            await deleteAccount(pendingDeleteAction.userId, {
+                type: pendingDeleteAction.type,
+                masterKey: deleteForm.masterKey,
+                reason: deleteForm.reason
+            });
+            toast.success('Account removed from active use.');
+            setPendingDeleteAction(null);
+            setDeleteForm({ masterKey: '', reason: '' });
+            setShowDetails(false);
+            setSelectedUser(null);
+            fetchAccounts();
+        } catch (error) {
+            console.error('Account delete error:', error);
+            const requiredSql = error?.data?.required_sql ? ` ${error.data.required_sql}` : '';
+            toast.error(`${error.message || 'Failed to remove account.'}${requiredSql}`);
+        } finally {
+            setIsDeletingAccount(false);
         }
     };
 
@@ -561,6 +619,12 @@ export default function AccountManagement() {
             <p className="mt-3 truncate text-xs font-semibold text-slate-500">{getAccountMetaText(account)}</p>
         </button>
     );
+    const handleAccountRowKeyDown = (event, account) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        openAccountDetails(account, account.type);
+    };
 
     return (
         <div className="space-y-5">
@@ -646,21 +710,28 @@ export default function AccountManagement() {
                                 <th className="px-4 py-3 font-black">Profile</th>
                                 <th className="px-4 py-3 font-black">Contact</th>
                                 <th className="px-4 py-3 font-black">Access</th>
-                                <th className="px-4 py-3 text-right font-black">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {isLoading ? (
                                 [1, 2, 3, 4].map((item) => (
                                     <tr key={`account-loading-${item}`}>
-                                        <td colSpan={6} className="px-4 py-4">
+                                        <td colSpan={5} className="px-4 py-4">
                                             <div className="h-10 animate-pulse rounded-lg bg-slate-100" />
                                         </td>
                                     </tr>
                                 ))
                             ) : filteredAccountRows.length ? (
                                 filteredAccountRows.map((account) => (
-                                    <tr key={`${account.type}-${account.user_id}`} className="align-middle transition hover:bg-blue-50/30">
+                                    <tr
+                                        key={`${account.type}-${account.user_id}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`Open account details for ${getAccountName(account)}`}
+                                        onClick={() => openAccountDetails(account, account.type)}
+                                        onKeyDown={(event) => handleAccountRowKeyDown(event, account)}
+                                        className="cursor-pointer align-middle transition hover:bg-blue-50/30 focus:bg-blue-50/50 focus:outline-none"
+                                    >
                                         <td className="px-4 py-3">
                                             <div className="flex min-w-0 items-center gap-3">
                                                 <ProfileAvatar account={account} type={account.type} />
@@ -684,16 +755,11 @@ export default function AccountManagement() {
                                         <td className="px-4 py-3">
                                             <StatusBadge account={account} />
                                         </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <Button type="button" variant="outline" size="sm" onClick={() => openAccountDetails(account, account.type)}>
-                                                View
-                                            </Button>
-                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-12 text-center">
+                                    <td colSpan={5} className="px-4 py-12 text-center">
                                         <p className="font-black text-slate-900">No accounts found</p>
                                         <p className="mt-1 text-sm font-semibold text-slate-500">Adjust the search or filters to show more accounts.</p>
                                     </td>
@@ -865,7 +931,7 @@ export default function AccountManagement() {
                                                     variant="outline"
                                                     className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
                                                     onClick={() => openStatusConfirmation(selectedUser)}
-                                                    disabled={isSavingPersonnel}
+                                                    disabled={isSavingPersonnel || isDeletingAccount}
                                                 >
                                                     <Ban className="size-4 mr-2" /> Deactivate Account
                                                 </Button>
@@ -873,13 +939,24 @@ export default function AccountManagement() {
                                                 <Button
                                                     className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                                                     onClick={() => openStatusConfirmation(selectedUser)}
-                                                    disabled={isSavingPersonnel}
+                                                    disabled={isSavingPersonnel || isDeletingAccount}
                                                 >
                                                     <CheckCircle className="size-4 mr-2" /> Activate Account
                                                 </Button>
                                             )
                                         )}
-                                        <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel}>Close</Button>
+                                        {selectedUser.type !== 'superadmin' && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => openDeleteConfirmation(selectedUser)}
+                                                disabled={isSavingPersonnel || isDeletingAccount}
+                                                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+                                            >
+                                                <Trash2 className="size-4 mr-2" /> Delete Account
+                                            </Button>
+                                        )}
+                                        <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel || isDeletingAccount}>Close</Button>
                                     </div>
                                 </div>
                             </div>
@@ -936,6 +1013,87 @@ export default function AccountManagement() {
                                         'Deactivate Account'
                                     ) : (
                                         'Activate Account'
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Account Confirmation Modal */}
+            <Dialog open={Boolean(pendingDeleteAction)} onOpenChange={(open) => !open && closeDeleteConfirmation()}>
+                <DialogContent className="max-w-lg">
+                    {pendingDeleteAction && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Delete Account</DialogTitle>
+                                <DialogDescription>
+                                    Master key verification is required before this account is removed from active use.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                                    <p className="text-sm font-semibold text-red-700">Account to remove</p>
+                                    <p className="mt-1 font-bold text-red-950">{pendingDeleteAction.name}</p>
+                                    <p className="text-sm font-semibold text-red-800">{pendingDeleteAction.role}</p>
+                                    {pendingDeleteAction.email ? (
+                                        <p className="mt-2 break-words text-sm font-semibold text-red-900">{pendingDeleteAction.email}</p>
+                                    ) : null}
+                                </div>
+
+                                <p className="text-sm font-semibold leading-6 text-slate-700">
+                                    This preserves existing records, blocks login access, removes the account from this directory, and sends the account owner an email/notification.
+                                </p>
+
+                                <div className="space-y-2">
+                                    <Label className="text-slate-900">Reason</Label>
+                                    <Textarea
+                                        value={deleteForm.reason}
+                                        onChange={(event) => setDeleteForm((current) => ({ ...current, reason: event.target.value }))}
+                                        placeholder="Optional internal reason"
+                                        disabled={isDeletingAccount}
+                                        className="min-h-24"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-2 text-red-700">
+                                        <Key className="size-4" />
+                                        Master Key Verification
+                                    </Label>
+                                    <PasswordInput
+                                        required
+                                        placeholder="Enter Super Admin Key"
+                                        value={deleteForm.masterKey}
+                                        onChange={(event) => setDeleteForm((current) => ({ ...current, masterKey: event.target.value }))}
+                                        inputClassName="border-red-200 bg-red-50"
+                                        disabled={isDeletingAccount}
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={closeDeleteConfirmation} disabled={isDeletingAccount}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    disabled={isDeletingAccount}
+                                    onClick={handleDeleteAccount}
+                                    className="bg-red-600 text-white hover:bg-red-700"
+                                >
+                                    {isDeletingAccount ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete Account
+                                        </>
                                     )}
                                 </Button>
                             </DialogFooter>

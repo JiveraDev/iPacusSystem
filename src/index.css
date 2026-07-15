@@ -146,10 +146,20 @@ html.dark {
   }
 
   .todo-rbc {
-    min-width: 48rem;
+    width: 100%;
+    min-width: 0;
     min-height: 42rem;
     color: var(--theme-text);
     font-family: inherit;
+  }
+
+  .todo-rbc-week,
+  .todo-rbc-day {
+    min-width: 48rem;
+  }
+
+  .todo-rbc-agenda {
+    min-width: 40rem;
   }
 
   .todo-rbc .rbc-month-view,
@@ -243,8 +253,26 @@ html.dark {
 
   .todo-rbc .rbc-agenda-time-cell,
   .todo-rbc .rbc-agenda-date-cell {
-    color: var(--theme-text-muted);
+    color: var(--theme-text);
     font-weight: 800;
+  }
+
+  .todo-rbc .rbc-agenda-table tbody > tr > td {
+    padding: 0.75rem 0.875rem;
+    vertical-align: top;
+  }
+
+  .todo-rbc .rbc-agenda-event-cell {
+    color: var(--theme-text);
+    font-weight: 700;
+  }
+
+  .todo-rbc .todo-agenda-event-plain {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: var(--theme-text) !important;
+    padding: 0 !important;
   }
 
   .todo-rbc .rbc-current-time-indicator {
@@ -258,8 +286,32 @@ html.dark {
     }
 
     .todo-rbc {
-      min-width: 42rem;
       min-height: 36rem;
+    }
+
+    .todo-rbc-week,
+    .todo-rbc-day {
+      min-width: 40rem;
+    }
+
+    .todo-rbc-agenda {
+      min-width: 34rem;
+    }
+
+    .todo-rbc .rbc-header {
+      padding: 0.55rem 0.25rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.02em;
+    }
+
+    .todo-rbc .rbc-date-cell {
+      padding: 0.35rem;
+      font-size: 0.72rem;
+    }
+
+    .todo-rbc .rbc-event {
+      min-height: 1.25rem;
+      padding: 0.1rem 0.25rem;
     }
   }
 }

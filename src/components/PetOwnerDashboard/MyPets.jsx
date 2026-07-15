@@ -1,17 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { LayoutGrid, List, Loader2, PawPrint, Plus, Search } from "lucide-react";
+import { CheckCircle2, LayoutGrid, List, Loader2, PawPrint, Plus, Search, ShieldCheck, UserPlus, XCircle } from "lucide-react";
 import { Input } from "../../ui/input";
 import { Badge } from "../../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
-import { getUserPetsService } from "../../services/ConnectOwnership";
+import { decideCoparentRequest, fetchCoparentRequest, getUserPetsService } from "../../services/ConnectOwnership";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge } from "../../lib/date";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchAllPets } from "../../services/petService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
 
@@ -52,6 +53,70 @@ export default function MyPets() {
   const [isAdminView, setIsAdminView] = useState(false);
   const [directorySearch, setDirectorySearch] = useState("");
   const [directoryView, setDirectoryView] = useState("card");
+  const [coparentRequest, setCoparentRequest] = useState(null);
+  const [isCoparentModalOpen, setIsCoparentModalOpen] = useState(false);
+  const [isCoparentLoading, setIsCoparentLoading] = useState(false);
+  const [coparentAction, setCoparentAction] = useState("");
+
+  const currentUser = useMemo(() => JSON.parse(localStorage.getItem("currentUser") || "{}"), []);
+  const currentUserId = Number(currentUser.id || currentUser.user_id || currentUser.userId || 0);
+
+  const openCoparentRequest = async (requestId) => {
+    if (!requestId) return;
+
+    setIsCoparentLoading(true);
+    setIsCoparentModalOpen(true);
+
+    try {
+      const request = await fetchCoparentRequest(requestId);
+      setCoparentRequest(request);
+    } catch (error) {
+      toast.error(error.message || "Co-parent request could not be loaded.");
+      setIsCoparentModalOpen(false);
+    } finally {
+      setIsCoparentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let requestId = "";
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      requestId = params.get("coparentRequest") || "";
+
+      if (requestId) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
+      if (!requestId) {
+        requestId = sessionStorage.getItem("coparent-request-id") || "";
+        sessionStorage.removeItem("coparent-request-id");
+      }
+    } catch {
+      requestId = "";
+    }
+
+    if (requestId) {
+      openCoparentRequest(requestId);
+    }
+  }, []);
+
+  const handleCoparentDecision = async (action) => {
+    if (!coparentRequest?.requestId) return;
+
+    setCoparentAction(action);
+
+    try {
+      const result = await decideCoparentRequest(coparentRequest.requestId, action);
+      setCoparentRequest(result.request);
+      toast.success(result.message || "Co-parent request updated.");
+    } catch (error) {
+      toast.error(error.message || "Co-parent request could not be updated.");
+    } finally {
+      setCoparentAction("");
+    }
+  };
 
   const fetchPets = async ({ isAutoRefresh = false } = {}) => {
     try {
@@ -193,7 +258,127 @@ export default function MyPets() {
           {!isAdminView && <LinkPetCard navigate={navigate} />}
         </div>
       )}
+
+      <CoparentRequestDialog
+        open={isCoparentModalOpen}
+        onOpenChange={setIsCoparentModalOpen}
+        request={coparentRequest}
+        isLoading={isCoparentLoading}
+        action={coparentAction}
+        currentUserId={currentUserId}
+        onApprove={() => handleCoparentDecision("approve")}
+        onDecline={() => handleCoparentDecision("decline")}
+        onCancel={() => handleCoparentDecision("cancel")}
+      />
     </div>
+  );
+}
+
+function CoparentRequestDialog({
+  open,
+  onOpenChange,
+  request,
+  isLoading,
+  action,
+  currentUserId,
+  onApprove,
+  onDecline,
+  onCancel
+}) {
+  const isPending = request?.status === "pending";
+  const isPrimaryOwner = Number(request?.primaryOwnerUserId || 0) === Number(currentUserId || 0);
+  const isRequester = Number(request?.requesterUserId || 0) === Number(currentUserId || 0);
+  const showRequesterActions = isPending && isRequester && !isPrimaryOwner;
+  const showPrimaryOwnerActions = isPending && isPrimaryOwner;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="size-5 text-[#155dfc]" />
+            Co-parent request
+          </DialogTitle>
+          <DialogDescription>
+            Review the request before giving another owner access to this pet.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex min-h-40 items-center justify-center">
+            <Loader2 className="size-8 animate-spin text-[#155dfc]" />
+          </div>
+        ) : request ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Pet</p>
+                  <p className="truncate text-lg font-black text-slate-950">{request.petName}</p>
+                  <p className="truncate text-sm font-semibold text-slate-500">
+                    {[request.petSpecies, request.petBreed].filter(Boolean).join(" - ") || request.petCode || "Registered pet"}
+                  </p>
+                </div>
+                <Badge className={request.status === "pending" ? "bg-amber-50 text-amber-700" : request.status === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}>
+                  {request.status}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Requester</p>
+                <p className="truncate font-bold text-slate-900">{request.requesterName}</p>
+                <p className="truncate text-xs font-semibold text-slate-500">{request.requesterEmail}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">Primary owner</p>
+                <p className="truncate font-bold text-slate-900">{request.primaryOwnerName}</p>
+                <p className="truncate text-xs font-semibold text-slate-500">{request.primaryOwnerEmail}</p>
+              </div>
+            </div>
+
+            {isPending ? (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+                <ShieldCheck className="mr-2 inline size-4" />
+                Approving this request will link the requester as a co-parent. The primary owner will stay unchanged.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
+                This request is already {request.status}.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+            Co-parent request details are not available.
+          </div>
+        )}
+
+        {(showRequesterActions || showPrimaryOwnerActions) && (
+          <DialogFooter>
+          {showRequesterActions && (
+            <Button type="button" variant="outline" onClick={onCancel} disabled={Boolean(action)}>
+              {action === "cancel" ? <Loader2 className="animate-spin" /> : <XCircle />}
+              Cancel Request
+            </Button>
+          )}
+          {showPrimaryOwnerActions && (
+            <>
+              <Button type="button" variant="outline" onClick={onDecline} disabled={Boolean(action)}>
+                {action === "decline" ? <Loader2 className="animate-spin" /> : <XCircle />}
+                Decline
+              </Button>
+              <Button type="button" onClick={onApprove} disabled={Boolean(action)} className="bg-[#155dfc] hover:bg-blue-700">
+                {action === "approve" ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                Approve Co-parent
+              </Button>
+            </>
+          )}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

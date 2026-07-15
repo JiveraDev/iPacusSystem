@@ -20,6 +20,15 @@ export function prepareNotificationRedirect(redirectPath) {
 
             return url.pathname;
         }
+
+        if (url.pathname === '/dashboard/my-pets') {
+            const coparentRequestId = url.searchParams.get('coparentRequest');
+
+            if (coparentRequestId) {
+                window.sessionStorage.setItem('coparent-request-id', coparentRequestId);
+                return url.pathname;
+            }
+        }
     } catch {
         return redirectPath;
     }

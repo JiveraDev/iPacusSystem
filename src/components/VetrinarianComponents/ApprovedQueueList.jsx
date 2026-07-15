@@ -155,6 +155,13 @@ function isNormalPhysicalBooking(booking) {
         && !isSpecialServiceBooking(booking);
 }
 
+function isApprovedClinicOrHomeServiceBooking(booking) {
+    return isConfirmedBooking(booking)
+        && !booking.isOnlineConsultation
+        && !isBoardingBooking(booking)
+        && !isSpecialServiceBooking(booking);
+}
+
 function isAutoRescheduledBooking(booking) {
     return /\[Rescheduled\]|\[Lifecycle\]\s*Auto-rescheduled due to missed approved booking/i.test(String(booking.notes || ''));
 }
@@ -283,8 +290,14 @@ export default function VetQueueList() {
 
     const confirmedBookings = useMemo(() => {
         return bookings
-            .filter(isNormalPhysicalBooking)
-            .filter(booking => toLocalDateKey(booking.date) === todayKey)
+            .filter(isApprovedClinicOrHomeServiceBooking)
+            .filter(booking => {
+                const bookingDate = toLocalDateKey(booking.date);
+                if (isHomeServiceBooking(booking)) {
+                    return !bookingDate || bookingDate >= todayKey;
+                }
+                return bookingDate === todayKey;
+            })
             .filter(booking => !isAutoRescheduledBooking(booking))
             .sort((a, b) => {
                 const leftDate = new Date(`${a.date || ''}T${a.time || '00:00:00'}`);
@@ -844,7 +857,7 @@ export default function VetQueueList() {
                     <div>
                         <h3 className="text-base font-bold text-slate-900">Confirmed / Approved Bookings</h3>
                         <p className="text-xs font-semibold text-slate-500">
-                            Confirmed physical clinic bookings scheduled for the current clinic date only.
+                            Today&apos;s confirmed clinic bookings and upcoming confirmed home-service bookings.
                         </p>
                     </div>
                     <Badge className="w-fit border-0 bg-emerald-100 text-emerald-700">
@@ -876,7 +889,7 @@ export default function VetQueueList() {
                         ) : filteredConfirmedBookings.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="py-12 text-center text-slate-400">
-                                    No confirmed bookings scheduled for today.
+                                    No approved clinic or home-service bookings to show.
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -907,6 +920,9 @@ export default function VetQueueList() {
                                         <TableCell>
                                             <div className="flex flex-wrap gap-2">
                                                 <Badge className="border-0 bg-blue-50 text-blue-700">Approved</Badge>
+                                                {isHomeServiceBooking(booking) && (
+                                                    <Badge className="border-0 bg-violet-50 text-violet-700">Home Service</Badge>
+                                                )}
                                                 {scheduledToday && (
                                                     <Badge className="border-0 bg-emerald-50 text-emerald-700">Today</Badge>
                                                 )}

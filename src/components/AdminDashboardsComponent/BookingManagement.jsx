@@ -50,6 +50,8 @@ const ADMIN_BOOKING_SERVICE_TYPES = [
     )
 ];
 
+const BOOKING_POS_FEE = 50;
+
 function todayInputDate() {
     return new Date().toLocaleDateString('en-CA');
 }
@@ -256,7 +258,7 @@ export default function BookingsManagement() {
 
     const sendBookingPaymentToPOS = (booking) => {
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
-            message: 'Booking payment loaded. Add the payment service manually before posting.',
+            message: 'Booking payment loaded with the PHP 50 booking fee.',
             visit: {
                 id: booking.bookingNumber || `BOOKING-${booking.id}`,
                 bookingId: booking.id,
@@ -269,9 +271,18 @@ export default function BookingsManagement() {
                 visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : 'Booking Payment',
                 veterinarian: booking.veterinarian || 'Clinic Team',
                 complaint: booking.notes || `${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber || ''}`.trim(),
-                status: 'Add payment service'
+                status: 'Booking fee'
             },
-            charges: []
+            charges: [{
+                classificationId: 'services',
+                receiptType: 'SERVICE',
+                name: 'Booking Fee',
+                group: 'Booking',
+                quantity: 1,
+                price: BOOKING_POS_FEE,
+                includedMaterials: [],
+                extraMaterials: []
+            }]
         }));
         navigate('/dashboard/pos');
     };
@@ -442,8 +453,8 @@ export default function BookingsManagement() {
                 complaint: booking.notes || 'Admin-created online consultation payment',
                 status: 'Payment only'
             },
-            charges: Number(booking.price || 0) > 0
-                ? [{
+            charges: [
+                Number(booking.price || 0) > 0 ? {
                     classificationId: 'services',
                     receiptType: 'SERVICE',
                     name: booking.isOnlineConsultation ? 'Online Consultation' : getServiceDisplayName(booking.service || booking.type || 'Online Consultation'),
@@ -452,8 +463,17 @@ export default function BookingsManagement() {
                     price: Number(booking.price || 0),
                     includedMaterials: [],
                     extraMaterials: []
-                }]
-                : []
+                } : {
+                    classificationId: 'services',
+                    receiptType: 'SERVICE',
+                    name: 'Booking Fee',
+                    group: 'Booking',
+                    quantity: 1,
+                    price: BOOKING_POS_FEE,
+                    includedMaterials: [],
+                    extraMaterials: []
+                }
+            ]
         }));
         navigate('/dashboard/pos');
     };
@@ -1704,6 +1724,7 @@ export default function BookingsManagement() {
                                     inputMode="tel"
                                     maxLength={13}
                                     placeholder="+639"
+                                    restriction="phone"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -1715,6 +1736,7 @@ export default function BookingsManagement() {
                                     value={cancellationData.transactionNumber}
                                     onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: event.target.value })}
                                     placeholder="Manual return transaction reference"
+                                    restriction="alphanumeric"
                                 />
                             </div>
                         </div>
@@ -1820,6 +1842,7 @@ export default function BookingsManagement() {
                             <Input 
                                 value={registrationData.petName} 
                                 onChange={(e) => setRegistrationData({...registrationData, petName: e.target.value})}
+                                restriction="name"
                             />
                         </div>
                         <div className="space-y-2">
@@ -1845,6 +1868,7 @@ export default function BookingsManagement() {
                             <Input 
                                 value={registrationData.breed} 
                                 onChange={(e) => setRegistrationData({...registrationData, breed: e.target.value})}
+                                restriction="name"
                             />
                         </div>
                         <div className="space-y-2">
@@ -1877,6 +1901,7 @@ export default function BookingsManagement() {
                             <Input 
                                 value={registrationData.weight} 
                                 onChange={(e) => setRegistrationData({...registrationData, weight: e.target.value})}
+                                restriction="decimal"
                             />
                         </div>
                         <div className="space-y-2 sm:col-span-2">

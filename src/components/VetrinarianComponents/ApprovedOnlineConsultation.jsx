@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Calendar, Clock, Loader2, MessageSquare, RefreshCw, User, Video } from 'lucide-react';
+import { Calendar, Clock, Loader2, MessageSquare, RefreshCw, Search, User, Video } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
+import { Input } from '../../ui/input';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
@@ -43,6 +44,47 @@ function getStatusBadge(status) {
     return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Scheduled</Badge>;
 }
 
+function normalizeText(value) {
+    return String(value || '').toLowerCase().trim();
+}
+
+function consultationDate(consultation) {
+    const value = consultation.scheduledStart || consultation.scheduled_start || consultation.bookingDate || consultation.booking_date;
+    if (!value) return null;
+
+    const date = new Date(String(value).replace(' ', 'T'));
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isInCurrentWeek(consultation) {
+    const date = consultationDate(consultation);
+    if (!date) return false;
+
+    const now = new Date();
+    const start = new Date(now);
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+
+    return date >= start && date < end;
+}
+
+function consultationMatchesSearch(consultation, query) {
+    if (!query) return true;
+
+    return normalizeText([
+        consultation.petName,
+        consultation.ownerName,
+        consultation.bookingNumber,
+        consultation.bookingId,
+        consultation.status,
+        consultation.notes
+    ].join(' ')).includes(query);
+}
+
 export default function ApprovedOnlineConsultation() {
     const navigate = useNavigate();
     const dashboardUser = useDashboardUser();
@@ -51,6 +93,8 @@ export default function ApprovedOnlineConsultation() {
     const [consultations, setConsultations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [actionId, setActionId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [dateFilter, setDateFilter] = useState('week');
 
     const loadConsultations = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!vetId) {
@@ -78,8 +122,20 @@ export default function ApprovedOnlineConsultation() {
         refreshKey: vetId
     });
 
-    const scheduledConsultations = consultations.filter((consultation) => !['completed', 'cancelled'].includes(consultation.status));
-    const completedConsultations = consultations.filter((consultation) => consultation.status === 'completed');
+    const filteredConsultations = useMemo(() => {
+        const query = normalizeText(searchQuery);
+
+        return consultations.filter((consultation) => {
+            if (dateFilter === 'week' && !isInCurrentWeek(consultation)) {
+                return false;
+            }
+
+            return consultationMatchesSearch(consultation, query);
+        });
+    }, [consultations, dateFilter, searchQuery]);
+
+    const scheduledConsultations = filteredConsultations.filter((consultation) => !['completed', 'cancelled'].includes(String(consultation.status || '').toLowerCase()));
+    const completedConsultations = filteredConsultations.filter((consultation) => String(consultation.status || '').toLowerCase() === 'completed');
 
     const openDiagnosisPage = (consultationId) => {
         navigate(`/dashboard/vet/online-consultations/${consultationId}/diagnosis`);
@@ -183,6 +239,35 @@ export default function ApprovedOnlineConsultation() {
                 </Button>
             </div>
 
+            <Card className="border-slate-200">
+                <CardContent className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                    <Input
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Search pet, owner, booking number"
+                        leftIcon={<Search className="size-4" />}
+                    />
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
+                        <Button
+                            type="button"
+                            variant={dateFilter === 'week' ? 'default' : 'outline'}
+                            onClick={() => setDateFilter('week')}
+                            className={dateFilter === 'week' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
+                        >
+                            This Week
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={dateFilter === 'all' ? 'default' : 'outline'}
+                            onClick={() => setDateFilter('all')}
+                            className={dateFilter === 'all' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
+                        >
+                            All
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <section className="space-y-3">
                 <h2 className="text-lg font-bold text-slate-900">Scheduled</h2>
                 {isLoading ? (
@@ -199,7 +284,7 @@ export default function ApprovedOnlineConsultation() {
                 ) : (
                     <Card>
                         <CardContent className="p-8 text-center text-slate-500">
-                            No approved online consultations assigned to you yet.
+                            No approved online consultations match the current filters.
                         </CardContent>
                     </Card>
                 )}

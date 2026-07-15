@@ -4,6 +4,7 @@ require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -23,16 +24,210 @@ function booking_status_column_exists(PDO $pdo, string $columnName): bool
 
 function booking_status_ensure_payment_columns(PDO $pdo): void
 {
-    if (!booking_status_column_exists($pdo, 'payment_proof_url')) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_proof_url VARCHAR(255) NULL");
+    ipawcus_guard_require_columns($pdo, 'bookings', [
+        'payment_proof_url',
+        'payment_method',
+        'payment_reference',
+    ]);
+}
+
+function booking_status_service_key(array $booking): string
+{
+    if ((int)($booking['is_home_service'] ?? 0) === 1 || strtolower(trim((string)($booking['service_type'] ?? ''))) === 'home-service') {
+        return 'home-service';
     }
 
-    if (!booking_status_column_exists($pdo, 'payment_method')) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_method VARCHAR(40) NULL AFTER payment_proof_url");
+    if ((int)($booking['is_online_consultation'] ?? 0) === 1 || strtolower(trim((string)($booking['service_type'] ?? ''))) === 'online-consultation') {
+        return 'online-consultation';
     }
 
-    if (!booking_status_column_exists($pdo, 'payment_reference')) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_reference VARCHAR(120) NULL AFTER payment_method");
+    return strtolower(trim((string)($booking['service_type'] ?? '')));
+}
+
+function booking_status_is_deceased_pet(?string $status): bool
+{
+    return in_array(strtolower(trim((string)$status)), ['deceased', 'dead'], true);
+}
+
+function booking_status_pet_ids(PDO $pdo, array $booking): array
+{
+    $petIds = [];
+    if (!empty($booking['pet_id'])) {
+        $petIds[] = (int)$booking['pet_id'];
+    }
+
+    if (ipawcus_guard_table_exists($pdo, 'booking_pets')) {
+        $stmt = $pdo->prepare("SELECT pet_id FROM booking_pets WHERE booking_id = ?");
+        $stmt->execute([(int)$booking['booking_id']]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $petId) {
+            $petIds[] = (int)$petId;
+        }
+    }
+
+    return array_values(array_unique(array_filter($petIds, fn($petId) => $petId > 0)));
+}
+
+function booking_status_active_same_service_conflict(PDO $pdo, array $booking, array $petIds): ?array
+{
+    if (empty($petIds)) {
+        return null;
+    }
+
+    $serviceKey = booking_status_service_key($booking);
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $params = $petIds;
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    $bookingPetsJoin = '';
+
+    if (ipawcus_guard_table_exists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petCondition = "(b.pet_id IN ({$placeholders}) OR bp.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds);
+    }
+
+    if ($serviceKey === 'home-service') {
+        $serviceCondition = "(b.is_home_service = 1 OR b.service_type = 'home-service')";
+    } elseif ($serviceKey === 'online-consultation') {
+        $serviceCondition = "(b.is_online_consultation = 1 OR b.service_type = 'online-consultation')";
+    } else {
+        $serviceCondition = "b.service_type = ? AND COALESCE(b.is_home_service, 0) = 0 AND COALESCE(b.is_online_consultation, 0) = 0";
+        $params[] = $serviceKey;
+    }
+
+    $params[] = (int)$booking['booking_id'];
+    $stmt = $pdo->prepare("
+        SELECT b.booking_id, b.booking_number
+        FROM bookings b
+        {$bookingPetsJoin}
+        WHERE b.status IN ('pending', 'confirmed')
+          AND {$petCondition}
+          AND {$serviceCondition}
+          AND b.booking_id <> ?
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $conflict ?: null;
+}
+
+function booking_status_has_online_vet_conflict(PDO $pdo, array $booking): bool
+{
+    $vetId = (int)($booking['veterinarian_id'] ?? 0);
+    if ($vetId <= 0 || empty($booking['booking_date']) || empty($booking['booking_time'])) {
+        return false;
+    }
+
+    $timezone = new DateTimeZone('Asia/Manila');
+    $requestedStart = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $booking['booking_date'] . ' ' . $booking['booking_time'], $timezone);
+    if (!$requestedStart) {
+        return true;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE is_online_consultation = 1
+          AND veterinarian_id = ?
+          AND booking_date = ?
+          AND booking_time < ?
+          AND ADDTIME(booking_time, '01:00:00') > ?
+          AND status IN ('pending', 'confirmed')
+          AND booking_id <> ?
+    ");
+    $stmt->execute([
+        $vetId,
+        $booking['booking_date'],
+        $requestedStart->modify('+1 hour')->format('H:i:s'),
+        $requestedStart->format('H:i:s'),
+        (int)$booking['booking_id'],
+    ]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function booking_status_home_service_limit_conflict(PDO $pdo, array $booking): ?string
+{
+    if (booking_status_service_key($booking) !== 'home-service') {
+        return null;
+    }
+
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE booking_date = ?
+          AND status IN ('pending', 'confirmed')
+          AND (is_home_service = 1 OR service_type = 'home-service')
+          AND booking_id <> ?
+    ");
+    $countStmt->execute([$booking['booking_date'], (int)$booking['booking_id']]);
+    if ((int)$countStmt->fetchColumn() >= 2) {
+        return 'Home service accepts only two active bookings per day.';
+    }
+
+    if (($booking['booking_time'] ?? '') >= '12:00:00') {
+        $petCountExpression = ipawcus_guard_table_exists($pdo, 'booking_pets')
+            ? "COALESCE(bp.pet_count, CASE WHEN b.pet_id IS NOT NULL OR TRIM(COALESCE(b.unregistered_pet_name, '')) <> '' THEN 1 ELSE 0 END)"
+            : "CASE WHEN b.pet_id IS NOT NULL OR TRIM(COALESCE(b.unregistered_pet_name, '')) <> '' THEN 1 ELSE 0 END";
+        $petCountJoin = ipawcus_guard_table_exists($pdo, 'booking_pets')
+            ? "LEFT JOIN (SELECT booking_id, COUNT(*) AS pet_count FROM booking_pets GROUP BY booking_id) bp ON bp.booking_id = b.booking_id"
+            : '';
+        $petCountStmt = $pdo->prepare("
+            SELECT COALESCE(SUM({$petCountExpression}), 0)
+            FROM bookings b
+            {$petCountJoin}
+            WHERE b.booking_date = ?
+              AND b.booking_time >= '12:00:00'
+              AND b.status IN ('pending', 'confirmed')
+              AND (b.is_home_service = 1 OR b.service_type = 'home-service')
+              AND b.booking_id <> ?
+        ");
+        $petCountStmt->execute([$booking['booking_date'], (int)$booking['booking_id']]);
+        if ((int)$petCountStmt->fetchColumn() >= 3) {
+            return 'Afternoon home service has no remaining pet slots for this date.';
+        }
+    }
+
+    return null;
+}
+
+function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
+{
+    if (($booking['status'] ?? '') !== 'pending') {
+        ipawcus_guard_error(409, 'Only pending bookings can be confirmed.');
+    }
+
+    if (booking_status_is_deceased_pet($booking['pet_status'] ?? null)) {
+        ipawcus_guard_error(409, 'This booking cannot be confirmed because the selected pet is marked deceased.');
+    }
+
+    $serviceKey = booking_status_service_key($booking);
+    $requiresConsent = in_array($serviceKey, ['home-service', 'online-consultation', 'boarding'], true);
+    if ($requiresConsent && empty($booking['signature_path']) && strtolower((string)($booking['consent_status'] ?? '')) !== 'signed') {
+        ipawcus_guard_error(409, 'Required owner consent is missing for this booking.');
+    }
+
+    $timezone = new DateTimeZone('Asia/Manila');
+    $bookingDateTime = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $booking['booking_date'] . ' ' . $booking['booking_time'], $timezone);
+    if (!$bookingDateTime || ($serviceKey !== 'boarding' && $bookingDateTime < new DateTimeImmutable('now', $timezone))) {
+        ipawcus_guard_error(409, 'Booking date and time are no longer valid.');
+    }
+
+    $petIds = booking_status_pet_ids($pdo, $booking);
+    $sameServiceConflict = booking_status_active_same_service_conflict($pdo, $booking, $petIds);
+    if ($sameServiceConflict) {
+        ipawcus_guard_error(409, 'Another active booking already exists for this pet and service.', [
+            'conflictingBookingNumber' => $sameServiceConflict['booking_number'] ?? null,
+        ]);
+    }
+
+    if ($serviceKey === 'online-consultation' && booking_status_has_online_vet_conflict($pdo, $booking)) {
+        ipawcus_guard_error(409, 'The assigned veterinarian already has an overlapping online consultation.');
+    }
+
+    $homeLimitMessage = booking_status_home_service_limit_conflict($pdo, $booking);
+    if ($homeLimitMessage !== null) {
+        ipawcus_guard_error(409, $homeLimitMessage);
     }
 }
 
@@ -62,6 +257,7 @@ $hasPaymentReference = array_key_exists('payment_reference', $input) || array_ke
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
 $hasPaymentUpdate = $hasPaymentProof || $hasPaymentMethod || $hasPaymentReference;
+$hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
 
 if (!$bookingId || !$status) {
     http_response_code(400);
@@ -91,6 +287,21 @@ if ($status === 'completed') {
 
 try {
     runLifecycleMaintenance($pdo);
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+    $currentApiIsAdmin = ipawcus_guard_is_admin_role($currentApiRole);
+
+    if (!$currentApiIsAdmin) {
+        if ($status !== 'cancelled') {
+            ipawcus_guard_error(403, 'Only authorized admin users can confirm bookings or change non-cancellation statuses.');
+        }
+
+        if ($hasPaymentUpdate || $hasReviewUpdate) {
+            ipawcus_guard_error(403, 'Only authorized admin users can update booking payment or review details.');
+        }
+    }
+
     if ($hasPaymentUpdate) {
         booking_status_ensure_payment_columns($pdo);
     }
@@ -98,7 +309,14 @@ try {
     $pdo->beginTransaction();
     $onlineConsultation = null;
 
-    $bookingStmt = $pdo->prepare("SELECT status, service_type, notes FROM bookings WHERE booking_id = ? LIMIT 1 FOR UPDATE");
+    $bookingStmt = $pdo->prepare("
+        SELECT b.*, p.pet_status
+        FROM bookings b
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        WHERE b.booking_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
     $bookingStmt->execute([$bookingId]);
     $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -106,12 +324,26 @@ try {
         throw new Exception('Booking not found.');
     }
 
-    if ($booking['status'] === 'cancelled' && $status !== 'cancelled') {
-        http_response_code(409);
-        throw new Exception('Cancelled bookings cannot be moved back to an active status without rescheduling/recreating the booking.');
+    $effectiveStatus = ($booking['status'] === 'completed' && $status === 'confirmed' && $hasPaymentUpdate)
+        ? 'completed'
+        : $status;
+
+    if (!$currentApiIsAdmin && !ipawcus_guard_booking_access($pdo, (int)$bookingId, $currentApiUserId)) {
+        ipawcus_guard_error(403, 'You are not allowed to cancel this booking.');
     }
 
-    $hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
+    ipawcus_guard_validate_booking_transition((string)$booking['status'], (string)$effectiveStatus, false);
+
+    if (!$currentApiIsAdmin) {
+        if ($status !== 'cancelled' || $effectiveStatus !== 'cancelled') {
+            ipawcus_guard_error(403, 'Only authorized admin users can confirm bookings or change non-cancellation statuses.');
+        }
+
+        if ($hasPaymentUpdate || $hasReviewUpdate) {
+            ipawcus_guard_error(403, 'Only authorized admin users can update booking payment or review details.');
+        }
+    }
+
     if ($hasReviewUpdate && in_array($booking['status'], ['confirmed', 'cancelled'], true)) {
         http_response_code(409);
         throw new Exception('Confirmed or cancelled bookings cannot have their service review edited.');
@@ -138,9 +370,9 @@ try {
         }
     }
 
-    $effectiveStatus = ($booking['status'] === 'completed' && $status === 'confirmed' && $hasPaymentUpdate)
-        ? 'completed'
-        : $status;
+    if ($effectiveStatus === 'confirmed') {
+        booking_status_revalidate_confirmation($pdo, $booking);
+    }
 
     if ($status === 'cancelled' && ($cancellationMessage !== '' || $walletNumber !== '' || $transactionNumber !== '')) {
         $notesStmt = $pdo->prepare("SELECT notes FROM bookings WHERE booking_id = ? LIMIT 1");

@@ -1,26 +1,37 @@
 import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import {
-  Calendar,
+  BookOpenCheck,
+  Boxes,
+  BriefcaseMedical,
+  CalendarCheck2,
+  CalendarDays,
+  ChartColumnIncreasing,
+  CircleDollarSign,
   Home,
-  ListTodo,
+  ClipboardCheck,
+  ClipboardClock,
+  ClipboardPenLine,
+  ClipboardPlus,
+  FileClock,
+  FilePenLine,
+  Images,
+  ListChecks,
   LogOut,
   Menu,
+  MonitorPlay,
+  NotebookTabs,
   PawPrint,
-  Plus,
-  User,
+  ScanLine,
   Video,
   X,
-  FileText,
-  Package,
-  Receipt,
   Stethoscope,
   History,
   Hotel,
-  CreditCard,
   ChevronLeft,
   ChevronRight,
-  ImageIcon,
-  Users,
+  UserCog,
+  UserRoundCheck,
+  WalletCards,
 } from "lucide-react";
 
 import logo from "../assets/circular_logo.png";
@@ -145,22 +156,30 @@ function getNavItemLabel(item, userRole) {
   return item.label;
 }
 
+function getNavItemIcon(item, userRole) {
+  if (item.id === "home" && ["super admin", "super_admin", "superadmin"].includes(String(userRole || "").toLowerCase())) {
+    return ChartColumnIncreasing;
+  }
+
+  return item.icon;
+}
+
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES, navGroup: "superadmin" },
-  { id: "consult", label: "Consult", icon: Video, path: "/dashboard/consult", roles: PETOWNER_ROLES, navGroup: "petowner" },
-  { id: "services", label: "Services", icon: Calendar, path: "/dashboard/services", roles: SERVICE_ROLES, navGroup: "admin" },
+  { id: "consult", label: "Consult", icon: MonitorPlay, path: "/dashboard/consult", roles: PETOWNER_ROLES, navGroup: "petowner" },
+  { id: "services", label: "Services", icon: BriefcaseMedical, path: "/dashboard/services", roles: SERVICE_ROLES, navGroup: "admin" },
   { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES, navGroup: "admin" },
-  { id: "pet-register", label: "Pet Register", icon: Plus, path: "/dashboard/pet-register", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "bookings", label: "Bookings", icon: Calendar, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pet-register", label: "Pet Register", icon: ClipboardPlus, path: "/dashboard/pet-register", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "bookings", label: "Bookings", icon: CalendarCheck2, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "record-requests", label: "Record Requests", icon: ClipboardPenLine, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "queue", label: "Queue", icon: ListTodo, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "pos", label: "Point-Of-Sale", icon: Receipt, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "service-catalog", label: "Service Catalog", icon: Stethoscope, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "service-catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
     id: "inventory", 
     label: "Inventory", 
-    icon: Package, 
+    icon: Boxes,
     path: "/dashboard/inventory",
     subItems: [
       { id: "all-items", label: "All Items", path: "/dashboard/inventory" },
@@ -169,19 +188,19 @@ const navItems = [
     ], roles: ADMIN_ROLES,
     navGroup: "admin"
   },
-  { id: "self-service-queue", label: "Self-Service Queue", icon: ListTodo, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES, navGroup: "petowner" },
-  { id: "consent", label: "Consent Files", icon: FileText, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "vet-approved-queue", label: "Approved List", icon: ListTodo, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "self-service-queue", label: "Self-Service Queue", icon: ScanLine, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES, navGroup: "petowner" },
+  { id: "consent", label: "Consent Files", icon: FilePenLine, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "vet-approved-queue", label: "Approved List", icon: ClipboardCheck, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
-  { id: "vet-medical-records", label: "Medical Records", icon: FileText, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
-  { id: "vet-record-requests", label: "Record Requests", icon: FileText, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-medical-records", label: "Medical Records", icon: NotebookTabs, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "vet-record-requests", label: "Record Requests", icon: FileClock, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
-  { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: ImageIcon, path: "/dashboard/pet-media-monitoring", roles: MEDIA_MONITORING_ROLES, navGroup: "superadmin" },
-  { id: "accounts", label: "Accounts", icon: User, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
-  { id: "pet-owner-accounts", label: "Pet Owners", icon: Users, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
-  { id: "payment-methods", label: "Payment Methods", icon: CreditCard, path: "/dashboard/payment-methods", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
-  { id: "todos", label: "Schedule / TODOs", icon: ListTodo, path: "/dashboard/todos", roles: TODO_ROLES, navGroup: "veterinarian" },
+  { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: Images, path: "/dashboard/pet-media-monitoring", roles: MEDIA_MONITORING_ROLES, navGroup: "superadmin" },
+  { id: "accounts", label: "Accounts", icon: UserCog, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "pet-owner-accounts", label: "Pet Owners", icon: UserRoundCheck, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "payment-methods", label: "Payment Methods", icon: WalletCards, path: "/dashboard/payment-methods", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
+  { id: "todos", label: "Schedule / TODOs", icon: CalendarDays, path: "/dashboard/todos", roles: TODO_ROLES, navGroup: "veterinarian" },
 ];
 
 const screenMap = {
@@ -262,6 +281,64 @@ const screenMap = {
   "/dashboard/inventory/disposal": DisposalLogsPage,
 };
 
+const dashboardRouteRoles = {
+  "/dashboard": ALL_ROLES,
+  "/dashboard/consult": PETOWNER_ROLES,
+  "/dashboard/consult/booking": PETOWNER_ROLES,
+  "/dashboard/consult/payment": PETOWNER_ROLES,
+  "/dashboard/consult/confirmation/:bookingId": PETOWNER_ROLES,
+  "/dashboard/consult/confirmation/home-service": PETOWNER_ROLES,
+  "/dashboard/consult/video/:consultationId": PETOWNER_ROLES,
+  "/dashboard/services": SERVICE_ROLES,
+  "/dashboard/services/general-checkup": SERVICE_ROLES,
+  "/dashboard/services/parasite-control": SERVICE_ROLES,
+  "/dashboard/services/surgery": SERVICE_ROLES,
+  "/dashboard/services/vaccination": SERVICE_ROLES,
+  "/dashboard/services/grooming": SERVICE_ROLES,
+  "/dashboard/services/dental-checkup": SERVICE_ROLES,
+  "/dashboard/services/home-services": SERVICE_ROLES,
+  "/dashboard/services/pet-hotel": SERVICE_ROLES,
+  "/dashboard/services/special-services": SERVICE_ROLES,
+  "/dashboard/my-pets": ALL_ROLES,
+  "/dashboard/my-pets/add": PETOWNER_ROLES,
+  "/dashboard/my-pets/:petId": ALL_ROLES,
+  "/dashboard/my-pets/:petId/medical-records": ALL_ROLES,
+  "/dashboard/my-pets/:petId/request-update": PETOWNER_ROLES,
+  "/dashboard/pet-register": ADMIN_ROLES,
+  "/dashboard/pet-register/:petId": ADMIN_ROLES,
+  "/dashboard/bookings": ADMIN_ROLES,
+  "/dashboard/record-requests": ADMIN_ROLES,
+  "/dashboard/boarding": ADMIN_ROLES,
+  "/dashboard/queue": ADMIN_ROLES,
+  "/dashboard/pos": ADMIN_ROLES,
+  "/dashboard/service-catalog": ADMIN_ROLES,
+  "/dashboard/consent": ADMIN_ROLES,
+  "/dashboard/vet/approved-queue": VETERINARIAN_ROLES,
+  "/dashboard/vet/my-list": VETERINARIAN_ROLES,
+  "/dashboard/vet/diagnosis": VETERINARIAN_ROLES,
+  "/dashboard/vet/medical-records": VETERINARIAN_ROLES,
+  "/dashboard/vet/record-requests": VETERINARIAN_ROLES,
+  "/dashboard/vet/histories": VETERINARIAN_ROLES,
+  "/dashboard/vet/online-consultations/:onlineConsultationId/diagnosis": VETERINARIAN_ROLES,
+  "/dashboard/vet/online-consultations": VETERINARIAN_ROLES,
+  "/dashboard/reports": SUPERADMIN_ROLES,
+  "/dashboard/reports/export": SUPERADMIN_ROLES,
+  "/dashboard/pet-media-monitoring": MEDIA_MONITORING_ROLES,
+  "/dashboard/accounts": SUPERADMIN_ROLES,
+  "/dashboard/pet-owner-accounts": SUPERADMIN_ROLES,
+  "/dashboard/payment-methods": SUPERADMIN_ROLES,
+  "/dashboard/self-service-queue": PETOWNER_ROLES,
+  "/dashboard/todos": TODO_ROLES,
+  "/dashboard/profile": ALL_ROLES,
+  "/dashboard/notifications": ALL_ROLES,
+  "/dashboard/inventory": ADMIN_ROLES,
+  "/dashboard/inventory/add": ADMIN_ROLES,
+  "/dashboard/inventory/stock-in": ADMIN_ROLES,
+  "/dashboard/inventory/low-stock": ADMIN_ROLES,
+  "/dashboard/inventory/near-expiry": ADMIN_ROLES,
+  "/dashboard/inventory/disposal": ADMIN_ROLES,
+};
+
 function getUserValue(user, keys, fallback = "") {
   for (const key of keys) {
     if (user?.[key]) {
@@ -273,12 +350,42 @@ function getUserValue(user, keys, fallback = "") {
 }
 
 function normalizeRole(role) {
-  return String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalizedRole = String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+
+  if (normalizedRole === "vet") {
+    return "veterinarian";
+  }
+
+  if (normalizedRole === "superadmin") {
+    return "super_admin";
+  }
+
+  if (normalizedRole === "petowner" || normalizedRole === "owner") {
+    return "pet_owner";
+  }
+
+  return normalizedRole;
 }
 
 function isSuperAdminRole(role) {
   const normalizedRole = normalizeRole(role);
   return normalizedRole === "super_admin" || normalizedRole === "superadmin";
+}
+
+function roleIsAllowed(userRole, allowedRoles = ALL_ROLES) {
+  const normalizedUserRole = normalizeRole(userRole);
+
+  return allowedRoles.some((role) => normalizeRole(role) === normalizedUserRole);
+}
+
+function getDashboardRouteRoles(routePath) {
+  return dashboardRouteRoles[routePath] || ALL_ROLES;
+}
+
+function formatRoleList(roles) {
+  return roles
+    .map((role) => String(role).replace(/_/g, " "))
+    .join(", ");
 }
 
 function groupNavItemsForSuperAdmin(items) {
@@ -503,7 +610,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   const filteredNavItems = useMemo(() => {
     return navItems.filter(item => {
       if (!item.roles) return true;
-      return item.roles.includes(userRole);
+      return roleIsAllowed(userRole, item.roles);
     });
   }, [userRole]);
 
@@ -518,15 +625,16 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
   // Authorization check for the current route
   const ScreenComponent = useMemo(() => {
     const Component = screenMap[routeMatch.path] ?? HomeScreen;
+    const allowedRoles = getDashboardRouteRoles(routeMatch.path);
     
-    // Check if the current user role is allowed for this route
-    if (routeMatch.allowedRoles && !routeMatch.allowedRoles.includes(userRole)) {
+    // Check if the current user role is allowed for this route.
+    if (!roleIsAllowed(userRole, allowedRoles)) {
       return () => (
         <div className="flex flex-col items-center justify-center h-full text-center p-10">
           <X className="size-12 text-red-500 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
           <p className="text-slate-600 mb-6">You do not have permission to access this page.</p>
-          <p className="text-xs text-slate-400 mb-6">Required: {routeMatch.allowedRoles.join(", ")} | Your Role: {userRole}</p>
+          <p className="text-xs text-slate-400 mb-6">Required: {formatRoleList(allowedRoles)} | Your Role: {userRole || "Unknown"}</p>
           <button 
             onClick={() => navigate("/dashboard")}
             className="bg-[#155dfc] text-white px-6 py-2 rounded-xl font-medium"
@@ -538,7 +646,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     }
     
     return Component;
-  }, [routeMatch.path, routeMatch.allowedRoles, userRole, navigate]);
+  }, [routeMatch.path, userRole, navigate]);
 
   const displayName = useMemo(() => {
     const firstName = getUserValue(user, ["firstName", "FirstName", "first_name"]);
@@ -635,7 +743,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                 )}
                 <div className="space-y-2">
                   {group.items.map((item) => {
-                    const Icon = item.icon;
+                    const Icon = getNavItemIcon(item, userRole);
                     const isActive = item.id === activeTab;
                     const hasSubItems = item.subItems && item.subItems.length > 0;
                     const itemLabel = getNavItemLabel(item, userRole);

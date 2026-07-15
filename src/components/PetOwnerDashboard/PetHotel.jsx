@@ -720,6 +720,7 @@ export default function PetHotel() {
                   value={emergencyContact}
                   onChange={(event) => setEmergencyContact(normalizePhilippinePhoneInput(event.target.value))}
                   inputMode="tel"
+                  restriction="phone"
                   maxLength={13}
                   placeholder="+639"
                   required

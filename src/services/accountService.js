@@ -4,6 +4,10 @@ export function fetchAccounts() {
     return apiRequest('/accounts', { apiPrefix: true });
 }
 
+export function fetchVeterinarians() {
+    return apiRequest('/veterinarians', { apiPrefix: true });
+}
+
 export function createAccount(payload) {
     return postJson('/accounts/create', payload, { apiPrefix: true });
 }

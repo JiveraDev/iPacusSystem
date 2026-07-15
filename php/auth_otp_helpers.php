@@ -89,7 +89,7 @@ function authOtpSecret(): string
     $secret = getenv('OTP_SECRET') ?: getenv('VITE_MASTER_KEY') ?: '';
 
     if ($secret === '') {
-        $secret = 'ipawcus-local-development-otp-secret-change-me';
+        throw new RuntimeException('OTP secret is not configured.');
     }
 
     return $secret;

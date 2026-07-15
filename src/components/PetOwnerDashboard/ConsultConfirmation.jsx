@@ -13,8 +13,6 @@ import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookingById, updateBookingStatus } from "../../services/bookingService";
 import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
 
-const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
-
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
   const { bookingId } = useParams();
@@ -64,7 +62,7 @@ export default function ConsultConfirmation() {
           consult.status === "confirmed" &&
           Boolean(online?.meetingUrl) &&
           vetHasStarted &&
-          (DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE || withinScheduledJoinWindow)
+          withinScheduledJoinWindow
         );
       }
     } catch (error) {
@@ -173,9 +171,7 @@ export default function ConsultConfirmation() {
   const consultEndDateTime = onlineConsultation?.scheduledEnd
     ? new Date(String(onlineConsultation.scheduledEnd).replace(" ", "T"))
     : new Date(consultDateTime.getTime() + 60 * 60000);
-  const isPast = consultation.status === "completed" || (
-    !DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE && new Date() > consultEndDateTime
-  );
+  const isPast = consultation.status === "completed" || new Date() > consultEndDateTime;
   const vetHasStarted = ["vet_ready", "in_progress"].includes(String(onlineConsultation?.status || ""));
   const statusTitle =
     consultation.status === 'confirmed'
@@ -447,6 +443,7 @@ export default function ConsultConfirmation() {
                   value={cancellationData.walletNumber}
                   onChange={(event) => setCancellationData({ ...cancellationData, walletNumber: normalizePhilippinePhoneInput(event.target.value) })}
                   inputMode="tel"
+                  restriction="phone"
                   maxLength={13}
                   placeholder="+639"
                 />
@@ -456,6 +453,7 @@ export default function ConsultConfirmation() {
                 <Input
                   value={cancellationData.transactionNumber}
                   onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: event.target.value })}
+                  restriction="alphanumeric"
                   placeholder="Transaction reference"
                 />
               </div>

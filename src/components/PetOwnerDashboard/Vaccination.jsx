@@ -6,13 +6,14 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Syringe, ArrowLeft, Upload, X } from "lucide-react";
+import { Syringe, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
+import FileUploadDropzone from "../shared/FileUploadDropzone";
 
 export default function Vaccination() {
   const navigate = useNavigate();
@@ -137,14 +138,14 @@ export default function Vaccination() {
     }
   };
 
-  const handleFileChange = (e) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFormData(prev => ({ 
-        ...prev, 
-        files: [...prev.files, ...newFiles] 
-      }));
-    }
+  const handleFileChange = (files) => {
+    const newFiles = Array.from(files || []);
+    if (newFiles.length === 0) return;
+
+    setFormData(prev => ({
+      ...prev,
+      files: [...prev.files, ...newFiles]
+    }));
   };
 
   const removeFile = (index) => {
@@ -229,6 +230,7 @@ export default function Vaccination() {
                       <Input
                         id="petName"
                         placeholder="e.g., Buddy"
+                        restriction="name"
                         required={isNewPet}
                         value={formData.petName}
                         onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
@@ -257,6 +259,7 @@ export default function Vaccination() {
                       <Input
                         id="newPetBreed"
                         placeholder="e.g., Golden Retriever"
+                        restriction="name"
                         required={isNewPet}
                         value={formData.newPetBreed}
                         onChange={(e) => setFormData({ ...formData, newPetBreed: e.target.value })}
@@ -266,7 +269,8 @@ export default function Vaccination() {
                       <Label htmlFor="newPetAge">Age *</Label>
                       <Input
                         id="newPetAge"
-                        placeholder="e.g., 2 years"
+                        placeholder="e.g., 2"
+                        restriction="integer"
                         required={isNewPet}
                         value={formData.newPetAge}
                         onChange={(e) => setFormData({ ...formData, newPetAge: e.target.value })}
@@ -276,7 +280,8 @@ export default function Vaccination() {
                       <Label htmlFor="newPetWeight">Weight (Optional)</Label>
                       <Input
                         id="newPetWeight"
-                        placeholder="e.g., 25 kg"
+                        placeholder="e.g., 25.5"
+                        restriction="decimal"
                         value={formData.newPetWeight}
                         onChange={(e) => setFormData({ ...formData, newPetWeight: e.target.value })}
                       />
@@ -323,41 +328,16 @@ export default function Vaccination() {
 
               <div className="space-y-2">
                 <Label htmlFor="files">Upload Files (optional)</Label>
-                <div className="flex flex-col gap-4">
-                  <div className="relative">
-                    <Input
-                      id="files"
-                      type="file"
-                      multiple
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    <Label
-                      htmlFor="files"
-                      className="flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
-                    >
-                      <Upload className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">Click to upload or drag and drop</span>
-                    </Label>
-                  </div>
-                  
-                  {formData.files.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {formData.files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 border rounded-md group">
-                          <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <FileUploadDropzone
+                  id="files"
+                  accept="image/*,.pdf"
+                  multiple
+                  files={formData.files}
+                  onFilesSelected={handleFileChange}
+                  onRemove={removeFile}
+                  label="Click to upload or drag and drop"
+                  helper="Images or PDF documents up to 8 MB each"
+                />
               </div>
 
               <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />

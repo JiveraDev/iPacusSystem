@@ -4,6 +4,7 @@ require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
     define('VISIT_BILLING_HELPERS_ONLY', true);
@@ -448,8 +449,39 @@ function vetDiagnosisCompleteBooking(PDO $pdo, ?int $bookingId): void
         return;
     }
 
-    $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status <> 'cancelled'");
+    $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status = 'confirmed'");
     $bookingStmt->execute([$bookingId]);
+}
+
+function vetDiagnosisFetchFormattedById(PDO $pdo, int $diagnosisId): ?array
+{
+    $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
+    $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
+    $recordStmt = $pdo->prepare("
+        SELECT
+            vd.*,
+            q.queue_number,
+            q.timestamp AS queue_timestamp,
+            b.booking_number,
+            p.pet_name,
+            p.pet_species,
+            p.pet_breed,
+            owner.first_Name AS owner_first_name,
+            owner.last_Name AS owner_last_name,
+            {$vaccinationSelect}
+        FROM vet_diagnoses vd
+        LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
+        LEFT JOIN queues q ON q.queue_id = vd.queue_id
+        LEFT JOIN bookings b ON b.booking_id = vd.booking_id
+        LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
+        {$vaccinationJoin}
+        WHERE vd.diagnosis_id = ?
+        LIMIT 1
+    ");
+    $recordStmt->execute([$diagnosisId]);
+    $record = $recordStmt->fetch(PDO::FETCH_ASSOC);
+
+    return $record ? vetDiagnosisFormatRow($record) : null;
 }
 
 function vetDiagnosisSaveVaccinationRecord(PDO $pdo, int $diagnosisId, int $petId, int $veterinarianUserId, string $veterinarianName, array $input): void
@@ -686,6 +718,18 @@ try {
     $petId = vetDiagnosisNullableInt($input['pet_id'] ?? $input['petId'] ?? null);
     $veterinarianUserId = vetDiagnosisNullableInt($input['veterinarian_user_id'] ?? $input['veterinarianUserId'] ?? null);
     $diagnosisType = vetDiagnosisNullableText($input['diagnosis_type'] ?? $input['diagnosisType'] ?? 'general') ?: 'general';
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+    if ($currentApiRole === 'veterinarian') {
+        if ($veterinarianUserId !== null && $veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Veterinarians can only finalize diagnoses under their own account.']);
+            exit;
+        }
+        $veterinarianUserId = $currentApiUserId;
+    }
 
     if (!in_array($diagnosisType, ['general', 'custom'], true)) {
         $diagnosisType = 'general';
@@ -818,6 +862,29 @@ try {
 
     $pdo->beginTransaction();
 
+    if ($queueId !== null && $queueId > 0) {
+        $existingDiagnosisStmt = $pdo->prepare("
+            SELECT diagnosis_id, finalized_at
+            FROM vet_diagnoses
+            WHERE queue_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $existingDiagnosisStmt->execute([$queueId]);
+        $existingDiagnosis = $existingDiagnosisStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingDiagnosis && !empty($existingDiagnosis['finalized_at'])) {
+            $pdo->commit();
+            echo json_encode([
+                'success' => true,
+                'message' => 'Diagnosis was already finalized. Existing result returned.',
+                'diagnosis' => vetDiagnosisFetchFormattedById($pdo, (int)$existingDiagnosis['diagnosis_id']),
+                'alreadyFinalized' => true,
+            ]);
+            exit;
+        }
+    }
+
     $stmt = $pdo->prepare("
         INSERT INTO vet_diagnoses (
             queue_id,
@@ -937,36 +1004,10 @@ try {
         error_log('Visit invoice notification failed: ' . $notificationError->getMessage());
     }
 
-    $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
-    $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
-    $recordStmt = $pdo->prepare("
-        SELECT
-            vd.*,
-            q.queue_number,
-            q.timestamp AS queue_timestamp,
-            b.booking_number,
-            p.pet_name,
-            p.pet_species,
-            p.pet_breed,
-            owner.first_Name AS owner_first_name,
-            owner.last_Name AS owner_last_name,
-            {$vaccinationSelect}
-        FROM vet_diagnoses vd
-        LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
-        LEFT JOIN queues q ON q.queue_id = vd.queue_id
-        LEFT JOIN bookings b ON b.booking_id = vd.booking_id
-        LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
-        {$vaccinationJoin}
-        WHERE vd.diagnosis_id = ?
-        LIMIT 1
-    ");
-    $recordStmt->execute([$diagnosisId]);
-    $record = $recordStmt->fetch(PDO::FETCH_ASSOC);
-
     echo json_encode([
         'success' => true,
         'message' => 'Diagnosis saved and visit billing prepared.',
-        'diagnosis' => $record ? vetDiagnosisFormatRow($record) : null,
+        'diagnosis' => vetDiagnosisFetchFormattedById($pdo, $diagnosisId),
         'visit' => $visitBilling['visit'] ?? null
     ]);
 } catch (Exception $e) {

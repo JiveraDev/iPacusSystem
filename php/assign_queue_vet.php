@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -17,6 +18,14 @@ $queueId = isset($input['queue_id']) ? (int)$input['queue_id'] : 0;
 $veterinarianUserId = isset($input['veterinarian_user_id']) ? (int)$input['veterinarian_user_id'] : 0;
 $providedVetName = trim((string)($input['veterinarian_name'] ?? ''));
 $reason = trim((string)($input['reason'] ?? 'Assigned by admin from queue management'));
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+
+if (!ipawcus_guard_is_admin_role($currentApiRole)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Only authorized admin users can assign queue veterinarians.']);
+    exit;
+}
 
 if ($queueId <= 0 || $veterinarianUserId <= 0) {
     http_response_code(400);

@@ -11,7 +11,7 @@ export async function uploadImageFile(file, type = 'booking_concern', options = 
         ...options
     });
 
-    return data.url;
+    return data.relative_url || data.protected_url || data.url;
 }
 
 export function dataUrlToFile(dataUrl, fileName) {

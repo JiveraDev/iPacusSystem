@@ -4,6 +4,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -104,15 +105,32 @@ $consent_file_id = $data['consent_file_id'] ?? $data['consentFileId'] ?? null;
 $consent_type = $data['consent_type'] ?? $data['consentType'] ?? null;
 $consent_signed_at = $data['consent_signed_at'] ?? $data['consentSignedAt'] ?? $data['signed_at'] ?? null;
 $signer_name = $data['signer_name'] ?? $data['signerName'] ?? null;
-$queue_source = $data['queue_source'] ?? 'admin';
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+$queue_source = $data['queue_source'] ?? ($currentApiRole === 'pet_owner' ? 'self_service' : 'admin');
 
 if (!is_string($queue_source) || trim($queue_source) === '') {
-    $queue_source = 'admin';
+    http_response_code(422);
+    echo json_encode(['message' => 'Queue source is required.']);
+    exit;
 }
 $queue_source = strtolower(trim($queue_source));
 $allowedSources = ['admin', 'self_service', 'register', 'booking_management'];
 if (!in_array($queue_source, $allowedSources, true)) {
-    $queue_source = 'admin';
+    http_response_code(422);
+    echo json_encode(['message' => 'Invalid queue source.', 'allowedSources' => $allowedSources]);
+    exit;
+}
+if ($currentApiRole === 'pet_owner' && $queue_source !== 'self_service') {
+    http_response_code(403);
+    echo json_encode(['message' => 'Pet owners can only create self-service queue entries.']);
+    exit;
+}
+if ($queue_source === 'booking_management' && !ipawcus_guard_is_admin_role($currentApiRole)) {
+    http_response_code(403);
+    echo json_encode(['message' => 'Only authorized staff can create booking-management queue entries.']);
+    exit;
 }
 $initialStatus = $queue_source === 'booking_management' ? 'in-progress' : 'waiting';
 
@@ -142,6 +160,22 @@ if (!$pet_id || !$service_name) {
 try {
     runLifecycleMaintenance($pdo, (int)$pet_id);
 
+    if ($currentApiRole === 'pet_owner') {
+        if (!empty($user_id) && (int)$user_id !== $currentApiUserId) {
+            http_response_code(403);
+            echo json_encode(['message' => 'You cannot queue a pet under another user account.']);
+            exit;
+        }
+        if (!ipawcus_guard_pet_access($pdo, (int)$pet_id, $currentApiUserId)) {
+            http_response_code(403);
+            echo json_encode(['message' => 'You are not allowed to queue this pet.']);
+            exit;
+        }
+        $user_id = $currentApiUserId;
+    }
+
+    $pdo->beginTransaction();
+
     // Check for active queue entries for THIS specific pet
     $activeQueueStmt = $pdo->prepare("
         SELECT queue_id, queue_number, status, timestamp
@@ -150,6 +184,7 @@ try {
           AND status IN ('waiting', 'in-progress')
         ORDER BY timestamp DESC
         LIMIT 1
+        FOR UPDATE
     ");
     $activeQueueStmt->execute([$pet_id]);
     $activeQueue = $activeQueueStmt->fetch(PDO::FETCH_ASSOC);
@@ -161,6 +196,7 @@ try {
 
         if ($queueDate === $todayDate) {
             // If it's from today, block it as usual
+            $pdo->rollBack();
             http_response_code(409);
             echo json_encode([
                 'message' => "This pet already has an active queue entry for today ({$activeQueueReference}). Please complete or cancel it before adding another queue.",
@@ -171,6 +207,7 @@ try {
             ]);
             exit;
         } else {
+            $pdo->rollBack();
             http_response_code(409);
             echo json_encode([
                 'message' => "This pet still has an active in-service queue entry ({$activeQueueReference}). Complete, return, or cancel it before adding another queue.",
@@ -215,10 +252,18 @@ try {
     }
 
     // Calculate new queue number: max number for today + 1
-    $stmt = $pdo->prepare("SELECT MAX(queue_number) as max_num FROM queues WHERE DATE(timestamp) = CURDATE()");
+    $stmt = $pdo->prepare("
+        SELECT queue_number
+        FROM queues
+        WHERE timestamp >= CURDATE()
+          AND timestamp < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+        ORDER BY queue_number DESC
+        LIMIT 1
+        FOR UPDATE
+    ");
     $stmt->execute();
     $result = $stmt->fetch();
-    $new_queue_number = ($result['max_num'] ?? 0) + 1;
+    $new_queue_number = ((int)($result['queue_number'] ?? 0)) + 1;
 
     // Build INSERT dynamically so queue creation works across sources even when schema adds optional columns.
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");
@@ -270,6 +315,8 @@ try {
             : 'Captured during queue creation.',
     ]);
 
+    $pdo->commit();
+
     try {
         notification_send_queue_event($pdo, $queueId, 'created');
     } catch (Throwable $notificationError) {
@@ -283,6 +330,9 @@ try {
         'queue_reference' => ipawcus_format_queue_reference($new_queue_number)
     ]);
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['message' => 'Failed to add to queue: ' . $e->getMessage()]);
 }

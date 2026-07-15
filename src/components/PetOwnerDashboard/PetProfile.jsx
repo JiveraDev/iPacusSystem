@@ -15,6 +15,7 @@ import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
 import { PhotoViewer } from "../../ui/photo-viewer";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
 
 import { findPetService } from "../../services/findPet";
 import { updateBookingStatus } from "../../services/bookingService";
@@ -496,6 +497,19 @@ export default function PetProfile() {
                   const url = resolveImageUrl(path);
                   const isImage = isImageUploadPath(path);
 
+                  if (isImage) {
+                    return (
+                      <button
+                        key={`${path}-${index}`}
+                        type="button"
+                        onClick={() => setConsentViewer({ src: path, alt: `Concern ${index + 1}` })}
+                        className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left"
+                      >
+                        <ProtectedImage src={path} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
+                      </button>
+                    );
+                  }
+
                   return (
                     <a
                       key={`${path}-${index}`}
@@ -504,15 +518,11 @@ export default function PetProfile() {
                       rel="noreferrer"
                       className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                     >
-                      {isImage ? (
-                        <img src={url} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
-                      ) : (
                         <span className="flex aspect-square w-full flex-col items-center justify-center gap-3 p-4 text-center">
                           <FileText className="h-10 w-10 text-slate-300" />
                           <span className="max-w-full truncate text-sm font-bold text-slate-700">{uploadFileName(path)}</span>
                           <span className="text-xs font-semibold text-blue-600">Open file</span>
                         </span>
-                      )}
                     </a>
                   );
                 })}
@@ -724,6 +734,7 @@ export default function PetProfile() {
                     <Input
                       value={tempOwnerDraft}
                       onChange={(event) => setTempOwnerDraft(event.target.value)}
+                      restriction="name"
                       placeholder="Temporary owner name"
                       disabled={isSavingTempOwner}
                     />

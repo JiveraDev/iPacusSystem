@@ -5,13 +5,14 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, X, Eye } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { uploadImageFile } from "../../services/uploadService";
 import { createRecordUpdateRequest } from "../../services/recordUpdateRequestService";
 import { useDashboardUser } from "../dashboardRouter.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
+import FileUploadDropzone from "../shared/FileUploadDropzone";
 
 function currentUserId(user) {
   return user?.user_id || user?.userId || user?.id || null;
@@ -52,11 +53,8 @@ export default function RequestUpdateRecord() {
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedPaymentMethod);
   const selectedQrUrl = resolveImageUrl(selectedPaymentMethod?.qrImageUrl || "");
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPaymentProof(file);
-    }
+  const handleFileChange = (files) => {
+    setPaymentProof(Array.from(files || [])[0] || null);
   };
 
   const handleSubmit = async (e) => {
@@ -245,17 +243,14 @@ export default function RequestUpdateRecord() {
                     <button
                       type="button"
                       onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedPaymentMethod.label} QR Code` })}
-                      className="bg-white p-4 rounded-lg shadow-lg border-2 border-gray-200 transition hover:border-blue-300"
+                      className="bg-white p-4 rounded-lg shadow-lg border-2 border-gray-200 transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      aria-label={`Open larger ${selectedPaymentMethod.label} QR image`}
                     >
                       <img
                         src={selectedQrUrl}
                         alt={`${selectedPaymentMethod.label} QR Code`}
                         className="w-64 h-64 object-contain"
                       />
-                      <span className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-blue-700">
-                        <Eye className="size-3.5" />
-                        View larger
-                      </span>
                     </button>
                     <div className="mt-4 text-center">
                       <p className="font-semibold text-gray-900">iPawcus Veterinary Clinic</p>
@@ -277,49 +272,16 @@ export default function RequestUpdateRecord() {
                     Upload Screenshot or Receipt
                     {selectedMethodRequiresProof && <span className="text-red-500"> *</span>}
                   </Label>
-                  <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[180px] flex flex-col items-center justify-center relative overflow-hidden">
-                    {paymentProof ? (
-                      <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
-                        <div className="relative group">
-                          <img 
-                            src={URL.createObjectURL(paymentProof)} 
-                            alt="Payment Proof Preview" 
-                            className="max-h-[200px] w-auto max-w-full object-contain rounded-lg shadow-md border border-gray-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setPaymentProof(null)}
-                            className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-all transform hover:scale-110 z-10"
-                            title="Remove proof"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
-                          <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
-                            {paymentProof.name}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor="payment-proof"
-                        className="cursor-pointer w-full h-full py-8 flex flex-col items-center justify-center"
-                      >
-                        <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                        <span className="text-sm font-semibold text-blue-600">Click to upload receipt</span>
-                        <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF (MAX. 10MB)</span>
-                        <input
-                          id="payment-proof"
-                          type="file"
-                          className="hidden"
-                          accept="image/*,.pdf"
-                          onChange={handleFileChange}
-                          required={selectedMethodRequiresProof}
-                        />
-                      </label>
-                    )}
+                  <div className="mt-2">
+                    <FileUploadDropzone
+                      id="payment-proof"
+                      accept="image/*,.pdf"
+                      files={paymentProof ? [paymentProof] : []}
+                      onFilesSelected={handleFileChange}
+                      onRemove={() => setPaymentProof(null)}
+                      label="Click to upload receipt"
+                      helper="PNG, JPG, WEBP, GIF, or PDF up to 8 MB"
+                    />
                   </div>
                 </div>
               </CardContent>

@@ -18,7 +18,7 @@ try {
 
     $range = reports_date_range($payload);
     $filters = reports_filters($payload);
-    $report = reports_build_report($pdo, $reportType, $range, $filters);
+    $report = reports_build_report($pdo, $reportType, $range, $filters, true);
     $report['generated_by'] = trim((string)($payload['generated_by'] ?? 'Super Admin')) ?: 'Super Admin';
 
     reports_json([

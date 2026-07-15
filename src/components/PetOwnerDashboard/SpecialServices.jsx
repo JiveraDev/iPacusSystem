@@ -639,6 +639,7 @@ export default function SpecialServices({ user }) {
                                     id="service_code"
                                     value={serviceForm.service_code}
                                     onChange={(event) => setServiceForm({ ...serviceForm, service_code: event.target.value })}
+                                    restriction="alphanumeric"
                                     placeholder="kapon, special-surgery, grooming-plus"
                                 />
                             </div>
@@ -694,6 +695,7 @@ export default function SpecialServices({ user }) {
                                     id="max_pets"
                                     type="number"
                                     min="1"
+                                    restriction="integer"
                                     value={serviceForm.max_pets}
                                     onChange={(event) => setServiceForm({ ...serviceForm, max_pets: event.target.value })}
                                 />
@@ -703,6 +705,7 @@ export default function SpecialServices({ user }) {
                                 <Input
                                     id="sort_order"
                                     type="number"
+                                    restriction="integer"
                                     value={serviceForm.sort_order}
                                     onChange={(event) => setServiceForm({ ...serviceForm, sort_order: event.target.value })}
                                 />
@@ -759,6 +762,7 @@ export default function SpecialServices({ user }) {
                                 id="edit_service_code"
                                 value={editServiceForm.service_code}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, service_code: event.target.value })}
+                                restriction="alphanumeric"
                                 placeholder="kapon, special-surgery, grooming-plus"
                             />
                         </div>
@@ -814,6 +818,7 @@ export default function SpecialServices({ user }) {
                                 id="edit_max_pets"
                                 type="number"
                                 min="1"
+                                restriction="integer"
                                 value={editServiceForm.max_pets}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, max_pets: event.target.value })}
                             />
@@ -823,6 +828,7 @@ export default function SpecialServices({ user }) {
                             <Input
                                 id="edit_sort_order"
                                 type="number"
+                                restriction="integer"
                                 value={editServiceForm.sort_order}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, sort_order: event.target.value })}
                             />
@@ -1162,7 +1168,7 @@ export default function SpecialServices({ user }) {
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetName">Pet Name *</Label>
-                                            <Input id="newPetName" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
+                                            <Input id="newPetName" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} restriction="name" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetSpecies">Species *</Label>
@@ -1181,15 +1187,15 @@ export default function SpecialServices({ user }) {
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetBreed">Breed</Label>
-                                            <Input id="newPetBreed" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
+                                            <Input id="newPetBreed" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} restriction="name" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetAge">Age *</Label>
-                                            <Input id="newPetAge" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
+                                            <Input id="newPetAge" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} restriction="integer" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetWeight">Weight</Label>
-                                            <Input id="newPetWeight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
+                                            <Input id="newPetWeight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} restriction="decimal" />
                                         </div>
                                         <div className="space-y-2 sm:col-span-2">
                                             <Label htmlFor="newPetMedicalConditions">Medical Conditions</Label>

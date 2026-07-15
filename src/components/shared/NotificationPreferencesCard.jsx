@@ -24,6 +24,7 @@ const DEFAULT_PREFERENCES = {
     diagnosis_updates: true,
     queue_updates: true,
     boarding_updates: true,
+    ownership_updates: true,
     reminder_24h: true,
     reminder_2h: true,
     reminder_same_day: true
@@ -47,7 +48,8 @@ const PREFERENCE_GROUPS = [
             { key: 'payment_updates', label: 'Payments', detail: 'Know when a bill is ready or when a payment has been recorded.' },
             { key: 'diagnosis_updates', label: 'Diagnosis and follow-up', detail: 'Know when diagnosis notes or follow-up dates are available.' },
             { key: 'queue_updates', label: 'Queue status', detail: 'Follow queue approvals, cancellations, and veterinarian receiving updates.' },
-            { key: 'boarding_updates', label: 'Boarding', detail: 'Follow kennel boarding and pet hotel updates, including check-in and check-out.' }
+            { key: 'boarding_updates', label: 'Boarding', detail: 'Follow kennel boarding and pet hotel updates, including check-in and check-out.' },
+            { key: 'ownership_updates', label: 'Ownership', detail: 'Follow pet ownership, co-parent approval, and access updates.' }
         ]
     },
     {

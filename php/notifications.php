@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -12,6 +13,24 @@ function notifications_input(): array
 function notifications_user_id(array $input = []): int
 {
     return (int)($_GET['userId'] ?? $_GET['user_id'] ?? $input['user_id'] ?? $input['userId'] ?? 0);
+}
+
+function notifications_effective_user_id(PDO $pdo, array $input = []): int
+{
+    $user = ipawcus_guard_current_user($pdo);
+    $currentUserId = ipawcus_guard_user_id($user);
+    $role = ipawcus_guard_role($user);
+    $requestedUserId = notifications_user_id($input);
+
+    if (ipawcus_guard_is_admin_role($role) && $requestedUserId > 0) {
+        return $requestedUserId;
+    }
+
+    if ($requestedUserId > 0 && $requestedUserId !== $currentUserId) {
+        notifications_error(403, 'You are not allowed to access another user\'s notifications.');
+    }
+
+    return $currentUserId;
 }
 
 function notifications_error(int $status, string $message): void
@@ -140,7 +159,7 @@ try {
             notifications_error(405, 'Method not allowed.');
         }
 
-        $userId = notifications_user_id();
+        $userId = notifications_effective_user_id($pdo);
         if ($userId <= 0) {
             notifications_error(400, 'userId is required.');
         }
@@ -158,7 +177,7 @@ try {
         }
 
         $input = notifications_input();
-        $userId = notifications_user_id($input);
+        $userId = notifications_effective_user_id($pdo, $input);
         if ($userId <= 0 || !is_array($input['subscription'] ?? null)) {
             notifications_error(400, 'user_id and subscription are required.');
         }
@@ -183,7 +202,7 @@ try {
         }
 
         $input = notifications_input();
-        $userId = notifications_user_id($input);
+        $userId = notifications_effective_user_id($pdo, $input);
         if ($userId <= 0) {
             notifications_error(400, 'user_id is required.');
         }
@@ -201,7 +220,7 @@ try {
 
     if ($action === 'preferences') {
         if ($method === 'GET') {
-            $userId = notifications_user_id();
+            $userId = notifications_effective_user_id($pdo);
             if ($userId <= 0) {
                 notifications_error(400, 'userId is required.');
             }
@@ -215,7 +234,7 @@ try {
 
         if ($method === 'POST' || $method === 'PATCH') {
             $input = notifications_input();
-            $userId = notifications_user_id($input);
+            $userId = notifications_effective_user_id($pdo, $input);
             if ($userId <= 0) {
                 notifications_error(400, 'user_id is required.');
             }
@@ -241,7 +260,7 @@ try {
         }
 
         $input = notifications_input();
-        $userId = notifications_user_id($input);
+        $userId = notifications_effective_user_id($pdo, $input);
         $notificationId = (int)($_GET['notificationId'] ?? $input['notification_id'] ?? $input['notificationId'] ?? 0);
 
         if ($userId <= 0 || $notificationId <= 0) {
@@ -266,7 +285,7 @@ try {
         }
 
         $input = notifications_input();
-        $userId = notifications_user_id($input);
+        $userId = notifications_effective_user_id($pdo, $input);
         if ($userId <= 0) {
             notifications_error(400, 'user_id is required.');
         }
@@ -311,7 +330,7 @@ try {
     }
 
     if ($method === 'GET') {
-        $userId = notifications_user_id();
+        $userId = notifications_effective_user_id($pdo);
         if ($userId <= 0) {
             notifications_error(400, 'userId is required.');
         }

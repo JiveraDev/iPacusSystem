@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { ArrowLeft, Upload, CheckCircle, AlertCircle, Loader2, X, Eye } from "lucide-react";
+import { ArrowLeft, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
@@ -15,6 +15,7 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
+import FileUploadDropzone from "../shared/FileUploadDropzone";
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
@@ -139,10 +140,8 @@ export default function PaymentSubmission() {
     }
   };
 
-  const handleReceiptChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData({ ...formData, receiptFile: e.target.files[0] });
-    }
+  const handleReceiptChange = (files) => {
+    setFormData({ ...formData, receiptFile: Array.from(files || [])[0] || null });
   };
 
   return (
@@ -219,13 +218,10 @@ export default function PaymentSubmission() {
                         <button
                           type="button"
                           onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedMethod.label} QR` })}
-                          className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300"
+                          className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200"
+                          aria-label={`Open larger ${selectedMethod.label} QR image`}
                         >
                           <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-48 rounded-md object-contain" />
-                          <span className="mt-2 flex items-center gap-1 text-xs font-bold text-green-700">
-                            <Eye className="size-3.5" />
-                            View larger
-                          </span>
                         </button>
                       )}
                     </div>
@@ -242,6 +238,7 @@ export default function PaymentSubmission() {
                 type="number"
                 required
                 readOnly={!!paymentData?.amount}
+                restriction="decimal"
                 className="pl-14 bg-gray-50 font-bold text-lg text-blue-600"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
@@ -259,6 +256,7 @@ export default function PaymentSubmission() {
               <Input
                 id="referenceNumber"
                 placeholder="Enter reference number (if applicable)"
+                restriction="alphanumeric"
                 value={formData.referenceNumber}
                 onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                 disabled={isSubmitting}
@@ -271,48 +269,16 @@ export default function PaymentSubmission() {
             {/* Receipt Upload */}
             <div className="space-y-2">
               <Label htmlFor="receipt">Upload Payment Proof/Receipt {selectedMethodRequiresProof && "*"}</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
-                {formData.receiptFile ? (
-                  <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
-                    <div className="relative group">
-                      <img 
-                        src={URL.createObjectURL(formData.receiptFile)} 
-                        alt="Receipt Preview" 
-                        className="max-h-[250px] w-auto max-w-full object-contain rounded-lg shadow-md border border-gray-100"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData({...formData, receiptFile: null})}
-                        className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-all transform hover:scale-110 z-10"
-                        title="Remove receipt"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
-                        {formData.receiptFile.name}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer w-full h-full py-8 flex flex-col items-center justify-center">
-                    <Upload className="h-10 w-10 text-gray-400 mb-3" />
-                    <span className="text-sm font-semibold text-blue-600">Click to upload receipt</span>
-                    <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
-                    <Input
-                      id="receipt"
-                      type="file"
-                      required={selectedMethodRequiresProof}
-                      accept="image/*,.pdf"
-                      onChange={handleReceiptChange}
-                      disabled={isSubmitting}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
+              <FileUploadDropzone
+                id="receipt"
+                accept="image/*,.pdf"
+                files={formData.receiptFile ? [formData.receiptFile] : []}
+                onFilesSelected={handleReceiptChange}
+                onRemove={() => setFormData({ ...formData, receiptFile: null })}
+                disabled={isSubmitting}
+                label="Click to upload receipt"
+                helper="PNG, JPG, WEBP, GIF, or PDF up to 8 MB"
+              />
             </div>
 
             {/* Notes */}

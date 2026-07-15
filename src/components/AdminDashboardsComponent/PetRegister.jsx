@@ -301,6 +301,7 @@ export default function PetRegister() {
                                         value={formData.petName}
                                         onChange={(e) => handleInputChange('petName', e.target.value)}
                                         placeholder="Enter pet name"
+                                        restriction="name"
                                         className="h-[40px]"
                                         required
                                     />
@@ -335,6 +336,7 @@ export default function PetRegister() {
                                         value={formData.breed}
                                         onChange={(e) => handleInputChange('breed', e.target.value)}
                                         placeholder="Enter breed"
+                                        restriction="name"
                                         className="h-[40px]"
                                         required
                                     />
@@ -360,7 +362,8 @@ export default function PetRegister() {
                                     <Input
                                         value={formData.age}
                                         onChange={(e) => handleInputChange('age', e.target.value)}
-                                        placeholder="e.g., 5 years, 6 months"
+                                        placeholder="e.g., 5"
+                                        restriction="integer"
                                         className="h-[40px]"
                                     />
                                 </div>
@@ -392,7 +395,8 @@ export default function PetRegister() {
                                     <Input
                                         value={formData.weight}
                                         onChange={(e) => handleInputChange('weight', e.target.value)}
-                                        placeholder="e.g., 15 kg"
+                                        placeholder="e.g., 15.5"
+                                        restriction="decimal"
                                         className="h-[40px]"
                                     />
                                 </div>
@@ -417,6 +421,7 @@ export default function PetRegister() {
                                         value={formData.microchipNumber}
                                         onChange={(e) => handleInputChange('microchipNumber', e.target.value)}
                                         placeholder="Enter microchip number"
+                                        restriction="alphanumeric"
                                         className="h-[40px]"
                                     />
                                 </div>
@@ -456,6 +461,7 @@ export default function PetRegister() {
                                     <Input
                                         value={formData.tempOwnerName}
                                         onChange={(e) => handleInputChange('tempOwnerName', e.target.value)}
+                                        restriction="name"
                                         placeholder="Enter temporary owner name"
                                         className="h-[40px]"
                                     />

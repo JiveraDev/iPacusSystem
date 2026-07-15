@@ -20,15 +20,5 @@ function accountColumnExists(PDO $pdo, string $table, string $column): bool
 
 function ensureAdminAccountStatusColumn(PDO $pdo): bool
 {
-    if (accountColumnExists($pdo, 'admin_profiles', 'is_active')) {
-        return true;
-    }
-
-    try {
-        $pdo->exec("ALTER TABLE admin_profiles ADD COLUMN is_active TINYINT(1) DEFAULT 1 NULL AFTER postionn");
-    } catch (Exception $e) {
-        return accountColumnExists($pdo, 'admin_profiles', 'is_active');
-    }
-
-    return true;
+    return accountColumnExists($pdo, 'admin_profiles', 'is_active');
 }

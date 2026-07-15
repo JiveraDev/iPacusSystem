@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Maximize2, Minimize2, PhoneOff, Video } from 'lucide-react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ExternalLink, Maximize2, Minimize2, Video, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { formatDisplayDateTime } from '../lib/date';
 import { useNavigate } from '../components/dashboardRouter.jsx';
@@ -146,6 +146,44 @@ export function useVideoCall() {
 function FloatingVideoCall() {
     const navigate = useNavigate();
     const { activeCall, isMinimized, minimizeCall, maximizeCall, endCall } = useVideoCall();
+    const [dragPosition, setDragPosition] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStateRef = useRef(null);
+
+    useEffect(() => {
+        if (!isDragging) return undefined;
+
+        const handlePointerMove = (event) => {
+            const dragState = dragStateRef.current;
+            if (!dragState) return;
+
+            const nextLeft = dragState.left + event.clientX - dragState.startX;
+            const nextTop = dragState.top + event.clientY - dragState.startY;
+            const maxLeft = Math.max(12, window.innerWidth - dragState.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - dragState.height - 12);
+
+            setDragPosition({
+                left: Math.min(Math.max(12, nextLeft), maxLeft),
+                top: Math.min(Math.max(12, nextTop), maxTop),
+                width: dragState.width
+            });
+        };
+
+        const handlePointerUp = () => {
+            dragStateRef.current = null;
+            setIsDragging(false);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp, { once: true });
+        window.addEventListener('pointercancel', handlePointerUp, { once: true });
+
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
+        };
+    }, [isDragging]);
 
     if (!activeCall?.meetingUrl) {
         return null;
@@ -168,6 +206,15 @@ function FloatingVideoCall() {
     const videoClassName = isMinimized
         ? 'h-[10.5rem] min-h-0 flex-1 bg-black sm:h-[9.5rem]'
         : 'min-h-0 flex-1 bg-black';
+    const shellStyle = isMinimized && dragPosition
+        ? {
+            left: `${dragPosition.left}px`,
+            top: `${dragPosition.top}px`,
+            right: 'auto',
+            bottom: 'auto',
+            width: `${dragPosition.width}px`
+        }
+        : undefined;
 
     const openWorkspace = () => {
         if (activeCall.returnPath) {
@@ -175,10 +222,34 @@ function FloatingVideoCall() {
         }
     };
 
+    const startDrag = (event) => {
+        if (!isMinimized || event.button !== 0 || event.target.closest('button')) {
+            return;
+        }
+
+        const shell = event.currentTarget.closest('section');
+        if (!shell) return;
+
+        const rect = shell.getBoundingClientRect();
+        dragStateRef.current = {
+            startX: event.clientX,
+            startY: event.clientY,
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height
+        };
+        setIsDragging(true);
+        event.preventDefault();
+    };
+
     return (
-        <section className={shellClassName} aria-label="Active online consultation">
+        <section className={shellClassName} style={shellStyle} aria-label="Active online consultation">
             <div className="flex h-full min-h-0 flex-col">
-                <header className="flex min-h-14 items-center gap-3 border-b border-white/10 px-3 py-2 sm:px-4">
+                <header
+                    className={`flex min-h-14 items-center gap-3 border-b border-white/10 px-3 py-2 sm:px-4 ${isMinimized ? 'cursor-move select-none' : ''}`}
+                    onPointerDown={startDrag}
+                >
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-100">
                         <Video className="h-4 w-4" />
                     </div>
@@ -216,11 +287,11 @@ function FloatingVideoCall() {
                             variant="ghost"
                             size="icon"
                             onClick={endCall}
-                            className="size-9 text-red-100 hover:bg-red-500/20 hover:text-white"
-                            aria-label="Leave call"
-                            title="Leave call"
+                            className="size-9 shrink-0 rounded-full border border-red-400/40 bg-red-600 text-white shadow-sm hover:bg-red-700 hover:text-white focus-visible:ring-red-300"
+                            aria-label="Close call"
+                            title="Close call"
                         >
-                            <PhoneOff className="h-4 w-4" />
+                            <X className="h-4 w-4" />
                         </Button>
                     </div>
                 </header>

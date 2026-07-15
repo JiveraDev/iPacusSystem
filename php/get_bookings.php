@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -52,6 +53,9 @@ function decodeJsonArray($value): array
 try {
     autoCancelOverdueBookings($pdo);
 
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
     $userId = $_GET['userId'] ?? null;
     $bookingId = $_GET['bookingId'] ?? null;
     $params = [];
@@ -134,13 +138,55 @@ try {
             LEFT JOIN users v ON b.veterinarian_id = v.user_id
             {$multiPetJoin}
             {$boardingAssignmentJoin}";
-    
-    if ($userId) {
-        $sql .= " WHERE b.user_id = ?";
-        $params[] = $userId;
-    } elseif ($bookingId) {
-        $sql .= " WHERE b.booking_id = ?";
+
+    $where = [];
+    if ($bookingId) {
+        $where[] = "b.booking_id = ?";
         $params[] = $bookingId;
+    }
+
+    if ($currentApiRole === 'pet_owner') {
+        if ($userId && (int)$userId !== $currentApiUserId) {
+            http_response_code(403);
+            echo json_encode(['message' => 'You can only view booking records under your own account.']);
+            exit;
+        }
+
+        $ownerScopeSql = "
+            (
+                b.user_id = ?
+                OR EXISTS (
+                    SELECT 1
+                    FROM pet_ownership po
+                    WHERE po.pet_id = b.pet_id
+                      AND po.user_id = ?
+                )
+        ";
+        $params[] = $currentApiUserId;
+        $params[] = $currentApiUserId;
+
+        if ($hasBookingPets) {
+            $ownerScopeSql .= "
+                OR EXISTS (
+                    SELECT 1
+                    FROM booking_pets bp_scope
+                    JOIN pet_ownership po_scope ON po_scope.pet_id = bp_scope.pet_id
+                    WHERE bp_scope.booking_id = b.booking_id
+                      AND po_scope.user_id = ?
+                )
+            ";
+            $params[] = $currentApiUserId;
+        }
+
+        $ownerScopeSql .= ")";
+        $where[] = $ownerScopeSql;
+    } elseif ($userId) {
+        $where[] = "b.user_id = ?";
+        $params[] = $userId;
+    }
+
+    if (!empty($where)) {
+        $sql .= " WHERE " . implode(' AND ', $where);
     }
 
     $sql .= " ORDER BY b.created_at DESC";

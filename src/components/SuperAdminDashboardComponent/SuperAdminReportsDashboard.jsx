@@ -10,6 +10,7 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { fetchReportsDashboard, REPORT_QUICK_RANGES } from '../../services/reportService';
 import { formatPhpCurrency } from '../../lib/currency';
 import { formatReportDateLabel } from '../../lib/date';
+import DashboardPageHeader from '../shared/DashboardPageHeader';
 import ReportChartCard from './ReportChartCard';
 import ReportDateInput from './ReportDateInput';
 import ReportKpiCard from './ReportKpiCard';
@@ -413,52 +414,46 @@ export default function SuperAdminReportsDashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                    <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">Reports Dashboard</h1>
-                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-                        Clinic performance, service activity, billing, inventory, and patient case overview
-                    </p>
-                </div>
-
-                <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-950/70 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,14rem)_minmax(11.5rem,12.5rem)_minmax(11.5rem,12.5rem)_auto]">
-                    <div>
-                        <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
-                        <Select value={range} onValueChange={setRange}>
-                            <SelectTrigger className="mt-1">
-                                <SelectValue displayValue={selectedRangeLabel} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {REPORT_QUICK_RANGES.map(item => (
-                                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <ReportDateInput
-                        label="Start"
-                        value={visibleDateRange.start}
-                        onChange={handleCustomStartChange}
-                    />
-                    <ReportDateInput
-                        label="End"
-                        value={visibleDateRange.end}
-                        onChange={handleCustomEndChange}
-                    />
-                    <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-1">
-                        <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2">
-                            {isLoading ? <Loader2 className="size-7 animate-spin" /> : <RefreshCw className="size-7" />}
+            <DashboardPageHeader
+                title="Reports Dashboard"
+                description="Clinic performance, service activity, billing, inventory, and patient case overview."
+                layout="stacked"
+                toolbar={(
+                    <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)_minmax(8rem,max-content)_minmax(10rem,max-content)] lg:items-end">
+                        <div className="min-w-0">
+                            <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
+                            <Select value={range} onValueChange={setRange}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue displayValue={selectedRangeLabel} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {REPORT_QUICK_RANGES.map(item => (
+                                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <ReportDateInput
+                            label="Start"
+                            value={visibleDateRange.start}
+                            onChange={handleCustomStartChange}
+                        />
+                        <ReportDateInput
+                            label="End"
+                            value={visibleDateRange.end}
+                            onChange={handleCustomEndChange}
+                        />
+                        <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="h-10 w-full justify-center gap-2 whitespace-nowrap px-3">
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                             Refresh
                         </Button>
-                        <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="gap-2">
+                        <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 w-full justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white hover:bg-[#0d4acf]">
                             <FileText className="size-4" />
                             Report Center
                         </Button>
                     </div>
-                </div>
-            </div>
-            </div>
+                )}
+            />
 
             {error ? (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>

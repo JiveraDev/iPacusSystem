@@ -1,12 +1,22 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 
 if (!$userId) {
     http_response_code(400);
     echo json_encode(['message' => 'User ID is required.']);
+    exit;
+}
+
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+if ($currentApiRole === 'pet_owner' && (int)$userId !== $currentApiUserId) {
+    http_response_code(403);
+    echo json_encode(['message' => 'You can only view pets under your own account.']);
     exit;
 }
 
@@ -24,6 +34,7 @@ function fetchUserPetRows(PDO $pdo, $userId): array
                 LIMIT 1
             )
             WHERE o.user_id = ?
+              AND COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
             ORDER BY p.pet_id DESC";
 
     $stmt = $pdo->prepare($sql);

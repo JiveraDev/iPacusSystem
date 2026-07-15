@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/php/db.php';
+require_once __DIR__ . '/../php/db.php';
 header("Content-Type: application/json");
 try {
     $stmt = $pdo->query("DESCRIBE bookings");

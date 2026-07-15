@@ -21,6 +21,20 @@ function service_catalog_table_exists(PDO $pdo, string $tableName): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function service_catalog_column_exists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function service_catalog_schema_ready(PDO $pdo): bool
 {
     return service_catalog_table_exists($pdo, 'service_catalog')
@@ -356,7 +370,19 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
     }
 }
 
-function service_catalog_delete(PDO $pdo, int $serviceId): void
+function service_catalog_reference_count(PDO $pdo, string $tableName, string $columnName, int $serviceId): int
+{
+    if (!service_catalog_table_exists($pdo, $tableName) || !service_catalog_column_exists($pdo, $tableName, $columnName)) {
+        return 0;
+    }
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE {$columnName} = ?");
+    $stmt->execute([$serviceId]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function service_catalog_delete(PDO $pdo, int $serviceId, bool $hardDelete = false): void
 {
     service_catalog_require_schema($pdo);
 
@@ -364,10 +390,46 @@ function service_catalog_delete(PDO $pdo, int $serviceId): void
         service_catalog_error(400, 'Service ID is required.');
     }
 
-    $stmt = $pdo->prepare("UPDATE service_catalog SET is_active = 0 WHERE service_id = ?");
-    $stmt->execute([$serviceId]);
+    $existsStmt = $pdo->prepare("SELECT service_id FROM service_catalog WHERE service_id = ? LIMIT 1");
+    $existsStmt->execute([$serviceId]);
+    if (!$existsStmt->fetchColumn()) {
+        service_catalog_error(404, 'Service was not found.');
+    }
 
-    echo json_encode(['success' => true, 'message' => 'Service deactivated.']);
+    if (!$hardDelete) {
+        $stmt = $pdo->prepare("UPDATE service_catalog SET is_active = 0 WHERE service_id = ?");
+        $stmt->execute([$serviceId]);
+
+        echo json_encode(['success' => true, 'message' => 'Service deactivated.']);
+        return;
+    }
+
+    $usedChargeCount = service_catalog_reference_count($pdo, 'visit_charges', 'service_id', $serviceId);
+    if ($usedChargeCount > 0) {
+        service_catalog_error(409, 'This service is already used in billing history. Deactivate it instead of deleting it.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $materialStmt = $pdo->prepare("DELETE FROM service_materials WHERE service_id = ?");
+        $materialStmt->execute([$serviceId]);
+
+        $stmt = $pdo->prepare("DELETE FROM service_catalog WHERE service_id = ?");
+        $stmt->execute([$serviceId]);
+        $pdo->commit();
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ($e->getCode() === '23000') {
+            service_catalog_error(409, 'This service is already used by existing records. Deactivate it instead of deleting it.');
+        }
+
+        service_catalog_error(500, 'Failed to delete service: ' . $e->getMessage());
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Service deleted.']);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -385,7 +447,8 @@ if ($method === 'GET') {
 } elseif ($method === 'PATCH') {
     service_catalog_save($pdo, (int)$serviceId);
 } elseif ($method === 'DELETE') {
-    service_catalog_delete($pdo, (int)$serviceId);
+    $hardDelete = filter_var($_GET['hardDelete'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    service_catalog_delete($pdo, (int)$serviceId, $hardDelete);
 } else {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed.']);

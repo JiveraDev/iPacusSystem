@@ -6,7 +6,7 @@ export const PET_OWNER_CONSENT_CONTEXTS = [
 
 export function parseConsentContexts(value) {
     if (Array.isArray(value)) {
-        return value.map((item) => String(item || '').trim()).filter(Boolean);
+        return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 1);
     }
 
     if (typeof value !== 'string' || value.trim() === '') {
@@ -16,13 +16,13 @@ export function parseConsentContexts(value) {
     try {
         const parsed = JSON.parse(value);
         if (Array.isArray(parsed)) {
-            return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+            return parsed.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 1);
         }
     } catch {
         // Fall through to comma-separated parsing for older data.
     }
 
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+    return value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 1);
 }
 
 export function normalizeConsentTemplate(file) {

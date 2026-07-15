@@ -420,6 +420,7 @@ export default function AddNewItemPage() {
                 id="barcode"
                 name="barcode"
                 placeholder="Optional barcode number"
+                restriction="alphanumeric"
               />
             </div>
           </div>
@@ -515,6 +516,7 @@ export default function AddNewItemPage() {
                 type="number"
                 placeholder="0"
                 min="0"
+                restriction="integer"
                 required
               />
             </div>
@@ -540,6 +542,7 @@ export default function AddNewItemPage() {
                 type="number"
                 placeholder="Minimum quantity"
                 min="0"
+                restriction="integer"
               />
             </div>
           </div>
@@ -562,6 +565,7 @@ export default function AddNewItemPage() {
                 placeholder="0.00"
                 step="0.01"
                 min="0"
+                restriction="decimal"
                 className="pl-12"
                 leftIcon={<span className="text-xs font-semibold">PHP</span>}
                 required
@@ -597,6 +601,7 @@ export default function AddNewItemPage() {
                 type="number"
                 placeholder="90"
                 min="1"
+                restriction="integer"
               />
               <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565] mt-1">
                 Alert when this many days remain before expiry

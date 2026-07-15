@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -147,52 +148,9 @@ function pet_medical_notify_owner_record_updated(
 
 function pet_medical_ensure_schema(PDO $pdo): void
 {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS pet_medical_record_groups (
-            group_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            pet_id INT NOT NULL,
-            title VARCHAR(180) NOT NULL,
-            summary TEXT NULL,
-            visible_to_owner TINYINT(1) NOT NULL DEFAULT 1,
-            sort_order INT NOT NULL DEFAULT 0,
-            created_by_user_id INT NULL,
-            updated_by_user_id INT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY pet_medical_record_groups_pet_idx (pet_id, sort_order, group_id),
-            KEY pet_medical_record_groups_created_by_idx (created_by_user_id),
-            KEY pet_medical_record_groups_updated_by_idx (updated_by_user_id),
-            CONSTRAINT pet_medical_record_groups_pet_fk
-                FOREIGN KEY (pet_id) REFERENCES pets_information(pet_id)
-                ON DELETE CASCADE
-        )
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS pet_medical_record_group_items (
-            item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            group_id INT NOT NULL,
-            source_type VARCHAR(40) NOT NULL,
-            source_id INT NULL,
-            title VARCHAR(180) NOT NULL,
-            summary TEXT NULL,
-            revision_notes TEXT NULL,
-            service_date DATETIME NULL,
-            sort_order INT NOT NULL DEFAULT 0,
-            source_snapshot LONGTEXT NULL,
-            added_by_user_id INT NULL,
-            updated_by_user_id INT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY pet_medical_record_group_items_group_idx (group_id, sort_order, item_id),
-            KEY pet_medical_record_group_items_source_idx (source_type, source_id),
-            KEY pet_medical_record_group_items_added_by_idx (added_by_user_id),
-            KEY pet_medical_record_group_items_updated_by_idx (updated_by_user_id),
-            CONSTRAINT pet_medical_record_group_items_group_fk
-                FOREIGN KEY (group_id) REFERENCES pet_medical_record_groups(group_id)
-                ON DELETE CASCADE
-        )
-    ");
+    if (!pet_medical_table_exists($pdo, 'pet_medical_record_groups') || !pet_medical_table_exists($pdo, 'pet_medical_record_group_items')) {
+        pet_medical_error(409, 'Medical record organization tables are missing. No runtime schema changes were attempted.');
+    }
 }
 
 function pet_medical_resolve_pet_id(PDO $pdo, $petId): int
@@ -1371,15 +1329,33 @@ function pet_medical_send_email_copy(PDO $pdo, int $petId): void
     $subject = 'iPawcus organized medical record - ' . ($pet['name'] ?? 'Pet');
     $html = pet_medical_email_copy_html($pet, $groups, $vaccinations, $allergies);
 
-    send_smtp_email($email, $subject, $html, null, [
-        'toName' => $pet['ownerName'] ?? '',
-    ]);
+    try {
+        if (mail_queue_enabled()) {
+            mail_queue_email($pdo, $email, $subject, $html, null, [
+                'toName' => $pet['ownerName'] ?? '',
+            ]);
 
-    echo json_encode([
-        'success' => true,
-        'message' => 'Organized medical record copy was emailed to the pet owner.',
-        'email' => $email,
-    ]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Organized medical record copy was queued for email delivery.',
+                'email' => $email,
+            ]);
+            return;
+        }
+
+        send_smtp_email($email, $subject, $html, null, [
+            'toName' => $pet['ownerName'] ?? '',
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Organized medical record copy was emailed to the pet owner.',
+            'email' => $email,
+        ]);
+    } catch (Throwable $error) {
+        error_log('Medical record email copy failed: ' . $error->getMessage());
+        pet_medical_error(409, 'Medical record copy could not be emailed right now. Please check mail queue or SMTP configuration.');
+    }
 }
 
 function pet_medical_service_record_by_source(PDO $pdo, int $petId, string $sourceType, int $sourceId): ?array
@@ -1775,9 +1751,16 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 try {
     pet_medical_ensure_schema($pdo);
+    $currentUser = ipawcus_guard_current_user($pdo);
+    $currentRole = ipawcus_guard_role($currentUser);
+    $currentUserId = ipawcus_guard_user_id($currentUser);
+
+    if ($currentRole === 'pet_owner' && !ipawcus_guard_pet_access($pdo, $petNumericId, $currentUserId)) {
+        pet_medical_error(403, 'You are not allowed to view this pet medical record.');
+    }
 
     if ($method === 'GET') {
-        $ownerVisibleOnly = isset($_GET['owner']) && (int)$_GET['owner'] === 1;
+        $ownerVisibleOnly = $currentRole === 'pet_owner' || (isset($_GET['owner']) && (int)$_GET['owner'] === 1);
         $pet = pet_medical_pet_summary($pdo, $petNumericId);
         $serviceHistory = pet_medical_fetch_service_history($pdo, $petNumericId);
         $organizedRecords = pet_medical_fetch_groups($pdo, $petNumericId, $ownerVisibleOnly);
@@ -1807,6 +1790,15 @@ try {
     $action = $input['action'] ?? '';
     $type = $input['type'] ?? null;
 
+    if ($method === 'POST' && $action === 'email_copy') {
+        pet_medical_send_email_copy($pdo, $petNumericId);
+        exit;
+    }
+
+    if (!ipawcus_guard_is_clinic_role($currentRole)) {
+        pet_medical_error(403, 'Only authorized clinic users can modify medical records.');
+    }
+
     switch ($action) {
         case 'create_group':
             pet_medical_create_group($pdo, $petNumericId, $input);
@@ -1825,9 +1817,6 @@ try {
             break;
         case 'remove_item':
             pet_medical_remove_item($pdo, $petNumericId, $input);
-            break;
-        case 'email_copy':
-            pet_medical_send_email_copy($pdo, $petNumericId);
             break;
         default:
             if ($type === 'vaccination') {

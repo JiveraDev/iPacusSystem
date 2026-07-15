@@ -10,6 +10,7 @@ const DEFAULT_MUTATION_TIMEOUT_MS = 120000;
 const AUTH_REQUIRED_CODE = 'api_auth_required';
 const AUTH_EXPIRED_MESSAGE = 'Please log in again to continue.';
 const LOGIN_ROUTE = '/landing/login';
+const inFlightGetRequests = new Map();
 
 let serverStatus = {
     isDown: false,
@@ -258,6 +259,43 @@ export async function readJsonResponse(response, fallback = {}) {
     return response.json().catch(() => fallback);
 }
 
+function getApiRequestMethod(options = {}) {
+    return String(options.method || 'GET').toUpperCase();
+}
+
+function canDedupeApiRequest(options = {}) {
+    return getApiRequestMethod(options) === 'GET'
+        && options.body === undefined
+        && !options.signal
+        && options.dedupe !== false;
+}
+
+function getDedupeHeadersKey(headers) {
+    const requestHeaders = new Headers(headers || {});
+
+    return Array.from(requestHeaders.entries())
+        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+        .map(([key, value]) => `${key}:${value}`)
+        .join('&');
+}
+
+function getDedupeRequestKey(path, options = {}) {
+    const user = getStoredApiUser();
+    const userId = user?.id || user?.user_id || user?.userId || '';
+    const role = user?.role || user?.user_role || '';
+    const apiScope = options.apiPrefix ? 'api' : 'direct';
+
+    return [
+        apiScope,
+        getApiRequestMethod(options),
+        String(path),
+        getStoredAuthToken(),
+        userId,
+        role,
+        getDedupeHeadersKey(options.headers)
+    ].join('|');
+}
+
 export async function apiFetch(path, options = {}) {
     const {
         apiPrefix = false,
@@ -265,6 +303,7 @@ export async function apiFetch(path, options = {}) {
         body,
         signal,
         timeoutMs,
+        suppressServerUnavailable = false,
         ...fetchOptions
     } = options;
     const requestHeaders = new Headers(headers || {});
@@ -306,10 +345,16 @@ export async function apiFetch(path, options = {}) {
         });
 
         if (response.status >= 500) {
-            reportServerUnavailable(new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
-                status: response.status,
-                data: { code: 'server_unavailable' }
-            }), { status: response.status });
+            const errorData = suppressServerUnavailable
+                ? await readJsonResponse(response.clone(), {})
+                : {};
+
+            if (!suppressServerUnavailable || errorData.code === 'database_unavailable') {
+                reportServerUnavailable(new ApiError(errorData.message || SERVER_UNAVAILABLE_MESSAGE, {
+                    status: response.status,
+                    data: { code: errorData.code || 'server_unavailable' }
+                }), { status: response.status, data: errorData });
+            }
         } else {
             reportServerAvailable();
         }
@@ -354,7 +399,7 @@ export async function apiFetch(path, options = {}) {
     }
 }
 
-export async function apiRequest(path, options = {}) {
+async function performApiRequest(path, options = {}) {
     const response = await apiFetch(path, options);
     const data = await readJsonResponse(response);
 
@@ -375,6 +420,28 @@ export async function apiRequest(path, options = {}) {
 
     reportServerAvailable();
     return data;
+}
+
+export async function apiRequest(path, options = {}) {
+    if (!canDedupeApiRequest(options)) {
+        return performApiRequest(path, options);
+    }
+
+    const dedupeKey = getDedupeRequestKey(path, options);
+    const existingRequest = inFlightGetRequests.get(dedupeKey);
+
+    if (existingRequest) {
+        return existingRequest;
+    }
+
+    const request = performApiRequest(path, options);
+    inFlightGetRequests.set(dedupeKey, request);
+
+    try {
+        return await request;
+    } finally {
+        inFlightGetRequests.delete(dedupeKey);
+    }
 }
 
 export async function checkServerHealth(options = {}) {

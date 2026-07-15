@@ -3,7 +3,6 @@ import { Camera, CheckCircle2, CreditCard, Eye, Loader2, RefreshCw, Save, Shield
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
-import { Checkbox } from '../../ui/checkbox';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -14,6 +13,7 @@ import { resolveImageUrl } from '../../lib/image';
 import { uploadImageFile } from '../../services/uploadService';
 import { fetchPaymentMethods, requestPaymentMethodsOtp, updatePaymentMethods } from '../../services/paymentMethodService';
 import { PAYMENT_METHOD_FALLBACK } from '../../hooks/usePaymentMethods';
+import DashboardPageHeader from '../shared/DashboardPageHeader';
 
 const METHOD_HELP = {
     qrph: 'QR payment image and account display shown to pet owners.',
@@ -21,10 +21,6 @@ const METHOD_HELP = {
     gcash: 'Mobile wallet name and number used in owner payment screens.',
     bank_transfer: 'Bank account name, bank name, account number, and transfer notes.'
 };
-
-function currentUserId(user) {
-    return user?.user_id || user?.userId || user?.id || null;
-}
 
 function currentUserEmail(user) {
     return user?.mail_Address || user?.email || '';
@@ -59,11 +55,9 @@ export default function PaymentMethodsManagement() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [skipOtp, setSkipOtp] = useState(false);
     const [viewer, setViewer] = useState(null);
 
     const userEmail = currentUserEmail(currentUser);
-    const userId = currentUserId(currentUser);
     const qrMethod = useMemo(() => methods.find(method => method.methodKey === 'qrph'), [methods]);
 
     const loadMethods = async () => {
@@ -93,14 +87,9 @@ export default function PaymentMethodsManagement() {
     };
 
     const sendOtp = async () => {
-        if (!userId && !userEmail) {
-            toast.error('Super Admin account email is required.');
-            return;
-        }
-
         setIsSendingOtp(true);
         try {
-            const response = await requestPaymentMethodsOtp({ userId, email: userEmail });
+            const response = await requestPaymentMethodsOtp({});
             toast.success(response.message || 'Verification code sent.');
         } catch (error) {
             toast.error(error.message || 'Failed to send verification code.');
@@ -110,7 +99,7 @@ export default function PaymentMethodsManagement() {
     };
 
     const saveMethods = async () => {
-        if (!skipOtp && !/^\d{6}$/.test(otpCode.trim())) {
+        if (!/^\d{6}$/.test(otpCode.trim())) {
             toast.error('Enter the 6-digit email verification code.');
             return;
         }
@@ -130,10 +119,7 @@ export default function PaymentMethodsManagement() {
             }
 
             const response = await updatePaymentMethods({
-                userId,
-                email: userEmail,
-                code: skipOtp ? '' : otpCode.trim(),
-                skipOtp,
+                code: otpCode.trim(),
                 methods: nextMethods
             });
 
@@ -152,35 +138,34 @@ export default function PaymentMethodsManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-950">Payment Methods</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Manage the clinic payment names, numbers, instructions, and QRPH image used by owner payment screens.
-                    </p>
-                </div>
-                <Button type="button" variant="outline" onClick={loadMethods} disabled={isLoading || isSaving} className="gap-2">
-                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
+            <DashboardPageHeader
+                title="Payment Methods"
+                description="Manage the clinic payment names, numbers, instructions, and QRPH image used by owner payment screens."
+                layout="stacked"
+                actions={(
+                    <Button type="button" variant="outline" onClick={loadMethods} disabled={isLoading || isSaving} className="h-10 justify-center gap-2 whitespace-nowrap">
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        Refresh
+                    </Button>
+                )}
+            />
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                <div className="space-y-4">
+                <div className="grid gap-3 xl:grid-cols-2">
                     {methods.map((method) => (
                         <Card key={method.methodKey} className="border-slate-200">
-                            <CardContent className="space-y-4 p-5">
+                            <CardContent className="space-y-3 p-4">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="flex min-w-0 items-center gap-3">
-                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
-                                            <CreditCard className="size-5" />
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
+                                            <CreditCard className="size-4" />
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="text-lg font-black text-slate-950">{method.label}</h3>
+                                                <h3 className="text-base font-black leading-5 text-slate-950">{method.label}</h3>
                                                 <Badge className="border-0 bg-green-50 text-green-700">Enabled</Badge>
                                             </div>
-                                            <p className="mt-1 text-sm font-semibold text-slate-500">{METHOD_HELP[method.methodKey]}</p>
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{METHOD_HELP[method.methodKey]}</p>
                                         </div>
                                     </div>
                                     <Badge className="w-fit border-0 bg-slate-100 text-slate-700">{method.methodKey}</Badge>
@@ -200,6 +185,7 @@ export default function PaymentMethodsManagement() {
                                         <Input
                                             value={method.accountName}
                                             onChange={(event) => updateMethod(method.methodKey, { accountName: event.target.value })}
+                                            restriction="name"
                                             disabled={isSaving}
                                         />
                                     </div>
@@ -211,6 +197,7 @@ export default function PaymentMethodsManagement() {
                                                 accountNumber: normalizeAccountNumber(event.target.value)
                                             })}
                                             inputMode="numeric"
+                                            restriction="digits"
                                             pattern="[0-9]*"
                                             placeholder="Account number"
                                             disabled={isSaving}
@@ -221,7 +208,7 @@ export default function PaymentMethodsManagement() {
                                         <Textarea
                                             value={method.instructions}
                                             onChange={(event) => updateMethod(method.methodKey, { instructions: event.target.value })}
-                                            className="min-h-24"
+                                            className="min-h-20"
                                             disabled={isSaving}
                                         />
                                     </div>
@@ -233,9 +220,9 @@ export default function PaymentMethodsManagement() {
 
                 <aside className="space-y-4">
                     <Card className="border-slate-200">
-                        <CardContent className="space-y-4 p-5">
+                        <CardContent className="space-y-3 p-4">
                             <div>
-                                <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
+                                <h3 className="flex items-center gap-2 text-base font-black text-slate-950">
                                     <Camera className="size-5 text-[#155dfc]" />
                                     QRPH Image
                                 </h3>
@@ -243,7 +230,7 @@ export default function PaymentMethodsManagement() {
                             </div>
 
                             <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                                <div className="flex h-56 items-center justify-center bg-white">
+                                <div className="flex h-44 items-center justify-center bg-white">
                                     {qrPreviewUrl ? (
                                         <button
                                             type="button"
@@ -274,37 +261,19 @@ export default function PaymentMethodsManagement() {
                         </CardContent>
                     </Card>
 
-                    <Card className={skipOtp ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50'}>
-                        <CardContent className="space-y-4 p-5">
+                    <Card className="border-blue-200 bg-blue-50">
+                        <CardContent className="space-y-3 p-4">
                             <div>
-                                <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
-                                    <ShieldCheck className={`size-5 ${skipOtp ? 'text-amber-700' : 'text-[#155dfc]'}`} />
-                                    {skipOtp ? 'OTP Bypass Enabled' : 'Email OTP Required'}
+                                <h3 className="flex items-center gap-2 text-base font-black text-slate-950">
+                                    <ShieldCheck className="size-5 text-[#155dfc]" />
+                                    Email OTP Required
                                 </h3>
                                 <p className="mt-1 text-sm font-semibold text-slate-600">
-                                    {skipOtp
-                                        ? 'Debug mode lets you save without an email code. Turn it off for normal verification.'
-                                        : `Codes are sent to ${userEmail || 'the Super Admin email'} before payment details can be changed.`}
+                                    Codes are sent to {userEmail || 'the Super Admin email'} before payment details can be changed.
                                 </p>
                             </div>
 
-                            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3">
-                                <div>
-                                    <p className="text-sm font-black text-slate-900">Debug OTP Bypass</p>
-                                    <p className="text-xs font-semibold text-slate-500">Save payment changes without email OTP.</p>
-                                </div>
-                                <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${skipOtp ? 'bg-amber-500' : 'bg-slate-300'}`}>
-                                    <span className={`inline-block size-5 rounded-full bg-white shadow transition ${skipOtp ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                                </span>
-                                <Checkbox
-                                    checked={skipOtp}
-                                    onCheckedChange={setSkipOtp}
-                                    disabled={isSaving}
-                                    className="sr-only"
-                                />
-                            </label>
-
-                            <Button type="button" variant="outline" onClick={sendOtp} disabled={skipOtp || isSendingOtp || isSaving} className="w-full gap-2 bg-white">
+                            <Button type="button" variant="outline" onClick={sendOtp} disabled={isSendingOtp || isSaving} className="w-full gap-2 bg-white">
                                 {isSendingOtp ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
                                 Send Verification Code
                             </Button>
@@ -315,14 +284,16 @@ export default function PaymentMethodsManagement() {
                                     value={otpCode}
                                     onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                                     inputMode="numeric"
+                                    restriction="digits"
+                                    maxLength={6}
                                     placeholder="000000"
-                                    disabled={skipOtp || isSaving}
+                                    disabled={isSaving}
                                 />
                             </div>
 
                             <Button type="button" onClick={saveMethods} disabled={isSaving || isLoading} className="w-full gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                                 {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                                {skipOtp ? 'Save Without OTP' : 'Save Payment Methods'}
+                                Save Payment Methods
                             </Button>
 
                             <div className="rounded-lg border border-green-200 bg-white p-3 text-sm font-semibold text-green-700">

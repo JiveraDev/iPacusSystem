@@ -117,6 +117,7 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
                                     <Input
                                         id="resetCode"
                                         inputMode="numeric"
+                                        restriction="digits"
                                         maxLength={6}
                                         value={code}
                                         onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}

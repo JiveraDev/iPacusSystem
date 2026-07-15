@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -31,31 +32,79 @@ function pet_owner_todos_table_exists(PDO $pdo, string $tableName): bool
 
 function pet_owner_todos_ensure_schema(PDO $pdo): void
 {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS pet_owner_todos (
-            todo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            title VARCHAR(180) NOT NULL,
-            details TEXT NULL,
-            category VARCHAR(80) NOT NULL DEFAULT 'Personal Task',
-            start_at DATETIME NOT NULL,
-            end_at DATETIME NULL,
-            status ENUM('pending','completed','cancelled') NOT NULL DEFAULT 'pending',
-            completed_at DATETIME NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY pet_owner_todos_user_start_idx (user_id, start_at),
-            KEY pet_owner_todos_user_status_idx (user_id, status),
-            CONSTRAINT pet_owner_todos_user_fk
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-                ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    if (!pet_owner_todos_table_exists($pdo, 'pet_owner_todos')) {
+        pet_owner_todos_error(500, 'pet_owner_todos table is missing. Run the approved deployment SQL before using custom todos.');
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'pet_owner_todos'
     ");
+    $stmt->execute();
+    $columns = array_flip(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    $missingColumns = [];
+
+    foreach ([
+        'todo_id',
+        'user_id',
+        'title',
+        'details',
+        'category',
+        'start_at',
+        'end_at',
+        'status',
+        'completed_at',
+        'created_at',
+        'updated_at',
+    ] as $columnName) {
+        if (!isset($columns[$columnName])) {
+            $missingColumns[] = $columnName;
+        }
+    }
+
+    if (!empty($missingColumns)) {
+        pet_owner_todos_error(
+            500,
+            'pet_owner_todos table is missing required columns: ' . implode(', ', $missingColumns) . '. Run the approved deployment SQL.'
+        );
+    }
 }
 
 function pet_owner_todos_user_id(array $input = []): int
 {
     return (int)($_GET['userId'] ?? $_GET['user_id'] ?? $input['userId'] ?? $input['user_id'] ?? 0);
+}
+
+function pet_owner_todos_current_user(PDO $pdo): array
+{
+    static $currentUser = null;
+
+    if (is_array($currentUser)) {
+        return $currentUser;
+    }
+
+    $currentUser = ipawcus_guard_current_user($pdo);
+    return $currentUser;
+}
+
+function pet_owner_todos_effective_user_id(PDO $pdo, array $input = []): int
+{
+    $user = pet_owner_todos_current_user($pdo);
+    $currentUserId = ipawcus_guard_user_id($user);
+    $role = ipawcus_guard_role($user);
+    $requestedUserId = pet_owner_todos_user_id($input);
+
+    if (ipawcus_guard_is_admin_role($role) && $requestedUserId > 0) {
+        return $requestedUserId;
+    }
+
+    if ($requestedUserId > 0 && $requestedUserId !== $currentUserId) {
+        pet_owner_todos_error(403, 'You are not allowed to access another user\'s tasks.');
+    }
+
+    return $currentUserId;
 }
 
 function pet_owner_todos_normalize_role(?string $role): string
@@ -65,9 +114,10 @@ function pet_owner_todos_normalize_role(?string $role): string
 
 function pet_owner_todos_user_role(PDO $pdo, int $userId): string
 {
-    $providedRole = pet_owner_todos_normalize_role($_GET['role'] ?? $_GET['userRole'] ?? '');
-    if ($providedRole !== '') {
-        return $providedRole;
+    $user = pet_owner_todos_current_user($pdo);
+    $currentUserId = ipawcus_guard_user_id($user);
+    if ($currentUserId === $userId) {
+        return pet_owner_todos_normalize_role($user['role'] ?? $user['normalized_role'] ?? '');
     }
 
     $stmt = $pdo->prepare("SELECT role FROM users WHERE user_id = ? LIMIT 1");
@@ -564,7 +614,7 @@ function pet_owner_todos_list(PDO $pdo): void
     pet_owner_todos_ensure_schema($pdo);
     runLifecycleMaintenance($pdo);
 
-    $userId = pet_owner_todos_user_id();
+    $userId = pet_owner_todos_effective_user_id($pdo);
     if ($userId <= 0) {
         pet_owner_todos_error(400, 'userId is required.');
     }
@@ -602,7 +652,7 @@ function pet_owner_todos_create(PDO $pdo): void
     pet_owner_todos_ensure_schema($pdo);
 
     $input = pet_owner_todos_input();
-    $userId = pet_owner_todos_user_id($input);
+    $userId = pet_owner_todos_effective_user_id($pdo, $input);
     $title = trim((string)($input['title'] ?? ''));
     $startAt = pet_owner_todos_datetime($input['start_at'] ?? $input['startAt'] ?? null);
     $endAt = pet_owner_todos_datetime($input['end_at'] ?? $input['endAt'] ?? null);
@@ -635,7 +685,7 @@ function pet_owner_todos_update(PDO $pdo): void
     pet_owner_todos_ensure_schema($pdo);
 
     $input = pet_owner_todos_input();
-    $userId = pet_owner_todos_user_id($input);
+    $userId = pet_owner_todos_effective_user_id($pdo, $input);
     $todoId = (int)($_GET['todoId'] ?? $input['todoId'] ?? $input['todo_id'] ?? 0);
 
     if ($userId <= 0 || $todoId <= 0) {
@@ -703,7 +753,7 @@ function pet_owner_todos_delete(PDO $pdo): void
     pet_owner_todos_ensure_schema($pdo);
 
     $input = pet_owner_todos_input();
-    $userId = pet_owner_todos_user_id($input);
+    $userId = pet_owner_todos_effective_user_id($pdo, $input);
     $todoId = (int)($_GET['todoId'] ?? $input['todoId'] ?? $input['todo_id'] ?? 0);
 
     if ($userId <= 0 || $todoId <= 0) {

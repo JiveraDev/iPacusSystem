@@ -2573,6 +2573,7 @@ export default function PetBoardingManagement() {
                             <Input
                                 type="number"
                                 min="1"
+                                restriction="integer"
                                 value={addRoomForm.quantity}
                                 onChange={(event) => setAddRoomForm({ ...addRoomForm, quantity: event.target.value })}
                             />
@@ -2711,6 +2712,7 @@ export default function PetBoardingManagement() {
                                 value={directCheckInForm.emergencyContact}
                                 onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, emergencyContact: normalizePhilippinePhoneInput(event.target.value) })}
                                 inputMode="tel"
+                                restriction="phone"
                                 maxLength={13}
                                 placeholder="+639"
                             />
@@ -2805,6 +2807,7 @@ export default function PetBoardingManagement() {
                                 <Input
                                     value={taskForm.assignedTo}
                                     onChange={(event) => setTaskForm({ ...taskForm, assignedTo: event.target.value })}
+                                    restriction="name"
                                     placeholder="Staff name"
                                 />
                             </div>
@@ -2878,6 +2881,7 @@ export default function PetBoardingManagement() {
                                     type="number"
                                     min="0.01"
                                     step="0.01"
+                                    restriction="decimal"
                                     value={materialForm.quantity}
                                     onChange={(event) => setMaterialForm({ ...materialForm, quantity: event.target.value })}
                                 />
@@ -2888,6 +2892,7 @@ export default function PetBoardingManagement() {
                                     type="number"
                                     min="0"
                                     step="0.01"
+                                    restriction="decimal"
                                     value={materialForm.unitPrice}
                                     onChange={(event) => setMaterialForm({ ...materialForm, unitPrice: event.target.value })}
                                 />

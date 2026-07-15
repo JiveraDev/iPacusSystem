@@ -258,7 +258,7 @@ export default function PetProfileEdit() {
                 <div className="space-y-4 max-w-sm">
                   <div className="space-y-1">
                     <Label className="text-white sm:text-slate-900">Pet Name</Label>
-                    <Input name="petName" value={formData.petName} onChange={handleInputChange} className="text-2xl font-bold h-12" />
+                    <Input name="petName" value={formData.petName} onChange={handleInputChange} restriction="name" className="text-2xl font-bold h-12" />
                   </div>
                 </div>
               ) : (
@@ -306,13 +306,13 @@ export default function PetProfileEdit() {
             </CardHeader>
             <CardContent className="space-y-3 p-4 sm:space-y-4 sm:p-6">
               <BioField label="Species" name="species" value={formData.species} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Primary Breed" name="breed" value={formData.breed} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Owner Name" name="tempOwner" value={formData.tempOwner} isEdit={isEditMode} onChange={handleInputChange} />
+              <BioField label="Primary Breed" name="breed" value={formData.breed} isEdit={isEditMode} onChange={handleInputChange} restriction="name" />
+              <BioField label="Owner Name" name="tempOwner" value={formData.tempOwner} isEdit={isEditMode} onChange={handleInputChange} restriction="name" />
               <BioField label="Birth Date" name="birthDate" value={formData.birthDate} type="date" isEdit={isEditMode} onChange={handleInputChange} />
               <BioField label="Sex / Gender" name="gender" value={formData.gender} isEdit={isEditMode} onChange={handleInputChange} isSelect options={['Male', 'Female', 'Neutered Male', 'Spayed Female']} onSelect={(v) => handleSelectChange('gender', v)} />
-              <BioField label="Weight (kg)" name="weight" value={formData.weight} isEdit={isEditMode} onChange={handleInputChange} />
+              <BioField label="Weight (kg)" name="weight" value={formData.weight} isEdit={isEditMode} onChange={handleInputChange} restriction="decimal" />
               <BioField label="Coloration" name="color" value={formData.color} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} />
+              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="alphanumeric" />
             </CardContent>
           </Card>
 
@@ -575,7 +575,7 @@ function VaccinationCell({ label, value, strong = false, highlight = false }) {
   );
 }
 
-function BioField({ label, value, isEdit, name, onChange, type = "text", isSelect = false, options = [], onSelect }) {
+function BioField({ label, value, isEdit, name, onChange, type = "text", isSelect = false, options = [], onSelect, restriction }) {
   return (
     <div className="flex flex-col gap-1.5 py-1">
       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
@@ -588,7 +588,7 @@ function BioField({ label, value, isEdit, name, onChange, type = "text", isSelec
             </SelectContent>
           </Select>
         ) : (
-          <Input type={type} name={name} value={value || ""} onChange={onChange} className="h-9" />
+          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} className="h-9" />
         )
       ) : (
         <span className="min-w-0 break-words font-bold text-slate-900">

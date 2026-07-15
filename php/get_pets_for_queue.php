@@ -18,6 +18,7 @@ try {
             FROM pets_information p
             LEFT JOIN pet_ownership o ON p.pet_id = o.pet_id
             LEFT JOIN users u ON o.user_id = u.user_id
+            WHERE COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
             ORDER BY p.pet_name ASC";
             
     $stmt = $pdo->query($sql);

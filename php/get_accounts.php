@@ -9,13 +9,12 @@ try {
     $staffActiveSelect = $adminHasActiveColumn ? 'a.is_active AS is_active' : '1 AS is_active';
     $hasUserAccountStatus = accountColumnExists($pdo, 'users', 'account_status');
     $accountStatusSelect = $hasUserAccountStatus ? 'u.account_status' : "'active' AS account_status";
-    $activeAccountWhere = $hasUserAccountStatus ? " AND COALESCE(u.account_status, 'active') <> 'deactivated'" : '';
 
     // 1. Fetch Veterinarians
     $vetSql = "SELECT u.*, v.*, {$accountStatusSelect}, v.is_active AS is_active
                FROM users u 
                JOIN veterinarian_profiles v ON u.user_id = v.user_id 
-               WHERE u.role = 'Veterinarian'{$activeAccountWhere}";
+               WHERE u.role = 'Veterinarian'";
     $vetStmt = $pdo->query($vetSql);
     $veterinarians = $vetStmt->fetchAll();
 
@@ -23,7 +22,7 @@ try {
     $staffSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
                  FROM users u 
                  JOIN admin_profiles a ON u.user_id = a.user_id 
-                 WHERE u.role = 'Admin'{$activeAccountWhere}";
+                 WHERE u.role = 'Admin'";
     $staffStmt = $pdo->query($staffSql);
     $staff = $staffStmt->fetchAll();
 
@@ -31,7 +30,7 @@ try {
     $superAdminSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
                       FROM users u
                       LEFT JOIN admin_profiles a ON u.user_id = a.user_id
-                      WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin'){$activeAccountWhere}";
+                      WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin')";
     $superAdminStmt = $pdo->query($superAdminSql);
     $superAdmins = $superAdminStmt->fetchAll();
 

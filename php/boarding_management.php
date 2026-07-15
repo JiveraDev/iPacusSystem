@@ -61,28 +61,22 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
 function ensure_boarding_rooms_schema(PDO $pdo): void
 {
     if (!boarding_table_exists($pdo, 'rooms')) {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS rooms (
-                room_id INT AUTO_INCREMENT PRIMARY KEY,
-                room_type VARCHAR(40) NOT NULL,
-                total_capacity INT NOT NULL DEFAULT 0,
-                description TEXT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-            )
-        ");
+        boarding_error(500, 'Boarding rooms schema is missing. Run the approved boarding deployment SQL before managing boarding rooms.');
         return;
     }
 
-    if (!boarding_column_exists($pdo, 'rooms', 'room_type')) {
-        $pdo->exec("ALTER TABLE rooms ADD COLUMN room_type VARCHAR(40) NOT NULL DEFAULT 'boarding-small'");
+    $missingColumns = [];
+    foreach (['room_id', 'room_type', 'total_capacity', 'description'] as $columnName) {
+        if (!boarding_column_exists($pdo, 'rooms', $columnName)) {
+            $missingColumns[] = $columnName;
+        }
     }
 
-    if (!boarding_column_exists($pdo, 'rooms', 'total_capacity')) {
-        $pdo->exec("ALTER TABLE rooms ADD COLUMN total_capacity INT NOT NULL DEFAULT 0");
-    }
-
-    if (!boarding_column_exists($pdo, 'rooms', 'description')) {
-        $pdo->exec("ALTER TABLE rooms ADD COLUMN description TEXT NULL");
+    if (!empty($missingColumns)) {
+        boarding_error(
+            500,
+            'Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns) . '. Run the approved boarding deployment SQL.'
+        );
     }
 }
 

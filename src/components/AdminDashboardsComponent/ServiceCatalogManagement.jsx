@@ -3,6 +3,7 @@ import {
     ClipboardList,
     Loader2,
     Package,
+    Power,
     Plus,
     RefreshCw,
     Save,
@@ -23,6 +24,7 @@ import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { fetchInventoryItems } from '../../services/inventoryApi';
 import {
+    deactivateServiceCatalogItem,
     deleteServiceCatalogItem,
     fetchServiceCatalog,
     saveServiceCatalogItem,
@@ -272,6 +274,16 @@ export default function ServiceCatalogManagement() {
         });
     };
 
+    const requestDeleteService = () => {
+        if (selectedServiceId === 'new') return;
+
+        setPendingDeactivationAction({
+            mode: 'delete',
+            serviceName: serviceForm.serviceName || selectedService?.serviceName || 'this service',
+            serviceType: serviceTypeLabel(serviceForm.serviceType || selectedService?.serviceType)
+        });
+    };
+
     const closeDeactivationConfirmation = () => {
         if (!isSaving) {
             setPendingDeactivationAction(null);
@@ -353,7 +365,7 @@ export default function ServiceCatalogManagement() {
 
         setIsSaving(true);
         try {
-            const data = await deleteServiceCatalogItem(selectedServiceId);
+            const data = await deactivateServiceCatalogItem(selectedServiceId);
 
             if (data.success === false) {
                 throw new Error(data.message || 'Failed to deactivate service.');
@@ -366,6 +378,29 @@ export default function ServiceCatalogManagement() {
             loadCatalog();
         } catch (error) {
             toast.error(error.message || 'Failed to deactivate service.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const deleteService = async () => {
+        if (selectedServiceId === 'new') return;
+
+        setIsSaving(true);
+        try {
+            const data = await deleteServiceCatalogItem(selectedServiceId);
+
+            if (data.success === false) {
+                throw new Error(data.message || 'Failed to delete service.');
+            }
+
+            toast.success('Service deleted.');
+            setPendingDeactivationAction(null);
+            selectNewService();
+            setIsServiceModalOpen(false);
+            loadCatalog();
+        } catch (error) {
+            toast.error(error.message || 'Failed to delete service.');
         } finally {
             setIsSaving(false);
         }
@@ -406,6 +441,11 @@ export default function ServiceCatalogManagement() {
 
         if (pendingDeactivationAction.mode === 'save') {
             saveService({ skipDeactivationConfirmation: true });
+            return;
+        }
+
+        if (pendingDeactivationAction.mode === 'delete') {
+            deleteService();
             return;
         }
 
@@ -524,10 +564,16 @@ export default function ServiceCatalogManagement() {
                                         Activate
                                     </Button>
                                 ) : (
-                                    <Button type="button" variant="outline" onClick={requestDeactivateService} disabled={isSaving}>
-                                        <Trash2 className="size-4" />
-                                        Deactivate
-                                    </Button>
+                                    <>
+                                        <Button type="button" variant="outline" onClick={requestDeleteService} disabled={isSaving} className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                                            <Trash2 className="size-4" />
+                                            Delete
+                                        </Button>
+                                        <Button type="button" variant="outline" onClick={requestDeactivateService} disabled={isSaving}>
+                                            <Power className="size-4" />
+                                            Deactivate
+                                        </Button>
+                                    </>
                                 )
                             )}
                             <Button type="button" onClick={() => saveService()} disabled={isSaving || Boolean(schemaMessage)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
@@ -542,6 +588,7 @@ export default function ServiceCatalogManagement() {
                             <Input
                                 value={serviceForm.serviceCode}
                                 onChange={(event) => updateServiceForm('serviceCode', event.target.value)}
+                                restriction="alphanumeric"
                                 placeholder="Optional code"
                             />
                         </Field>
@@ -569,6 +616,7 @@ export default function ServiceCatalogManagement() {
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                restriction="decimal"
                                 value={serviceForm.basePrice}
                                 onChange={(event) => updateServiceForm('basePrice', event.target.value)}
                             />
@@ -638,6 +686,7 @@ export default function ServiceCatalogManagement() {
                                 type="number"
                                 min="0.01"
                                 step="0.01"
+                                restriction="decimal"
                                 value={materialDraft.qtyUsed}
                                 onChange={(event) => setMaterialDraft((current) => ({ ...current, qtyUsed: event.target.value }))}
                                 className="bg-white"
@@ -705,9 +754,11 @@ export default function ServiceCatalogManagement() {
                         {pendingDeactivationAction ? (
                             <>
                                 <DialogHeader>
-                                    <DialogTitle>Deactivate Service</DialogTitle>
+                                    <DialogTitle>{pendingDeactivationAction.mode === 'delete' ? 'Delete Service' : 'Deactivate Service'}</DialogTitle>
                                     <DialogDescription>
-                                        Confirm before this service is removed from active catalog use.
+                                        {pendingDeactivationAction.mode === 'delete'
+                                            ? 'Confirm before this service is permanently deleted.'
+                                            : 'Confirm before this service is removed from active catalog use.'}
                                     </DialogDescription>
                                 </DialogHeader>
 
@@ -718,16 +769,18 @@ export default function ServiceCatalogManagement() {
                                 </div>
 
                                 <p className="text-sm text-slate-700">
-                                    Pet owners and staff will not be able to select this service while it is inactive.
+                                    {pendingDeactivationAction.mode === 'delete'
+                                        ? 'Deletion is allowed only when this service has no billing history. If it has history, deactivate it instead.'
+                                        : 'Pet owners and staff will not be able to select this service after it is deactivated.'}
                                 </p>
 
                                 <DialogFooter>
                                     <Button type="button" variant="outline" onClick={closeDeactivationConfirmation} disabled={isSaving}>
                                         Cancel
                                     </Button>
-                                    <Button type="button" onClick={confirmServiceDeactivation} disabled={isSaving} className="bg-red-600 text-white hover:bg-red-700">
+                                    <Button type="button" onClick={confirmServiceDeactivation} disabled={isSaving} className={pendingDeactivationAction.mode === 'delete' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-amber-600 text-white hover:bg-amber-700'}>
                                         {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                                        Deactivate Service
+                                        {pendingDeactivationAction.mode === 'delete' ? 'Delete Service' : 'Deactivate Service'}
                                     </Button>
                                 </DialogFooter>
                             </>

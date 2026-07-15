@@ -24,6 +24,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { fetchAccounts } from '../../services/accountService';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
 
@@ -156,7 +157,7 @@ export default function RecordUpdateRequestsManagement() {
         setAdminNotes(request.adminNotes || '');
     };
 
-    const updateRequest = async (action) => {
+    const updateRequest = async (action, extraPayload = {}) => {
         if (!selectedRequest) return;
         if ((action === 'approve' || action === 'assign') && selectedVetId === 'none') {
             setSelectedVetId('');
@@ -168,7 +169,8 @@ export default function RecordUpdateRequestsManagement() {
                 action,
                 userId: currentUserId(currentUser),
                 assignedVeterinarianUserId: selectedVetId && selectedVetId !== 'none' ? Number(selectedVetId) : null,
-                adminNotes
+                adminNotes,
+                ...extraPayload
             });
 
             setRequests(current => current.map(request => (
@@ -329,7 +331,7 @@ export default function RecordUpdateRequestsManagement() {
                                             className="w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left"
                                         >
                                             <div className="flex h-40 items-center justify-center bg-white">
-                                                <img src={resolveImageUrl(selectedRequest.paymentProofUrl)} alt="Payment proof" className="h-full w-full object-cover" />
+                                                <ProtectedImage src={selectedRequest.paymentProofUrl} alt="Payment proof" className="h-full w-full object-cover" />
                                             </div>
                                             <p className="p-3 text-xs font-bold text-[#155dfc]">View payment proof</p>
                                         </button>
@@ -376,6 +378,17 @@ export default function RecordUpdateRequestsManagement() {
                     <DialogFooter className="gap-2 sm:justify-between">
                         <Button variant="outline" onClick={() => setSelectedRequest(null)}>Close</Button>
                         <div className="flex flex-col gap-2 sm:flex-row">
+                            {selectedRequest?.paymentStatus !== 'verified' && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => updateRequest('verify_payment')}
+                                    disabled={Boolean(actionLoading)}
+                                    className="border-green-200 text-green-700 hover:bg-green-50"
+                                >
+                                    {actionLoading === 'verify_payment' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                                    Verify Payment
+                                </Button>
+                            )}
                             <Button
                                 variant="outline"
                                 onClick={() => updateRequest('reject')}

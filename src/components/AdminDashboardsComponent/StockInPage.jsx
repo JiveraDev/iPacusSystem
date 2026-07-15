@@ -400,6 +400,7 @@ export default function StockInPage() {
                 placeholder="DN-2026-001"
                 value={deliveryNote}
                 onChange={(event) => setDeliveryNote(event.target.value)}
+                restriction="alphanumeric"
               />
             </div>
 
@@ -605,6 +606,7 @@ export default function StockInPage() {
                       placeholder="0"
                       value={item.quantity || ''}
                       onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                      restriction="integer"
                       required
                     />
                   </div>

@@ -1337,8 +1337,8 @@ export default function VetDiagnosis() {
         setAdditionalConsents(current => current.filter(consent => consent.id !== id));
     };
 
-    const cleanCustomSectionsForSave = async () => {
-        const sections = customFields.filter(field =>
+    const cleanCustomSectionsForSave = async (fields = customFields) => {
+        const sections = fields.filter(field =>
             field.label.trim()
             || field.value.trim()
             || field.majorSymptoms.trim()
@@ -1455,8 +1455,8 @@ export default function VetDiagnosis() {
         setVisitCharges(current => current.filter(charge => charge.id !== id));
     };
 
-    const buildVisitChargesPayload = () => {
-        return visitCharges
+    const buildVisitChargesPayload = (charges = visitCharges) => {
+        return charges
             .filter(charge => String(charge.description || '').trim() !== '')
             .map(charge => ({
                 chargeType: charge.chargeType,
@@ -1531,7 +1531,17 @@ export default function VetDiagnosis() {
             return false;
         }
 
-        const hasCustomDetails = customFields.some(field =>
+        const autoAddedCustomSection = diagnosisType === 'custom' && selectedCustomService
+            ? createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId, buildInitialChiefComplaint(context))
+            : null;
+        const effectiveCustomFields = autoAddedCustomSection
+            ? [...customFields, autoAddedCustomSection]
+            : customFields;
+        const effectiveVisitCharges = autoAddedCustomSection
+            ? [...visitCharges, ...buildVisitChargeLinesForService(selectedCustomService)]
+            : visitCharges;
+
+        const hasCustomDetails = effectiveCustomFields.some(field =>
             field.label.trim()
             || field.value.trim()
             || field.majorSymptoms.trim()
@@ -1558,11 +1568,17 @@ export default function VetDiagnosis() {
                 throw new Error(billingSchemaMessage);
             }
 
-            const visitChargesPayload = buildVisitChargesPayload();
+            if (autoAddedCustomSection) {
+                setCustomFields(effectiveCustomFields);
+                setVisitCharges(effectiveVisitCharges);
+                setSelectedCustomServiceId('');
+            }
+
+            const visitChargesPayload = buildVisitChargesPayload(effectiveVisitCharges);
             const attachments = (await uploadAttachmentList(uploadedImages))
                 .filter(attachment => attachment.category !== 'prescription_document');
             const signedConsents = await uploadAdditionalConsentList(additionalConsents);
-            const customSections = diagnosisType === 'custom' ? await cleanCustomSectionsForSave() : [];
+            const customSections = diagnosisType === 'custom' ? await cleanCustomSectionsForSave(effectiveCustomFields) : [];
             const generalPrescriptions = formData.prescription.map(cleanPrescription);
             const prescriptionDocument = await uploadPrescriptionDocument({
                 context,
@@ -1986,6 +2002,13 @@ function AdditionalConsentSection({
     onPreview
 }) {
     const visibleConsentForms = consentForms || additionalConsents;
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+    const submitSignedConsent = () => {
+        addAdditionalConsent();
+        setShowTemplatePreview(false);
+        setIsSheetOpen(false);
+    };
 
     return (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -2003,7 +2026,7 @@ function AdditionalConsentSection({
                     </p>
                 </div>
 
-                <Sheet>
+                <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
                         <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto">
                             <PanelRightOpen className="size-4" />
@@ -2025,7 +2048,10 @@ function AdditionalConsentSection({
                                         <Label className="text-sm font-bold text-slate-900">Consent Template</Label>
                                         <Select
                                             value={draft.templateId}
-                                            onValueChange={(value) => setDraft(current => ({ ...current, templateId: value }))}
+                                            onValueChange={(value) => {
+                                                setDraft(current => ({ ...current, templateId: value }));
+                                                setShowTemplatePreview(false);
+                                            }}
                                             disabled={isLoading || consentTemplates.length === 0}
                                         >
                                             <SelectTrigger className="bg-white">
@@ -2044,16 +2070,29 @@ function AdditionalConsentSection({
                                         </Select>
                                     </div>
 
-                                    <div className="min-h-36 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                                         {selectedTemplate ? (
                                             <>
-                                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                                    <p className="font-bold text-slate-900">{selectedTemplate.title}</p>
-                                                    <Badge className="border-0 bg-slate-100 text-slate-600">{selectedTemplate.category}</Badge>
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-bold text-slate-900">{selectedTemplate.title}</p>
+                                                        <Badge className="mt-2 border-0 bg-slate-100 text-slate-600">{selectedTemplate.category}</Badge>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setShowTemplatePreview(current => !current)}
+                                                        className="w-full gap-2 sm:w-auto"
+                                                    >
+                                                        <Eye className="size-4" />
+                                                        {showTemplatePreview ? 'Hide Preview' : 'Preview Consent'}
+                                                    </Button>
                                                 </div>
-                                                <p className="max-h-80 overflow-y-auto whitespace-pre-wrap text-sm font-medium leading-6 text-slate-600">
-                                                    {selectedTemplate.content || 'No consent content available.'}
-                                                </p>
+                                                {showTemplatePreview && (
+                                                    <p className="mt-4 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-600">
+                                                        {selectedTemplate.content || 'No consent content available.'}
+                                                    </p>
+                                                )}
                                             </>
                                         ) : (
                                             <p className="text-sm font-semibold text-slate-400">
@@ -2077,12 +2116,12 @@ function AdditionalConsentSection({
                                     />
                                     <Button
                                         type="button"
-                                        onClick={addAdditionalConsent}
+                                        onClick={submitSignedConsent}
                                         disabled={!selectedTemplate || !draft.signature}
                                         className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                                     >
-                                        <Plus className="size-4" />
-                                        Add Signed Consent
+                                        <Upload className="size-4" />
+                                        Submit Signature
                                     </Button>
                                 </div>
                             </div>
@@ -2490,24 +2529,28 @@ function GeneralDiagnosisForm({
                         label="Temperature (C)"
                         value={formData.vitalSigns.temperature}
                         placeholder="38.5"
+                        restriction="decimal"
                         onChange={(value) => updateVitalSign('temperature', value)}
                     />
                     <InputBlock
                         label="Heart Rate (bpm)"
                         value={formData.vitalSigns.heartRate}
                         placeholder="120"
+                        restriction="integer"
                         onChange={(value) => updateVitalSign('heartRate', value)}
                     />
                     <InputBlock
                         label="Respiratory Rate"
                         value={formData.vitalSigns.respiratoryRate}
                         placeholder="30"
+                        restriction="integer"
                         onChange={(value) => updateVitalSign('respiratoryRate', value)}
                     />
                     <InputBlock
                         label="Weight (kg)"
                         value={formData.vitalSigns.weight}
                         placeholder="12.5"
+                        restriction="decimal"
                         onChange={(value) => updateVitalSign('weight', value)}
                     />
                 </div>
@@ -3284,7 +3327,7 @@ function Field({ label, required = false, children }) {
     );
 }
 
-function InputBlock({ label, value, onChange, placeholder = '', type = 'text' }) {
+function InputBlock({ label, value, onChange, placeholder = '', type = 'text', restriction }) {
     return (
         <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</Label>
@@ -3293,6 +3336,7 @@ function InputBlock({ label, value, onChange, placeholder = '', type = 'text' })
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
+                restriction={restriction}
                 className="bg-white"
             />
         </div>

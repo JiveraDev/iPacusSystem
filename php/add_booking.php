@@ -5,6 +5,7 @@ require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -228,6 +229,148 @@ function hasActiveOnlineConsultation(PDO $pdo, int $petId): bool
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function bookingServiceKey(?string $serviceType, $isHomeService, $isOnlineConsultation): string
+{
+    if ((int)$isHomeService === 1 || strtolower(trim((string)$serviceType)) === 'home-service') {
+        return 'home-service';
+    }
+
+    if ((int)$isOnlineConsultation === 1 || strtolower(trim((string)$serviceType)) === 'online-consultation') {
+        return 'online-consultation';
+    }
+
+    return strtolower(trim((string)$serviceType));
+}
+
+function getActiveServiceBookingConflict(PDO $pdo, array $petIds, string $serviceKey): ?array
+{
+    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
+    if (empty($petIds) || $serviceKey === '') {
+        return null;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+    $bookingPetsJoin = '';
+    $petJoinExpression = 'b.pet_id';
+    $petCondition = "b.pet_id IN ({$placeholders})";
+    $params = $petIds;
+
+    if (tableExists($pdo, 'booking_pets')) {
+        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
+        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
+        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
+        $params = array_merge($petIds, $petIds);
+    }
+
+    if ($serviceKey === 'online-consultation') {
+        $serviceCondition = '(b.is_online_consultation = 1 OR b.service_type = ?)';
+        $params[] = 'online-consultation';
+    } elseif ($serviceKey === 'home-service') {
+        $serviceCondition = '(b.is_home_service = 1 OR b.service_type = ?)';
+        $params[] = 'home-service';
+    } else {
+        $serviceCondition = 'b.service_type = ? AND COALESCE(b.is_online_consultation, 0) = 0 AND COALESCE(b.is_home_service, 0) = 0';
+        $params[] = $serviceKey;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.booking_number,
+            b.service_type,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name
+        FROM bookings b
+        {$bookingPetsJoin}
+        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
+        WHERE b.status IN ('pending', 'confirmed')
+          AND {$petCondition}
+          AND {$serviceCondition}
+        ORDER BY b.booking_date ASC, b.booking_time ASC, b.booking_id ASC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $conflict ?: null;
+}
+
+function isBookingDateTimeInPast(string $bookingDate, string $bookingTime): bool
+{
+    $timezone = new DateTimeZone('Asia/Manila');
+    $bookingDateTime = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', "{$bookingDate} {$bookingTime}", $timezone);
+    $errors = DateTimeImmutable::getLastErrors();
+    $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+
+    if (!$bookingDateTime || $hasErrors) {
+        return true;
+    }
+
+    return $bookingDateTime < new DateTimeImmutable('now', $timezone);
+}
+
+function requestedBookingPetCount(array $petIds, ?string $registeredStatus, ?string $newPetName): int
+{
+    if (!empty($petIds)) {
+        return count($petIds);
+    }
+
+    return strtolower(trim((string)$registeredStatus)) === 'not registered' && trim((string)$newPetName) !== '' ? 1 : 0;
+}
+
+function homeServiceActiveBookingCount(PDO $pdo, string $bookingDate): int
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE booking_date = ?
+          AND status IN ('pending', 'confirmed')
+          AND (is_home_service = 1 OR service_type = 'home-service')
+    ");
+    $stmt->execute([$bookingDate]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function homeServiceAfternoonPetCount(PDO $pdo, string $bookingDate): int
+{
+    if (tableExists($pdo, 'booking_pets')) {
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN bp.pet_id IS NOT NULL THEN 1
+                    WHEN b.pet_id IS NOT NULL OR TRIM(COALESCE(b.unregistered_pet_name, '')) <> '' THEN 1
+                    ELSE 0
+                END
+            ), 0)
+            FROM bookings b
+            LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id
+            WHERE b.booking_date = ?
+              AND b.booking_time >= '12:00:00'
+              AND b.status IN ('pending', 'confirmed')
+              AND (b.is_home_service = 1 OR b.service_type = 'home-service')
+        ");
+        $stmt->execute([$bookingDate]);
+
+        return (int)$stmt->fetchColumn();
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN pet_id IS NOT NULL OR TRIM(COALESCE(unregistered_pet_name, '')) <> '' THEN 1
+                ELSE 0
+            END
+        ), 0)
+        FROM bookings
+        WHERE booking_date = ?
+          AND booking_time >= '12:00:00'
+          AND status IN ('pending', 'confirmed')
+          AND (is_home_service = 1 OR service_type = 'home-service')
+    ");
+    $stmt->execute([$bookingDate]);
+
+    return (int)$stmt->fetchColumn();
+}
+
 function getActiveBoardingConflict(PDO $pdo, array $petIds, int $excludeBookingId = 0): ?array
 {
     $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
@@ -407,16 +550,29 @@ function hasVetSlotConflict(PDO $pdo, int $veterinarianId, string $bookingDate, 
         return false;
     }
 
+    $timezone = new DateTimeZone('Asia/Manila');
+    $requestedStart = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', "{$bookingDate} {$bookingTime}", $timezone);
+    $errors = DateTimeImmutable::getLastErrors();
+    $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+
+    if (!$requestedStart || $hasErrors) {
+        return true;
+    }
+
+    $requestedEnd = $requestedStart->modify('+1 hour')->format('H:i:s');
+    $requestedStartTime = $requestedStart->format('H:i:s');
+
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
         FROM bookings
         WHERE is_online_consultation = 1
           AND veterinarian_id = ?
           AND booking_date = ?
-          AND booking_time = ?
+          AND booking_time < ?
+          AND ADDTIME(booking_time, '01:00:00') > ?
           AND status IN ('pending', 'confirmed')
     ");
-    $stmt->execute([$veterinarianId, $bookingDate, $bookingTime]);
+    $stmt->execute([$veterinarianId, $bookingDate, $requestedEnd, $requestedStartTime]);
 
     return (int)$stmt->fetchColumn() > 0;
 }
@@ -446,9 +602,115 @@ function normalizeSpecialServiceItemIds($items): array
     return array_values(array_unique($normalized));
 }
 
+function bookingOfficialCatalogPrice(PDO $pdo, string $serviceType): ?float
+{
+    if (!tableExists($pdo, 'service_catalog')) {
+        return null;
+    }
+
+    $normalized = strtolower(trim($serviceType));
+    if ($normalized === '') {
+        return null;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT base_price
+        FROM service_catalog
+        WHERE is_active = 1
+          AND (
+              LOWER(service_name) = ?
+              OR LOWER(service_code) = ?
+              OR LOWER(service_type) = ?
+          )
+        ORDER BY service_name ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$normalized, $normalized, $normalized]);
+    $price = $stmt->fetchColumn();
+
+    return $price !== false ? max(0.0, (float)$price) : null;
+}
+
+function bookingStayDays(?string $checkInDate, ?string $checkOutDate): int
+{
+    $start = $checkInDate ? strtotime($checkInDate) : false;
+    $end = $checkOutDate ? strtotime($checkOutDate) : false;
+
+    if ($start === false || $end === false || $end <= $start) {
+        return 0;
+    }
+
+    return max(1, (int)ceil(($end - $start) / 86400));
+}
+
+function bookingOfficialBoardingPrice(?string $hotelBoardingType, ?string $roomSize, ?string $checkInDate, ?string $checkOutDate, $addOns): float
+{
+    $roomPrices = [
+        'hotel' => ['small' => 600.0, 'medium' => 1200.0, 'large' => 2000.0],
+        'boarding' => ['small' => 400.0, 'medium' => 800.0, 'large' => 1400.0],
+    ];
+    $addOnPrices = [
+        'behavior' => ['price' => 300.0, 'billing' => 'day'],
+        'playtime' => ['price' => 200.0, 'billing' => 'day'],
+        'training' => ['price' => 500.0, 'billing' => 'stay'],
+        'photos' => ['price' => 150.0, 'billing' => 'day'],
+        'medication' => ['price' => 200.0, 'billing' => 'day'],
+        'special-diet' => ['price' => 250.0, 'billing' => 'day'],
+    ];
+
+    $type = strtolower(trim((string)$hotelBoardingType));
+    $size = strtolower(trim((string)$roomSize));
+    $days = bookingStayDays($checkInDate, $checkOutDate);
+    if ($days <= 0 || !isset($roomPrices[$type][$size])) {
+        return 0.0;
+    }
+
+    $total = $roomPrices[$type][$size] * $days;
+    if (is_string($addOns)) {
+        $decoded = json_decode($addOns, true);
+        $addOns = is_array($decoded) ? $decoded : [];
+    }
+    if (!is_array($addOns)) {
+        $addOns = [];
+    }
+
+    foreach ($addOns as $addOn) {
+        $id = strtolower(trim((string)($addOn['id'] ?? '')));
+        if (!isset($addOnPrices[$id])) {
+            continue;
+        }
+        $config = $addOnPrices[$id];
+        $total += $config['price'] * ($config['billing'] === 'day' ? $days : 1);
+    }
+
+    return max(0.0, $total);
+}
+
+function bookingOfficialPrice(PDO $pdo, string $serviceType, string $serviceKey, bool $isHotelBoarding, ?string $hotelBoardingType, ?string $roomSize, ?string $checkInDate, ?string $checkOutDate, $addOns): float
+{
+    if ($serviceKey === 'online-consultation') {
+        return 500.0;
+    }
+
+    if ($serviceKey === 'home-service') {
+        return 50.0;
+    }
+
+    if ($isHotelBoarding) {
+        return bookingOfficialBoardingPrice($hotelBoardingType, $roomSize, $checkInDate, $checkOutDate, $addOns);
+    }
+
+    $catalogPrice = bookingOfficialCatalogPrice($pdo, $serviceType);
+    return $catalogPrice !== null ? $catalogPrice : 0.0;
+}
+
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 
-$userId = $input['user_id'] ?? null;
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+$submittedUserId = $input['user_id'] ?? null;
+$userId = null;
 $petId = $input['pet_id'] ?? null;
 $petIds = normalizePetIds($pdo, $petId, $input['pet_ids'] ?? []);
 $serviceType = $input['service_type'] ?? null;
@@ -485,8 +747,8 @@ if (!in_array($paymentMethod, $allowedPaymentMethods, true)) {
 }
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
-$price = $input['price'] ?? 0;
-$transportFee = $input['transport_fee'] ?? 0;
+$price = 0;
+$transportFee = 0;
 
 $isOnlineConsultation = $input['is_online_consultation'] ?? 0;
 $veterinarianId = $input['veterinarian_id'] ?? null;
@@ -498,6 +760,32 @@ $roomSize = $input['room_size'] ?? null;
 $addOns = $input['add_ons'] ?? null;
 $emergencyContact = $input['emergency_contact'] ?? null;
 $isHotelBoarding = $serviceType === 'boarding' && in_array($hotelBoardingType, ['hotel', 'boarding'], true);
+
+if ($currentApiRole === 'pet_owner') {
+    if ($submittedUserId !== null && $submittedUserId !== '' && (int)$submittedUserId !== $currentApiUserId) {
+        http_response_code(403);
+        echo json_encode(['message' => 'You cannot submit a booking for another user account.']);
+        exit;
+    }
+    $userId = $currentApiUserId;
+} elseif (ipawcus_guard_is_admin_role($currentApiRole)) {
+    $userId = is_numeric($submittedUserId) ? (int)$submittedUserId : null;
+} else {
+    http_response_code(403);
+    echo json_encode(['message' => 'Your role is not allowed to create bookings for this workflow.']);
+    exit;
+}
+
+$homeServiceRequested = (int)$isHomeService === 1 || strtolower(trim((string)$serviceType)) === 'home-service';
+$onlineConsultRequested = (int)$isOnlineConsultation === 1 || strtolower(trim((string)$serviceType)) === 'online-consultation';
+$boardingRequested = $serviceType === 'boarding' || $isHotelBoarding;
+$exclusiveModes = array_filter([$homeServiceRequested, $onlineConsultRequested, $boardingRequested]);
+
+if (count($exclusiveModes) > 1) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Select only one booking mode: boarding, home service, or online consultation.']);
+    exit;
+}
 
 if ($isHotelBoarding) {
     $bookingDate = $bookingDate ?: $checkInDate;
@@ -541,6 +829,24 @@ if ($registeredStatus === 'Registered' && empty($petIds)) {
     exit;
 }
 
+if ($registeredStatus === 'Registered' && !empty($petIds)) {
+    if ($currentApiRole === 'pet_owner') {
+        $forbiddenPetId = ipawcus_guard_first_forbidden_pet($pdo, $petIds, $currentApiUserId);
+        if ($forbiddenPetId !== null) {
+            http_response_code(403);
+            echo json_encode(['message' => 'You are not allowed to book one or more selected pets.']);
+            exit;
+        }
+    } else {
+        $unlinkedPetId = ipawcus_guard_first_forbidden_pet($pdo, $petIds, (int)$userId);
+        if ($unlinkedPetId !== null) {
+            http_response_code(422);
+            echo json_encode(['message' => 'One or more selected pets is not linked to the selected owner.']);
+            exit;
+        }
+    }
+}
+
 $deceasedPetNames = getDeceasedPetNames($pdo, $petIds);
 if (!empty($deceasedPetNames)) {
     http_response_code(400);
@@ -548,6 +854,60 @@ if (!empty($deceasedPetNames)) {
     $petList = implode(', ', $uniqueDeceasedPetNames);
     echo json_encode(['message' => "Cannot create booking for deceased pet" . (count($uniqueDeceasedPetNames) === 1 ? "" : "s") . ": {$petList}."]);
     exit;
+}
+
+$serviceKey = bookingServiceKey((string)$serviceType, $isHomeService, $isOnlineConsultation);
+
+if (in_array($serviceKey, ['home-service', 'online-consultation'], true) && !$signaturePath) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Signed owner consent is required before submitting this booking.']);
+    exit;
+}
+
+if (!$isHotelBoarding && isBookingDateTimeInPast((string)$bookingDate, (string)$bookingTime)) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Booking date and time must not be in the past.']);
+    exit;
+}
+
+if (!empty($petIds)) {
+    $activeServiceConflict = getActiveServiceBookingConflict($pdo, $petIds, $serviceKey);
+    if ($activeServiceConflict) {
+        http_response_code(409);
+        echo json_encode(['message' => "{$activeServiceConflict['pet_name']} already has an active {$serviceKey} booking ({$activeServiceConflict['booking_number']}). Complete or cancel it before booking the same service again."]);
+        exit;
+    }
+}
+
+if ($serviceKey === 'home-service') {
+    if (trim((string)$address) === '') {
+        http_response_code(400);
+        echo json_encode(['message' => 'Home service address is required.']);
+        exit;
+    }
+
+    if (!preg_match('/\[Services:\s*[^\]]+\]/', (string)$notes)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Select at least one supported home service.']);
+        exit;
+    }
+
+    $requestedPetCount = requestedBookingPetCount($petIds, $registeredStatus, $newPetName);
+
+    if (homeServiceActiveBookingCount($pdo, (string)$bookingDate) >= 2) {
+        http_response_code(409);
+        echo json_encode(['message' => 'Home service accepts only two active bookings per day. Please choose another date.']);
+        exit;
+    }
+
+    if ($bookingTime >= '12:00:00') {
+        $remainingAfternoonPets = max(0, 3 - homeServiceAfternoonPetCount($pdo, (string)$bookingDate));
+        if ($requestedPetCount > $remainingAfternoonPets) {
+            http_response_code(409);
+            echo json_encode(['message' => "Afternoon home service has only {$remainingAfternoonPets} pet slot" . ($remainingAfternoonPets === 1 ? '' : 's') . " remaining for this date."]);
+            exit;
+        }
+    }
 }
 
 if ((int)$isOnlineConsultation === 1 && !empty($petIds)) {
@@ -567,9 +927,9 @@ if ($serviceType === 'special services') {
         exit;
     }
 
-    if (empty($specialServiceItemIds)) {
+    if (count($specialServiceItemIds) !== 1) {
         http_response_code(400);
-        echo json_encode(['message' => 'Please select at least one special service.']);
+        echo json_encode(['message' => 'Please select exactly one special service.']);
         exit;
     }
 
@@ -711,7 +1071,7 @@ if ($isHotelBoarding) {
 
     if (!tableExists($pdo, 'rooms')) {
         http_response_code(500);
-        echo json_encode(['message' => 'Room capacity table is missing. Run php/rooms_setup.sql first.']);
+        echo json_encode(['message' => 'Room capacity table is missing. Run the room setup SQL from phpTestfiles/rooms_setup.sql first.']);
         exit;
     }
 
@@ -731,21 +1091,15 @@ if ($isHotelBoarding) {
     }
 }
 
-if (!columnExists($pdo, 'bookings', 'payment_method')) {
-    $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_method VARCHAR(40) NULL AFTER payment_proof_url");
-}
+ipawcus_guard_require_columns($pdo, 'bookings', [
+    'payment_method',
+    'payment_reference',
+    'consent_forms',
+    'consent_status',
+]);
 
-if (!columnExists($pdo, 'bookings', 'payment_reference')) {
-    $pdo->exec("ALTER TABLE bookings ADD COLUMN payment_reference VARCHAR(120) NULL AFTER payment_method");
-}
-
-if (!columnExists($pdo, 'bookings', 'consent_forms')) {
-    $pdo->exec("ALTER TABLE bookings ADD COLUMN consent_forms LONGTEXT NULL AFTER signature_path");
-}
-
-if (!columnExists($pdo, 'bookings', 'consent_status')) {
-    $pdo->exec("ALTER TABLE bookings ADD COLUMN consent_status VARCHAR(40) NULL AFTER consent_forms");
-}
+$transportFee = $serviceKey === 'home-service' ? 50.0 : 0.0;
+$price = bookingOfficialPrice($pdo, (string)$serviceType, $serviceKey, $isHotelBoarding, $hotelBoardingType, $roomSize, $checkInDate, $checkOutDate, $addOns);
 
 try {
     $pdo->beginTransaction();

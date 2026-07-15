@@ -1,6 +1,6 @@
 # iPawcus Documentation Index
 
-Updated: 2026-06-30
+Updated: 2026-07-05
 
 This folder contains the current planning, architecture, backlog, deployment, and release notes for the iPawcus React/PHP project.
 
@@ -9,6 +9,15 @@ This folder contains the current planning, architecture, backlog, deployment, an
 | `system_inventory_gantt_details.md` | System inventory, route and endpoint map, workflows, schema notes, Gantt-ready work packages, and manual QA checklist. |
 | `git_backlog_assumptions.md` | Git-history-based backlog assumptions, current repository evidence, release phases, risks, and cleanup priorities. |
 | `tv_status_display_deployment.md` | Deployment notes for the React and standalone TV status displays. |
+| `20260710_full_project_update.md` | Full July 10 update covering co-parent approvals, reports, booking, consent, QRPH, vet flows, reminders, verification, and required DB command. |
+| `20260710_current_update_readme.md` | Current update summary, co-parent workflow notes, required database migration, and manual QA steps. |
+| `20260710_full_system_audit.md` | Full system audit using the Elementor audit-guide structure, with security, performance, UX, SEO, deployment, and operations findings. |
+| `deployed_server_sql_runbook.md` | Full deployed-server SQL list, combined migration file, verification queries, and optional legacy migration notes. |
+| `mail_queueing.md` | Mail queueing setup, worker commands, environment toggles, and delivery status behavior. |
+| `performance_optimization.md` | Submit/dashboard lag optimization notes, performance index migration, and worker guidance. |
+| `20260705_consolidated_gantt_update.md` | Combined documentation summary and updated Gantt-ready release-hardening schedule for updating the current project Gantt. |
+| `20260705_combined_project_update.md` | July 5 combined project update covering the TODO calendar redesign, shared Mantine date picker, report filters, account removal, medical-record notifications, database notes, and verification. |
+| `reminder_testing.md` | Dry-run and send-test commands for schedule reminder notifications, plus the settings and timing functions to edit. |
 | `20260630_project_update.md` | June 30 whole-project update covering API access, protected media, consent assignments, booking/queue/POS, dashboards, notifications, reports, and suggested commit message. |
 | `20260625_repository_update.md` | June 22-25 repository changes, schema alignment notes, notification-page work, and verification scope. |
 | `20260620_quality_fix_notes.md` | Historical notes for the June 20 phone, confirmation, modal, notification, and boarding fixes. |
@@ -24,10 +33,12 @@ This folder contains the current planning, architecture, backlog, deployment, an
 - Upgrade script from the June 18 export: `DDL/realign_20260618_to_20260622.sql`
 - Standalone TV display: `Subdomain_folder`
 
-The June 25 repository snapshot remains as a historical baseline; the June 30 project note records the current broader working-tree update.
+The June 25 repository snapshot remains as a historical baseline; the June 30 and July 5 project notes record the broader working-tree updates.
 
 ## Latest Coverage
 
+- July 5 consolidated Gantt update: combined documentation summary, current status mapping, new Gantt items, suggested release-hardening dates, and Mermaid Gantt draft.
+- July 5 combined project update: calendar-app style TODO scheduling, slot/range task creation, shared Mantine date picker behavior, report date filters, account directory row activation, master-key account removal, and medical-record owner notifications.
 - Responsive notification center with `/dashboard/notifications`, shared notification feed state, filtering, pagination, mark-read actions, and quiet refresh.
 - Super Admin personnel employment profile editing through `PATCH /accounts/{id}/profile`.
 - Updated report charts, consent reporting fallbacks, date handling, and dashboard presentation.
@@ -37,6 +48,15 @@ The June 25 repository snapshot remains as a historical baseline; the June 30 pr
 - June 20 UX/API fixes for Philippine mobile inputs, confirmations, modal close controls, and boarding room creation.
 
 ## Verification Snapshot
+
+Completed on 2026-07-05:
+
+- `npm run lint`
+- `npm run build`
+- `php -l php/get_accounts.php`
+- `php -l php/index.php`
+- `php -l php/pet_medical_records.php`
+- `php -l php/delete_account.php`
 
 Completed on 2026-06-25:
 

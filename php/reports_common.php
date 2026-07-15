@@ -789,8 +789,22 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         return [];
     }
 
-    $where = ['v.created_at BETWEEN ? AND ?'];
-    $params = [$range['start_datetime'], $range['end_datetime']];
+    $where = ["(
+        v.created_at BETWEEN ? AND ?
+        OR EXISTS (
+            SELECT 1
+            FROM visit_payments pm_range
+            WHERE pm_range.visit_id = v.visit_id
+              AND pm_range.payment_status NOT IN ('voided', 'failed')
+              AND pm_range.paid_at BETWEEN ? AND ?
+        )
+    )"];
+    $params = [
+        $range['start_datetime'],
+        $range['end_datetime'],
+        $range['start_datetime'],
+        $range['end_datetime'],
+    ];
 
     if (!empty($filters['payment_method'])) {
         $where[] = "EXISTS (
@@ -865,6 +879,60 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         $row['product_sales'] = reports_money($row['product_sales']);
         $row['paid_amount'] = reports_money($row['paid_amount']);
         $row['balance'] = reports_money(max(0, $row['total_bill'] - $row['paid_amount']));
+    }
+
+    return array_merge($rows, reports_record_update_payment_rows($pdo, $range, $filters, $missing));
+}
+
+function reports_record_update_payment_rows(PDO $pdo, array $range, array $filters, array &$missing): array
+{
+    if (!reports_has_tables($pdo, ['pet_record_update_requests', 'pets_information', 'users'], $missing)) {
+        return [];
+    }
+
+    $where = [
+        "r.payment_status = 'verified'",
+        "COALESCE(r.reviewed_at, r.updated_at, r.created_at) BETWEEN ? AND ?",
+    ];
+    $params = [$range['start_datetime'], $range['end_datetime']];
+
+    if (!empty($filters['payment_method'])) {
+        $where[] = 'r.payment_method = ?';
+        $params[] = $filters['payment_method'];
+    }
+
+    $sql = "
+        SELECT
+            CONCAT('record-update-', r.request_id) AS visit_id,
+            DATE(COALESCE(r.reviewed_at, r.updated_at, r.created_at)) AS visit_date,
+            COALESCE(r.reviewed_at, r.updated_at, r.created_at) AS created_at,
+            'record_update' AS source_type,
+            r.status AS visit_status,
+            'paid' AS billing_status,
+            COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
+            COALESCE(p.pet_species, '') AS pet_species,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+            'Record Update' AS veterinarian_name,
+            r.payment_amount AS total_bill,
+            0 AS product_sales,
+            r.payment_amount AS service_sales,
+            CONCAT('Record update request ', r.request_number) AS charges_summary,
+            r.payment_amount AS paid_amount,
+            r.payment_method AS payment_methods,
+            COALESCE(r.reviewed_at, r.updated_at, r.created_at) AS last_paid_at
+        FROM pet_record_update_requests r
+        JOIN pets_information p ON p.pet_id = r.pet_id
+        LEFT JOIN users owner ON owner.user_id = r.owner_user_id
+        WHERE " . implode(' AND ', $where) . "
+    ";
+
+    $rows = reports_fetch_all($pdo, $sql, $params, $missing, 'Record update payment data could not be loaded.');
+    foreach ($rows as &$row) {
+        $row['total_bill'] = reports_money($row['total_bill']);
+        $row['service_sales'] = reports_money($row['service_sales']);
+        $row['product_sales'] = reports_money($row['product_sales']);
+        $row['paid_amount'] = reports_money($row['paid_amount']);
+        $row['balance'] = 0.0;
     }
 
     return $rows;
@@ -2411,7 +2479,462 @@ function reports_blank_report(string $type, array $missing): array
     ];
 }
 
-function reports_build_report(PDO $pdo, string $type, array $range, array $filters = []): array
+function reports_humanize_key(string $key): string
+{
+    return ucwords(trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $key))));
+}
+
+function reports_humanize_value($value): string
+{
+    $text = trim((string)$value);
+    if ($text === '') {
+        return 'Not available';
+    }
+
+    return ucwords(trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $text))));
+}
+
+function reports_currency_label($value): string
+{
+    $amount = reports_money($value);
+    $decimals = abs($amount - round($amount)) > 0.005 ? 2 : 0;
+
+    return 'PHP ' . number_format($amount, $decimals);
+}
+
+function reports_metric_is_currency(string $key): bool
+{
+    $normalized = strtolower($key);
+    foreach (['count', 'quantity', 'stock', 'items', 'records', 'requests', 'stays', 'appointments', 'consultations', 'cases', 'rate'] as $excluded) {
+        if (str_contains($normalized, $excluded)) {
+            return false;
+        }
+    }
+
+    foreach (['sales', 'revenue', 'bill', 'balance', 'amount', 'paid', 'charge', 'price'] as $moneyKey) {
+        if (str_contains($normalized, $moneyKey)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function reports_metric_display(string $key, $value): string
+{
+    if ($value === null || $value === '') {
+        return 'Not available';
+    }
+
+    if (is_numeric($value) && reports_metric_is_currency($key)) {
+        return reports_currency_label($value);
+    }
+
+    if (is_numeric($value) && str_contains(strtolower($key), 'rate')) {
+        return number_format((float)$value, 1) . '%';
+    }
+
+    if (is_numeric($value)) {
+        $number = (float)$value;
+        $decimals = abs($number - round($number)) > 0.005 ? 2 : 0;
+
+        return number_format($number, $decimals);
+    }
+
+    return reports_humanize_value($value);
+}
+
+function reports_numeric_or_null($value): ?float
+{
+    return is_numeric($value) ? (float)$value : null;
+}
+
+function reports_percent_label($part, $whole): ?string
+{
+    $partValue = reports_numeric_or_null($part);
+    $wholeValue = reports_numeric_or_null($whole);
+
+    if ($partValue === null || $wholeValue === null || abs($wholeValue) < 0.000001) {
+        return null;
+    }
+
+    return number_format(($partValue / $wholeValue) * 100, 1) . '%';
+}
+
+function reports_report_profile(string $type): array
+{
+    $profiles = [
+        'sales' => [
+            'purpose' => 'Relates clinic revenue, verified collections, service income, product income, and open balances for the selected period.',
+            'use' => 'Use this report for daily or period-end cash review, service/product mix review, and payment follow-up.',
+            'metrics' => ['total_sales', 'paid_amount', 'unpaid_balance', 'service_sales', 'product_sales', 'most_used_payment_method'],
+        ],
+        'billing' => [
+            'purpose' => 'Relates visit charges, paid amounts, open balances, and billing status by client and pet.',
+            'use' => 'Use this report to check billing completeness before closing the day or releasing financial summaries.',
+            'metrics' => ['total_sales', 'paid_amount', 'unpaid_balance', 'unpaid_or_partial_count'],
+        ],
+        'invoice_receipt' => [
+            'purpose' => 'Summarizes receipt activity and payment processing for verified clinic collections.',
+            'use' => 'Use this report to reconcile issued receipts with posted payments and cashier activity.',
+            'metrics' => ['total_paid', 'total_records'],
+        ],
+        'service_utilization' => [
+            'purpose' => 'Shows which clinic services are most and least used and how much revenue each service contributes.',
+            'use' => 'Use this report for service planning, staffing alignment, and pricing or promotion review.',
+            'metrics' => ['total_services', 'unique_services', 'most_used_service', 'least_used_service'],
+        ],
+        'appointment' => [
+            'purpose' => 'Relates scheduled bookings to confirmed, completed, cancelled, and missed or rescheduled outcomes.',
+            'use' => 'Use this report to evaluate booking reliability, client reminders, and appointment capacity.',
+            'metrics' => ['total_appointments', 'completion_rate', 'pending', 'confirmed', 'completed', 'cancelled', 'missed_rescheduled'],
+        ],
+        'queue' => [
+            'purpose' => 'Tracks walk-in or service queue volume, status movement, veterinarian assignment, and waiting time.',
+            'use' => 'Use this report to review front-desk flow, waiting load, and handoff to veterinarians.',
+            'metrics' => ['total_queue_entries', 'waiting', 'in-progress', 'completed', 'cancelled', 'average_waiting_minutes'],
+        ],
+        'consultation' => [
+            'purpose' => 'Compares face-to-face and online consultation activity, including veterinarian, diagnosis, treatment, and follow-up references.',
+            'use' => 'Use this report to review clinical workload across consultation channels.',
+            'metrics' => ['total_consultations', 'face_to_face', 'online'],
+        ],
+        'follow_up' => [
+            'purpose' => 'Lists pets that need follow-up care and separates pending, due-today, and missed follow-ups.',
+            'use' => 'Use this report to plan owner reminders and veterinarian callbacks.',
+            'metrics' => ['total_follow_ups', 'pending', 'due_today', 'missed'],
+        ],
+        'emr_request' => [
+            'purpose' => 'Tracks pet medical record update requests, payment status, assigned veterinarian, and completion activity.',
+            'use' => 'Use this report to monitor EMR request handling and release readiness.',
+            'metrics' => ['total_requests'],
+        ],
+        'inventory_status' => [
+            'purpose' => 'Relates active inventory items to available stock, reorder thresholds, and expiry risk.',
+            'use' => 'Use this report for purchasing, restocking, and disposal planning.',
+            'metrics' => ['total_items', 'low_stock', 'out_of_stock', 'near_expiry', 'expired'],
+        ],
+        'stock_movement' => [
+            'purpose' => 'Shows stock-in, stock-out, sale, usage, adjustment, and reversal movements for inventory audit.',
+            'use' => 'Use this report to reconcile inventory movement with POS, treatment use, and manual adjustments.',
+            'metrics' => ['total_movements', 'received_items', 'used_sold_adjusted_out'],
+        ],
+        'medicine_product_sales' => [
+            'purpose' => 'Summarizes medicine and retail product sales with quantity sold, revenue, and remaining stock reference.',
+            'use' => 'Use this report to connect product demand with replenishment and clinic revenue.',
+            'metrics' => ['total_product_revenue', 'total_quantity_sold', 'top_selling_item'],
+        ],
+        'confinement_pet_hotel' => [
+            'purpose' => 'Relates pet hotel and confinement stays to admission dates, release dates, duration, room or cage, charges, and status.',
+            'use' => 'Use this report to review occupancy, stay monitoring, and boarding revenue.',
+            'metrics' => ['total_stays', 'total_charge'],
+        ],
+        'consent_form' => [
+            'purpose' => 'Tracks consent templates and signed, pending, released, or cancelled consent records tied to clinic workflows.',
+            'use' => 'Use this report to verify documentation readiness for services, diagnosis, queue, and boarding flows.',
+            'metrics' => ['total_records', 'total_files', 'signed', 'pending', 'released', 'cancelled'],
+        ],
+        'categorized_pet_cases' => [
+            'purpose' => 'Groups clinical cases by category and animal type to show service demand and patient mix.',
+            'use' => 'Use this report for clinical service planning and case-volume review.',
+            'metrics' => ['total_cases', 'unique_categories'],
+        ],
+        'veterinarian_activity' => [
+            'purpose' => 'Relates veterinarian workload to face-to-face consultations, online consultations, follow-ups, and completed cases.',
+            'use' => 'Use this report for workload balancing and clinical performance review.',
+            'metrics' => ['most_active_veterinarian', 'total_consultations_handled'],
+        ],
+    ];
+
+    return $profiles[$type] ?? [
+        'purpose' => 'Summarizes clinic records for the selected report type and date range.',
+        'use' => 'Use this report as supporting documentation for clinic review.',
+        'metrics' => ['total_records'],
+    ];
+}
+
+function reports_filter_summary(array $filters): array
+{
+    $labels = [];
+    foreach ($filters as $key => $value) {
+        if ($value === null || $value === '' || $value === 'all') {
+            continue;
+        }
+
+        $labels[] = [
+            'label' => reports_humanize_key((string)$key),
+            'value' => reports_humanize_value($value),
+        ];
+    }
+
+    return $labels;
+}
+
+function reports_metric_detail(string $type, string $key, $value, array $totals): string
+{
+    $percent = null;
+    if (in_array($type, ['sales', 'billing'], true)) {
+        if (in_array($key, ['paid_amount', 'unpaid_balance', 'service_sales', 'product_sales'], true)) {
+            $percent = reports_percent_label($value, $totals['total_sales'] ?? null);
+            if ($percent !== null) {
+                return "{$percent} of total billed sales for this period.";
+            }
+        }
+    }
+
+    if ($type === 'appointment' && in_array($key, ['pending', 'confirmed', 'completed', 'cancelled', 'missed_rescheduled'], true)) {
+        $percent = reports_percent_label($value, $totals['total_appointments'] ?? null);
+        if ($percent !== null) {
+            return "{$percent} of all appointments in this report.";
+        }
+    }
+
+    if ($type === 'queue' && in_array($key, ['waiting', 'in-progress', 'completed', 'cancelled'], true)) {
+        $percent = reports_percent_label($value, $totals['total_queue_entries'] ?? null);
+        if ($percent !== null) {
+            return "{$percent} of all queue entries in this report.";
+        }
+    }
+
+    if ($type === 'consultation' && in_array($key, ['face_to_face', 'online'], true)) {
+        $percent = reports_percent_label($value, $totals['total_consultations'] ?? null);
+        if ($percent !== null) {
+            return "{$percent} of total consultations in this period.";
+        }
+    }
+
+    if ($type === 'inventory_status' && in_array($key, ['low_stock', 'out_of_stock', 'near_expiry', 'expired'], true)) {
+        $percent = reports_percent_label($value, $totals['total_items'] ?? null);
+        if ($percent !== null) {
+            return "{$percent} of active inventory items in this report.";
+        }
+    }
+
+    if ($type === 'consent_form' && in_array($key, ['signed', 'pending', 'released', 'cancelled'], true)) {
+        $percent = reports_percent_label($value, $totals['total_records'] ?? null);
+        if ($percent !== null) {
+            return "{$percent} of tracked consent records in this report.";
+        }
+    }
+
+    $details = [
+        'total_sales' => 'Gross billed value from visit charges in the selected period.',
+        'paid_amount' => 'Verified collections posted against the billed visits.',
+        'unpaid_balance' => 'Open amount that still needs payment review or collection follow-up.',
+        'unpaid_or_partial_count' => 'Number of visits that are not fully settled.',
+        'completion_rate' => 'Completed appointments compared with total scheduled appointments.',
+        'average_waiting_minutes' => 'Average time from queue entry to veterinarian receive time when receive data is available.',
+        'total_product_revenue' => 'Revenue from medicine, retail products, and consumables.',
+        'total_charge' => 'Total recorded charges for the stay records in this report.',
+        'most_used_payment_method' => 'Payment method appearing most often in the selected report data.',
+        'most_active_veterinarian' => 'Veterinarian with the highest completed case count in this report.',
+        'top_selling_item' => 'Medicine or product with the highest sales value in this period.',
+    ];
+
+    return $details[$key] ?? 'Control figure included for clinic review and management comparison.';
+}
+
+function reports_key_breakdowns(string $type, array $totals): array
+{
+    $profile = reports_report_profile($type);
+    $breakdowns = [];
+
+    foreach ($profile['metrics'] as $key) {
+        if (!array_key_exists($key, $totals)) {
+            continue;
+        }
+
+        $breakdowns[] = [
+            'label' => reports_humanize_key($key),
+            'value' => reports_metric_display($key, $totals[$key]),
+            'detail' => reports_metric_detail($type, $key, $totals[$key], $totals),
+        ];
+    }
+
+    return $breakdowns;
+}
+
+function reports_management_actions(string $type, array $totals, array $rows, array $missing): array
+{
+    $actions = [];
+    $rowCount = count($rows);
+
+    if ($rowCount === 0) {
+        $actions[] = 'No matching detailed records were found. Confirm the date range and filters before using this as a final management record.';
+    }
+
+    if (in_array($type, ['sales', 'billing'], true)) {
+        if ((float)($totals['unpaid_balance'] ?? 0) > 0 || (int)($totals['unpaid_or_partial_count'] ?? 0) > 0) {
+            $actions[] = 'Prioritize payment follow-up for unpaid or partially paid visits before closing the reporting period.';
+        }
+        $actions[] = 'Compare service sales and medicine/product sales to confirm that posted charges match actual clinic activity.';
+    } elseif ($type === 'appointment') {
+        if ((int)($totals['pending'] ?? 0) > 0 || (int)($totals['confirmed'] ?? 0) > 0) {
+            $actions[] = 'Review pending and confirmed bookings for reminder, confirmation, or receiving action.';
+        }
+        if ((int)($totals['cancelled'] ?? 0) > 0 || (int)($totals['missed_rescheduled'] ?? 0) > 0) {
+            $actions[] = 'Review cancelled, missed, or rescheduled appointments for scheduling or client-notification issues.';
+        }
+    } elseif ($type === 'queue') {
+        if ((int)($totals['waiting'] ?? 0) > 0 || (int)($totals['in-progress'] ?? 0) > 0) {
+            $actions[] = 'Clear waiting and in-progress queue entries before end-of-day reconciliation.';
+        }
+        if (($totals['average_waiting_minutes'] ?? null) !== null && (float)$totals['average_waiting_minutes'] > 30) {
+            $actions[] = 'Review staffing, receiving, and veterinarian handoff because average waiting time is above 30 minutes.';
+        }
+    } elseif ($type === 'inventory_status') {
+        if ((int)($totals['out_of_stock'] ?? 0) > 0 || (int)($totals['low_stock'] ?? 0) > 0) {
+            $actions[] = 'Prepare purchase or stock-transfer action for out-of-stock and low-stock items.';
+        }
+        if ((int)($totals['expired'] ?? 0) > 0 || (int)($totals['near_expiry'] ?? 0) > 0) {
+            $actions[] = 'Review expired and near-expiry stock for disposal, pull-out, or usage planning.';
+        }
+    } elseif ($type === 'stock_movement') {
+        $actions[] = 'Match stock movement references against POS, diagnosis, receipt, disposal, and manual adjustment records.';
+    } elseif ($type === 'medicine_product_sales') {
+        $actions[] = 'Use the top-selling and remaining-stock data to plan replenishment and prevent service disruption.';
+    } elseif ($type === 'consent_form') {
+        if ((int)($totals['pending'] ?? 0) > 0) {
+            $actions[] = 'Follow up pending consent records before procedures, boarding, or service release.';
+        }
+        $actions[] = 'Validate that signed consent rows have a matching source workflow and retrievable signed document.';
+    } elseif ($type === 'follow_up') {
+        if ((int)($totals['missed'] ?? 0) > 0 || (int)($totals['due_today'] ?? 0) > 0) {
+            $actions[] = 'Contact owners for missed or due-today follow-ups and update the medical record after action.';
+        }
+    } elseif ($type === 'emr_request') {
+        $actions[] = 'Review open EMR requests for payment, veterinarian assignment, and release completion.';
+    } elseif ($type === 'confinement_pet_hotel') {
+        $actions[] = 'Review active stays for room assignment, monitoring notes, task completion, and checkout readiness.';
+    } elseif ($type === 'veterinarian_activity') {
+        $actions[] = 'Use completed-case and follow-up counts to balance veterinarian workload and schedule coverage.';
+    } elseif ($type === 'categorized_pet_cases') {
+        $actions[] = 'Use high-frequency case categories to plan service capacity, inventory, and clinical staffing.';
+    } else {
+        $actions[] = 'Review the detailed records below before filing or sharing the printed report.';
+    }
+
+    if (!empty($missing)) {
+        $actions[] = 'Resolve the listed missing-data notes before treating this report as a complete final record.';
+    }
+
+    return array_slice(array_values(array_unique($actions)), 0, 5);
+}
+
+function reports_metric_delta_display(string $key, float $delta): string
+{
+    if (abs($delta) < 0.000001) {
+        return 'No change';
+    }
+
+    $prefix = $delta > 0 ? '+' : '-';
+    $absolute = abs($delta);
+
+    if (reports_metric_is_currency($key)) {
+        return $prefix . reports_currency_label($absolute);
+    }
+
+    $decimals = abs($absolute - round($absolute)) > 0.005 ? 2 : 0;
+
+    return $prefix . number_format($absolute, $decimals);
+}
+
+function reports_comparison_summary(array $currentReport, array $previousReport, array $comparisonRange): array
+{
+    $type = (string)($currentReport['type'] ?? 'report');
+    $profile = reports_report_profile($type);
+    $currentTotals = is_array($currentReport['totals'] ?? null) ? $currentReport['totals'] : [];
+    $previousTotals = is_array($previousReport['totals'] ?? null) ? $previousReport['totals'] : [];
+    $currentTotals['record_count'] = count(is_array($currentReport['rows'] ?? null) ? $currentReport['rows'] : []);
+    $previousTotals['record_count'] = count(is_array($previousReport['rows'] ?? null) ? $previousReport['rows'] : []);
+    $metricKeys = array_values(array_unique(array_merge($profile['metrics'] ?? [], ['record_count'], array_keys($currentTotals))));
+    $rows = [];
+
+    foreach ($metricKeys as $key) {
+        if (!array_key_exists($key, $currentTotals) || !array_key_exists($key, $previousTotals)) {
+            continue;
+        }
+
+        $currentValue = reports_numeric_or_null($currentTotals[$key]);
+        $previousValue = reports_numeric_or_null($previousTotals[$key]);
+        if ($currentValue === null || $previousValue === null) {
+            continue;
+        }
+
+        $delta = $currentValue - $previousValue;
+        $percentChange = abs($previousValue) > 0.000001
+            ? number_format(($delta / abs($previousValue)) * 100, 1) . '%'
+            : null;
+        $direction = abs($delta) < 0.000001 ? 'same' : ($delta > 0 ? 'up' : 'down');
+
+        $rows[] = [
+            'label' => reports_humanize_key((string)$key),
+            'current' => reports_metric_display((string)$key, $currentValue),
+            'previous' => reports_metric_display((string)$key, $previousValue),
+            'change' => reports_metric_delta_display((string)$key, $delta),
+            'change_percent' => $percentChange,
+            'direction' => $direction,
+        ];
+
+        if (count($rows) >= 8) {
+            break;
+        }
+    }
+
+    if (empty($rows)) {
+        $text = "No comparable numeric prior-period figures are available for {$comparisonRange['label']}.";
+    } else {
+        $primary = $rows[0];
+        $verb = $primary['direction'] === 'up'
+            ? 'increased'
+            : ($primary['direction'] === 'down' ? 'decreased' : 'remained unchanged');
+        $changePhrase = $primary['direction'] === 'same'
+            ? ''
+            : " by {$primary['change']}" . ($primary['change_percent'] ? " ({$primary['change_percent']})" : '');
+        $text = "{$primary['label']} {$verb}{$changePhrase} compared with {$comparisonRange['label']}. Current period: {$primary['current']}; previous period: {$primary['previous']}.";
+    }
+
+    return [
+        'label' => $comparisonRange['label'],
+        'start_date' => $comparisonRange['start_date'],
+        'end_date' => $comparisonRange['end_date'],
+        'text' => $text,
+        'rows' => $rows,
+    ];
+}
+
+function reports_enrich_report(array $report, array $range, array $filters): array
+{
+    $type = (string)($report['type'] ?? 'report');
+    $profile = reports_report_profile($type);
+    $rows = is_array($report['rows'] ?? null) ? $report['rows'] : [];
+    $totals = is_array($report['totals'] ?? null) ? $report['totals'] : [];
+    $missing = is_array($report['missing_data'] ?? null) ? $report['missing_data'] : [];
+    $recordCount = count($rows);
+    $rangeLabel = $range['label'] ?? ($range['start_date'] . ' to ' . $range['end_date']);
+    $baseSummary = trim((string)($report['summary']['text'] ?? ''));
+    $filterSummary = reports_filter_summary($filters);
+    $filterText = empty($filterSummary)
+        ? 'No extra filters were applied.'
+        : 'Filters applied: ' . implode('; ', array_map(static fn($filter) => $filter['label'] . ' = ' . $filter['value'], $filterSummary)) . '.';
+
+    $report['summary'] = array_merge($report['summary'] ?? [], [
+        'purpose' => $profile['purpose'],
+        'management_use' => $profile['use'],
+        'record_count' => $recordCount,
+        'filters' => $filterSummary,
+        'executive_text' => "This {$report['title']} covers {$recordCount} detailed " . ($recordCount === 1 ? 'record' : 'records') . " for {$rangeLabel}. {$profile['purpose']} {$filterText}",
+        'operational_context' => $baseSummary !== ''
+            ? "{$baseSummary} {$profile['use']}"
+            : $profile['use'],
+        'breakdowns' => reports_key_breakdowns($type, $totals),
+        'management_actions' => reports_management_actions($type, $totals, $rows, $missing),
+    ]);
+
+    return $report;
+}
+
+function reports_build_report(PDO $pdo, string $type, array $range, array $filters = [], bool $includeComparison = false): array
 {
     $reportType = reports_allowed_type($type);
     if (!$reportType) {
@@ -2447,6 +2970,17 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
         'label' => $range['label'],
     ];
     $report['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone(REPORTS_TIMEZONE)))->format('Y-m-d H:i:s');
+
+    $report = reports_enrich_report($report, $range, $filters);
+
+    if ($includeComparison) {
+        $comparisonRange = reports_previous_comparison_range($range);
+        if ($comparisonRange) {
+            $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $filters, false);
+            $report['comparison'] = reports_comparison_summary($report, $previousReport, $comparisonRange);
+            $report['summary']['comparison_text'] = $report['comparison']['text'];
+        }
+    }
 
     return $report;
 }

@@ -24,10 +24,12 @@ try {
     ");
 
     $stmt->execute([$fileName, $fileSize, $content, $category, $petOwnerContexts]);
+    $fileId = (int)$pdo->lastInsertId();
+    consent_file_enforce_unique_context($pdo, $petOwnerContexts, $fileId);
 
     echo json_encode([
         'message' => 'Consent file uploaded successfully.',
-        'file_id' => $pdo->lastInsertId()
+        'file_id' => $fileId
     ]);
 } catch (Exception $e) {
     http_response_code(500);

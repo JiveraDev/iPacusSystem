@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Checkbox } from "../../ui/checkbox";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
@@ -10,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "../../reusecomponent/toast.jsx";
 import { 
   Calendar, Clock, MapPin, AlertCircle, FileText, 
-  ShieldCheck, Upload, CheckCircle, Loader2, ArrowLeft, X, Eye
+  ShieldCheck, CheckCircle, Loader2, ArrowLeft
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
@@ -23,6 +22,7 @@ import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
+import FileUploadDropzone from "../shared/FileUploadDropzone";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
@@ -32,11 +32,6 @@ export default function HomeServiceConfirmation() {
   const [viewer, setViewer] = useState(null);
   const [consentTemplates, setConsentTemplates] = useState([]);
   const [isLoadingConsent, setIsLoadingConsent] = useState(false);
-  const [consents, setConsents] = useState({
-    terms: false,
-    privacy: false,
-    visit: false
-  });
 
   // Payment Form State
   const [paymentFormData, setPaymentFormData] = useState({
@@ -120,10 +115,6 @@ export default function HomeServiceConfirmation() {
       return;
     }
     
-    if (!consents.terms || !consents.privacy || !consents.visit) {
-      toast.error("Please agree to all terms and conditions.");
-      return;
-    }
     if (!homeServiceConsentTemplate) {
       toast.error("No home service consent form is assigned. Please contact the clinic.");
       return;
@@ -311,34 +302,12 @@ export default function HomeServiceConfirmation() {
                     </p>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
-                    <div className="flex items-start space-x-3">
-                        <Checkbox id="terms" checked={consents.terms} onCheckedChange={(v) => setConsents({...consents, terms: v})} />
-                        <div className="grid gap-1.5 leading-none">
-                            <Label htmlFor="terms" className="text-sm font-medium">I agree to the service fees and terms</Label>
-                            <p className="text-xs text-gray-500">I understand the PHP 50 transport fee is non-refundable.</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                        <Checkbox id="visit" checked={consents.visit} onCheckedChange={(v) => setConsents({...consents, visit: v})} />
-                        <div className="grid gap-1.5 leading-none">
-                            <Label htmlFor="visit" className="text-sm font-medium">I authorize the veterinary visit</Label>
-                        </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                        <Checkbox id="privacy" checked={consents.privacy} onCheckedChange={(v) => setConsents({...consents, privacy: v})} />
-                        <div className="grid gap-1.5 leading-none">
-                            <Label htmlFor="privacy" className="text-sm font-medium">Data Privacy Consent</Label>
-                        </div>
-                    </div>
-                </div>
-
                 <div className="space-y-3">
                     <Label className="font-semibold text-gray-900">Digital Signature *</Label>
                     <SignatureCapture 
                         signature={signature} 
                         onSignatureChange={setSignature} 
-                        disabled={!consents.terms || !consents.privacy || !consents.visit || !homeServiceConsentTemplate || isLoadingConsent}
+                        disabled={!homeServiceConsentTemplate || isLoadingConsent}
                     />
                 </div>
             </CardContent>
@@ -387,13 +356,10 @@ export default function HomeServiceConfirmation() {
                           <button
                             type="button"
                             onClick={() => setViewer({ src: selectedQrUrl, alt: `${selectedMethod.label} QR` })}
-                            className="mt-3 block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300"
+                            className="mt-3 block w-full rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200"
+                            aria-label={`Open larger ${selectedMethod.label} QR image`}
                           >
-                            <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-44 rounded-md object-contain" />
-                            <span className="mt-2 flex items-center gap-1 text-xs font-bold text-green-700">
-                              <Eye className="size-3.5" />
-                              View larger
-                            </span>
+                            <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="h-56 w-full rounded-md object-contain sm:h-64" />
                           </button>
                         )}
                       </div>
@@ -403,6 +369,7 @@ export default function HomeServiceConfirmation() {
                       <Label>Reference Number</Label>
                       <Input
                         placeholder="Transaction ID"
+                        restriction="alphanumeric"
                         value={paymentFormData.referenceNumber}
                         onChange={(e) => setPaymentFormData({ ...paymentFormData, referenceNumber: e.target.value })}
                         disabled={isSubmitting}
@@ -413,47 +380,16 @@ export default function HomeServiceConfirmation() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Upload Receipt {selectedMethodRequiresProof && "*"}</Label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white hover:border-blue-400 transition-colors min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
-                        {paymentFormData.receiptFile ? (
-                          <div className="relative w-full flex flex-col items-center animate-in zoom-in duration-300">
-                            <div className="relative group">
-                              <img 
-                                src={URL.createObjectURL(paymentFormData.receiptFile)} 
-                                alt="Receipt Preview" 
-                                className="max-h-[250px] w-auto max-w-full object-contain rounded-lg shadow-md border border-gray-100"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setPaymentFormData({...paymentFormData, receiptFile: null})}
-                                className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-all transform hover:scale-110 z-10"
-                                title="Remove receipt"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                              <span className="max-w-[min(200px,calc(100vw-7rem))] truncate text-xs font-medium text-gray-600">
-                                {paymentFormData.receiptFile.name}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <label className="cursor-pointer w-full h-full py-8 flex flex-col items-center justify-center">
-                            <Upload className="h-10 w-10 text-gray-400 mb-3" />
-                            <span className="text-sm font-semibold text-blue-600">Click to upload receipt</span>
-                            <span className="text-xs text-gray-400 mt-1">PNG, JPG or PDF up to 10MB</span>
-                            <Input
-                              type="file"
-                              required={selectedMethodRequiresProof}
-                              accept="image/*"
-                              onChange={(e) => setPaymentFormData({...paymentFormData, receiptFile: e.target.files[0]})}
-                              disabled={isSubmitting}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
+                      <FileUploadDropzone
+                        id="homeServiceReceipt"
+                        accept="image/*,.pdf"
+                        files={paymentFormData.receiptFile ? [paymentFormData.receiptFile] : []}
+                        onFilesSelected={(files) => setPaymentFormData({ ...paymentFormData, receiptFile: Array.from(files || [])[0] || null })}
+                        onRemove={() => setPaymentFormData({ ...paymentFormData, receiptFile: null })}
+                        disabled={isSubmitting}
+                        label="Click to upload receipt"
+                        helper="PNG, JPG, WEBP, GIF, or PDF up to 8 MB"
+                      />
                     </div>
 
                     <div className="space-y-2">

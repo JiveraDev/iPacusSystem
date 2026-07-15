@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/mail_helpers.php';
+require_once __DIR__ . '/../php/mail_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

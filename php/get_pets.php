@@ -2,7 +2,12 @@
 require_once __DIR__ . '/db.php';
 
 try {
-    $stmt = $pdo->query("SELECT * FROM pets_information ORDER BY pet_id DESC");
+    $stmt = $pdo->query("
+        SELECT *
+        FROM pets_information
+        WHERE COALESCE(pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
+        ORDER BY pet_id DESC
+    ");
     $pets = $stmt->fetchAll();
 
     // Mapping to match frontend expectations if necessary

@@ -4,6 +4,7 @@ require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -44,6 +45,21 @@ if ($status === 'completed') {
 try {
     runLifecycleMaintenance($pdo);
 
+    $pdo->beginTransaction();
+
+    $queueStmt = $pdo->prepare("SELECT * FROM queues WHERE queue_id = ? LIMIT 1 FOR UPDATE");
+    $queueStmt->execute([$queue_id]);
+    $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$queue) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
+
+    ipawcus_guard_validate_queue_transition((string)$queue['status'], (string)$status, false);
+
     $stmt = $pdo->prepare("UPDATE queues SET status = ? WHERE queue_id = ?");
     $stmt->execute([$status, $queue_id]);
 
@@ -75,27 +91,15 @@ try {
         }
     }
 
-    if ($status === 'in-progress') {
-        $queueStmt = $pdo->prepare("SELECT * FROM queues WHERE queue_id = ? LIMIT 1");
-        $queueStmt->execute([$queue_id]);
-        $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
-        $bookingId = $queue ? bookingIdForQueue($pdo, $queue) : null;
-
-        if ($bookingId) {
-            $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed' WHERE booking_id = ? AND status = 'completed'");
-            $bookingStmt->execute([$bookingId]);
-        }
-    }
-
     if ($status === 'cancelled') {
-        $queueStmt = $pdo->prepare("SELECT pet_id FROM queues WHERE queue_id = ? LIMIT 1");
-        $queueStmt->execute([$queue_id]);
-        $petId = (int)($queueStmt->fetchColumn() ?: 0);
+        $petId = (int)($queue['pet_id'] ?? 0);
 
         if ($petId > 0) {
             runLifecycleMaintenance($pdo, $petId);
         }
     }
+
+    $pdo->commit();
 
     try {
         $event = $status === 'in-progress' ? 'in_progress' : $status;
@@ -105,7 +109,10 @@ try {
     }
 
     echo json_encode(['success' => true]);
-} catch (PDOException $e) {
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['error' => $e->getMessage()]);
 }

@@ -43,7 +43,7 @@ import {
     updatePetMedicalRecordGroup,
     updatePetMedicalRecordGroupItem
 } from '../../services/petService';
-import { fetchRecordUpdateRequests } from '../../services/recordUpdateRequestService';
+import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -115,6 +115,23 @@ function vaccinationSourceRecord(vaccine) {
         addedToGroups: vaccine?.addedToGroups || [],
         isAddedToOrganizedRecord: vaccine?.isAddedToOrganizedRecord || false
     };
+}
+
+function cleanOrganizedSummary(value) {
+    return String(value || '')
+        .split(/\r?\n/)
+        .filter(line => !/^service\s*:/i.test(line.trim()))
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function organizedRecordTitle(record) {
+    if (String(record?.sourceType || '').toLowerCase() === 'diagnosis' || record?.diagnosis) {
+        return 'Source Diagnosis Sheet';
+    }
+
+    return record?.title || sourceLabel(record);
 }
 
 function editorLabel(name) {
@@ -212,6 +229,7 @@ export default function VetPetsEMR() {
     const [previewRecord, setPreviewRecord] = useState(null);
     const [recordUpdateContext] = useState(readRecordUpdateContext);
     const [highlightedRequest, setHighlightedRequest] = useState(null);
+    const [isCompletingRequest, setIsCompletingRequest] = useState(false);
     const groupAutosaveTimerRef = useRef(null);
     const itemAutosaveTimerRef = useRef(null);
     const groupSavedSignatureRef = useRef('');
@@ -316,6 +334,31 @@ export default function VetPetsEMR() {
         refreshKey: `vet-pet-medical-records-${selectedPetId}`
     });
 
+    const finishRecordUpdateRequest = async () => {
+        if (!highlightedRequest?.requestId || isCompletingRequest) return;
+
+        setIsCompletingRequest(true);
+        try {
+            const response = await updateRecordUpdateRequest(highlightedRequest.requestId, {
+                action: 'complete',
+                userId: currentUserId,
+                veterinarianNotes: 'Medical record update completed.'
+            });
+
+            if (response?.request) {
+                setHighlightedRequest(response.request);
+            } else {
+                setHighlightedRequest(current => current ? { ...current, status: 'completed' } : current);
+            }
+
+            toast.success('Record update finished. Pet owner notified.');
+        } catch (error) {
+            toast.error(error.message || 'Failed to finish record update request.');
+        } finally {
+            setIsCompletingRequest(false);
+        }
+    };
+
     const filteredPets = useMemo(() => {
         const query = petSearch.trim().toLowerCase();
         if (!query) return pets;
@@ -369,7 +412,7 @@ export default function VetPetsEMR() {
                 await updatePetMedicalRecordGroup(selectedPetId, {
                     groupId: editingGroupId,
                     title,
-                    summary: groupDraft.summary,
+                    summary: cleanOrganizedSummary(groupDraft.summary),
                     visibleToOwner: groupDraft.visibleToOwner,
                     userId: currentUserId
                 });
@@ -422,7 +465,7 @@ export default function VetPetsEMR() {
                 await updatePetMedicalRecordGroupItem(selectedPetId, {
                     itemId,
                     title,
-                    summary: itemDraft.summary,
+                    summary: cleanOrganizedSummary(itemDraft.summary),
                     revisionNotes: itemDraft.revisionNotes,
                     userId: currentUserId
                 });
@@ -503,7 +546,7 @@ export default function VetPetsEMR() {
     const openEditGroup = (group) => {
         const nextDraft = {
             title: group.title || '',
-            summary: group.summary || '',
+            summary: cleanOrganizedSummary(group.summary),
             visibleToOwner: group.visibleToOwner !== false
         };
         setEditingGroupId(String(group.groupId));
@@ -530,7 +573,7 @@ export default function VetPetsEMR() {
             await updatePetMedicalRecordGroup(selectedPetId, {
                 groupId,
                 title: groupDraft.title,
-                summary: groupDraft.summary,
+                summary: cleanOrganizedSummary(groupDraft.summary),
                 visibleToOwner: groupDraft.visibleToOwner,
                 userId: currentUserId
             });
@@ -585,8 +628,8 @@ export default function VetPetsEMR() {
                 groupId: targetGroupId,
                 sourceType: record.sourceType,
                 sourceId: record.sourceId,
-                title: record.title,
-                summary: record.summary,
+                title: organizedRecordTitle(record),
+                summary: cleanOrganizedSummary(record.summary),
                 userId: currentUserId
             });
             toast.success(record.sourceType === 'vaccination'
@@ -601,7 +644,7 @@ export default function VetPetsEMR() {
     const openEditItem = (item) => {
         const nextDraft = {
             title: item.title || '',
-            summary: item.summary || '',
+            summary: cleanOrganizedSummary(item.summary),
             revisionNotes: item.revisionNotes || ''
         };
         setEditingItem(item);
@@ -623,7 +666,7 @@ export default function VetPetsEMR() {
             await updatePetMedicalRecordGroupItem(selectedPetId, {
                 itemId: editingItem.itemId,
                 title: itemDraft.title,
-                summary: itemDraft.summary,
+                summary: cleanOrganizedSummary(itemDraft.summary),
                 revisionNotes: itemDraft.revisionNotes,
                 userId: currentUserId
             });
@@ -779,7 +822,11 @@ export default function VetPetsEMR() {
                 </Card>
 
                 {highlightedRequest && String(highlightedRequest.petId) === String(selectedPetId) && (
-                    <RecordUpdateHighlight request={highlightedRequest} />
+                    <RecordUpdateHighlight
+                        request={highlightedRequest}
+                        onFinish={finishRecordUpdateRequest}
+                        isFinishing={isCompletingRequest}
+                    />
                 )}
 
                 <div className={isPetPreviewOpen ? '' : 'xl:hidden'}>
@@ -1007,10 +1054,10 @@ export default function VetPetsEMR() {
                                 <Input value={itemDraft.title} onChange={(event) => setItemDraft(current => ({ ...current, title: event.target.value }))} />
                             </div>
                             <div className="space-y-2">
-                                <Label>Owner Summary</Label>
+                                <Label>Source Diagnosis Sheet</Label>
                                 <Textarea
                                     value={itemDraft.summary}
-                                    onChange={(event) => setItemDraft(current => ({ ...current, summary: event.target.value }))}
+                                    onChange={(event) => setItemDraft(current => ({ ...current, summary: cleanOrganizedSummary(event.target.value) }))}
                                     className="min-h-40"
                                 />
                             </div>
@@ -1097,7 +1144,9 @@ function PetPreviewCard({ pet, onCollapse }) {
     );
 }
 
-function RecordUpdateHighlight({ request }) {
+function RecordUpdateHighlight({ request, onFinish, isFinishing }) {
+    const isCompleted = String(request?.status || '').toLowerCase() === 'completed';
+
     return (
         <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1113,9 +1162,22 @@ function RecordUpdateHighlight({ request }) {
                         {request.requestNumber} - {request.petName || 'Selected pet'}
                     </p>
                 </div>
-                <Badge className="w-fit border-0 bg-white text-red-700">
-                    {request.status ? String(request.status).replace(/_/g, ' ') : 'assigned'}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="w-fit border-0 bg-white text-red-700">
+                        {request.status ? String(request.status).replace(/_/g, ' ') : 'assigned'}
+                    </Badge>
+                    {!isCompleted && (
+                        <Button
+                            type="button"
+                            onClick={onFinish}
+                            disabled={isFinishing}
+                            className="gap-2 bg-green-600 text-white hover:bg-green-700"
+                        >
+                            {isFinishing ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                            Finish Update
+                        </Button>
+                    )}
+                </div>
             </div>
             <div className="mt-3 rounded-lg border border-red-100 bg-white p-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Owner Requested Details</p>
@@ -1272,7 +1334,7 @@ function RecordGroup({
                                 <Label>Group Summary</Label>
                                 <Textarea
                                     value={draft.summary}
-                                    onChange={(event) => onDraftChange(current => ({ ...current, summary: event.target.value }))}
+                                    onChange={(event) => onDraftChange(current => ({ ...current, summary: cleanOrganizedSummary(event.target.value) }))}
                                     placeholder="Summarize this treatment group, condition, or service sequence."
                                     className="min-h-24"
                                 />

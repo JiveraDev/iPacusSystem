@@ -17,6 +17,21 @@ function notification_column_exists(PDO $pdo, string $tableName, string $columnN
     return (int)$stmt->fetchColumn() > 0;
 }
 
+function notification_column_type(PDO $pdo, string $tableName, string $columnName): string
+{
+    $stmt = $pdo->prepare("
+        SELECT COLUMN_TYPE
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (string)($stmt->fetchColumn() ?: '');
+}
+
 function notification_table_exists(PDO $pdo, string $tableName): bool
 {
     $stmt = $pdo->prepare("
@@ -32,120 +47,96 @@ function notification_table_exists(PDO $pdo, string $tableName): bool
 
 function notification_ensure_schema(PDO $pdo): void
 {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS notification_preferences (
-            user_id INT NOT NULL PRIMARY KEY,
-            email_enabled TINYINT(1) NOT NULL DEFAULT 1,
-            in_app_enabled TINYINT(1) NOT NULL DEFAULT 1,
-            browser_push_enabled TINYINT(1) NOT NULL DEFAULT 0,
-            booking_updates TINYINT(1) NOT NULL DEFAULT 1,
-            schedule_reminders TINYINT(1) NOT NULL DEFAULT 1,
-            payment_updates TINYINT(1) NOT NULL DEFAULT 1,
-            diagnosis_updates TINYINT(1) NOT NULL DEFAULT 1,
-            queue_updates TINYINT(1) NOT NULL DEFAULT 1,
-            boarding_updates TINYINT(1) NOT NULL DEFAULT 1,
-            reminder_24h TINYINT(1) NOT NULL DEFAULT 1,
-            reminder_2h TINYINT(1) NOT NULL DEFAULT 1,
-            reminder_same_day TINYINT(1) NOT NULL DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT notification_preferences_user_fk
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-                ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS user_notifications (
-            notification_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            type VARCHAR(80) NOT NULL DEFAULT 'system',
-            category VARCHAR(80) NOT NULL DEFAULT 'system',
-            title VARCHAR(180) NOT NULL,
-            message TEXT NULL,
-            push_title VARCHAR(180) NULL,
-            push_message TEXT NULL,
-            redirect_path VARCHAR(255) NULL,
-            in_app_visible TINYINT(1) NOT NULL DEFAULT 1,
-            dedupe_key VARCHAR(180) NULL,
-            email_subject VARCHAR(180) NULL,
-            email_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
-            email_sent_at DATETIME NULL,
-            email_error TEXT NULL,
-            push_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent',
-            push_sent_at DATETIME NULL,
-            push_error TEXT NULL,
-            read_at DATETIME NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY user_notifications_user_created_idx (user_id, created_at),
-            KEY user_notifications_user_read_idx (user_id, read_at),
-            UNIQUE KEY user_notifications_dedupe_unique (user_id, dedupe_key),
-            CONSTRAINT user_notifications_user_fk
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-                ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS notification_push_subscriptions (
-            subscription_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            endpoint TEXT NOT NULL,
-            endpoint_hash CHAR(64) NOT NULL,
-            p256dh TEXT NULL,
-            auth TEXT NULL,
-            content_encoding VARCHAR(40) NULL DEFAULT 'aes128gcm',
-            user_agent TEXT NULL,
-            is_active TINYINT(1) NOT NULL DEFAULT 1,
-            last_sent_at DATETIME NULL,
-            last_error TEXT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY notification_push_endpoint_unique (endpoint_hash),
-            KEY notification_push_user_active_idx (user_id, is_active),
-            CONSTRAINT notification_push_user_fk
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-                ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-    ");
-
-    if (!notification_column_exists($pdo, 'notification_preferences', 'browser_push_enabled')) {
-        $pdo->exec("
-            ALTER TABLE notification_preferences
-            ADD COLUMN browser_push_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER in_app_enabled
-        ");
+    static $validated = false;
+    if ($validated) {
+        return;
     }
 
-    if (!notification_column_exists($pdo, 'user_notifications', 'in_app_visible')) {
-        $pdo->exec("
-            ALTER TABLE user_notifications
-            ADD COLUMN in_app_visible TINYINT(1) NOT NULL DEFAULT 1 AFTER redirect_path
-        ");
+    $requiredTables = ['notification_preferences', 'user_notifications', 'notification_push_subscriptions'];
+    $missing = [];
+    foreach ($requiredTables as $tableName) {
+        if (!notification_table_exists($pdo, $tableName)) {
+            $missing[] = $tableName;
+        }
     }
 
-    if (!notification_column_exists($pdo, 'user_notifications', 'push_title')) {
-        $pdo->exec("
-            ALTER TABLE user_notifications
-            ADD COLUMN push_title VARCHAR(180) NULL AFTER message
-        ");
+    $requiredColumns = [
+        'notification_preferences' => [
+            'user_id',
+            'email_enabled',
+            'in_app_enabled',
+            'browser_push_enabled',
+            'booking_updates',
+            'schedule_reminders',
+            'payment_updates',
+            'diagnosis_updates',
+            'queue_updates',
+            'boarding_updates',
+            'ownership_updates',
+            'reminder_24h',
+            'reminder_2h',
+            'reminder_same_day',
+        ],
+        'user_notifications' => [
+            'notification_id',
+            'user_id',
+            'type',
+            'category',
+            'title',
+            'message',
+            'push_title',
+            'push_message',
+            'redirect_path',
+            'in_app_visible',
+            'dedupe_key',
+            'email_subject',
+            'email_status',
+            'email_sent_at',
+            'email_error',
+            'push_status',
+            'push_sent_at',
+            'push_error',
+            'read_at',
+        ],
+        'notification_push_subscriptions' => [
+            'subscription_id',
+            'user_id',
+            'endpoint',
+            'endpoint_hash',
+            'p256dh',
+            'auth',
+            'content_encoding',
+            'user_agent',
+            'is_active',
+            'last_sent_at',
+            'last_error',
+        ],
+    ];
+
+    foreach ($requiredColumns as $tableName => $columns) {
+        if (!notification_table_exists($pdo, $tableName)) {
+            continue;
+        }
+
+        foreach ($columns as $columnName) {
+            if (!notification_column_exists($pdo, $tableName, $columnName)) {
+                $missing[] = "{$tableName}.{$columnName}";
+            }
+        }
     }
 
-    if (!notification_column_exists($pdo, 'user_notifications', 'push_message')) {
-        $pdo->exec("
-            ALTER TABLE user_notifications
-            ADD COLUMN push_message TEXT NULL AFTER push_title
-        ");
+    $emailStatusType = notification_column_type($pdo, 'user_notifications', 'email_status');
+    if ($emailStatusType !== '' && strpos($emailStatusType, "'queued'") === false) {
+        $missing[] = "user_notifications.email_status enum value 'queued'";
     }
 
-    if (!notification_column_exists($pdo, 'user_notifications', 'push_status')) {
-        $pdo->exec("
-            ALTER TABLE user_notifications
-            ADD COLUMN push_status ENUM('not_sent','sent','failed','skipped') NOT NULL DEFAULT 'not_sent' AFTER email_error,
-            ADD COLUMN push_sent_at DATETIME NULL AFTER push_status,
-            ADD COLUMN push_error TEXT NULL AFTER push_sent_at
-        ");
+    if (!empty($missing)) {
+        throw new RuntimeException(
+            'Notification database schema is not ready: ' . implode(', ', $missing) . '. Run the approved deployment SQL before using notifications.'
+        );
     }
+
+    $validated = true;
 }
 
 function notification_bool($value, bool $default = true): int
@@ -173,6 +164,7 @@ function notification_default_preferences(): array
         'diagnosis_updates' => 1,
         'queue_updates' => 1,
         'boarding_updates' => 1,
+        'ownership_updates' => 1,
         'reminder_24h' => 1,
         'reminder_2h' => 1,
         'reminder_same_day' => 1,
@@ -323,7 +315,7 @@ function notification_create(PDO $pdo, array $payload): ?int
     $category = trim((string)($payload['category'] ?? 'system')) ?: 'system';
     $forceInApp = !empty($payload['force_in_app']);
 
-    if (!notification_category_enabled($preferences, $category)) {
+    if (!$forceInApp && !notification_category_enabled($preferences, $category)) {
         return null;
     }
 
@@ -440,11 +432,11 @@ function notification_email_template(string $title, string $intro, array $rows =
     ";
 }
 
-function notification_send_email_if_enabled(PDO $pdo, int $userId, string $category, string $subject, string $html, string $text, ?int $notificationId = null): array
+function notification_send_email_if_enabled(PDO $pdo, int $userId, string $category, string $subject, string $html, string $text, ?int $notificationId = null, bool $force = false): array
 {
     $preferences = notification_fetch_preferences($pdo, $userId);
 
-    if (notification_bool($preferences['email_enabled'] ?? 1) !== 1 || !notification_category_enabled($preferences, $category)) {
+    if (!$force && (notification_bool($preferences['email_enabled'] ?? 1) !== 1 || !notification_category_enabled($preferences, $category))) {
         if ($notificationId) {
             $stmt = $pdo->prepare("UPDATE user_notifications SET email_status = 'skipped' WHERE notification_id = ?");
             $stmt->execute([$notificationId]);
@@ -464,6 +456,26 @@ function notification_send_email_if_enabled(PDO $pdo, int $userId, string $categ
     }
 
     try {
+        if (mail_queue_enabled()) {
+            $result = mail_queue_email($pdo, $email, $subject, $html, $text, [
+                'toName' => notification_user_name($user),
+                'notificationId' => $notificationId,
+            ]);
+
+            if ($notificationId) {
+                $stmt = $pdo->prepare("
+                    UPDATE user_notifications
+                    SET email_status = 'queued',
+                        email_sent_at = NULL,
+                        email_error = NULL
+                    WHERE notification_id = ?
+                ");
+                $stmt->execute([$notificationId]);
+            }
+
+            return $result;
+        }
+
         $result = send_smtp_email($email, $subject, $html, $text, ['toName' => notification_user_name($user)]);
 
         if ($notificationId) {
@@ -1056,9 +1068,10 @@ function notification_create_event(PDO $pdo, array $payload): ?int
     $notificationId = notification_create($pdo, $payload);
     $effectiveNotificationId = $notificationId ?: ($existingNotification ? (int)$existingNotification['notification_id'] : null);
     $emailAlreadyHandled = $existingNotification
-        && in_array((string)$existingNotification['email_status'], ['sent', 'skipped'], true);
+        && in_array((string)$existingNotification['email_status'], ['queued', 'sent', 'skipped'], true);
     $pushAlreadyHandled = $existingNotification
         && in_array((string)($existingNotification['push_status'] ?? ''), ['sent', 'skipped'], true);
+    $forceEmail = !empty($payload['force_email']);
 
     if (!$emailAlreadyHandled && !empty($payload['email_subject']) && !empty($payload['email_html'])) {
         notification_send_email_if_enabled(
@@ -1068,7 +1081,8 @@ function notification_create_event(PDO $pdo, array $payload): ?int
             (string)$payload['email_subject'],
             (string)$payload['email_html'],
             (string)($payload['email_text'] ?? ''),
-            $effectiveNotificationId
+            $effectiveNotificationId,
+            $forceEmail
         );
     }
 
@@ -1977,6 +1991,37 @@ function notification_send_record_update_request_event(PDO $pdo, int $requestId,
         'push_message' => "{$requestNumber} for {$petName}: {$paidLabel}, urgent record update.",
         'redirect_path' => $redirectPath,
         'dedupe_key' => "record-update-request-{$event}-{$requestId}-vet-{$vetUserId}",
+        'force_in_app' => true,
+    ]);
+}
+
+function notification_send_record_update_request_completed_to_owner(PDO $pdo, int $requestId): void
+{
+    $request = notification_fetch_record_update_request($pdo, $requestId);
+    if (!$request) {
+        return;
+    }
+
+    $ownerUserId = (int)($request['owner_user_id'] ?? 0);
+    if ($ownerUserId <= 0) {
+        return;
+    }
+
+    $petId = (int)($request['pet_id'] ?? 0);
+    $petName = trim((string)($request['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $requestNumber = trim((string)($request['request_number'] ?? ('Request #' . $requestId)));
+    $vetName = trim((string)($request['veterinarian_name'] ?? ''));
+    $vetLabel = $vetName !== '' ? " by Dr. {$vetName}" : '';
+
+    notification_create_event($pdo, [
+        'user_id' => $ownerUserId,
+        'type' => 'record_update_request_completed',
+        'category' => 'medical_records',
+        'title' => 'Record update completed',
+        'message' => "{$requestNumber} for {$petName} has been completed{$vetLabel}. You can now review the updated medical record.",
+        'push_message' => "{$petName}'s requested record update is complete.",
+        'redirect_path' => $petId > 0 ? "/dashboard/my-pets/{$petId}/medical-records" : '/dashboard/my-pets',
+        'dedupe_key' => "record-update-request-completed-{$requestId}-owner-{$ownerUserId}",
         'force_in_app' => true,
     ]);
 }

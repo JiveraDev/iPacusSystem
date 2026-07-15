@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/role_access.php';
 require_once __DIR__ . '/auth_otp_helpers.php';
 
 header('Content-Type: application/json');
@@ -35,26 +36,65 @@ function payment_methods_column_type(PDO $pdo, string $tableName, string $column
     return (string)($stmt->fetchColumn() ?: '');
 }
 
+function payment_methods_table_exists(PDO $pdo, string $tableName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+    ");
+    $stmt->execute([$tableName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function payment_methods_column_exists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
+
 function payment_methods_ensure_schema(PDO $pdo): void
 {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS payment_methods (
-            method_key VARCHAR(40) NOT NULL PRIMARY KEY,
-            label VARCHAR(80) NOT NULL,
-            account_name VARCHAR(140) NULL,
-            account_number VARCHAR(140) NULL,
-            instructions TEXT NULL,
-            qr_image_url VARCHAR(255) NULL,
-            is_active TINYINT(1) NOT NULL DEFAULT 1,
-            requires_proof TINYINT(1) NOT NULL DEFAULT 1,
-            sort_order INT NOT NULL DEFAULT 0,
-            updated_by_user_id INT NULL,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            KEY payment_methods_sort_idx (is_active, sort_order),
-            KEY payment_methods_updated_by_idx (updated_by_user_id)
-        )
-    ");
+    if (!payment_methods_table_exists($pdo, 'payment_methods')) {
+        payment_methods_error(500, 'payment_methods table is missing. Run the approved deployment SQL before managing payment methods.');
+    }
+
+    $missingColumns = [];
+    foreach ([
+        'method_key',
+        'label',
+        'account_name',
+        'account_number',
+        'instructions',
+        'qr_image_url',
+        'is_active',
+        'requires_proof',
+        'sort_order',
+        'updated_by_user_id',
+        'updated_at',
+        'created_at',
+    ] as $columnName) {
+        if (!payment_methods_column_exists($pdo, 'payment_methods', $columnName)) {
+            $missingColumns[] = $columnName;
+        }
+    }
+
+    if (!empty($missingColumns)) {
+        payment_methods_error(
+            500,
+            'payment_methods table is missing required columns: ' . implode(', ', $missingColumns) . '. Run the approved deployment SQL.'
+        );
+    }
 
     $defaults = [
         ['qrph', 'QRPH', 'iPawcus Veterinary', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
@@ -89,47 +129,37 @@ function payment_methods_ensure_otp_purpose(PDO $pdo): void
 
     $columnType = payment_methods_column_type($pdo, 'email_otp_tokens', 'purpose');
     if ($columnType !== '' && strpos($columnType, AUTH_OTP_PAYMENT_SETTINGS_CHANGE) === false) {
-        $pdo->exec("
-            ALTER TABLE email_otp_tokens
-            MODIFY purpose ENUM('email_verification','password_reset','password_change','payment_settings_change') NOT NULL
-        ");
+        payment_methods_error(500, 'email_otp_tokens.purpose does not support payment_settings_change. Run the approved deployment SQL before editing payment settings.');
     }
 }
 
-function payment_methods_user(PDO $pdo, array $input): array
+function payment_methods_user(PDO $pdo, array $input = []): array
 {
-    $userId = $input['userId'] ?? $input['user_id'] ?? null;
-    $email = authOtpNormalizeEmail($input['email'] ?? '');
+    unset($input);
 
-    if ($userId !== null && $userId !== '' && is_numeric($userId)) {
-        $stmt = $pdo->prepare("
-            SELECT user_id, mail_Address, first_Name, last_Name, role
-            FROM users
-            WHERE user_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([(int)$userId]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    } elseif ($email !== '') {
-        $stmt = $pdo->prepare("
-            SELECT user_id, mail_Address, first_Name, last_Name, role
-            FROM users
-            WHERE LOWER(mail_Address) = LOWER(?)
-            LIMIT 1
-        ");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    } else {
-        $user = null;
+    $currentUser = ipawcus_require_current_api_user($pdo);
+    $currentUserId = (int)($currentUser['user_id'] ?? 0);
+
+    if ($currentUserId <= 0) {
+        payment_methods_error(401, 'Please log in again to continue.');
     }
+
+    $role = ipawcus_access_normalize_role($currentUser['role'] ?? '');
+    if ($role !== 'super_admin') {
+        payment_methods_error(403, 'Only Super Admin can change payment methods.');
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT user_id, mail_Address, first_Name, last_Name, role
+        FROM users
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$currentUserId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {
-        payment_methods_error(404, 'Super Admin account was not found.');
-    }
-
-    $role = strtolower(str_replace(['_', '-'], ' ', (string)($user['role'] ?? '')));
-    if ($role !== 'super admin') {
-        payment_methods_error(403, 'Only Super Admin can change payment methods.');
+        payment_methods_error(404, 'Authenticated Super Admin account was not found.');
     }
 
     return $user;
@@ -194,33 +224,29 @@ function payment_methods_request_otp(PDO $pdo, array $input): void
 
 function payment_methods_save(PDO $pdo, array $input): void
 {
-    $skipOtp = filter_var($input['skipOtp'] ?? $input['disableOtp'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $user = payment_methods_user($pdo, $input);
     $email = authOtpNormalizeEmail($input['email'] ?? $user['mail_Address'] ?? '');
     $code = trim((string)($input['code'] ?? $input['otp'] ?? ''));
-    $otp = null;
 
-    if (!$skipOtp) {
-        payment_methods_ensure_otp_purpose($pdo);
-        authOtpRequireSchema($pdo);
+    payment_methods_ensure_otp_purpose($pdo);
+    authOtpRequireSchema($pdo);
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $code)) {
-            payment_methods_error(400, 'Super Admin email and 6-digit OTP code are required.');
-        }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $code)) {
+        payment_methods_error(400, 'Super Admin email and 6-digit OTP code are required.');
+    }
 
-        if (strtolower($email) !== strtolower((string)$user['mail_Address'])) {
-            payment_methods_error(403, 'OTP email must match the Super Admin account email.');
-        }
+    if (strtolower($email) !== strtolower((string)$user['mail_Address'])) {
+        payment_methods_error(403, 'OTP email must match the Super Admin account email.');
+    }
 
-        $verification = authOtpVerify($pdo, $email, AUTH_OTP_PAYMENT_SETTINGS_CHANGE, $code);
-        if (!$verification['valid']) {
-            payment_methods_error(400, $verification['message']);
-        }
+    $verification = authOtpVerify($pdo, $email, AUTH_OTP_PAYMENT_SETTINGS_CHANGE, $code);
+    if (!$verification['valid']) {
+        payment_methods_error(400, $verification['message']);
+    }
 
-        $otp = $verification['otp'];
-        if ((int)$otp['user_id'] !== (int)$user['user_id']) {
-            payment_methods_error(403, 'OTP code does not match the Super Admin account.');
-        }
+    $otp = $verification['otp'];
+    if ((int)$otp['user_id'] !== (int)$user['user_id']) {
+        payment_methods_error(403, 'OTP code does not match the Super Admin account.');
     }
 
     $methods = $input['methods'] ?? [];
@@ -294,9 +320,7 @@ function payment_methods_save(PDO $pdo, array $input): void
             $sortOrder += 10;
         }
 
-        if (!$skipOtp && $otp) {
-            authOtpMarkUsed($pdo, (int)$otp['otp_id']);
-        }
+        authOtpMarkUsed($pdo, (int)$otp['otp_id']);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -307,7 +331,7 @@ function payment_methods_save(PDO $pdo, array $input): void
 
     echo json_encode([
         'success' => true,
-        'message' => $skipOtp ? 'Payment methods updated with OTP bypass enabled.' : 'Payment methods updated.',
+        'message' => 'Payment methods updated.',
         'methods' => payment_methods_fetch($pdo, true),
     ]);
 }

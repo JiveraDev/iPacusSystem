@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../php/db.php';
 
 try {
     // 1. Add signature_path column

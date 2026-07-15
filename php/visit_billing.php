@@ -95,19 +95,7 @@ function visit_billing_ensure_payment_method_schema(PDO $pdo): void
         return;
     }
 
-    if (stripos($columnType, 'enum(') !== 0) {
-        return;
-    }
-
-    try {
-        $pdo->exec("
-            ALTER TABLE visit_payments
-            MODIFY payment_method ENUM('cash','qrph','gcash','maya','bank_transfer') NOT NULL DEFAULT 'gcash'
-        ");
-    } catch (Throwable $error) {
-        error_log('Visit payment method schema update failed: ' . $error->getMessage());
-        visit_billing_error(409, 'POS cash payments are not ready. Please ask an admin to update the visit payment method list.');
-    }
+    visit_billing_error(409, 'POS cash payments are not ready in the current database enum. No runtime schema changes were attempted.');
 }
 
 function visit_billing_nullable_int($value): ?int
@@ -128,6 +116,15 @@ function visit_billing_nullable_text($value): ?string
 function visit_billing_allowed(string $value, array $allowed, string $fallback): string
 {
     return in_array($value, $allowed, true) ? $value : $fallback;
+}
+
+function visit_billing_require_allowed(string $value, array $allowed, string $label): string
+{
+    if (!in_array($value, $allowed, true)) {
+        visit_billing_error(422, "Invalid {$label}.");
+    }
+
+    return $value;
 }
 
 function visit_billing_decode_json($value)
@@ -169,11 +166,11 @@ function visit_billing_ensure_walk_in_patient(PDO $pdo): array
         $stmt = $pdo->prepare("
             SELECT pet_id
             FROM pets_information
-            WHERE pet_name = ?
+            WHERE pet_name IN (?, ?)
               AND pet_Temp_owner = ?
             LIMIT 1
         ");
-        $stmt->execute(['Walk-in Customer', 'Counter Sale']);
+        $stmt->execute(['Walk-in Sale', 'Walk-in Customer', 'Counter Sale']);
     }
     $petId = $stmt->fetchColumn();
 
@@ -192,8 +189,8 @@ function visit_billing_ensure_walk_in_patient(PDO $pdo): array
             'pet_age',
         ];
         $values = [
-            'Walk-in Customer',
-            'Counter Sale',
+            'Walk-in Sale',
+            'Retail',
             'POS Sale',
             '1970-01-01',
             'Healthy',
@@ -216,6 +213,23 @@ function visit_billing_ensure_walk_in_patient(PDO $pdo): array
         $petId = (int)$pdo->lastInsertId();
     } else {
         $petId = (int)$petId;
+        $stmt = $pdo->prepare("
+            UPDATE pets_information
+            SET pet_name = ?,
+                pet_species = ?,
+                pet_breed = ?,
+                pet_Temp_owner = ?,
+                pet_color_marking = ?
+            WHERE pet_id = ?
+        ");
+        $stmt->execute([
+            'Walk-in Sale',
+            'Retail',
+            'POS Sale',
+            'Counter Sale',
+            'POS walk-in sale placeholder',
+            $petId,
+        ]);
     }
 
     $stmt = $pdo->prepare("SELECT link_id FROM pet_ownership WHERE pet_id = ? LIMIT 1");
@@ -1258,19 +1272,53 @@ function visit_billing_insert_payment_payload(PDO $pdo, int $visitId, array $inp
         visit_billing_error(400, 'Payment amount must be greater than 0.');
     }
 
-    $paymentMethod = visit_billing_allowed(
+    $paymentMethod = visit_billing_require_allowed(
         trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? 'gcash')),
         ['cash', 'qrph', 'gcash', 'maya', 'bank_transfer'],
-        'gcash'
+        'payment method'
     );
     if ($paymentMethod === 'cash') {
         visit_billing_ensure_payment_method_schema($pdo);
     }
-    $paymentStatus = visit_billing_allowed(
-        trim((string)($input['payment_status'] ?? $input['paymentStatus'] ?? 'verified')),
-        ['pending', 'verified', 'failed', 'refunded', 'voided'],
-        'verified'
-    );
+    $paymentStatus = 'verified';
+    $referenceNumber = visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null);
+    $proofUrl = visit_billing_nullable_text($input['proof_url'] ?? $input['proofUrl'] ?? null);
+
+    if ($referenceNumber !== null) {
+        $duplicateStmt = $pdo->prepare("
+            SELECT payment_id
+            FROM visit_payments
+            WHERE visit_id = ?
+              AND payment_method = ?
+              AND reference_number = ?
+              AND ABS(amount - ?) < 0.0001
+              AND payment_status NOT IN ('voided', 'refunded')
+            ORDER BY payment_id DESC
+            LIMIT 1
+        ");
+        $duplicateStmt->execute([$visitId, $paymentMethod, $referenceNumber, $amount]);
+        $existingPaymentId = (int)($duplicateStmt->fetchColumn() ?: 0);
+        if ($existingPaymentId > 0) {
+            return $existingPaymentId;
+        }
+    }
+
+    $totalStmt = $pdo->prepare("SELECT COALESCE(SUM(subtotal), 0) FROM visit_charges WHERE visit_id = ?");
+    $totalStmt->execute([$visitId]);
+    $total = (float)$totalStmt->fetchColumn();
+
+    $paidStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM visit_payments
+        WHERE visit_id = ?
+          AND payment_status = 'verified'
+    ");
+    $paidStmt->execute([$visitId]);
+    $verifiedPaid = (float)$paidStmt->fetchColumn();
+
+    if ($paymentStatus === 'verified' && $total > 0 && $verifiedPaid + 0.0001 >= $total) {
+        visit_billing_error(409, 'This invoice is already fully paid. The duplicate payment was not recorded.');
+    }
 
     $stmt = $pdo->prepare("
         INSERT INTO visit_payments (
@@ -1291,8 +1339,8 @@ function visit_billing_insert_payment_payload(PDO $pdo, int $visitId, array $inp
         $paymentMethod,
         $paymentStatus,
         $amount,
-        visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null),
-        visit_billing_nullable_text($input['proof_url'] ?? $input['proofUrl'] ?? null),
+        $referenceNumber,
+        $proofUrl,
         visit_billing_nullable_text($input['notes'] ?? null),
         visit_billing_nullable_text($input['paid_at'] ?? $input['paidAt'] ?? null) ?: date('Y-m-d H:i:s'),
         visit_billing_nullable_int($input['received_by_user_id'] ?? $input['receivedByUserId'] ?? null),

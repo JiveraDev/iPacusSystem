@@ -372,12 +372,12 @@ The backend router starts at `php/index.php`. It strips `/api` if present, then 
 | Record update requests | `/record-update-requests`, `/record-update-requests/{id}` | `record_update_requests.php` |
 | Inventory | `/inventory`, `/inventory/meta`, `/inventory/items`, `/inventory/stock-in`, `/inventory/stock-out` | `inventory.php` |
 | Consent files and records | `/consent_files`, `/consent_files/{id}`, `/consent-form-records`, `/consent_form_records` | `get_consent_files.php`, `add_consent_file.php`, `update_consent_file.php`, `delete_consent_file.php`, `consent_form_records.php`, `consent_record_helpers.php` |
-| Queue | `/queues`, `/queues/debug`, `/queues/pets`, `/queues/status`, `/queues/receive`, `/queues/assign`, `/queues/return`, `/queues/reenter` | `get_queues.php`, `add_to_queue.php`, `update_queue_status.php`, `receive_queue.php`, `assign_queue_vet.php`, `return_queue.php`, `reenter_queue.php`, `debug_queues.php` |
+| Queue | `/queues`, `/queues/pets`, `/queues/status`, `/queues/receive`, `/queues/assign`, `/queues/return`, `/queues/reenter` | `get_queues.php`, `add_to_queue.php`, `update_queue_status.php`, `receive_queue.php`, `assign_queue_vet.php`, `return_queue.php`, `reenter_queue.php` |
 | Vet diagnosis | `/vet-diagnoses`, `/vet-diagnoses/{id}` | `vet_diagnoses.php` |
 | Self-service access | `/self-service/access` | `check_self_service_access.php` |
 | TV status display | `/status-display`, `/tv-status` | `status_display.php` |
 | Vet schedules | `/vet_schedules` | `get_vet_schedules.php`, `update_vet_schedule.php` |
-| Health/mail test | `/health`, `/mail/test` | `index.php`, `mail_test.php` |
+| Health | `/health` | `index.php` |
 
 ## Main Workflows
 
@@ -596,7 +596,7 @@ DDL export metadata:
 | `php/account_status_helpers.php` | Adds `admin_profiles.is_active` if missing |
 | `php/add_booking.php` | Checks for and adds `bookings.payment_method`, `bookings.payment_reference`, `bookings.consent_forms`, `bookings.consent_status` if missing |
 | `php/consent_record_helpers.php` | Creates the richer consent table when absent and adapts writes to available columns; it does not automatically add missing columns to an existing reduced table |
-| `php/update_schema_home_service.php` | Adds `bookings.signature_path` and `bookings.transport_fee` when run |
+| `phpTestfiles/update_schema_home_service.php` | Archived one-time helper that adds `bookings.signature_path` and `bookings.transport_fee` when run |
 | `php/notification_helpers.php` | Creates notification tables if missing and adds push-related columns |
 | `php/payment_methods.php` | Creates `payment_methods` if missing and adjusts OTP support |
 | `php/pet_medical_records.php` | Creates organized medical record groups/items if missing |
@@ -604,8 +604,8 @@ DDL export metadata:
 | `php/pet_owner_todos.php` | Creates `pet_owner_todos` if missing |
 | `php/record_update_requests.php` | Creates `pet_record_update_requests` if missing |
 | `php/visit_billing.php` | Cash payments require `visit_payments.payment_method` enum to include `cash`; visit charges can consume/reverse inventory stock movements |
-| `php/rooms_setup.sql` | Standalone boarding room/booking-pets setup SQL |
-| `php/vet_schedules.sql` | Standalone vet schedule table SQL |
+| `phpTestfiles/rooms_setup.sql` | Archived standalone boarding room/booking-pets setup SQL |
+| `phpTestfiles/vet_schedules.sql` | Archived standalone vet schedule table SQL |
 
 Full DDL discrepancy note:
 

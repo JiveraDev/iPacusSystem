@@ -13,16 +13,26 @@ const RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'uploads'
 ]);
 
-function appendAccessToken(url) {
-  const token = getStoredAuthToken();
-  if (!token) return url;
-
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}access_token=${encodeURIComponent(token)}`;
-}
+const PROTECTED_RUNTIME_UPLOAD_DIRECTORIES = new Set([
+  'boarding_documents',
+  'concerns',
+  'diagnosis',
+  'inventory_items',
+  'inventory_receipts',
+  'payments',
+  'signatures'
+]);
 
 function normalizePublicPath(value) {
   let path = String(value || '').trim().replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      path = new URL(path).pathname;
+    } catch {
+      return '';
+    }
+  }
+
   path = path.replace(/^\/?public\//i, '/');
   path = path.replace(/\/{2,}/g, '/');
 
@@ -34,6 +44,10 @@ function runtimeUploadPath(cleanPath) {
 
   if (uploadPath.startsWith('uploads/media/')) {
     uploadPath = uploadPath.slice('uploads/media/'.length);
+  }
+
+  if (uploadPath.startsWith('api/uploads/media/')) {
+    uploadPath = uploadPath.slice('api/uploads/media/'.length);
   }
 
   const uploadDirectory = uploadPath.split('/')[0];
@@ -64,11 +78,40 @@ export const resolveImageUrl = (profileImage) => {
   // If path is '/public/uploads/xxx.png', it's actually at '/uploads/xxx.png'
   const cleanPath = normalizePublicPath(profileImage);
   const uploadPath = runtimeUploadPath(cleanPath);
+  const uploadDirectory = uploadPath.split('/')[0];
 
-  if (API_BASE_URL && uploadPath) {
-    return appendAccessToken(getApiUrl(`/uploads/media/${uploadPath}`));
+  if (API_BASE_URL && uploadPath && PROTECTED_RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
+    return getApiUrl(`/uploads/media/${uploadPath}`);
+  }
+
+  if (uploadPath) {
+    return `/${uploadPath}`;
   }
 
   // Request from current origin (Vite dev server)
   return cleanPath;
 };
+
+export async function fetchProtectedImageObjectUrl(profileImage) {
+  const resolvedUrl = resolveImageUrl(profileImage);
+  if (!resolvedUrl || resolvedUrl.startsWith('blob:') || resolvedUrl.startsWith('data:')) {
+    return resolvedUrl;
+  }
+
+  const uploadPath = runtimeUploadPath(normalizePublicPath(profileImage));
+  if (!API_BASE_URL || !uploadPath) {
+    return resolvedUrl;
+  }
+
+  const token = getStoredAuthToken();
+  const response = await fetch(resolvedUrl, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not load protected image.');
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}

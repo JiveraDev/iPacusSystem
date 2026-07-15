@@ -5,7 +5,7 @@ const DashboardRouterContext = createContext(null);
 
 // debug bypas starts here
 
-const DEBUG_BYPASS = true;
+const DEBUG_BYPASS = false;
 
 const ALL_ROLES = ["Pet Owner", "pet_owner", "Admin", "Veterinarian", "Super Admin"];
 

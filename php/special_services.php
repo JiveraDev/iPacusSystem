@@ -364,8 +364,6 @@ if (!tableExists($pdo, 'special_service_catalog')) {
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        seedDefaultSpecialServices($pdo);
-
         $includeInactive = isset($_GET['includeInactive']) && (string)$_GET['includeInactive'] === '1';
         $dateColumnsAvailable = specialServiceDateColumnsExist($pdo);
         $dateSelect = $dateColumnsAvailable

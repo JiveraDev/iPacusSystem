@@ -6,11 +6,11 @@ import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Checkbox } from '../../ui/checkbox';
 import { Upload, FileText, Trash2, Edit3, Eye, Plus, AlertTriangle } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
+import FileUploadDropzone from '../shared/FileUploadDropzone.jsx';
 import { PET_OWNER_CONSENT_CONTEXTS, parseConsentContexts } from '../../lib/consentAssignments';
 import {
     createConsentFile,
@@ -26,6 +26,7 @@ export default function ConsentFilesManagement() {
     
     // Upload States
     const [uploadFile, setUploadFile] = useState(null);
+    const [uploadTitle, setUploadTitle] = useState('');
     const [uploadCategory, setUploadCategory] = useState('');
     const [uploadPetOwnerContexts, setUploadPetOwnerContexts] = useState([]);
 
@@ -68,16 +69,6 @@ export default function ConsentFilesManagement() {
         vaccination: 'Vaccination'
     });
 
-    const toggleContext = (currentContexts, context, checked) => {
-        if (checked) {
-            return currentContexts.includes(context)
-                ? currentContexts
-                : [...currentContexts, context];
-        }
-
-        return currentContexts.filter((item) => item !== context);
-    };
-
     const fetchConsentFiles = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
             setIsLoading(true);
@@ -97,19 +88,28 @@ export default function ConsentFilesManagement() {
 
     useAutoRefresh(fetchConsentFiles);
 
-    const handleFileChange = (e) => {
-        const file = e.target.files?.[0];
+    const handleFileChange = (files) => {
+        const file = Array.from(files || [])[0];
         if (file && !file.name.toLowerCase().endsWith('.txt')) {
             toast.error('Please upload only TXT files');
-            e.target.value = '';
             return;
         }
         setUploadFile(file);
+        setUploadTitle(file ? file.name.replace(/\.[^/.]+$/, '') : '');
+    };
+
+    const handleRemoveUploadFile = () => {
+        setUploadFile(null);
+        setUploadTitle('');
     };
 
     const handleUploadSubmit = async () => {
         if (!uploadFile) {
             toast.error("Please select a file first");
+            return;
+        }
+        if (!uploadTitle.trim()) {
+            toast.error("Please enter a document title");
             return;
         }
         if (!uploadCategory) {
@@ -124,15 +124,16 @@ export default function ConsentFilesManagement() {
                 const text = e.target.result;
                 
                 const formData = new FormData();
-                formData.append('file_name', uploadFile.name.replace(/\.[^/.]+$/, ''));
+                formData.append('file_name', uploadTitle.trim());
                 formData.append('content', text);
                 formData.append('file_size', formatFileSize(uploadFile.size));
                 formData.append('category', uploadCategory);
-                formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts));
+                formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts.slice(0, 1)));
 
                 await createConsentFile(formData);
                 toast.success("Consent form added successfully");
                 setUploadFile(null);
+                setUploadTitle('');
                 setUploadCategory('');
                 setUploadPetOwnerContexts([]);
                 const fileInput = document.getElementById('consent-file-input');
@@ -150,13 +151,18 @@ export default function ConsentFilesManagement() {
 
     const handleUpdate = async () => {
         if (!selectedFile) return;
+
+        if (!editTitle.trim()) {
+            toast.error("Document title is required");
+            return;
+        }
         
         try {
             await updateConsentFile(selectedFile.file_id, {
-                file_name: editTitle,
+                file_name: editTitle.trim(),
                 content: editContent,
                 category: editCategory,
-                pet_owner_contexts: JSON.stringify(editPetOwnerContexts)
+                pet_owner_contexts: JSON.stringify(editPetOwnerContexts.slice(0, 1))
             });
             toast.success("Consent form updated");
             setEditModalOpen(false);
@@ -215,15 +221,25 @@ export default function ConsentFilesManagement() {
                         Upload New Consent Template
                     </h3>
                 </div>
-                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div className="space-y-1">
                         <Label className="text-xs text-gray-500 block">Select TXT File</Label>
-                        <Input
+                        <FileUploadDropzone
                             id="consent-file-input"
-                            type="file"
                             accept=".txt"
-                            onChange={handleFileChange}
-                            className="cursor-pointer"
+                            files={uploadFile ? [uploadFile] : []}
+                            onFilesSelected={handleFileChange}
+                            onRemove={handleRemoveUploadFile}
+                            label="Click to upload TXT consent template"
+                            helper="Selected document appears here before upload"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs text-gray-500 block">Document Title</Label>
+                        <Input
+                            value={uploadTitle}
+                            onChange={(event) => setUploadTitle(event.target.value)}
+                            placeholder="Consent document title"
                         />
                     </div>
                     <div className="space-y-1">
@@ -239,28 +255,31 @@ export default function ConsentFilesManagement() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 md:col-span-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                            Pet-owner readable assignment
-                        </p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                            {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
-                                <label key={context.value} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700">
-                                    <Checkbox
-                                        checked={uploadPetOwnerContexts.includes(context.value)}
-                                        onCheckedChange={(checked) => setUploadPetOwnerContexts((current) => (
-                                            toggleContext(current, context.value, Boolean(checked))
-                                        ))}
-                                    />
-                                    {context.label}
-                                </label>
-                            ))}
-                        </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs text-gray-500 block">Pet-owner readable assignment</Label>
+                        <Select
+                            value={uploadPetOwnerContexts[0] || 'none'}
+                            onValueChange={(value) => setUploadPetOwnerContexts(value === 'none' ? [] : [value])}
+                        >
+                            <SelectTrigger>
+                                <SelectValue
+                                    displayValue={
+                                        PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === uploadPetOwnerContexts[0])?.label || 'Not assigned'
+                                    }
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Not assigned</SelectItem>
+                                {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
+                                    <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <Button 
                         onClick={handleUploadSubmit}
-                        disabled={isUploading || !uploadFile || !uploadCategory}
-                        className="bg-blue-600 hover:bg-blue-700 h-10 gap-2 font-bold"
+                        disabled={isUploading || !uploadFile || !uploadTitle.trim() || !uploadCategory}
+                        className="h-10 gap-2 bg-blue-600 font-bold hover:bg-blue-700 md:col-span-2 xl:col-span-4 xl:justify-self-end"
                     >
                         {isUploading ? "Uploading..." : (
                             <><Plus className="size-4" /> Add Consent</>
@@ -292,7 +311,7 @@ export default function ConsentFilesManagement() {
                                             setEditTitle(file.file_name || '');
                                             setEditContent(file.content || '');
                                             setEditCategory(file.category || '');
-                                            setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts));
+                                            setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1));
                                             setEditModalOpen(true);
                                         }}
                                     >
@@ -328,8 +347,8 @@ export default function ConsentFilesManagement() {
                                     Pet-owner flows
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).length > 0 ? (
-                                        parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).map((context) => (
+                                    {parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).length > 0 ? (
+                                        parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).map((context) => (
                                             <Badge key={context} className="border-0 bg-blue-100 text-[10px] font-bold text-blue-700">
                                                 {PET_OWNER_CONSENT_CONTEXTS.find((item) => item.value === context)?.label || context}
                                             </Badge>
@@ -404,23 +423,26 @@ export default function ConsentFilesManagement() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                                Pet-owner readable assignment
-                            </p>
-                            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                                {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
-                                    <label key={context.value} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700">
-                                        <Checkbox
-                                            checked={editPetOwnerContexts.includes(context.value)}
-                                            onCheckedChange={(checked) => setEditPetOwnerContexts((current) => (
-                                                toggleContext(current, context.value, Boolean(checked))
-                                            ))}
-                                        />
-                                        {context.label}
-                                    </label>
-                                ))}
-                            </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Pet-owner readable assignment</Label>
+                            <Select
+                                value={editPetOwnerContexts[0] || 'none'}
+                                onValueChange={(value) => setEditPetOwnerContexts(value === 'none' ? [] : [value])}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue
+                                        displayValue={
+                                            PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === editPetOwnerContexts[0])?.label || 'Not assigned'
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Not assigned</SelectItem>
+                                    {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
+                                        <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-xs text-gray-500">Document Content</Label>

@@ -206,8 +206,7 @@ export default function VetOnlineConsultDiagnosis() {
 
             setConsultation(updated);
             endCall();
-            toast.success('Consultation marked completed.');
-            navigate('/dashboard/vet/online-consultations');
+            toast.success('Call ended. Save the diagnosis to complete the consultation.');
         } catch (error) {
             console.error('Failed to end consultation:', error);
             toast.error(error.message || 'Failed to end consultation');
@@ -447,7 +446,7 @@ export default function VetOnlineConsultDiagnosis() {
                         {!isFinal && (
                             <Button variant="outline" onClick={endWithoutDiagnosis} disabled={isSaving}>
                                 <PhoneOff className="mr-2 h-4 w-4" />
-                                Mark Completed
+                                End Call Only
                             </Button>
                         )}
                         <Button onClick={saveDiagnosis} disabled={isSaving} className="bg-[#155dfc] hover:bg-[#0d4acf]">

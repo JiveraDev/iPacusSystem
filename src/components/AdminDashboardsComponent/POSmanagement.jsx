@@ -12,7 +12,7 @@ import {
   Printer,
   Receipt,
   Search,
-  ShoppingBag,
+  ShoppingCart,
   Stethoscope,
   Trash2,
   User,
@@ -78,7 +78,7 @@ const CLASSIFICATIONS = [
     id: 'products',
     label: 'Products',
     receiptType: 'PRODUCT',
-    icon: ShoppingBag,
+    icon: ShoppingCart,
     accent: 'amber',
     description: 'Retail products such as food, shampoo, collars, supplements, and treats.',
   },
@@ -99,13 +99,13 @@ const WALK_IN_SALE_ID = 'walk-in-sale';
 const WALK_IN_SALE_VISIT = {
   id: WALK_IN_SALE_ID,
   source: 'walk_in',
-  petName: 'Walk-in Customer',
-  ownerName: 'Counter Sale',
-  species: 'Counter sale',
+  petName: 'Walk-in Sale',
+  ownerName: 'Walk-in',
+  species: 'Walk-in',
   visitType: 'Walk-in / Retail Invoice',
   veterinarian: 'Point-Of-Sale Counter',
   complaint: 'Walk-in or retail invoice.',
-  status: 'New sale',
+  status: 'Walk-in',
   initialCharges: [],
 };
 
@@ -1068,15 +1068,6 @@ function getBillingStatusRank(status) {
   return 4;
 }
 
-function getVisitStatusBadgeClass(status) {
-  const normalized = normalizeText(status);
-
-  if (isPendingPaymentStatus(normalized)) return 'border-0 bg-amber-50 text-amber-700';
-  if (normalized === 'paid') return 'border-0 bg-green-50 text-green-700';
-  if (normalized === 'refunded') return 'border-0 bg-slate-100 text-slate-700';
-  return 'border-0 bg-blue-50 text-blue-700';
-}
-
 function createDatabaseVisit(visit) {
   const charges = Array.isArray(visit.charges) ? visit.charges.map(createVisitCharge) : [];
   const total = Number(visit.totals?.charges);
@@ -1186,8 +1177,9 @@ export default function ServicePOS() {
   ));
   const [activeTab, setActiveTab] = useState('services');
   const [searchQuery, setSearchQuery] = useState('');
-  const [chargeSheetOpen, setChargeSheetOpen] = useState(true);
   const [receiptPaperWidth, setReceiptPaperWidth] = useState('58mm');
+  const [invoicePanelOpen, setInvoicePanelOpen] = useState(false);
+  const [invoicePanelWidth, setInvoicePanelWidth] = useState(320);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0530-001');
   const [notification, setNotification] = useState(() => (
@@ -1370,7 +1362,6 @@ export default function ServicePOS() {
 
     return true;
   };
-  const isWalkInSale = selectedVisit?.id === WALK_IN_SALE_ID;
   const selectedVisitPrescriptions = selectedVisit?.prescriptions || [];
   const visibleCatalog = (catalog[activeTab] || []).filter((item) => {
     return catalogItemMatchesSearch(item, searchQuery);
@@ -1508,15 +1499,49 @@ export default function ServicePOS() {
     setInvoiceOpen(true);
   };
 
-  const toggleProductsPanel = () => {
-    setActiveTab('products');
-    setChargeSheetOpen((current) => !current);
-  };
+  const clampInvoicePanelWidth = useCallback((width) => {
+    const maxWidth = typeof window === 'undefined'
+      ? 520
+      : Math.min(520, Math.max(300, window.innerWidth * 0.46));
 
-  const openProductsPanel = () => {
-    setActiveTab('products');
-    setChargeSheetOpen(true);
-  };
+    return Math.min(Math.max(width, 260), maxWidth);
+  }, []);
+
+  const startInvoicePanelResize = useCallback((event) => {
+    if (!invoicePanelOpen) return;
+
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = invoicePanelWidth;
+
+    const handlePointerMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setInvoicePanelWidth(clampInvoicePanelWidth(startWidth - delta));
+    };
+
+    const stopResize = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+  }, [clampInvoicePanelWidth, invoicePanelOpen, invoicePanelWidth]);
+
+  const handleInvoicePanelResizeKey = useCallback((event) => {
+    if (!invoicePanelOpen) return;
+
+    const step = event.shiftKey ? 40 : 16;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setInvoicePanelWidth((width) => clampInvoicePanelWidth(width + step));
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setInvoicePanelWidth((width) => clampInvoicePanelWidth(width - step));
+    }
+  }, [clampInvoicePanelWidth, invoicePanelOpen]);
 
   const postPayment = async () => {
     const problems = getStockProblems(charges, inventoryById);
@@ -1550,7 +1575,6 @@ export default function ServicePOS() {
         const data = await postVisitPayment(selectedVisit.visitId, {
           amount: amountToPost,
           payment_method: paymentMethod,
-          payment_status: 'verified',
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
           proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
@@ -1611,7 +1635,6 @@ export default function ServicePOS() {
         payment: {
           amount: amountToPost,
           payment_method: paymentMethod,
-          payment_status: 'verified',
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
           proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
@@ -1761,16 +1784,6 @@ export default function ServicePOS() {
             Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={toggleProductsPanel}
-          aria-expanded={chargeSheetOpen}
-          aria-controls="pos-products-panel"
-          className="w-fit bg-[#155dfc] text-white hover:bg-[#0d4acf]"
-        >
-          <ShoppingBag className="mr-1.5 size-4" />
-          {chargeSheetOpen ? 'Hide Products' : 'Products'}
-        </Button>
       </div>
 
       {notification && (
@@ -1803,178 +1816,114 @@ export default function ServicePOS() {
         </div>
       )}
 
-      <div className={`grid grid-cols-1 gap-5 ${chargeSheetOpen ? 'xl:grid-cols-[310px_minmax(0,1fr)_400px]' : 'xl:grid-cols-[310px_minmax(0,1fr)]'}`}>
-        <aside className="space-y-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                Patient Visit
-              </h2>
-              <Badge className={getVisitStatusBadgeClass(selectedVisit.billingStatus)}>
-                {selectedVisit.status}
-              </Badge>
+      <PatientVisitBar
+        selectedVisit={selectedVisit}
+        selectedVisitId={selectedVisitId}
+        visitOptions={visitOptions}
+        onVisitChange={handleVisitChange}
+        pendingPaymentCount={pendingPaymentCount}
+        prescriptions={selectedVisitPrescriptions}
+        charges={charges}
+        inventory={inventory}
+        onAddPrescription={addPrescriptionToInvoice}
+        invoicePanelOpen={invoicePanelOpen}
+        onToggleInvoice={() => setInvoicePanelOpen((current) => !current)}
+      />
+
+      <div
+        className={`grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(0,1fr)_12px_minmax(260px,var(--invoice-panel-width))] xl:gap-0' : ''}`}
+        style={invoicePanelOpen ? { '--invoice-panel-width': `${invoicePanelWidth}px` } : undefined}
+      >
+        <aside id="pos-products-panel" className="w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 p-4 text-center sm:text-left">
+              <div className="flex items-center justify-center gap-2 sm:justify-start">
+                <ShoppingCart className="size-5 text-[#155dfc]" />
+                <h2 className="text-lg font-black text-[#101828]">Products</h2>
+              </div>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Add services, medication, products, and internal usage.</p>
             </div>
 
-            <Select value={selectedVisitId} onValueChange={handleVisitChange}>
-              <SelectTrigger className="h-10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {visitOptions.map((visit) => (
-                  <SelectItem key={visit.id} value={visit.id}>
-                    <span className="flex min-w-0 flex-col py-1">
-                      <span className="truncate text-sm font-bold text-slate-900">
-                        {visit.id === WALK_IN_SALE_ID
-                          ? 'Walk-in Sale / Count as visit'
-                          : `${visit.petName} - ${visit.visitType || 'Visit'}`}
-                      </span>
-                      {visit.id !== WALK_IN_SALE_ID && (
-                        <span className="truncate text-xs font-semibold text-slate-500">
-                          {visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - Balance {formatPhpCurrency(Math.max(0, Number(visit.total || 0) - Number(visit.paid || 0)))}
-                        </span>
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {pendingPaymentCount > 0 && (
-              <p className="mt-2 text-xs font-semibold text-slate-500">
-                Pending payments: {pendingPaymentCount}
-              </p>
-            )}
-
-            <div className="mt-4 space-y-3">
-              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                <VisitSummaryRow icon={PawPrint} label="Patient" value={isWalkInSale ? 'Walk-in Sale' : selectedVisit.petName} />
-                {!isWalkInSale && (
-                  <VisitSummaryRow icon={Stethoscope} label="Visit" value={[selectedVisit.species, selectedVisit.visitType].filter(Boolean).join(' - ')} />
-                )}
-                {!isWalkInSale && (
-                  <VisitSummaryRow icon={User} label="Owner" value={selectedVisit.ownerName} />
-                )}
+            <div className="space-y-4 p-4">
+              <div>
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search item"
+                  className="h-10"
+                  leftIcon={<Search className="size-4" />}
+                />
               </div>
 
-              {isWalkInSale ? (
-                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-600">
-                  Add services, medication, or products to start the invoice.
-                </p>
-              ) : (
-                <>
-                  {selectedVisit.diagnosisSummary && (
-                    <div>
-                      <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis Summary</p>
-                      <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
-                        {selectedVisit.diagnosisSummary}
-                      </p>
-                    </div>
-                  )}
-                  {selectedVisit.complaint && (
-                    <div>
-                      <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-400">Reference</p>
-                      <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
-                        {selectedVisit.complaint}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3 gap-1">
+                  {BILLING_CLASSIFICATIONS.map((classification) => {
+                    const Icon = classification.icon;
+                    return (
+                      <TabsTrigger key={classification.id} value={classification.id} className="gap-2">
+                        <Icon className="size-4" />
+                        {classification.label}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                Prescription Add-ons
-              </h2>
-              <Badge className="border-0 bg-blue-50 text-blue-700">{selectedVisitPrescriptions.length}</Badge>
-            </div>
-            {selectedVisitPrescriptions.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm font-semibold text-slate-500">
-                No prescriptions attached to this visit.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {selectedVisitPrescriptions.map((prescription) => {
-                  const prescriptionMatches = getPrescriptionInventoryMatches(prescription, inventory, 3);
-                  const matchedItem = prescriptionMatches[0]?.item || null;
-                  const alreadyAdded = charges.some((charge) => charge.prescriptionId === prescription.id);
-
-                  return (
-                    <div key={prescription.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-sm font-black text-slate-900">{formatPrescriptionLine(prescription)}</p>
-                      {prescription.instructions && (
-                        <p className="mt-1 whitespace-pre-wrap text-xs font-semibold text-slate-500">{prescription.instructions}</p>
-                      )}
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className={`text-xs font-black ${matchedItem ? 'text-green-700' : 'text-amber-700'}`}>
-                          {matchedItem
-                            ? `${matchedItem.name} - ${matchedItem.stock} ${matchedItem.unit} in inventory`
-                            : 'No medication inventory match'}
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addPrescriptionToInvoice(prescription, matchedItem)}
-                          disabled={!matchedItem || alreadyAdded}
-                          className="w-full sm:w-fit"
-                        >
-                          <Plus className="size-4" />
-                          {alreadyAdded ? 'Added' : 'Add to Draft'}
-                        </Button>
-                      </div>
-                      {prescriptionMatches.length > 0 ? (
-                        <div className="mt-2 rounded-md border border-green-100 bg-white px-2.5 py-2 text-xs font-semibold text-slate-600">
-                          <p className="font-black text-green-700">Matched by {prescriptionMatches[0].detail}</p>
-                          {prescriptionMatches.length > 1 ? (
-                            <p className="mt-1 text-slate-500">
-                              Related: {prescriptionMatches.slice(1).map((match) => match.item.name).join(', ')}
-                            </p>
-                          ) : null}
+                {BILLING_CLASSIFICATIONS.map((classification) => (
+                  <TabsContent key={classification.id} value={classification.id} className="mt-4">
+                    <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                      {visibleCatalog.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
+                          No matching items. Search can use item name, generic or variant name, brand, SKU, barcode, or batch number.
                         </div>
                       ) : (
-                        <p className="mt-2 rounded-md border border-amber-100 bg-white px-2.5 py-2 text-xs font-semibold text-amber-700">
-                          Try adding the medicine generic name, variant name, brand, SKU, or barcode in inventory so POS can match it.
-                        </p>
+                        visibleCatalog.map((item) => (
+                          <CatalogItemCard
+                            key={item.id}
+                            item={item}
+                            charges={charges}
+                            inventoryById={inventoryById}
+                            onAdd={() => addCatalogItem(item)}
+                          />
+                        ))
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </div>
           </section>
         </aside>
 
-        <main className="space-y-4">
+        {invoicePanelOpen && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize Draft Invoice"
+            tabIndex={0}
+            onPointerDown={startInvoicePanelResize}
+            onKeyDown={handleInvoicePanelResizeKey}
+            className="hidden min-h-[320px] cursor-col-resize touch-none rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 xl:block"
+          />
+        )}
+
+        {invoicePanelOpen && (
+        <main className="min-w-0 space-y-4">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-[#155dfc] p-4 text-white">
+            <div className="bg-[#155dfc] p-3 text-white">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 text-lg font-black">
-                  <Receipt className="size-5" />
+                <h2 className="flex items-center gap-2 text-base font-black">
+                  <Receipt className="size-4" />
                   Draft Invoice
                 </h2>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={chargeSheetOpen ? () => setChargeSheetOpen(false) : openProductsPanel}
-                    className="border-white/30 bg-white/10 text-white hover:bg-white/20"
-                  >
-                    {chargeSheetOpen ? 'Hide Products' : 'Products'}
-                  </Button>
-                  <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} items</Badge>
-                </div>
+                <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} items</Badge>
               </div>
-              <p className="mt-1 text-sm font-semibold text-blue-100">{selectedVisit.id}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-blue-100">{selectedVisit.id}</p>
             </div>
 
-            <div className="max-h-[560px] overflow-y-auto">
+            <div className="max-h-[420px] overflow-y-auto">
               {charges.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Receipt className="mx-auto mb-3 size-9 text-slate-300" />
+                <div className="p-6 text-center">
+                  <Receipt className="mx-auto mb-2 size-8 text-slate-300" />
                   <p className="text-sm font-semibold text-slate-500">No billable items selected.</p>
                 </div>
               ) : (
@@ -1994,10 +1943,10 @@ export default function ServicePOS() {
               )}
             </div>
 
-            <div className="border-t border-slate-200 p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-base font-black text-slate-900">Total</span>
-                <span className="text-2xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
+            <div className="border-t border-slate-200 p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-black text-slate-900">Total</span>
+                <span className="text-xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
               </div>
 
               {selectedVisit?.source === 'database' && (
@@ -2017,7 +1966,7 @@ export default function ServicePOS() {
                 type="button"
                 onClick={openInvoice}
                 disabled={!canPreviewInvoice}
-                className="h-11 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="h-10 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
                 title={invoiceBlockReason || undefined}
               >
                 <FileText className="mr-2 size-5" />
@@ -2026,75 +1975,6 @@ export default function ServicePOS() {
             </div>
           </section>
         </main>
-
-        {chargeSheetOpen && (
-          <aside id="pos-products-panel" className="space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
-            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
-                <div>
-                  <h2 className="text-lg font-black text-[#101828]">Products</h2>
-                  <p className="text-sm font-semibold text-slate-500">Show or hide treatment items and internal usage.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setChargeSheetOpen(false)}
-                  className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                  aria-label="Hide products panel"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4 p-4">
-                <div>
-                  <Input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search item"
-                    className="h-10"
-                    leftIcon={<Search className="size-4" />}
-                  />
-                </div>
-
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-3 gap-1">
-                    {BILLING_CLASSIFICATIONS.map((classification) => {
-                      const Icon = classification.icon;
-                      return (
-                        <TabsTrigger key={classification.id} value={classification.id} className="gap-2">
-                          <Icon className="size-4" />
-                          {classification.label}
-                        </TabsTrigger>
-                      );
-                    })}
-                  </TabsList>
-
-                  {BILLING_CLASSIFICATIONS.map((classification) => (
-                    <TabsContent key={classification.id} value={classification.id} className="mt-4">
-                      <div className="grid gap-3">
-                        {visibleCatalog.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
-                            No matching items. Search can use item name, generic or variant name, brand, SKU, barcode, or batch number.
-                          </div>
-                        ) : (
-                          visibleCatalog.map((item) => (
-                            <CatalogItemCard
-                              key={item.id}
-                              item={item}
-                              charges={charges}
-                              inventoryById={inventoryById}
-                              onAdd={() => addCatalogItem(item)}
-                            />
-                          ))
-                        )}
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </div>
-            </section>
-
-          </aside>
         )}
       </div>
 
@@ -2243,6 +2123,7 @@ export default function ServicePOS() {
               <Input
                 value={paymentReference}
                 onChange={(event) => setPaymentReference(event.target.value)}
+                restriction="alphanumeric"
                 placeholder={paymentMethod === 'cash' ? 'Cash receipt or transaction number' : 'Transaction number'}
                 disabled={isPostingPayment || (paymentMethod === 'cash' && cashNoReference)}
                 className="h-10 bg-white"
@@ -2296,19 +2177,108 @@ export default function ServicePOS() {
   );
 }
 
-function VisitSummaryRow({ icon, label, value }) {
-  const Icon = icon;
+function PatientVisitBar({
+  selectedVisit,
+  selectedVisitId,
+  visitOptions,
+  onVisitChange,
+  pendingPaymentCount,
+  prescriptions,
+  charges,
+  inventory,
+  onAddPrescription,
+  invoicePanelOpen,
+  onToggleInvoice,
+}) {
+  const isWalkInSale = selectedVisit?.id === WALK_IN_SALE_ID;
+  const selectedVisitLabel = isWalkInSale
+    ? 'Walk-in Sale'
+    : `${selectedVisit?.petName || 'Patient'} - ${selectedVisit?.visitType || 'Visit'}`;
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
-        <p className="truncate text-sm font-black text-slate-800">{value}</p>
+    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-3 lg:z-20">
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Patient Visit</p>
+          <Select value={selectedVisitId} onValueChange={onVisitChange}>
+            <SelectTrigger className="min-h-11 rounded-full border-slate-200 bg-slate-50 px-3 py-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <PawPrint className="size-4 shrink-0 text-[#155dfc]" />
+                <SelectValue displayValue={selectedVisitLabel} />
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {visitOptions.map((visit) => (
+                <SelectItem key={visit.id} value={visit.id}>
+                  <span className="flex min-w-0 flex-col py-1">
+                    <span className="truncate text-sm font-bold text-slate-900">
+                      {visit.id === WALK_IN_SALE_ID
+                        ? 'Walk-in Sale / Count as visit'
+                        : `${visit.petName} - ${visit.visitType || 'Visit'}`}
+                    </span>
+                    {visit.id !== WALK_IN_SALE_ID && (
+                      <span className="truncate text-xs font-semibold text-slate-500">
+                        {visit.source === 'database' ? `Visit #${visit.visitId}` : visit.id} - Balance {formatPhpCurrency(Math.max(0, Number(visit.total || 0) - Number(visit.paid || 0)))}
+                      </span>
+                    )}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          {pendingPaymentCount > 0 && (
+            <Badge className="border-0 bg-amber-50 text-amber-700">
+              {pendingPaymentCount} pending
+            </Badge>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onToggleInvoice}
+            aria-pressed={invoicePanelOpen}
+            className="h-10 w-full gap-2 sm:w-fit"
+          >
+            <Receipt className="size-4" />
+            {invoicePanelOpen ? 'Hide Invoice' : 'Show Invoice'}
+          </Button>
+        </div>
       </div>
-    </div>
+
+      {prescriptions.length > 0 && (
+        <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 md:grid-cols-2 xl:grid-cols-3">
+          {prescriptions.map((prescription) => {
+            const prescriptionMatches = getPrescriptionInventoryMatches(prescription, inventory, 3);
+            const matchedItem = prescriptionMatches[0]?.item || null;
+            const alreadyAdded = charges.some((charge) => charge.prescriptionId === prescription.id);
+
+            return (
+              <div key={prescription.id} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="truncate text-sm font-black text-slate-900">{formatPrescriptionLine(prescription)}</p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className={`truncate text-xs font-black ${matchedItem ? 'text-green-700' : 'text-amber-700'}`}>
+                    {matchedItem ? `${matchedItem.name} in stock` : 'No inventory match'}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAddPrescription(prescription, matchedItem)}
+                    disabled={!matchedItem || alreadyAdded}
+                    className="h-8 w-full shrink-0 sm:w-fit"
+                  >
+                    <Plus className="size-4" />
+                    {alreadyAdded ? 'Added' : 'Add'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -2377,7 +2347,7 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
     <button
       type="button"
       onClick={onSelect}
-      className={`block w-full p-3 text-left transition ${selected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}`}
+      className={`block w-full p-2.5 text-left transition ${selected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -2389,7 +2359,7 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
               </Badge>
             )}
           </div>
-          <p className="line-clamp-2 text-sm font-black text-slate-900">{charge.name}</p>
+          <p className="line-clamp-2 text-xs font-black text-slate-900">{charge.name}</p>
           <p className="text-xs font-semibold text-slate-500">{formatPhpCurrency(charge.price)} each</p>
         </div>
         <button
@@ -2404,7 +2374,7 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2 flex items-center justify-between gap-3">
         <div className="flex items-center rounded-lg border border-slate-200 bg-white">
           <button
             type="button"
@@ -2412,23 +2382,23 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
               event.stopPropagation();
               onDecrease();
             }}
-            className="flex size-8 items-center justify-center text-slate-600 hover:bg-slate-100"
+            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100"
           >
             <Minus className="size-3.5" />
           </button>
-          <span className="w-9 text-center text-sm font-black text-slate-900">{charge.quantity}</span>
+          <span className="w-8 text-center text-xs font-black text-slate-900">{charge.quantity}</span>
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
               onIncrease();
             }}
-            className="flex size-8 items-center justify-center text-slate-600 hover:bg-slate-100"
+            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100"
           >
             <Plus className="size-3.5" />
           </button>
         </div>
-        <span className="text-base font-black text-[#155dfc]">{formatPhpCurrency(getLineSubtotal(charge))}</span>
+        <span className="text-sm font-black text-[#155dfc]">{formatPhpCurrency(getLineSubtotal(charge))}</span>
       </div>
     </button>
   );

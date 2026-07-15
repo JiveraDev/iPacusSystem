@@ -4,6 +4,7 @@ require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -18,6 +19,18 @@ $bookingId = isset($_GET['bookingId']) ? (int)$_GET['bookingId'] : 0;
 $veterinarianUserId = isset($input['veterinarian_user_id']) ? (int)$input['veterinarian_user_id'] : 0;
 $providedVetName = trim((string)($input['veterinarian_name'] ?? ''));
 $providedServiceName = trim((string)($input['service_name'] ?? ''));
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+if ($currentApiRole === 'veterinarian') {
+    if ($veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
+        http_response_code(403);
+        echo json_encode(['message' => 'Veterinarians can only receive bookings under their own account.']);
+        exit;
+    }
+    $veterinarianUserId = $currentApiUserId;
+}
 
 if ($bookingId <= 0 || $veterinarianUserId <= 0) {
     http_response_code(400);
@@ -177,8 +190,16 @@ try {
     }
 
     if (!$queue) {
-        $maxStmt = $pdo->query("SELECT MAX(queue_number) AS max_num FROM queues WHERE DATE(timestamp) = CURDATE()");
-        $newQueueNumber = ((int)($maxStmt->fetch(PDO::FETCH_ASSOC)['max_num'] ?? 0)) + 1;
+        $maxStmt = $pdo->query("
+            SELECT queue_number
+            FROM queues
+            WHERE timestamp >= CURDATE()
+              AND timestamp < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+            ORDER BY queue_number DESC
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $newQueueNumber = ((int)($maxStmt->fetch(PDO::FETCH_ASSOC)['queue_number'] ?? 0)) + 1;
         $insertColumns = ['pet_id', 'user_id', 'service_name', 'queue_number', 'status', 'priority', 'complaint', 'timestamp'];
         $insertValues = [
             (int)$booking['pet_id'],

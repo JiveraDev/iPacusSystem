@@ -8,6 +8,7 @@ import {
     Hotel,
     Loader2,
     Stethoscope,
+    UserPlus,
     X
 } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -24,6 +25,7 @@ function CategoryIcon({ category, className }) {
     if (category === 'diagnosis_updates') return <Stethoscope className={className} />;
     if (category === 'queue_updates') return <ClipboardList className={className} />;
     if (category === 'boarding_updates') return <Hotel className={className} />;
+    if (category === 'ownership_updates') return <UserPlus className={className} />;
 
     return <Bell className={className} />;
 }

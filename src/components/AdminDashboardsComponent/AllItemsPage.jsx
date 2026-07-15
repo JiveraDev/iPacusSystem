@@ -361,36 +361,36 @@ export default function AllItemsPage() {
 
       {/* Summary Cards & View Toggle */}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
+        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
+            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
               Total Products
             </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#101828]">
+            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#101828]">
               {inventoryItems.length}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
+          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
+            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
               Total Value
             </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#155dfc]">
+            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#155dfc]">
               {formatPhpCurrency(totalValue)}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
+          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
+            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
               Low Stock
             </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#b54708]">
+            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#b54708]">
               {lowStockCount}
             </p>
           </div>
-          <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] mb-1">
+          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
+            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
               Near Expiry
             </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#d92d20]">
+            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#d92d20]">
               {nearExpiryCount}
             </p>
           </div>
@@ -539,93 +539,93 @@ export default function AllItemsPage() {
 
       {/* Content - Card View */}
       {!isLoading && viewMode === 'card' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 hover:shadow-lg transition-shadow cursor-pointer sm:p-6"
+              className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 hover:border-[#155dfc]/30 hover:shadow-md transition cursor-pointer sm:p-4"
               onClick={() => handleItemClick(item)}
             >
               {/* Header */}
-              <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-1">
+                  <h3 className="font-['Arimo:Bold',sans-serif] text-[16px] leading-5 text-[#101828] mb-1 line-clamp-2">
                     {item.name}
                   </h3>
                   {item.genericName && (
-                    <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] leading-4 text-[#4a5565] line-clamp-1">
                       {item.genericName}
                     </p>
                   )}
                 </div>
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff]">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff]">
                   {getCategoryIcon(item.category)}
                 </div>
               </div>
 
               {/* Badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant="secondary" className="text-[12px]">
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <Badge variant="secondary" className="text-[11px]">
                   {item.category}
                 </Badge>
                 {item.isControlled && (
-                  <Badge className="bg-[#ffe6e6] text-[#d92d20] hover:bg-[#ffe6e6] text-[12px]">
+                  <Badge className="bg-[#ffe6e6] text-[#d92d20] hover:bg-[#ffe6e6] text-[11px]">
                     Controlled
                   </Badge>
                 )}
                 {item.requiresPrescription && (
-                  <Badge className="bg-[#fff4e6] text-[#b54708] hover:bg-[#fff4e6] text-[12px]">
+                  <Badge className="bg-[#fff4e6] text-[#b54708] hover:bg-[#fff4e6] text-[11px]">
                     Rx Required
                   </Badge>
                 )}
               </div>
 
               {/* Details */}
-              <div className="space-y-3 mb-4">
+              <div className="space-y-2 mb-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                  <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Brand:
                   </span>
-                  <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
+                  <span className="truncate text-right font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
                     {item.brand}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                  <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Available:
                   </span>
-                  <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
+                  <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
                     {item.quantity} {item.unit}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                  <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     SKU:
                   </span>
-                  <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                  <span className="truncate text-right font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     {item.sku}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
+                  <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Location:
                   </span>
-                  <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
+                  <span className="truncate text-right font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
                     {item.location}
                   </span>
                 </div>
               </div>
 
               {/* Batch Information */}
-              <div className="rounded-[8px] border border-[rgba(0,0,0,0.08)] p-3 mb-4">
-                <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828] mb-2">
+              <div className="rounded-[8px] border border-[rgba(0,0,0,0.08)] p-2.5 mb-3">
+                <p className="font-['Arimo:Bold',sans-serif] text-[11px] text-[#101828] mb-2">
                   Batch Information
                 </p>
-                <div className="max-h-32 space-y-2 overflow-y-auto pr-1">
+                <div className="max-h-24 space-y-2 overflow-y-auto pr-1">
                   {getItemBatches(item, 'newest').map((batch) => (
-                    <div key={batch.id} className="flex items-center justify-between gap-3 text-[12px]">
+                    <div key={batch.id} className="flex items-center justify-between gap-3 text-[11px]">
                       <div>
                         <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">{batch.batchNumber}</p>
                         <p className="font-['Arimo:Regular',sans-serif] text-[#4a5565]">Expires {formatInventoryDate(batch.expiryDate, { compact: true })}</p>
@@ -636,7 +636,7 @@ export default function AllItemsPage() {
                     </div>
                   ))}
                   {getItemBatches(item, 'newest').length === 0 && (
-                    <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
+                    <p className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
                       No available batches
                     </p>
                   )}
@@ -644,7 +644,7 @@ export default function AllItemsPage() {
               </div>
 
               {/* Cost */}
-              <div className="flex justify-between items-center mb-4 pb-4 border-b border-[rgba(0,0,0,0.05)]">
+              <div className="flex justify-between items-center mb-3 pb-3 border-b border-[rgba(0,0,0,0.05)]">
                 <div>
                   <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Unit Cost
@@ -929,6 +929,7 @@ export default function AllItemsPage() {
                         step="0.01"
                         value={editItemForm.unitCost}
                         onChange={(event) => setEditItemForm((current) => ({ ...current, unitCost: event.target.value }))}
+                        restriction="decimal"
                         className="max-w-xs"
                       />
                     ) : (
@@ -1014,6 +1015,7 @@ export default function AllItemsPage() {
                     value={stockOutQuantity}
                     onChange={(event) => setStockOutQuantity(event.target.value)}
                     placeholder={`Enter quantity in ${stockOutItem.unit}`}
+                    restriction="integer"
                     disabled={!selectedStockOutBatch}
                   />
                   {selectedStockOutBatch && (

@@ -14,6 +14,7 @@ import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
 import { resolveImageUrl } from '../../lib/image';
+import DashboardPageHeader from '../shared/DashboardPageHeader';
 
 const PERSONNEL_POSITION_OPTIONS = [
     { value: 'Nurse', label: 'Senior Nurse' },
@@ -285,7 +286,7 @@ export default function AccountManagement() {
     };
 
     const openStatusConfirmation = (user) => {
-        const currentStatus = isAccountActive(user.is_active);
+        const currentStatus = isAccountActive(user.is_active) && !isAccountDeactivated(user);
         setPendingStatusAction({
             userId: user.user_id,
             currentStatus,
@@ -444,7 +445,13 @@ export default function AccountManagement() {
         }
     };
 
-    const getStatusBadge = (status) => {
+    const isAccountDeactivated = (account) => String(account?.account_status || '').toLowerCase() === 'deactivated';
+
+    const getStatusBadge = (status, account) => {
+        if (isAccountDeactivated(account)) {
+            return <Badge className="bg-red-100 text-red-700">Deactivated</Badge>;
+        }
+
         if (isAccountActive(status)) {
             return <Badge className="bg-green-500 text-white">Active</Badge>;
         }
@@ -519,6 +526,10 @@ export default function AccountManagement() {
     };
 
     const getAccountStatus = (account) => {
+        if (isAccountDeactivated(account)) {
+            return 'deactivated';
+        }
+
         if (account.type === 'superadmin') {
             return 'privileged';
         }
@@ -589,11 +600,11 @@ export default function AccountManagement() {
     };
 
     const StatusBadge = ({ account }) => {
-        if (account.type === 'superadmin') {
+        if (account.type === 'superadmin' && !isAccountDeactivated(account)) {
             return <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">Privileged</Badge>;
         }
 
-        return getStatusBadge(account.is_active);
+        return getStatusBadge(account.is_active, account);
     };
 
     const AccountMobileRow = ({ account }) => (
@@ -628,16 +639,17 @@ export default function AccountManagement() {
 
     return (
         <div className="space-y-5">
-            <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-black tracking-tight text-slate-950">Account Management</h1>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">Manage clinic users, profile details, and account access.</p>
-                </div>
-                <Button onClick={() => setShowCreateAccount(true)} className="w-full gap-2 bg-blue-600 text-white sm:w-auto">
-                    <UserPlus className="size-4" />
-                    Create Account
-                </Button>
-            </div>
+            <DashboardPageHeader
+                title="Account Management"
+                description="Manage clinic users, profile details, and account access."
+                layout="stacked"
+                actions={(
+                    <Button onClick={() => setShowCreateAccount(true)} className="h-10 justify-center gap-2 bg-blue-600 text-white">
+                        <UserPlus className="size-4" />
+                        Create Account
+                    </Button>
+                )}
+            />
 
             <Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-4">
@@ -665,17 +677,20 @@ export default function AccountManagement() {
                             <SelectTrigger>
                                 <SelectValue displayValue={
                                     statusFilter === 'all'
-                                        ? 'All access'
+                                        ? 'All status'
                                         : statusFilter === 'active'
                                             ? 'Active'
-                                            : statusFilter === 'disabled'
-                                                ? 'Disabled'
-                                                : 'Privileged'
+                                            : statusFilter === 'deactivated'
+                                                ? 'Deactivated'
+                                                : statusFilter === 'disabled'
+                                                    ? 'Disabled'
+                                                    : 'Privileged'
                                 } />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All access</SelectItem>
+                                <SelectItem value="all">All status</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="deactivated">Deactivated</SelectItem>
                                 <SelectItem value="disabled">Disabled</SelectItem>
                                 <SelectItem value="privileged">Privileged</SelectItem>
                             </SelectContent>
@@ -796,20 +811,20 @@ export default function AccountManagement() {
                             </DialogHeader>
 
                             <div className="space-y-6">
-                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_52%,#f5f3ff_100%)] p-5">
+                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_52%,#f5f3ff_100%)] p-5 dark:border-slate-700 dark:bg-none dark:bg-slate-900">
                                     <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <ProfileAvatar account={selectedUser} type={selectedUser.type} size="modal" />
                                             <div className="min-w-0">
-                                                <h3 className="truncate text-xl font-bold text-gray-900">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
-                                                <p className="text-sm font-semibold text-gray-600">
+                                                <h3 className="truncate text-xl font-bold text-gray-900 dark:text-white">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
+                                                <p className="text-sm font-semibold text-gray-600 dark:text-slate-300">
                                                     {selectedUser.role} - {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : selectedUser.type === 'superadmin' ? displayValue(selectedUser.employee_id, 'Super Admin') : displayValue(selectedUser.employee_id)}
                                                 </p>
                                             </div>
                                         </div>
-                                        {selectedUser.type === 'superadmin' ? (
+                                        {selectedUser.type === 'superadmin' && !isAccountDeactivated(selectedUser) ? (
                                             <Badge className="bg-emerald-50 text-emerald-700">Super Admin</Badge>
-                                        ) : getStatusBadge(selectedUser.is_active)}
+                                        ) : getStatusBadge(selectedUser.is_active, selectedUser)}
                                     </div>
                                 </div>
 
@@ -926,7 +941,7 @@ export default function AccountManagement() {
                                             )
                                         )}
                                         {selectedUser.type !== 'superadmin' && (
-                                            (selectedUser.is_active === 1 || selectedUser.is_active === '1') ? (
+                                            ((selectedUser.is_active === 1 || selectedUser.is_active === '1') && !isAccountDeactivated(selectedUser)) ? (
                                                 <Button
                                                     variant="outline"
                                                     className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
@@ -1134,11 +1149,11 @@ export default function AccountManagement() {
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label className="text-gray-900 mb-2 block">First Name</Label>
-                                <Input placeholder="First Name" required value={createForm.firstName} onChange={(e) => setCreateForm({...createForm, firstName: e.target.value})} className="bg-gray-100" />
+                                <Input placeholder="First Name" required value={createForm.firstName} onChange={(e) => setCreateForm({...createForm, firstName: e.target.value})} restriction="name" className="bg-gray-100" />
                             </div>
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Last Name</Label>
-                                <Input placeholder="Last Name" required value={createForm.lastName} onChange={(e) => setCreateForm({...createForm, lastName: e.target.value})} className="bg-gray-100" />
+                                <Input placeholder="Last Name" required value={createForm.lastName} onChange={(e) => setCreateForm({...createForm, lastName: e.target.value})} restriction="name" className="bg-gray-100" />
                             </div>
                         </div>
 
@@ -1157,7 +1172,7 @@ export default function AccountManagement() {
                             <div className="grid grid-cols-1 gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
                                 <div>
                                     <Label className="text-blue-900">PRC License</Label>
-                                    <Input placeholder="PRC-VET-00000" value={createForm.licenseNumber} onChange={(e) => setCreateForm({...createForm, licenseNumber: e.target.value})} className="bg-white" />
+                                    <Input placeholder="PRC-VET-00000" value={createForm.licenseNumber} onChange={(e) => setCreateForm({...createForm, licenseNumber: e.target.value})} restriction="alphanumeric" className="bg-white" />
                                 </div>
                                 <div>
                                     <Label className="text-blue-900">Specialization</Label>

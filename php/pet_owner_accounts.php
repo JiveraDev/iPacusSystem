@@ -44,9 +44,7 @@ function owner_accounts_column_exists(PDO $pdo, string $table, string $column): 
 
 function owner_accounts_required_status_sql(): string
 {
-    return "ALTER TABLE users ADD COLUMN account_status ENUM('active','deactivated') NOT NULL DEFAULT 'active' AFTER role;\n"
-        . "ALTER TABLE users ADD COLUMN deactivated_at DATETIME NULL AFTER account_status;\n"
-        . "ALTER TABLE users ADD COLUMN deactivation_reason TEXT NULL AFTER deactivated_at;";
+    return 'Run the approved account-status deployment SQL before using account deactivation.';
 }
 
 function owner_accounts_status_supported(PDO $pdo): bool
@@ -78,11 +76,15 @@ function owner_accounts_list(PDO $pdo): void
             {$statusSelect},
             {$deactivatedAtSelect},
             {$reasonSelect},
-            COUNT(DISTINCT po.pet_id) AS pet_count,
+            COUNT(DISTINCT CASE
+                WHEN COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE' THEN po.pet_id
+                ELSE NULL
+            END) AS pet_count,
             COUNT(DISTINCT b.booking_id) AS booking_count,
             COUNT(DISTINCT q.queue_id) AS queue_count
         FROM users u
         LEFT JOIN pet_ownership po ON po.user_id = u.user_id
+        LEFT JOIN pets_information p ON p.pet_id = po.pet_id
         LEFT JOIN bookings b ON b.user_id = u.user_id
         LEFT JOIN queues q ON q.user_id = u.user_id
         WHERE LOWER(TRIM(u.role)) IN ('pet owner', 'pet_owner')
@@ -124,6 +126,7 @@ function owner_accounts_list(PDO $pdo): void
             p.setpetImage_url
         FROM pet_ownership po
         JOIN pets_information p ON p.pet_id = po.pet_id
+        WHERE COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
         ORDER BY p.pet_name ASC
     ");
     foreach ($petStmt->fetchAll(PDO::FETCH_ASSOC) as $pet) {

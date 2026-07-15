@@ -194,6 +194,8 @@ export default function HomeServices() {
       };
       reader.readAsDataURL(file);
     });
+
+    e.target.value = "";
   };
 
   const handleRemoveImage = (index) => {
@@ -362,7 +364,7 @@ export default function HomeServices() {
                 <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                   <h3 className="font-semibold text-blue-900 text-sm">New Pet Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input placeholder="Pet Name *" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
+                    <Input placeholder="Pet Name *" restriction="name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
                     <Select value={newPetSpecies} onValueChange={setNewPetSpecies}>
                       <SelectTrigger><SelectValue placeholder="Species *" /></SelectTrigger>
                       <SelectContent>
@@ -372,9 +374,9 @@ export default function HomeServices() {
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Breed *" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
-                    <Input placeholder="Age *" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
-                    <Input placeholder="Weight (Optional)" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
+                    <Input placeholder="Breed *" restriction="name" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
+                    <Input placeholder="Age *" restriction="integer" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
+                    <Input placeholder="Weight (Optional)" restriction="decimal" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
                   </div>
                 </div>
               )}
@@ -499,23 +501,34 @@ export default function HomeServices() {
                 <Label>Pet Photos / Concerns (Optional)</Label>
                 <div className="rounded-xl border-2 border-dashed bg-gray-50/50 p-4 text-center transition-colors hover:border-blue-400 sm:p-8">
                   <input type="file" id="hsImageUpload" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                  {uploadedImages.length > 0 && (
+                    <div className="mb-4 grid grid-cols-2 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6">
+                      {uploadedImages.map((img, i) => (
+                        <div key={`${img}-${i}`} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <img
+                            src={img}
+                            alt={`Uploaded concern ${i + 1}`}
+                            className="size-full cursor-zoom-in object-cover"
+                            onClick={() => setViewingImage(img)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(i)}
+                            className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
+                            aria-label="Remove uploaded photo"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <label htmlFor="hsImageUpload" className="cursor-pointer">
                     <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium">Click to upload photos</p>
+                    <p className="text-sm font-medium">{uploadedImages.length > 0 ? "Add more photos" : "Click to upload photos"}</p>
                     <p className="text-xs text-gray-500 mt-1">Images of your pet or specific concerns help us prepare</p>
                   </label>
                 </div>
-
-                {uploadedImages.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6">
-                    {uploadedImages.map((img, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
-                        <img src={img} className="w-full h-full object-cover" onClick={() => setViewingImage(img)} />
-                        <button onClick={() => handleRemoveImage(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5"><X className="h-3 w-3" /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">

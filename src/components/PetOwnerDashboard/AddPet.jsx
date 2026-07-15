@@ -25,7 +25,7 @@ export default function AddPet() {
 
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-      const userId = currentUser.id;
+      const userId = currentUser.id || currentUser.user_id || currentUser.userId;
 
       if (!userId) {
         toast.error("User session not found. Please log in again.");
@@ -33,8 +33,14 @@ export default function AddPet() {
         return;
       }
 
-      await linkPetService(userId, petId.trim());
-      
+      const result = await linkPetService(userId, petId.trim());
+
+      if (result?.requiresApproval) {
+        toast.success(result.message || "Co-parent request sent to the primary owner.");
+        setPetId("");
+        return;
+      }
+
       toast.success("Pet ID linked successfully!");
       navigate("/dashboard/my-pets");
     } catch (error) {
@@ -86,6 +92,7 @@ export default function AddPet() {
                 id="petId"
 
                 placeholder="Enter the ID provided by the clinic (e.g., PET-1-IPAWCUS)"
+                restriction="alphanumeric"
                 value={petId}
                 onChange={(e) => setPetId(e.target.value)}
                 className="text-lg h-12 uppercase"
@@ -100,10 +107,10 @@ export default function AddPet() {
             <div className="bg-gray-50 p-4 rounded-lg space-y-2">
               <h4 className="font-semibold text-gray-900">What happens next?</h4>
               <ul className="text-sm text-gray-700 space-y-1">
-                <li>✓ Your pet will be linked to your account immediately</li>
-                <li>✓ You can view and track your pet's medical records</li>
-                <li>✓ Book consultations and services for your pet</li>
-                <li>✓ Receive notifications about appointments and medications</li>
+                <li>Your pet links immediately when it has no primary owner yet</li>
+                <li>If it already has a primary owner, a co-parent approval request is sent</li>
+                <li>You can view and track medical records after access is approved</li>
+                <li>You will receive notifications about appointments and medications</li>
               </ul>
             </div>
 

@@ -361,6 +361,7 @@ export default function PetOwnerProfile({ onLogout }) {
                       id="firstName"
                       value={profileData.firstName}
                       onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                      restriction="name"
                       disabled={!isEditingProfile || isSaving}
                       className={inputClass}
                       placeholder="First Name"
@@ -372,6 +373,7 @@ export default function PetOwnerProfile({ onLogout }) {
                       id="lastName"
                       value={profileData.lastName}
                       onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                      restriction="name"
                       disabled={!isEditingProfile || isSaving}
                       className={inputClass}
                       placeholder="Last Name"
@@ -397,6 +399,7 @@ export default function PetOwnerProfile({ onLogout }) {
                       }}
                       disabled={!isEditingProfile || isSaving}
                       inputMode="tel"
+                      restriction="phone"
                       maxLength={13}
                       className={`${inputClass} ${phoneError ? "border-red-500" : ""}`}
                       placeholder="+639"

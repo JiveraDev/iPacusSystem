@@ -17,6 +17,10 @@ export function updateServiceCatalogMaterials(serviceId, payload) {
     return postJson(`/service-catalog/${serviceId}/materials`, payload);
 }
 
-export function deleteServiceCatalogItem(serviceId) {
+export function deactivateServiceCatalogItem(serviceId) {
     return deleteRequest(`/service-catalog/${serviceId}`);
+}
+
+export function deleteServiceCatalogItem(serviceId) {
+    return deleteRequest(`/service-catalog/${serviceId}?hardDelete=1`);
 }

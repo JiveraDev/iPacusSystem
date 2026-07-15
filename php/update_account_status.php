@@ -45,6 +45,27 @@ try {
     
     $stmt->execute([$isActive, $userId]);
 
+    if ($isActive && accountColumnExists($pdo, 'users', 'account_status')) {
+        $reactivateColumns = ['account_status = ?'];
+        $reactivateParams = ['active'];
+
+        if (accountColumnExists($pdo, 'users', 'deactivated_at')) {
+            $reactivateColumns[] = 'deactivated_at = NULL';
+        }
+
+        if (accountColumnExists($pdo, 'users', 'deactivated_by_user_id')) {
+            $reactivateColumns[] = 'deactivated_by_user_id = NULL';
+        }
+
+        if (accountColumnExists($pdo, 'users', 'deactivation_reason')) {
+            $reactivateColumns[] = 'deactivation_reason = NULL';
+        }
+
+        $reactivateParams[] = $userId;
+        $reactivateStmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $reactivateColumns) . ' WHERE user_id = ?');
+        $reactivateStmt->execute($reactivateParams);
+    }
+
     echo json_encode([
         'message' => 'Account status updated successfully.',
         'user_id' => (int)$userId,

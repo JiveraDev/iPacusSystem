@@ -20,19 +20,16 @@ function ipawcus_access_ensure_schema(PDO $pdo): void
         return;
     }
 
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS api_access_tokens (
-            token_id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            token_hash CHAR(64) NOT NULL UNIQUE,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            expires_at DATETIME NOT NULL,
-            last_used_at DATETIME NULL,
-            revoked_at DATETIME NULL,
-            KEY api_access_tokens_user_idx (user_id),
-            KEY api_access_tokens_expires_idx (expires_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'api_access_tokens'
     ");
+    $stmt->execute();
+    if ((int)$stmt->fetchColumn() === 0) {
+        throw new RuntimeException('API access token table is missing. No runtime schema changes were attempted.');
+    }
 
     $ensured = true;
 }

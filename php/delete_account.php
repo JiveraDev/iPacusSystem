@@ -28,9 +28,7 @@ function delete_account_column_exists(PDO $pdo, string $table, string $column): 
 
 function delete_account_required_sql(): string
 {
-    return "ALTER TABLE users ADD COLUMN account_status ENUM('active','deactivated') NOT NULL DEFAULT 'active' AFTER role;\n"
-        . "ALTER TABLE users ADD COLUMN deactivated_at DATETIME NULL AFTER account_status;\n"
-        . "ALTER TABLE users ADD COLUMN deactivation_reason TEXT NULL AFTER deactivated_at;";
+    return 'Run the approved account-status deployment SQL before removing accounts from active use.';
 }
 
 function delete_account_normalize_role(?string $role): string

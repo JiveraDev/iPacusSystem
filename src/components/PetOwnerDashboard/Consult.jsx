@@ -9,8 +9,6 @@ import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchUserBookings } from "../../services/bookingService";
 import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
 
-const DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE = true;
-
 function parseConsultDateTime(consultation) {
   if (!consultation?.date) {
     return null;
@@ -190,9 +188,7 @@ export default function Consult() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">Your Recent Consultations</h2>
           <div className="space-y-4">
             {upcomingConsultations.map((consultation) => {
-              const canJoinConsultation = consultation.status === 'confirmed' && (
-                DEBUG_ALLOW_JOIN_OUTSIDE_SCHEDULE || isUpcomingConsultation(consultation)
-              );
+              const canJoinConsultation = consultation.status === 'confirmed' && isUpcomingConsultation(consultation);
               const isJoining = joiningConsultationId === consultation.id;
 
               return (

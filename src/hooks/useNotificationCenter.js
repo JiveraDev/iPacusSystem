@@ -39,6 +39,10 @@ const CATEGORY_META = {
     boarding_updates: {
         label: 'Boarding',
         tone: 'bg-cyan-50 text-cyan-700'
+    },
+    ownership_updates: {
+        label: 'Ownership',
+        tone: 'bg-indigo-50 text-indigo-700'
     }
 };
 

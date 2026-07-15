@@ -10,7 +10,7 @@ import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePh
 
 function normalizeNameInput(value) {
     return String(value || '')
-        .replace(/[^A-Za-z\s]/g, '')
+        .replace(/[^\p{L}\p{M} .'-]/gu, '')
         .replace(/\s{2,}/g, ' ')
         .replace(/^\s+/, '');
 }
@@ -220,6 +220,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     <Input
                                         id="firstName"
                                         placeholder="Juan"
+                                        restriction="name"
                                         value={formData.firstName}
                                         onChange={e => handleChange("firstName", e.target.value)}
                                         className={`bg-gray-100 border-gray-300 ${
@@ -244,6 +245,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     <Input
                                         id="lastName"
                                         placeholder="Dela Cruz"
+                                        restriction="name"
                                         value={formData.lastName}
                                         onChange={e => handleChange("lastName", e.target.value)}
                                         className={`bg-gray-100 border-gray-300 ${
@@ -292,6 +294,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     <Input
                                         id="phoneNumber"
                                         inputMode="tel"
+                                        restriction="phone"
                                         maxLength={13}
                                         placeholder="+639"
                                         value={formData.phoneNumber}
@@ -373,6 +376,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                     <Input
                                         id="emergencyContact"
                                         inputMode="tel"
+                                        restriction="phone"
                                         maxLength={13}
                                         placeholder="+639"
                                         value={formData.emergencyContact}

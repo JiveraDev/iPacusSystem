@@ -4,6 +4,7 @@ async function postAuth(path, payload) {
     const response = await apiFetch(path, {
         apiPrefix: true,
         method: "POST",
+        suppressServerUnavailable: true,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
     });

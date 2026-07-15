@@ -3,7 +3,6 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
-    Eye,
     FileText,
     Loader2,
     RefreshCw,
@@ -176,6 +175,7 @@ export default function VetMyList() {
     const [signatureImage, setSignatureImage] = useState(null);
     const [uploadedFileName, setUploadedFileName] = useState('');
     const [previewUrl, setPreviewUrl] = useState('');
+    const [completedViewMode, setCompletedViewMode] = useState('table');
 
     useEffect(() => {
         localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(consentRecords));
@@ -637,11 +637,6 @@ export default function VetMyList() {
         navigate('/dashboard/vet/diagnosis');
     };
 
-    const viewRecord = (item) => {
-        cacheDiagnosisContext(item, 'view');
-        navigate('/dashboard/vet/diagnosis');
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -719,20 +714,47 @@ export default function VetMyList() {
             </section>
 
             <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">Done</h3>
-                    <Badge className="border-0 bg-green-50 text-green-700">{filteredCompletedItems.length} patients</Badge>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-bold text-slate-900">Done</h3>
+                        <Badge className="border-0 bg-green-50 text-green-700">{filteredCompletedItems.length} patients</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
+                        <Button
+                            type="button"
+                            variant={completedViewMode === 'table' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCompletedViewMode('table')}
+                            className={completedViewMode === 'table' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
+                        >
+                            Table
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={completedViewMode === 'cards' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCompletedViewMode('cards')}
+                            className={completedViewMode === 'cards' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
+                        >
+                            Cards
+                        </Button>
+                    </div>
                 </div>
 
                 {filteredCompletedItems.length === 0 ? (
                     <EmptyState message="No completed queue patients Today." compact />
+                ) : completedViewMode === 'cards' ? (
+                    <CompletedPatientsCards
+                        items={filteredCompletedItems}
+                        getConsentRecord={getConsentRecord}
+                        updatingQueueId={updatingQueueId}
+                        onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
+                    />
                 ) : (
                     <CompletedPatientsTable
                         items={filteredCompletedItems}
                         getConsentRecord={getConsentRecord}
                         updatingQueueId={updatingQueueId}
-                        onView={viewRecord}
-                        onUploadConsent={openUploadDialog}
                         onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
                     />
                 )}
@@ -1001,7 +1023,53 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
     );
 }
 
-function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onView, onUploadConsent, onReopen }) {
+function CompletedPatientsCards({ items, getConsentRecord, updatingQueueId, onReopen }) {
+    return (
+        <div className="grid gap-3 lg:grid-cols-2">
+            {items.map((item) => {
+                const consentRecord = getConsentRecord(item);
+                const isUpdating = updatingQueueId === item.queue_id;
+
+                return (
+                    <div key={item.queue_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
+                                    {getConsentBadge(consentRecord)}
+                                </div>
+                                <h4 className="mt-3 truncate text-lg font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</h4>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">{ownerName(item)}</p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
+                                </p>
+                            </div>
+                            <Button type="button" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} className="w-full gap-1 bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
+                                {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
+                                Reopen
+                            </Button>
+                        </div>
+                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Service</p>
+                                <p className="mt-1 font-semibold text-slate-700">{getServiceDisplayName(item.service_name, 'Queue')}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Completed</p>
+                                <p className="mt-1 font-semibold text-slate-700">{formatQueueTime(item.completed_at || item.timestamp)}</p>
+                            </div>
+                        </div>
+                        {item.complaint && (
+                            <p className="mt-3 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{item.complaint}</p>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onReopen }) {
     return (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
@@ -1019,7 +1087,6 @@ function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onVi
                     <tbody className="divide-y divide-slate-100">
                         {items.map((item) => {
                             const consentRecord = getConsentRecord(item);
-                            const hasConsent = Boolean(consentRecord?.signedAt);
                             const isUpdating = updatingQueueId === item.queue_id;
 
                             return (
@@ -1048,16 +1115,6 @@ function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onVi
                                     </td>
                                     <td className="px-4 py-4">
                                         <div className="flex justify-end gap-2">
-                                            <Button type="button" variant="outline" size="sm" onClick={() => onView(item)} className="gap-1">
-                                                <Eye className="size-4" />
-                                                View
-                                            </Button>
-                                            {!hasConsent && (
-                                                <Button type="button" variant="outline" size="sm" onClick={() => onUploadConsent(item)} className="gap-1">
-                                                    <Upload className="size-4" />
-                                                    Consent
-                                                </Button>
-                                            )}
                                             <Button type="button" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} className="gap-1 bg-slate-900 text-white hover:bg-slate-800">
                                                 {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
                                                 Reopen

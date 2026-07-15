@@ -175,7 +175,8 @@ function visibleCalendarRange(date, view) {
     }
 
     if (view === Views.AGENDA) {
-        return { start: startOfDay(date), end: endOfDay(addDays(date, 30)) };
+        const today = new Date();
+        return { start: startOfDay(today), end: endOfDay(addDays(today, 30)) };
     }
 
     return calendarRange(date);
@@ -191,7 +192,8 @@ function calendarTitle(date, view) {
     }
 
     if (view === Views.AGENDA) {
-        return 'Upcoming Schedule';
+        const today = new Date();
+        return `Upcoming Schedule - ${format(today, 'MMMM yyyy')}`;
     }
 
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -503,6 +505,10 @@ export default function Todos({ user }) {
     };
 
     const navigateCalendar = (action) => {
+        if (calendarView === Views.AGENDA) {
+            return;
+        }
+
         if (action === 'TODAY') {
             const today = new Date();
             setCalendarDate(today);
@@ -512,7 +518,7 @@ export default function Todos({ user }) {
 
         const direction = action === 'PREV' ? -1 : 1;
         setCalendarDate(current => {
-            if (calendarView === Views.MONTH || calendarView === Views.AGENDA) {
+            if (calendarView === Views.MONTH) {
                 return new Date(current.getFullYear(), current.getMonth() + direction, 1);
             }
 
@@ -553,10 +559,25 @@ export default function Todos({ user }) {
 
     const handleViewChange = (view) => {
         setCalendarView(view);
+        if (view === Views.AGENDA) {
+            setCalendarDate(new Date());
+        }
     };
 
     const eventPropGetter = (event) => {
         const task = event.resource;
+        if (calendarView === Views.AGENDA) {
+            return {
+                className: 'todo-agenda-event-plain',
+                style: {
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                    color: 'var(--theme-text)',
+                    opacity: isTaskDone(task) ? 0.72 : 1
+                }
+            };
+        }
+
         const color = CATEGORY_COLORS[task.category] || CATEGORY_COLORS[task.source === 'personal' ? 'Personal Task' : 'Other'];
 
         return {
@@ -618,26 +639,26 @@ export default function Todos({ user }) {
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                            <div className="grid grid-cols-4 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                            <div className="grid w-full grid-cols-4 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:w-auto">
                                 {CALENDAR_VIEWS.map(option => (
                                     <button
                                         key={option.value}
                                         type="button"
                                         onClick={() => handleViewChange(option.value)}
-                                        className={`h-9 rounded-md px-3 text-xs font-black transition ${calendarView === option.value ? 'bg-white text-[#155dfc] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                        className={`h-9 rounded-md px-2 text-xs font-black transition sm:px-3 ${calendarView === option.value ? 'bg-white text-[#155dfc] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                                     >
                                         {option.label}
                                     </button>
                                 ))}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('PREV')} aria-label="Previous period">
+                            <div className="grid w-full grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:flex sm:w-auto">
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('PREV')} disabled={calendarView === Views.AGENDA} aria-label="Previous period">
                                     <ChevronLeft className="size-4" />
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('TODAY')}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('TODAY')} disabled={calendarView === Views.AGENDA}>
                                     Today
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('NEXT')} aria-label="Next period">
+                                <Button type="button" variant="outline" size="sm" onClick={() => navigateCalendar('NEXT')} disabled={calendarView === Views.AGENDA} aria-label="Next period">
                                     <ChevronRight className="size-4" />
                                 </Button>
                             </div>
@@ -656,9 +677,10 @@ export default function Todos({ user }) {
                             <Calendar
                                 localizer={calendarLocalizer}
                                 events={calendarEvents}
-                                date={calendarDate}
+                                date={calendarView === Views.AGENDA ? startOfDay(new Date()) : calendarDate}
                                 view={calendarView}
                                 views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+                                length={31}
                                 toolbar={false}
                                 selectable="ignoreEvents"
                                 popup
@@ -672,8 +694,13 @@ export default function Todos({ user }) {
                                 onSelectSlot={handleSelectSlot}
                                 eventPropGetter={eventPropGetter}
                                 dayPropGetter={dayPropGetter}
+                                messages={{
+                                    noEventsInRange: calendarView === Views.AGENDA
+                                        ? 'No upcoming schedules from today.'
+                                        : 'No schedules in this calendar range.'
+                                }}
                                 components={{ event: CalendarEvent }}
-                                className="todo-rbc"
+                                className={`todo-rbc todo-rbc-${calendarView}`}
                             />
                         )}
                     </div>

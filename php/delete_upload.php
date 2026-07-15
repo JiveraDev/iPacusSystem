@@ -2,6 +2,11 @@
 // Delete generated upload files by relative public path.
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/db.php';
+
+$pdo = ipawcus_get_pdo();
+ipawcus_guard_current_user($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DELETE') {
     http_response_code(405);

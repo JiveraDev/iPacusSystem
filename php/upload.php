@@ -2,6 +2,12 @@
 // Handle file upload
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/db.php';
+
+$pdo = ipawcus_get_pdo();
+$currentUser = ipawcus_guard_current_user($pdo);
+$currentRole = ipawcus_guard_role($currentUser);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -17,8 +23,44 @@ if (!isset($_FILES['image']) && !isset($_FILES['file'])) {
 
 $file = $_FILES['image'] ?? $_FILES['file'];
 $type = $_POST['type'] ?? 'user'; // 'user' or 'pet'
-$safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', basename($file['name']));
-$fileName = time() . '_' . $safeName;
+$allowedUploadTypesByRole = [
+    'pet_owner' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern'],
+    'veterinarian' => ['user', 'booking_signature', 'booking_concern', 'diagnosis'],
+    'admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt'],
+    'super_admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt'],
+];
+$allowedUploadTypes = $allowedUploadTypesByRole[$currentRole] ?? [];
+
+if (!in_array($type, $allowedUploadTypes, true)) {
+    http_response_code(403);
+    echo json_encode(['message' => 'Your role is not allowed to upload this file type.']);
+    exit;
+}
+
+$originalName = (string)($file['name'] ?? 'upload');
+$extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+$maxBytes = 8 * 1024 * 1024;
+$imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+$documentExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
+$blockedExtensions = ['php', 'phtml', 'phar', 'cgi', 'pl', 'asp', 'aspx', 'jsp', 'js', 'html', 'htm', 'sh', 'bat', 'cmd', 'exe', 'dll'];
+
+if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Upload failed before the file reached the server.']);
+    exit;
+}
+
+if (($file['size'] ?? 0) <= 0 || ($file['size'] ?? 0) > $maxBytes) {
+    http_response_code(422);
+    echo json_encode(['message' => 'File must be greater than 0 bytes and no larger than 8 MB.']);
+    exit;
+}
+
+if (in_array($extension, $blockedExtensions, true)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Executable uploads are not allowed.']);
+    exit;
+}
 
 // Use relative paths for better portability
 // We store them in the public folder, but for the URL, 
@@ -55,10 +97,45 @@ if ($type === 'pet') {
     $urlPath = "uploads/";
 }
 
-if (!is_dir($targetDir)) {
-    mkdir($targetDir, 0777, true);
+$documentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern'];
+$allowedExtensions = in_array($type, $documentUploadTypes, true)
+    ? $documentExtensions
+    : $imageExtensions;
+if (!in_array($extension, $allowedExtensions, true)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Unsupported file extension for this upload type.']);
+    exit;
 }
 
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$mimeType = $finfo->file($file['tmp_name']) ?: 'application/octet-stream';
+$allowedMimes = [
+    'jpg' => ['image/jpeg'],
+    'jpeg' => ['image/jpeg'],
+    'png' => ['image/png'],
+    'gif' => ['image/gif'],
+    'webp' => ['image/webp'],
+    'pdf' => ['application/pdf'],
+];
+
+if (!in_array($mimeType, $allowedMimes[$extension] ?? [], true)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Uploaded file content does not match its extension.']);
+    exit;
+}
+
+if (!is_dir($targetDir)) {
+    mkdir($targetDir, 0755, true);
+}
+
+$targetRoot = realpath($targetDir);
+if ($targetRoot === false) {
+    http_response_code(500);
+    echo json_encode(['message' => 'Upload directory is not available.']);
+    exit;
+}
+
+$fileName = date('YmdHis') . '_' . bin2hex(random_bytes(12)) . '.' . $extension;
 $targetFile = $targetDir . $fileName;
 
 if (move_uploaded_file($file['tmp_name'], $targetFile)) {
@@ -68,12 +145,14 @@ if (move_uploaded_file($file['tmp_name'], $targetFile)) {
     
     // We return a path relative to the PROJECT ROOT (Vite Root)
     $relativeUrl = $urlPath . $fileName;
+    $protectedUrl = "/api/uploads/media/" . $relativeUrl;
     
     echo json_encode([
         'message' => 'File uploaded successfully.',
-        'url' => '/' . $relativeUrl,
+        'url' => $protectedUrl,
         'relative_url' => $relativeUrl,
-        'full_url' => $protocol . "://" . $host . '/' . $relativeUrl
+        'protected_url' => $protectedUrl,
+        'full_url' => $protocol . "://" . $host . $protectedUrl
     ]);
 } else {
     http_response_code(500);

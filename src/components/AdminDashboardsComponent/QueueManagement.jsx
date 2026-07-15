@@ -12,6 +12,7 @@ import { formatDisplayDateTime } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchAccounts } from '../../services/accountService';
 import {
@@ -440,7 +441,7 @@ export default function QueueManagement() {
                                                                     className="relative group w-32 h-32 sm:w-40 sm:h-40 rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm cursor-pointer"
                                                                     onClick={() => setViewingImage({ src: resolveImageUrl(item.image_path), alt: item.pet_name })}
                                                                 >
-                                                                    <img src={resolveImageUrl(item.image_path)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Concern" />
+                                                                    <ProtectedImage src={item.image_path} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Concern" />
                                                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                         <ImageIcon className="text-white size-5" />
                                                                     </div>

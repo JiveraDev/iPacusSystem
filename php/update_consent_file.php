@@ -38,9 +38,11 @@ try {
         $params[] = $input['category'];
     }
 
+    $normalizedPetOwnerContexts = null;
     if (array_key_exists('pet_owner_contexts', $input)) {
+        $normalizedPetOwnerContexts = consent_file_normalize_contexts($input['pet_owner_contexts']);
         $fields[] = 'pet_owner_contexts = ?';
-        $params[] = consent_file_normalize_contexts($input['pet_owner_contexts']);
+        $params[] = $normalizedPetOwnerContexts;
     }
 
     if (empty($fields)) {
@@ -52,6 +54,10 @@ try {
     $params[] = $fileId;
     $stmt = $pdo->prepare('UPDATE consent_files SET ' . implode(', ', $fields) . ' WHERE file_id = ?');
     $stmt->execute($params);
+
+    if ($normalizedPetOwnerContexts !== null) {
+        consent_file_enforce_unique_context($pdo, $normalizedPetOwnerContexts, (int)$fileId);
+    }
 
     echo json_encode(['message' => 'Consent file updated successfully.']);
 } catch (Exception $e) {

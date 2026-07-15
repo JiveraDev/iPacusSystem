@@ -270,8 +270,8 @@ export default function ProfileManagement({ onLogout }) {
                             <section>
                                 <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Personal Information</h3>
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                    <ProfileInput label="First Name" icon={User} value={profile.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, firstName: value })} />
-                                    <ProfileInput label="Last Name" icon={User} value={profile.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, lastName: value })} />
+                                    <ProfileInput label="First Name" icon={User} value={profile.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, firstName: value })} restriction="name" />
+                                    <ProfileInput label="Last Name" icon={User} value={profile.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, lastName: value })} restriction="name" />
                                     <ProfileInput label="Email Address" icon={Mail} type="email" value={profile.email} disabled={!isEditing || isSaving} onChange={(value) => setProfile({ ...profile, email: value })} />
                                     <ProfileInput
                                         label="Phone Number"
@@ -283,6 +283,7 @@ export default function ProfileManagement({ onLogout }) {
                                             setProfile({ ...profile, phone: normalizePhilippinePhoneInput(value) });
                                         }}
                                         inputMode="tel"
+                                        restriction="phone"
                                         maxLength={13}
                                         placeholder="+639"
                                         error={phoneError}
@@ -407,7 +408,7 @@ export default function ProfileManagement({ onLogout }) {
     );
 }
 
-function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '', inputMode, maxLength, placeholder = '', error = '' }) {
+function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '', inputMode, restriction, maxLength, placeholder = '', error = '' }) {
     const iconElement = icon ? createElement(icon, { className: 'size-4' }) : null;
 
     return (
@@ -422,6 +423,7 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
                 inputMode={inputMode}
+                restriction={restriction}
                 maxLength={maxLength}
                 placeholder={placeholder}
                 className={`h-11 ${error ? 'border-red-500' : ''}`}

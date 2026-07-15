@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Ban, CheckCircle, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, Search, ShieldAlert, Trash2, UserRound } from 'lucide-react';
+import { Ban, CheckCircle, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -10,6 +10,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { fetchPetOwnerAccounts, removePetOwnerOwnership, updatePetOwnerStatus } from '../../services/accountService';
 import { resolveImageUrl } from '../../lib/image';
+import DashboardPageHeader from '../shared/DashboardPageHeader';
 
 function ownerName(owner) {
     return `${owner.first_Name || ''} ${owner.last_Name || ''}`.trim() || owner.mail_Address || 'Pet Owner';
@@ -262,24 +263,17 @@ export default function PetOwnerAccountsManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_48%,#f0fdf4_100%)] p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <div className="mb-3 flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
-                            <UserRound className="size-3.5" />
-                            Owner Account Control
-                        </div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-950">Pet Owners</h1>
-                        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                            Review owner accounts, owned pets, booking/queue activity, account status, and ownership links.
-                        </p>
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="gap-2 bg-white">
+            <DashboardPageHeader
+                title="Pet Owners"
+                description="Review owner accounts, owned pets, booking/queue activity, account status, and ownership links."
+                layout="stacked"
+                actions={(
+                    <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap">
                         {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                         Refresh
                     </Button>
-                </div>
-            </div>
+                )}
+            />
 
             {!statusSupported ? (
                 <Card className="border-amber-200 bg-amber-50 shadow-none">
@@ -459,7 +453,7 @@ export default function PetOwnerAccountsManagement() {
                     {selectedOwner ? (
                         <>
                             <DialogHeader className="text-left">
-                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5">
+                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 dark:border-slate-700 dark:bg-none dark:bg-slate-900">
                                     <div className="flex flex-col gap-5 md:flex-row md:items-start">
                                         <OwnerAvatar owner={selectedOwner} className="size-24 shrink-0 rounded-2xl object-cover text-2xl shadow-sm" />
                                         <div className="min-w-0 flex-1">
@@ -467,11 +461,11 @@ export default function PetOwnerAccountsManagement() {
                                                 <StatusBadge owner={selectedOwner} />
                                                 <Badge className="border-0 bg-blue-50 text-[#155dfc]">Owner ID #{selectedOwner.user_id}</Badge>
                                             </div>
-                                            <DialogTitle className="text-2xl font-black tracking-tight text-slate-950">{ownerName(selectedOwner)}</DialogTitle>
-                                            <DialogDescription className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                                            <DialogTitle className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">{ownerName(selectedOwner)}</DialogTitle>
+                                            <DialogDescription className="mt-1 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
                                                 Pet owner profile, linked pets, and account controls.
                                             </DialogDescription>
-                                            <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 md:grid-cols-2">
+                                            <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 md:grid-cols-2">
                                                 <div className="flex min-w-0 items-center gap-2">
                                                     <Mail className="size-4 shrink-0 text-slate-400" />
                                                     <span className="truncate">{cleanValue(selectedOwner.mail_Address, 'No email')}</span>

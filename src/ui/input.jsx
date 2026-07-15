@@ -1,5 +1,5 @@
 import * as React from "react";
-import { DatePickerInput } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "./utils";
@@ -49,6 +49,91 @@ function normalizeDateValue(value) {
   return "";
 }
 
+function isValidDateParts(year, month, day) {
+  const date = new Date(year, month - 1, day);
+
+  return date.getFullYear() === year
+    && date.getMonth() === month - 1
+    && date.getDate() === day;
+}
+
+function parseManualDateValue(value) {
+  const text = String(value || "").trim();
+  let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+
+  if (!match) {
+    match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (match) {
+      const month = Number(match[1]);
+      const day = Number(match[2]);
+      const year = Number(match[3]);
+      return isValidDateParts(year, month, day) ? new Date(year, month - 1, day) : null;
+    }
+  }
+
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    return isValidDateParts(year, month, day) ? new Date(year, month - 1, day) : null;
+  }
+
+  return null;
+}
+
+function normalizeDecimalText(value) {
+  const text = String(value || "").replace(/[^\d.]/g, "");
+  const dotIndex = text.indexOf(".");
+
+  if (dotIndex === -1) {
+    return text;
+  }
+
+  return `${text.slice(0, dotIndex + 1)}${text.slice(dotIndex + 1).replace(/\./g, "")}`;
+}
+
+function restrictTextValue(value, restriction) {
+  const text = String(value || "");
+
+  if (restriction === "name") {
+    return text.replace(/[^\p{L}\p{M} .'-]/gu, "").replace(/\s{2,}/g, " ");
+  }
+
+  if (restriction === "integer" || restriction === "digits" || restriction === "phone") {
+    return text.replace(/\D/g, "");
+  }
+
+  if (restriction === "decimal") {
+    return normalizeDecimalText(text);
+  }
+
+  if (restriction === "alphanumeric") {
+    return text.replace(/[^A-Za-z0-9 _/-]/g, "");
+  }
+
+  return text;
+}
+
+function inputModeForRestriction(restriction, inputMode) {
+  if (inputMode) {
+    return inputMode;
+  }
+
+  if (restriction === "integer" || restriction === "digits") {
+    return "numeric";
+  }
+
+  if (restriction === "phone") {
+    return "tel";
+  }
+
+  if (restriction === "decimal") {
+    return "decimal";
+  }
+
+  return undefined;
+}
+
 function createChangeEvent({ value, name, id }) {
   return {
     target: { value, name, id },
@@ -70,9 +155,11 @@ const Input = React.forwardRef(({
   name,
   id,
   placeholder,
+  inputMode,
   disabled,
   required,
   readOnly,
+  restriction,
   ...props
 }, ref) => {
   if (type === "date") {
@@ -82,17 +169,19 @@ const Input = React.forwardRef(({
       : { defaultValue: normalizeDateValue(defaultValue) || null };
 
     return (
-      <DatePickerInput
+      <DateInput
         ref={ref}
         id={id}
         name={name}
-        placeholder={placeholder || "Select date"}
+        placeholder={placeholder || "MM/DD/YYYY"}
+        dateParser={parseManualDateValue}
         valueFormat="MM/DD/YYYY"
         minDate={normalizeDateValue(min) || undefined}
         maxDate={normalizeDateValue(max) || undefined}
         disabled={disabled}
         required={required}
         readOnly={readOnly}
+        allowDeselect={!required}
         leftSection={leftIcon || undefined}
         leftSectionPointerEvents="none"
         rightSection={rightIcon || <CalendarIcon className="size-4" />}
@@ -135,13 +224,22 @@ const Input = React.forwardRef(({
       name={name}
       value={value}
       defaultValue={defaultValue}
-      onChange={onChange}
+      onChange={(event) => {
+        if (restriction) {
+          const nextValue = restrictTextValue(event.target.value, restriction);
+          if (event.target.value !== nextValue) {
+            event.target.value = nextValue;
+          }
+        }
+        onChange?.(event);
+      }}
       min={min}
       max={max}
       placeholder={placeholder}
       disabled={disabled}
       required={required}
       readOnly={readOnly}
+      inputMode={inputModeForRestriction(restriction, inputMode)}
       className={cn(
         inputBaseClasses,
         leftIcon && "pl-10",

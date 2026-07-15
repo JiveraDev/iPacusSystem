@@ -41,6 +41,10 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/role_access.php';
 $routeAccessPolicy = ipawcus_route_access_policy($path, $_SERVER['REQUEST_METHOD']);
+if (!empty($routeAccessPolicy['deny'])) {
+    ipawcus_access_json(404, 'API route was not found or is not available.', 'api_route_not_found');
+}
+
 if (empty($routeAccessPolicy['public'])) {
     require_once __DIR__ . '/db.php';
     $pdo = ipawcus_get_pdo();
@@ -78,6 +82,9 @@ switch ($path) {
     case '/pet_ownership/link':
         require_once __DIR__ . '/link_pet.php';
         break;
+    case '/pet_ownership/coparent-requests':
+        require_once __DIR__ . '/coparent_requests.php';
+        break;
     case '/upload':
         require_once __DIR__ . '/upload.php';
         break;
@@ -100,9 +107,6 @@ switch ($path) {
         break;
     case '/online-consultations':
         require_once __DIR__ . '/online_consultations.php';
-        break;
-    case '/mail/test':
-        require_once __DIR__ . '/mail_test.php';
         break;
     case '/notifications':
         require_once __DIR__ . '/notifications.php';
@@ -208,6 +212,9 @@ switch ($path) {
     case '/accounts':
         require_once __DIR__ . '/get_accounts.php';
         break;
+    case '/veterinarians':
+        require_once __DIR__ . '/get_veterinarians.php';
+        break;
     case '/pet-owner-accounts':
         require_once __DIR__ . '/pet_owner_accounts.php';
         break;
@@ -228,9 +235,6 @@ switch ($path) {
     case '/consent-form-records':
     case '/consent_form_records':
         require_once __DIR__ . '/consent_form_records.php';
-        break;
-    case '/queues/debug':
-        require_once __DIR__ . '/debug_queues.php';
         break;
     case '/queues':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -300,6 +304,9 @@ switch ($path) {
         if (preg_match('/^\/users\/(\d+)\/pets$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             require_once __DIR__ . '/get_user_pets.php';
+        } elseif (preg_match('/^\/pet_ownership\/coparent-requests\/(\d+)$/', $path, $matches)) {
+            $_GET['requestId'] = $matches[1];
+            require_once __DIR__ . '/coparent_requests.php';
         } elseif (preg_match('/^\/users\/(\d+)\/bookings$/', $path, $matches)) {
             $_GET['userId'] = $matches[1];
             require_once __DIR__ . '/get_bookings.php';

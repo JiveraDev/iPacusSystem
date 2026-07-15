@@ -11,8 +11,8 @@ import { ArrowLeft, CalendarPlus, Image as ImageIcon, PawPrint, Plus, Upload, X 
 import { addDays, format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
-import { fetchAccounts } from "../../services/accountService";
-import { fetchBookings } from "../../services/bookingService";
+import { fetchVeterinarians } from "../../services/accountService";
+import { fetchUserBookings } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchVetSchedules } from "../../services/vetScheduleService";
 
@@ -183,7 +183,7 @@ export default function ConsultBooking() {
       const petsData = await fetchUserPets(userId);
       setPets(Array.isArray(petsData) ? petsData : []);
 
-      const vetsData = await fetchAccounts();
+      const vetsData = await fetchVeterinarians();
       const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
       const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
         const vetId = toId(vet.user_id);
@@ -223,8 +223,11 @@ export default function ConsultBooking() {
       }
 
       try {
-        const bookingsData = await fetchBookings({ apiPrefix: true });
-        setExistingConsultBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        const bookingsData = await fetchUserBookings(userId, { apiPrefix: true });
+        const bookingRows = Array.isArray(bookingsData?.bookings)
+          ? bookingsData.bookings
+          : (Array.isArray(bookingsData) ? bookingsData : []);
+        setExistingConsultBookings(bookingRows);
       } catch {
         setExistingConsultBookings([]);
       }
@@ -522,6 +525,7 @@ export default function ConsultBooking() {
                       id="newPetName"
                       type="text"
                       placeholder="e.g., Buddy"
+                      restriction="name"
                       value={newPetName}
                       onChange={(e) => setNewPetName(e.target.value)}
                     />
@@ -547,6 +551,7 @@ export default function ConsultBooking() {
                       id="newPetBreed"
                       type="text"
                       placeholder="e.g., Golden Retriever"
+                      restriction="name"
                       value={newPetBreed}
                       onChange={(e) => setNewPetBreed(e.target.value)}
                     />
@@ -556,7 +561,8 @@ export default function ConsultBooking() {
                     <Input
                       id="newPetAge"
                       type="text"
-                      placeholder="e.g., 2 years"
+                      placeholder="e.g., 2"
+                      restriction="integer"
                       value={newPetAge}
                       onChange={(e) => setNewPetAge(e.target.value)}
                     />
@@ -566,7 +572,8 @@ export default function ConsultBooking() {
                     <Input
                       id="newPetWeight"
                       type="text"
-                      placeholder="e.g., 25 kg"
+                      placeholder="e.g., 25.5"
+                      restriction="decimal"
                       value={newPetWeight}
                       onChange={(e) => setNewPetWeight(e.target.value)}
                     />

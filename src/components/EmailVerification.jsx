@@ -89,6 +89,7 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
                                 <Input
                                     id="verificationCode"
                                     inputMode="numeric"
+                                    restriction="digits"
                                     maxLength={6}
                                     value={code}
                                     onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}

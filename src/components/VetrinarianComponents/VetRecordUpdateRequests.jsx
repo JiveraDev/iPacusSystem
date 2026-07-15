@@ -243,10 +243,6 @@ export default function VetRecordUpdateRequests() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex flex-col justify-end gap-2 sm:flex-row">
-                                            <Button variant="outline" size="sm" onClick={() => openMedicalEditor(request)}>
-                                                <Stethoscope className="size-4" />
-                                                View Records
-                                            </Button>
                                             <Button variant="outline" size="sm" onClick={() => openRequest(request)}>
                                                 <Eye className="size-4" />
                                                 Details
@@ -259,7 +255,7 @@ export default function VetRecordUpdateRequests() {
                                                     className="bg-green-600 text-white hover:bg-green-700"
                                                 >
                                                     {isRequestActionLoading('assign', request) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
-                                                    Update Request
+                                                    Update
                                                 </Button>
                                             )}
                                         </div>
@@ -301,20 +297,6 @@ export default function VetRecordUpdateRequests() {
 
                     <DialogFooter className="gap-2 sm:justify-between">
                         <Button variant="outline" onClick={() => setSelectedRequest(null)}>Close</Button>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            {selectedRequest && (
-                                <Button variant="outline" onClick={() => openMedicalEditor(selectedRequest)}>
-                                    <Stethoscope className="size-4" />
-                                    Open Medical Records
-                                </Button>
-                            )}
-                            {selectedRequest && selectedRequest.status !== 'completed' && (
-                                <Button onClick={() => openAssignmentConfirm(selectedRequest)} disabled={Boolean(actionLoading)} className="bg-green-600 text-white hover:bg-green-700">
-                                    <Stethoscope className="size-4" />
-                                    Update Request
-                                </Button>
-                            )}
-                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -349,7 +331,7 @@ export default function VetRecordUpdateRequests() {
                             className="bg-green-600 text-white hover:bg-green-700"
                         >
                             {isRequestActionLoading('assign', assignmentRequest) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
-                            Confirm & Open Editor
+                            Update
                         </Button>
                     </DialogFooter>
                 </DialogContent>

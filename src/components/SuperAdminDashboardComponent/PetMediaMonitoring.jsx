@@ -11,6 +11,8 @@ import { resolveImageUrl } from '../../lib/image';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { fetchPetMediaMonitoring } from '../../services/petMediaMonitoringService';
 import { REPORT_QUICK_RANGES } from '../../services/reportService';
+import DashboardPageHeader from '../shared/DashboardPageHeader';
+import ReportDateInput from './ReportDateInput';
 
 const SOURCE_OPTIONS = [
     { value: 'all', label: 'All Sources' },
@@ -200,20 +202,16 @@ export default function PetMediaMonitoring() {
 
     return (
         <div className="space-y-6">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_46%,#f0fdf4_100%)] p-5 shadow-sm">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-950">Pet Media Monitoring</h1>
-                        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                            Diagnosis images, prescription images, pet owner uploads, queue uploads, and boarding images.
-                        </p>
-                    </div>
-
-                    <div className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm sm:grid-cols-[12rem_9rem_9rem_auto]">
-                        <div>
-                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Date Range</Label>
+            <DashboardPageHeader
+                title="Pet Media Monitoring"
+                description="Diagnosis images, prescription images, pet owner uploads, queue uploads, and boarding images."
+                layout="stacked"
+                toolbar={(
+                    <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)_minmax(8rem,max-content)] lg:items-end">
+                        <div className="min-w-0">
+                            <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
                             <Select value={range} onValueChange={setRange}>
-                                <SelectTrigger className="mt-1">
+                                <SelectTrigger className="w-full">
                                     <SelectValue displayValue={selectedRangeLabel} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -223,33 +221,23 @@ export default function PetMediaMonitoring() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div>
-                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">Start</Label>
-                            <Input
-                                type="date"
-                                value={visibleDateRange.start}
-                                onChange={(event) => handleCustomStartChange(event.target.value)}
-                                className="mt-1"
-                            />
-                        </div>
-                        <div>
-                            <Label className="text-xs font-black uppercase tracking-wide text-slate-500">End</Label>
-                            <Input
-                                type="date"
-                                value={visibleDateRange.end}
-                                onChange={(event) => handleCustomEndChange(event.target.value)}
-                                className="mt-1"
-                            />
-                        </div>
-                        <div className="flex items-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => loadMedia()} disabled={isLoading} className="gap-2">
-                                {isLoading ? <Loader2 className="size-7 animate-spin" /> : <RefreshCw className="size-7" />}
-                                Refresh
-                            </Button>
-                        </div>
+                        <ReportDateInput
+                            label="Start"
+                            value={visibleDateRange.start}
+                            onChange={handleCustomStartChange}
+                        />
+                        <ReportDateInput
+                            label="End"
+                            value={visibleDateRange.end}
+                            onChange={handleCustomEndChange}
+                        />
+                        <Button type="button" variant="outline" onClick={() => loadMedia()} disabled={isLoading} className="h-10 w-full justify-center gap-2 whitespace-nowrap px-3">
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            Refresh
+                        </Button>
                     </div>
-                </div>
-            </div>
+                )}
+            />
 
             {errorMessage ? (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{errorMessage}</div>

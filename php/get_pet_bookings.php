@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -83,7 +84,16 @@ if (!$petId) {
 }
 
 try {
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
     $numericPetId = resolveNumericPetId($pdo, (string)$petId);
+    if ($currentApiRole === 'pet_owner' && ($numericPetId === null || !ipawcus_guard_pet_access($pdo, $numericPetId, $currentApiUserId))) {
+        http_response_code(403);
+        echo json_encode(['message' => 'You are not allowed to view bookings for this pet.']);
+        exit;
+    }
+
     if ($numericPetId !== null && $numericPetId > 0) {
         autoCancelOverdueBookingsDetailed($pdo, $numericPetId, true);
     }

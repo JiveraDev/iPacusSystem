@@ -36,11 +36,11 @@ import {
 
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
-import { resolveImageUrl } from "../lib/image";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { ToastViewport } from "../reusecomponent/toast.jsx";
 import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
+import ProtectedImage from "./shared/ProtectedImage.jsx";
 import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
 
 // Lazy load screens
@@ -655,9 +655,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
     return fullName || getUserValue(user, ["email"], "Pet Owner");
   }, [user]);
 
-  const profileImageSrc = useMemo(() => {
-    return resolveImageUrl(getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]));
-  }, [user]);
+  const profileImageSrc = useMemo(() => getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]), [user]);
   const logoutAccountLabel = displayName || "Pet Owner";
 
   const requestLogout = () => {
@@ -824,7 +822,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
             <div className={`flex items-center ${isCollapsed ? "justify-center" : ""}`}>
               <div className="relative flex-shrink-0">
                 {profileImageSrc ? (
-                  <img 
+                  <ProtectedImage
                     src={profileImageSrc} 
                     alt={displayName}
                     className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
@@ -832,10 +830,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                         ? "h-10 w-10 border-[#155dfc]"
                         : activeTab === "profile" ? "h-12 w-12 border-blue-200" : "h-12 w-12 border-white"
                     }`}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155dfc&color=fff`;
-                    }}
+                    fallbackClassName={`rounded-full border-2 shadow-sm ${
+                      isCollapsed
+                        ? "h-10 w-10 border-[#155dfc]"
+                        : activeTab === "profile" ? "h-12 w-12 border-blue-200" : "h-12 w-12 border-white"
+                    }`}
                   />
                 ) : (
                   <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-500 ${

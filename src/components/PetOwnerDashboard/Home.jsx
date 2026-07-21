@@ -9,13 +9,11 @@ import {
   FileText,
   Hotel,
   ListTodo,
-  Loader2,
   MapPin,
   Package,
   PawPrint,
   Plus,
   Receipt,
-  RefreshCw,
   ShieldCheck,
   Stethoscope,
   UserCheck,
@@ -27,6 +25,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import PwaInstallButton from "../../pwa/PwaInstallButton.jsx";
 import { fetchBookings, fetchUserBookings } from "../../services/bookingService";
 import { fetchInventoryItems } from "../../services/inventoryApi";
 import { fetchOnlineConsultations } from "../../services/onlineConsultationService";
@@ -35,10 +34,11 @@ import { fetchQueues } from "../../services/queueService";
 import { fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 import { fetchPetOwnerTodos } from "../../services/todoService";
 import { fetchVisits } from "../../services/visitBillingService";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import consultImage from "../../assets/consultimage.png";
 
 const CLINIC_DETAILS = {
-  hours: "8:00 AM - 6:00 PM",
+  hours: "7:00 AM - 6:00 PM",
   address: "Oakbrook Avenue, Phase 3, Pleasantville Subdivision, Corner Clayton, Ilayang Iyam, Lucena City",
   phone: "(042) 373-5678",
 };
@@ -55,10 +55,11 @@ const emptyHomeData = {
   errors: [],
 };
 
-const ownerActions = [
+function getOwnerActions(servicePrices) {
+  return [
   {
     title: "Online Consultation",
-    description: "Book a PHP 500 non-emergency video consult.",
+    description: `Book a ${servicePrices.onlineConsultation} non-emergency video consult.`,
     icon: Video,
     path: "/dashboard/consult",
     tone: "bg-blue-50 text-blue-700",
@@ -84,7 +85,8 @@ const ownerActions = [
     path: "/dashboard/self-service-queue",
     tone: "bg-rose-50 text-rose-700",
   },
-];
+  ];
+}
 
 const adminActions = [
   {
@@ -184,10 +186,9 @@ function getDisplayName(user) {
   return fullName || user?.name || user?.email || "there";
 }
 
-function getActionsForRole(roleKey) {
+function getActionsForRole(roleKey, servicePrices) {
   if (roleKey === "admin") {
     return {
-      eyebrow: "Admin focus",
       heading: "Keep front-desk operations moving.",
       actions: adminActions,
       secondary: { label: "Pets Directory", path: "/dashboard/my-pets", icon: PawPrint },
@@ -196,7 +197,6 @@ function getActionsForRole(roleKey) {
 
   if (roleKey === "veterinarian") {
     return {
-      eyebrow: "Veterinarian focus",
       heading: "Continue patient care from queue to diagnosis.",
       actions: vetActions,
       secondary: { label: "Medical Records", path: "/dashboard/vet/medical-records", icon: FileText },
@@ -204,9 +204,8 @@ function getActionsForRole(roleKey) {
   }
 
   return {
-    eyebrow: "Pet owner focus",
     heading: "Book care and review your pet records.",
-    actions: ownerActions,
+    actions: getOwnerActions(servicePrices),
     secondary: { label: "View Pet Records", path: "/dashboard/my-pets", icon: PawPrint },
   };
 }
@@ -407,7 +406,7 @@ function buildRoleSummary(roleKey, data, userId) {
     const inventoryAlerts = data.inventoryItems.filter(isInventoryAlert);
 
     return {
-      title: "Admin Live Overview",
+      title: "Admin Overview",
       description: "Operational counts from bookings, queue, POS, inventory, and record requests.",
       cards: [
         { label: "Pending Bookings", value: pendingBookings.length, detail: `${data.bookings.filter(item => isToday(item.date, item.time)).length} scheduled today`, icon: ClipboardList, tone: "bg-blue-50 text-blue-700", path: "/dashboard/bookings" },
@@ -428,7 +427,7 @@ function buildRoleSummary(roleKey, data, userId) {
     const openTodos = data.todos.filter(task => !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status)) && !task.completedAt);
 
     return {
-      title: "Veterinarian Live Overview",
+      title: "Veterinarian Overview",
       description: "Patient work synced from assigned queues, online consults, and record requests.",
       cards: [
         { label: "Approved Queue", value: approvedQueues.length, detail: "Waiting to be received", icon: ListTodo, tone: "bg-blue-50 text-blue-700", path: "/dashboard/vet/approved-queue" },
@@ -447,7 +446,7 @@ function buildRoleSummary(roleKey, data, userId) {
   const completedBookings = data.bookings.filter(item => normalizeStatus(item.status) === "completed");
 
   return {
-    title: "Pet Owner Live Overview",
+    title: "Pet Owner Overview",
     description: "Your pets, bookings, reminders, and completed visits stay synced from clinic records.",
     cards: [
       { label: "My Pets", value: data.pets.length, detail: "Registered under your account", icon: PawPrint, tone: "bg-blue-50 text-blue-700", path: "/dashboard/my-pets" },
@@ -470,19 +469,15 @@ async function loadTask(label, promise, transform) {
 
 export default function Home({ user }) {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
   const userRole = user?.role || "";
   const roleKey = getRoleKey(userRole);
   const userId = getUserId(user);
-  const dashboardFocus = getActionsForRole(roleKey);
+  const dashboardFocus = getActionsForRole(roleKey, priceProjectionConfig.servicePrices);
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const loadHomeData = useCallback(async ({ isAutoRefresh = false } = {}) => {
-    if (!isAutoRefresh) {
-      setIsLoading(true);
-    }
-
+  const loadHomeData = useCallback(async () => {
     const today = new Date();
     const todoStart = dateInputValue(today);
     const todoEnd = dateInputValue(addDays(today, 14));
@@ -518,7 +513,6 @@ export default function Home({ user }) {
     });
 
     setHomeData(nextData);
-    setIsLoading(false);
   }, [roleKey, userId, userRole]);
 
   useAutoRefresh(loadHomeData, {
@@ -535,19 +529,7 @@ export default function Home({ user }) {
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-0 bg-blue-50 text-blue-700">{dashboardFocus.eyebrow}</Badge>
               <Badge className="border-0 bg-emerald-50 text-emerald-700">Open daily {CLINIC_DETAILS.hours}</Badge>
-              {isLoading ? (
-                <Badge className="border-0 bg-slate-100 text-slate-600">
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  Syncing
-                </Badge>
-              ) : (
-                <Badge className="border-0 bg-slate-100 text-slate-600">
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Live
-                </Badge>
-              )}
             </div>
             <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
               Welcome back, {displayName}.
@@ -564,6 +546,7 @@ export default function Home({ user }) {
                 <SecondaryIcon className="mr-2 h-4 w-4" />
                 {dashboardFocus.secondary.label}
               </Button>
+              <PwaInstallButton />
             </div>
           </div>
           <div className="relative min-h-56 bg-slate-950 lg:min-h-full">
@@ -611,7 +594,7 @@ export default function Home({ user }) {
       <section>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Live information</p>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Overview</p>
             <h2 className="text-xl font-black text-slate-950 sm:text-2xl">{roleSummary.title}</h2>
           </div>
           {homeData.errors.length > 0 && (

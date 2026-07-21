@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import {ArrowLeft, ArrowRight, Eye, EyeOff} from "lucide-react";
 import imgImageVfcLogo from "../assets/circular_logo.png";
 import { AUTH_EMAIL_KEY, AUTH_EXPIRES_AT_KEY, AUTH_MESSAGE_KEY } from "../services/apiClient";
 import { LoginError, loginUser } from "../services/userLogin";
@@ -157,10 +157,11 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
                         <button
                             type="button"
                             onClick={onRegister}
-                            className="text-[#155dfc] hover:underline text-base"
+                            className="inline-flex items-center gap-2 text-[#155dfc] hover:underline text-base"
                             style={{ fontFamily: "Arimo, sans-serif" }}
                         >
                             Register here
+                            <ArrowRight className="h-4 w-4 right-1 text-blue-500" aria-hidden="true" />
                         </button>
                     </div>
                 </form>
@@ -170,11 +171,14 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
                 <div className="text-center mt-6">
                     <button
                         onClick={onBack}
-                        className="text-[#155dfc] text-base hover:underline"
+                        className=" inline-flex items-center gap-2 text-[#155dfc] text-base hover:underline"
                         style={{ fontFamily: "Arimo, sans-serif" }}
                     >
+                        <ArrowLeft className="h-4 w-4 right-1 text-blue-500" aria-hidden="true" />
+
                         Back to Home
                     </button>
+
                 </div>
             )}
         </div>

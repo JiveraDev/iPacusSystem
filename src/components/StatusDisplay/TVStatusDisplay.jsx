@@ -266,7 +266,7 @@ export default function TVStatusDisplay() {
                         <img src={logo} alt="iPawcus" className="size-16 shrink-0 rounded-full bg-white object-contain" />
                         <div>
                             <h1 className="whitespace-nowrap text-4xl font-black leading-tight text-slate-950">
-                                iPawcus <span className="font-normal">∞</span> Vetcofus Animal Care Clinic
+                                iPawcus <span className="font-normal">∞</span> Vetfocus Animal Care Clinic
                             </h1>
                         </div>
                     </div>

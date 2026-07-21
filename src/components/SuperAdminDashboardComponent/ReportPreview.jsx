@@ -83,7 +83,7 @@ export default function ReportPreview({ report }) {
         <section className="report-print-area space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 print:border-0 print:bg-white print:p-0 print:text-slate-950 print:shadow-none">
             <header className="border-b border-slate-200 pb-5 dark:border-slate-800 print:border-slate-200">
                 <p className="text-sm font-black uppercase tracking-[0.2em] text-[#155dfc]">iPawcus</p>
-                <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white print:text-slate-950">Vetfocus Care Animal Clinic</h1>
+                <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white print:text-slate-950">Vetfocus Animal Care Clinic</h1>
                 <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 sm:grid-cols-2 print:text-slate-600">
                     <p><span className="text-slate-950 dark:text-white print:text-slate-950">Report:</span> {report.title}</p>
                     <p><span className="text-slate-950 dark:text-white print:text-slate-950">Date Range:</span> {dateRangeLabel}</p>

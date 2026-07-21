@@ -7,11 +7,16 @@ import './index.css'
 
 import App from './App.jsx'
 import ThemeProvider from './context/ThemeProvider.jsx'
+import { ensurePwaHeadTags } from './pwa/pwaConfig.js'
+import { registerPwaServiceWorker } from './pwa/registerPwaServiceWorker.js'
 
 const mantineTheme = createTheme({
   primaryColor: 'blue',
   fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 })
+
+ensurePwaHeadTags()
+registerPwaServiceWorker()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -13,10 +13,17 @@ $lastName = $input['lastName'] ?? null;
 $address = $input['address'] ?? null;
 $phoneNumber = $input['phoneNumber'] ?? null;
 $emergencyContact = $input['emergencyContact'] ?? null;
+$termsAccepted = filter_var($input['termsAccepted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
 if (!$email || !$password || !$firstName || !$lastName || !$address || !$phoneNumber) {
     http_response_code(400);
     echo json_encode(['message' => 'Missing required user fields.']);
+    exit;
+}
+
+if (!$termsAccepted) {
+    http_response_code(400);
+    echo json_encode(['message' => 'Please accept the Terms of Use to register.']);
     exit;
 }
 

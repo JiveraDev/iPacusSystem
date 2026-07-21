@@ -6,7 +6,6 @@ import { Card, CardContent } from '../../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { User, Mail, Phone, MapPin, Award, Calendar, Save, Video, Camera, Loader2 } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
-import { resolveImageUrl } from '../../lib/image';
 import { formatDisplayDate } from '../../lib/date';
 import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
@@ -15,14 +14,23 @@ import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
 import NotificationPreferencesCard from '../shared/NotificationPreferencesCard.jsx';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
+import UnsavedProfileChangesDialog from '../shared/UnsavedProfileChangesDialog.jsx';
+import {
+    PROFILE_DISPLAY_VALUE_CLASS,
+    PROFILE_TAB_TRIGGER_CLASS,
+    PROFILE_TABS_LIST_CLASS,
+    profileInputClass,
+    profileLabelClass
+} from '../shared/profileUiStyles.js';
 import { fetchProfile, updateProfile } from '../../services/profileService';
 import { uploadImageFile } from '../../services/uploadService';
 import { fetchVetSchedules, updateVetSchedules } from '../../services/vetScheduleService';
 
 const TIME_SLOTS = [
-    '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
+    '07:00 AM', '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
     '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM',
-    '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'
+    '04:00 PM', '05:00 PM', '06:00 PM'
 ];
 const DAYS = [
     { key: 'monday', label: 'Monday' },
@@ -101,6 +109,9 @@ export default function VetProfile({ onLogout }) {
     const [imageFile, setImageFile] = useState(null);
     const [imageError, setImageError] = useState(false);
     const [phoneError, setPhoneError] = useState('');
+    const [activeTab, setActiveTab] = useState('profile');
+    const [pendingProfileTab, setPendingProfileTab] = useState('');
+    const [isProfileLeaveDialogOpen, setIsProfileLeaveDialogOpen] = useState(false);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -200,14 +211,14 @@ export default function VetProfile({ onLogout }) {
     const handleSave = async () => {
         if (!userId) {
             toast.error('Session error. Please log in again.');
-            return;
+            return false;
         }
 
         const nextPhoneError = getPhilippinePhoneError(profileData.phone, { optional: true });
         if (nextPhoneError) {
             setPhoneError(nextPhoneError);
             toast.error(nextPhoneError);
-            return;
+            return false;
         }
 
         setPhoneError('');
@@ -266,9 +277,11 @@ export default function VetProfile({ onLogout }) {
             setImageError(false);
             setIsEditing(false);
             toast.success('Profile updated successfully!');
+            return true;
         } catch (error) {
             console.error('Save profile error:', error);
             toast.error(error.message || 'Failed to save profile');
+            return false;
         } finally {
             setIsSaving(false);
         }
@@ -282,6 +295,33 @@ export default function VetProfile({ onLogout }) {
         setIsEditing(false);
     };
 
+    const handleProfileTabChange = (nextTab) => {
+        if (nextTab === activeTab) return;
+
+        if (activeTab === 'profile' && isEditing) {
+            setPendingProfileTab(nextTab);
+            setIsProfileLeaveDialogOpen(true);
+            return;
+        }
+
+        setActiveTab(nextTab);
+    };
+
+    const handleStayOnProfile = () => {
+        setPendingProfileTab('');
+        setIsProfileLeaveDialogOpen(false);
+        setActiveTab('profile');
+    };
+
+    const handleSaveAndLeaveProfile = async () => {
+        const saved = await handleSave();
+        if (!saved) return;
+
+        setIsProfileLeaveDialogOpen(false);
+        setActiveTab(pendingProfileTab || 'profile');
+        setPendingProfileTab('');
+    };
+
     if (isLoading) {
         return (
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-slate-600">
@@ -290,7 +330,7 @@ export default function VetProfile({ onLogout }) {
         );
     }
 
-    const profileImageSrc = imageError ? null : resolveImageUrl(profileData.profileImage);
+    const profileImageSrc = imageError ? null : profileData.profileImage;
 
     return (
         <div className="mx-auto max-w-6xl space-y-6">
@@ -299,19 +339,19 @@ export default function VetProfile({ onLogout }) {
                     <h2 className="font-bold text-[24px] text-[#101828]">Profile</h2>
                     <p className="mt-1 text-[16px] text-[#4a5565]">Manage your professional information</p>
                 </div>
-                {!isEditing && (
+                {activeTab === 'profile' && !isEditing && (
                     <Button onClick={() => setIsEditing(true)} className="bg-[#155dfc] hover:bg-[#0d4acf]">
                         Edit Profile
                     </Button>
                 )}
             </div>
 
-            <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="mb-6 grid grid-cols-2 sm:inline-grid sm:grid-cols-4">
-                    <TabsTrigger value="profile">Profile Details</TabsTrigger>
-                    <TabsTrigger value="security">Security</TabsTrigger>
-                    <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                    <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={handleProfileTabChange} className="w-full">
+                <TabsList className={PROFILE_TABS_LIST_CLASS}>
+                    <TabsTrigger value="profile" className={PROFILE_TAB_TRIGGER_CLASS}>Profile Details</TabsTrigger>
+                    <TabsTrigger value="security" className={PROFILE_TAB_TRIGGER_CLASS}>Security</TabsTrigger>
+                    <TabsTrigger value="notifications" className={PROFILE_TAB_TRIGGER_CLASS}>Notifications</TabsTrigger>
+                    <TabsTrigger value="appearance" className={PROFILE_TAB_TRIGGER_CLASS}>Appearance</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile" className="space-y-6">
@@ -321,11 +361,12 @@ export default function VetProfile({ onLogout }) {
                                 <div className="relative">
                                     <div className="size-32 overflow-hidden rounded-full border-4 border-white bg-white/20 shadow-xl">
                                         {profileImageSrc ? (
-                                            <img
+                                            <ProtectedImage
                                                 src={profileImageSrc}
                                                 alt={getFullName(profileData)}
                                                 className="size-full object-cover"
-                                                onError={() => setImageError(true)}
+                                                fallbackClassName="size-full"
+                                                onLoadError={() => setImageError(true)}
                                             />
                                         ) : (
                                             <div className="flex size-full items-center justify-center bg-white">
@@ -377,42 +418,42 @@ export default function VetProfile({ onLogout }) {
                                 <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Professional Information</h3>
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Award className="size-4" />
                                             Specialization
                                         </Label>
                                         <DisplayValue value={profileData.specialization} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Award className="size-4" />
                                             License Number
                                         </Label>
                                         <DisplayValue value={profileData.licenseNumber} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Calendar className="size-4" />
                                             Total Years of Experience
                                         </Label>
                                         <DisplayValue value={profileData.yearsOfExperience} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Award className="size-4" />
                                             Consultation Rate (PHP)
                                         </Label>
                                         <DisplayValue value={profileData.consultationRate} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Calendar className="size-4" />
                                             Hire Date
                                         </Label>
                                         <DisplayValue value={formatDisplayDate(profileData.hireDate)} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+                                        <Label className={profileLabelClass()}>
                                             <Award className="size-4" />
                                             Currently Active
                                         </Label>
@@ -524,6 +565,13 @@ export default function VetProfile({ onLogout }) {
                     <ThemeToggle />
                 </TabsContent>
             </Tabs>
+
+            <UnsavedProfileChangesDialog
+                open={isProfileLeaveDialogOpen}
+                onStay={handleStayOnProfile}
+                onSave={handleSaveAndLeaveProfile}
+                isSaving={isSaving}
+            />
         </div>
     );
 }
@@ -533,7 +581,7 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
 
     return (
         <div className={`space-y-2 ${className}`}>
-            <Label className="flex items-center gap-2 text-[15px] font-bold text-[#101828]">
+            <Label className={profileLabelClass()}>
                 {iconElement}
                 {label}
             </Label>
@@ -545,7 +593,7 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
                 inputMode={inputMode}
                 maxLength={maxLength}
                 placeholder={placeholder}
-                className={`h-11 ${error ? 'border-red-500' : ''}`}
+                className={profileInputClass(error ? 'border-red-500' : '')}
             />
             {error && <p className="text-xs font-medium text-red-600">{error}</p>}
         </div>
@@ -554,8 +602,8 @@ function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', c
 
 function DisplayValue({ value }) {
     return (
-        <p className="flex min-h-11 items-center rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[15px] text-[#4a5565]">
-            {value || 'Not set'}
+        <p className={PROFILE_DISPLAY_VALUE_CLASS}>
+            {value || <span className="font-medium text-slate-400">Not set</span>}
         </p>
     );
 }

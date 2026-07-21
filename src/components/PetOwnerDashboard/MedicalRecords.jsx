@@ -257,7 +257,7 @@ export default function MedicalRecords() {
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm print-break-inside">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-widest text-[#155dfc]">iPawcus Veterinary Clinic</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-[#155dfc]">Vetfocus Animal Care Clinic</p>
                             <h1 className="mt-1 text-2xl font-black text-slate-950">Organized Medical Record</h1>
                             <p className="mt-2 text-sm font-semibold text-slate-500">
                                 Curated clinical summary for owner reference and printing.

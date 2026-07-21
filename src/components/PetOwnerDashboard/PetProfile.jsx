@@ -75,6 +75,14 @@ export default function PetProfile() {
       return false;
     }
   }, []);
+  const canViewPetOwnerActivity = useMemo(() => {
+    try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return isPetOwnerRole(currentUser.role);
+    } catch {
+      return false;
+    }
+  }, []);
   const canManageTemporaryOwner = useMemo(() => {
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
@@ -605,10 +613,11 @@ export default function PetProfile() {
               <div className="relative group">
                 <div className="h-32 w-32 overflow-hidden rounded-3xl border-[6px] border-white bg-slate-100 shadow-2xl ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
                   {pet.profileImage ? (
-                      <img
-                          src={resolveImageUrl(pet.profileImage)}
-                          alt={pet.name}
-                          className="h-full w-full object-cover"
+                      <ProtectedImage
+                        src={pet.profileImage}
+                        alt={pet.name}
+                        className="h-full w-full object-cover"
+                        fallbackClassName="h-full w-full"
                       />
                   ) : (
                       <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
@@ -870,122 +879,126 @@ export default function PetProfile() {
           <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
           <PrescriptionDocumentsPanel documents={pet.prescriptionDocuments || []} />
 
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
-              <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <ClipboardList className="h-6 w-6 text-[#155dfc]" />
-                Queue Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-8">
-              {isActivityLoading ? (
-                <div className="flex items-center gap-3 text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading queue status...
-                </div>
-              ) : displayedQueue ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                      {activeQueue ? "Current Queue" : "Recent Cancelled Queue"}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-3xl font-black text-slate-900">{formatQueueReference(displayedQueue)}</span>
-                      {getQueueStatusBadge(displayedQueue.status)}
+          {canViewPetOwnerActivity && (
+            <>
+              <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
+                  <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
+                    <ClipboardList className="h-6 w-6 text-[#155dfc]" />
+                    Queue Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-8">
+                  {isActivityLoading ? (
+                    <div className="flex items-center gap-3 text-slate-500">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Loading queue status...
                     </div>
-                    <p className="text-sm text-slate-500 mt-3">
-                      {getServiceDisplayName(displayedQueue.service_name, "Queue")} - {formatDateTime(displayedQueue.timestamp)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => openRecordDetails("queue", displayedQueue)}
-                      className="sm:w-auto"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                    {activeQueue && (
-                      <Button
-                        variant="destructive"
-                        onClick={openQueueCancelDialog}
-                        className="sm:w-auto"
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Cancel Queue
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="font-bold text-slate-900">No active queue entry</p>
-                  <p className="text-sm text-slate-500 mt-1">Pending queues and cancelled re-entry holders appear here.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
-              <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <CalendarClock className="h-6 w-6 text-[#155dfc]" />
-                Bookings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isActivityLoading ? (
-                <div className="flex items-center gap-3 p-4 text-slate-500 sm:p-8">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading bookings...
-                </div>
-              ) : visibleBookingRecords.length > 0 ? (
-                <div className="divide-y divide-slate-100">
-                  {visibleBookingRecords.map((booking) => {
-                    const canCancelBooking = booking.status !== "completed" && booking.status !== "cancelled";
-                    return (
-                      <div key={booking.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-6">
-                        <button
-                          type="button"
-                          onClick={() => openRecordDetails("booking", booking)}
-                          className="min-w-0 flex-1 text-left rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#155dfc]/30"
-                        >
-                          <div className="p-2">
-                            <div className="flex flex-wrap items-center gap-3 mb-2">
-                              <p className="font-black text-slate-900">{booking.bookingNumber}</p>
-                              {getBookingStatusBadge(booking.status)}
-                            </div>
-                            <p className="text-sm font-semibold text-slate-700">{getServiceDisplayName(booking.service)}</p>
-                            <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
-                          </div>
-                        </button>
-                        <div className="flex flex-wrap gap-2">
-                          {canCancelBooking && (
-                            <Button
-                              variant="outline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openBookingCancelDialog(booking);
-                              }}
-                              className="border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                              Cancel
-                            </Button>
-                          )}
+                  ) : displayedQueue ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                          {activeQueue ? "Current Queue" : "Recent Cancelled Queue"}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-3xl font-black text-slate-900">{formatQueueReference(displayedQueue)}</span>
+                          {getQueueStatusBadge(displayedQueue.status)}
                         </div>
+                        <p className="text-sm text-slate-500 mt-3">
+                          {getServiceDisplayName(displayedQueue.service_name, "Queue")} - {formatDateTime(displayedQueue.timestamp)}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="px-4 py-12 text-center sm:px-8">
-                  <p className="font-bold text-slate-900">No active bookings</p>
-                  <p className="text-sm text-slate-500 mt-1">Pending bookings and cancelled booking records appear here.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => openRecordDetails("queue", displayedQueue)}
+                          className="sm:w-auto"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
+                        {activeQueue && (
+                          <Button
+                            variant="destructive"
+                            onClick={openQueueCancelDialog}
+                            className="sm:w-auto"
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Cancel Queue
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="font-bold text-slate-900">No active queue entry</p>
+                      <p className="text-sm text-slate-500 mt-1">Pending queues and cancelled re-entry holders appear here.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
+                  <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
+                    <CalendarClock className="h-6 w-6 text-[#155dfc]" />
+                    Bookings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {isActivityLoading ? (
+                    <div className="flex items-center gap-3 p-4 text-slate-500 sm:p-8">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Loading bookings...
+                    </div>
+                  ) : visibleBookingRecords.length > 0 ? (
+                    <div className="divide-y divide-slate-100">
+                      {visibleBookingRecords.map((booking) => {
+                        const canCancelBooking = booking.status !== "completed" && booking.status !== "cancelled";
+                        return (
+                          <div key={booking.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-6">
+                            <button
+                              type="button"
+                              onClick={() => openRecordDetails("booking", booking)}
+                              className="min-w-0 flex-1 text-left rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#155dfc]/30"
+                            >
+                              <div className="p-2">
+                                <div className="flex flex-wrap items-center gap-3 mb-2">
+                                  <p className="font-black text-slate-900">{booking.bookingNumber}</p>
+                                  {getBookingStatusBadge(booking.status)}
+                                </div>
+                                <p className="text-sm font-semibold text-slate-700">{getServiceDisplayName(booking.service)}</p>
+                                <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
+                              </div>
+                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              {canCancelBooking && (
+                                <Button
+                                  variant="outline"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openBookingCancelDialog(booking);
+                                  }}
+                                  className="border-red-200 text-red-600 hover:bg-red-50"
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-12 text-center sm:px-8">
+                      <p className="font-bold text-slate-900">No active bookings</p>
+                      <p className="text-sm text-slate-500 mt-1">Pending bookings and cancelled booking records appear here.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
       <Dialog
@@ -1055,7 +1068,7 @@ export default function PetProfile() {
       </Dialog>
       <PhotoViewer
         open={Boolean(consentViewer)}
-        src={consentViewer?.src || ""}
+        src={consentViewer?.path || consentViewer?.url || ""}
         alt={consentViewer?.alt || "Consent image"}
         onOpenChange={(open) => !open && setConsentViewer(null)}
       />
@@ -1177,7 +1190,12 @@ function ConsentRecordCard({ record, onPreview }) {
     >
       <div className="grid gap-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
         <div className="flex h-36 items-center justify-center overflow-hidden bg-slate-50 sm:h-full">
-          <img src={record.url} alt={record.identifier} className="h-full w-full object-contain" />
+          <ProtectedImage
+            src={record.path || record.url}
+            alt={record.identifier}
+            className="h-full w-full object-contain"
+            fallbackClassName="h-full w-full"
+          />
         </div>
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-2">

@@ -759,7 +759,7 @@ function createInvoiceProofImage({ invoiceNumber, invoiceDate, visit, charges, t
   ctx.fillRect(0, 0, width, 88);
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 30px Arial';
-  ctx.fillText('iPawcus Veterinary Clinic', 36, 48);
+  ctx.fillText('Vetfocus Animal Care Clinic', 36, 48);
   ctx.font = '600 15px Arial';
   ctx.fillText('Point-Of-Sale Invoice Proof', 36, 72);
 
@@ -1907,74 +1907,74 @@ export default function ServicePOS() {
         )}
 
         {invoicePanelOpen && (
-        <main className="min-w-0 space-y-4">
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-[#155dfc] p-3 text-white">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 text-base font-black">
-                  <Receipt className="size-4" />
-                  Draft Invoice
-                </h2>
-                <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} items</Badge>
-              </div>
-              <p className="mt-1 truncate text-xs font-semibold text-blue-100">{selectedVisit.id}</p>
-            </div>
-
-            <div className="max-h-[420px] overflow-y-auto">
-              {charges.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Receipt className="mx-auto mb-2 size-8 text-slate-300" />
-                  <p className="text-sm font-semibold text-slate-500">No billable items selected.</p>
+          <main className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:z-10 xl:self-start">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="bg-[#155dfc] p-3 text-white">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="flex items-center gap-2 text-base font-black">
+                    <Receipt className="size-4" />
+                    Draft Invoice
+                  </h2>
+                  <Badge className="border border-white/20 bg-white/15 text-white">{charges.length} items</Badge>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {charges.map((charge) => (
-                    <InvoiceLine
-                      key={charge.lineId}
-                      charge={charge}
-                      onDecrease={() => updateChargeQuantity(charge.lineId, -1)}
-                      onIncrease={() => updateChargeQuantity(charge.lineId, 1)}
-                      onRemove={() => removeCharge(charge.lineId)}
-                      onSelect={() => setSelectedChargeId(charge.lineId)}
-                      selected={charge.lineId === selectedChargeId}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-200 p-3">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-black text-slate-900">Total</span>
-                <span className="text-xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
+                <p className="mt-1 truncate text-xs font-semibold text-blue-100">{selectedVisit.id}</p>
               </div>
 
-              {selectedVisit?.source === 'database' && (
-                <div className="mb-4 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span>Paid</span>
-                    <span>{formatPhpCurrency(selectedVisit.paid || 0)}</span>
+              <div className="max-h-[420px] overflow-y-auto">
+                {charges.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <Receipt className="mx-auto mb-2 size-8 text-slate-300" />
+                    <p className="text-sm font-semibold text-slate-500">No billable items selected.</p>
                   </div>
-                  <div className="flex items-center justify-between text-slate-900">
-                    <span>Balance</span>
-                    <span>{formatPhpCurrency(visitBalance)}</span>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {charges.map((charge) => (
+                      <InvoiceLine
+                        key={charge.lineId}
+                        charge={charge}
+                        onDecrease={() => updateChargeQuantity(charge.lineId, -1)}
+                        onIncrease={() => updateChargeQuantity(charge.lineId, 1)}
+                        onRemove={() => removeCharge(charge.lineId)}
+                        onSelect={() => setSelectedChargeId(charge.lineId)}
+                        selected={charge.lineId === selectedChargeId}
+                      />
+                    ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              <Button
-                type="button"
-                onClick={openInvoice}
-                disabled={!canPreviewInvoice}
-                className="h-10 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                title={invoiceBlockReason || undefined}
-              >
-                <FileText className="mr-2 size-5" />
-                {isPostingPayment ? 'Posting Payment...' : 'Pay Balance'}
-              </Button>
-            </div>
-          </section>
-        </main>
+              <div className="border-t border-slate-200 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-900">Total</span>
+                  <span className="text-xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
+                </div>
+
+                {selectedVisit?.source === 'database' && (
+                  <div className="mb-4 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span>Paid</span>
+                      <span>{formatPhpCurrency(selectedVisit.paid || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-900">
+                      <span>Balance</span>
+                      <span>{formatPhpCurrency(visitBalance)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  onClick={openInvoice}
+                  disabled={!canPreviewInvoice}
+                  className="h-10 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                  title={invoiceBlockReason || undefined}
+                >
+                  <FileText className="mr-2 size-5" />
+                  {isPostingPayment ? 'Posting Payment...' : 'Pay Balance'}
+                </Button>
+              </div>
+            </section>
+          </main>
         )}
       </div>
 

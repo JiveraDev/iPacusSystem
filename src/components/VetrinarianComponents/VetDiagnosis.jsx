@@ -2738,7 +2738,7 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
         <header class="header">
             <div>
                 <div class="brand">iPawcus</div>
-                <div class="clinic">Vetfocus Care Animal Clinic</div>
+                <div class="clinic">Vetfocus Animal Care Clinic</div>
             </div>
             <div class="title">
                 <h1>Prescription</h1>

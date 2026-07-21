@@ -656,7 +656,7 @@ function OperationalAttentionCard({ table }) {
                                 return (
                                 <tr
                                     key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
-                                    className={`align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50/60 dark:focus-within:bg-slate-800' : ''}`}
+                                    className={`align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
                                     role={isInteractiveRow ? 'button' : undefined}
                                     tabIndex={isInteractiveRow ? 0 : undefined}
                                     onClick={() => openInventoryRow(row)}

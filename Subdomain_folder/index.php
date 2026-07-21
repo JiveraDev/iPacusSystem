@@ -20,7 +20,7 @@ header('Pragma: no-cache');
             <div class="brand-lockup">
                 <img class="brand-mark" src="assets/circular_logo.png" alt="iPawcus">
                 <div>
-                    <p class="brand-eyebrow">Vetcofus Animal Care Clinic</p>
+                    <p class="brand-eyebrow">Vetfocus Animal Care Clinic</p>
                     <h1>Clinic Status Board</h1>
                 </div>
             </div>

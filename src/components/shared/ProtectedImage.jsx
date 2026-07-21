@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImageOff } from 'lucide-react';
 import { fetchProtectedImageObjectUrl } from '../../lib/image';
 
@@ -7,11 +7,18 @@ export default function ProtectedImage({
     alt = '',
     className = '',
     fallbackClassName = '',
+    onError,
+    onLoadError,
     ...props
 }) {
     const [displaySrc, setDisplaySrc] = useState('');
     const [failedSrc, setFailedSrc] = useState('');
+    const onLoadErrorRef = useRef(onLoadError);
     const hasError = Boolean(displaySrc && failedSrc === displaySrc);
+
+    useEffect(() => {
+        onLoadErrorRef.current = onLoadError;
+    }, [onLoadError]);
 
     useEffect(() => {
         let isActive = true;
@@ -48,6 +55,7 @@ export default function ProtectedImage({
             .catch(() => {
                 if (isActive) {
                     setDisplaySrc('');
+                    onLoadErrorRef.current?.();
                 }
             });
 
@@ -69,11 +77,15 @@ export default function ProtectedImage({
 
     return (
         <img
+            {...props}
             src={displaySrc}
             alt={alt}
             className={className}
-            onError={() => setFailedSrc(displaySrc)}
-            {...props}
+            onError={(event) => {
+                setFailedSrc(displaySrc);
+                onLoadErrorRef.current?.(event);
+                onError?.(event);
+            }}
         />
     );
 }

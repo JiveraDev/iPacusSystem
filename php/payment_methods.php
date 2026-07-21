@@ -97,10 +97,10 @@ function payment_methods_ensure_schema(PDO $pdo): void
     }
 
     $defaults = [
-        ['qrph', 'QRPH', 'iPawcus Veterinary', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
-        ['maya', 'Maya', 'iPawcus Veterinary', '', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
-        ['gcash', 'GCash', 'iPawcus Veterinary', '', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
-        ['bank_transfer', 'Bank Transfer', 'iPawcus Veterinary', '', 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.', 40],
+        ['qrph', 'QRPH', 'Vetfocus Animal Care Clinic', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
+        ['maya', 'Maya', 'Vetfocus Animal Care Clinic', '', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
+        ['gcash', 'GCash', 'Vetfocus Animal Care Clinic', '', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
+        ['bank_transfer', 'Bank Transfer', 'Vetfocus Animal Care Clinic', '', 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.', 40],
     ];
 
     $stmt = $pdo->prepare("

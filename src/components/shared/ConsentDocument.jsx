@@ -32,7 +32,7 @@ const ConsentDocument = forwardRef(function ConsentDocument({
 
             <div className={`flex flex-col items-center border-b-2 border-gray-900 text-center ${isCompact ? 'mb-4 pb-3' : 'mb-8 pb-6'}`}>
                 <img src={logoImg} alt="iPawcus Logo" className={`mb-2 ${isCompact ? 'h-12' : 'h-16'}`} />
-                <h1 className={`font-bold uppercase tracking-widest text-gray-900 ${isCompact ? 'text-xl' : 'text-2xl'}`}>iPawcus Veterinary Clinic</h1>
+                <h1 className={`font-bold uppercase tracking-widest text-gray-900 ${isCompact ? 'text-xl' : 'text-2xl'}`}>Vetfocus Animal Care Clinic</h1>
                 <p className={`mt-1 uppercase tracking-wider text-gray-600 ${isCompact ? 'text-[10px]' : 'text-xs'}`}>
                     Excellence in Pet Healthcare & Specialized Surgery
                 </p>
@@ -74,7 +74,7 @@ const ConsentDocument = forwardRef(function ConsentDocument({
             <div className={`flex items-center justify-center gap-2 border-t border-gray-100 text-gray-400 ${isCompact ? 'mt-6 pt-3' : 'mt-12 pt-4'}`}>
                 <Copyright className="size-3" />
                 <span className="font-sans text-[10px] tracking-wide">
-                    2026 iPawcus Veterinary Clinic. All rights reserved.
+                    2026 Vetfocus Animal Care Clinic. All rights reserved.
                 </span>
             </div>
         </div>

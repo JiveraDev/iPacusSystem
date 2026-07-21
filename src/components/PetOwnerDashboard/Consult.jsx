@@ -8,6 +8,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchUserBookings } from "../../services/bookingService";
 import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 function parseConsultDateTime(consultation) {
   if (!consultation?.date) {
@@ -66,6 +67,8 @@ function isUpcomingConsultation(consultation) {
 
 export default function Consult() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { servicePrices } = priceProjectionConfig;
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [joiningConsultationId, setJoiningConsultationId] = useState(null);
@@ -147,7 +150,7 @@ export default function Consult() {
           <div className="space-y-3 text-gray-700">
             <p>• Select your pet and describe the consultation topic (weight, symptoms, behavior, etc.)</p>
             <p>• Choose an available time slot (bookings available from next day onwards)</p>
-            <p>• Complete secure payment with the clinic payment methods (PHP 500 per session)</p>
+            <p>• Complete secure payment with the clinic payment methods ({servicePrices.onlineConsultation})</p>
             <p>• Join the video consultation at your scheduled time</p>
           </div>
         </CardContent>

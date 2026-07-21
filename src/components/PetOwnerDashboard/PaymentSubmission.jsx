@@ -246,7 +246,7 @@ export default function PaymentSubmission() {
                 leftIcon={<span className="text-xs font-semibold">PHP</span>}
               />
               {paymentData?.amount && (
-                  <p className="text-[10px] text-amber-600 font-medium italic">* This is the fixed transport fee for Home Service.</p>
+                  <p className="text-[10px] text-amber-600 font-medium italic">* This is the projected home-service amount for display and review.</p>
               )}
             </div>
 

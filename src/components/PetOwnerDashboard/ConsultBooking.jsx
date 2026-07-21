@@ -15,11 +15,12 @@ import { fetchVeterinarians } from "../../services/accountService";
 import { fetchUserBookings } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchVetSchedules } from "../../services/vetScheduleService";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 const TIME_SLOT_ORDER = [
-  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+  "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
   "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
-  "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM"
+  "04:00 PM", "05:00 PM", "06:00 PM"
 ];
 const DEFAULT_AVAILABILITY = {
   monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
@@ -119,6 +120,8 @@ function parseDateInput(value) {
 
 export default function ConsultBooking() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { instructions, servicePrices } = priceProjectionConfig;
   const [pets, setPets] = useState([]);
   const [veterinarians, setVeterinarians] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -764,8 +767,11 @@ export default function ConsultBooking() {
             <div className="pt-4 border-t">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
                 <span className="text-lg font-semibold">Consultation Fee</span>
-                <span className="text-2xl font-bold text-blue-600">PHP 500</span>
+                <span className="text-2xl font-bold text-blue-600">{servicePrices.onlineConsultation}</span>
               </div>
+              {instructions.onlineConsultation && (
+                <p className="mb-4 text-xs text-gray-500">{instructions.onlineConsultation}</p>
+              )}
               <Button type="submit" className="w-full" size="lg">
                 Continue to Payment
               </Button>

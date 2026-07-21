@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Search, Filter, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard, RotateCcw, Save, Settings, ExternalLink, FileText, Image as ImageIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
 import PetInfoModal from './PetInfoModal';
 import { PhotoViewer } from '../../ui/photo-viewer';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { toast } from "../../reusecomponent/toast.jsx";
 import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
@@ -21,6 +22,8 @@ import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhi
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
+import { useBookingPriceProjections } from '../../hooks/useBookingPriceProjections';
+import { includedItemsText, parseIncludedItems } from '../../lib/servicePriceProjections';
 import {
     createBooking,
     fetchBookings as fetchBookingsService,
@@ -51,6 +54,41 @@ const ADMIN_BOOKING_SERVICE_TYPES = [
 ];
 
 const BOOKING_POS_FEE = 50;
+
+const SERVICE_DISPLAY_PRICE_FIELDS = [
+    { key: 'onlineConsultation', label: 'Online Consultation' },
+    { key: 'generalConsultation', label: 'General Consultation / Check-up' },
+    { key: 'parasiteControl', label: 'Parasite Control' },
+    { key: 'vaccination', label: 'Vaccination' },
+    { key: 'grooming', label: 'Grooming' },
+    { key: 'dentalAssessment', label: 'Dental Assessment' },
+    { key: 'dentalCleaning', label: 'Professional Dental Cleaning' },
+    { key: 'surgery', label: 'Surgery' },
+    { key: 'kapon', label: 'Kapon / Spay-Neuter' },
+    { key: 'specialSurgery', label: 'Special Surgery' },
+];
+
+const DISPLAY_INSTRUCTION_FIELDS = [
+    { key: 'onlineConsultation', label: 'Online Consultation Instruction' },
+    { key: 'generalConsultation', label: 'General Consultation Instruction' },
+    { key: 'parasiteControl', label: 'Parasite Control Instruction' },
+    { key: 'vaccination', label: 'Vaccination Instruction' },
+    { key: 'grooming', label: 'Grooming Instruction' },
+    { key: 'dental', label: 'Dental Instruction' },
+    { key: 'surgery', label: 'Surgery Instruction' },
+    { key: 'homeService', label: 'Home-Service Instruction' },
+    { key: 'kapon', label: 'Kapon Instruction' },
+    { key: 'specialSurgery', label: 'Special Surgery Instruction' },
+];
+
+const SERVICE_DETAIL_FIELDS = [
+    { key: 'generalConsultation', label: 'General Consultation / Check-up' },
+    { key: 'parasiteControl', label: 'Parasite Control' },
+    { key: 'vaccination', label: 'Vaccination' },
+    { key: 'grooming', label: 'Grooming' },
+    { key: 'dental', label: 'Dental' },
+    { key: 'surgery', label: 'Surgery' },
+];
 
 function todayInputDate() {
     return new Date().toLocaleDateString('en-CA');
@@ -92,6 +130,84 @@ function vetName(vet) {
     return fullName ? `Dr. ${fullName}` : vet?.mail_Address || vet?.email || 'Veterinarian';
 }
 
+function cloneProjectionConfig(config) {
+    return JSON.parse(JSON.stringify(config));
+}
+
+function currentUserCanConfigureBookingDisplay() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const role = String(user.role || user.user_role || user.type || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        return role.includes('super') || role === 'admin';
+    } catch {
+        return false;
+    }
+}
+
+function bookingAttachmentPaths(value) {
+    return String(value || '')
+        .split(',')
+        .map((path) => path.trim())
+        .filter(Boolean);
+}
+
+function isImageAttachmentPath(path) {
+    const cleanPath = String(path || '').split('?')[0].toLowerCase();
+    return /\.(png|jpe?g|webp|gif|bmp|svg)$/.test(cleanPath);
+}
+
+function attachmentFileName(path) {
+    const cleanPath = String(path || '').split('?')[0];
+    const parts = cleanPath.split(/[\\/]/).filter(Boolean);
+    return parts[parts.length - 1] || 'Uploaded file';
+}
+
+function BookingAttachmentCard({ path, alt, onPreview }) {
+    const [hasImageError, setHasImageError] = useState(false);
+    const url = resolveImageUrl(path);
+    const isImage = isImageAttachmentPath(path) && !hasImageError;
+    const fileName = attachmentFileName(path);
+
+    if (isImage) {
+        return (
+            <button
+                type="button"
+                className="group w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:border-blue-200 hover:bg-blue-50/40"
+                onClick={() => onPreview({ src: path, alt })}
+            >
+                <div className="aspect-square bg-slate-50">
+                    <ProtectedImage
+                        src={path}
+                        alt={alt}
+                        className="size-full object-cover"
+                        fallbackClassName="size-full"
+                        onLoadError={() => setHasImageError(true)}
+                    />
+                </div>
+                <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600">
+                    <ImageIcon className="size-4 shrink-0 text-blue-500" />
+                    <span className="truncate">{fileName}</span>
+                </div>
+            </button>
+        );
+    }
+
+    return (
+        <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition hover:border-blue-300 hover:bg-blue-50"
+        >
+            <FileText className="size-9 text-slate-400" />
+            <span className="max-w-full truncate text-sm font-bold text-slate-700">{fileName}</span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600">
+                Open file <ExternalLink className="size-3" />
+            </span>
+        </a>
+    );
+}
+
 function ActionButtonMedia({ image, alt, fallback }) {
     const FallbackIcon = fallback;
     const [hasImageError, setHasImageError] = useState(false);
@@ -119,6 +235,12 @@ function bookingDetailsTriggerId(bookingId) {
 
 export default function BookingsManagement() {
     const navigate = useNavigate();
+    const {
+        config: bookingDisplayConfig,
+        resetConfig: resetBookingDisplayConfig,
+        saveConfig: saveBookingDisplayConfig
+    } = useBookingPriceProjections();
+    const canConfigureBookingDisplay = currentUserCanConfigureBookingDisplay();
     const [bookings, setBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('Service Type');
@@ -148,6 +270,8 @@ export default function BookingsManagement() {
     const [bookingPetSearch, setBookingPetSearch] = useState('');
     const [selectedBookingPet, setSelectedBookingPet] = useState(null);
     const [adminBookingForm, setAdminBookingForm] = useState(createEmptyAdminBookingForm);
+    const [displayConfigOpen, setDisplayConfigOpen] = useState(false);
+    const [displayConfigDraft, setDisplayConfigDraft] = useState(() => cloneProjectionConfig(bookingDisplayConfig));
 
     // Registration states
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -164,6 +288,12 @@ export default function BookingsManagement() {
         bookingId: null,
         ownerId: null
     });
+
+    useEffect(() => {
+        if (!displayConfigOpen) {
+            setDisplayConfigDraft(cloneProjectionConfig(bookingDisplayConfig));
+        }
+    }, [bookingDisplayConfig, displayConfigOpen]);
 
     const fetchBookings = async () => {
         try {
@@ -249,6 +379,67 @@ export default function BookingsManagement() {
         setBookingPetSearch('');
         setSelectedBookingPet(null);
         setAdminBookingForm(createEmptyAdminBookingForm());
+    };
+
+    const openDisplayConfigDialog = () => {
+        setDisplayConfigDraft(cloneProjectionConfig(bookingDisplayConfig));
+        setDisplayConfigOpen(true);
+    };
+
+    const updateDisplayServicePrice = (key, value) => {
+        setDisplayConfigDraft((current) => ({
+            ...current,
+            servicePrices: {
+                ...current.servicePrices,
+                [key]: value
+            }
+        }));
+    };
+
+    const updateDisplayInstruction = (key, value) => {
+        setDisplayConfigDraft((current) => ({
+            ...current,
+            instructions: {
+                ...current.instructions,
+                [key]: value
+            }
+        }));
+    };
+
+    const updateDisplayServiceDetail = (key, field, value) => {
+        setDisplayConfigDraft((current) => ({
+            ...current,
+            serviceDetails: {
+                ...current.serviceDetails,
+                [key]: {
+                    ...current.serviceDetails[key],
+                    [field]: field === 'includedItems' ? parseIncludedItems(value) : value
+                }
+            }
+        }));
+    };
+
+    const updateDisplayArrayRow = (collection, identityKey, identityValue, field, value) => {
+        setDisplayConfigDraft((current) => ({
+            ...current,
+            [collection]: current[collection].map((row) => (
+                String(row[identityKey]) === String(identityValue)
+                    ? { ...row, [field]: value }
+                    : row
+            ))
+        }));
+    };
+
+    const handleSaveDisplayConfig = () => {
+        saveBookingDisplayConfig(displayConfigDraft);
+        setDisplayConfigOpen(false);
+        toast.success('Booking display projections updated.');
+    };
+
+    const handleResetDisplayConfig = () => {
+        const defaults = resetBookingDisplayConfig();
+        setDisplayConfigDraft(cloneProjectionConfig(defaults));
+        toast.success('Booking display projections reset.');
     };
 
     const selectBookingPet = (pet) => {
@@ -782,14 +973,27 @@ export default function BookingsManagement() {
                         View and manage all booking appointments
                     </p>
                 </div>
-                <Button
-                    type="button"
-                    onClick={openAddBookingDialog}
-                    className="w-full gap-2 bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto"
-                >
-                    <Plus className="size-4" />
-                    Add Booking
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    {canConfigureBookingDisplay && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={openDisplayConfigDialog}
+                            className="w-full gap-2 sm:w-auto"
+                        >
+                            <Settings className="size-4" />
+                            Display Settings
+                        </Button>
+                    )}
+                    <Button
+                        type="button"
+                        onClick={openAddBookingDialog}
+                        className="w-full gap-2 bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto"
+                    >
+                        <Plus className="size-4" />
+                        Add Booking
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-wrap gap-3 sm:gap-6">
@@ -1256,7 +1460,7 @@ export default function BookingsManagement() {
                                                         </p>
                                                         <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 flex items-center justify-center">
                                                             <img
-                                                                src={booking.signaturePath}
+                                                                src={resolveImageUrl(booking.signaturePath)}
                                                                 alt="Client Signature"
                                                                 className="max-h-24 object-contain"
                                                             />
@@ -1269,25 +1473,20 @@ export default function BookingsManagement() {
                                                     <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
                                                        Pictures of Concern
                                                     </p>
-                                                    {booking.image_Booking_Concern_Path ? (
-                                                        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-                                                            {booking.image_Booking_Concern_Path.split(',').filter(path => path.trim() !== "").map((path, idx) => (
-                                                                <div 
-                                                                    key={idx}
-                                                                    className="w-full aspect-square cursor-pointer hover:opacity-80 transition-opacity"
-                                                                    onClick={() => setViewerImage({ src: path.trim(), alt: `${booking.petName} concern ${idx + 1}` })}
-                                                                >
-                                                                    <img
-                                                                        src={path.trim()}
-                                                                        alt={`${booking.petName} concern ${idx + 1}`}
-                                                                        className="w-full h-full object-cover rounded-xl border border-[rgba(0,0,0,0.1)]"
-                                                                    />
-                                                                </div>
+                                                    {bookingAttachmentPaths(booking.image_Booking_Concern_Path).length > 0 ? (
+                                                        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                                                            {bookingAttachmentPaths(booking.image_Booking_Concern_Path).map((path, idx) => (
+                                                                <BookingAttachmentCard
+                                                                    key={`${path}-${idx}`}
+                                                                    path={path}
+                                                                    alt={`${booking.petName} concern ${idx + 1}`}
+                                                                    onPreview={setViewerImage}
+                                                                />
                                                             ))}
                                                         </div>
                                                     ) : (
                                                         <div className="w-full h-32 flex items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-                                                            <p className="text-[12px] text-gray-400 text-center px-2">No images available</p>
+                                                            <p className="text-[12px] text-gray-400 text-center px-2">No uploaded files available</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1298,19 +1497,11 @@ export default function BookingsManagement() {
                                                         Payment Proof
                                                     </p>
                                                     {booking.paymentProof ? (
-                                                        <div 
-                                                            className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 cursor-pointer hover:bg-[#f3f4f6] transition-colors"
-                                                            onClick={() => setViewerImage({ src: booking.paymentProof, alt: "Payment Proof" })}
-                                                        >
-                                                            <img
-                                                                src={booking.paymentProof}
-                                                                alt="Payment Proof"
-                                                                className="w-full h-auto object-cover rounded-[8px] border border-[rgba(0,0,0,0.1)]"
-                                                            />
-                                                            <p className="text-center text-[12px] text-[#4a5565] mt-2">
-                                                                Click to view full size
-                                                            </p>
-                                                        </div>
+                                                        <BookingAttachmentCard
+                                                            path={booking.paymentProof}
+                                                            alt="Payment Proof"
+                                                            onPreview={setViewerImage}
+                                                        />
                                                     ) : (
                                                         <div className="bg-gray-50 border border-dashed border-gray-300 rounded-[14px] p-6 text-center">
                                                             <p className="text-[14px] text-gray-400">No Proof of Payment</p>
@@ -1437,6 +1628,234 @@ export default function BookingsManagement() {
             </Table>
             </div>
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
+
+            <Dialog open={displayConfigOpen} onOpenChange={setDisplayConfigOpen}>
+                <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
+                            Booking Display Settings
+                        </DialogTitle>
+                        <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
+                            Configure client-facing booking price projections and instructions.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Service Price Display</h3>
+                                <p className="mt-1 text-sm text-slate-500">These labels appear on pet-owner booking screens.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                {SERVICE_DISPLAY_PRICE_FIELDS.map((field) => (
+                                    <div key={field.key} className="space-y-2">
+                                        <Label htmlFor={`display-price-${field.key}`}>{field.label}</Label>
+                                        <Input
+                                            id={`display-price-${field.key}`}
+                                            value={displayConfigDraft.servicePrices[field.key] || ''}
+                                            onChange={(event) => updateDisplayServicePrice(field.key, event.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Service Detail Display</h3>
+                                <p className="mt-1 text-sm text-slate-500">Edit the included rows, duration, and review note shown beside booking forms.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {SERVICE_DETAIL_FIELDS.map((field) => {
+                                    const detail = displayConfigDraft.serviceDetails[field.key] || {};
+
+                                    return (
+                                        <div key={field.key} className="rounded-lg border border-slate-200 p-4">
+                                            <h4 className="mb-3 text-sm font-bold text-slate-900">{field.label}</h4>
+                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`service-detail-title-${field.key}`}>Included Heading</Label>
+                                                    <Input
+                                                        id={`service-detail-title-${field.key}`}
+                                                        value={detail.includedTitle || ''}
+                                                        onChange={(event) => updateDisplayServiceDetail(field.key, 'includedTitle', event.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`service-detail-duration-${field.key}`}>Duration</Label>
+                                                    <Input
+                                                        id={`service-detail-duration-${field.key}`}
+                                                        value={detail.duration || ''}
+                                                        onChange={(event) => updateDisplayServiceDetail(field.key, 'duration', event.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`service-detail-items-${field.key}`}>Included Rows</Label>
+                                                    <Textarea
+                                                        id={`service-detail-items-${field.key}`}
+                                                        value={includedItemsText(detail.includedItems)}
+                                                        onChange={(event) => updateDisplayServiceDetail(field.key, 'includedItems', event.target.value)}
+                                                        rows={5}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`service-detail-note-${field.key}`}>Review Note</Label>
+                                                    <Textarea
+                                                        id={`service-detail-note-${field.key}`}
+                                                        value={detail.reviewNote || ''}
+                                                        onChange={(event) => updateDisplayServiceDetail(field.key, 'reviewNote', event.target.value)}
+                                                        rows={5}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Home-Service Slots</h3>
+                                <p className="mt-1 text-sm text-slate-500">Edit the visible home-service item names and price labels.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                {displayConfigDraft.homeServices.map((row) => (
+                                    <div key={row.id} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`home-service-name-${row.id}`}>Slot Name</Label>
+                                            <Input
+                                                id={`home-service-name-${row.id}`}
+                                                value={row.name}
+                                                onChange={(event) => updateDisplayArrayRow('homeServices', 'id', row.id, 'name', event.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`home-service-price-${row.id}`}>Price Display</Label>
+                                            <Input
+                                                id={`home-service-price-${row.id}`}
+                                                value={row.price}
+                                                onChange={(event) => updateDisplayArrayRow('homeServices', 'id', row.id, 'price', event.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Grooming Size Table</h3>
+                                <p className="mt-1 text-sm text-slate-500">Edit the projected grooming prices shown to clients.</p>
+                            </div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Service</TableHead>
+                                            <TableHead>Small</TableHead>
+                                            <TableHead>Medium</TableHead>
+                                            <TableHead>Large</TableHead>
+                                            <TableHead>XL</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {displayConfigDraft.groomingMatrix.map((row) => (
+                                            <TableRow key={row.service}>
+                                                <TableCell className="min-w-52">
+                                                    <Input
+                                                        value={row.service}
+                                                        onChange={(event) => updateDisplayArrayRow('groomingMatrix', 'service', row.service, 'service', event.target.value)}
+                                                    />
+                                                </TableCell>
+                                                {['small', 'medium', 'large', 'xl'].map((size) => (
+                                                    <TableCell key={size} className="min-w-32">
+                                                        <Input
+                                                            value={row[size]}
+                                                            onChange={(event) => updateDisplayArrayRow('groomingMatrix', 'service', row.service, size, event.target.value)}
+                                                        />
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Kapon Procedure Table</h3>
+                                <p className="mt-1 text-sm text-slate-500">Edit the visible starting prices for Kapon / Spay-Neuter procedures.</p>
+                            </div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Procedure</TableHead>
+                                            <TableHead>Recommended Starting Price</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {displayConfigDraft.kaponMatrix.map((row) => (
+                                            <TableRow key={row.procedure}>
+                                                <TableCell className="min-w-72">
+                                                    <Input
+                                                        value={row.procedure}
+                                                        onChange={(event) => updateDisplayArrayRow('kaponMatrix', 'procedure', row.procedure, 'procedure', event.target.value)}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="min-w-52">
+                                                    <Input
+                                                        value={row.price}
+                                                        onChange={(event) => updateDisplayArrayRow('kaponMatrix', 'procedure', row.procedure, 'price', event.target.value)}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Instructions</h3>
+                                <p className="mt-1 text-sm text-slate-500">Optional notes shown under matching price displays.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                {DISPLAY_INSTRUCTION_FIELDS.map((field) => (
+                                    <div key={field.key} className="space-y-2">
+                                        <Label htmlFor={`display-instruction-${field.key}`}>{field.label}</Label>
+                                        <Textarea
+                                            id={`display-instruction-${field.key}`}
+                                            value={displayConfigDraft.instructions[field.key] || ''}
+                                            onChange={(event) => updateDisplayInstruction(field.key, event.target.value)}
+                                            rows={3}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+
+                    <DialogFooter className="gap-2 sm:justify-between">
+                        <Button type="button" variant="outline" onClick={handleResetDisplayConfig} className="gap-2">
+                            <RotateCcw className="size-4" />
+                            Reset Defaults
+                        </Button>
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={() => setDisplayConfigOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="button" onClick={handleSaveDisplayConfig} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
+                                <Save className="size-4" />
+                                Save Display Settings
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={addBookingOpen}

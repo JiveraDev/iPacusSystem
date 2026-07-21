@@ -416,7 +416,7 @@ function notification_email_template(string $title, string $intro, array $rows =
             <div style=\"max-width: 640px; margin: 0 auto; padding: 28px 16px;\">
                 <div style=\"border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; background: #ffffff;\">
                     <div style=\"background: #155dfc; padding: 22px 24px;\">
-                        <p style=\"margin: 0; color: #bfdbfe; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;\">iPawcus Veterinary Clinic</p>
+                        <p style=\"margin: 0; color: #bfdbfe; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;\">Vetfocus Animal Care Clinic</p>
                         <h1 style=\"margin: 8px 0 0; color: #ffffff; font-size: 24px; line-height: 1.25;\">{$safeTitle}</h1>
                     </div>
                     <div style=\"padding: 24px;\">

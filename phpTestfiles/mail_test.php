@@ -35,11 +35,11 @@ $subject = 'iPawcus SMTP test';
 $html = '
     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
         <h1 style="font-size: 20px; margin: 0 0 12px;">iPawcus SMTP is configured</h1>
-        <p>This is a test email from the Vetfocus Care Animal Clinic backend.</p>
+        <p>This is a test email from the Vetfocus Animal Care Clinic backend.</p>
         <p>If you received this message, the Hostinger SMTP credentials are working.</p>
     </div>
 ';
-$text = "iPawcus SMTP is configured.\n\nThis is a test email from the Vetfocus Care Animal Clinic backend.";
+$text = "iPawcus SMTP is configured.\n\nThis is a test email from the Vetfocus Animal Care Clinic backend.";
 
 try {
     send_smtp_email($to, $subject, $html, $text);

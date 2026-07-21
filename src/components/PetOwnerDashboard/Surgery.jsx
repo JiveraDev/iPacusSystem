@@ -14,9 +14,14 @@ import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 
 export default function Surgery() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
+  const serviceDetail = serviceDetails.surgery;
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
@@ -359,36 +364,16 @@ export default function Surgery() {
               <CardTitle className="text-center">Surgery</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 text-sm text-gray-700">
-                <div>
-                  <h4 className="font-semibold mb-2">Services Include:</h4>
-                  <ul className="space-y-1 ml-4">
-                    <li>• Pre-surgical consultation</li>
-                    <li>• Surgical procedures</li>
-                    <li>• Anesthesia monitoring</li>
-                    <li>• Post-operative care</li>
-                    <li>• Follow-up appointments</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Duration:</h4>
-                  <p>Varies by procedure</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-red-600">Contact for quote</p>
-                </div>
-              </div>
+              <ServiceProjectionDetails detail={serviceDetail}>
+                <p className="text-lg font-bold text-red-600">{servicePrices.surgery}</p>
+                {instructions.surgery && (
+                  <p className="mt-1 text-xs text-gray-500">{instructions.surgery}</p>
+                )}
+              </ServiceProjectionDetails>
             </CardContent>
           </Card>
 
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="pt-6">
-              <p className="text-sm text-gray-700">
-                ⚠️ All surgical procedures require a pre-operative consultation and examination.
-              </p>
-            </CardContent>
-          </Card>
+          <ServiceProjectionNote detail={serviceDetail} className="bg-red-50 border-red-200" />
         </div>
       </div>
     </div>

@@ -90,7 +90,7 @@ export async function createConsentDocumentImage({
     context.textAlign = 'center';
     context.fillStyle = '#111827';
     context.font = '700 25px Georgia, serif';
-    context.fillText('iPawcus Veterinary Clinic', canvas.width / 2, 156);
+    context.fillText('Vetfocus Animal Care Clinic', canvas.width / 2, 156);
     context.font = '11px Arial, sans-serif';
     context.fillStyle = '#4b5563';
     context.fillText('EXCELLENCE IN PET HEALTHCARE & SPECIALIZED SURGERY', canvas.width / 2, 178);
@@ -158,7 +158,7 @@ export async function createConsentDocumentImage({
 
     context.fillStyle = '#9ca3af';
     context.font = '11px Arial, sans-serif';
-    context.fillText('2026 iPawcus Veterinary Clinic. All rights reserved.', canvas.width / 2, 1188);
+    context.fillText('2026 Vetfocus Animal Care Clinic. All rights reserved.', canvas.width / 2, 1188);
 
     return canvas.toDataURL('image/png');
 }

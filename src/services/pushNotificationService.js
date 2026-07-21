@@ -1,12 +1,11 @@
 import { API_BASE_URL } from './apiClient';
+import { getPwaServiceWorkerUrl, isPwaActivated } from '../pwa/pwaConfig';
 import {
     disableNotificationPushSubscription,
     fetchNotificationPushPublicKey,
     fetchNotificationPushStatus,
     saveNotificationPushSubscription
 } from './notificationService';
-
-const PUSH_WORKER_PATH = '/ipawcus-push-sw.js';
 
 function browserPushAvailable() {
     return typeof window !== 'undefined'
@@ -36,7 +35,10 @@ async function getExistingRegistration() {
 }
 
 async function registerPushWorker() {
-    const registration = await navigator.serviceWorker.register(PUSH_WORKER_PATH);
+    const registration = await navigator.serviceWorker.register(
+        getPwaServiceWorkerUrl({ pwaEnabled: isPwaActivated() }),
+        { scope: '/' }
+    );
     await navigator.serviceWorker.ready;
 
     return registration;
@@ -72,7 +74,7 @@ export async function getBrowserPushState(userId) {
     }
 
     const registration = await getExistingRegistration();
-    const subscription = registration ? await registration.pushManager.getSubscription() : null;
+    const subscription = registration?.pushManager ? await registration.pushManager.getSubscription() : null;
     let serverStatus = {
         configured: false,
         needsSetup: true,
@@ -128,6 +130,10 @@ export async function enableBrowserPush(userId) {
     }
 
     const registration = await registerPushWorker();
+    if (!registration.pushManager) {
+        throw new Error('Browser notifications are not available in this browser.');
+    }
+
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
@@ -148,7 +154,7 @@ export async function disableBrowserPush(userId) {
 
     if (browserPushAvailable()) {
         const registration = await getExistingRegistration();
-        const subscription = registration ? await registration.pushManager.getSubscription() : null;
+        const subscription = registration?.pushManager ? await registration.pushManager.getSubscription() : null;
 
         endpoint = subscription?.endpoint || '';
         if (subscription) {

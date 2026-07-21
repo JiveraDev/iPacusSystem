@@ -4,7 +4,7 @@ import { Card } from '../ui/card.jsx';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import PasswordInput from './shared/PasswordInput.jsx';
 
 export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = false, initialValues }) {
@@ -119,8 +119,9 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                     {/* Login Link */}
                     <div className="text-center">
                         <p className="text-gray-600 inline">Already have an account? </p>
-                        <button type="button" onClick={onLogin} className="text-[#155dfc] hover:underline">
+                        <button type="button" onClick={onLogin} className="inline-flex gap-1 items-center text-[#155dfc] hover:underline">
                             Login here
+                            <ArrowRight className="w-4 h-4" aria-hidden="true"/>
                         </button>
                     </div>
                 </form>

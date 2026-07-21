@@ -104,7 +104,8 @@ export async function fetchProtectedImageObjectUrl(profileImage) {
   }
 
   const token = getStoredAuthToken();
-  const response = await fetch(resolvedUrl, {
+  const mediaUrl = getApiUrl(`/uploads/media/${uploadPath}`, { apiPrefix: true });
+  const response = await fetch(mediaUrl, {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
 

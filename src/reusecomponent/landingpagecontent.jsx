@@ -35,9 +35,9 @@ import consultImage from '../assets/consultimage.png';
 import logoImage from '../assets/circular_logo.png';
 
 const clinicDetails = {
-    name: 'Vetfocus Care Animal Clinic',
+    name: 'Vetfocus Animal Care Clinic',
     product: 'iPawcus',
-    hours: '8:00 AM - 6:00 PM',
+    hours: '7:00 AM - 6:00 PM',
     shortAddress: 'Pleasantville Subdivision, Ilayang Iyam, Lucena City',
     fullAddress: 'Oakbrook Avenue, Phase 3, Pleasantville Subdivision, Corner Clayton, Ilayang Iyam, Lucena City',
     phone: '(042) 373-5678',
@@ -252,7 +252,7 @@ const guidelines = [
 ];
 
 const quickStats = [
-    { label: 'Clinic hours', value: '8AM-6PM' },
+    { label: 'Clinic hours', value: '7AM-6PM' },
     { label: 'Online consult', value: 'PHP 500' },
     { label: 'Billing source', value: 'Catalog' },
 ];
@@ -316,8 +316,8 @@ export default function LandingPageContent({ onLogin, onRegister }) {
         <div className="min-w-0 overflow-x-hidden bg-[#f6f8fb] text-slate-950">
             <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Care home" onClick={(event) => handleHashNavigation(event, '#top')}>
-                        <img src={logoImage} alt="Vetfocus Care logo" className="h-11 w-11 shrink-0 object-contain" />
+                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Animal Care Clinic home" onClick={(event) => handleHashNavigation(event, '#top')}>
+                        <img src={logoImage} alt="Vetfocus Animal Care Clinic logo" className="h-11 w-11 shrink-0 object-contain" />
                         <div className="min-w-0">
                             <div className="text-base font-bold leading-tight text-slate-950 sm:text-lg">{clinicDetails.product}</div>
                             <div className="hidden text-xs font-medium text-slate-500 sm:block">{clinicDetails.name}</div>
@@ -851,7 +851,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
             <footer className="border-t border-slate-200 bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
                 <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div className="flex items-center gap-3">
-                        <img src={logoImage} alt="Vetfocus Care logo" className="h-10 w-10 object-contain" />
+                        <img src={logoImage} alt="Vetfocus Animal Care Clinic logo" className="h-10 w-10 object-contain" />
                         <div>
                             <div className="font-bold">{clinicDetails.name}</div>
                             <div className="text-sm text-white/60">Powered by {clinicDetails.product}</div>

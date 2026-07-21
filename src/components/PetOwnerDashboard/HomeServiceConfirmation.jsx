@@ -23,9 +23,16 @@ import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import { homeServicePriceById } from "../../lib/servicePriceProjections";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 export default function HomeServiceConfirmation() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
+  const homeServiceName = (id, fallback) => (
+    priceProjectionConfig.homeServices.find((item) => item.id === id)?.name || fallback
+  );
   const [booking, setBooking] = useState(null);
   const [signature, setSignature] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +44,7 @@ export default function HomeServiceConfirmation() {
   const [paymentFormData, setPaymentFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
-    amount: "50", // Fixed transport fee for home service
+    amount: "50",
     notes: "",
     receiptFile: null
   });
@@ -225,7 +232,7 @@ export default function HomeServiceConfirmation() {
           <FileText className="h-10 w-10 text-blue-600" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900">Review Your Request</h1>
-        <p className="text-gray-500">Please verify details, sign, and complete the transport fee payment</p>
+        <p className="text-gray-500">Please verify details, sign, and review the home-service pricing projection</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -319,9 +326,11 @@ export default function HomeServiceConfirmation() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
                 <CheckCircle className="h-5 w-5 text-blue-600" />
-                Transport Fee Payment (PHP 50)
+                Home-Service Pricing Projection
               </CardTitle>
-              <CardDescription>Finalize your booking by submitting the transport fee</CardDescription>
+              <CardDescription>
+                {homeServiceName("home-visit-consultation", "Home Visit + Consultation within Lucena")} starts at {homeServicePrice("home-visit-consultation")}; outside Lucena is quoted by location.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleFinalSubmit} className="space-y-6">
@@ -393,8 +402,8 @@ export default function HomeServiceConfirmation() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Amount</Label>
-                      <Input value="PHP 50.00" readOnly className="bg-gray-100 font-bold text-blue-600" />
+                      <Label>Projected Starting Amount</Label>
+                      <Input value={homeServicePrice("home-visit-consultation")} readOnly className="bg-gray-100 font-bold text-blue-600" />
                     </div>
                   </div>
                 </div>

@@ -8,11 +8,11 @@ import { Badge } from "../../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 import { decideCoparentRequest, fetchCoparentRequest, getUserPetsService } from "../../services/ConnectOwnership";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { resolveImageUrl } from "../../lib/image";
 import { calculateAge } from "../../lib/date";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchAllPets } from "../../services/petService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
 
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
 
@@ -442,10 +442,11 @@ function PetDirectoryTable({ pets, onOpenPet }) {
               <TableCell className="min-w-0 px-2 sm:px-3">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   {pet.profileImage ? (
-                    <img
-                      src={resolveImageUrl(pet.profileImage)}
+                    <ProtectedImage
+                      src={pet.profileImage}
                       alt={pet.name}
                       className="size-8 shrink-0 rounded-full border border-slate-200 object-cover sm:size-10"
+                      fallbackClassName="size-8 shrink-0 rounded-full border border-slate-200 sm:size-10"
                     />
                   ) : (
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#155dfc] sm:size-10">
@@ -491,10 +492,11 @@ function PetCard({ pet, compact, onOpen }) {
         <div className="min-w-0 text-center">
           <div className={compact ? "relative mb-3 inline-block" : "relative mb-6 inline-block"}>
             {pet.profileImage ? (
-              <img
-                src={resolveImageUrl(pet.profileImage)}
+              <ProtectedImage
+                src={pet.profileImage}
                 alt={pet.name}
                 className={`${compact ? "h-20 w-20" : "h-32 w-32"} mx-auto rounded-full border-4 border-white object-cover shadow-md transition-transform duration-300 group-hover:scale-105`}
+                fallbackClassName={`${compact ? "h-20 w-20" : "h-32 w-32"} mx-auto rounded-full border-4 border-white shadow-md`}
               />
             ) : (
               <div className={`${compact ? "h-20 w-20" : "h-32 w-32"} mx-auto flex items-center justify-center rounded-full bg-gradient-to-br from-[#155dfc] to-blue-600 shadow-md`}>

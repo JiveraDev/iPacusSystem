@@ -740,7 +740,7 @@ export default function VetQueueList() {
                                         </TableCell>
                                     </TableRow>,
                                     isExpanded && (
-                                        <TableRow key={`${item.queue_id}-details`} className="bg-slate-50/60">
+                                        <TableRow key={`${item.queue_id}-details`} className="bg-slate">
                                             <TableCell colSpan={9} className="p-0">
                                                 <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
                                                     <DetailItem label="Complaint" value={item.complaint} className="md:col-span-2 xl:col-span-4" />

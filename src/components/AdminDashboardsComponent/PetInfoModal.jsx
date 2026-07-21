@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Calendar, Check, PawPrint, User } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
-import { resolveImageUrl } from '../../lib/image';
 import { fetchPetDetails } from '../../services/petService';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 function normalizePet(data = {}) {
     const isRegistered = data.isRegistered ?? Boolean(data.db_id || data.petId || data.petShareableId || data.id);
@@ -117,7 +117,7 @@ export default function PetInfoModal({ petId, petName, booking }) {
 
 function PetDetails({ pet }) {
     const [imageError, setImageError] = useState(false);
-    const imageUrl = imageError ? null : resolveImageUrl(pet.profileImage);
+    const imageUrl = imageError ? null : pet.profileImage;
     const displayAge = pet.birthDate ? calculateAge(pet.birthDate) : pet.age;
     const allergies = pet.allergies.length > 0
         ? pet.allergies
@@ -131,11 +131,12 @@ function PetDetails({ pet }) {
                 <div className="relative">
                     <div className="size-24 overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-xl ring-1 ring-slate-100 sm:size-28 sm:rounded-3xl">
                         {imageUrl ? (
-                            <img
+                            <ProtectedImage
                                 src={imageUrl}
                                 alt={pet.name || 'Pet'}
                                 className="size-full object-cover"
-                                onError={() => setImageError(true)}
+                                fallbackClassName="size-full"
+                                onLoadError={() => setImageError(true)}
                             />
                         ) : (
                             <div className="flex size-full items-center justify-center bg-blue-50">

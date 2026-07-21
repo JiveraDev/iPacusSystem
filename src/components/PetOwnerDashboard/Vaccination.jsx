@@ -14,9 +14,14 @@ import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 
 export default function Vaccination() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
+  const serviceDetail = serviceDetails.vaccination;
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
@@ -359,36 +364,16 @@ export default function Vaccination() {
               <CardTitle className="text-center">Vaccination</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 text-sm text-gray-700">
-                <div>
-                  <h4 className="font-semibold mb-2">Common Vaccines:</h4>
-                  <ul className="space-y-1 ml-4">
-                    <li>• Rabies</li>
-                    <li>• DHPP (Distemper, Hepatitis, Parvo, Parainfluenza)</li>
-                    <li>• Bordetella</li>
-                    <li>• Leptospirosis</li>
-                    <li>• Feline Leukemia (cats)</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Duration:</h4>
-                  <p>15-20 minutes</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-green-600">PHP 30 - PHP 60 per vaccine</p>
-                </div>
-              </div>
+              <ServiceProjectionDetails detail={serviceDetail}>
+                <p className="text-lg font-bold text-green-600">{servicePrices.vaccination}</p>
+                {instructions.vaccination && (
+                  <p className="mt-1 text-xs text-gray-500">{instructions.vaccination}</p>
+                )}
+              </ServiceProjectionDetails>
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="pt-6">
-              <p className="text-sm text-gray-700">
-                ℹ️ Your booking will be reviewed by our team. You'll receive a confirmation email once approved.
-              </p>
-            </CardContent>
-          </Card>
+          <ServiceProjectionNote detail={serviceDetail} />
         </div>
       </div>
     </div>

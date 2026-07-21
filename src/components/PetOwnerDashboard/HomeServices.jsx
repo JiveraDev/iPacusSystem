@@ -8,16 +8,24 @@ import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { Checkbox } from "../../ui/checkbox";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { 
-  ArrowLeft, Bath, Scissors, Syringe, Heart, Stethoscope, Pill, Check, 
-  Upload, X, Image as ImageIcon, MapPin, Search, Loader2 
+import {
+  ArrowLeft, Bath, Bug, Scissors, Syringe, Heart, Stethoscope, Pill, Check,
+  Upload, X, Image as ImageIcon, MapPin, Search, Loader2
 } from "lucide-react";
 import { searchAddresses } from "../../services/addressAutocomplete";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { fetchUserPets } from "../../services/petService";
+import { homeServicePriceById } from "../../lib/servicePriceProjections";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 export default function HomeServices() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { instructions } = priceProjectionConfig;
+  const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
+  const homeServiceName = (id, fallback) => (
+    priceProjectionConfig.homeServices.find((item) => item.id === id)?.name || fallback
+  );
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
@@ -47,78 +55,86 @@ export default function HomeServices() {
   const homeServices = [
     {
       id: "grooming-full",
-      name: "Grooming",
+      name: homeServiceName("home-grooming", "Home Grooming"),
       description: "Bath, haircut, nail trim, ear cleaning",
-      price: "PHP 800 - PHP 1,500",
+      price: homeServicePrice("home-grooming"),
       icon: Scissors,
       color: "text-blue-600",
       includes: ["nail-trim"]
     },
     {
       id: "nail-trim",
-      name: "Nail Trimming",
+      name: homeServiceName("nail-trimming", "Nail Trimming Add-on"),
       description: "Nail care and filing",
-      price: "PHP 200 - PHP 400",
+      price: homeServicePrice("nail-trimming"),
       icon: Scissors,
       color: "text-orange-600",
       isSubService: true
     },
     {
       id: "bathing",
-      name: "Bathing & Blow Dry",
+      name: homeServiceName("bath-blow-dry", "Bath and Blow-dry"),
       description: "Bath with quality products",
-      price: "PHP 400 - PHP 800",
+      price: homeServicePrice("bath-blow-dry"),
       icon: Bath,
       color: "text-cyan-600"
     },
     {
       id: "general-checkup",
-      name: "General Check-up",
+      name: homeServiceName("home-visit-consultation", "Home Visit + Consultation"),
       description: "Complete physical examination",
-      price: "PHP 500 - PHP 800",
+      price: homeServicePrice("home-visit-consultation"),
       icon: Stethoscope,
       color: "text-purple-600",
       includes: ["vaccination", "medication"]
     },
     {
       id: "vaccination",
-      name: "Vaccinations",
+      name: homeServiceName("vaccines", "Vaccines"),
       description: "Core vaccines, rabies, and boosters",
-      price: "PHP 300 - PHP 1,000",
+      price: homeServicePrice("vaccines"),
       icon: Syringe,
       color: "text-green-600",
       isSubService: true
     },
     {
+      id: "deworming",
+      name: homeServiceName("deworming", "Deworming"),
+      description: "Parasite control by pet weight",
+      price: homeServicePrice("deworming"),
+      icon: Bug,
+      color: "text-amber-600"
+    },
+    {
       id: "medication",
-      name: "Medication Administration",
+      name: homeServiceName("medication-administration", "Medication Administration"),
       description: "Medication delivery",
-      price: "PHP 300 - PHP 500",
+      price: homeServicePrice("medication-administration"),
       icon: Pill,
       color: "text-red-600",
       isSubService: true
     },
     {
       id: "wound-care",
-      name: "Wound Care",
+      name: homeServiceName("wound-care", "Wound Care"),
       description: "Cleaning and dressing of minor wounds",
-      price: "PHP 500 - PHP 1,000",
+      price: homeServicePrice("wound-care"),
       icon: Heart,
       color: "text-pink-600"
     },
     {
       id: "ear-cleaning",
-      name: "Ear Cleaning",
+      name: homeServiceName("ear-cleaning", "Ear Cleaning Add-on"),
       description: "Ear hygiene service",
-      price: "PHP 200 - PHP 400",
+      price: homeServicePrice("ear-cleaning"),
       icon: Stethoscope,
       color: "text-indigo-600"
     }
   ];
 
   const timeSlots = [
-    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
-    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"
+    "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
 
   useEffect(() => {
@@ -552,13 +568,22 @@ export default function HomeServices() {
             <CardContent className="space-y-6">
               <div className="pt-4 border-t space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Base Home Fee</span>
-                  <span className="font-semibold">PHP 200</span>
+                  <span className="text-gray-600">{homeServiceName("home-visit-consultation", "Home Visit + Consultation")}</span>
+                  <span className="font-semibold">{homeServicePrice("home-visit-consultation")}</span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-gray-600">Outside Lucena</span>
+                  <span className="text-right font-semibold">{homeServicePrice("outside-lucena")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Services</span>
                   <span className="font-semibold">Varies</span>
                 </div>
+                {instructions.homeService && (
+                  <p className="rounded-lg bg-blue-50 p-3 text-xs font-medium text-blue-700">
+                    {instructions.homeService}
+                  </p>
+                )}
                 <div className="pt-2 border-t">
                   <p className="text-[10px] text-amber-600 leading-tight">
                     * Final total will be calculated based on the distance and specific services performed. Payment is collected after the visit.

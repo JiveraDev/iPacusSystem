@@ -1,6 +1,153 @@
 const IPAWCUS_PUSH_DB = 'ipawcus-push';
 const IPAWCUS_PUSH_STORE = 'settings';
 const IPAWCUS_PUSH_KEY = 'current';
+const IPAWCUS_APP_CACHE = 'ipawcus-app-shell-v1';
+const IPAWCUS_STATIC_CACHE = 'ipawcus-static-v1';
+const IPAWCUS_OFFLINE_URL = '/pwa/offline.html';
+const IPAWCUS_PWA_ENABLED = new URL(self.location.href).searchParams.get('pwa') === '1';
+const IPAWCUS_APP_SHELL_URLS = [
+    '/',
+    '/landing',
+    '/dashboard',
+    '/pwa/manifest.webmanifest',
+    IPAWCUS_OFFLINE_URL,
+    '/pwa/icons/icon-192.png',
+    '/pwa/icons/icon-512.png',
+    '/pwa/icons/icon-maskable-512.png',
+    '/pwa/icons/apple-touch-icon.png',
+    '/favicon.svg'
+];
+
+function isSameOriginRequest(request) {
+    try {
+        return new URL(request.url).origin === self.location.origin;
+    } catch {
+        return false;
+    }
+}
+
+function isApiRoute(pathname) {
+    return pathname.startsWith('/php/')
+        || pathname.startsWith('/api/')
+        || pathname.startsWith('/notifications');
+}
+
+function isNavigationRequest(request) {
+    return request.mode === 'navigate'
+        || (request.headers.get('accept') || '').includes('text/html');
+}
+
+function isStaticAppRequest(request) {
+    if (!isSameOriginRequest(request)) {
+        return false;
+    }
+
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    if (isApiRoute(pathname)) {
+        return false;
+    }
+
+    return pathname.startsWith('/assets/')
+        || pathname.startsWith('/pwa/')
+        || pathname === '/favicon.svg'
+        || pathname === '/icons.svg'
+        || request.destination === 'manifest';
+}
+
+async function cacheAppShell() {
+    const cache = await caches.open(IPAWCUS_APP_CACHE);
+    const cacheJobs = IPAWCUS_APP_SHELL_URLS.map((url) => (
+        cache.add(new Request(url, { cache: 'reload' })).catch(() => null)
+    ));
+
+    await Promise.all(cacheJobs);
+}
+
+async function networkFirstNavigation(request) {
+    const cache = await caches.open(IPAWCUS_APP_CACHE);
+
+    try {
+        const response = await fetch(request);
+
+        if (response && response.ok && response.type === 'basic') {
+            await cache.put(request, response.clone());
+        }
+
+        return response;
+    } catch {
+        return caches.match(request)
+            || caches.match('/dashboard')
+            || caches.match('/')
+            || caches.match(IPAWCUS_OFFLINE_URL);
+    }
+}
+
+async function cacheFirstStatic(request) {
+    const cachedResponse = await caches.match(request);
+
+    if (cachedResponse) {
+        return cachedResponse;
+    }
+
+    const response = await fetch(request);
+
+    if (response && response.ok && response.type === 'basic') {
+        const cache = await caches.open(IPAWCUS_STATIC_CACHE);
+        await cache.put(request, response.clone());
+    }
+
+    return response;
+}
+
+self.addEventListener('install', event => {
+    if (IPAWCUS_PWA_ENABLED) {
+        event.waitUntil(cacheAppShell());
+    }
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+    const keepCaches = IPAWCUS_PWA_ENABLED
+        ? new Set([IPAWCUS_APP_CACHE, IPAWCUS_STATIC_CACHE])
+        : new Set();
+
+    event.waitUntil((async () => {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((cacheName) => (
+            cacheName.startsWith('ipawcus-') && !keepCaches.has(cacheName) ? caches.delete(cacheName) : null
+        )));
+        await self.clients.claim();
+    })());
+});
+
+self.addEventListener('fetch', event => {
+    if (!IPAWCUS_PWA_ENABLED) {
+        return;
+    }
+
+    const { request } = event;
+
+    if (request.method !== 'GET' || !isSameOriginRequest(request)) {
+        return;
+    }
+
+    const pathname = new URL(request.url).pathname;
+
+    if (isApiRoute(pathname)) {
+        return;
+    }
+
+    if (isNavigationRequest(request)) {
+        event.respondWith(networkFirstNavigation(request));
+        return;
+    }
+
+    if (isStaticAppRequest(request)) {
+        event.respondWith(cacheFirstStatic(request));
+    }
+});
 
 function openPushDb() {
     return new Promise((resolve, reject) => {

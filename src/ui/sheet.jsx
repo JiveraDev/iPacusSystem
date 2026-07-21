@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { hasCancelDismissAction } from './modalCloseVisibility';
 import { cn } from './utils';
 
 const SheetContext = React.createContext(null);
@@ -37,10 +38,11 @@ const SheetTrigger = ({ asChild, children }) => {
   );
 };
 
-const SheetContent = ({ children, side = "right", className, showClose = true, ...props }) => {
+const SheetContent = ({ children, side = "right", className, showClose, ...props }) => {
   const { open, setOpen } = React.useContext(SheetContext);
   const [shouldRender, setShouldRender] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const shouldShowClose = showClose ?? !hasCancelDismissAction(children);
 
   useEffect(() => {
     let mountTimer;
@@ -97,7 +99,7 @@ const SheetContent = ({ children, side = "right", className, showClose = true, .
         isVisible ? currentSide.active : currentSide.inactive,
         className
       )} {...props}>
-        {showClose && (
+        {shouldShowClose && (
         <div className="absolute top-4 right-4 z-10">
             <button 
               type="button"

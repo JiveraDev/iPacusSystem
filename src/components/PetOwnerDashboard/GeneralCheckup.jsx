@@ -14,9 +14,14 @@ import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 
 export default function GeneralCheckup() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
+  const serviceDetail = serviceDetails.generalConsultation;
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
@@ -367,36 +372,16 @@ export default function GeneralCheckup() {
               <CardTitle className="text-center">General Check-up</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 text-sm text-gray-700">
-                <div>
-                  <h4 className="font-semibold mb-2">What's Included:</h4>
-                  <ul className="space-y-1 ml-4">
-                    <li>• Physical examination</li>
-                    <li>• Weight and temperature check</li>
-                    <li>• Heart and lung assessment</li>
-                    <li>• Dental evaluation</li>
-                    <li>• Health consultation</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Duration:</h4>
-                  <p>30-45 minutes</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-blue-600">PHP 50 - PHP 80</p>
-                </div>
-              </div>
+              <ServiceProjectionDetails detail={serviceDetail}>
+                <p className="text-lg font-bold text-blue-600">{servicePrices.generalConsultation}</p>
+                {instructions.generalConsultation && (
+                  <p className="mt-1 text-xs text-gray-500">{instructions.generalConsultation}</p>
+                )}
+              </ServiceProjectionDetails>
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="pt-6">
-              <p className="text-sm text-gray-700">
-                ℹ️ Your booking will be reviewed by our team. You'll receive a confirmation email once approved.
-              </p>
-            </CardContent>
-          </Card>
+          <ServiceProjectionNote detail={serviceDetail} />
         </div>
       </div>
     </div>

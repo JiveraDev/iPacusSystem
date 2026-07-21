@@ -12,10 +12,13 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookingById, updateBookingStatus } from "../../services/bookingService";
 import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
   const { bookingId } = useParams();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { servicePrices } = priceProjectionConfig;
   const [consultation, setConsultation] = useState(null);
   const [onlineConsultation, setOnlineConsultation] = useState(null);
   const [canJoin, setCanJoin] = useState(false);
@@ -287,7 +290,7 @@ export default function ConsultConfirmation() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-gray-600">Amount Paid</span>
-              <span className="font-semibold text-lg">PHP 500</span>
+              <span className="font-semibold text-lg">{servicePrices.onlineConsultation}</span>
             </div>
           </div>
         </CardContent>

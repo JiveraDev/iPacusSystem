@@ -31,6 +31,12 @@ import {
     updateSpecialService
 } from "../../services/specialServicesService";
 import SubmissionStatus from "../shared/SubmissionStatus";
+import {
+    getSpecialServiceProjectionLabel,
+    isKaponProjectionService,
+    isSpecialSurgeryProjectionService,
+} from "../../lib/servicePriceProjections";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -66,6 +72,60 @@ function getServiceIcon(service) {
 
 function formatCurrencyLabel(value) {
     return normalizeCurrencyLabel(value);
+}
+
+function getDisplayPriceLabel(service, config) {
+    return getSpecialServiceProjectionLabel(
+        service,
+        formatCurrencyLabel(service?.priceLabel) || "To be announced",
+        config
+    );
+}
+
+function KaponPriceProjection({ config, service }) {
+    if (!isKaponProjectionService(service)) {
+        return null;
+    }
+
+    const instruction = config.instructions.kapon;
+
+    return (
+        <div className="mt-3 space-y-2">
+            <div className="overflow-x-auto rounded-lg border border-purple-100">
+                <table className="min-w-full text-xs">
+                    <thead className="bg-purple-50 text-purple-700">
+                        <tr>
+                            <th className="px-3 py-2 text-left font-semibold">Procedure</th>
+                            <th className="px-3 py-2 text-right font-semibold">Recommended starting price</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-100 bg-white">
+                        {config.kaponMatrix.map((row) => (
+                            <tr key={row.procedure}>
+                                <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{row.procedure}</td>
+                                <td className="px-3 py-2 text-right text-gray-600">{row.price}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {instruction && (
+                <p className="text-xs font-medium text-purple-700">{instruction}</p>
+            )}
+        </div>
+    );
+}
+
+function SpecialSurgeryInstruction({ config, service }) {
+    if (!isSpecialSurgeryProjectionService(service) || !config.instructions.specialSurgery) {
+        return null;
+    }
+
+    return (
+        <p className="mt-3 text-xs font-medium text-purple-700">
+            {config.instructions.specialSurgery}
+        </p>
+    );
 }
 
 function formatDateLabel(value) {
@@ -211,6 +271,7 @@ function DateRestrictionFields({ disabled = false, form, idPrefix, onChange }) {
 
 export default function SpecialServices({ user }) {
     const navigate = useNavigate();
+    const { config: priceProjectionConfig } = useBookingPriceProjections();
     const currentUser = user || getCurrentUser();
     const currentUserId = currentUser.id || currentUser.user_id || currentUser.userId;
     const isAdminUser = ["admin", "super_admin"].includes(normalizeRole(currentUser.role));
@@ -1048,11 +1109,14 @@ export default function SpecialServices({ user }) {
                                                 )}
 
                                                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700 sm:grid-cols-2">
-                                                    <p><span className="font-semibold">Price:</span> {formatCurrencyLabel(service.priceLabel)}</p>
+                                                    <p><span className="font-semibold">Price:</span> {getDisplayPriceLabel(service, priceProjectionConfig)}</p>
                                                     <p><span className="font-semibold">Duration:</span> {service.durationLabel || "To be announced"}</p>
                                                     <p><span className="font-semibold">Capacity:</span> {service.bookedPets || 0}/{service.maxPets || 1} pet slots booked</p>
                                                     <p><span className="font-semibold">Dates:</span> {getDateRestrictionLabel(service)}</p>
                                                 </div>
+
+                                                <KaponPriceProjection config={priceProjectionConfig} service={service} />
+                                                <SpecialSurgeryInstruction config={priceProjectionConfig} service={service} />
 
                                                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                     <div className="flex items-center gap-2 text-sm font-medium">
@@ -1128,6 +1192,7 @@ export default function SpecialServices({ user }) {
                                         <p className="mt-1 text-sm text-gray-600">
                                             {service.remainingSlots ?? service.maxPets ?? 1} pet slot{Number(service.remainingSlots ?? service.maxPets ?? 1) === 1 ? "" : "s"} remaining
                                         </p>
+                                        <p className="text-sm text-gray-600">Price: {getDisplayPriceLabel(service, priceProjectionConfig)}</p>
                                         <p className="text-sm text-gray-600">{getDateRestrictionLabel(service)}</p>
                                     </div>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => toggleService(service)}>

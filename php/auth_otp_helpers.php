@@ -288,10 +288,10 @@ function authOtpSendPasswordChangedEmail(string $email, ?array $user = null): vo
             <h1 style=\"font-size: 20px; margin: 0 0 12px;\">Your password was changed</h1>
             <p>Hello {$name},</p>
             <p>Your iPawcus password was changed successfully.</p>
-            <p>If this was not you, contact Vetfocus Care Animal Clinic immediately.</p>
+            <p>If this was not you, contact Vetfocus Animal Care Clinic immediately.</p>
         </div>
     ";
-    $text = "Your password was changed.\n\nIf this was not you, contact Vetfocus Care Animal Clinic immediately.";
+    $text = "Your password was changed.\n\nIf this was not you, contact Vetfocus Animal Care Clinic immediately.";
 
     send_smtp_email($email, 'Your iPawcus password was changed', $html, $text);
 }

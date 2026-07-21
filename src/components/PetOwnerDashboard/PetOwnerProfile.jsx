@@ -10,6 +10,15 @@ import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
 import NotificationPreferencesCard from "../shared/NotificationPreferencesCard.jsx";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
+import UnsavedProfileChangesDialog from "../shared/UnsavedProfileChangesDialog.jsx";
+import {
+  PROFILE_DISPLAY_VALUE_CLASS,
+  PROFILE_TAB_TRIGGER_CLASS,
+  PROFILE_TABS_LIST_CLASS,
+  profileInputClass,
+  profileLabelClass
+} from "../shared/profileUiStyles.js";
 import { uploadImageFile } from "../../services/uploadService";
 import { fetchUser, updateUser } from "../../services/userService";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
@@ -62,6 +71,9 @@ export default function PetOwnerProfile({ onLogout }) {
   
   const [imageFile, setImageFile] = useState(null);
   const [phoneError, setPhoneError] = useState("");
+  const [activeTab, setActiveTab] = useState("profile");
+  const [pendingProfileTab, setPendingProfileTab] = useState("");
+  const [isProfileLeaveDialogOpen, setIsProfileLeaveDialogOpen] = useState(false);
 
   // Helper to normalize user data from various possible property names
   const normalizeUser = (u) => {
@@ -150,14 +162,14 @@ export default function PetOwnerProfile({ onLogout }) {
 
     if (!userId) {
       toast.error("Session error. Please log in again.");
-      return;
+      return false;
     }
 
     const nextPhoneError = getPhilippinePhoneError(profileData.phone, { optional: true });
     if (nextPhoneError) {
       setPhoneError(nextPhoneError);
       toast.error(nextPhoneError);
-      return;
+      return false;
     }
 
     setPhoneError("");
@@ -207,52 +219,49 @@ export default function PetOwnerProfile({ onLogout }) {
       setIsEditingProfile(false);
       setImageFile(null);
       toast.success("Profile saved successfully!");
+      return true;
     } catch (error) {
       console.error("Save error:", error);
       toast.error(error.message || "Error saving changes");
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Build the final image URL for display
-  const getImageSrc = () => {
-    if (!profileData.profileImage) return null;
-    
-    // 1. Blobs/Previews
-    if (profileData.profileImage.startsWith('blob:') || profileData.profileImage.startsWith('data:')) {
-      return profileData.profileImage;
-    }
-    
-    // 2. Absolute URLs
-    if (profileData.profileImage.startsWith('http')) {
-      return profileData.profileImage;
+  const handleProfileTabChange = (nextTab) => {
+    if (nextTab === activeTab) return;
+
+    if (activeTab === "profile" && isEditingProfile) {
+      setPendingProfileTab(nextTab);
+      setIsProfileLeaveDialogOpen(true);
+      return;
     }
 
-    // 3. Vite Assets from 'public' folder
-    // In Vite, contents of 'public/' are served at the root '/'.
-    // If path is '/public/uploads/xxx.png', it's actually at '/uploads/xxx.png'
-    let path = profileData.profileImage;
-    
-    // Remove leading/trailing whitespace and ensure it's a string
-    path = String(path).trim();
-    
-    // Strip '/public' or 'public' prefix if present
-    const cleanPath = path.replace(/^\/?public\//, '/');
-    
-    // Ensure it starts with a single slash
-    const finalPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
-    
-    // We request it from the CURRENT origin (Vite dev server)
-    return finalPath;
+    setActiveTab(nextTab);
   };
 
-  const profileImageSrc = getImageSrc();
+  const handleStayOnProfile = () => {
+    setPendingProfileTab("");
+    setIsProfileLeaveDialogOpen(false);
+    setActiveTab("profile");
+  };
+
+  const handleSaveAndLeaveProfile = async () => {
+    const saved = await handleSaveProfile();
+    if (!saved) return;
+
+    setIsProfileLeaveDialogOpen(false);
+    setActiveTab(pendingProfileTab || "profile");
+    setPendingProfileTab("");
+  };
+
+  const profileImageSrc = profileData.profileImage;
   const displayName = profileData.firstName || profileData.lastName
     ? `${profileData.firstName} ${profileData.lastName}`.trim()
     : "User Profile";
   const currentAgeLabel = formatAgeYearsOnly(profileData.dateOfBirth);
-  const inputClass = "h-11 rounded-lg border-slate-200 bg-white px-4 text-base text-slate-950 shadow-sm transition-all focus:border-blue-500 focus:ring-blue-500/20 disabled:border-slate-200 disabled:bg-white disabled:text-slate-950 disabled:opacity-100 md:text-sm";
+  const inputClass = profileInputClass("px-4 shadow-sm focus:border-blue-500 focus:ring-blue-500/20");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-0">
@@ -264,7 +273,7 @@ export default function PetOwnerProfile({ onLogout }) {
             Keep the owner details used for appointment records, queue updates, and clinic contact.
           </p>
         </div>
-        {!isEditingProfile && (
+        {activeTab === "profile" && !isEditingProfile && (
           <Button
             onClick={() => setIsEditingProfile(true)}
             className="h-11 w-full rounded-lg bg-[#155dfc] px-5 text-sm font-semibold shadow-sm hover:bg-blue-700 sm:w-auto"
@@ -275,18 +284,18 @@ export default function PetOwnerProfile({ onLogout }) {
         )}
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 rounded-lg bg-slate-100 p-1 text-slate-600 sm:inline-grid sm:w-auto sm:grid-cols-4">
-          <TabsTrigger value="profile" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
-            Profile
+      <Tabs value={activeTab} onValueChange={handleProfileTabChange} className="w-full">
+        <TabsList className={PROFILE_TABS_LIST_CLASS}>
+          <TabsTrigger value="profile" className={PROFILE_TAB_TRIGGER_CLASS}>
+            Profile Details
           </TabsTrigger>
-          <TabsTrigger value="security" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
+          <TabsTrigger value="security" className={PROFILE_TAB_TRIGGER_CLASS}>
             Security
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
+          <TabsTrigger value="notifications" className={PROFILE_TAB_TRIGGER_CLASS}>
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm sm:px-7">
+          <TabsTrigger value="appearance" className={PROFILE_TAB_TRIGGER_CLASS}>
             Appearance
           </TabsTrigger>
         </TabsList>
@@ -300,12 +309,13 @@ export default function PetOwnerProfile({ onLogout }) {
                   <div className="relative shrink-0">
                     <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-md ring-1 ring-slate-200">
                       {profileImageSrc && !imageError ? (
-                        <img
+                        <ProtectedImage
                           src={profileImageSrc}
                           alt="Profile"
-                          onLoad={() => setImageError(false)}
-                          onError={() => setImageError(true)}
                           className="h-full w-full object-cover"
+                          fallbackClassName="h-full w-full"
+                          onLoad={() => setImageError(false)}
+                          onLoadError={() => setImageError(true)}
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -487,6 +497,13 @@ export default function PetOwnerProfile({ onLogout }) {
           <ThemeToggle />
         </TabsContent>
       </Tabs>
+
+      <UnsavedProfileChangesDialog
+        open={isProfileLeaveDialogOpen}
+        onStay={handleStayOnProfile}
+        onSave={handleSaveAndLeaveProfile}
+        isSaving={isSaving}
+      />
     </div>
   );
 }
@@ -494,7 +511,7 @@ export default function PetOwnerProfile({ onLogout }) {
 function ProfileField({ htmlFor, label, icon, children, className = "" }) {
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
-      <Label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700">
+      <Label htmlFor={htmlFor} className={profileLabelClass()}>
         {icon}
         {label}
       </Label>
@@ -505,8 +522,8 @@ function ProfileField({ htmlFor, label, icon, children, className = "" }) {
 
 function ReadOnlyValue({ value }) {
   return (
-    <div className="flex h-11 min-w-0 items-center rounded-lg border border-slate-200 bg-white px-4 text-base font-semibold text-slate-950 md:text-sm">
-      {value || "Not set"}
+    <div className={`${PROFILE_DISPLAY_VALUE_CLASS} min-w-0 px-4 text-base md:text-sm`}>
+      {value || <span className="font-medium text-slate-400">Not set</span>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # iPawcus Documentation Index
 
-Updated: 2026-07-05
+Updated: 2026-07-21
 
 This folder contains the current planning, architecture, backlog, deployment, and release notes for the iPawcus React/PHP project.
 
@@ -9,6 +9,7 @@ This folder contains the current planning, architecture, backlog, deployment, an
 | `system_inventory_gantt_details.md` | System inventory, route and endpoint map, workflows, schema notes, Gantt-ready work packages, and manual QA checklist. |
 | `git_backlog_assumptions.md` | Git-history-based backlog assumptions, current repository evidence, release phases, risks, and cleanup priorities. |
 | `tv_status_display_deployment.md` | Deployment notes for the React and standalone TV status displays. |
+| `deployment_upload_materials_format.md` | Practical deployment upload package format, domain folder layout, env placement, PWA flag behavior, writable upload folders, and final checklist. |
 | `20260710_full_project_update.md` | Full July 10 update covering co-parent approvals, reports, booking, consent, QRPH, vet flows, reminders, verification, and required DB command. |
 | `20260710_current_update_readme.md` | Current update summary, co-parent workflow notes, required database migration, and manual QA steps. |
 | `20260710_full_system_audit.md` | Full system audit using the Elementor audit-guide structure, with security, performance, UX, SEO, deployment, and operations findings. |

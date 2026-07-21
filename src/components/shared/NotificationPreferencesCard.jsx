@@ -282,7 +282,7 @@ export default function NotificationPreferencesCard({ user }) {
                     </div>
                 )}
 
-                <section className="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 items-start gap-3">
                             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-[#155dfc] shadow-sm">

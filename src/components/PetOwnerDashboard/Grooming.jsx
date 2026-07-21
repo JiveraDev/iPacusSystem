@@ -14,9 +14,14 @@ import { fetchUserPets } from "../../services/petService";
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 
 export default function Grooming() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { groomingMatrix, instructions, serviceDetails, servicePrices } = priceProjectionConfig;
+  const serviceDetail = serviceDetails.grooming;
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
@@ -359,36 +364,40 @@ export default function Grooming() {
               <CardTitle className="text-center">Grooming</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 text-sm text-gray-700">
-                <div>
-                  <h4 className="font-semibold mb-2">Services Include:</h4>
-                  <ul className="space-y-1 ml-4">
-                    <li>• Bath and blow dry</li>
-                    <li>• Hair cut and styling</li>
-                    <li>• Nail trimming</li>
-                    <li>• Ear cleaning</li>
-                    <li>• Teeth brushing</li>
-                  </ul>
+              <ServiceProjectionDetails detail={serviceDetail}>
+                <p className="text-lg font-bold text-pink-600">{servicePrices.grooming}</p>
+                {instructions.grooming && (
+                  <p className="mt-1 text-xs text-gray-500">{instructions.grooming}</p>
+                )}
+                <div className="mt-3 overflow-x-auto rounded-lg border border-pink-100">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-pink-50 text-pink-700">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold">Grooming service</th>
+                        <th className="px-3 py-2 text-right font-semibold">Small</th>
+                        <th className="px-3 py-2 text-right font-semibold">Medium</th>
+                        <th className="px-3 py-2 text-right font-semibold">Large</th>
+                        <th className="px-3 py-2 text-right font-semibold">XL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pink-100 bg-white">
+                      {groomingMatrix.map((row) => (
+                        <tr key={row.service}>
+                          <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{row.service}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{row.small}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{row.medium}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{row.large}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{row.xl}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Duration:</h4>
-                  <p>1-3 hours (varies by size)</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Price:</h4>
-                  <p className="text-lg font-bold text-pink-600">PHP 45 - PHP 120</p>
-                </div>
-              </div>
+              </ServiceProjectionDetails>
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="pt-6">
-              <p className="text-sm text-gray-700">
-                ℹ️ Your booking will be reviewed by our team. You'll receive a confirmation email once approved.
-              </p>
-            </CardContent>
-          </Card>
+          <ServiceProjectionNote detail={serviceDetail} />
         </div>
       </div>
     </div>

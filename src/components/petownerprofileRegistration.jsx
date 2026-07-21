@@ -4,7 +4,17 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '../ui/dialog';
 import { ArrowLeft, User, Mail, Phone, MapPin, Dog } from 'lucide-react';
+import RegistrationTermsPreview from './shared/RegistrationTermsPreview.jsx';
 import { searchAddresses } from "../services/addressAutocomplete.js";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../lib/philippinePhone';
 
@@ -43,6 +53,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const [isSearchingAddress, setIsSearchingAddress] = useState(false)
     const [addressLookupError, setAddressLookupError] = useState("")
     const [isAddressMenuOpen, setIsAddressMenuOpen] = useState(false)
+    const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false)
+    const [isTermsPreviewOpen, setIsTermsPreviewOpen] = useState(false)
     const blurTimeoutRef = useRef(null)
 
     const handleChange = (field, value) => {
@@ -152,6 +164,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         if (phoneError) newErrors.phoneNumber = phoneError
         if (emergencyContactError) newErrors.emergencyContact = emergencyContactError
         if (!formData.address) newErrors.address = "Address is required"
+        if (!hasAcceptedTerms) newErrors.terms = "Please read and agree to the Terms of Use"
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors)
@@ -165,6 +178,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             lastName: formData.lastName.trim(),
             phoneNumber: normalizePhilippinePhoneForSubmit(formData.phoneNumber),
             emergencyContact: normalizePhilippinePhoneForSubmit(formData.emergencyContact, { optional: true }),
+            termsAccepted: true,
+            termsDocument: "simplified-prefilled-ipawcus-clinic-policy",
             email,
             role: "Pet Owner"
         })
@@ -396,6 +411,49 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                             </div>
                         </div>
 
+                        <div className={`rounded-lg border p-4 ${
+                            errors.terms ? "border-red-300 bg-red-50" : "border-gray-200 bg-gray-50"
+                        }`}>
+                            <div className="flex items-start gap-3">
+                                <Checkbox
+                                    id="termsOfUse"
+                                    checked={hasAcceptedTerms}
+                                    onCheckedChange={(checked) => {
+                                        setHasAcceptedTerms(checked)
+                                        if (checked) {
+                                            setErrors((currentErrors) => ({
+                                                ...currentErrors,
+                                                terms: "",
+                                            }))
+                                        }
+                                    }}
+                                    className="mt-1"
+                                    aria-describedby={errors.terms ? "termsOfUseError" : undefined}
+                                />
+                                <div className="min-w-0 text-sm leading-6">
+                                    <p className="font-medium text-gray-700">
+                                        <label htmlFor="termsOfUse">I have read and agree to the </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTermsPreviewOpen(true)}
+                                            className="font-semibold text-[#155dfc] underline underline-offset-2 hover:text-[#0d4acf] focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+                                        >
+                                            Terms of Use
+                                        </button>
+                                        .
+                                    </p>
+                                    <p className="mt-1 text-xs font-medium text-gray-500">
+                                        Registration does not replace separate consent forms for high-risk services or procedures.
+                                    </p>
+                                    {errors.terms && (
+                                        <p id="termsOfUseError" className="mt-2 text-xs font-semibold text-red-600">
+                                            {errors.terms}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Profile Preview */}
                         <div className="rounded-xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50 p-4 sm:p-6">
                             <h3 className="text-sm font-bold text-gray-900 mb-3">
@@ -471,6 +529,23 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                     </form>
                 </Card>
             </div>
+
+            <Dialog open={isTermsPreviewOpen} onOpenChange={setIsTermsPreviewOpen}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Terms of Use</DialogTitle>
+                        <DialogDescription>
+                            Review the clinic policy before completing registration.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <RegistrationTermsPreview />
+                    <DialogFooter>
+                        <Button type="button" onClick={() => setIsTermsPreviewOpen(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -253,7 +253,7 @@ export default function RequestUpdateRecord() {
                       />
                     </button>
                     <div className="mt-4 text-center">
-                      <p className="font-semibold text-gray-900">iPawcus Veterinary Clinic</p>
+                      <p className="font-semibold text-gray-900">Vetfocus Animal Care Clinic</p>
                       <p className="text-sm text-gray-600 mt-1">Amount: PHP {convenienceFee.toLocaleString()}</p>
                       <p className="text-xs text-gray-500 mt-2">Scan using the supported payment app</p>
                     </div>

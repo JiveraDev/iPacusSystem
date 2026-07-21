@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Mail, MapPin, Phone, Shield, User } from 'lucide-react';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
-import { resolveImageUrl } from '../../lib/image';
 import { fetchUser } from '../../services/userService';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 function normalizeOwner(data = {}) {
     const fullName = `${data.firstName || data.first_Name || ''} ${data.lastName || data.last_Name || ''}`.trim();
@@ -81,7 +81,7 @@ export default function PetOwnerProfileModal({
     }, [initialOwner, ownerId]);
 
     const fullName = `${owner.firstName} ${owner.lastName}`.trim() || 'Unknown Owner';
-    const imageUrl = imageError ? null : resolveImageUrl(owner.profileImage);
+    const imageUrl = imageError ? null : owner.profileImage;
 
     if (isLoading) {
         return <div className="p-6 text-center text-slate-500">Loading owner profile...</div>;
@@ -93,11 +93,12 @@ export default function PetOwnerProfileModal({
                 <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
                     <div className="size-28 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-xl ring-2 ring-slate-100">
                         {imageUrl ? (
-                            <img
+                            <ProtectedImage
                                 src={imageUrl}
                                 alt={fullName}
                                 className="size-full object-cover"
-                                onError={() => setImageError(true)}
+                                fallbackClassName="size-full"
+                                onLoadError={() => setImageError(true)}
                             />
                         ) : (
                             <div className="flex size-full items-center justify-center bg-blue-50">

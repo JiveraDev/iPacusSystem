@@ -14,6 +14,7 @@ import {
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
 
 import { findPetService } from "../../services/findPet";
 import { fetchPetMedicalRecords, savePetMedicalRecord, updatePetDetails } from "../../services/petService";
@@ -227,7 +228,12 @@ export default function PetProfileEdit() {
             <div className="relative">
               <div className="h-32 w-32 overflow-hidden rounded-3xl border-[6px] border-white bg-slate-100 shadow-2xl ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
                 {pet.profileImage ? (
-                    <img src={resolveImageUrl(pet.profileImage)} alt={pet.name} className="h-full w-full object-cover" />
+                    <ProtectedImage
+                      src={pet.profileImage}
+                      alt={pet.name}
+                      className="h-full w-full object-cover"
+                      fallbackClassName="h-full w-full"
+                    />
                 ) : (
                     <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
                         <PawPrint className="h-20 w-20 text-blue-200" />

@@ -14,8 +14,7 @@ import {
 import { Button } from '../../ui/button';
 import {
     notificationMeta,
-    relativeNotificationTime,
-    summaryLabel
+    relativeNotificationTime
 } from '../../hooks/useNotificationCenter';
 
 function CategoryIcon({ category, className }) {
@@ -35,7 +34,6 @@ export default function NotificationFeed({
     unreadCount = 0,
     filter,
     onFilterChange,
-    summaryItems = [],
     isUpdating = false,
     onMarkAllRead,
     isLoading = false,
@@ -109,20 +107,6 @@ export default function NotificationFeed({
                     ))}
                 </div>
 
-                {summaryItems.length > 0 && (
-                    <div className={`mt-3 grid gap-2 ${isPageLayout ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                        {summaryItems.map(item => {
-                            const meta = notificationMeta(item.category);
-
-                            return (
-                                <div key={item.category} className={`flex items-center gap-2 rounded-lg px-3 py-2 ${meta.tone}`}>
-                                    <CategoryIcon category={item.category} className="size-4 shrink-0" />
-                                    <span className="min-w-0 truncate text-xs font-black">{summaryLabel(item)}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
 
             <div className={listClassName}>

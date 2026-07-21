@@ -28,7 +28,7 @@ function mail_smtp_config(): array
         'username' => mail_env_value('MAIL_USERNAME'),
         'password' => mail_env_value('MAIL_PASSWORD'),
         'fromAddress' => mail_env_value('MAIL_FROM_ADDRESS', mail_env_value('MAIL_USERNAME')),
-        'fromName' => mail_env_value('MAIL_FROM_NAME', 'Vetfocus Care Animal Clinic'),
+        'fromName' => mail_env_value('MAIL_FROM_NAME', 'Vetfocus Animal Care Clinic'),
         'replyTo' => mail_env_value('MAIL_REPLY_TO'),
         'timeout' => max(5, (int)mail_env_value('MAIL_TIMEOUT', '20')),
         'verifyPeer' => mail_env_bool('MAIL_VERIFY_PEER', true),

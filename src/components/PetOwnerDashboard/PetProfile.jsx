@@ -956,11 +956,11 @@ export default function PetProfile() {
                       {visibleBookingRecords.map((booking) => {
                         const canCancelBooking = booking.status !== "completed" && booking.status !== "cancelled";
                         return (
-                          <div key={booking.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-6">
+                          <div key={booking.id} className="relative p-4 sm:p-6">
                             <button
                               type="button"
                               onClick={() => openRecordDetails("booking", booking)}
-                              className="min-w-0 flex-1 text-left rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#155dfc]/30"
+                              className={`min-w-0 w-full rounded-lg text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#155dfc]/30 ${canCancelBooking ? "pr-24 sm:pr-28" : ""}`}
                             >
                               <div className="p-2">
                                 <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -971,8 +971,8 @@ export default function PetProfile() {
                                 <p className="text-sm text-slate-500 mt-1">{formatDateTime(booking.date, booking.time)}</p>
                               </div>
                             </button>
-                            <div className="flex flex-wrap gap-2">
-                              {canCancelBooking && (
+                            {canCancelBooking && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
                                 <Button
                                   variant="outline"
                                   onClick={(event) => {
@@ -983,8 +983,8 @@ export default function PetProfile() {
                                 >
                                   Cancel
                                 </Button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

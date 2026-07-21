@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 
@@ -287,6 +288,18 @@ try {
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
     $pdo->commit();
+
+    try {
+        notification_send_queue_event($pdo, (int)$queue['queue_id'], 'in_progress', [
+            'reason' => 'The veterinarian received this confirmed booking for service.',
+        ]);
+        notification_send_queue_event($pdo, (int)$queue['queue_id'], 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+        notification_send_queue_assignment_to_vet($pdo, (int)$queue['queue_id'], $veterinarianUserId, $veterinarianName);
+    } catch (Throwable $notificationError) {
+        error_log('Booking receive notification failed: ' . $notificationError->getMessage());
+    }
 
     $responseQueue = $queue;
     $responseQueue['queue_source'] = $queue['queue_source'] ?? 'booking_management';

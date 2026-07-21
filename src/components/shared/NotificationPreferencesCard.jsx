@@ -30,6 +30,16 @@ const DEFAULT_PREFERENCES = {
     reminder_same_day: true
 };
 
+const DEFAULT_BROWSER_PUSH_STATE = {
+    supported: true,
+    permission: 'default',
+    configured: false,
+    needsSetup: false,
+    enabled: false,
+    activeSubscriptions: 0,
+    error: ''
+};
+
 const PREFERENCE_GROUPS = [
     {
         title: 'Where Updates Appear',
@@ -75,6 +85,10 @@ function normalizePreferences(preferences) {
 }
 
 function browserPushMessage(state) {
+    if (state.error) {
+        return state.error;
+    }
+
     if (!state.supported) {
         return 'This browser cannot receive iPawcus browser notifications.';
     }
@@ -109,14 +123,7 @@ export default function NotificationPreferencesCard({ user }) {
     const [isSaving, setIsSaving] = useState(false);
     const [isPushUpdating, setIsPushUpdating] = useState(false);
     const [loadError, setLoadError] = useState('');
-    const [browserPushState, setBrowserPushState] = useState({
-        supported: true,
-        permission: 'default',
-        configured: false,
-        needsSetup: false,
-        enabled: false,
-        activeSubscriptions: 0
-    });
+    const [browserPushState, setBrowserPushState] = useState(DEFAULT_BROWSER_PUSH_STATE);
 
     useEffect(() => {
         let isActive = true;
@@ -130,15 +137,16 @@ export default function NotificationPreferencesCard({ user }) {
             setIsLoading(true);
             setLoadError('');
 
-            try {
-                const data = await fetchNotificationPreferences(userId);
-                if (isActive) {
-                    setPreferences(normalizePreferences(data.preferences));
-                }
-            } catch (error) {
-                if (isActive) {
-                    setLoadError(error.message || 'Notification settings could not be loaded.');
-                }
+        try {
+            const data = await fetchNotificationPreferences(userId);
+            if (isActive) {
+                setPreferences(normalizePreferences(data.preferences));
+            }
+        } catch (error) {
+            console.error('[iPawcus push] Notification preferences API request failed.', error);
+            if (isActive) {
+                setLoadError(error.message || 'Notification settings could not be loaded.');
+            }
             } finally {
                 if (isActive) {
                     setIsLoading(false);
@@ -159,9 +167,19 @@ export default function NotificationPreferencesCard({ user }) {
         const loadBrowserPushState = async () => {
             if (!userId) return;
 
-            const state = await getBrowserPushState(userId);
-            if (isActive) {
-                setBrowserPushState(state);
+            try {
+                const state = await getBrowserPushState(userId);
+                if (isActive) {
+                    setBrowserPushState(state);
+                }
+            } catch (error) {
+                console.error('[iPawcus push] Browser push state load failed.', error);
+                if (isActive) {
+                    setBrowserPushState({
+                        ...DEFAULT_BROWSER_PUSH_STATE,
+                        error: error.message || 'Browser notification service could not be checked.'
+                    });
+                }
             }
         };
 
@@ -189,6 +207,7 @@ export default function NotificationPreferencesCard({ user }) {
             setPreferences(normalizePreferences(data.preferences));
             toast.success('Notification settings saved.');
         } catch (error) {
+            console.error('[iPawcus push] Notification preferences save failed.', error);
             toast.error(error.message || 'Failed to save notification settings.');
         } finally {
             setIsSaving(false);
@@ -213,10 +232,19 @@ export default function NotificationPreferencesCard({ user }) {
 
             setPreferences(normalizePreferences(data.preferences));
             setBrowserPushState(state);
-            toast.success('Browser notifications are on for this device.');
+            toast.success('iPawcus Push notification is now activated.');
         } catch (error) {
+            console.error('[iPawcus push] Browser push enable failed.', error);
             toast.error(error.message || 'Browser notifications could not be turned on.');
-            setBrowserPushState(await getBrowserPushState(userId));
+            try {
+                setBrowserPushState(await getBrowserPushState(userId));
+            } catch (stateError) {
+                console.error('[iPawcus push] Browser push state refresh after enable failure also failed.', stateError);
+                setBrowserPushState({
+                    ...DEFAULT_BROWSER_PUSH_STATE,
+                    error: stateError.message || 'Browser notification service could not be checked.'
+                });
+            }
         } finally {
             setIsPushUpdating(false);
         }
@@ -242,7 +270,12 @@ export default function NotificationPreferencesCard({ user }) {
             setBrowserPushState(state);
             toast.success('Browser notifications are off for this device.');
         } catch (error) {
+            console.error('[iPawcus push] Browser push disable failed.', error);
             toast.error(error.message || 'Browser notifications could not be turned off.');
+            setBrowserPushState({
+                ...browserPushState,
+                error: error.message || 'Browser notifications could not be turned off.'
+            });
         } finally {
             setIsPushUpdating(false);
         }
@@ -251,7 +284,8 @@ export default function NotificationPreferencesCard({ user }) {
     const canEnableBrowserPush = browserPushState.supported
         && browserPushState.secure !== false
         && browserPushState.configured
-        && browserPushState.permission !== 'denied';
+        && browserPushState.permission !== 'denied'
+        && !browserPushState.error;
 
     if (isLoading) {
         return (

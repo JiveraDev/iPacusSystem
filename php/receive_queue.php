@@ -115,6 +115,7 @@ try {
         notification_send_queue_event($pdo, $queueId, 'received', [
             'veterinarian_name' => $veterinarianName,
         ]);
+        notification_send_queue_assignment_to_vet($pdo, $queueId, $veterinarianUserId, $veterinarianName);
     } catch (Throwable $notificationError) {
         error_log('Queue receive notification failed: ' . $notificationError->getMessage());
     }

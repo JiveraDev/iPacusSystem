@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 
@@ -550,6 +551,12 @@ function assign_room_action(PDO $pdo): void
 
         $pdo->commit();
 
+        try {
+            notification_send_booking_event($pdo, $bookingId, 'confirmed');
+        } catch (Throwable $notificationError) {
+            error_log('Boarding approval notification failed: ' . $notificationError->getMessage());
+        }
+
         echo json_encode([
             'message' => 'Booking approved and room reserved.',
             'assignment' => assignment_response($pdo, $bookingId),
@@ -621,6 +628,14 @@ function check_in_action(PDO $pdo): void
         $bookingStmt->execute([$bookingId]);
 
         $pdo->commit();
+
+        try {
+            notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
+                'room_label' => (string)$assignment['room_type'] . ' #' . (int)$assignment['room_number'],
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Boarding check-in notification failed: ' . $notificationError->getMessage());
+        }
 
         echo json_encode([
             'message' => 'Pet checked in successfully.',
@@ -741,6 +756,12 @@ function check_out_action(PDO $pdo): void
         $bookingStmt->execute([$bookingId]);
 
         $pdo->commit();
+
+        try {
+            notification_send_boarding_event($pdo, $bookingId, 'checked_out');
+        } catch (Throwable $notificationError) {
+            error_log('Boarding check-out notification failed: ' . $notificationError->getMessage());
+        }
 
         echo json_encode(['message' => 'Pet checked out successfully.']);
     } catch (Exception $e) {
@@ -1178,6 +1199,14 @@ function direct_check_in_action(PDO $pdo): void
         $assignmentStmt->execute([$bookingId, $roomType, $roomNumber, $checkOut, $notes]);
 
         $pdo->commit();
+
+        try {
+            notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
+                'room_label' => $roomType . ' #' . $roomNumber,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Walk-in boarding check-in notification failed: ' . $notificationError->getMessage());
+        }
 
         echo json_encode([
             'message' => 'Walk-in pet checked in successfully.',

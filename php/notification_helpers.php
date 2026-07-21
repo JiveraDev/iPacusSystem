@@ -1497,6 +1497,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     $dedupeKey = null;
     $reason = 'There was an update to this booking.';
     $pushMessage = "Your {$serviceName} booking for {$petName} has been updated.";
+    $oldSchedule = '';
 
     if ($event === 'submitted') {
         $title = 'Booking received';
@@ -1577,30 +1578,83 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         'email_text' => $emailText,
     ]);
 
-    if ($event === 'submitted') {
-        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+    $clinicBookingEvents = [
+        'submitted' => [
             'type' => 'clinic_booking_submitted',
-            'category' => 'booking_updates',
             'title' => 'Booking waiting for review',
             'message' => "{$bookingNumber} for {$petName} is waiting for admin review.",
             'push_message' => "{$serviceName} booking {$bookingNumber} needs review.",
-            'redirect_path' => '/dashboard/bookings',
             'dedupe_key' => "clinic-booking-submitted-{$bookingId}",
+        ],
+        'confirmed' => [
+            'type' => 'clinic_booking_confirmed',
+            'title' => 'Booking approved',
+            'message' => "{$bookingNumber} for {$petName} was approved{$schedulePhrase}.",
+            'push_message' => "{$serviceName} booking {$bookingNumber} was approved.",
+            'dedupe_key' => "clinic-booking-confirmed-{$bookingId}",
+        ],
+        'cancelled' => [
+            'type' => 'clinic_booking_cancelled',
+            'title' => 'Booking cancelled',
+            'message' => "{$bookingNumber} for {$petName} was cancelled.",
+            'push_message' => "{$serviceName} booking {$bookingNumber} was cancelled.",
+            'dedupe_key' => "clinic-booking-cancelled-{$bookingId}",
+        ],
+        'rescheduled' => [
+            'type' => 'clinic_booking_rescheduled',
+            'title' => 'Booking rescheduled',
+            'message' => "{$bookingNumber} for {$petName} was rescheduled to {$schedule}.",
+            'push_message' => "{$serviceName} booking {$bookingNumber} was rescheduled.",
+            'dedupe_key' => "clinic-booking-rescheduled-{$bookingId}-" . md5($oldSchedule . '|' . $schedule),
+        ],
+    ];
+
+    if (isset($clinicBookingEvents[$event])) {
+        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+            ...$clinicBookingEvents[$event],
+            'category' => 'booking_updates',
+            'redirect_path' => '/dashboard/bookings',
             'force_in_app' => true,
         ]);
     }
 
-    if ($event === 'confirmed' && (int)($booking['is_online_consultation'] ?? 0) === 1 && (int)($booking['veterinarian_id'] ?? 0) > 0) {
+    $vetUserId = (int)($booking['veterinarian_id'] ?? 0);
+    if ($vetUserId > 0 && in_array($event, ['confirmed', 'cancelled', 'rescheduled'], true)) {
+        $isOnlineConsultation = (int)($booking['is_online_consultation'] ?? 0) === 1;
+        $vetRedirectPath = $isOnlineConsultation ? '/dashboard/vet/online-consultations' : '/dashboard/vet/my-list';
+
+        $vetEvents = [
+            'confirmed' => [
+                'type' => $isOnlineConsultation ? 'online_consultation_appointment' : 'booking_assigned_to_vet',
+                'category' => $isOnlineConsultation ? 'schedule_reminders' : 'booking_updates',
+                'title' => $isOnlineConsultation ? 'Online consultation appointment' : 'Booking assigned to you',
+                'message' => "{$bookingNumber} for {$petName} is confirmed{$schedulePhrase}.",
+                'push_message' => "{$serviceName} for {$petName} is confirmed{$schedulePhrase}.",
+                'dedupe_key' => ($isOnlineConsultation ? 'vet-online-consultation-confirmed' : 'vet-booking-confirmed') . "-{$bookingId}-vet-{$vetUserId}",
+            ],
+            'cancelled' => [
+                'type' => 'vet_booking_cancelled',
+                'category' => 'booking_updates',
+                'title' => 'Assigned booking cancelled',
+                'message' => "{$bookingNumber} for {$petName} was cancelled.",
+                'push_message' => "{$serviceName} for {$petName} was cancelled.",
+                'dedupe_key' => "vet-booking-cancelled-{$bookingId}-vet-{$vetUserId}",
+            ],
+            'rescheduled' => [
+                'type' => 'vet_booking_rescheduled',
+                'category' => 'booking_updates',
+                'title' => 'Assigned booking rescheduled',
+                'message' => "{$bookingNumber} for {$petName} was rescheduled to {$schedule}.",
+                'push_message' => "{$serviceName} for {$petName} was rescheduled.",
+                'dedupe_key' => "vet-booking-rescheduled-{$bookingId}-vet-{$vetUserId}-" . md5($oldSchedule . '|' . $schedule),
+            ],
+        ];
+
         $vetUserId = (int)$booking['veterinarian_id'];
         notification_create_event($pdo, [
             'user_id' => $vetUserId,
-            'type' => 'online_consultation_appointment',
-            'category' => 'schedule_reminders',
-            'title' => 'Online consultation appointment',
-            'message' => "{$bookingNumber} for {$petName} is confirmed{$schedulePhrase}.",
-            'push_message' => "Online consultation for {$petName} is confirmed{$schedulePhrase}.",
-            'redirect_path' => '/dashboard/vet/online-consultations',
-            'dedupe_key' => "vet-online-consultation-confirmed-{$bookingId}-vet-{$vetUserId}",
+            ...$vetEvents[$event],
+            'redirect_path' => $vetRedirectPath,
             'force_in_app' => true,
         ]);
     }
@@ -1890,15 +1944,50 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         'email_text' => $emailText,
     ]);
 
-    if ($event === 'created') {
-        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+    $clinicQueueEvent = $event === 'done' ? 'completed' : $event;
+    $clinicQueueEvents = [
+        'created' => [
             'type' => 'clinic_queue_created',
-            'category' => 'queue_updates',
             'title' => 'New queue entry',
             'message' => "{$petName} was added to queue {$queueNumber} for {$serviceName}.",
             'push_message' => "New queue entry {$queueNumber}: {$petName}.",
-            'redirect_path' => '/dashboard/queue',
             'dedupe_key' => "clinic-queue-created-{$queueId}",
+        ],
+        'in_progress' => [
+            'type' => 'clinic_queue_in_progress',
+            'title' => 'Queue approved',
+            'message' => "{$queueNumber} for {$petName} is now in progress for {$serviceName}.",
+            'push_message' => "{$queueNumber} for {$petName} is now in progress.",
+            'dedupe_key' => "clinic-queue-in-progress-{$queueId}",
+        ],
+        'received' => [
+            'type' => 'clinic_queue_received',
+            'title' => 'Patient received',
+            'message' => "{$petName} from {$queueNumber} was received for {$serviceName}.",
+            'push_message' => "{$petName} was received from {$queueNumber}.",
+            'dedupe_key' => "clinic-queue-received-{$queueId}",
+        ],
+        'completed' => [
+            'type' => 'clinic_queue_completed',
+            'title' => 'Queue completed',
+            'message' => "{$queueNumber} for {$petName} was completed.",
+            'push_message' => "{$queueNumber} for {$petName} was completed.",
+            'dedupe_key' => "clinic-queue-completed-{$queueId}",
+        ],
+        'cancelled' => [
+            'type' => 'clinic_queue_cancelled',
+            'title' => 'Queue cancelled',
+            'message' => "{$queueNumber} for {$petName} was cancelled.",
+            'push_message' => "{$queueNumber} for {$petName} was cancelled.",
+            'dedupe_key' => "clinic-queue-cancelled-{$queueId}",
+        ],
+    ];
+
+    if (isset($clinicQueueEvents[$clinicQueueEvent])) {
+        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+            ...$clinicQueueEvents[$clinicQueueEvent],
+            'category' => 'queue_updates',
+            'redirect_path' => '/dashboard/queue',
             'force_in_app' => true,
         ]);
     }
@@ -1995,6 +2084,60 @@ function notification_send_record_update_request_event(PDO $pdo, int $requestId,
     ]);
 }
 
+function notification_send_record_update_request_staff_event(PDO $pdo, int $requestId, string $event): void
+{
+    $request = notification_fetch_record_update_request($pdo, $requestId);
+    if (!$request) {
+        return;
+    }
+
+    $petName = trim((string)($request['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $requestNumber = trim((string)($request['request_number'] ?? ('Request #' . $requestId)));
+    $requestedChanges = trim((string)($request['requested_changes'] ?? ''));
+    $vetName = trim((string)($request['veterinarian_name'] ?? ''));
+    $vetLabel = $vetName !== '' ? " by Dr. {$vetName}" : '';
+
+    $events = [
+        'submitted' => [
+            'type' => 'clinic_record_update_request_submitted',
+            'title' => 'Record update request submitted',
+            'message' => "{$requestNumber} for {$petName} needs admin review.",
+            'push_message' => "{$requestNumber} for {$petName} needs review.",
+            'dedupe_key' => "clinic-record-update-request-submitted-{$requestId}",
+        ],
+        'in_progress' => [
+            'type' => 'clinic_record_update_request_started',
+            'title' => 'Record update started',
+            'message' => "{$requestNumber} for {$petName} was started{$vetLabel}.",
+            'push_message' => "{$requestNumber} for {$petName} was started.",
+            'dedupe_key' => "clinic-record-update-request-started-{$requestId}",
+        ],
+        'completed' => [
+            'type' => 'clinic_record_update_request_completed',
+            'title' => 'Record update completed',
+            'message' => "{$requestNumber} for {$petName} was completed{$vetLabel}.",
+            'push_message' => "{$requestNumber} for {$petName} was completed.",
+            'dedupe_key' => "clinic-record-update-request-completed-{$requestId}",
+        ],
+    ];
+
+    if (!isset($events[$event])) {
+        return;
+    }
+
+    $payload = $events[$event];
+    if ($requestedChanges !== '') {
+        $payload['message'] .= ' Request: ' . substr($requestedChanges, 0, 140);
+    }
+
+    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+        ...$payload,
+        'category' => 'diagnosis_updates',
+        'redirect_path' => '/dashboard/record-requests',
+        'force_in_app' => true,
+    ]);
+}
+
 function notification_send_record_update_request_completed_to_owner(PDO $pdo, int $requestId): void
 {
     $request = notification_fetch_record_update_request($pdo, $requestId);
@@ -2016,12 +2159,185 @@ function notification_send_record_update_request_completed_to_owner(PDO $pdo, in
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
         'type' => 'record_update_request_completed',
-        'category' => 'medical_records',
+        'category' => 'diagnosis_updates',
         'title' => 'Record update completed',
         'message' => "{$requestNumber} for {$petName} has been completed{$vetLabel}. You can now review the updated medical record.",
         'push_message' => "{$petName}'s requested record update is complete.",
         'redirect_path' => $petId > 0 ? "/dashboard/my-pets/{$petId}/medical-records" : '/dashboard/my-pets',
         'dedupe_key' => "record-update-request-completed-{$requestId}-owner-{$ownerUserId}",
+        'force_in_app' => true,
+    ]);
+}
+
+function notification_send_boarding_event(PDO $pdo, int $bookingId, string $event, array $context = []): void
+{
+    $booking = notification_fetch_booking($pdo, $bookingId);
+    if (!$booking) {
+        return;
+    }
+
+    $ownerUserId = (int)($booking['user_id'] ?? 0);
+    $petName = trim((string)($booking['pet_name'] ?? $booking['unregistered_pet_name'] ?? 'Pet')) ?: 'Pet';
+    $bookingNumber = trim((string)($booking['booking_number'] ?? ('Booking #' . $bookingId)));
+    $roomLabel = trim((string)($context['room_label'] ?? ''));
+    $roomSuffix = $roomLabel !== '' ? " in {$roomLabel}" : '';
+
+    $events = [
+        'checked_in' => [
+            'type' => 'boarding_checked_in',
+            'title' => 'Boarding check-in completed',
+            'message' => "{$petName} checked in for {$bookingNumber}{$roomSuffix}.",
+            'push_message' => "{$petName} has checked in for boarding.",
+            'dedupe_key' => "boarding-checked-in-{$bookingId}",
+            'clinic_title' => 'Boarding pet checked in',
+        ],
+        'checked_out' => [
+            'type' => 'boarding_checked_out',
+            'title' => 'Boarding check-out completed',
+            'message' => "{$petName} checked out from boarding ({$bookingNumber}).",
+            'push_message' => "{$petName} has checked out from boarding.",
+            'dedupe_key' => "boarding-checked-out-{$bookingId}",
+            'clinic_title' => 'Boarding pet checked out',
+        ],
+    ];
+
+    if (!isset($events[$event])) {
+        return;
+    }
+
+    $payload = $events[$event];
+    if ($ownerUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $ownerUserId,
+            'type' => $payload['type'],
+            'category' => 'boarding_updates',
+            'title' => $payload['title'],
+            'message' => $payload['message'],
+            'push_message' => $payload['push_message'],
+            'redirect_path' => notification_pet_redirect_path($booking['pet_id'] ?? null),
+            'dedupe_key' => $payload['dedupe_key'] . "-owner-{$ownerUserId}",
+            'force_in_app' => true,
+        ]);
+    }
+
+    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+        'type' => 'clinic_' . $payload['type'],
+        'category' => 'boarding_updates',
+        'title' => $payload['clinic_title'],
+        'message' => $payload['message'],
+        'push_message' => $payload['push_message'],
+        'redirect_path' => '/dashboard/bookings',
+        'dedupe_key' => 'clinic-' . $payload['dedupe_key'],
+        'force_in_app' => true,
+    ]);
+}
+
+function notification_fetch_online_consultation_summary(PDO $pdo, int $onlineConsultationId): ?array
+{
+    $stmt = $pdo->prepare("
+        SELECT
+            oc.*,
+            b.booking_number,
+            b.pet_id,
+            p.pet_name,
+            CONCAT(vet.first_Name, ' ', vet.last_Name) AS veterinarian_name
+        FROM online_consultations oc
+        JOIN bookings b ON b.booking_id = oc.booking_id
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        LEFT JOIN users vet ON vet.user_id = oc.veterinarian_user_id
+        WHERE oc.online_consultation_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$onlineConsultationId]);
+    $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $consultation ?: null;
+}
+
+function notification_send_online_consultation_event(PDO $pdo, int $onlineConsultationId, string $event): void
+{
+    $consultation = notification_fetch_online_consultation_summary($pdo, $onlineConsultationId);
+    if (!$consultation) {
+        return;
+    }
+
+    $ownerUserId = (int)($consultation['owner_user_id'] ?? 0);
+    $vetUserId = (int)($consultation['veterinarian_user_id'] ?? 0);
+    $petId = (int)($consultation['pet_id'] ?? 0);
+    $petName = trim((string)($consultation['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $bookingNumber = trim((string)($consultation['booking_number'] ?? ('Booking #' . (int)$consultation['booking_id'])));
+    $vetName = trim((string)($consultation['veterinarian_name'] ?? 'the veterinarian')) ?: 'the veterinarian';
+
+    if ($event === 'vet_ready' && $ownerUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $ownerUserId,
+            'type' => 'online_consultation_vet_ready',
+            'category' => 'schedule_reminders',
+            'title' => 'Veterinarian is ready',
+            'message' => "{$vetName} is ready for {$petName}'s online consultation ({$bookingNumber}).",
+            'push_message' => "The veterinarian is ready for {$petName}'s online consultation.",
+            'redirect_path' => notification_pet_redirect_path($petId),
+            'dedupe_key' => "online-consultation-vet-ready-{$onlineConsultationId}",
+            'force_in_app' => true,
+        ]);
+        return;
+    }
+
+    if ($event === 'owner_joined' && $vetUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $vetUserId,
+            'type' => 'online_consultation_owner_joined',
+            'category' => 'schedule_reminders',
+            'title' => 'Pet owner joined',
+            'message' => "The pet owner joined {$petName}'s online consultation ({$bookingNumber}).",
+            'push_message' => "The pet owner joined {$petName}'s online consultation.",
+            'redirect_path' => "/dashboard/vet/online-consultations/{$onlineConsultationId}/diagnosis",
+            'dedupe_key' => "online-consultation-owner-joined-{$onlineConsultationId}-vet-{$vetUserId}",
+            'force_in_app' => true,
+        ]);
+        return;
+    }
+
+    if ($event !== 'completed') {
+        return;
+    }
+
+    if ($ownerUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $ownerUserId,
+            'type' => 'online_consultation_completed',
+            'category' => 'diagnosis_updates',
+            'title' => 'Online consultation completed',
+            'message' => "{$petName}'s online consultation and diagnosis are complete.",
+            'push_message' => "{$petName}'s online consultation record is now available.",
+            'redirect_path' => notification_pet_redirect_path($petId),
+            'dedupe_key' => "online-consultation-completed-{$onlineConsultationId}-owner-{$ownerUserId}",
+            'force_in_app' => true,
+        ]);
+    }
+
+    if ($vetUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $vetUserId,
+            'type' => 'online_consultation_diagnosis_saved',
+            'category' => 'diagnosis_updates',
+            'title' => 'Online diagnosis saved',
+            'message' => "Your diagnosis for {$petName} ({$bookingNumber}) was saved successfully.",
+            'push_message' => "Diagnosis saved for {$petName}.",
+            'redirect_path' => '/dashboard/vet/online-consultations',
+            'dedupe_key' => "online-consultation-completed-{$onlineConsultationId}-vet-{$vetUserId}",
+            'force_in_app' => true,
+        ]);
+    }
+
+    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+        'type' => 'clinic_online_consultation_completed',
+        'category' => 'diagnosis_updates',
+        'title' => 'Online diagnosis completed',
+        'message' => "{$bookingNumber} for {$petName} was completed by {$vetName}.",
+        'push_message' => "Online diagnosis completed for {$petName}.",
+        'redirect_path' => '/dashboard/bookings',
+        'dedupe_key' => "clinic-online-consultation-completed-{$onlineConsultationId}",
         'force_in_app' => true,
     ]);
 }
@@ -2186,6 +2502,7 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
         'email_html' => $emailHtml,
         'email_text' => $emailText,
     ]);
+
 }
 
 function notification_fetch_diagnosis_summary(PDO $pdo, int $diagnosisId): ?array
@@ -2263,5 +2580,31 @@ function notification_send_diagnosis_event(PDO $pdo, int $diagnosisId): void
         'email_subject' => "Diagnosis completed for {$petName}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,
+    ]);
+
+    $veterinarianUserId = (int)($diagnosis['veterinarian_user_id'] ?? 0);
+    if ($veterinarianUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $veterinarianUserId,
+            'type' => 'diagnosis_saved_by_vet',
+            'category' => 'diagnosis_updates',
+            'title' => 'Diagnosis saved',
+            'message' => "Your {$serviceName} diagnosis for {$petName} ({$reference}) was saved successfully.",
+            'push_message' => "Diagnosis saved for {$petName}.",
+            'redirect_path' => '/dashboard/vet/medical-records',
+            'dedupe_key' => "diagnosis-completed-{$diagnosisId}-vet-{$veterinarianUserId}",
+            'force_in_app' => true,
+        ]);
+    }
+
+    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+        'type' => 'clinic_diagnosis_completed',
+        'category' => 'diagnosis_updates',
+        'title' => 'Diagnosis completed',
+        'message' => "A {$serviceName} diagnosis for {$petName} ({$reference}) was completed.",
+        'push_message' => "Diagnosis completed for {$petName}.",
+        'redirect_path' => '/dashboard/queue',
+        'dedupe_key' => "clinic-diagnosis-completed-{$diagnosisId}",
+        'force_in_app' => true,
     ]);
 }

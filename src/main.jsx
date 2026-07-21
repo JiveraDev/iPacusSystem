@@ -16,7 +16,9 @@ const mantineTheme = createTheme({
 })
 
 ensurePwaHeadTags()
-registerPwaServiceWorker()
+registerPwaServiceWorker().catch((error) => {
+  console.error('[iPawcus push] PWA service worker setup failed.', error)
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

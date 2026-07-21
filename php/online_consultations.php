@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header("Content-Type: application/json");
@@ -317,6 +318,13 @@ try {
               AND status IN ('scheduled', 'vet_ready', 'in_progress')
         ");
         $stmt->execute([$id]);
+
+        try {
+            notification_send_online_consultation_event($pdo, $id, 'vet_ready');
+        } catch (Throwable $notificationError) {
+            error_log('Online consultation ready notification failed: ' . $notificationError->getMessage());
+        }
+
         echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
         exit;
     }
@@ -338,6 +346,15 @@ try {
               AND status IN ('vet_ready', 'in_progress')
         ");
         $stmt->execute([$id]);
+
+        if ($currentApiRole === 'pet_owner') {
+            try {
+                notification_send_online_consultation_event($pdo, $id, 'owner_joined');
+            } catch (Throwable $notificationError) {
+                error_log('Online consultation join notification failed: ' . $notificationError->getMessage());
+            }
+        }
+
         echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
         exit;
     }
@@ -395,6 +412,11 @@ try {
 
         if (strtolower((string)$consultation['status']) === 'completed' && $existingDiagnosisId > 0) {
             $pdo->commit();
+            try {
+                notification_send_online_consultation_event($pdo, $id, 'completed');
+            } catch (Throwable $notificationError) {
+                error_log('Online consultation completion notification retry failed: ' . $notificationError->getMessage());
+            }
             echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
             exit;
         }
@@ -461,6 +483,12 @@ try {
             throw new RuntimeException('Online consultation booking is not in a confirmable state.');
         }
         $pdo->commit();
+
+        try {
+            notification_send_online_consultation_event($pdo, $id, 'completed');
+        } catch (Throwable $notificationError) {
+            error_log('Online consultation completion notification failed: ' . $notificationError->getMessage());
+        }
 
         echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
         exit;

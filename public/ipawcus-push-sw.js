@@ -185,9 +185,35 @@ async function writePushSettings(settings) {
     });
 }
 
+function normalizeApiBase(apiBase) {
+    const base = String(apiBase || '').trim().replace(/\/+$/, '');
+
+    if (!base) {
+        return `${self.location.origin}/api`;
+    }
+
+    if (base.endsWith('/api')) {
+        return base;
+    }
+
+    if (base.endsWith('/php/index.php')) {
+        return `${base}/api`;
+    }
+
+    try {
+        const url = new URL(base, self.location.origin);
+        if (url.pathname === '/' || url.pathname === '') {
+            return `${url.origin}/api`;
+        }
+    } catch {
+        return '/api';
+    }
+
+    return base;
+}
+
 function buildApiUrl(apiBase, path) {
-    const base = apiBase || self.location.origin;
-    return `${String(base).replace(/\/+$/, '')}${path}`;
+    return `${normalizeApiBase(apiBase)}${path}`;
 }
 
 async function fetchLatestNotification(settings) {
@@ -221,6 +247,7 @@ async function showIpaWcusNotification() {
         settings = await readPushSettings();
         notification = await fetchLatestNotification(settings);
     } catch (error) {
+        console.error('[iPawcus push worker] Could not load latest notification for push display.', error);
         notification = null;
     }
 
@@ -254,7 +281,9 @@ async function markNotificationRead(data) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ user_id: data.userId })
-    }).catch(() => {});
+    }).catch((error) => {
+        console.error('[iPawcus push worker] Could not mark notification as read.', error);
+    });
 }
 
 async function openNotificationTarget(data) {
@@ -297,7 +326,9 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-    event.waitUntil(showIpaWcusNotification());
+    event.waitUntil(showIpaWcusNotification().catch((error) => {
+        console.error('[iPawcus push worker] Push event handling failed.', error);
+    }));
 });
 
 self.addEventListener('notificationclick', event => {
@@ -307,5 +338,7 @@ self.addEventListener('notificationclick', event => {
     event.waitUntil((async () => {
         await markNotificationRead(data);
         await openNotificationTarget(data);
+    })().catch((error) => {
+        console.error('[iPawcus push worker] Notification click handling failed.', error);
     })());
 });

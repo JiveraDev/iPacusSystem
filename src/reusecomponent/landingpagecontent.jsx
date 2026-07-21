@@ -314,7 +314,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
 
     return (
         <div className="min-w-0 overflow-x-hidden bg-[#f6f8fb] text-slate-950">
-            <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <header className="sticky top-0 z-40 border-b border-slate-200  backdrop-blur">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
                     <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Animal Care Clinic home" onClick={(event) => handleHashNavigation(event, '#top')}>
                         <img src={logoImage} alt="Vetfocus Animal Care Clinic logo" className="h-11 w-11 shrink-0 object-contain" />

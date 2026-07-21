@@ -997,6 +997,14 @@ try {
     }
 
     try {
+        if ($queueId !== null && $queueId > 0) {
+            notification_send_queue_event($pdo, $queueId, 'completed');
+        }
+    } catch (Throwable $notificationError) {
+        error_log('Queue completion notification failed: ' . $notificationError->getMessage());
+    }
+
+    try {
         if (!empty($visitBilling['hasCharges']) && !empty($visitBilling['visitId'])) {
             notification_send_visit_event($pdo, (int)$visitBilling['visitId'], 'invoice_ready');
         }

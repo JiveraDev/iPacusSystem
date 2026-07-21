@@ -38,6 +38,13 @@ export function ensurePwaHeadTags() {
     return element;
   });
 
+  upsertHeadElement('meta[name="mobile-web-app-capable"]', () => {
+    const element = document.createElement('meta');
+    element.name = 'mobile-web-app-capable';
+    element.content = 'yes';
+    return element;
+  });
+
   upsertHeadElement('meta[name="apple-mobile-web-app-title"]', () => {
     const element = document.createElement('meta');
     element.name = 'apple-mobile-web-app-title';

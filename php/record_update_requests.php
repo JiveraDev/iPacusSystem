@@ -293,6 +293,12 @@ function record_request_create(PDO $pdo, array $input): void
     $requestId = (int)$pdo->lastInsertId();
     $record = record_request_fetch($pdo, ['request_id' => $requestId])[0] ?? null;
 
+    try {
+        notification_send_record_update_request_staff_event($pdo, $requestId, 'submitted');
+    } catch (Throwable $notificationError) {
+        error_log('Record update submission notification failed: ' . $notificationError->getMessage());
+    }
+
     echo json_encode(['success' => true, 'request' => $record, 'requestId' => $requestId]);
 }
 
@@ -316,6 +322,7 @@ function record_request_update(PDO $pdo, array $input): void
     $adminNotes = record_request_nullable_text($input['adminNotes'] ?? $input['admin_notes'] ?? null);
     $vetNotes = record_request_nullable_text($input['veterinarianNotes'] ?? $input['veterinarian_notes'] ?? null);
     $notifyAssigned = false;
+    $notifyStarted = false;
     $notifyCompleted = false;
 
     $pdo->beginTransaction();
@@ -426,6 +433,7 @@ function record_request_update(PDO $pdo, array $input): void
         if ($stmt->rowCount() === 0) {
             record_request_error(409, 'This request must be assigned to you before it can be started.');
         }
+        $notifyStarted = true;
     } elseif ($action === 'complete') {
         if ($currentRole !== 'veterinarian') {
             record_request_error(403, 'Only the assigned veterinarian can complete this record update request.');
@@ -501,6 +509,22 @@ function record_request_update(PDO $pdo, array $input): void
             notification_send_record_update_request_completed_to_owner($pdo, $requestId);
         } catch (Throwable $notificationError) {
             error_log('Record update completion notification failed: ' . $notificationError->getMessage());
+        }
+    }
+
+    if ($record && $notifyStarted) {
+        try {
+            notification_send_record_update_request_staff_event($pdo, $requestId, 'in_progress');
+        } catch (Throwable $notificationError) {
+            error_log('Record update start notification failed: ' . $notificationError->getMessage());
+        }
+    }
+
+    if ($record && $notifyCompleted) {
+        try {
+            notification_send_record_update_request_staff_event($pdo, $requestId, 'completed');
+        } catch (Throwable $notificationError) {
+            error_log('Record update staff completion notification failed: ' . $notificationError->getMessage());
         }
     }
 

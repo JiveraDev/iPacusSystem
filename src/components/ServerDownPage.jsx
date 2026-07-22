@@ -86,10 +86,11 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
                                 : 'Report problem'}
                     </button>
 
-                    <span className="text-sm font-semibold text-slate-500">
-                        We will reopen the app automatically once service is restored.
-                    </span>
                 </div>
+
+                <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                    Refresh to check whether service has been restored. If the issue continues, send a problem report.
+                </p>
 
                 {reportState.status === 'sent' && (
                     <div role="status" className="mt-5 flex max-w-2xl items-start gap-3 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">

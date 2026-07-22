@@ -29,6 +29,10 @@ export function requestPasswordReset(payload) {
     return postAuth("/auth/forgot-password", payload);
 }
 
+export function verifyPasswordResetCode(payload) {
+    return postAuth("/auth/verify-reset-code", payload);
+}
+
 export function resetPasswordWithOtp(payload) {
     return postAuth("/auth/reset-password", payload);
 }

@@ -17,6 +17,8 @@ let serverStatus = {
     message: '',
     code: '',
     status: 0,
+    requestPath: '',
+    requestMethod: '',
     checkedAt: ''
 };
 let isRedirectingToLogin = false;
@@ -28,6 +30,32 @@ export class ApiError extends Error {
         this.status = details.status || 0;
         this.data = details.data || {};
     }
+}
+
+function sanitizeDiagnosticPath(path = '') {
+    let pathname = String(path || '').split(/[?#]/, 1)[0];
+
+    try {
+        if (/^https?:\/\//i.test(pathname)) {
+            pathname = new URL(pathname).pathname;
+        }
+    } catch {
+        pathname = '';
+    }
+
+    const sanitizedSegments = pathname
+        .split('/')
+        .map((segment) => {
+            if (/^\d+$/.test(segment)
+                || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment)
+                || segment.length > 48) {
+                return ':id';
+            }
+
+            return segment;
+        });
+
+    return sanitizedSegments.join('/').slice(0, 240);
 }
 
 function dispatchServerStatus() {
@@ -49,7 +77,9 @@ function updateServerStatus(nextStatus) {
     const hasChanged = serverStatus.isDown !== nextSnapshot.isDown
         || serverStatus.message !== nextSnapshot.message
         || serverStatus.code !== nextSnapshot.code
-        || serverStatus.status !== nextSnapshot.status;
+        || serverStatus.status !== nextSnapshot.status
+        || serverStatus.requestPath !== nextSnapshot.requestPath
+        || serverStatus.requestMethod !== nextSnapshot.requestMethod;
 
     serverStatus = nextSnapshot;
 
@@ -62,12 +92,27 @@ function getUnavailableDetails(error, details = {}) {
     const data = details.data || error?.data || {};
     const status = details.status || error?.status || 0;
     const code = data.code || details.code || (status === 0 ? 'server_unreachable' : 'server_unavailable');
+    const incomingPath = sanitizeDiagnosticPath(details.requestPath);
+    const preserveOriginalPath = serverStatus.isDown
+        && incomingPath === '/health'
+        && serverStatus.requestPath
+        && serverStatus.requestPath !== '/health';
+    const requestPath = preserveOriginalPath
+        ? serverStatus.requestPath
+        : (incomingPath || serverStatus.requestPath);
+    const requestMethod = String(
+        preserveOriginalPath
+            ? serverStatus.requestMethod
+            : (details.requestMethod || serverStatus.requestMethod || '')
+    ).toUpperCase().slice(0, 12);
 
     return {
         isDown: true,
         message: data.message || error?.message || SERVER_UNAVAILABLE_MESSAGE,
         code,
-        status
+        status,
+        requestPath,
+        requestMethod
     };
 }
 
@@ -101,7 +146,9 @@ export function reportServerAvailable() {
         isDown: false,
         message: '',
         code: '',
-        status: 0
+        status: 0,
+        requestPath: '',
+        requestMethod: ''
     });
 }
 
@@ -353,7 +400,12 @@ export async function apiFetch(path, options = {}) {
                 reportServerUnavailable(new ApiError(errorData.message || SERVER_UNAVAILABLE_MESSAGE, {
                     status: response.status,
                     data: { code: errorData.code || 'server_unavailable' }
-                }), { status: response.status, data: errorData });
+                }), {
+                    status: response.status,
+                    data: errorData,
+                    requestPath: path,
+                    requestMethod: method
+                });
             }
         } else {
             reportServerAvailable();
@@ -371,7 +423,7 @@ export async function apiFetch(path, options = {}) {
                 status: 0,
                 data: { code: 'request_timeout' }
             });
-            reportServerUnavailable(timeoutError);
+            reportServerUnavailable(timeoutError, { requestPath: path, requestMethod: method });
             throw timeoutError;
         }
 
@@ -383,7 +435,7 @@ export async function apiFetch(path, options = {}) {
                     data: { code: 'server_unreachable' }
                 });
 
-            reportServerUnavailable(connectionError);
+            reportServerUnavailable(connectionError, { requestPath: path, requestMethod: method });
             throw connectionError;
         }
 
@@ -410,7 +462,12 @@ async function performApiRequest(path, options = {}) {
         });
 
         if (response.status >= 500 || data.code === 'database_unavailable') {
-            reportServerUnavailable(error, { status: response.status, data });
+            reportServerUnavailable(error, {
+                status: response.status,
+                data,
+                requestPath: path,
+                requestMethod: getApiRequestMethod(options)
+            });
         }
 
         handleAuthRequired(data);
@@ -459,7 +516,7 @@ export async function checkServerHealth(options = {}) {
             status: 503,
             data: { code: 'server_unavailable' }
         });
-        reportServerUnavailable(error);
+        reportServerUnavailable(error, { requestPath: '/health', requestMethod: 'GET' });
         throw error;
     } catch (error) {
         const data = error?.data || {};
@@ -470,7 +527,7 @@ export async function checkServerHealth(options = {}) {
             })
             : error;
 
-        reportServerUnavailable(healthError);
+        reportServerUnavailable(healthError, { requestPath: '/health', requestMethod: 'GET' });
         throw healthError;
     }
 }

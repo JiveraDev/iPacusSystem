@@ -64,6 +64,9 @@ switch ($path) {
     case '/auth/forgot-password':
         require_once __DIR__ . '/auth_forgot_password.php';
         break;
+    case '/auth/verify-reset-code':
+        require_once __DIR__ . '/auth_verify_reset_code.php';
+        break;
     case '/auth/reset-password':
         require_once __DIR__ . '/auth_reset_password.php';
         break;
@@ -284,6 +287,9 @@ switch ($path) {
         } else {
             require_once __DIR__ . '/get_user_profile.php';
         }
+        break;
+    case '/system/problem-report':
+        require_once __DIR__ . '/system_problem_report.php';
         break;
     case '/health':
         try {

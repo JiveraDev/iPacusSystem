@@ -105,6 +105,11 @@ function authOtpGenerateCode(): string
     return (string)random_int(100000, 999999);
 }
 
+function authOtpExpiresMinutes(): int
+{
+    return max(5, (int)(getenv('OTP_EXPIRES_MINUTES') ?: 10));
+}
+
 function authOtpFetchUserByEmail(PDO $pdo, string $email): ?array
 {
     $stmt = $pdo->prepare("
@@ -170,7 +175,7 @@ function authOtpCanSend(PDO $pdo, ?int $userId, string $email, string $purpose):
 function authOtpCreate(PDO $pdo, ?int $userId, string $email, string $purpose): array
 {
     $email = authOtpNormalizeEmail($email);
-    $expiresMinutes = max(5, (int)(getenv('OTP_EXPIRES_MINUTES') ?: 10));
+    $expiresMinutes = authOtpExpiresMinutes();
     $maxAttempts = max(3, (int)(getenv('OTP_MAX_ATTEMPTS') ?: 5));
     $code = authOtpGenerateCode();
     $tokenHash = authOtpHash($email, $purpose, $code);

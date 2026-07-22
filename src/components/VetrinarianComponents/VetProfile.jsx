@@ -93,7 +93,7 @@ function getFullName(profile) {
     return `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Veterinarian Profile';
 }
 
-export default function VetProfile({ onLogout }) {
+export default function VetProfile({ onForgotPassword }) {
     const contextUser = useDashboardUser();
     const onUserUpdate = useUserUpdate();
     const currentUser = contextUser || JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -554,7 +554,7 @@ export default function VetProfile({ onLogout }) {
                 </TabsContent>
 
                 <TabsContent value="security">
-                    <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                    <PasswordChangeCard userId={userId} onForgotPassword={onForgotPassword} />
                 </TabsContent>
 
                 <TabsContent value="notifications">

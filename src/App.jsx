@@ -285,6 +285,18 @@ function App() {
     navigateTo(routes.login);
   }, [navigateTo]);
 
+  const handleAuthenticatedForgotPassword = useCallback(() => {
+    const accountEmail = currentUser?.email
+      || currentUser?.mail_Address
+      || currentUser?.mailAddress
+      || '';
+
+    clearStoredAuthSession();
+    setCurrentUser(null);
+    setForgotPasswordEmail(accountEmail);
+    navigateTo(routes.forgotPassword);
+  }, [currentUser, navigateTo]);
+
   const handleRegistrationContinue = (accountData) => {
     setRegistrationData(accountData);
     navigateTo(routes.registerProfile);
@@ -344,6 +356,7 @@ function App() {
       <ServerDownPage
         isRetrying={isCheckingServer}
         onRetry={retryServerConnection}
+        serverStatus={serverStatus}
       />
     );
   }
@@ -399,7 +412,12 @@ function App() {
         )}
 
         {activeView === 'dashboard' && currentUser && (
-            <Dashboard user={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
+            <Dashboard
+              user={currentUser}
+              onLogout={handleLogout}
+              onUserUpdate={handleUserUpdate}
+              onForgotPassword={handleAuthenticatedForgotPassword}
+            />
         )}
 
         {activeView === 'register' && (

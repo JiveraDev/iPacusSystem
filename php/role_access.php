@@ -42,6 +42,7 @@ function ipawcus_public_route(string $path): bool
         '/register',
         '/users',
         '/health',
+        '/system/problem-report',
         '/self-service/access',
         '/status-display',
         '/tv-status',

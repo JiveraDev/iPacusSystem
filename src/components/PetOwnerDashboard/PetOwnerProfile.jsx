@@ -50,7 +50,7 @@ function formatAgeYearsOnly(value) {
   return `${years} ${years === 1 ? "year" : "years"} old`;
 }
 
-export default function PetOwnerProfile({ onLogout }) {
+export default function PetOwnerProfile({ onForgotPassword }) {
   const onUserUpdate = useUserUpdate();
   const contextUser = useDashboardUser();
   const passwordUser = contextUser || JSON.parse(localStorage.getItem("currentUser") || "{}");
@@ -486,7 +486,7 @@ export default function PetOwnerProfile({ onLogout }) {
         </TabsContent>
 
         <TabsContent value="security" className="outline-none">
-          <PasswordChangeCard userId={passwordUserId} onForgotPassword={onLogout} />
+          <PasswordChangeCard userId={passwordUserId} onForgotPassword={onForgotPassword} />
         </TabsContent>
 
         <TabsContent value="notifications" className="outline-none">

@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '../../ui/dialog';
 import { Label } from '../../ui/label';
 import { toast } from '../../reusecomponent/toast.jsx';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { KeyRound, Loader2, LogOut } from 'lucide-react';
 import PasswordInput from './PasswordInput.jsx';
 import { updateUserPassword } from '../../services/userService';
 import { clearStoredAuthSession } from '../../services/apiClient';
@@ -15,6 +23,7 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
         confirmPassword: ''
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [isForgotPasswordDialogOpen, setIsForgotPasswordDialogOpen] = useState(false);
 
     const updateField = (field, value) => {
         setForm(prev => ({ ...prev, [field]: value }));
@@ -63,15 +72,20 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
     };
 
     const handleForgotPassword = () => {
-        toast.success('Please log in again to continue password recovery.');
-        clearStoredAuthSession();
+        setIsForgotPasswordDialogOpen(true);
+    };
+
+    const confirmForgotPassword = () => {
+        setIsForgotPasswordDialogOpen(false);
+        clearPasswordFields();
 
         if (onForgotPassword) {
             onForgotPassword();
             return;
         }
 
-        window.history.pushState({}, '', '/landing/login');
+        clearStoredAuthSession();
+        window.history.pushState({}, '', '/landing/forgot-password');
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
@@ -139,6 +153,34 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
                     </div>
                 </form>
             </CardContent>
+
+            <Dialog open={isForgotPasswordDialogOpen} onOpenChange={setIsForgotPasswordDialogOpen}>
+                <DialogContent className="max-w-md" showClose={false}>
+                    <DialogHeader>
+                        <div className="mb-2 flex size-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                            <LogOut className="size-5" />
+                        </div>
+                        <DialogTitle>Log out to reset your password?</DialogTitle>
+                        <DialogDescription>
+                            For account security, password recovery continues outside your signed-in session.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <p className="text-sm leading-6 text-slate-600">
+                        You will be logged out and taken to the Forgot Password page. You can return after resetting your password and signing in again.
+                    </p>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsForgotPasswordDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={confirmForgotPassword} className="bg-red-600 text-white hover:bg-red-700">
+                            <LogOut className="size-4" />
+                            Log Out and Continue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

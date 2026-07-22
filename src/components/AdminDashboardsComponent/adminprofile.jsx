@@ -54,7 +54,7 @@ function getFullName(profile) {
     return `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Admin Profile';
 }
 
-export default function ProfileManagement({ onLogout }) {
+export default function ProfileManagement({ onForgotPassword }) {
     const contextUser = useDashboardUser();
     const onUserUpdate = useUserUpdate();
     const currentUser = contextUser || JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -434,7 +434,7 @@ export default function ProfileManagement({ onLogout }) {
                 </TabsContent>
 
                 <TabsContent value="security">
-                    <PasswordChangeCard userId={userId} onForgotPassword={onLogout} />
+                    <PasswordChangeCard userId={userId} onForgotPassword={onForgotPassword} />
                 </TabsContent>
 
                 <TabsContent value="notifications">

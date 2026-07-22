@@ -30,7 +30,11 @@ try {
         }
     }
 
-    echo json_encode(['success' => true, 'message' => $genericMessage]);
+    echo json_encode([
+        'success' => true,
+        'message' => $genericMessage,
+        'expiresInSeconds' => authOtpExpiresMinutes() * 60,
+    ]);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['message' => mail_env_bool('MAIL_DEBUG', false) ? $e->getMessage() : $genericMessage]);

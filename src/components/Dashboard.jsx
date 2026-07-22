@@ -520,7 +520,7 @@ function getActiveTab(path) {
   return "home";
 }
 
-export default function Dashboard({ user, onLogout, onUserUpdate }) {
+export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPassword }) {
   // Session control check
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser");
@@ -974,7 +974,12 @@ export default function Dashboard({ user, onLogout, onUserUpdate }) {
                   </div>
                 }>
                   {/* eslint-disable-next-line react-hooks/static-components */}
-                  <ScreenComponent user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
+                  <ScreenComponent
+                    user={user}
+                    onUserUpdate={onUserUpdate}
+                    onLogout={onLogout}
+                    onForgotPassword={onForgotPassword}
+                  />
                 </Suspense>
               </main>
             </div>

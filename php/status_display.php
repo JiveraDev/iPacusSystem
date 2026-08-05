@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -189,6 +190,34 @@ function status_display_billing_item(array $row): array
 try {
     runLifecycleMaintenance($pdo, null, false);
     $today = maintenance_today($pdo);
+    $requestedBranch = trim((string)($_GET['branch'] ?? $_GET['branch_id'] ?? ''));
+    if ($requestedBranch !== '' && ctype_digit($requestedBranch)) {
+        $branch = branch_fetch($pdo, (int)$requestedBranch);
+    } elseif ($requestedBranch !== '') {
+        $branchStmt = $pdo->prepare('SELECT * FROM branches WHERE branch_code = ? AND status = \'active\' LIMIT 1');
+        $branchStmt->execute([strtoupper($requestedBranch)]);
+        $branch = $branchStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } else {
+        $branch = branch_fetch($pdo, branch_main_id($pdo));
+    }
+    if (!$branch) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Clinic location was not found.']);
+        exit;
+    }
+    $branchId = (int)$branch['branch_id'];
+    $branchCatalogStmt = $pdo->query("
+        SELECT branch_id, branch_code, branch_name, address
+        FROM branches
+        WHERE status = 'active'
+        ORDER BY is_main DESC, branch_name ASC
+    ");
+    $branchCatalog = array_map(static fn(array $catalogBranch): array => [
+        'id' => (int)$catalogBranch['branch_id'],
+        'code' => $catalogBranch['branch_code'],
+        'name' => $catalogBranch['branch_name'],
+        'address' => $catalogBranch['address'],
+    ], $branchCatalogStmt->fetchAll(PDO::FETCH_ASSOC));
     $sections = [
         'queue' => [],
         'bookings' => [],
@@ -243,17 +272,18 @@ try {
                 ORDER BY latest_v.visit_id DESC
                 LIMIT 1
             )
-            WHERE (
+            WHERE q.branch_id = ?
+              AND ((
                     q.status IN ('waiting', 'in-progress')
                     AND DATE(q.timestamp) = ?
                 )
-               OR (q.status = 'completed' AND DATE(q.timestamp) = ?)
+               OR (q.status = 'completed' AND DATE(q.timestamp) = ?))
             ORDER BY
                 FIELD(q.status, 'in-progress', 'waiting', 'completed', 'cancelled'),
                 q.timestamp ASC
             LIMIT 30
         ");
-        $stmt->execute([$today, $today]);
+        $stmt->execute([$branchId, $today, $today]);
 
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $item = status_display_queue_item($row);
@@ -285,6 +315,7 @@ try {
             FROM bookings b
             LEFT JOIN pets_information p ON p.pet_id = b.pet_id
             WHERE b.status = 'confirmed'
+              AND b.branch_id = ?
               AND b.booking_date = ?
               AND COALESCE(b.notes, '') NOT LIKE '%[Lifecycle] Auto-rescheduled due to missed approved booking%'
               AND COALESCE(b.notes, '') NOT LIKE '%[Rescheduled]%'
@@ -297,7 +328,7 @@ try {
             ORDER BY b.booking_date ASC, b.booking_time ASC, b.booking_id ASC
             LIMIT 18
         ");
-        $stmt->execute([$today]);
+        $stmt->execute([$branchId, $today]);
 
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $sections['bookings'][] = status_display_booking_item($row);
@@ -339,6 +370,7 @@ try {
                 GROUP BY visit_id
             ) payments ON payments.visit_id = v.visit_id
             WHERE v.visit_status <> 'cancelled'
+              AND v.branch_id = ?
               AND (
                   v.billing_status IN ('unbilled', 'unpaid', 'partial')
                   OR (v.billing_status = 'paid' AND DATE(v.updated_at) = ?)
@@ -349,7 +381,7 @@ try {
                 v.updated_at DESC
             LIMIT 24
         ");
-        $stmt->execute([$today, $today]);
+        $stmt->execute([$branchId, $today, $today]);
 
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $item = status_display_billing_item($row);
@@ -373,6 +405,13 @@ try {
         'success' => true,
         'generatedAt' => date(DATE_ATOM),
         'refreshSeconds' => 8,
+        'branch' => [
+            'id' => $branchId,
+            'code' => $branch['branch_code'],
+            'name' => $branch['branch_name'],
+            'address' => $branch['address'],
+        ],
+        'branches' => $branchCatalog,
         'privacy' => [
             'ownerNamesShown' => false,
             'diagnosisTextShown' => false,

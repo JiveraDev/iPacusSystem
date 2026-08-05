@@ -1,9 +1,66 @@
 import { useState } from 'react';
-import { AlertTriangle, Bug, CheckCircle2, Mail, RefreshCw } from 'lucide-react';
+import {
+    AlertTriangle,
+    Bug,
+    CheckCircle2,
+    Database,
+    Mail,
+    RefreshCw,
+    ServerCrash,
+    Timer,
+    WifiOff
+} from 'lucide-react';
 
 import { sendMaintenanceProblemReport } from '../services/problemReportService.js';
 
-const MAINTENANCE_MESSAGE = 'This site is temporarily unavailable due to maintenance. Please try again in a moment.';
+const FAILURE_CONTENT = {
+    maintenance: {
+        eyebrow: 'iPawcus maintenance',
+        title: 'iPawcus is temporarily unavailable',
+        message: 'The iPawcus database is temporarily unavailable. The clinic may be performing maintenance. Please try again in a moment.',
+        helper: 'Retry to check whether database service has been restored. If the issue continues, send a problem report.',
+        Icon: Database
+    },
+    offline: {
+        eyebrow: 'Connection issue',
+        title: 'Your device is offline',
+        message: 'Check your Wi-Fi or mobile data connection, then try again.',
+        helper: 'Reconnect this device to the internet, then select Try again.',
+        Icon: WifiOff
+    },
+    timeout: {
+        eyebrow: 'Connection timeout',
+        title: 'iPawcus is taking too long to respond',
+        message: 'The request timed out before the server responded. Check your connection and try again.',
+        helper: 'Retry once. If the delay continues while other sites work, send a problem report.',
+        Icon: Timer
+    },
+    connection: {
+        eyebrow: 'Server connection issue',
+        title: 'We cannot reach iPawcus',
+        message: 'Your device is online, but the iPawcus server could not be reached. Please try again shortly.',
+        helper: 'Retry to reconnect. If the server remains unreachable, send a problem report.',
+        Icon: ServerCrash
+    },
+    service: {
+        eyebrow: 'Service error',
+        title: 'iPawcus encountered a server error',
+        message: 'The server could not complete its health check. Please try again in a moment.',
+        helper: 'Retry the health check. If the error continues, send a problem report.',
+        Icon: AlertTriangle
+    }
+};
+
+function failureContent(serverStatus = {}) {
+    const kind = FAILURE_CONTENT[serverStatus.kind] ? serverStatus.kind : 'service';
+    const content = FAILURE_CONTENT[kind];
+
+    return {
+        ...content,
+        kind,
+        message: serverStatus.message || content.message
+    };
+}
 
 export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
     const [reportState, setReportState] = useState({
@@ -12,9 +69,12 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
         message: '',
         fallbackEmailUrl: '',
     });
+    const content = failureContent(serverStatus);
+    const StatusIcon = content.Icon;
+    const canReportProblem = content.kind !== 'offline';
 
     const handleReportProblem = async () => {
-        if (reportState.status === 'sending' || reportState.status === 'sent') {
+        if (!canReportProblem || reportState.status === 'sending' || reportState.status === 'sent') {
             return;
         }
 
@@ -34,7 +94,7 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
                 fallbackEmailUrl: result.fallbackEmailUrl,
             });
         } catch (error) {
-            console.error('[iPawcus maintenance] Problem report failed:', error);
+            console.error('[iPawcus status] Problem report failed:', error);
             setReportState({
                 status: 'failed',
                 reportId: error.reportId || '',
@@ -48,17 +108,17 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
         <div className="min-h-screen bg-slate-50 text-slate-950">
             <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-12">
                 <div className="mb-6 flex size-16 items-center justify-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-100">
-                    <AlertTriangle className="size-8" />
+                    <StatusIcon className="size-8" />
                 </div>
 
                 <p className="mb-3 text-sm font-black uppercase tracking-wide text-red-600">
-                    iPawcus maintenance
+                    {content.eyebrow}
                 </p>
                 <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-                    iPawcus is under maintenance
+                    {content.title}
                 </h1>
                 <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">
-                    {MAINTENANCE_MESSAGE}
+                    {content.message}
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -69,27 +129,29 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#155dfc] px-5 text-sm font-black text-white transition hover:bg-[#0d4acf] disabled:cursor-not-allowed disabled:opacity-70"
                     >
                         <RefreshCw className={`size-4 ${isRetrying ? 'animate-spin' : ''}`} />
-                        {isRetrying ? 'Checking server...' : 'Try again'}
+                        {isRetrying ? 'Checking connection...' : 'Try again'}
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={handleReportProblem}
-                        disabled={reportState.status === 'sending' || reportState.status === 'sent'}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-black text-slate-800 transition hover:border-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                        <Bug className="size-4" />
-                        {reportState.status === 'sending'
-                            ? 'Sending report...'
-                            : reportState.status === 'sent'
-                                ? 'Problem reported'
-                                : 'Report problem'}
-                    </button>
+                    {canReportProblem && (
+                        <button
+                            type="button"
+                            onClick={handleReportProblem}
+                            disabled={reportState.status === 'sending' || reportState.status === 'sent'}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-black text-slate-800 transition hover:border-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <Bug className="size-4" />
+                            {reportState.status === 'sending'
+                                ? 'Sending report...'
+                                : reportState.status === 'sent'
+                                    ? 'Problem reported'
+                                    : 'Report problem'}
+                        </button>
+                    )}
 
                 </div>
 
                 <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                    Refresh to check whether service has been restored. If the issue continues, send a problem report.
+                    {content.helper}
                 </p>
 
                 {reportState.status === 'sent' && (

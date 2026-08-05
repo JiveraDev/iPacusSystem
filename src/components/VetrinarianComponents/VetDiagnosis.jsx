@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
+    Download,
     Eye,
     FileText,
     Loader2,
@@ -25,10 +26,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../../ui/sheet';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
+import {
+    downloadConsentDocument,
+    openProtectedDocument,
+    useConsentDocumentSource
+} from '../../hooks/useConsentDocumentSource';
 import SignatureCapture from '../SignatureCapture';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
+import UploadImagePreview from '../shared/UploadImagePreview.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { formatQueueReference } from '../../lib/referenceNumbers';
+import { resolveConsentTemplate } from '../../lib/consentTemplateCodes';
 import { fetchBoardingDocuments } from '../../services/boardingService';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { fetchProfile } from '../../services/profileService';
@@ -39,7 +48,7 @@ import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnos
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 const DIAGNOSIS_DRAFT_STORAGE_PREFIX = 'ipawcus-vet-diagnosis-draft';
-const DIAGNOSIS_DRAFT_SCHEMA_VERSION = 1;
+const DIAGNOSIS_DRAFT_SCHEMA_VERSION = 2;
 
 const PRESCRIPTION_FREQUENCIES = [
     { value: 'per day', label: 'Per day' },
@@ -101,13 +110,13 @@ function createPrescriptionDraft() {
     };
 }
 
-function createCustomSection(serviceName = '', serviceId = '', majorSymptoms = '') {
+function createCustomSection(serviceName = '', serviceId = '') {
     return {
         id: createId(),
         serviceId: serviceId ? String(serviceId) : '',
         label: serviceName,
         value: '',
-        majorSymptoms,
+        majorSymptoms: '',
         prescription: [],
         prescriptionDraft: createPrescriptionDraft(),
         uploads: []
@@ -282,8 +291,6 @@ function buildSignedConsentUploads(context) {
         { signedAt: context.signedConsentAt || '' }
     );
     appendPaths(context.physicalConsentPath || context.physicalConsentPreview, 'Physical consent image', 'consent');
-    appendPaths(context.queueSignaturePath, 'Queue signature', 'consent');
-    appendPaths(context.bookingSignaturePath, 'Booking signature', 'consent');
 
     const seen = new Set();
     return uploads.filter(upload => {
@@ -294,20 +301,39 @@ function buildSignedConsentUploads(context) {
     });
 }
 
-function buildInitialChiefComplaint(context) {
-    const complaint = removeBookingMarker(context.complaint);
-    const bookingNotes = String(context.bookingNotes || '').trim();
-    const parts = [];
+function inheritedDiagnosisConsents(context) {
+    const signedDocuments = splitUploadPaths(context.signedConsentDocumentPath);
+    const physicalDocuments = splitUploadPaths(context.physicalConsentPath || context.physicalConsentPreview);
 
-    if (complaint) {
-        parts.push(complaint);
-    }
+    return [...signedDocuments, ...physicalDocuments].map((path, index) => normalizeAdditionalConsent({
+        id: `inherited-consent-${index}-${path}`,
+        name: pathFileName(path),
+        url: path,
+        relativeUrl: path,
+        mimeType: 'image/png',
+        uploadedAt: context.signedConsentAt || '',
+        category: ADDITIONAL_CONSENT_CATEGORY,
+        title: index < signedDocuments.length
+            ? context.signedConsentType || 'Signed consent document'
+            : 'Physical consent image',
+        signerName: context.ownerName || 'Pet owner',
+        signedAt: context.signedConsentAt || '',
+        preview: path
+    }));
+}
 
-    if (bookingNotes && !complaint.includes(bookingNotes)) {
-        parts.push(`Booking notes: ${bookingNotes}`);
-    }
+function mergeUniqueConsents(...consentGroups) {
+    const seen = new Set();
 
-    return parts.join('\n');
+    return consentGroups.flat().filter(consent => {
+        const path = consent.url || consent.relativeUrl || consent.preview || consent.documentDataUrl || consent.id;
+        const key = String(path || '').trim().toLowerCase();
+        if (!key || seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
 }
 
 function normalizeContextValue(value) {
@@ -422,6 +448,8 @@ function normalizeConsentTemplate(file) {
 
 function normalizeAdditionalConsent(attachment) {
     const normalized = normalizeSavedAttachment(attachment);
+    const documentDataUrl = attachment.documentDataUrl || '';
+    const preview = documentDataUrl || attachment.preview || normalized.url || '';
 
     return {
         ...normalized,
@@ -432,8 +460,156 @@ function normalizeAdditionalConsent(attachment) {
         signerName: attachment.signerName || attachment.signer_name || '',
         signedAt: attachment.signedAt || attachment.signed_at || attachment.uploadedAt || '',
         signatureDataUrl: attachment.signatureDataUrl || '',
-        signatureUrl: attachment.signatureUrl || attachment.url || attachment.relativeUrl || ''
+        signatureUrl: attachment.signatureUrl || '',
+        documentDataUrl,
+        preview
     };
+}
+
+function consentContentText(value) {
+    const container = document.createElement('div');
+    container.innerHTML = String(value || '');
+
+    return String(container.textContent || container.innerText || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function loadCanvasImage(source) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Could not render the owner signature into the consent form.'));
+        image.src = source;
+    });
+}
+
+async function buildSignedConsentDocumentDataUrl({
+    title,
+    content,
+    signerName,
+    signedAt,
+    signatureDataUrl,
+    petName,
+    veterinarianName
+}) {
+    if (!signatureDataUrl?.startsWith('data:image')) {
+        throw new Error('A valid owner signature is required to generate the signed consent form.');
+    }
+
+    const width = 1200;
+    const horizontalPadding = 72;
+    const contentWidth = width - (horizontalPadding * 2);
+    const lineHeight = 31;
+    const templateContext = { ownerName: signerName, signedAt, petName, veterinarianName };
+    const cleanContent = consentContentText(resolveConsentTemplate(content, templateContext));
+    const measureCanvas = document.createElement('canvas');
+    const measureContext = measureCanvas.getContext('2d');
+    if (!measureContext) {
+        throw new Error('Could not prepare the signed consent form.');
+    }
+    measureContext.font = '20px Arial';
+    const contentLines = wrapCanvasText(measureContext, cleanContent, contentWidth);
+    const height = Math.max(1050, 820 + (contentLines.length * lineHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        throw new Error('Could not create the signed consent form.');
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#155dfc';
+    ctx.fillRect(0, 0, width, 145);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 38px Arial';
+    ctx.fillText('iPawcus Veterinary Clinic', horizontalPadding, 60);
+    ctx.font = '700 23px Arial';
+    ctx.fillText('Signed Consent Form', horizontalPadding, 103);
+
+    let y = 205;
+    ctx.fillStyle = '#101828';
+    ctx.font = '700 30px Arial';
+    y = drawWrappedText(ctx, title || 'Consent Form', horizontalPadding, y, contentWidth, 38) + 28;
+
+    ctx.font = '17px Arial';
+    ctx.fillStyle = '#475569';
+    if (petName) {
+        ctx.fillText(`Patient: ${petName}`, horizontalPadding, y);
+        y += 28;
+    }
+    if (veterinarianName) {
+        ctx.fillText(`Veterinarian: ${veterinarianName}`, horizontalPadding, y);
+        y += 28;
+    }
+
+    ctx.strokeStyle = '#dbe3ef';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(horizontalPadding, y + 8);
+    ctx.lineTo(width - horizontalPadding, y + 8);
+    ctx.stroke();
+    y += 58;
+
+    if (cleanContent) {
+        ctx.fillStyle = '#334155';
+        ctx.font = '20px Arial';
+        contentLines.forEach((line, index) => {
+            ctx.fillText(line, horizontalPadding, y + (index * lineHeight));
+        });
+        y += (contentLines.length * lineHeight) + 42;
+    }
+
+    const signatureImage = await loadCanvasImage(signatureDataUrl);
+    const signatureBoxTop = Math.min(y, height - 300);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(horizontalPadding, signatureBoxTop, contentWidth, 220);
+    ctx.strokeStyle = '#dbe3ef';
+    ctx.strokeRect(horizontalPadding, signatureBoxTop, contentWidth, 220);
+
+    const maxSignatureWidth = 430;
+    const maxSignatureHeight = 110;
+    const signatureScale = Math.min(
+        maxSignatureWidth / signatureImage.width,
+        maxSignatureHeight / signatureImage.height,
+        1
+    );
+    const signatureWidth = signatureImage.width * signatureScale;
+    const signatureHeight = signatureImage.height * signatureScale;
+    ctx.drawImage(
+        signatureImage,
+        horizontalPadding + 28,
+        signatureBoxTop + 26,
+        signatureWidth,
+        signatureHeight
+    );
+
+    ctx.fillStyle = '#101828';
+    ctx.font = '700 18px Arial';
+    ctx.fillText(signerName || 'Pet owner', horizontalPadding + 28, signatureBoxTop + 165);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '16px Arial';
+    ctx.fillText("Owner's Electronic Signature over Printed Name", horizontalPadding + 28, signatureBoxTop + 191);
+    ctx.textAlign = 'right';
+    ctx.fillText(
+        signedAt ? formatSignedAt(signedAt) : formatSignedAt(new Date().toISOString()),
+        width - horizontalPadding - 28,
+        signatureBoxTop + 191
+    );
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px Arial';
+    ctx.fillText(
+        'Complete consent text and signature generated from the diagnosis workspace.',
+        horizontalPadding,
+        height - 38
+    );
+
+    return canvas.toDataURL('image/png');
 }
 
 function buildDiagnosisDraftStorageKey(context, veterinarianUserId) {
@@ -521,8 +697,11 @@ function serializeAdditionalConsentForDraft(consent) {
         signerName: consent.signerName || '',
         signedAt: consent.signedAt || '',
         signatureDataUrl: consent.signatureDataUrl || '',
-        signatureUrl: consent.signatureUrl || consent.url || consent.relativeUrl || '',
-        preview: consent.preview && !String(consent.preview).startsWith('blob:') ? consent.preview : consent.signatureDataUrl || ''
+        signatureUrl: consent.signatureUrl || '',
+        documentDataUrl: consent.documentDataUrl || '',
+        preview: consent.preview && !String(consent.preview).startsWith('blob:')
+            ? consent.preview
+            : consent.documentDataUrl || consent.signatureDataUrl || ''
     };
 }
 
@@ -539,14 +718,12 @@ function serializeCustomSectionForDraft(section) {
     };
 }
 
-function normalizeDraftFormData(formData, context) {
-    const complaint = buildInitialChiefComplaint(context);
-
+function normalizeDraftFormData(formData) {
     return {
         ...emptyDiagnosisForm,
         ...(formData || {}),
-        chiefComplaint: formData?.chiefComplaint ?? complaint,
-        majorSymptoms: formData?.majorSymptoms || complaint,
+        chiefComplaint: formData?.chiefComplaint || '',
+        majorSymptoms: formData?.majorSymptoms || '',
         vitalSigns: {
             ...emptyDiagnosisForm.vitalSigns,
             ...(formData?.vitalSigns || {})
@@ -563,7 +740,7 @@ function normalizeDraftCustomSection(section, context) {
         serviceId: section.serviceId || '',
         label: section.label || context.serviceName || '',
         value: section.value || '',
-        majorSymptoms: section.majorSymptoms || buildInitialChiefComplaint(context),
+        majorSymptoms: section.majorSymptoms || '',
         prescription: Array.isArray(section.prescription) ? section.prescription.map(cleanPrescription) : [],
         prescriptionDraft: section.prescriptionDraft ? cleanPrescription(section.prescriptionDraft) : createPrescriptionDraft(),
         uploads: Array.isArray(section.uploads) ? section.uploads.map(normalizeSavedAttachment) : []
@@ -629,14 +806,10 @@ export default function VetDiagnosis() {
     const [diagnosisType, setDiagnosisType] = useState(() => initialDraft?.diagnosisType || 'general');
     const [formData, setFormData] = useState(() => (
         initialDraft?.formData
-            ? normalizeDraftFormData(initialDraft.formData, initialContext)
+            ? normalizeDraftFormData(initialDraft.formData)
             : {
                 ...emptyDiagnosisForm,
-                chiefComplaint: buildInitialChiefComplaint(initialContext),
-                vitalSigns: {
-                    ...emptyDiagnosisForm.vitalSigns,
-                    weight: initialContext.petWeight || ''
-                }
+                vitalSigns: { ...emptyDiagnosisForm.vitalSigns }
             }
     ));
     const [currentPrescription, setCurrentPrescription] = useState(() => (
@@ -669,7 +842,7 @@ export default function VetDiagnosis() {
     const [additionalConsents, setAdditionalConsents] = useState(() => (
         Array.isArray(initialDraft?.additionalConsents)
             ? initialDraft.additionalConsents.map(normalizeAdditionalConsent)
-            : []
+            : inheritedDiagnosisConsents(initialContext)
     ));
     const consentFormsForDisplay = useMemo(() => additionalConsents, [additionalConsents]);
     const [shouldRecordVaccination, setShouldRecordVaccination] = useState(() => Boolean(initialDraft?.shouldRecordVaccination));
@@ -693,7 +866,7 @@ export default function VetDiagnosis() {
         setDiagnosisType(record.diagnosisType || 'general');
         setFormData({
             ...emptyDiagnosisForm,
-            chiefComplaint: record.chiefComplaint || buildInitialChiefComplaint(context),
+            chiefComplaint: record.chiefComplaint || '',
             majorSymptoms: record.majorSymptoms || '',
             symptoms: record.symptoms || '',
             physicalExam: record.physicalExam || '',
@@ -724,7 +897,7 @@ export default function VetDiagnosis() {
                 serviceId: section.serviceId || section.service_id || '',
                 label: section.label || section.serviceName || '',
                 value: section.value || section.notes || '',
-                majorSymptoms: section.majorSymptoms || buildInitialChiefComplaint(context),
+                majorSymptoms: section.majorSymptoms || '',
                 prescription: Array.isArray(section.prescriptions)
                     ? section.prescriptions.map(cleanPrescription)
                     : Array.isArray(section.prescription)
@@ -752,7 +925,7 @@ export default function VetDiagnosis() {
                 notes: record.vaccinationRecord.notes || ''
             });
         }
-    }, [context, veterinarianLicense, veterinarianName]);
+    }, [veterinarianLicense, veterinarianName]);
 
     useEffect(() => {
         const loadVetProfile = async () => {
@@ -884,7 +1057,6 @@ export default function VetDiagnosis() {
         }
 
         let isActive = true;
-        const previousComplaint = buildInitialChiefComplaint(initialContext);
 
         const loadLiveQueueContext = async () => {
             setIsLoadingContext(true);
@@ -911,35 +1083,12 @@ export default function VetDiagnosis() {
                     // Context refresh is best effort; the live state is already updated.
                 }
 
-                const nextComplaint = buildInitialChiefComplaint(nextContext);
-                setFormData(current => {
-                    const currentComplaint = current.chiefComplaint.trim();
-                    if (loadedDiagnosisId) {
-                        return current;
-                    }
-
-                    const shouldUpdateComplaint = !currentComplaint || currentComplaint === previousComplaint.trim();
-                    const currentMajorSymptoms = current.majorSymptoms.trim();
-                    const shouldUpdateMajorSymptoms = !currentMajorSymptoms || currentMajorSymptoms === previousComplaint.trim();
-                    const nextVitalSigns = {
-                        ...current.vitalSigns,
-                        weight: current.vitalSigns.weight || nextContext.petWeight || ''
-                    };
-
-                    return {
-                        ...current,
-                        chiefComplaint: shouldUpdateComplaint ? nextComplaint : current.chiefComplaint,
-                        majorSymptoms: shouldUpdateMajorSymptoms ? nextComplaint : current.majorSymptoms,
-                        vitalSigns: nextVitalSigns
-                    };
-                });
-
                 setCustomFields(current => {
                     if (current.length !== 1 || current[0].label.trim() !== initialContext.serviceName.trim()) {
                         return current;
                     }
 
-                    return [{ ...current[0], label: nextContext.serviceName, majorSymptoms: current[0].majorSymptoms || nextComplaint }];
+                    return [{ ...current[0], label: nextContext.serviceName }];
                 });
             } catch (error) {
                 if (isActive) {
@@ -957,7 +1106,7 @@ export default function VetDiagnosis() {
         return () => {
             isActive = false;
         };
-    }, [initialContext, loadedDiagnosisId]);
+    }, [initialContext]);
 
     useEffect(() => {
         if (!context.queueId && !context.petId) {
@@ -1013,6 +1162,15 @@ export default function VetDiagnosis() {
         if (context.queueId || context.petId) return;
         setIsDraftReady(true);
     }, [context.petId, context.queueId]);
+
+    useEffect(() => {
+        const inheritedConsents = inheritedDiagnosisConsents(context);
+        if (inheritedConsents.length === 0) {
+            return;
+        }
+
+        setAdditionalConsents(current => mergeUniqueConsents(inheritedConsents, current));
+    }, [context, loadedDiagnosisId]);
 
     useEffect(() => {
         if (!isDraftReady || isSaving || !draftStorageKey) return;
@@ -1261,17 +1419,32 @@ export default function VetDiagnosis() {
         const uploaded = [];
 
         for (const consent of consents || []) {
-            let signatureUrl = consent.signatureUrl || consent.url || consent.relativeUrl || '';
+            let documentDataUrl = consent.documentDataUrl || '';
+            if (!documentDataUrl && consent.signatureDataUrl?.startsWith('data:image')) {
+                documentDataUrl = await buildSignedConsentDocumentDataUrl({
+                    title: consent.title,
+                    content: consent.content,
+                    signerName: consent.signerName || context.ownerName,
+                    signedAt: consent.signedAt,
+                    signatureDataUrl: consent.signatureDataUrl,
+                    petName: context.petName,
+                    veterinarianName
+                });
+            }
+            const existingDocumentUrl = consent.url || consent.relativeUrl || '';
+            const documentUrl = documentDataUrl?.startsWith('data:image')
+                ? await uploadDataUrlImage(documentDataUrl, 'diagnosis', 'signed_consent_form')
+                : existingDocumentUrl;
 
-            if (consent.signatureDataUrl?.startsWith('data:image')) {
-                signatureUrl = await uploadDataUrlImage(consent.signatureDataUrl, 'booking_signature', 'diagnosis_consent');
+            if (!documentUrl) {
+                throw new Error('The complete signed consent form could not be uploaded.');
             }
 
             uploaded.push({
                 id: consent.id || createId(),
                 name: consent.name || `Signed consent - ${consent.title || 'Consent Form'}`,
-                url: signatureUrl,
-                relativeUrl: signatureUrl,
+                url: documentUrl,
+                relativeUrl: documentUrl,
                 mimeType: 'image/png',
                 uploadedAt: consent.uploadedAt || new Date().toISOString(),
                 category: ADDITIONAL_CONSENT_CATEGORY,
@@ -1280,7 +1453,7 @@ export default function VetDiagnosis() {
                 content: consent.content || '',
                 signerName: consent.signerName || context.ownerName || 'Pet owner',
                 signedAt: consent.signedAt || new Date().toISOString(),
-                signatureUrl
+                signatureUrl: consent.signatureUrl || ''
             });
         }
 
@@ -1300,37 +1473,53 @@ export default function VetDiagnosis() {
         [consentDraft.templateId, consentTemplates]
     );
 
-    const addAdditionalConsent = () => {
+    const addAdditionalConsent = async () => {
         if (!selectedConsentTemplate) {
             toast.error('Select a consent form first.');
-            return;
+            return false;
         }
 
         if (!consentDraft.signature) {
             toast.error('Pet owner signature is required for the selected consent form.');
-            return;
+            return false;
         }
 
         const signedAt = new Date().toISOString();
         const title = selectedConsentTemplate.title || 'Consent Form';
-
-        setAdditionalConsents(current => [
-            ...current,
-            {
-                id: createId(),
-                name: `Signed consent - ${title}`,
-                category: ADDITIONAL_CONSENT_CATEGORY,
-                templateId: selectedConsentTemplate.id,
+        try {
+            const documentDataUrl = await buildSignedConsentDocumentDataUrl({
                 title,
                 content: selectedConsentTemplate.content,
                 signerName: context.ownerName || 'Pet owner',
                 signedAt,
                 signatureDataUrl: consentDraft.signature,
-                preview: consentDraft.signature,
-                mimeType: 'image/png'
-            }
-        ]);
-        setConsentDraft(current => ({ ...current, signature: null }));
+                petName: context.petName,
+                veterinarianName
+            });
+
+            setAdditionalConsents(current => [
+                ...current,
+                {
+                    id: createId(),
+                    name: `Signed consent - ${title}`,
+                    category: ADDITIONAL_CONSENT_CATEGORY,
+                    templateId: selectedConsentTemplate.id,
+                    title,
+                    content: selectedConsentTemplate.content,
+                    signerName: context.ownerName || 'Pet owner',
+                    signedAt,
+                    signatureDataUrl: consentDraft.signature,
+                    documentDataUrl,
+                    preview: documentDataUrl,
+                    mimeType: 'image/png'
+                }
+            ]);
+            setConsentDraft(current => ({ ...current, signature: null }));
+            return true;
+        } catch (error) {
+            toast.error(error.message || 'Could not generate the complete signed consent form.');
+            return false;
+        }
     };
 
     const removeAdditionalConsent = (id) => {
@@ -1433,10 +1622,9 @@ export default function VetDiagnosis() {
             return;
         }
 
-        const complaint = buildInitialChiefComplaint(context);
         setCustomFields(current => [
             ...current,
-            createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId, complaint)
+            createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId)
         ]);
         setVisitCharges(current => [
             ...current,
@@ -1532,7 +1720,7 @@ export default function VetDiagnosis() {
         }
 
         const autoAddedCustomSection = diagnosisType === 'custom' && selectedCustomService
-            ? createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId, buildInitialChiefComplaint(context))
+            ? createCustomSection(selectedCustomService.serviceName, selectedCustomService.serviceId)
             : null;
         const effectiveCustomFields = autoAddedCustomSection
             ? [...customFields, autoAddedCustomSection]
@@ -1683,7 +1871,7 @@ export default function VetDiagnosis() {
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-2xl font-bold text-[#101828]">Diagnosis Form</h2>
                             {loadedDiagnosisId && (
-                                <Badge className="border-0 bg-green-50 text-green-700">Saved Record #{loadedDiagnosisId}</Badge>
+                                <Badge className="border-0 bg-green-50 text-green-700">Saved clinical record</Badge>
                             )}
                         </div>
                         <p className="text-sm font-semibold text-slate-500">
@@ -2004,8 +2192,11 @@ function AdditionalConsentSection({
     const visibleConsentForms = consentForms || additionalConsents;
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [showTemplatePreview, setShowTemplatePreview] = useState(false);
-    const submitSignedConsent = () => {
-        addAdditionalConsent();
+    const submitSignedConsent = async () => {
+        const wasAdded = await addAdditionalConsent();
+        if (!wasAdded) {
+            return;
+        }
         setShowTemplatePreview(false);
         setIsSheetOpen(false);
     };
@@ -2138,39 +2329,142 @@ function AdditionalConsentSection({
                 ) : (
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {visibleConsentForms.map(consent => (
-                            <div key={consent.id} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onPreview?.({
-                                        src: consent.preview || consent.signatureDataUrl || consent.url || consent.signatureUrl,
-                                        alt: consent.title || consent.name || 'Signed consent'
-                                    })}
-                                    className="min-w-0 text-left"
-                                >
-                                    <p className="truncate text-sm font-black text-slate-900">{consent.title || consent.name}</p>
-                                    <p className="mt-1 truncate text-xs font-semibold text-slate-500">
-                                        {consent.signerName || ownerName || 'Pet owner'} {consent.signedAt ? `- ${formatSignedAt(consent.signedAt)}` : ''}
-                                    </p>
-                                </button>
-                                {consent.sourceConsent ? (
-                                    <Badge className="shrink-0 border-0 bg-green-50 text-green-700">Intake</Badge>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeAdditionalConsent(consent.id)}
-                                        className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                )}
-                            </div>
+                            <AdditionalConsentCard
+                                key={consent.id}
+                                consent={consent}
+                                ownerName={ownerName}
+                                onPreview={onPreview}
+                                onRemove={consent.sourceConsent ? null : () => removeAdditionalConsent(consent.id)}
+                            />
                         ))}
                     </div>
                 )}
             </div>
         </section>
+    );
+}
+
+function AdditionalConsentCard({ consent, ownerName, onPreview, onRemove }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const signatureOnlyPaths = new Set([
+        consent.signatureDataUrl,
+        consent.signatureUrl
+    ].filter(Boolean));
+    const candidateDocumentPath = consent.documentDataUrl
+        || consent.documentPath
+        || consent.document_path
+        || consent.signedDocumentPath
+        || consent.signed_document_path
+        || consent.url
+        || consent.relativeUrl
+        || consent.preview
+        || '';
+    const documentPath = signatureOnlyPaths.has(candidateDocumentPath) ? '' : candidateDocumentPath;
+    const {
+        source,
+        isLoading,
+        isUnavailable
+    } = useConsentDocumentSource({
+        ...consent,
+        documentPath,
+        legacySignaturePath: consent.signatureDataUrl || consent.signatureUrl || ''
+    });
+    const title = consent.title || consent.name || 'Signed consent';
+
+    const handleDownload = async () => {
+        if (!source || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(source, `${title}.png`);
+        } catch (error) {
+            toast.error(error.message || 'Could not download the complete signed consent form.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <div className="flex h-32 items-center justify-center bg-white">
+                {source ? (
+                    source.startsWith('data:') || source.startsWith('blob:') ? (
+                        <UploadImagePreview
+                            src={source}
+                            alt={`${title} complete signed form`}
+                            onPreview={(nextSource) => onPreview?.({ src: nextSource, alt: `${title} complete signed form` })}
+                            imageClassName="h-full w-full object-contain"
+                        />
+                    ) : (
+                        <ProtectedImage
+                            src={source}
+                            alt={`${title} complete signed form`}
+                            className="h-full w-full object-contain"
+                            fallbackClassName="h-full w-full"
+                        />
+                    )
+                ) : isLoading ? (
+                    <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
+                        <Loader2 className="size-5 animate-spin" />
+                        Building full form
+                    </div>
+                ) : (
+                    <p className="px-3 text-center text-xs font-semibold text-amber-700">
+                        Complete consent preview unavailable
+                    </p>
+                )}
+            </div>
+            <div className="space-y-3 p-3">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-slate-900">{title}</p>
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                            {consent.signerName || ownerName || 'Pet owner'} {consent.signedAt ? `- ${formatSignedAt(consent.signedAt)}` : ''}
+                        </p>
+                    </div>
+                    {consent.sourceConsent && <Badge className="shrink-0 border-0 bg-green-50 text-green-700">Intake</Badge>}
+                </div>
+                {isUnavailable && (
+                    <p className="text-xs font-semibold text-amber-700">Signature-only display is disabled.</p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => source && onPreview?.({ src: source, alt: `${title} complete signed form` })}
+                        disabled={!source}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        <Eye className="size-3" />
+                        View
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                        disabled={!source || isDownloading}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
+                    </Button>
+                </div>
+                {onRemove && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onRemove}
+                        className="h-8 w-full text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                        <Trash2 className="size-4" />
+                        Remove
+                    </Button>
+                )}
+            </div>
+        </div>
     );
 }
 
@@ -2411,16 +2705,10 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                             ) : (
                                 <div className="space-y-3">
                                     {visibleConsentForms.map(consent => (
-                                        <AttachmentCard
+                                        <AdditionalConsentCard
                                             key={consent.id}
-                                            attachment={{
-                                                ...consent,
-                                                label: consent.title || 'Consent form',
-                                                name: consent.title || consent.name || 'Signed consent',
-                                                preview: consent.preview || consent.signatureDataUrl,
-                                                url: consent.url || consent.signatureUrl,
-                                                mimeType: 'image/png'
-                                            }}
+                                            consent={consent}
+                                            ownerName={context.ownerName}
                                             onPreview={onPreview}
                                         />
                                     ))}
@@ -2755,10 +3043,10 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
             <div class="field"><span class="label">License</span><span class="value">${escapeHtml(veterinarianLicense || 'N/A')}</span></div>
         </section>
 
-        <section class="section">
+        ${diagnosisText ? `<section class="section">
             <h2>Diagnosis Summary</h2>
-            <div class="box">${escapeHtml(diagnosisText || 'No diagnosis summary recorded.')}</div>
-        </section>
+            <div class="box">${escapeHtml(diagnosisText)}</div>
+        </section>` : ''}
 
         <section class="section">
             <h2>Prescription Details</h2>
@@ -2778,7 +3066,7 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
 
         <section class="signature">
             <div class="line">Veterinarian Signature</div>
-            <div class="line">Owner / Client Signature</div>
+            <div class="line">Owner's Electronic Signature over Printed Name</div>
         </section>
 
         <footer class="footer">Generated by iPawcus from the diagnosis record.</footer>
@@ -2788,26 +3076,30 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
 }
 
 function wrapCanvasText(ctx, text, maxWidth) {
-    const words = String(text || '').split(/\s+/).filter(Boolean);
     const lines = [];
-    let currentLine = '';
+    String(text || '').split(/\r?\n/).forEach(paragraph => {
+        const words = paragraph.split(/\s+/).filter(Boolean);
+        let currentLine = '';
 
-    words.forEach(word => {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        if (ctx.measureText(testLine).width <= maxWidth) {
-            currentLine = testLine;
-            return;
-        }
+        words.forEach(word => {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            if (ctx.measureText(testLine).width <= maxWidth) {
+                currentLine = testLine;
+                return;
+            }
+
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            currentLine = word;
+        });
 
         if (currentLine) {
             lines.push(currentLine);
+        } else if (lines.length > 0) {
+            lines.push('');
         }
-        currentLine = word;
     });
-
-    if (currentLine) {
-        lines.push(currentLine);
-    }
 
     return lines.length > 0 ? lines : [''];
 }
@@ -2886,12 +3178,14 @@ function buildPrescriptionImageBlob({ context, veterinarianName, veterinarianLic
         ctx.lineTo(width - 48, y - 28);
         ctx.stroke();
 
-        ctx.fillStyle = '#101828';
-        ctx.font = '700 20px Arial';
-        ctx.fillText('Diagnosis Summary', 48, y);
-        ctx.font = '16px Arial';
-        ctx.fillStyle = '#334155';
-        y = drawWrappedText(ctx, diagnosisText || 'No diagnosis summary recorded.', 48, y + 34, width - 96, lineHeight) + 26;
+        if (String(diagnosisText || '').trim()) {
+            ctx.fillStyle = '#101828';
+            ctx.font = '700 20px Arial';
+            ctx.fillText('Diagnosis Summary', 48, y);
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#334155';
+            y = drawWrappedText(ctx, diagnosisText, 48, y + 34, width - 96, lineHeight) + 26;
+        }
 
         ctx.fillStyle = '#101828';
         ctx.font = '700 20px Arial';
@@ -3254,20 +3548,67 @@ function AttachmentGrid({ attachments, emptyMessage, onRemove, onPreview }) {
 }
 
 function AttachmentCard({ attachment, onRemove, onPreview }) {
-    const previewSrc = attachment.preview || resolveFileUrl(attachment.url || attachment.relativeUrl);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const rawSource = attachment.documentDataUrl
+        || attachment.preview
+        || attachment.url
+        || attachment.relativeUrl
+        || '';
+    const previewSrc = rawSource?.startsWith('data:') || rawSource?.startsWith('blob:')
+        ? rawSource
+        : resolveFileUrl(rawSource);
     const canPreviewImage = isImageFile({ ...attachment, url: previewSrc });
+    const attachmentName = attachment.name || attachment.label || 'Upload';
+
+    const handleView = async () => {
+        if (!rawSource || isOpening) return;
+        if (canPreviewImage) {
+            onPreview?.({ src: rawSource, alt: attachmentName });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(rawSource);
+        } catch (error) {
+            toast.error(error.message || 'Could not open this attachment.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!rawSource || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(rawSource, attachmentName);
+        } catch (error) {
+            toast.error(error.message || 'Could not download this attachment.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     return (
         <div className="group overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="relative flex h-32 items-center justify-center bg-slate-50">
                 {canPreviewImage && previewSrc ? (
-                    <button
-                        type="button"
-                        onClick={() => onPreview?.({ src: previewSrc, alt: attachment.name })}
-                        className="h-full w-full"
-                    >
-                        <img src={previewSrc} alt={attachment.name} className="h-full w-full object-cover transition group-hover:scale-105" />
-                    </button>
+                    rawSource.startsWith('data:') || rawSource.startsWith('blob:') ? (
+                        <UploadImagePreview
+                            src={rawSource}
+                            alt={attachmentName}
+                            onPreview={(nextSource) => onPreview?.({ src: nextSource, alt: attachmentName })}
+                        />
+                    ) : (
+                        <ProtectedImage
+                            src={rawSource}
+                            alt={attachmentName}
+                            className="h-full w-full object-cover transition group-hover:scale-105"
+                            fallbackClassName="h-full w-full"
+                        />
+                    )
                 ) : (
                     <div className="text-center text-slate-400">
                         <FileText className="mx-auto mb-2 size-8" />
@@ -3287,29 +3628,30 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
                 )}
             </div>
             <div className="space-y-2 p-3">
-                <p className="truncate text-xs font-semibold text-slate-600">{attachment.name || 'Upload'}</p>
-                <div className="flex items-center gap-2">
-                    {canPreviewImage && previewSrc ? (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onPreview?.({ src: previewSrc, alt: attachment.name })}
-                            className="h-8 flex-1 text-xs"
-                        >
-                            <Eye className="size-3" />
-                            View
-                        </Button>
-                    ) : previewSrc ? (
-                        <a
-                            href={previewSrc}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                        >
-                            Open
-                        </a>
-                    ) : null}
+                <p className="truncate text-xs font-semibold text-slate-600">{attachmentName}</p>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleView}
+                        disabled={!rawSource || isOpening}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                        View
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                        disabled={!rawSource || isDownloading}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
+                    </Button>
                 </div>
             </div>
         </div>

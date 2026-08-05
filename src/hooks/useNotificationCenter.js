@@ -43,6 +43,18 @@ const CATEGORY_META = {
     ownership_updates: {
         label: 'Ownership',
         tone: 'bg-indigo-50 text-indigo-700'
+    },
+    account_updates: {
+        label: 'Accounts',
+        tone: 'bg-sky-50 text-sky-700'
+    },
+    configuration_updates: {
+        label: 'Configuration',
+        tone: 'bg-slate-100 text-slate-700'
+    },
+    report_updates: {
+        label: 'Reports',
+        tone: 'bg-teal-50 text-teal-700'
     }
 };
 

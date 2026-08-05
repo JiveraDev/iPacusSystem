@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck, Pencil, Save, X, Download } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
@@ -13,6 +13,14 @@ import { formatPhpCurrency } from "../../lib/currency";
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import {
+  canReconstructConsentDocument,
+  consentDocumentPath,
+  downloadConsentDocument,
+  normalizeConsentForms,
+  openProtectedDocument,
+  useConsentDocumentSource,
+} from "../../hooks/useConsentDocumentSource";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
@@ -32,7 +40,24 @@ function isImageUploadPath(path) {
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(path || "").split("?")[0]);
 }
 
+async function downloadBookingUpload(path) {
+  try {
+    await downloadConsentDocument(path, uploadFileName(path));
+  } catch (error) {
+    toast.error(error.message || "Could not download the booking file.");
+  }
+}
+
+async function viewBookingUpload(path) {
+  try {
+    await openProtectedDocument(path);
+  } catch (error) {
+    toast.error(error.message || "Could not open the booking file.");
+  }
+}
+
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
+const BOOKING_PAGE_SIZE = 5;
 
 function isPetOwnerRole(role) {
   return ["pet_owner", "pet owner"].includes(String(role || "").trim().toLowerCase().replace(/[\s-]+/g, "_"));
@@ -50,6 +75,7 @@ export default function PetProfile() {
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [queueRecords, setQueueRecords] = useState([]);
   const [bookingRecords, setBookingRecords] = useState([]);
+  const [bookingPage, setBookingPage] = useState({ petId: "", limit: BOOKING_PAGE_SIZE });
   const [confirmAction, setConfirmAction] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -240,13 +266,11 @@ export default function PetProfile() {
     return true;
   };
 
-  const shouldShowBookingRecord = (booking) => {
-    if (booking.status === "completed") return false;
-    return true;
-  };
-
   const visibleQueueRecords = queueRecords.filter(shouldShowQueueRecord);
-  const visibleBookingRecords = bookingRecords.filter(shouldShowBookingRecord);
+  const visibleBookingRecords = bookingRecords;
+  const bookingLimit = bookingPage.petId === petId ? bookingPage.limit : BOOKING_PAGE_SIZE;
+  const displayedBookingRecords = visibleBookingRecords.slice(0, bookingLimit);
+  const remainingBookingCount = Math.max(0, visibleBookingRecords.length - displayedBookingRecords.length);
   const consentRecords = useMemo(() => buildConsentRecords(bookingRecords, queueRecords), [bookingRecords, queueRecords]);
   const activeQueue = visibleQueueRecords.find(item => item.status !== "cancelled");
   const displayedQueue = activeQueue || visibleQueueRecords[0];
@@ -502,36 +526,67 @@ export default function PetProfile() {
                 .map((path) => path.trim())
                 .filter(Boolean)
                 .map((path, index) => {
-                  const url = resolveImageUrl(path);
                   const isImage = isImageUploadPath(path);
 
                   if (isImage) {
                     return (
-                      <button
-                        key={`${path}-${index}`}
-                        type="button"
-                        onClick={() => setConsentViewer({ src: path, alt: `Concern ${index + 1}` })}
-                        className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left"
-                      >
+                      <div key={`${path}-${index}`} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                         <ProtectedImage src={path} alt={`Concern ${index + 1}`} className="aspect-square w-full object-cover" />
-                      </button>
+                        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setConsentViewer({ src: path, alt: `Concern ${index + 1}` })}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadBookingUpload(path)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
                     );
                   }
 
                   return (
-                    <a
-                      key={`${path}-${index}`}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-                    >
+                    <div key={`${path}-${index}`} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                         <span className="flex aspect-square w-full flex-col items-center justify-center gap-3 p-4 text-center">
                           <FileText className="h-10 w-10 text-slate-300" />
                           <span className="max-w-full truncate text-sm font-bold text-slate-700">{uploadFileName(path)}</span>
-                          <span className="text-xs font-semibold text-blue-600">Open file</span>
                         </span>
-                    </a>
+                        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewBookingUpload(path)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadBookingUpload(path)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
+                        </div>
+                    </div>
                   );
                 })}
             </div>
@@ -877,7 +932,10 @@ export default function PetProfile() {
           </div>
 
           <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
-          <PrescriptionDocumentsPanel documents={pet.prescriptionDocuments || []} />
+          <PrescriptionDocumentsPanel
+            documents={pet.prescriptionDocuments || []}
+            onPreview={(document) => setConsentViewer(document)}
+          />
 
           {canViewPetOwnerActivity && (
             <>
@@ -953,7 +1011,7 @@ export default function PetProfile() {
                     </div>
                   ) : visibleBookingRecords.length > 0 ? (
                     <div className="divide-y divide-slate-100">
-                      {visibleBookingRecords.map((booking) => {
+                      {displayedBookingRecords.map((booking) => {
                         const canCancelBooking = booking.status !== "completed" && booking.status !== "cancelled";
                         return (
                           <div key={booking.id} className="relative p-4 sm:p-6">
@@ -988,11 +1046,26 @@ export default function PetProfile() {
                           </div>
                         );
                       })}
+                      {remainingBookingCount > 0 && (
+                        <div className="bg-white px-4 py-3 sm:px-6">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setBookingPage((current) => ({
+                              petId,
+                              limit: (current.petId === petId ? current.limit : BOOKING_PAGE_SIZE) + BOOKING_PAGE_SIZE
+                            }))}
+                            className="h-9 w-full text-sm font-black"
+                          >
+                            Load more bookings ({remainingBookingCount})
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="px-4 py-12 text-center sm:px-8">
-                      <p className="font-bold text-slate-900">No active bookings</p>
-                      <p className="text-sm text-slate-500 mt-1">Pending bookings and cancelled booking records appear here.</p>
+                      <p className="font-bold text-slate-900">No bookings recorded</p>
+                      <p className="text-sm text-slate-500 mt-1">This pet&apos;s current and completed bookings will appear here.</p>
                     </div>
                   )}
                 </CardContent>
@@ -1068,7 +1141,7 @@ export default function PetProfile() {
       </Dialog>
       <PhotoViewer
         open={Boolean(consentViewer)}
-        src={consentViewer?.path || consentViewer?.url || ""}
+        src={consentViewer?.src || consentViewer?.path || consentViewer?.url || ""}
         alt={consentViewer?.alt || "Consent image"}
         onOpenChange={(open) => !open && setConsentViewer(null)}
       />
@@ -1076,48 +1149,270 @@ export default function PetProfile() {
   );
 }
 
+const SIGNED_CONSENT_PATH_KEYS = [
+  "documentPath",
+  "document_path",
+  "consentDocumentPath",
+  "consent_document_path",
+  "signedDocumentPath",
+  "signed_document_path",
+  "signedConsentDocumentPath",
+  "signed_consent_document_path",
+  "signedFilePath",
+  "signed_file_path",
+];
+
+const PHYSICAL_CONSENT_PATH_KEYS = [
+  "physicalConsentPath",
+  "physical_consent_path",
+  "physicalFilePath",
+  "physical_file_path",
+];
+
+function firstConsentArtifactPath(record, keys) {
+  if (!record || typeof record !== "object") return "";
+
+  for (const key of keys) {
+    const path = String(record[key] || "").trim();
+    if (path) return path;
+  }
+
+  return "";
+}
+
+function consentRecordArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizedConsentArtifactKey(path) {
+  const rawPath = String(path || "").trim().replace(/\\/g, "/");
+  if (!rawPath) return "";
+
+  let normalizedPath = rawPath.split(/[?#]/)[0];
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    try {
+      normalizedPath = new URL(normalizedPath).pathname;
+    } catch {
+      // Keep the original path when an older stored URL cannot be parsed.
+    }
+  }
+
+  return normalizedPath
+    .replace(/^\/+/, "")
+    .replace(/^public\//i, "")
+    .replace(/^api\/uploads\/media\//i, "")
+    .replace(/^uploads\/media\//i, "")
+    .toLowerCase();
+}
+
 function buildConsentRecords(bookings, queues) {
   const records = [];
   const seen = new Set();
 
   const addRecord = (record) => {
-    const url = resolveImageUrl(record.path || "");
-    if (!url) return;
+    const path = consentDocumentPath(record);
+    const canReconstruct = canReconstructConsentDocument(record, record.fallbackSignaturePath);
+    if (!path && !canReconstruct) return;
 
-    const key = `${record.source}-${record.sourceId}-${url}`;
+    const storedArtifactKey = normalizedConsentArtifactKey(path);
+    const legacyArtifactKey = normalizedConsentArtifactKey(
+      record.legacySignaturePath || record.fallbackSignaturePath
+    );
+    const key = storedArtifactKey
+      ? `stored:${storedArtifactKey}`
+      : `reconstructed:${legacyArtifactKey}:${String(record.content || "").trim()}`;
     if (seen.has(key)) return;
     seen.add(key);
 
     records.push({
       ...record,
-      url,
-      consentId: `CONSENT-${String(record.source).toUpperCase()}-${record.sourceId || records.length + 1}`,
+      path,
+      url: path ? resolveImageUrl(path) : "",
+      consentId: [
+        "CONSENT",
+        String(record.source).toUpperCase(),
+        record.sourceId || records.length + 1,
+        record.formId || "",
+      ].filter(Boolean).join("-"),
     });
   };
 
   bookings.forEach((booking) => {
-    addRecord({
+    const rawForms = consentRecordArray(booking.consentForms);
+    const commonRecord = {
       source: "booking",
       sourceLabel: "Booking Consent",
       sourceId: booking.id,
-      path: booking.signaturePath,
       identifier: booking.bookingNumber || `Booking #${booking.id}`,
       service: getServiceDisplayName(booking.service || booking.type, "Booking"),
-      dateLabel: formatDisplayDateTime(booking.date || booking.createdAt, booking.time),
       ownerLabel: booking.ownerName || "Pet owner",
+      veterinarianName: booking.veterinarian || "Veterinarian",
+    };
+
+    rawForms.forEach((rawForm, index) => {
+      const form = normalizeConsentForms([rawForm])[0];
+      if (!form) return;
+
+      const signedDocumentPath = firstConsentArtifactPath(rawForm, SIGNED_CONSENT_PATH_KEYS);
+      const physicalDocumentPath = firstConsentArtifactPath(rawForm, PHYSICAL_CONSENT_PATH_KEYS);
+      const formId = form.id || index + 1;
+      const formRecord = {
+        ...commonRecord,
+        ...form,
+        formId,
+        fallbackSignaturePath: form.legacySignaturePath || booking.legacyConsentSignaturePath,
+        dateLabel: formatDisplayDateTime(form.signedAt || booking.date || booking.createdAt, booking.time),
+        ownerLabel: form.signerName || commonRecord.ownerLabel,
+        veterinarianName: form.veterinarianName || commonRecord.veterinarianName,
+      };
+
+      if (signedDocumentPath) {
+        addRecord({
+          ...formRecord,
+          documentPath: signedDocumentPath,
+          formId: `${formId}-signed`,
+        });
+      }
+
+      if (physicalDocumentPath) {
+        addRecord({
+          ...formRecord,
+          title: `${form.title || "Consent Form"} - Physical Upload`,
+          documentPath: physicalDocumentPath,
+          sourceLabel: "Physical Booking Consent",
+          formId: `${formId}-physical`,
+        });
+      }
+
+      if (!signedDocumentPath && !physicalDocumentPath) {
+        addRecord(formRecord);
+      }
     });
+
+    const bookingDocumentPath = firstConsentArtifactPath(booking, SIGNED_CONSENT_PATH_KEYS);
+    if (bookingDocumentPath) {
+      addRecord({
+        ...commonRecord,
+        ...booking,
+        documentPath: bookingDocumentPath,
+        dateLabel: formatDisplayDateTime(booking.date || booking.createdAt, booking.time),
+      });
+    }
+
+    const bookingPhysicalPath = firstConsentArtifactPath(booking, PHYSICAL_CONSENT_PATH_KEYS);
+    if (bookingPhysicalPath) {
+      addRecord({
+        ...commonRecord,
+        title: "Booking Consent - Physical Upload",
+        documentPath: bookingPhysicalPath,
+        sourceLabel: "Physical Booking Consent",
+        formId: "physical",
+        dateLabel: formatDisplayDateTime(booking.date || booking.createdAt, booking.time),
+      });
+    }
   });
 
   queues.forEach((queue) => {
-    addRecord({
+    const queueReference = formatQueueReference(queue) || `Queue ID ${queue.queue_id}`;
+    const commonRecord = {
       source: "queue",
       sourceLabel: "Queue Consent",
       sourceId: queue.queue_id,
-      path: queue.signiture_self_service_path,
-      identifier: formatQueueReference(queue) || `Queue ID ${queue.queue_id}`,
+      identifier: queueReference,
       service: getServiceDisplayName(queue.service_name, "Queue"),
       dateLabel: formatDisplayDateTime(queue.timestamp),
       ownerLabel: "Pet owner",
+    };
+    const aggregatedRecords = consentRecordArray(queue.consent_records || queue.consentRecords);
+
+    aggregatedRecords.forEach((consentRecord, index) => {
+      if (!consentRecord || typeof consentRecord !== "object") return;
+
+      const normalizedForm = normalizeConsentForms([consentRecord])[0] || {};
+      const recordId = consentRecord.consent_record_id
+        || consentRecord.consentRecordId
+        || normalizedForm.id
+        || index + 1;
+      const signedDocumentPath = firstConsentArtifactPath(consentRecord, SIGNED_CONSENT_PATH_KEYS);
+      const physicalDocumentPath = firstConsentArtifactPath(consentRecord, PHYSICAL_CONSENT_PATH_KEYS);
+      const consentTitle = consentRecord.consent_type
+        || consentRecord.consentType
+        || normalizedForm.title
+        || "Queue Consent";
+      const dateLabel = formatDisplayDateTime(
+        consentRecord.signed_at
+          || consentRecord.signedAt
+          || consentRecord.released_at
+          || consentRecord.releasedAt
+          || consentRecord.created_at
+          || consentRecord.createdAt
+          || queue.timestamp
+      );
+      const recordDetails = {
+        ...commonRecord,
+        ...normalizedForm,
+        title: consentTitle,
+        formId: recordId,
+        dateLabel,
+        ownerLabel: consentRecord.signer_name || consentRecord.signerName || "Pet owner",
+        service: getServiceDisplayName(
+          consentRecord.service_name || consentRecord.serviceName || queue.service_name,
+          "Queue"
+        ),
+        fallbackSignaturePath: normalizedForm.legacySignaturePath,
+      };
+
+      if (signedDocumentPath) {
+        addRecord({
+          ...recordDetails,
+          documentPath: signedDocumentPath,
+          formId: `${recordId}-signed`,
+        });
+      }
+
+      if (physicalDocumentPath) {
+        addRecord({
+          ...recordDetails,
+          title: `${consentTitle} - Physical Upload`,
+          documentPath: physicalDocumentPath,
+          sourceLabel: "Physical Queue Consent",
+          formId: `${recordId}-physical`,
+        });
+      }
+
+      if (!signedDocumentPath && !physicalDocumentPath) {
+        addRecord(recordDetails);
+      }
+    });
+
+    [
+      {
+        path: queue.signed_consent_document_path || queue.signedConsentDocumentPath,
+        sourceLabel: "Queue Consent",
+        formId: "latest-signed",
+      },
+      {
+        path: queue.physical_consent_path || queue.physicalConsentPath,
+        sourceLabel: "Physical Queue Consent",
+        formId: "latest-physical",
+      },
+    ].forEach((artifact) => {
+      if (!artifact.path) return;
+
+      addRecord({
+        ...commonRecord,
+        documentPath: artifact.path,
+        sourceLabel: artifact.sourceLabel,
+        formId: artifact.formId,
+      });
     });
   });
 
@@ -1138,9 +1433,9 @@ function ConsentImagesPanel({ records, onPreview }) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-2xl font-black text-slate-900">{records.length}</p>
-              <p className="text-sm font-semibold text-slate-500">View-only signed copies</p>
+              <p className="text-sm font-semibold text-slate-500">Complete signed consent documents</p>
             </div>
-            <Badge className="border-0 bg-slate-100 text-slate-700">No print</Badge>
+            <Badge className="border-0 bg-slate-100 text-slate-700">View or download</Badge>
           </div>
 
           <SheetTrigger asChild>
@@ -1166,13 +1461,13 @@ function ConsentImagesPanel({ records, onPreview }) {
               Consent Image Holder
             </SheetTitle>
             <SheetDescription>
-              Signed owner consent images for this pet. These copies are for viewing only.
+              Complete signed owner consent forms for this pet, available to view or download.
             </SheetDescription>
           </SheetHeader>
 
           <div className="mt-5 space-y-3">
             {records.map((record) => (
-              <ConsentRecordCard key={`${record.source}-${record.sourceId}-${record.url}`} record={record} onPreview={onPreview} />
+              <ConsentRecordCard key={`${record.source}-${record.sourceId}-${record.formId || record.url}`} record={record} onPreview={onPreview} />
             ))}
           </div>
         </div>
@@ -1182,29 +1477,59 @@ function ConsentImagesPanel({ records, onPreview }) {
 }
 
 function ConsentRecordCard({ record, onPreview }) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const {
+    source,
+    isLoading,
+    isReconstructed,
+    isUnavailable,
+  } = useConsentDocumentSource(record, record.fallbackSignaturePath);
+
+  const handleDownload = async () => {
+    if (!source || isDownloading) return;
+
+    setIsDownloading(true);
+    try {
+      await downloadConsentDocument(source, `${record.consentId}.png`);
+    } catch (error) {
+      toast.error(error.message || "Could not download the complete consent form.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <button
-      type="button"
-      onClick={() => onPreview(record)}
-      className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
-    >
+    <div className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
       <div className="grid gap-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
         <div className="flex h-36 items-center justify-center overflow-hidden bg-slate-50 sm:h-full">
-          <ProtectedImage
-            src={record.path || record.url}
-            alt={record.identifier}
-            className="h-full w-full object-contain"
-            fallbackClassName="h-full w-full"
-          />
+          {source ? (
+            <ProtectedImage
+              src={source}
+              alt={`${record.identifier} complete signed consent form`}
+              className="h-full w-full object-contain"
+              fallbackClassName="h-full w-full"
+            />
+          ) : isLoading ? (
+            <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Building full form
+            </div>
+          ) : (
+            <div className="px-3 text-center text-xs font-semibold leading-5 text-amber-700">
+              Complete consent image unavailable
+            </div>
+          )}
         </div>
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="border-0 bg-blue-50 text-[#155dfc]">{record.sourceLabel}</Badge>
-            <Badge className="border-0 bg-slate-100 text-slate-700">View only</Badge>
+            <Badge className="border-0 bg-slate-100 text-slate-700">Complete form</Badge>
+            {isReconstructed && <Badge className="border-0 bg-amber-50 text-amber-700">Legacy full form</Badge>}
+            {isUnavailable && <Badge className="border-0 bg-amber-50 text-amber-700">Not displayable</Badge>}
           </div>
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Identifier</p>
-            <p className="mt-1 break-words text-sm font-black text-slate-900">{record.consentId}</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Consent form</p>
+            <p className="mt-1 break-words text-sm font-black text-slate-900">{record.title || record.sourceLabel}</p>
           </div>
           <div className="grid gap-2 text-sm">
             <div>
@@ -1220,9 +1545,33 @@ function ConsentRecordCard({ record, onPreview }) {
               <p className="font-semibold text-slate-700">{record.dateLabel}</p>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => source && onPreview({ ...record, path: source, url: source })}
+              disabled={!source}
+              className="gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              View
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={!source || isDownloading}
+              className="gap-2"
+            >
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Download
+            </Button>
+          </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -1260,7 +1609,7 @@ function VaccinationRecordsPanel({ vaccinations }) {
   );
 }
 
-function PrescriptionDocumentsPanel({ documents }) {
+function PrescriptionDocumentsPanel({ documents, onPreview }) {
   return (
     <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-6">
@@ -1275,29 +1624,13 @@ function PrescriptionDocumentsPanel({ documents }) {
       <CardContent className="p-4 sm:p-5">
         {documents.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            {documents.map((document) => {
-              const url = resolveImageUrl(document.url || document.relativeUrl);
-
-              return (
-                <a
-                  key={document.id || document.url}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50"
-                >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
-                    <FileText className="size-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-slate-900">{document.name || 'Prescription document'}</span>
-                    <span className="block text-xs font-semibold text-slate-500">
-                      {formatDisplayDate(document.createdAt)}
-                    </span>
-                  </span>
-                </a>
-              );
-            })}
+            {documents.map((document) => (
+              <PetPrescriptionDocumentCard
+                key={document.id || document.url || document.relativeUrl}
+                document={document}
+                onPreview={onPreview}
+              />
+            ))}
           </div>
         ) : (
           <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-400">
@@ -1306,6 +1639,84 @@ function PrescriptionDocumentsPanel({ documents }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function PetPrescriptionDocumentCard({ document, onPreview }) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+  const rawPath = document.url || document.relativeUrl || "";
+  const title = document.name || "Prescription document";
+  const canPreview = isImageUploadPath(rawPath);
+
+  const handleView = async () => {
+    if (!rawPath || isOpening) return;
+    if (canPreview) {
+      onPreview({ src: rawPath, alt: title });
+      return;
+    }
+
+    setIsOpening(true);
+    try {
+      await openProtectedDocument(rawPath);
+    } catch (error) {
+      toast.error(error.message || "Could not open this prescription document.");
+    } finally {
+      setIsOpening(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!rawPath || isDownloading) return;
+
+    setIsDownloading(true);
+    try {
+      await downloadConsentDocument(rawPath, title);
+    } catch (error) {
+      toast.error(error.message || "Could not download this prescription document.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
+          <FileText className="size-5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black text-slate-900">{title}</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            {formatDisplayDate(document.createdAt)}
+          </span>
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleView}
+          disabled={!rawPath || isOpening}
+          className="h-8 gap-1 text-xs"
+        >
+          {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+          View
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleDownload}
+          disabled={!rawPath || isDownloading}
+          className="h-8 gap-1 text-xs"
+        >
+          {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+          Download
+        </Button>
+      </div>
+    </div>
   );
 }
 

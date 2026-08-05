@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Search, Filter, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard, RotateCcw, Save, Settings, ExternalLink, FileText, Image as ImageIcon } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, X, User, PawPrint, CalendarClock, UserPlus, Loader2, Plus, CreditCard, RotateCcw, Save, Settings, ExternalLink, FileText, Image as ImageIcon, Download, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../ui/sheet';
 import PetOwnerProfileModal from './PetOwnerInfoModal';
@@ -20,6 +20,14 @@ import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '..
 import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
 import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import {
+    canReconstructConsentDocument,
+    consentDocumentPath,
+    downloadConsentDocument,
+    normalizeConsentForms,
+    openProtectedDocument,
+    useConsentDocumentSource
+} from '../../hooks/useConsentDocumentSource';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { useBookingPriceProjections } from '../../hooks/useBookingPriceProjections';
@@ -32,6 +40,7 @@ import {
 } from '../../services/bookingService';
 import { fetchQueuePets } from '../../services/queueService';
 import { fetchAccounts } from '../../services/accountService';
+import { fetchBranches, getBranchDisplayName, relocateBooking } from '../../services/branchService';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -52,8 +61,6 @@ const ADMIN_BOOKING_SERVICE_TYPES = [
         (type) => !['consultation', 'home-service', 'special services', 'boarding'].includes(type.value)
     )
 ];
-
-const BOOKING_POS_FEE = 50;
 
 const SERVICE_DISPLAY_PRICE_FIELDS = [
     { key: 'onlineConsultation', label: 'Online Consultation' },
@@ -117,6 +124,57 @@ function ownerNameForPet(pet) {
         || 'Unknown Owner';
 }
 
+function isBoardingBooking(booking) {
+    const serviceType = String(booking?.type || '').trim().toLowerCase();
+    return serviceType === 'boarding' || Boolean(booking?.hotelBoardingType);
+}
+
+function bookingChargeName(booking) {
+    if (booking?.isOnlineConsultation) {
+        return 'Online Consultation';
+    }
+
+    if (booking?.isHomeService) {
+        const selectedServices = String(booking?.service || '').trim();
+        return selectedServices && selectedServices.toLowerCase() !== 'home-service'
+            ? `Home Service - ${selectedServices}`
+            : 'Home Visit + Consultation';
+    }
+
+    return getServiceDisplayName(booking?.service || booking?.type || 'Clinic Service');
+}
+
+function bookingPOSCharges(booking) {
+    const charges = [{
+        classificationId: 'services',
+        receiptType: 'SERVICE',
+        chargeType: 'service',
+        name: bookingChargeName(booking),
+        group: booking?.isHomeService ? 'Home Service' : 'Booked Service',
+        quantity: 1,
+        price: Math.max(0, Number(booking?.price || 0)),
+        includedMaterials: [],
+        extraMaterials: []
+    }];
+    const transportFee = Math.max(0, Number(booking?.transportFee || booking?.transport_fee || 0));
+
+    if (booking?.isHomeService && transportFee > 0) {
+        charges.push({
+            classificationId: 'services',
+            receiptType: 'SERVICE',
+            chargeType: 'other',
+            name: 'Home Service Transport Fee',
+            group: 'Home Service',
+            quantity: 1,
+            price: transportFee,
+            includedMaterials: [],
+            extraMaterials: []
+        });
+    }
+
+    return charges;
+}
+
 function vetId(vet) {
     return String(vet?.user_id || vet?.userId || vet?.id || '');
 }
@@ -164,17 +222,42 @@ function attachmentFileName(path) {
 
 function BookingAttachmentCard({ path, alt, onPreview }) {
     const [hasImageError, setHasImageError] = useState(false);
-    const url = resolveImageUrl(path);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
     const isImage = isImageAttachmentPath(path) && !hasImageError;
     const fileName = attachmentFileName(path);
+    const handleView = async () => {
+        if (!path || isOpening) return;
+        if (isImage) {
+            onPreview({ src: path, alt });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(path);
+        } catch (error) {
+            toast.error(error.message || 'Could not open the booking file.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+    const handleDownload = async () => {
+        if (!path || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(path, fileName);
+        } catch (error) {
+            toast.error(error.message || 'Could not download the booking file.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     if (isImage) {
         return (
-            <button
-                type="button"
-                className="group w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:border-blue-200 hover:bg-blue-50/40"
-                onClick={() => onPreview({ src: path, alt })}
-            >
+            <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <div className="aspect-square bg-slate-50">
                     <ProtectedImage
                         src={path}
@@ -188,23 +271,149 @@ function BookingAttachmentCard({ path, alt, onPreview }) {
                     <ImageIcon className="size-4 shrink-0 text-blue-500" />
                     <span className="truncate">{fileName}</span>
                 </div>
-            </button>
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-2">
+                    <Button type="button" variant="outline" size="sm" onClick={handleView} className="h-8 gap-1 text-xs">
+                        <Eye className="size-3" />
+                        View
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleDownload} disabled={isDownloading} className="h-8 gap-1 text-xs">
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
+                    </Button>
+                </div>
+            </div>
         );
     }
 
     return (
-        <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition hover:border-blue-300 hover:bg-blue-50"
-        >
+        <div className="flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
             <FileText className="size-9 text-slate-400" />
             <span className="max-w-full truncate text-sm font-bold text-slate-700">{fileName}</span>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600">
-                Open file <ExternalLink className="size-3" />
-            </span>
-        </a>
+            <div className="grid w-full grid-cols-2 gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleView}
+                    disabled={isOpening}
+                    className="h-8 gap-1 text-xs"
+                >
+                    {isOpening ? <Loader2 className="size-3 animate-spin" /> : <ExternalLink className="size-3" />}
+                    View
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={handleDownload} disabled={isDownloading} className="h-8 gap-1 text-xs">
+                    {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    Download
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function bookingConsentForms(booking) {
+    const forms = normalizeConsentForms(booking?.consentForms)
+        .filter(form => (
+            consentDocumentPath(form)
+            || canReconstructConsentDocument(form, booking?.legacyConsentSignaturePath)
+        ));
+
+    if (forms.length > 0) {
+        return forms;
+    }
+
+    const documentPath = consentDocumentPath(booking);
+    return documentPath
+        ? [{
+            id: `booking-consent-${booking?.id || 'document'}`,
+            title: 'Signed Consent Form',
+            documentPath,
+            signerName: booking?.ownerName || '',
+            signedAt: booking?.createdAt || booking?.date || ''
+        }]
+        : [];
+}
+
+function BookingConsentCard({ form, booking, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const {
+        source,
+        isLoading,
+        isReconstructed,
+        isUnavailable
+    } = useConsentDocumentSource(form, booking.legacyConsentSignaturePath);
+    const handleDownload = async () => {
+        if (!source || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(source, `${booking.bookingNumber || `booking-${booking.id}`}-${form.title}.png`);
+        } catch (error) {
+            toast.error(error.message || 'Could not download the complete consent form.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="font-bold text-slate-900">{form.title}</p>
+                {form.signedAt && <p className="mt-1 text-xs font-semibold text-slate-500">Signed {formatDisplayDate(form.signedAt)}</p>}
+            </div>
+            <div className="space-y-3 p-4">
+                {source ? (
+                    <div className="h-[32rem] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        <ProtectedImage
+                            src={source}
+                            alt={`${form.title} complete signed document`}
+                            className="h-full w-full object-contain"
+                            fallbackClassName="h-full w-full"
+                        />
+                    </div>
+                ) : isLoading ? (
+                    <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500">
+                        <Loader2 className="size-5 animate-spin text-blue-600" />
+                        Rebuilding the complete legacy consent form
+                    </div>
+                ) : (
+                    <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+                        The complete signed form is unavailable. A signature image is never displayed by itself.
+                    </div>
+                )}
+                {isReconstructed && (
+                    <p className="text-xs font-semibold text-amber-700">
+                        This view rebuilds the retained legacy form text and signature into one complete document.
+                    </p>
+                )}
+                {isUnavailable && form.content && (
+                    <p className="text-xs font-semibold text-slate-500">
+                        The legacy form could not be reconstructed from its retained files.
+                    </p>
+                )}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => source && onPreview?.({ src: source, alt: `${form.title} complete signed document` })}
+                        disabled={!source}
+                        className="gap-2"
+                    >
+                        <Eye className="size-4" />
+                        View Complete Form
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleDownload}
+                        disabled={!source || isDownloading}
+                        className="gap-2"
+                    >
+                        {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                        Download
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -216,11 +425,12 @@ function ActionButtonMedia({ image, alt, fallback }) {
     return (
         <span className="size-10 rounded-full border border-[#bfdbfe] bg-[#eff6ff] flex items-center justify-center overflow-hidden">
             {imageUrl ? (
-                <img
-                    src={imageUrl}
+                <ProtectedImage
+                    src={image}
                     alt={alt}
                     className="size-full object-cover"
-                    onError={() => setHasImageError(true)}
+                    fallbackClassName="size-full"
+                    onLoadError={() => setHasImageError(true)}
                 />
             ) : (
                 <FallbackIcon className="size-5 text-[#155dfc]" />
@@ -245,6 +455,7 @@ export default function BookingsManagement() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('Service Type');
     const [filterStatus, setFilterStatus] = useState('Status');
+    const [filterBranch, setFilterBranch] = useState('all');
     const [filterAge, setFilterAge] = useState('7d');
     const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
     const [currentRescheduleBooking, setCurrentRescheduleBooking] = useState(null);
@@ -266,6 +477,8 @@ export default function BookingsManagement() {
     const [confirmingBookingId, setConfirmingBookingId] = useState(null);
     const [bookingPets, setBookingPets] = useState([]);
     const [veterinarians, setVeterinarians] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [relocatingBookingId, setRelocatingBookingId] = useState(null);
     const [isLoadingVeterinarians, setIsLoadingVeterinarians] = useState(false);
     const [bookingPetSearch, setBookingPetSearch] = useState('');
     const [selectedBookingPet, setSelectedBookingPet] = useState(null);
@@ -305,6 +518,31 @@ export default function BookingsManagement() {
     };
 
     useAutoRefresh(fetchBookings);
+
+    useEffect(() => {
+        fetchBranches()
+            .then((data) => setBranches(Array.isArray(data?.branches) ? data.branches : []))
+            .catch((error) => console.error('Error loading branches:', error));
+    }, []);
+
+    const handleBookingRelocation = async (booking, branchId) => {
+        if (!branchId || String(branchId) === String(booking.branchId)) return;
+        setRelocatingBookingId(booking.id);
+        try {
+            const result = await relocateBooking(booking.id, {
+                branchId: Number(branchId),
+                reason: 'Corrected during Admin booking review.'
+            });
+            setBookings((current) => current.map((item) => item.id === booking.id
+                ? { ...item, branchId: result.branchId, branchName: result.branchName }
+                : item));
+            toast.success(result.message || 'Booking location updated.');
+        } catch (error) {
+            toast.error(error.message || 'Failed to relocate booking.');
+        } finally {
+            setRelocatingBookingId(null);
+        }
+    };
 
     const bookingPetSuggestions = useMemo(() => {
         const query = bookingPetSearch.trim().toLowerCase();
@@ -448,8 +686,18 @@ export default function BookingsManagement() {
     };
 
     const sendBookingPaymentToPOS = (booking) => {
+        if (isBoardingBooking(booking)) {
+            toast.error('Boarding payment must be opened from Boarding so the stay and used materials remain complete.');
+            navigate('/dashboard/boarding');
+            return;
+        }
+
+        const charges = bookingPOSCharges(booking);
+        const hasConfiguredServicePrice = Number(booking.price || 0) > 0;
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
-            message: 'Booking payment loaded with the PHP 50 booking fee.',
+            message: hasConfiguredServicePrice
+                ? 'Booked service charges loaded. Review the service and any transport fee before posting payment.'
+                : 'Booked service loaded with no configured price. Set the service price before posting payment.',
             visit: {
                 id: booking.bookingNumber || `BOOKING-${booking.id}`,
                 bookingId: booking.id,
@@ -459,21 +707,12 @@ export default function BookingsManagement() {
                 petName: booking.petName || 'Booking Patient',
                 ownerName: booking.ownerName || 'Pet Owner',
                 species: booking.petSpecies || 'Pet',
-                visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : 'Booking Payment',
+                visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : `${bookingChargeName(booking)} Payment`,
                 veterinarian: booking.veterinarian || 'Clinic Team',
                 complaint: booking.notes || `${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber || ''}`.trim(),
-                status: 'Booking fee'
+                status: 'Ready for payment'
             },
-            charges: [{
-                classificationId: 'services',
-                receiptType: 'SERVICE',
-                name: 'Booking Fee',
-                group: 'Booking',
-                quantity: 1,
-                price: BOOKING_POS_FEE,
-                includedMaterials: [],
-                extraMaterials: []
-            }]
+            charges
         }));
         navigate('/dashboard/pos');
     };
@@ -545,7 +784,9 @@ export default function BookingsManagement() {
                 isOnlineConsultation,
                 veterinarian: selectedVet ? vetName(selectedVet) : 'Clinic Team',
                 status: 'pending',
-                notes
+                notes,
+                price: Number(result.price || 0),
+                transportFee: Number(result.transport_fee || 0)
             };
 
             toast.success(`Booking ${result.booking_number} created.`);
@@ -581,18 +822,25 @@ export default function BookingsManagement() {
 
     const saveBookingReview = async (booking) => {
         const draft = getReviewDraft(booking);
-        const updated = await updateBookingStatus(booking.id, booking.status, {
-            service_type: draft.serviceType,
+        const reviewPayload = {
             review_notes: draft.notes
-        });
+        };
+        if (!booking.isOnlineConsultation) {
+            reviewPayload.service_type = draft.serviceType;
+        }
+        const updated = await updateBookingStatus(booking.id, booking.status, reviewPayload);
 
         if (updated) {
             setBookings(current => current.map(item => (
                 item.id === booking.id
                     ? {
                         ...item,
-                        type: draft.serviceType,
-                        service: getServiceDisplayName(draft.serviceType),
+                        ...(booking.isOnlineConsultation
+                            ? {}
+                            : {
+                                type: draft.serviceType,
+                                service: getServiceDisplayName(draft.serviceType)
+                            }),
                         notes: draft.notes
                     }
                     : item
@@ -607,10 +855,13 @@ export default function BookingsManagement() {
         setConfirmingBookingId(booking.id);
         try {
             const draft = getReviewDraft(booking);
-            const updated = await updateBookingStatus(booking.id, 'confirmed', {
-                service_type: draft.serviceType,
+            const reviewPayload = {
                 review_notes: draft.notes
-            });
+            };
+            if (!booking.isOnlineConsultation) {
+                reviewPayload.service_type = draft.serviceType;
+            }
+            const updated = await updateBookingStatus(booking.id, 'confirmed', reviewPayload);
 
             if (updated) {
                 toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully.`);
@@ -629,44 +880,7 @@ export default function BookingsManagement() {
     };
 
     const sendOnlineBookingToPOS = (booking) => {
-        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
-            visit: {
-                id: booking.bookingNumber,
-                bookingId: booking.id,
-                petId: booking.petId || null,
-                ownerUserId: booking.userId || null,
-                sourceType: 'booking',
-                petName: booking.petName || 'Online Consultation',
-                ownerName: booking.ownerName || 'Pet Owner',
-                species: booking.petSpecies || 'Pet',
-                visitType: 'Online Consultation Payment',
-                veterinarian: booking.veterinarian || 'Clinic Team',
-                complaint: booking.notes || 'Admin-created online consultation payment',
-                status: 'Payment only'
-            },
-            charges: [
-                Number(booking.price || 0) > 0 ? {
-                    classificationId: 'services',
-                    receiptType: 'SERVICE',
-                    name: booking.isOnlineConsultation ? 'Online Consultation' : getServiceDisplayName(booking.service || booking.type || 'Online Consultation'),
-                    group: 'Online Consultation',
-                    quantity: 1,
-                    price: Number(booking.price || 0),
-                    includedMaterials: [],
-                    extraMaterials: []
-                } : {
-                    classificationId: 'services',
-                    receiptType: 'SERVICE',
-                    name: 'Booking Fee',
-                    group: 'Booking',
-                    quantity: 1,
-                    price: BOOKING_POS_FEE,
-                    includedMaterials: [],
-                    extraMaterials: []
-                }
-            ]
-        }));
-        navigate('/dashboard/pos');
+        sendBookingPaymentToPOS(booking);
     };
 
     const handleReschedule = (booking) => {
@@ -950,8 +1164,9 @@ export default function BookingsManagement() {
 
     const filteredBookings = summaryBookings.filter(booking => {
         const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
+        const matchesBranch = filterBranch === 'all' || String(booking.branchId) === filterBranch;
 
-        return matchesStatus;
+        return matchesStatus && matchesBranch;
     }).sort((a, b) => {
         const statusOrder = {
             'pending': 1,
@@ -1021,7 +1236,23 @@ export default function BookingsManagement() {
                     />
                 </div>
 
-                <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 min-[1100px]:flex min-[1100px]:w-auto min-[1100px]:flex-none min-[1100px]:flex-nowrap min-[1100px]:items-center">
+                <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 min-[900px]:grid-cols-4 min-[1100px]:flex min-[1100px]:w-auto min-[1100px]:flex-none min-[1100px]:flex-nowrap min-[1100px]:items-center">
+                    <Select value={filterBranch} onValueChange={setFilterBranch}>
+                        <SelectTrigger className="w-full min-[1100px]:w-[210px]">
+                            <SelectValue
+                                placeholder="Location"
+                                displayValue={filterBranch === 'all'
+                                    ? 'All available locations'
+                                    : getBranchDisplayName(branches, filterBranch)}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All available locations</SelectItem>
+                            {branches.map((branch) => (
+                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Select value={filterType} onValueChange={setFilterType}>
                         <SelectTrigger className="w-full min-[1100px]:w-[180px]">
                             <Filter className="size-4 mr-2" />
@@ -1107,6 +1338,7 @@ export default function BookingsManagement() {
                                             )}
                                         </p>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
+                                        <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{booking.branchName || 'Main Clinic'}</p>
                                     </div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">
@@ -1363,10 +1595,20 @@ export default function BookingsManagement() {
                                                     {booking.isHomeService && booking.price > 0 && (
                                                         <div>
                                                             <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                                                Paid Transport Fee
+                                                                Home Service Starting Charge
                                                             </p>
                                                             <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
                                                                 {formatPhpCurrency(booking.price)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {booking.isHomeService && Number(booking.transportFee || 0) > 0 && (
+                                                        <div>
+                                                            <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                                Transport Fee
+                                                            </p>
+                                                            <p className="font-['Arimo:Bold',sans-serif] text-[16px] text-blue-600">
+                                                                {formatPhpCurrency(booking.transportFee)}
                                                             </p>
                                                         </div>
                                                     )}
@@ -1385,6 +1627,17 @@ export default function BookingsManagement() {
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {booking.isOnlineConsultation && booking.discussionTopic && (
+                                                    <div className="border-t pt-4">
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
+                                                            Discussion Topics
+                                                        </p>
+                                                        <p className="font-['Arimo:Regular',sans-serif] text-[16px] whitespace-pre-wrap">
+                                                            {booking.discussionTopic}
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 {booking.notes && (
                                                     <div className="border-t pt-4">
@@ -1452,18 +1705,31 @@ export default function BookingsManagement() {
                                                     </div>
                                                 )}
 
-                                                {/* Signature Section */}
-                                                {booking.signaturePath && (
+                                                {/* Complete consent form section */}
+                                                {bookingConsentForms(booking).length > 0 && (
                                                     <div className="border-t pt-4">
                                                         <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
-                                                            Client Signature
+                                                            Signed Consent Form
                                                         </p>
-                                                        <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 flex items-center justify-center">
-                                                            <img
-                                                                src={resolveImageUrl(booking.signaturePath)}
-                                                                alt="Client Signature"
-                                                                className="max-h-24 object-contain"
-                                                            />
+                                                        <div className="space-y-3">
+                                                            {bookingConsentForms(booking).map(form => (
+                                                                <BookingConsentCard
+                                                                    key={form.id}
+                                                                    form={form}
+                                                                    booking={booking}
+                                                                    onPreview={setViewerImage}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {booking.legacyConsentSignaturePath && bookingConsentForms(booking).length === 0 && (
+                                                    <div className="border-t pt-4">
+                                                        <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
+                                                            Signed Consent Form
+                                                        </p>
+                                                        <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+                                                            A legacy signature exists, but the complete consent form was not retained. The signature is not shown by itself.
                                                         </div>
                                                     </div>
                                                 )}
@@ -1521,7 +1787,7 @@ export default function BookingsManagement() {
                                                             Open Point-Of-Sale Payment
                                                         </Button>
                                                         <p className="mt-2 text-[12px] text-[#4a5565]">
-                                                            Point-Of-Sale opens blank so staff can add the payment service manually.
+                                                            The booked service is carried into Point-Of-Sale automatically. Home-service transport is shown as a separate receipt line.
                                                         </p>
                                                     </div>
                                                 )}
@@ -1536,23 +1802,55 @@ export default function BookingsManagement() {
                                                             {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
                                                                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                                                     <div className="space-y-2">
-                                                                        <Label>Reviewed Service</Label>
+                                                                        <Label>Clinic location</Label>
                                                                         <Select
-                                                                            value={getReviewDraft(booking).serviceType}
-                                                                            onValueChange={(value) => updateReviewDraft(booking, 'serviceType', value)}
+                                                                            value={String(booking.branchId || '')}
+                                                                            onValueChange={(value) => handleBookingRelocation(booking, value)}
+                                                                            disabled={relocatingBookingId === booking.id}
                                                                         >
                                                                             <SelectTrigger className="bg-white">
-                                                                                <SelectValue />
+                                                                                <SelectValue
+                                                                                    placeholder="Select location"
+                                                                                    displayValue={booking.branchName || getBranchDisplayName(branches, booking.branchId)}
+                                                                                />
                                                                             </SelectTrigger>
                                                                             <SelectContent>
-                                                                                {REVIEW_SERVICE_TYPES.map((type) => (
-                                                                                    <SelectItem key={type.value} value={type.value}>
-                                                                                        {type.label}
-                                                                                    </SelectItem>
+                                                                                {branches.map((branch) => (
+                                                                                    <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
                                                                                 ))}
                                                                             </SelectContent>
                                                                         </Select>
+                                                                        <p className="text-xs text-slate-500">Relocating keeps the same service price and submitted payment.</p>
                                                                     </div>
+                                                                    {booking.isOnlineConsultation ? (
+                                                                        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                                                                            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                                                                                Booking Type
+                                                                            </p>
+                                                                            <p className="mt-1 text-sm font-bold text-blue-950">
+                                                                                Online Consultation
+                                                                            </p>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="space-y-2">
+                                                                            <Label>Reviewed Service</Label>
+                                                                            <Select
+                                                                                value={getReviewDraft(booking).serviceType}
+                                                                                onValueChange={(value) => updateReviewDraft(booking, 'serviceType', value)}
+                                                                            >
+                                                                                <SelectTrigger className="bg-white">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {REVIEW_SERVICE_TYPES.map((type) => (
+                                                                                        <SelectItem key={type.value} value={type.value}>
+                                                                                            {type.label}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="space-y-2">
                                                                         <Label>Reviewed Notes / Observations</Label>
                                                                         <Textarea

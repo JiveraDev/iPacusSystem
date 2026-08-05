@@ -58,7 +58,7 @@ function createPayload(serverStatus = {}) {
 function createFallbackEmailUrl(payload) {
     const subject = `[iPawcus] Problem report ${payload.reportId}`;
     const body = [
-        'An iPawcus maintenance failure occurred.',
+        'An iPawcus service or connection failure occurred.',
         '',
         `Report ID: ${payload.reportId}`,
         `Failure code: ${payload.failure.code}`,

@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 $petId = $_GET['petId'] ?? null;
 
@@ -79,6 +81,13 @@ function getPetPrescriptionDocuments(PDO $pdo, int $petId): array
 }
 
 try {
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+    if ($currentApiRole !== 'pet_owner' && !ipawcus_guard_is_clinic_role($currentApiRole)) {
+        ipawcus_guard_error(403, 'You are not allowed to view pet records.');
+    }
+
     // Check if it's a sharable ID or numeric ID
     $sql = "SELECT p.*, po.user_id AS owner_user_id, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name
             FROM pets_information p
@@ -95,6 +104,13 @@ try {
         http_response_code(404);
         echo json_encode(['message' => 'Pet not found.']);
         exit;
+    }
+
+    if (
+        $currentApiRole === 'pet_owner'
+        && !ipawcus_guard_pet_access($pdo, (int)$pet['pet_id'], $currentApiUserId)
+    ) {
+        ipawcus_guard_error(403, 'You are not allowed to view this pet record.');
     }
 
     $vaccinations = [];
@@ -126,6 +142,9 @@ try {
         $vaccinations = [];
     }
 
+    $allergyEntries = pet_allergy_effective_entries($pdo, (int)$pet['pet_id'], $pet['pet_allergies'] ?? null);
+    $effectiveAllergyText = pet_allergy_effective_text($pdo, (int)$pet['pet_id'], $pet['pet_allergies'] ?? null);
+
     // Format the pet object for the frontend
     $formattedPet = [
         'id' => $pet['pet_sharable_ID'],
@@ -146,8 +165,8 @@ try {
         'hasOwnership' => $pet['owner_user_id'] !== null,
         'tempOwnerName' => $pet['pet_Temp_owner'] ?: null,
         'profileImage' => $pet['setpetImage_url'],
-        'allergies_raw' => $pet['pet_allergies'],
-        'allergies' => $pet['pet_allergies'] ? [['allergen' => $pet['pet_allergies'], 'severity' => 'Known']] : [],
+        'allergies_raw' => $effectiveAllergyText,
+        'allergies' => $allergyEntries,
         'vaccinations' => $vaccinations,
         'prescriptionDocuments' => getPetPrescriptionDocuments($pdo, (int)$pet['pet_id'])
     ];

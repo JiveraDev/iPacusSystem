@@ -1,7 +1,8 @@
 import { apiRequest } from './apiClient';
 
-export function fetchStatusDisplay(options = {}) {
-    return apiRequest('/status-display', {
+export function fetchStatusDisplay({ branch, ...options } = {}) {
+    const query = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+    return apiRequest(`/status-display${query}`, {
         timeoutMs: 12000,
         ...options
     });

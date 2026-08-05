@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AlertTriangle, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Eye, ImageIcon, LayoutGrid, Loader2, RefreshCw, Table2 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -7,11 +7,11 @@ import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { resolveImageUrl } from '../../lib/image';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { fetchPetMediaMonitoring } from '../../services/petMediaMonitoringService';
 import { REPORT_QUICK_RANGES } from '../../services/reportService';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import ReportDateInput from './ReportDateInput';
 
 const SOURCE_OPTIONS = [
@@ -115,6 +115,7 @@ export default function PetMediaMonitoring() {
     const [customEnd, setCustomEnd] = useState(() => quickRangeDates('this_month').end);
     const [sourceFilter, setSourceFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [viewMode, setViewMode] = useState('cards');
     const [viewer, setViewer] = useState(null);
     const selectedRangeLabel = useMemo(() => (
         REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
@@ -250,7 +251,7 @@ export default function PetMediaMonitoring() {
                 </div>
             ) : null}
 
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[14rem_1fr]">
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-center">
                 <Select value={sourceFilter} onValueChange={(value) => {
                     setSourceFilter(value);
                 }}>
@@ -268,6 +269,30 @@ export default function PetMediaMonitoring() {
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search pet, owner, service, booking, queue, diagnosis, or file name"
                 />
+                <div className="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 lg:w-auto" aria-label="Media display mode">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                        onClick={() => setViewMode('cards')}
+                        aria-pressed={viewMode === 'cards'}
+                        className="flex-1 gap-2 lg:flex-none"
+                    >
+                        <LayoutGrid className="size-4" />
+                        Cards
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant={viewMode === 'table' ? 'default' : 'ghost'}
+                        onClick={() => setViewMode('table')}
+                        aria-pressed={viewMode === 'table'}
+                        className="flex-1 gap-2 lg:flex-none"
+                    >
+                        <Table2 className="size-4" />
+                        Table
+                    </Button>
+                </div>
             </div>
 
             {isLoading && !mediaData ? (
@@ -284,8 +309,10 @@ export default function PetMediaMonitoring() {
                                     <p className="mt-1 text-sm font-semibold text-slate-500">Try another source filter or search term.</p>
                                 </div>
                             </div>
+                        ) : viewMode === 'table' ? (
+                            <MediaTable media={media} onPreview={setViewer} />
                         ) : (
-                            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                                 {media.map(item => (
                                     <MediaCard key={item.id} item={item} onPreview={setViewer} />
                                 ))}
@@ -305,56 +332,140 @@ export default function PetMediaMonitoring() {
 }
 
 function MediaCard({ item, onPreview }) {
-    const src = resolveImageUrl(item.url || item.path || '');
+    const src = item.url || item.path || '';
 
     return (
-        <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <article className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <button
                 type="button"
                 onClick={() => onPreview({ src, alt: item.label || item.name || 'Pet media' })}
-                className="group block w-full bg-slate-100 text-left"
+                className="group block w-full bg-slate-100 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#155dfc]"
+                aria-label={`View ${item.label || item.name || 'pet media'}`}
             >
                 <div className="aspect-[4/3] overflow-hidden">
-                    <img
+                    <ProtectedImage
                         src={src}
                         alt={item.label || item.name || 'Pet media'}
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        loading="lazy"
+                        fallbackClassName="h-full w-full"
                     />
                 </div>
             </button>
-            <div className="space-y-3 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                    <Badge className={`border-0 ${sourceTone(item.source)}`}>{sourceLabel(item.source)}</Badge>
-                    {item.status ? <Badge className="border-0 bg-slate-100 text-slate-700">{item.status}</Badge> : null}
+            <div className="space-y-2.5 p-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <Badge className={`border-0 text-[10px] ${sourceTone(item.source)}`}>{sourceLabel(item.source)}</Badge>
+                    {item.status ? <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700">{item.status}</Badge> : null}
                 </div>
                 <div>
-                    <p className="line-clamp-2 font-black text-slate-950">{item.label || item.name || 'Pet media'}</p>
-                    <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.name || 'Image file'}</p>
+                    <p className="line-clamp-2 text-sm font-black leading-5 text-slate-950">{item.label || item.name || 'Pet media'}</p>
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">{item.name || 'Image file'}</p>
                 </div>
-                <dl className="grid gap-2 text-xs font-semibold text-slate-500">
+                <dl className="grid gap-1.5 text-[11px] font-semibold text-slate-500">
                     <Detail label="Pet" value={item.petName} />
                     <Detail label="Owner" value={item.ownerName} />
                     <Detail label="Service" value={item.serviceName || 'N/A'} />
                     <Detail label="Date" value={formatDate(item.createdAt)} />
-                    {item.uploadedBy ? <Detail label="By" value={item.uploadedBy} /> : null}
                 </dl>
-                <a
-                    href={src}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex text-xs font-black uppercase tracking-wide text-[#155dfc] hover:underline"
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPreview({ src, alt: item.label || item.name || 'Pet media' })}
+                    className="h-8 w-full gap-1.5 text-xs"
                 >
-                    Open original
-                </a>
+                    <Eye className="size-3.5" />
+                    View
+                </Button>
             </div>
         </article>
     );
 }
 
+function MediaTable({ media, onPreview }) {
+    return (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+                <table className="min-w-[960px] w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th className="px-4 py-3">Media</th>
+                            <th className="px-4 py-3">Source</th>
+                            <th className="px-4 py-3">Pet / Owner</th>
+                            <th className="px-4 py-3">Service</th>
+                            <th className="px-4 py-3">Uploaded</th>
+                            <th className="px-4 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {media.map(item => {
+                            const src = item.url || item.path || '';
+                            const title = item.label || item.name || 'Pet media';
+
+                            return (
+                                <tr key={item.id} className="align-middle transition hover:bg-blue-50/40">
+                                    <td className="px-4 py-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => onPreview({ src, alt: title })}
+                                                className="size-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#155dfc]"
+                                                aria-label={`View ${title}`}
+                                            >
+                                                <ProtectedImage
+                                                    src={src}
+                                                    alt={title}
+                                                    className="size-full object-cover"
+                                                    fallbackClassName="size-full"
+                                                />
+                                            </button>
+                                            <div className="min-w-0">
+                                                <p className="max-w-xs truncate font-black text-slate-900">{title}</p>
+                                                <p className="mt-0.5 max-w-xs truncate text-xs font-semibold text-slate-500">{item.name || 'Image file'}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            <Badge className={`border-0 ${sourceTone(item.source)}`}>{sourceLabel(item.source)}</Badge>
+                                            {item.status ? <Badge className="border-0 bg-slate-100 text-slate-700">{item.status}</Badge> : null}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <p className="font-bold text-slate-800">{item.petName || 'N/A'}</p>
+                                        <p className="mt-0.5 text-xs font-semibold text-slate-500">{item.ownerName || 'N/A'}</p>
+                                    </td>
+                                    <td className="max-w-56 px-4 py-3 font-semibold text-slate-700">
+                                        <p className="truncate">{item.serviceName || 'N/A'}</p>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <p className="font-semibold text-slate-700">{formatDate(item.createdAt)}</p>
+                                        {item.uploadedBy ? <p className="mt-0.5 text-xs font-semibold text-slate-500">By {item.uploadedBy}</p> : null}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => onPreview({ src, alt: title })}
+                                            className="gap-1.5"
+                                        >
+                                            <Eye className="size-4" />
+                                            View
+                                        </Button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 function Detail({ label, value }) {
     return (
-        <div className="grid grid-cols-[4.5rem_1fr] gap-2">
+        <div className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-1.5">
             <dt className="text-slate-400">{label}</dt>
             <dd className="truncate text-slate-700">{value || 'N/A'}</dd>
         </div>

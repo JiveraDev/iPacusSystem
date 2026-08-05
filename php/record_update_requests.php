@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -127,6 +128,223 @@ function record_request_validate_payment_status(?string $status): ?string
     return $value;
 }
 
+function record_request_payment_is_cleared(array $request): bool
+{
+    return in_array((string)($request['payment_status'] ?? ''), ['verified', 'waived'], true);
+}
+
+function record_request_require_cleared_payment(array $request, string $actionLabel): void
+{
+    if (!record_request_payment_is_cleared($request)) {
+        record_request_error(
+            409,
+            "Payment must be verified or waived before this request can be {$actionLabel}."
+        );
+    }
+}
+
+function record_request_require_action_status(array $request, string $action, array $allowedStatuses): void
+{
+    $currentStatus = (string)($request['status'] ?? '');
+    if (!in_array($currentStatus, $allowedStatuses, true)) {
+        record_request_error(
+            409,
+            "A request with status {$currentStatus} cannot be {$action}."
+        );
+    }
+}
+
+function record_request_require_veterinarian(PDO $pdo, int $userId): void
+{
+    if ($userId <= 0) {
+        record_request_error(400, 'Select a veterinarian to assign.');
+    }
+
+    $hasAccountStatus = ipawcus_guard_column_exists($pdo, 'users', 'account_status');
+    $hasVeterinarianProfiles = record_request_table_exists($pdo, 'veterinarian_profiles');
+    $stmt = $pdo->prepare("
+        SELECT
+            u.role,
+            " . ($hasAccountStatus ? 'u.account_status' : "'active' AS account_status") . ",
+            " . ($hasVeterinarianProfiles ? 'vp.is_active' : '1 AS profile_is_active') . "
+        FROM users u
+        " . ($hasVeterinarianProfiles ? 'LEFT JOIN veterinarian_profiles vp ON vp.user_id = u.user_id' : '') . "
+        WHERE u.user_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $role = ipawcus_access_normalize_role((string)($user['role'] ?? ''));
+    $accountStatus = strtolower(trim((string)($user['account_status'] ?? 'active')));
+    $profileIsActive = (int)($user['profile_is_active'] ?? 0) === 1;
+    if (
+        $role !== 'veterinarian'
+        || in_array($accountStatus, ['inactive', 'deactivated', 'disabled', 'suspended'], true)
+        || !$profileIsActive
+    ) {
+        record_request_error(422, 'The selected account is not an active veterinarian account.');
+    }
+}
+
+function record_request_write_transition_event(
+    PDO $pdo,
+    int $requestId,
+    string $eventType,
+    array $before,
+    array $after,
+    int $actorUserId,
+    ?string $note = null
+): void {
+    if (!record_request_table_exists($pdo, 'pet_record_update_request_events')) {
+        return;
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO pet_record_update_request_events (
+            request_id,
+            event_type,
+            from_status,
+            to_status,
+            from_payment_status,
+            to_payment_status,
+            actor_user_id,
+            note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $requestId,
+        $eventType,
+        $before['status'] ?? null,
+        $after['status'] ?? null,
+        $before['payment_status'] ?? null,
+        $after['payment_status'] ?? null,
+        $actorUserId,
+        $note,
+    ]);
+}
+
+function record_request_snapshot_supported(PDO $pdo): bool
+{
+    static $cache = [];
+
+    $connectionId = spl_object_id($pdo);
+    if (array_key_exists($connectionId, $cache)) {
+        return $cache[$connectionId];
+    }
+
+    $cache[$connectionId] = ipawcus_guard_column_exists($pdo, 'pet_record_update_requests', 'baseline_snapshot_hash')
+        && ipawcus_guard_column_exists($pdo, 'pet_record_update_requests', 'completed_snapshot_hash');
+
+    return $cache[$connectionId];
+}
+
+function record_request_snapshot_rows(PDO $pdo, string $sql, array $params = []): array
+{
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as &$row) {
+        foreach (array_keys($row) as $column) {
+            if (
+                in_array($column, ['created_at', 'updated_at'], true)
+                || str_ends_with($column, '_by_user_id')
+            ) {
+                unset($row[$column]);
+            }
+        }
+        ksort($row);
+    }
+    unset($row);
+
+    return $rows;
+}
+
+function record_request_pet_snapshot_hash(PDO $pdo, int $petId): string
+{
+    $snapshot = [
+        'pet' => record_request_snapshot_rows(
+            $pdo,
+            "SELECT
+                pet_id,
+                pet_name,
+                pet_species,
+                pet_breed,
+                pet_BDAY,
+                pet_status,
+                pet_gender,
+                pet_weight,
+                pet_microchip,
+                pet_allergies,
+                pet_color_marking,
+                pet_age
+             FROM pets_information
+             WHERE pet_id = ?
+             LIMIT 1",
+            [$petId]
+        ),
+        'allergies' => record_request_table_exists($pdo, 'pet_allergies')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT * FROM pet_allergies WHERE pet_id = ? ORDER BY allergy_id ASC",
+                [$petId]
+            )
+            : [],
+        'vaccinations' => record_request_table_exists($pdo, 'pet_vaccinations')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT * FROM pet_vaccinations WHERE pet_id = ? ORDER BY vax_id ASC",
+                [$petId]
+            )
+            : [],
+        'history' => record_request_table_exists($pdo, 'history_before_registration')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT *
+                 FROM history_before_registration
+                 WHERE pet_id = ?
+                 ORDER BY
+                    COALESCE(last_visit_Date, '1000-01-01') ASC,
+                    COALESCE(current_medication, '') ASC,
+                    COALESCE(veterinarian_notes, '') ASC",
+                [$petId]
+            )
+            : [],
+        'groups' => record_request_table_exists($pdo, 'pet_medical_record_groups')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT *
+                 FROM pet_medical_record_groups
+                 WHERE pet_id = ?
+                 ORDER BY sort_order ASC, group_id ASC",
+                [$petId]
+            )
+            : [],
+        'groupItems' => record_request_table_exists($pdo, 'pet_medical_record_group_items')
+            && record_request_table_exists($pdo, 'pet_medical_record_groups')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT i.*
+                 FROM pet_medical_record_group_items i
+                 JOIN pet_medical_record_groups g ON g.group_id = i.group_id
+                 WHERE g.pet_id = ?
+                 ORDER BY g.sort_order ASC, g.group_id ASC, i.sort_order ASC, i.item_id ASC",
+                [$petId]
+            )
+            : [],
+    ];
+
+    $encoded = json_encode(
+        $snapshot,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION
+    );
+    if ($encoded === false) {
+        throw new RuntimeException('Could not create record update evidence snapshot.');
+    }
+
+    return hash('sha256', $encoded);
+}
+
 function record_request_number(PDO $pdo): string
 {
     do {
@@ -194,6 +412,11 @@ function record_request_fetch(PDO $pdo, array $filters = []): array
         }
     }
 
+    if (isset($filters['branch_id']) && $filters['branch_id'] !== '' && $filters['branch_id'] !== null) {
+        $conditions[] = 'r.branch_id = ?';
+        $params[] = (int)$filters['branch_id'];
+    }
+
     if (!empty($filters['status'])) {
         $statuses = array_values(array_filter(array_map('trim', explode(',', (string)$filters['status']))));
         if ($statuses) {
@@ -245,6 +468,7 @@ function record_request_create(PDO $pdo, array $input): void
     $currentUser = ipawcus_guard_current_user($pdo);
     $currentRole = ipawcus_guard_role($currentUser);
     $currentUserId = ipawcus_guard_user_id($currentUser);
+
     $petId = record_request_resolve_pet_id($pdo, $input['petId'] ?? $input['pet_id'] ?? null);
     $requestedChanges = record_request_nullable_text($input['requestedChanges'] ?? $input['requested_changes'] ?? $input['notes'] ?? null);
     if ($requestedChanges === null) {
@@ -266,23 +490,26 @@ function record_request_create(PDO $pdo, array $input): void
         ? $currentUserId
         : record_request_nullable_int($input['ownerUserId'] ?? $input['owner_user_id'] ?? $input['userId'] ?? null);
 
+    $pdo->beginTransaction();
     $stmt = $pdo->prepare("
         INSERT INTO pet_record_update_requests (
             request_number,
             pet_id,
             owner_user_id,
+            branch_id,
             requested_changes,
             payment_method,
             payment_amount,
             payment_status,
             payment_proof_url,
             status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending_admin_review')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_admin_review')
     ");
     $stmt->execute([
         record_request_number($pdo),
         $petId,
         $ownerUserId,
+        branch_main_id($pdo),
         $requestedChanges,
         $paymentMethod,
         $paymentAmount,
@@ -291,7 +518,17 @@ function record_request_create(PDO $pdo, array $input): void
     ]);
 
     $requestId = (int)$pdo->lastInsertId();
+    record_request_write_transition_event(
+        $pdo,
+        $requestId,
+        'submitted',
+        ['status' => null, 'payment_status' => null],
+        ['status' => 'pending_admin_review', 'payment_status' => $paymentStatus],
+        $currentUserId,
+        $requestedChanges
+    );
     $record = record_request_fetch($pdo, ['request_id' => $requestId])[0] ?? null;
+    $pdo->commit();
 
     try {
         notification_send_record_update_request_staff_event($pdo, $requestId, 'submitted');
@@ -324,6 +561,7 @@ function record_request_update(PDO $pdo, array $input): void
     $notifyAssigned = false;
     $notifyStarted = false;
     $notifyCompleted = false;
+    $completionSnapshotHash = null;
 
     $pdo->beginTransaction();
     $lockStmt = $pdo->prepare("SELECT * FROM pet_record_update_requests WHERE request_id = ? LIMIT 1 FOR UPDATE");
@@ -337,6 +575,12 @@ function record_request_update(PDO $pdo, array $input): void
         if (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'Only admin users can approve record update requests.');
         }
+        record_request_require_action_status($locked, 'approved', ['pending_admin_review', 'approved']);
+        record_request_require_cleared_payment($locked, 'approved');
+        if ($assignedVetId !== null) {
+            record_request_require_veterinarian($pdo, $assignedVetId);
+        }
+
         $stmt = $pdo->prepare("
             UPDATE pet_record_update_requests
             SET status = ?,
@@ -362,6 +606,11 @@ function record_request_update(PDO $pdo, array $input): void
         if (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'Only admin users can reject record update requests.');
         }
+        record_request_require_action_status(
+            $locked,
+            'rejected',
+            ['pending_admin_review', 'approved', 'assigned', 'in_progress']
+        );
         $paymentStatus = record_request_validate_payment_status($input['paymentStatus'] ?? $input['payment_status'] ?? null);
         $stmt = $pdo->prepare("
             UPDATE pet_record_update_requests
@@ -371,6 +620,7 @@ function record_request_update(PDO $pdo, array $input): void
                 reviewed_by_user_id = ?,
                 reviewed_at = NOW()
             WHERE request_id = ?
+              AND status IN ('pending_admin_review', 'approved', 'assigned', 'in_progress')
         ");
         $stmt->execute([
             $paymentStatus,
@@ -382,6 +632,9 @@ function record_request_update(PDO $pdo, array $input): void
         if ($assignedVetId === null) {
             record_request_error(400, 'Select a veterinarian to assign.');
         }
+        record_request_require_action_status($locked, 'assigned', ['approved', 'assigned', 'in_progress']);
+        record_request_require_cleared_payment($locked, 'assigned');
+        record_request_require_veterinarian($pdo, $assignedVetId);
 
         if ($currentRole === 'veterinarian') {
             if ($assignedVetId !== $actorUserId) {
@@ -421,6 +674,9 @@ function record_request_update(PDO $pdo, array $input): void
         if ($currentRole !== 'veterinarian') {
             record_request_error(403, 'Only the assigned veterinarian can start this record update request.');
         }
+        record_request_require_action_status($locked, 'started', ['assigned', 'in_progress']);
+        record_request_require_cleared_payment($locked, 'started');
+
         $stmt = $pdo->prepare("
             UPDATE pet_record_update_requests
             SET status = 'in_progress',
@@ -438,6 +694,35 @@ function record_request_update(PDO $pdo, array $input): void
         if ($currentRole !== 'veterinarian') {
             record_request_error(403, 'Only the assigned veterinarian can complete this record update request.');
         }
+        record_request_require_action_status($locked, 'completed', ['assigned', 'in_progress']);
+        record_request_require_cleared_payment($locked, 'completed');
+
+        $completionEvidence = $vetNotes
+            ?? record_request_nullable_text($locked['veterinarian_notes'] ?? null);
+        if ($completionEvidence === null) {
+            record_request_error(
+                422,
+                'Veterinarian completion notes are required before this request can be completed.'
+            );
+        }
+        if (record_request_snapshot_supported($pdo)) {
+            $baselineSnapshotHash = trim((string)($locked['baseline_snapshot_hash'] ?? ''));
+            if ($baselineSnapshotHash === '') {
+                record_request_error(
+                    409,
+                    'This request has no baseline record snapshot. Start the request before editing the pet record.'
+                );
+            }
+
+            $completionSnapshotHash = record_request_pet_snapshot_hash($pdo, (int)$locked['pet_id']);
+            if (hash_equals($baselineSnapshotHash, $completionSnapshotHash)) {
+                record_request_error(
+                    409,
+                    'No pet or medical record change was detected. Save the requested update before completing the request.'
+                );
+            }
+        }
+
         $stmt = $pdo->prepare("
             UPDATE pet_record_update_requests
             SET status = 'completed',
@@ -448,7 +733,7 @@ function record_request_update(PDO $pdo, array $input): void
               AND status IN ('assigned', 'in_progress')
               AND assigned_veterinarian_user_id = ?
         ");
-        $stmt->execute([$vetNotes, $actorUserId, $requestId, $actorUserId]);
+        $stmt->execute([$completionEvidence, $actorUserId, $requestId, $actorUserId]);
         if ($stmt->rowCount() === 0) {
             record_request_error(409, 'This request must be assigned to you and not already completed.');
         }
@@ -457,6 +742,11 @@ function record_request_update(PDO $pdo, array $input): void
         if (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'Only admin users can verify record update payments.');
         }
+        record_request_require_action_status(
+            $locked,
+            'payment-verified',
+            ['pending_admin_review', 'approved', 'assigned', 'in_progress']
+        );
         $paymentStatus = 'verified';
 
         $stmt = $pdo->prepare("
@@ -474,6 +764,41 @@ function record_request_update(PDO $pdo, array $input): void
         }
         $status = record_request_validate_status($input['status'] ?? null);
         $paymentStatus = record_request_validate_payment_status($input['paymentStatus'] ?? $input['payment_status'] ?? null);
+        $currentStatus = (string)($locked['status'] ?? '');
+        $currentPaymentStatus = (string)($locked['payment_status'] ?? '');
+
+        if ($status !== null && $status !== $currentStatus) {
+            record_request_error(422, 'Use the matching workflow action to change request status.');
+        }
+        if ($assignedVetId !== null && $assignedVetId !== (int)($locked['assigned_veterinarian_user_id'] ?? 0)) {
+            record_request_error(422, 'Use the assign action to change the assigned veterinarian.');
+        }
+        if ($paymentStatus === 'verified' && $paymentStatus !== $currentPaymentStatus) {
+            record_request_error(422, 'Use the verify_payment action to verify a payment.');
+        }
+        if (
+            $paymentStatus !== null
+            && $paymentStatus !== $currentPaymentStatus
+            && !in_array($paymentStatus, ['waived', 'rejected'], true)
+        ) {
+            record_request_error(422, 'That payment status transition is not allowed.');
+        }
+        if (
+            $paymentStatus !== null
+            && $paymentStatus !== $currentPaymentStatus
+            && in_array($currentStatus, ['completed', 'rejected', 'cancelled'], true)
+        ) {
+            record_request_error(409, 'Payment status cannot be changed after the request is closed.');
+        }
+        if (
+            $paymentStatus !== null
+            && $paymentStatus !== $currentPaymentStatus
+            && in_array($currentPaymentStatus, ['verified', 'waived'], true)
+        ) {
+            record_request_error(409, 'A cleared payment cannot be moved back to an uncleared status.');
+        }
+
+        $paymentChanged = $paymentStatus !== null && $paymentStatus !== $currentPaymentStatus;
 
         $stmt = $pdo->prepare("
             UPDATE pet_record_update_requests
@@ -481,11 +806,70 @@ function record_request_update(PDO $pdo, array $input): void
                 payment_status = COALESCE(?, payment_status),
                 assigned_veterinarian_user_id = COALESCE(?, assigned_veterinarian_user_id),
                 admin_notes = COALESCE(?, admin_notes),
-                veterinarian_notes = COALESCE(?, veterinarian_notes)
+                veterinarian_notes = COALESCE(?, veterinarian_notes),
+                reviewed_by_user_id = COALESCE(?, reviewed_by_user_id),
+                reviewed_at = CASE
+                    WHEN ? = 1 THEN NOW()
+                    ELSE reviewed_at
+                END
             WHERE request_id = ?
         ");
-        $stmt->execute([$status, $paymentStatus, $assignedVetId, $adminNotes, $vetNotes, $requestId]);
+        $stmt->execute([
+            $status,
+            $paymentStatus,
+            $assignedVetId,
+            $adminNotes,
+            $vetNotes,
+            $paymentChanged ? $actorUserId : null,
+            $paymentChanged ? 1 : 0,
+            $requestId,
+        ]);
     }
+
+    if (
+        record_request_snapshot_supported($pdo)
+        && trim((string)($locked['baseline_snapshot_hash'] ?? '')) === ''
+        && (
+            $action === 'assign'
+            || $action === 'start'
+            || ($action === 'approve' && $assignedVetId !== null)
+        )
+    ) {
+        $baselineSnapshotHash = record_request_pet_snapshot_hash($pdo, (int)$locked['pet_id']);
+        $baselineStmt = $pdo->prepare("
+            UPDATE pet_record_update_requests
+            SET baseline_snapshot_hash = COALESCE(baseline_snapshot_hash, ?)
+            WHERE request_id = ?
+        ");
+        $baselineStmt->execute([$baselineSnapshotHash, $requestId]);
+    }
+
+    if ($completionSnapshotHash !== null && record_request_snapshot_supported($pdo)) {
+        $completionStmt = $pdo->prepare("
+            UPDATE pet_record_update_requests
+            SET completed_snapshot_hash = ?
+            WHERE request_id = ?
+        ");
+        $completionStmt->execute([$completionSnapshotHash, $requestId]);
+    }
+
+    $afterStmt = $pdo->prepare("
+        SELECT status, payment_status
+        FROM pet_record_update_requests
+        WHERE request_id = ?
+        LIMIT 1
+    ");
+    $afterStmt->execute([$requestId]);
+    $after = $afterStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    record_request_write_transition_event(
+        $pdo,
+        $requestId,
+        $action,
+        $locked,
+        $after,
+        $actorUserId,
+        $vetNotes ?? $adminNotes
+    );
 
     $record = record_request_fetch($pdo, ['request_id' => $requestId])[0] ?? null;
     $pdo->commit();
@@ -537,6 +921,13 @@ try {
     $currentRole = ipawcus_guard_role($currentUser);
     $currentUserId = ipawcus_guard_user_id($currentUser);
 
+    if ($_SERVER['REQUEST_METHOD'] === 'PATCH' && $currentRole === 'admin') {
+        $mainBranchId = branch_main_id($pdo);
+        if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
+            record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
+        }
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $filters = [
             'request_id' => $_GET['requestId'] ?? $_GET['request_id'] ?? null,
@@ -563,6 +954,12 @@ try {
             $filters['vet_visible_user_id'] = $currentUserId;
         } elseif (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'You are not allowed to view record update requests.');
+        } elseif ($currentRole !== 'super_admin') {
+            $mainBranchId = branch_main_id($pdo);
+            if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
+                record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
+            }
+            $filters['branch_id'] = $mainBranchId;
         }
 
         echo json_encode([

@@ -9,10 +9,10 @@ import { ArrowLeft, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { uploadImageFile } from "../../services/uploadService";
 import { createRecordUpdateRequest } from "../../services/recordUpdateRequestService";
 import { useDashboardUser } from "../dashboardRouter.jsx";
-import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import ProtectedImage from "../shared/ProtectedImage";
 
 function currentUserId(user) {
   return user?.user_id || user?.userId || user?.id || null;
@@ -51,7 +51,7 @@ export default function RequestUpdateRecord() {
     (method) => method.value === selectedMethod
   );
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedPaymentMethod);
-  const selectedQrUrl = resolveImageUrl(selectedPaymentMethod?.qrImageUrl || "");
+  const selectedQrUrl = selectedPaymentMethod?.qrImageUrl || "";
 
   const handleFileChange = (files) => {
     setPaymentProof(Array.from(files || [])[0] || null);
@@ -246,10 +246,11 @@ export default function RequestUpdateRecord() {
                       className="bg-white p-4 rounded-lg shadow-lg border-2 border-gray-200 transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
                       aria-label={`Open larger ${selectedPaymentMethod.label} QR image`}
                     >
-                      <img
+                      <ProtectedImage
                         src={selectedQrUrl}
                         alt={`${selectedPaymentMethod.label} QR Code`}
                         className="w-64 h-64 object-contain"
+                        fallbackClassName="h-64 w-64"
                       />
                     </button>
                     <div className="mt-4 text-center">

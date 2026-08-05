@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -20,6 +22,12 @@ $currentApiUser = ipawcus_guard_current_user($pdo);
 $currentApiRole = ipawcus_guard_role($currentApiUser);
 $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
 
+if (!in_array($currentApiRole, ['veterinarian', 'admin', 'super_admin'], true)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Only veterinarians or authorized administrators can return queue patients.']);
+    exit;
+}
+
 if ($currentApiRole === 'veterinarian') {
     if ($veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
         http_response_code(403);
@@ -29,9 +37,11 @@ if ($currentApiRole === 'veterinarian') {
     $veterinarianUserId = $currentApiUserId;
 }
 
-if ($queueId <= 0 || $veterinarianUserId <= 0) {
+if ($queueId <= 0 || ($currentApiRole === 'veterinarian' && $veterinarianUserId <= 0)) {
     http_response_code(400);
-    echo json_encode(['error' => 'queue_id and veterinarian_user_id are required.']);
+    echo json_encode(['error' => $queueId <= 0
+        ? 'queue_id is required.'
+        : 'A valid veterinarian account is required.']);
     exit;
 }
 
@@ -42,7 +52,7 @@ try {
     $pdo->beginTransaction();
 
     $queueStmt = $pdo->prepare("
-        SELECT queue_id, pet_id, status, timestamp
+        SELECT *
         FROM queues
         WHERE queue_id = ?
         LIMIT 1
@@ -55,6 +65,14 @@ try {
         $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
+
+
+    if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, (int)($queue['branch_id'] ?? 0))) {
+        $pdo->rollBack();
+        http_response_code(403);
+        echo json_encode(['error' => 'This queue belongs to another branch.']);
         exit;
     }
 
@@ -77,19 +95,28 @@ try {
         exit;
     }
 
-    if ((int)$assignment['veterinarian_user_id'] !== $veterinarianUserId) {
+    $assignedVeterinarianUserId = (int)$assignment['veterinarian_user_id'];
+    if ($currentApiRole === 'veterinarian' && $assignedVeterinarianUserId !== $veterinarianUserId) {
         $pdo->rollBack();
         http_response_code(403);
         echo json_encode(['error' => 'Only the receiving veterinarian can return this patient to the approved list.']);
         exit;
     }
+    // Administrators act on the locked assignment. Never trust a submitted
+    // veterinarian identity to select or authorize another veterinarian's work.
+    $veterinarianUserId = $assignedVeterinarianUserId;
 
     $queueDate = date('Y-m-d', strtotime((string)$queue['timestamp']));
     $todayDate = maintenance_today($pdo);
+    $relatedBookingId = bookingIdForQueue($pdo, $queue);
+    $isBookingQueue = $relatedBookingId !== null
+        || strtolower(trim((string)($queue['queue_source'] ?? ''))) === 'booking_management';
     $effectiveReason = $returnReason !== '' ? $returnReason : 'Returned from veterinarian My List';
 
     if ($queueDate < $todayDate) {
         $effectiveReason = 'Returned after service day ended';
+    } elseif ($isBookingQueue) {
+        $effectiveReason = 'Returned by veterinarian to confirmed bookings';
     }
 
     $updateStmt = $pdo->prepare("
@@ -102,12 +129,31 @@ try {
     $updateStmt->execute([$effectiveReason, $assignment['assignment_id']]);
 
     $queueStatus = $queue['status'];
+    $notifyQueueCancellationAfterCommit = false;
     if ($queueDate < $todayDate) {
-        maintenance_cancel_queue($pdo, $queueId, $effectiveReason, true, false);
+        if (maintenance_cancel_queue($pdo, $queueId, $effectiveReason, false, false)) {
+            $queueStatus = 'cancelled';
+            $notifyQueueCancellationAfterCommit = true;
+        }
+    } elseif ($isBookingQueue) {
+        // A queue created while receiving a confirmed booking is only a temporary
+        // service hand-off. Returning it must expose the original confirmed
+        // booking again instead of placing the patient in the standalone queue.
+        maintenance_cancel_queue($pdo, $queueId, $effectiveReason, false, false);
         $queueStatus = 'cancelled';
     }
 
     $pdo->commit();
+
+    if ($notifyQueueCancellationAfterCommit) {
+        try {
+            notification_send_queue_event($pdo, $queueId, 'cancelled', [
+                'reason' => $effectiveReason,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Post-return queue notification failed: ' . $notificationError->getMessage());
+        }
+    }
 
     if ($queueStatus === 'cancelled' && !empty($queue['pet_id'])) {
         try {
@@ -121,7 +167,11 @@ try {
         'success' => true,
         'queue_id' => $queueId,
         'assignment_id' => (int)$assignment['assignment_id'],
-        'queue_status' => $queueStatus
+        'queue_status' => $queueStatus,
+        'booking_id' => $relatedBookingId,
+        'return_destination' => $isBookingQueue
+            ? 'bookings'
+            : ($queueStatus === 'cancelled' ? 'queue_history' : 'approved_queue')
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

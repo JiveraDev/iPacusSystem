@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -20,6 +21,8 @@ if (!$queue_id) {
 }
 
 try {
+    $currentUser = ipawcus_guard_current_user($pdo);
+    $currentRole = ipawcus_guard_role($currentUser);
     runLifecycleMaintenance($pdo);
 
     $sourceStmt = $pdo->prepare("
@@ -34,6 +37,12 @@ try {
     if (!$source) {
         http_response_code(404);
         echo json_encode(['message' => 'Queue item not found']);
+        exit;
+    }
+
+    if ($currentRole === 'admin' && !branch_user_can_access($pdo, $currentUser, (int)($source['branch_id'] ?? 0))) {
+        http_response_code(403);
+        echo json_encode(['message' => 'This queue belongs to another branch.']);
         exit;
     }
 
@@ -76,8 +85,11 @@ try {
         exit;
     }
 
-    $maxStmt = $pdo->prepare("SELECT MAX(queue_number) AS max_num FROM queues WHERE DATE(timestamp) = CURDATE()");
-    $maxStmt->execute();
+    $branchId = isset($source['branch_id']) && (int)$source['branch_id'] > 0
+        ? (int)$source['branch_id']
+        : branch_main_id($pdo);
+    $maxStmt = $pdo->prepare("SELECT MAX(queue_number) AS max_num FROM queues WHERE branch_id = ? AND queue_date = CURDATE()");
+    $maxStmt->execute([$branchId]);
     $maxResult = $maxStmt->fetch(PDO::FETCH_ASSOC);
     $new_queue_number = ((int)($maxResult['max_num'] ?? 0)) + 1;
 
@@ -100,6 +112,17 @@ try {
         $complaint
     ];
     $placeholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
+
+    if (in_array('branch_id', $columns, true)) {
+        $insertColumns[] = 'branch_id';
+        $insertValues[] = $branchId;
+        $placeholders[] = '?';
+    }
+    if (in_array('queue_date', $columns, true)) {
+        $insertColumns[] = 'queue_date';
+        $insertValues[] = maintenance_today($pdo);
+        $placeholders[] = '?';
+    }
 
     foreach (['booking_id', 'queue_source', 'image_path', 'signiture_self_service_path', 'verified_by_admin'] as $optionalColumn) {
         if (in_array($optionalColumn, $columns, true) && array_key_exists($optionalColumn, $source)) {

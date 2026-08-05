@@ -2,10 +2,12 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/booking_daily_guard.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -198,37 +200,6 @@ function getSpeciesLabel(string $species): string
     };
 }
 
-function hasActiveOnlineConsultation(PDO $pdo, int $petId): bool
-{
-    if ($petId <= 0) {
-        return false;
-    }
-
-    if (tableExists($pdo, 'booking_pets')) {
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM bookings b
-            LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id
-            WHERE b.is_online_consultation = 1
-              AND bp.pet_id = ?
-              AND b.status IN ('pending', 'confirmed')
-        ");
-        $stmt->execute([$petId]);
-        return (int)$stmt->fetchColumn() > 0;
-    }
-
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*)
-        FROM bookings
-        WHERE is_online_consultation = 1
-          AND pet_id = ?
-          AND status IN ('pending', 'confirmed')
-    ");
-    $stmt->execute([$petId]);
-
-    return (int)$stmt->fetchColumn() > 0;
-}
-
 function bookingServiceKey(?string $serviceType, $isHomeService, $isOnlineConsultation): string
 {
     if ((int)$isHomeService === 1 || strtolower(trim((string)$serviceType)) === 'home-service') {
@@ -240,57 +211,6 @@ function bookingServiceKey(?string $serviceType, $isHomeService, $isOnlineConsul
     }
 
     return strtolower(trim((string)$serviceType));
-}
-
-function getActiveServiceBookingConflict(PDO $pdo, array $petIds, string $serviceKey): ?array
-{
-    $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
-    if (empty($petIds) || $serviceKey === '') {
-        return null;
-    }
-
-    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
-    $bookingPetsJoin = '';
-    $petJoinExpression = 'b.pet_id';
-    $petCondition = "b.pet_id IN ({$placeholders})";
-    $params = $petIds;
-
-    if (tableExists($pdo, 'booking_pets')) {
-        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
-        $petJoinExpression = 'COALESCE(bp.pet_id, b.pet_id)';
-        $petCondition = "(bp.pet_id IN ({$placeholders}) OR b.pet_id IN ({$placeholders}))";
-        $params = array_merge($petIds, $petIds);
-    }
-
-    if ($serviceKey === 'online-consultation') {
-        $serviceCondition = '(b.is_online_consultation = 1 OR b.service_type = ?)';
-        $params[] = 'online-consultation';
-    } elseif ($serviceKey === 'home-service') {
-        $serviceCondition = '(b.is_home_service = 1 OR b.service_type = ?)';
-        $params[] = 'home-service';
-    } else {
-        $serviceCondition = 'b.service_type = ? AND COALESCE(b.is_online_consultation, 0) = 0 AND COALESCE(b.is_home_service, 0) = 0';
-        $params[] = $serviceKey;
-    }
-
-    $stmt = $pdo->prepare("
-        SELECT
-            b.booking_number,
-            b.service_type,
-            COALESCE(p.pet_name, b.unregistered_pet_name, 'Selected pet') AS pet_name
-        FROM bookings b
-        {$bookingPetsJoin}
-        LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
-        WHERE b.status IN ('pending', 'confirmed')
-          AND {$petCondition}
-          AND {$serviceCondition}
-        ORDER BY b.booking_date ASC, b.booking_time ASC, b.booking_id ASC
-        LIMIT 1
-    ");
-    $stmt->execute($params);
-    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $conflict ?: null;
 }
 
 function isBookingDateTimeInPast(string $bookingDate, string $bookingTime): bool
@@ -403,11 +323,11 @@ function getActiveBoardingConflict(PDO $pdo, array $petIds, int $excludeBookingI
         JOIN bookings b ON b.booking_id = ba.booking_id
         {$bookingPetsJoin}
         LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
-        WHERE ba.status IN ('reserved', 'occupied')
+        WHERE ba.status = 'occupied'
           AND b.status <> 'cancelled'
           AND {$petCondition}
           AND b.booking_id <> ?
-        ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
+        ORDER BY ba.assignment_id DESC
         LIMIT 1
     ");
     $stmt->execute($params);
@@ -609,26 +529,46 @@ function bookingOfficialCatalogPrice(PDO $pdo, string $serviceType): ?float
     }
 
     $normalized = strtolower(trim($serviceType));
+    $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
+    $normalized = trim((string)$normalized, '_');
     if ($normalized === '') {
         return null;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT base_price
+    $aliases = [
+        'consultation' => ['consultation', 'general_consultation', 'general_check_up', 'general_checkup'],
+        'general_check_up' => ['consultation', 'general_consultation', 'general_check_up', 'general_checkup'],
+        'general_checkup' => ['consultation', 'general_consultation', 'general_check_up', 'general_checkup'],
+        'online_consultation' => ['online_consultation'],
+        'home_service' => ['home_service', 'home_visit', 'home_visit_consultation'],
+        'parasite_control' => ['parasite_control', 'deworming'],
+        'vaccination' => ['vaccination', 'vaccine'],
+        'grooming' => ['grooming'],
+        'dental' => ['dental', 'dental_assessment', 'dental_check_up', 'dental_checkup'],
+        'dental_check_up' => ['dental', 'dental_assessment', 'dental_check_up', 'dental_checkup'],
+        'surgery' => ['surgery'],
+        'lab_testing' => ['lab_testing', 'laboratory', 'diagnostic'],
+    ];
+    $acceptedKeys = $aliases[$normalized] ?? [$normalized];
+
+    $stmt = $pdo->query("
+        SELECT service_name, service_code, service_type, base_price
         FROM service_catalog
         WHERE is_active = 1
-          AND (
-              LOWER(service_name) = ?
-              OR LOWER(service_code) = ?
-              OR LOWER(service_type) = ?
-          )
         ORDER BY service_name ASC
-        LIMIT 1
     ");
-    $stmt->execute([$normalized, $normalized, $normalized]);
-    $price = $stmt->fetchColumn();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $service) {
+        foreach (['service_name', 'service_code', 'service_type'] as $field) {
+            $candidate = strtolower(trim((string)($service[$field] ?? '')));
+            $candidate = preg_replace('/[^a-z0-9]+/', '_', $candidate);
+            $candidate = trim((string)$candidate, '_');
+            if ($candidate !== '' && in_array($candidate, $acceptedKeys, true)) {
+                return max(0.0, (float)$service['base_price']);
+            }
+        }
+    }
 
-    return $price !== false ? max(0.0, (float)$price) : null;
+    return null;
 }
 
 function bookingStayDays(?string $checkInDate, ?string $checkOutDate): int
@@ -693,7 +633,8 @@ function bookingOfficialPrice(PDO $pdo, string $serviceType, string $serviceKey,
     }
 
     if ($serviceKey === 'home-service') {
-        return 50.0;
+        $catalogPrice = bookingOfficialCatalogPrice($pdo, 'home-service');
+        return $catalogPrice !== null && $catalogPrice > 0 ? $catalogPrice : 1400.0;
     }
 
     if ($isHotelBoarding) {
@@ -702,6 +643,52 @@ function bookingOfficialPrice(PDO $pdo, string $serviceType, string $serviceKey,
 
     $catalogPrice = bookingOfficialCatalogPrice($pdo, $serviceType);
     return $catalogPrice !== null ? $catalogPrice : 0.0;
+}
+
+function bookingExactPriceFromLabel(?string $priceLabel): ?float
+{
+    $label = trim((string)$priceLabel);
+    if ($label === '') {
+        return null;
+    }
+
+    if (preg_match('/\b(free|complimentary|no\s+charge)\b/i', $label)) {
+        return 0.0;
+    }
+
+    if (preg_match('/\b(starting|starts|from|up\s+to|estimate(?:d)?|depends|tbd|quote|upon|var(?:y|ies|iable)|minimum|maximum|each|per)\b/i', $label)) {
+        return null;
+    }
+
+    if (preg_match('/\d[\d,]*(?:\.\d+)?\s*(?:-|\x{2013}|\x{2014}|to)\s*\d/iu', $label)) {
+        return null;
+    }
+
+    $normalized = str_replace(',', '', $label);
+    preg_match_all('/(?<![a-z0-9])\d+(?:\.\d{1,2})?(?![a-z0-9])/i', $normalized, $matches);
+    if (count($matches[0] ?? []) !== 1) {
+        return null;
+    }
+
+    $amount = (float)$matches[0][0];
+    if (!is_finite($amount) || $amount < 0 || $amount > 99999999.99) {
+        return null;
+    }
+
+    return round($amount, 2);
+}
+
+function bookingSpecialServicePrice(array $service): float
+{
+    if (array_key_exists('base_price', $service) && $service['base_price'] !== null) {
+        $basePrice = (float)$service['base_price'];
+        if (is_finite($basePrice) && $basePrice >= 0 && $basePrice <= 99999999.99) {
+            return round($basePrice, 2);
+        }
+    }
+
+    $labelPrice = bookingExactPriceFromLabel($service['price_label'] ?? null);
+    return $labelPrice !== null ? $labelPrice : 0.0;
 }
 
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -714,6 +701,7 @@ $userId = null;
 $petId = $input['pet_id'] ?? null;
 $petIds = normalizePetIds($pdo, $petId, $input['pet_ids'] ?? []);
 $serviceType = $input['service_type'] ?? null;
+$requestedBranchId = $input['branch_id'] ?? $input['branchId'] ?? null;
 $bookingDate = $input['booking_date'] ?? null;
 $bookingTime = $input['booking_time'] ?? null;
 $notes = $input['notes'] ?? null;
@@ -721,6 +709,7 @@ $imagePath = $input['Image_Booking_Concern_Path'] ?? null;
 $registeredStatus = $input['registered_status'] ?? null;
 $petType = $input['petType'] ?? null;
 $specialServiceItemIds = normalizeSpecialServiceItemIds($input['special_service_items'] ?? []);
+$selectedSpecialServices = [];
 
 $newPetName = $input['new_pet_name'] ?? null;
 $newPetBreed = $input['new_pet_breed'] ?? null;
@@ -735,10 +724,56 @@ if ($specificLocation && $address) {
     $address = $address . " | Specific Location: " . $specificLocation;
 }
 
-$signaturePath = $input['signature'] ?? $input['signature_path'] ?? $input['consent_signature_path'] ?? null;
+$submittedSignaturePath = consent_record_nullable_text(
+    $input['signature']
+        ?? $input['signature_path']
+        ?? $input['consent_signature_path']
+        ?? null
+);
 $consentForms = $input['consent_forms'] ?? $input['consentForms'] ?? null;
+$signaturePath = consent_record_nullable_text(
+    $input['signed_consent_document_path']
+        ?? $input['signedConsentDocumentPath']
+        ?? $input['consent_document_path']
+        ?? $input['consentDocumentPath']
+        ?? null
+);
+$signaturePath = $signaturePath ?: consent_record_first_signed_document_path($consentForms);
+$physicalConsentPath = consent_record_nullable_text(
+    $input['physical_consent_path']
+        ?? $input['physicalConsentPath']
+        ?? $input['physical_file_path']
+        ?? $input['physicalFilePath']
+        ?? null
+);
+$physicalConsentPath = $physicalConsentPath ?: consent_record_first_physical_document_path($consentForms);
+$consentForms = consent_record_normalize_booking_forms(
+    $consentForms,
+    $signaturePath,
+    $physicalConsentPath
+);
+$hasCompleteConsentDocument = $signaturePath !== null || $physicalConsentPath !== null;
+if (!$hasCompleteConsentDocument && $submittedSignaturePath !== null) {
+    if (empty($consentForms)) {
+        $consentForms[] = [
+            'id' => null,
+            'title' => 'Legacy Booking Signature',
+        ];
+    }
+    if (consent_record_form_legacy_signature_path($consentForms[0]) === null) {
+        $consentForms[0]['legacySignaturePath'] = $submittedSignaturePath;
+    }
+}
 $consentStatus = trim((string)($input['consent_status'] ?? $input['consentStatus'] ?? ''));
-$consentStatus = $consentStatus !== '' ? $consentStatus : ($signaturePath ? 'signed' : null);
+if ($hasCompleteConsentDocument) {
+    $consentStatus = 'signed';
+} elseif (!empty($consentForms) || $submittedSignaturePath !== null) {
+    // A handwritten signature image can help reconstruct a legacy form, but it
+    // is not itself a complete signed consent document.
+    $consentStatus = 'pending';
+} else {
+    $consentStatus = $consentStatus !== '' ? $consentStatus : null;
+}
 $paymentProofUrl = $input['payment_proof_url'] ?? null;
 $allowedPaymentMethods = ['qrph', 'maya', 'gcash', 'bank_transfer'];
 $paymentMethod = strtolower(trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? '')));
@@ -787,14 +822,17 @@ if (count($exclusiveModes) > 1) {
     exit;
 }
 
+$isHomeService = $homeServiceRequested ? 1 : 0;
+$isOnlineConsultation = $onlineConsultRequested ? 1 : 0;
+
 if ($isHotelBoarding) {
     $bookingDate = $bookingDate ?: $checkInDate;
     $bookingTime = $bookingTime ?: '09:00:00';
 }
 
-if ($isHotelBoarding && !$signaturePath) {
+if ($isHotelBoarding && !$hasCompleteConsentDocument) {
     http_response_code(400);
-    echo json_encode(['message' => 'Pet hotel and boarding bookings require a signed liability consent before payment or activation.']);
+    echo json_encode(['message' => 'Pet hotel and boarding bookings require the complete signed liability consent document before payment or activation.']);
     exit;
 }
 
@@ -858,9 +896,30 @@ if (!empty($deceasedPetNames)) {
 
 $serviceKey = bookingServiceKey((string)$serviceType, $isHomeService, $isOnlineConsultation);
 
-if (in_array($serviceKey, ['home-service', 'online-consultation'], true) && !$signaturePath) {
+try {
+    $branchResolution = branch_resolve_booking(
+        $pdo,
+        $requestedBranchId,
+        (string)$serviceType,
+        $isHomeService,
+        $isOnlineConsultation,
+        (string)$bookingDate,
+        (string)$bookingTime,
+        is_numeric($veterinarianId) ? (int)$veterinarianId : null
+    );
+    $branchId = (int)$branchResolution['branch_id'];
+    if (!empty($branchResolution['veterinarian_user_id'])) {
+        $veterinarianId = (int)$branchResolution['veterinarian_user_id'];
+    }
+} catch (InvalidArgumentException $e) {
+    http_response_code(422);
+    echo json_encode(['message' => $e->getMessage()]);
+    exit;
+}
+
+if (in_array($serviceKey, ['home-service', 'online-consultation'], true) && !$hasCompleteConsentDocument) {
     http_response_code(400);
-    echo json_encode(['message' => 'Signed owner consent is required before submitting this booking.']);
+    echo json_encode(['message' => 'The complete signed owner consent document is required before submitting this booking.']);
     exit;
 }
 
@@ -868,15 +927,6 @@ if (!$isHotelBoarding && isBookingDateTimeInPast((string)$bookingDate, (string)$
     http_response_code(400);
     echo json_encode(['message' => 'Booking date and time must not be in the past.']);
     exit;
-}
-
-if (!empty($petIds)) {
-    $activeServiceConflict = getActiveServiceBookingConflict($pdo, $petIds, $serviceKey);
-    if ($activeServiceConflict) {
-        http_response_code(409);
-        echo json_encode(['message' => "{$activeServiceConflict['pet_name']} already has an active {$serviceKey} booking ({$activeServiceConflict['booking_number']}). Complete or cancel it before booking the same service again."]);
-        exit;
-    }
 }
 
 if ($serviceKey === 'home-service') {
@@ -910,16 +960,6 @@ if ($serviceKey === 'home-service') {
     }
 }
 
-if ((int)$isOnlineConsultation === 1 && !empty($petIds)) {
-    $consultPetId = (int)$petIds[0];
-
-    if (hasActiveOnlineConsultation($pdo, $consultPetId)) {
-        http_response_code(409);
-        echo json_encode(['message' => 'This pet already has an active online consultation booking. Please cancel or complete the existing booking first.']);
-        exit;
-    }
-}
-
 if ($serviceType === 'special services') {
     if (!tableExists($pdo, 'special_service_catalog')) {
         http_response_code(500);
@@ -944,9 +984,12 @@ if ($serviceType === 'special services') {
     $dateSelect = $dateColumnsAvailable
         ? ', date_restriction_type, date_start, date_end'
         : ", 'none' AS date_restriction_type, NULL AS date_start, NULL AS date_end";
+    $basePriceSelect = columnExists($pdo, 'special_service_catalog', 'base_price')
+        ? ', base_price'
+        : ', NULL AS base_price';
     $placeholderList = implode(',', array_fill(0, count($specialServiceItemIds), '?'));
     $catalogStmt = $pdo->prepare("
-        SELECT special_service_id, service_title, max_pets, is_active{$dateSelect}
+        SELECT special_service_id, service_title, price_label, max_pets, is_active{$basePriceSelect}{$dateSelect}
         FROM special_service_catalog
         WHERE special_service_id IN ({$placeholderList})
     ");
@@ -1100,18 +1143,52 @@ ipawcus_guard_require_columns($pdo, 'bookings', [
 
 $transportFee = $serviceKey === 'home-service' ? 50.0 : 0.0;
 $price = bookingOfficialPrice($pdo, (string)$serviceType, $serviceKey, $isHotelBoarding, $hotelBoardingType, $roomSize, $checkInDate, $checkOutDate, $addOns);
+if ($serviceType === 'special services' && count($selectedSpecialServices) === 1) {
+    // The exact catalog amount is snapshotted in bookings.price. A variable or
+    // ranged display label intentionally remains PHP 0.00 for staff pricing.
+    $price = bookingSpecialServicePrice($selectedSpecialServices[0]);
+}
 
 try {
     $pdo->beginTransaction();
 
+    booking_daily_lock_subjects(
+        $pdo,
+        $petIds,
+        (int)$userId,
+        $newPetName
+    );
+    $dailyBookingConflict = booking_daily_find_conflict(
+        $pdo,
+        $petIds,
+        (string)$bookingDate,
+        0,
+        (int)$userId,
+        $newPetName
+    );
+    if ($dailyBookingConflict) {
+        $payload = booking_daily_conflict_payload($dailyBookingConflict);
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode($payload);
+        exit;
+    }
+
     if ($isHotelBoarding) {
         $roomType = $hotelBoardingType . '-' . $roomSize;
         $capacityStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(total_capacity), 0)
-            FROM rooms
-            WHERE room_type = ?
+            SELECT GREATEST(
+                COALESCE(SUM(r.total_capacity), 0) - (
+                    SELECT COUNT(*)
+                    FROM room_unit_statuses rus
+                    WHERE rus.branch_id = ? AND rus.room_type = ? AND rus.status = 'retired'
+                ),
+                0
+            )
+            FROM rooms r
+            WHERE r.branch_id = ? AND r.room_type = ?
         ");
-        $capacityStmt->execute([$roomType]);
+        $capacityStmt->execute([$branchId, $roomType, $branchId, $roomType]);
         $totalCapacity = (int)$capacityStmt->fetchColumn();
 
         if ($totalCapacity <= 0) {
@@ -1125,13 +1202,14 @@ try {
             SELECT COUNT(*)
             FROM bookings
             WHERE service_type = 'boarding'
+              AND branch_id = ?
               AND hotel_boarding_type = ?
               AND room_size = ?
               AND check_in_date < ?
               AND check_out_date > ?
               AND status IN ('pending', 'confirmed')
         ");
-        $bookedStmt->execute([$hotelBoardingType, $roomSize, $checkOutDate, $checkInDate]);
+        $bookedStmt->execute([$branchId, $hotelBoardingType, $roomSize, $checkOutDate, $checkInDate]);
         $bookedCount = (int)$bookedStmt->fetchColumn();
 
         if ($bookedCount >= $totalCapacity) {
@@ -1151,6 +1229,8 @@ try {
             user_id,
             pet_id,
             booking_number,
+            branch_id,
+            original_branch_id,
             service_type,
             booking_date,
             booking_time,
@@ -1182,13 +1262,15 @@ try {
             emergency_contact,
             hotel_boarding_type,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     $stmt->execute([
         $userId,
         $primaryPetId ?: null,
         $bookingNumber,
+        $branchId,
+        $branchId,
         $serviceType,
         $bookingDate,
         $bookingTime,
@@ -1239,16 +1321,24 @@ try {
             throw new Exception('Special service booking items table is missing.');
         }
 
+        $selectedSpecialServicesById = [];
+        foreach ($selectedSpecialServices as $selectedService) {
+            $selectedSpecialServicesById[(int)$selectedService['special_service_id']] = $selectedService;
+        }
+
         $bookingSpecialServiceStmt = $pdo->prepare("
             INSERT INTO special_service_booking_items
-                (booking_id, special_service_id, sequence_no)
-            VALUES (?, ?, ?)
+                (booking_id, special_service_id, custom_service_title, sequence_no)
+            VALUES (?, ?, ?, ?)
         ");
 
         foreach ($specialServiceItemIds as $index => $specialServiceId) {
+            $selectedService = $selectedSpecialServicesById[(int)$specialServiceId] ?? null;
+            $serviceTitleSnapshot = trim((string)($selectedService['service_title'] ?? ''));
             $bookingSpecialServiceStmt->execute([
                 $bookingId,
                 $specialServiceId,
+                $serviceTitleSnapshot !== '' ? $serviceTitleSnapshot : null,
                 $index + 1,
             ]);
         }
@@ -1260,7 +1350,9 @@ try {
         'pet_id' => $primaryPetId,
         'pet_ids' => !empty($petIds) ? $petIds : [$primaryPetId],
         'service_name' => $serviceType,
+        'signed_document_path' => $signaturePath,
         'signature_path' => $signaturePath,
+        'physical_file_path' => $physicalConsentPath,
         'consent_forms' => $consentForms,
         'status' => $consentStatus,
         'notes' => 'Captured during booking creation.',
@@ -1278,6 +1370,10 @@ try {
         'message' => 'Booking created successfully.',
         'booking_id' => $bookingId,
         'booking_number' => $bookingNumber,
+        'price' => $price,
+        'transport_fee' => $transportFee,
+        'branch_id' => $branchId,
+        'branch_name' => $branchResolution['branch']['branch_name'] ?? null,
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

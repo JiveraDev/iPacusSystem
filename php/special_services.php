@@ -36,6 +36,63 @@ function specialServiceDateColumnsExist(PDO $pdo): bool
         && columnExists($pdo, 'special_service_catalog', 'date_end');
 }
 
+function specialServiceBasePriceColumnExists(PDO $pdo): bool
+{
+    return columnExists($pdo, 'special_service_catalog', 'base_price');
+}
+
+function specialServiceBasePricePayload(array $input): array
+{
+    foreach (['base_price', 'basePrice'] as $key) {
+        if (array_key_exists($key, $input)) {
+            return [
+                'provided' => true,
+                'value' => $input[$key],
+            ];
+        }
+    }
+
+    return [
+        'provided' => false,
+        'value' => null,
+    ];
+}
+
+function normalizeSpecialServiceBasePrice($value): array
+{
+    if ($value === null || trim((string)$value) === '') {
+        return [
+            'valid' => true,
+            'value' => null,
+            'message' => null,
+        ];
+    }
+
+    $normalized = str_replace(',', '', trim((string)$value));
+    if (!is_numeric($normalized)) {
+        return [
+            'valid' => false,
+            'value' => null,
+            'message' => 'Billable base price must be a valid numeric amount.',
+        ];
+    }
+
+    $amount = (float)$normalized;
+    if (!is_finite($amount) || $amount < 0 || $amount > 99999999.99) {
+        return [
+            'valid' => false,
+            'value' => null,
+            'message' => 'Billable base price must be between PHP 0.00 and PHP 99,999,999.99.',
+        ];
+    }
+
+    return [
+        'valid' => true,
+        'value' => round($amount, 2),
+        'message' => null,
+    ];
+}
+
 function normalizeServiceCode(string $value): string
 {
     $code = strtolower(trim($value));
@@ -74,12 +131,16 @@ function generateUniqueServiceCode(PDO $pdo, string $title, ?string $requestedCo
 function fetchSpecialService(PDO $pdo, int $serviceId): ?array
 {
     $dateColumnsAvailable = specialServiceDateColumnsExist($pdo);
+    $basePriceColumnAvailable = specialServiceBasePriceColumnExists($pdo);
     $dateSelect = $dateColumnsAvailable
         ? 'date_restriction_type, date_start, date_end,'
         : "'none' AS date_restriction_type, NULL AS date_start, NULL AS date_end,";
+    $basePriceSelect = $basePriceColumnAvailable
+        ? 'base_price,'
+        : 'NULL AS base_price,';
 
     $stmt = $pdo->prepare("
-        SELECT special_service_id, service_code, service_title, service_description, service_details, price_label, duration_label, max_pets, sort_order, is_active, {$dateSelect} created_by_user_id, created_at
+        SELECT special_service_id, service_code, service_title, service_description, service_details, price_label, {$basePriceSelect} duration_label, max_pets, sort_order, is_active, {$dateSelect} created_by_user_id, created_at
         FROM special_service_catalog
         WHERE special_service_id = ?
         LIMIT 1
@@ -88,6 +149,7 @@ function fetchSpecialService(PDO $pdo, int $serviceId): ?array
     $service = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($service) {
         $service['_date_restriction_supported'] = $dateColumnsAvailable;
+        $service['_base_price_supported'] = $basePriceColumnAvailable;
     }
 
     return $service ?: null;
@@ -183,6 +245,8 @@ function serializeSpecialService(array $service): array
         'serviceDescription' => $service['service_description'],
         'serviceDetails' => $service['service_details'],
         'priceLabel' => normalizePriceLabel($service['price_label']),
+        'basePrice' => $service['base_price'] !== null ? (float)$service['base_price'] : null,
+        'basePriceSupported' => (bool)($service['_base_price_supported'] ?? false),
         'durationLabel' => $service['duration_label'],
         'maxPets' => $maxPets,
         'bookedPets' => $bookedPets,
@@ -319,6 +383,7 @@ function seedDefaultSpecialServices(PDO $pdo): void
             'service_description' => 'Surgical sterilization procedure',
             'service_details' => "Recommended for routine sterilization.\nIncludes pre-assessment, preparation, and post-procedure instructions.",
             'price_label' => 'Free',
+            'base_price' => 0.0,
             'duration_label' => '2-3 hours',
             'max_pets' => 3,
             'sort_order' => 1,
@@ -329,30 +394,41 @@ function seedDefaultSpecialServices(PDO $pdo): void
             'service_description' => 'Specialized surgical procedures',
             'service_details' => "For advanced or case-specific procedures.\nAdmin will confirm preparation and pricing before the booking is finalized.",
             'price_label' => 'PHP 5,000 - PHP 15,000',
+            'base_price' => null,
             'duration_label' => '3-5 hours',
             'max_pets' => 2,
             'sort_order' => 2,
         ],
     ];
 
+    $basePriceColumnAvailable = specialServiceBasePriceColumnExists($pdo);
+    $basePriceInsertColumn = $basePriceColumnAvailable ? ', base_price' : '';
+    $basePriceInsertPlaceholder = $basePriceColumnAvailable ? ', ?' : '';
     $insert = $pdo->prepare("
         INSERT INTO special_service_catalog
-            (service_code, service_title, service_description, service_details, price_label, duration_label, max_pets, sort_order, is_active, created_by_user_id)
+            (service_code, service_title, service_description, service_details, price_label{$basePriceInsertColumn}, duration_label, max_pets, sort_order, is_active, created_by_user_id)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)
+            (?, ?, ?, ?, ?{$basePriceInsertPlaceholder}, ?, ?, ?, 1, NULL)
     ");
 
     foreach ($defaults as $item) {
-        $insert->execute([
+        $insertParams = [
             $item['service_code'],
             $item['service_title'],
             $item['service_description'],
             $item['service_details'],
             $item['price_label'],
+        ];
+        if ($basePriceColumnAvailable) {
+            $insertParams[] = $item['base_price'];
+        }
+        array_push(
+            $insertParams,
             $item['duration_label'],
             $item['max_pets'],
-            $item['sort_order'],
-        ]);
+            $item['sort_order']
+        );
+        $insert->execute($insertParams);
     }
 }
 
@@ -366,10 +442,14 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $includeInactive = isset($_GET['includeInactive']) && (string)$_GET['includeInactive'] === '1';
         $dateColumnsAvailable = specialServiceDateColumnsExist($pdo);
+        $basePriceColumnAvailable = specialServiceBasePriceColumnExists($pdo);
         $dateSelect = $dateColumnsAvailable
             ? 'date_restriction_type, date_start, date_end,'
             : "'none' AS date_restriction_type, NULL AS date_start, NULL AS date_end,";
-        $sql = "SELECT special_service_id, service_code, service_title, service_description, service_details, price_label, duration_label, max_pets, sort_order, is_active, {$dateSelect} created_by_user_id, created_at
+        $basePriceSelect = $basePriceColumnAvailable
+            ? 'base_price,'
+            : 'NULL AS base_price,';
+        $sql = "SELECT special_service_id, service_code, service_title, service_description, service_details, price_label, {$basePriceSelect} duration_label, max_pets, sort_order, is_active, {$dateSelect} created_by_user_id, created_at
                 FROM special_service_catalog";
         if (!$includeInactive) {
             $sql .= " WHERE is_active = 1";
@@ -377,8 +457,9 @@ try {
         $sql .= " ORDER BY sort_order ASC, service_title ASC";
 
         $stmt = $pdo->query($sql);
-        $services = attachSpecialServiceUsage(array_map(function ($service) use ($dateColumnsAvailable) {
+        $services = attachSpecialServiceUsage(array_map(function ($service) use ($dateColumnsAvailable, $basePriceColumnAvailable) {
             $service['_date_restriction_supported'] = $dateColumnsAvailable;
+            $service['_base_price_supported'] = $basePriceColumnAvailable;
             return $service;
         }, $stmt->fetchAll(PDO::FETCH_ASSOC)), $pdo);
 
@@ -422,6 +503,22 @@ try {
         $serviceDescription = nullableTrimmedString($input, 'service_description', $currentService['service_description']);
         $serviceDetails = nullableTrimmedString($input, 'service_details', $currentService['service_details']);
         $priceLabel = normalizePriceLabel(nullableTrimmedString($input, 'price_label', $currentService['price_label']));
+        $basePriceColumnAvailable = specialServiceBasePriceColumnExists($pdo);
+        $basePricePayload = specialServiceBasePricePayload($input);
+        if (!$basePriceColumnAvailable && $basePricePayload['provided']) {
+            http_response_code(409);
+            echo json_encode(['message' => 'Billable base price storage is missing. Run DDL/20260727_01_special_service_billing_price.sql first.']);
+            exit;
+        }
+        $basePriceResult = $basePricePayload['provided']
+            ? normalizeSpecialServiceBasePrice($basePricePayload['value'])
+            : ['valid' => true, 'value' => $currentService['base_price'] ?? null, 'message' => null];
+        if (!$basePriceResult['valid']) {
+            http_response_code(400);
+            echo json_encode(['message' => $basePriceResult['message']]);
+            exit;
+        }
+        $basePrice = $basePriceResult['value'];
         $durationLabel = nullableTrimmedString($input, 'duration_label', $currentService['duration_label']);
         $serviceCode = array_key_exists('service_code', $input) ? trim((string)$input['service_code']) : (string)$currentService['service_code'];
         $maxPets = array_key_exists('max_pets', $input) ? (int)$input['max_pets'] : (int)$currentService['max_pets'];
@@ -454,17 +551,27 @@ try {
                 date_start = ?,
                 date_end = ?"
             : '';
+        $basePriceUpdateSql = $basePriceColumnAvailable
+            ? ",
+                base_price = ?"
+            : '';
         $updateParams = [
             $finalCode,
             $serviceTitle,
             $serviceDescription,
             $serviceDetails,
             $priceLabel,
+        ];
+        if ($basePriceColumnAvailable) {
+            $updateParams[] = $basePrice;
+        }
+        array_push(
+            $updateParams,
             $durationLabel,
             $maxPets,
             $sortOrder,
-            $isActive,
-        ];
+            $isActive
+        );
 
         if ($dateColumnsAvailable) {
             $updateParams[] = $dateRestriction['type'];
@@ -480,7 +587,8 @@ try {
                 service_title = ?,
                 service_description = ?,
                 service_details = ?,
-                price_label = ?,
+                price_label = ?
+                {$basePriceUpdateSql},
                 duration_label = ?,
                 max_pets = ?,
                 sort_order = ?,
@@ -509,6 +617,22 @@ try {
     $serviceDescription = trim((string)($input['service_description'] ?? ''));
     $serviceDetails = trim((string)($input['service_details'] ?? ''));
     $priceLabel = normalizePriceLabel(trim((string)($input['price_label'] ?? ''))) ?? '';
+    $basePriceColumnAvailable = specialServiceBasePriceColumnExists($pdo);
+    $basePricePayload = specialServiceBasePricePayload($input);
+    if (!$basePriceColumnAvailable && $basePricePayload['provided']) {
+        http_response_code(409);
+        echo json_encode(['message' => 'Billable base price storage is missing. Run DDL/20260727_01_special_service_billing_price.sql first.']);
+        exit;
+    }
+    $basePriceResult = normalizeSpecialServiceBasePrice(
+        $basePricePayload['provided'] ? $basePricePayload['value'] : null
+    );
+    if (!$basePriceResult['valid']) {
+        http_response_code(400);
+        echo json_encode(['message' => $basePriceResult['message']]);
+        exit;
+    }
+    $basePrice = $basePriceResult['value'];
     $durationLabel = trim((string)($input['duration_label'] ?? ''));
     $serviceCode = trim((string)($input['service_code'] ?? ''));
     $maxPets = isset($input['max_pets']) ? (int)$input['max_pets'] : 1;
@@ -553,6 +677,8 @@ try {
 
     $finalCode = generateUniqueServiceCode($pdo, $serviceTitle, $serviceCode !== '' ? $serviceCode : null);
 
+    $basePriceInsertColumn = $basePriceColumnAvailable ? ', base_price' : '';
+    $basePriceInsertPlaceholder = $basePriceColumnAvailable ? ', ?' : '';
     $dateInsertColumns = $dateColumnsAvailable ? ', date_restriction_type, date_start, date_end' : '';
     $dateInsertPlaceholders = $dateColumnsAvailable ? ', ?, ?, ?' : '';
     $insertParams = [
@@ -561,12 +687,18 @@ try {
         $serviceDescription !== '' ? $serviceDescription : null,
         $serviceDetails !== '' ? $serviceDetails : null,
         $priceLabel !== '' ? $priceLabel : null,
+    ];
+    if ($basePriceColumnAvailable) {
+        $insertParams[] = $basePrice;
+    }
+    array_push(
+        $insertParams,
         $durationLabel !== '' ? $durationLabel : null,
         $maxPets,
         $sortOrder,
         $isActive,
-        $userId,
-    ];
+        $userId
+    );
 
     if ($dateColumnsAvailable) {
         $insertParams[] = $dateRestriction['type'];
@@ -576,9 +708,9 @@ try {
 
     $stmt = $pdo->prepare("
         INSERT INTO special_service_catalog
-            (service_code, service_title, service_description, service_details, price_label, duration_label, max_pets, sort_order, is_active, created_by_user_id{$dateInsertColumns})
+            (service_code, service_title, service_description, service_details, price_label{$basePriceInsertColumn}, duration_label, max_pets, sort_order, is_active, created_by_user_id{$dateInsertColumns})
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?{$dateInsertPlaceholders})
+            (?, ?, ?, ?, ?{$basePriceInsertPlaceholder}, ?, ?, ?, ?, ?{$dateInsertPlaceholders})
     ");
     $stmt->execute($insertParams);
 

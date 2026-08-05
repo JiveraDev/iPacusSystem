@@ -1,13 +1,24 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/booking_daily_guard.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
+date_default_timezone_set('Asia/Manila');
+
 function boarding_table_exists(PDO $pdo, string $tableName): bool
 {
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo) . ':' . $tableName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
         FROM information_schema.tables
@@ -16,11 +27,19 @@ function boarding_table_exists(PDO $pdo, string $tableName): bool
     ");
     $stmt->execute([$tableName]);
 
-    return (int)$stmt->fetchColumn() > 0;
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
 }
 
 function boarding_column_exists(PDO $pdo, string $tableName, string $columnName): bool
 {
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo) . ':' . $tableName . ':' . $columnName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
         FROM information_schema.columns
@@ -30,7 +49,94 @@ function boarding_column_exists(PDO $pdo, string $tableName, string $columnName)
     ");
     $stmt->execute([$tableName, $columnName]);
 
-    return (int)$stmt->fetchColumn() > 0;
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
+}
+
+function boarding_index_exists(PDO $pdo, string $tableName, string $indexName): bool
+{
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo) . ':' . $tableName . ':' . $indexName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND index_name = ?
+    ");
+    $stmt->execute([$tableName, $indexName]);
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
+}
+
+function boarding_constraint_exists(PDO $pdo, string $tableName, string $constraintName): bool
+{
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo) . ':' . $tableName . ':' . $constraintName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.table_constraints
+        WHERE constraint_schema = DATABASE()
+          AND table_name = ?
+          AND constraint_name = ?
+    ");
+    $stmt->execute([$tableName, $constraintName]);
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
+}
+
+function boarding_current_actor(PDO $pdo, array $input = []): array
+{
+    $currentUser = isset($GLOBALS['ipawcus_current_api_user']) && is_array($GLOBALS['ipawcus_current_api_user'])
+        ? $GLOBALS['ipawcus_current_api_user']
+        : [];
+    $userId = (int)($currentUser['user_id'] ?? ($_SERVER['IPAWCUS_USER_ID'] ?? 0));
+
+    if ($userId <= 0) {
+        boarding_error(401, 'An authenticated staff account is required for this boarding action.');
+    }
+
+    if ((int)($currentUser['user_id'] ?? 0) === $userId) {
+        $name = trim(implode(' ', array_filter([
+            $currentUser['first_Name'] ?? null,
+            $currentUser['last_Name'] ?? null,
+        ])));
+
+        return [
+            'user_id' => $userId,
+            'name' => $name !== '' ? $name : null,
+        ];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT first_Name, last_Name
+        FROM users
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        boarding_error(401, 'The authenticated staff account could not be verified.');
+    }
+
+    $name = trim((string)$user['first_Name'] . ' ' . (string)$user['last_Name']);
+
+    return [
+        'user_id' => $userId,
+        'name' => $name !== '' ? $name : null,
+    ];
 }
 
 function boarding_json_input(): array
@@ -38,12 +144,36 @@ function boarding_json_input(): array
     return json_decode(file_get_contents('php://input'), true) ?: [];
 }
 
-function boarding_error(int $statusCode, string $message): void
+function boarding_branch_id(PDO $pdo, array $input = []): int
+{
+    $currentUser = ipawcus_guard_current_user($pdo);
+    $requested = $input['branch_id'] ?? $input['branchId'] ?? $_GET['branch_id'] ?? $_GET['branchId'] ?? null;
+    $branchId = is_numeric($requested)
+        ? (int)$requested
+        : branch_user_primary_id($pdo, ipawcus_guard_user_id($currentUser));
+    if (!branch_fetch($pdo, $branchId)) {
+        boarding_error(422, 'Select an active boarding branch.');
+    }
+    if (!branch_user_can_access($pdo, $currentUser, $branchId)) {
+        boarding_error(403, 'You cannot manage boarding at another branch.');
+    }
+    return $branchId;
+}
+
+function boarding_assert_booking_branch_access(PDO $pdo, array $booking): void
+{
+    $currentUser = ipawcus_guard_current_user($pdo);
+    if (!branch_user_can_access($pdo, $currentUser, (int)($booking['branch_id'] ?? 0))) {
+        boarding_error(403, 'This boarding booking belongs to another branch.');
+    }
+}
+
+function boarding_error(int $statusCode, string $message, array $details = []): void
 {
     ipawcus_rollback_current_transaction();
 
     http_response_code($statusCode);
-    echo json_encode(['message' => $message]);
+    echo json_encode(array_merge(['message' => $message], $details));
     exit;
 }
 
@@ -54,7 +184,7 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
     if (!empty($missingTables)) {
         boarding_error(
             500,
-            'Boarding database schema is missing: ' . implode(', ', $missingTables) . '. Run DDL/boarding_management_migration_20260603.sql first.'
+            'Boarding database schema is missing: ' . implode(', ', $missingTables) . '. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.'
         );
     }
 }
@@ -62,7 +192,7 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
 function ensure_boarding_rooms_schema(PDO $pdo): void
 {
     if (!boarding_table_exists($pdo, 'rooms')) {
-        boarding_error(500, 'Boarding rooms schema is missing. Run the approved boarding deployment SQL before managing boarding rooms.');
+        boarding_error(500, 'Boarding rooms schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.');
         return;
     }
 
@@ -76,7 +206,7 @@ function ensure_boarding_rooms_schema(PDO $pdo): void
     if (!empty($missingColumns)) {
         boarding_error(
             500,
-            'Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns) . '. Run the approved boarding deployment SQL.'
+            'Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns) . '. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.'
         );
     }
 }
@@ -148,55 +278,71 @@ function boarding_format_currency(float $amount): string
     return 'PHP ' . number_format($amount, 2);
 }
 
-function get_room_capacity(PDO $pdo, string $roomType): int
+function get_room_capacity(PDO $pdo, string $roomType, int $branchId): int
 {
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_capacity), 0) FROM rooms WHERE room_type = ?");
-    $stmt->execute([$roomType]);
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_capacity), 0) FROM rooms WHERE branch_id = ? AND room_type = ?");
+    $stmt->execute([$branchId, $roomType]);
 
     return max(0, (int)$stmt->fetchColumn());
 }
 
-function get_maintenance_room_numbers(PDO $pdo, string $roomType): array
+function get_maintenance_room_numbers(PDO $pdo, string $roomType, int $branchId): array
 {
     $stmt = $pdo->prepare("
         SELECT room_number
         FROM room_unit_statuses
-        WHERE room_type = ?
-          AND status = 'maintenance'
+        WHERE branch_id = ? AND room_type = ?
+          AND status IN ('maintenance', 'retired')
     ");
-    $stmt->execute([$roomType]);
+    $stmt->execute([$branchId, $roomType]);
 
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
-function get_unavailable_room_numbers(PDO $pdo, string $roomType, string $checkInDate, string $checkOutDate, int $excludeBookingId = 0): array
+function get_room_unit_status_map(PDO $pdo, string $roomType, int $branchId): array
+{
+    $stmt = $pdo->prepare("
+        SELECT room_number, status
+        FROM room_unit_statuses
+        WHERE branch_id = ? AND room_type = ?
+          AND status IN ('maintenance', 'retired')
+    ");
+    $stmt->execute([$branchId, $roomType]);
+    $statuses = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $statuses[(int)$row['room_number']] = (string)$row['status'];
+    }
+    return $statuses;
+}
+
+function get_unavailable_room_numbers(PDO $pdo, string $roomType, string $checkInDate, string $checkOutDate, int $excludeBookingId, int $branchId): array
 {
     $stmt = $pdo->prepare("
         SELECT DISTINCT ba.room_number
         FROM boarding_assignments ba
         JOIN bookings b ON b.booking_id = ba.booking_id
-        WHERE ba.room_type = ?
+        WHERE ba.branch_id = ? AND ba.room_type = ?
           AND ba.status IN ('reserved', 'occupied')
           AND b.status <> 'cancelled'
           AND ba.booking_id <> ?
           AND COALESCE(DATE(ba.actual_check_in_at), b.check_in_date) < ?
           AND COALESCE(ba.desired_check_out_date, b.check_out_date) > ?
     ");
-    $stmt->execute([$roomType, $excludeBookingId, $checkOutDate, $checkInDate]);
+    $stmt->execute([$branchId, $roomType, $excludeBookingId, $checkOutDate, $checkInDate]);
 
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
-function get_available_room_numbers(PDO $pdo, string $roomType, string $checkInDate, string $checkOutDate, int $excludeBookingId = 0): array
+function get_available_room_numbers(PDO $pdo, string $roomType, string $checkInDate, string $checkOutDate, int $excludeBookingId, int $branchId): array
 {
-    $capacity = get_room_capacity($pdo, $roomType);
+    $capacity = get_room_capacity($pdo, $roomType, $branchId);
     if ($capacity <= 0) {
         return [];
     }
 
     $blocked = array_flip(array_merge(
-        get_maintenance_room_numbers($pdo, $roomType),
-        get_unavailable_room_numbers($pdo, $roomType, $checkInDate, $checkOutDate, $excludeBookingId)
+        get_maintenance_room_numbers($pdo, $roomType, $branchId),
+        get_unavailable_room_numbers($pdo, $roomType, $checkInDate, $checkOutDate, $excludeBookingId, $branchId)
     ));
 
     $available = [];
@@ -236,6 +382,8 @@ function fetch_boarding_booking(PDO $pdo, int $bookingId, bool $forUpdate = fals
     if (($booking['status'] ?? '') === 'cancelled') {
         boarding_error(409, 'Cancelled bookings cannot be assigned or checked in.');
     }
+
+    boarding_assert_booking_branch_access($pdo, $booking);
 
     return $booking;
 }
@@ -298,6 +446,45 @@ function fetch_booking_pet_ids(PDO $pdo, array $booking): array
     return array_values(array_unique(array_filter($petIds, fn($petId) => $petId > 0)));
 }
 
+function boarding_requested_pet_id(array $input): ?int
+{
+    $value = $input['pet_id'] ?? $input['petId'] ?? null;
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    $petId = (int)$value;
+    if ($petId <= 0) {
+        boarding_error(400, 'A valid pet ID is required.');
+    }
+
+    return $petId;
+}
+
+function boarding_resolve_assignment_pet_id(PDO $pdo, array $assignment, array $input): ?int
+{
+    $allowedPetIds = fetch_booking_pet_ids($pdo, [
+        'booking_id' => (int)($assignment['booking_id'] ?? 0),
+        'pet_id' => $assignment['pet_id'] ?? null,
+    ]);
+    $requestedPetId = boarding_requested_pet_id($input);
+
+    if ($requestedPetId !== null) {
+        if (empty($allowedPetIds) || !in_array($requestedPetId, $allowedPetIds, true)) {
+            boarding_error(409, 'The selected pet does not belong to this boarding booking.');
+        }
+
+        return $requestedPetId;
+    }
+
+    $assignmentPetId = (int)($assignment['pet_id'] ?? 0);
+    if ($assignmentPetId > 0 && in_array($assignmentPetId, $allowedPetIds, true)) {
+        return $assignmentPetId;
+    }
+
+    return count($allowedPetIds) === 1 ? $allowedPetIds[0] : null;
+}
+
 function assert_pets_not_in_active_boarding(PDO $pdo, array $petIds, int $excludeBookingId = 0): void
 {
     $petIds = array_values(array_unique(array_filter(array_map('intval', $petIds), fn($petId) => $petId > 0)));
@@ -330,11 +517,11 @@ function assert_pets_not_in_active_boarding(PDO $pdo, array $petIds, int $exclud
         JOIN bookings b ON b.booking_id = ba.booking_id
         {$bookingPetsJoin}
         LEFT JOIN pets_information p ON p.pet_id = {$petJoinExpression}
-        WHERE ba.status IN ('reserved', 'occupied')
+        WHERE ba.status = 'occupied'
           AND b.status <> 'cancelled'
           AND {$petCondition}
           AND b.booking_id <> ?
-        ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
+        ORDER BY ba.assignment_id DESC
         LIMIT 1
     ");
     $stmt->execute($params);
@@ -484,27 +671,29 @@ function upsert_assignment(PDO $pdo, array $booking, string $roomType, int $room
             UPDATE boarding_assignments
             SET room_type = ?,
                 room_number = ?,
+                branch_id = ?,
                 status = ?,
                 reserved_at = COALESCE(reserved_at, NOW()),
                 desired_check_out_date = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE assignment_id = ?
         ");
-        $stmt->execute([$roomType, $roomNumber, $status, $desiredOut, (int)$assignment['assignment_id']]);
+        $stmt->execute([$roomType, $roomNumber, (int)$booking['branch_id'], $status, $desiredOut, (int)$assignment['assignment_id']]);
         return;
     }
 
     $stmt = $pdo->prepare("
         INSERT INTO boarding_assignments (
             booking_id,
+            branch_id,
             room_type,
             room_number,
             status,
             reserved_at,
             desired_check_out_date
-        ) VALUES (?, ?, ?, ?, NOW(), ?)
+        ) VALUES (?, ?, ?, ?, ?, NOW(), ?)
     ");
-    $stmt->execute([$bookingId, $roomType, $roomNumber, $status, $desiredOut]);
+    $stmt->execute([$bookingId, (int)$booking['branch_id'], $roomType, $roomNumber, $status, $desiredOut]);
 }
 
 function assign_room_action(PDO $pdo): void
@@ -514,6 +703,7 @@ function assign_room_action(PDO $pdo): void
     }
 
     $input = boarding_json_input();
+    $branchId = boarding_branch_id($pdo, $input);
     $bookingId = isset($_GET['bookingId']) ? (int)$_GET['bookingId'] : 0;
     if ($bookingId <= 0) {
         boarding_error(400, 'Booking ID is required.');
@@ -522,6 +712,7 @@ function assign_room_action(PDO $pdo): void
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
+        $branchId = (int)$booking['branch_id'];
         $roomType = normalize_room_type($booking['hotel_boarding_type'] ?? null, $booking['room_size'] ?? null);
         $checkIn = (string)($booking['check_in_date'] ?? '');
         $checkOut = (string)($booking['check_out_date'] ?? '');
@@ -534,7 +725,7 @@ function assign_room_action(PDO $pdo): void
         assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
         assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
 
-        $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId);
+        $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId, $branchId);
         $requestedRoom = isset($input['room_number']) && $input['room_number'] !== ''
             ? (int)$input['room_number']
             : null;
@@ -583,6 +774,8 @@ function check_in_action(PDO $pdo): void
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
+        boarding_assert_booking_branch_access($pdo, $booking);
+        $branchId = (int)$booking['branch_id'];
         $roomType = normalize_room_type($booking['hotel_boarding_type'] ?? null, $booking['room_size'] ?? null);
         $checkIn = (string)($booking['check_in_date'] ?? date('Y-m-d'));
         $checkOut = (string)($booking['check_out_date'] ?? '');
@@ -596,7 +789,7 @@ function check_in_action(PDO $pdo): void
 
         $assignment = fetch_active_assignment($pdo, $bookingId, true);
         if (!$assignment) {
-            $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId);
+            $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId, $branchId);
             $roomNumber = $availableRooms[0] ?? 0;
             if ($roomNumber <= 0) {
                 boarding_error(409, 'No room or kennel is available for this stay.');
@@ -609,7 +802,7 @@ function check_in_action(PDO $pdo): void
             boarding_error(500, 'Unable to create room assignment.');
         }
 
-        $maintenanceRooms = get_maintenance_room_numbers($pdo, (string)$assignment['room_type']);
+        $maintenanceRooms = get_maintenance_room_numbers($pdo, (string)$assignment['room_type'], $branchId);
         if (in_array((int)$assignment['room_number'], $maintenanceRooms, true)) {
             boarding_error(409, 'This room or kennel is under maintenance.');
         }
@@ -688,7 +881,8 @@ function desired_check_out_action(PDO $pdo): void
             (string)$assignment['room_type'],
             $startDate,
             (string)$newCheckOut,
-            $bookingId
+            $bookingId,
+            (int)$booking['branch_id']
         );
 
         if (!in_array((int)$assignment['room_number'], $available, true)) {
@@ -724,6 +918,142 @@ function desired_check_out_action(PDO $pdo): void
     }
 }
 
+function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
+{
+    $billingTables = ['visits', 'visit_charges', 'visit_payments'];
+    foreach ($billingTables as $tableName) {
+        if (!boarding_table_exists($pdo, $tableName)) {
+            boarding_error(
+                409,
+                'Checkout is unavailable until the visit billing migration is installed. Run DDL/20260723_01_backend_integrity_schema.sql.'
+            );
+        }
+    }
+
+    if (!boarding_material_billing_trace_ready($pdo)) {
+        boarding_error(
+            409,
+            'Checkout is unavailable until the boarding material billing trace migration is installed. Run DDL/20260723_01_backend_integrity_schema.sql.'
+        );
+    }
+
+    $visitStmt = $pdo->prepare("
+        SELECT visit_id, billing_status
+        FROM visits
+        WHERE booking_id = ?
+          AND visit_status <> 'cancelled'
+        ORDER BY visit_id ASC
+        FOR UPDATE
+    ");
+    $visitStmt->execute([$bookingId]);
+    $visitRows = $visitStmt->fetchAll(PDO::FETCH_ASSOC);
+    $visitIds = array_map(
+        fn(array $visit): int => (int)$visit['visit_id'],
+        $visitRows
+    );
+
+    if (empty($visitIds)) {
+        boarding_error(409, 'Create and settle the boarding invoice before checking this pet out.');
+    }
+    if (array_filter($visitRows, fn(array $visit): bool => ($visit['billing_status'] ?? '') === 'refunded')) {
+        boarding_error(409, 'A refunded boarding invoice must be resolved before checkout.');
+    }
+
+    $unbilledMaterialStmt = $pdo->prepare("
+        SELECT bmu.usage_id, bmu.item_name
+        FROM boarding_material_usages bmu
+        LEFT JOIN visit_charges vc
+          ON vc.boarding_material_usage_id = bmu.usage_id
+        LEFT JOIN visits v
+          ON v.visit_id = vc.visit_id
+         AND v.booking_id = bmu.booking_id
+         AND v.visit_status <> 'cancelled'
+        WHERE bmu.booking_id = ?
+          AND bmu.status = 'recorded'
+          AND (
+              vc.charge_id IS NULL
+              OR v.visit_id IS NULL
+              OR NOT (vc.item_id <=> bmu.item_id)
+              OR ABS(vc.quantity - bmu.quantity) > 0.0001
+              OR ABS(vc.unit_price - bmu.unit_price) > 0.009
+              OR ABS(vc.subtotal - ROUND(bmu.quantity * bmu.unit_price, 2)) > 0.009
+          )
+        ORDER BY bmu.usage_id ASC
+        LIMIT 1
+    ");
+    $unbilledMaterialStmt->execute([$bookingId]);
+    $unbilledMaterial = $unbilledMaterialStmt->fetch(PDO::FETCH_ASSOC);
+    if ($unbilledMaterial) {
+        boarding_error(
+            409,
+            'Recorded material "' . ($unbilledMaterial['item_name'] ?: 'Unknown item')
+            . '" is not linked to a matching invoice charge. Reopen payment from this boarding stay before checkout.'
+        );
+    }
+
+    $chargeStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(subtotal), 0)
+        FROM visit_charges
+        WHERE visit_id = ?
+    ");
+    $paymentStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM visit_payments
+        WHERE visit_id = ?
+          AND payment_status = 'verified'
+    ");
+
+    $totalCharges = 0.0;
+    $unpaidBalance = 0.0;
+    foreach ($visitIds as $visitId) {
+        $chargeStmt->execute([$visitId]);
+        $visitCharges = (float)$chargeStmt->fetchColumn();
+        $totalCharges += $visitCharges;
+
+        $paymentStmt->execute([$visitId]);
+        $visitPayments = (float)$paymentStmt->fetchColumn();
+        if ($visitCharges > 0.0001 && $visitPayments + 0.0001 < $visitCharges) {
+            $unpaidBalance += $visitCharges - $visitPayments;
+        }
+    }
+
+    if ($totalCharges <= 0.0001) {
+        boarding_error(409, 'The boarding invoice must contain a nonzero charge before checkout.');
+    }
+
+    $minimumInvoiceStmt = $pdo->prepare("
+        SELECT
+            GREATEST(COALESCE(b.price, 0), 0)
+            + COALESCE((
+                SELECT SUM(ROUND(bmu.quantity * bmu.unit_price, 2))
+                FROM boarding_material_usages bmu
+                WHERE bmu.booking_id = b.booking_id
+                  AND bmu.status = 'recorded'
+            ), 0)
+        FROM bookings b
+        WHERE b.booking_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $minimumInvoiceStmt->execute([$bookingId]);
+    $minimumInvoice = (float)$minimumInvoiceStmt->fetchColumn();
+    if ($totalCharges + 0.009 < $minimumInvoice) {
+        boarding_error(
+            409,
+            'The boarding invoice is below the captured stay price plus recorded materials. Restore the full invoice before checkout.'
+        );
+    }
+
+    if ($unpaidBalance > 0.0001) {
+        boarding_error(
+            409,
+            'This boarding stay has an unpaid balance of '
+            . boarding_format_currency($unpaidBalance)
+            . '. Settle every linked invoice before checkout.'
+        );
+    }
+}
+
 function check_out_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -742,18 +1072,35 @@ function check_out_action(PDO $pdo): void
         if (!$assignment) {
             boarding_error(404, 'Room assignment not found.');
         }
+        if (($assignment['status'] ?? '') !== 'occupied') {
+            boarding_error(409, 'The pet must be checked in before the boarding stay can be checked out.');
+        }
+
+        boarding_assert_checkout_billing_ready($pdo, $bookingId);
+        $checkedOutAt = date('Y-m-d H:i:s');
 
         $stmt = $pdo->prepare("
             UPDATE boarding_assignments
             SET status = 'checked_out',
-                actual_check_out_at = NOW(),
+                actual_check_out_at = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE assignment_id = ?
         ");
-        $stmt->execute([(int)$assignment['assignment_id']]);
+        $stmt->execute([$checkedOutAt, (int)$assignment['assignment_id']]);
 
         $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?");
         $bookingStmt->execute([$bookingId]);
+
+        if (boarding_table_exists($pdo, 'visits')) {
+            $visitStmt = $pdo->prepare("
+                UPDATE visits
+                SET visit_status = 'completed',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE booking_id = ?
+                  AND visit_status <> 'cancelled'
+            ");
+            $visitStmt->execute([$bookingId]);
+        }
 
         $pdo->commit();
 
@@ -772,7 +1119,7 @@ function check_out_action(PDO $pdo): void
     }
 }
 
-function get_active_assignments_by_room(PDO $pdo): array
+function get_active_assignments_by_room(PDO $pdo, int $branchId): array
 {
     $multiPetExpression = 'NULL';
     $multiPetJoin = '';
@@ -790,7 +1137,7 @@ function get_active_assignments_by_room(PDO $pdo): array
         ";
     }
 
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT
             ba.*,
             b.booking_number,
@@ -808,10 +1155,12 @@ function get_active_assignments_by_room(PDO $pdo): array
         LEFT JOIN pets_information p ON p.pet_id = b.pet_id
         JOIN users u ON u.user_id = b.user_id
         {$multiPetJoin}
-        WHERE ba.status IN ('reserved', 'occupied')
+        WHERE ba.branch_id = ?
+          AND ba.status IN ('reserved', 'occupied')
           AND b.status <> 'cancelled'
         ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
     ");
+    $stmt->execute([$branchId]);
 
     $assignments = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $assignment) {
@@ -827,6 +1176,7 @@ function get_active_assignments_by_room(PDO $pdo): array
 function rooms_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $branchId = boarding_branch_id($pdo);
         $filterType = $_GET['type'] ?? $_GET['hotel_boarding_type'] ?? null;
         $filterSize = $_GET['size'] ?? $_GET['room_size'] ?? null;
         $checkIn = $_GET['check_in_date'] ?? null;
@@ -840,17 +1190,16 @@ function rooms_action(PDO $pdo): void
             $roomTypes = array_values(array_filter($roomTypes, fn($roomType) => str_starts_with($roomType, $filterType . '-')));
         }
 
-        $activeAssignments = get_active_assignments_by_room($pdo);
+        $activeAssignments = get_active_assignments_by_room($pdo, $branchId);
         $units = [];
         $summaries = [];
 
         foreach ($roomTypes as $roomType) {
-            $capacity = get_room_capacity($pdo, $roomType);
-            $maintenanceNumbers = get_maintenance_room_numbers($pdo, $roomType);
-            $maintenanceLookup = array_flip($maintenanceNumbers);
+            $capacity = get_room_capacity($pdo, $roomType, $branchId);
+            $unitStatusMap = get_room_unit_status_map($pdo, $roomType, $branchId);
             $availableForStay = null;
             if ($checkIn && $checkOut && strtotime($checkOut) > strtotime($checkIn)) {
-                $availableForStay = array_flip(get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $excludeBookingId));
+                $availableForStay = array_flip(get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $excludeBookingId, $branchId));
             }
 
             $parts = split_room_type($roomType);
@@ -859,7 +1208,7 @@ function rooms_action(PDO $pdo): void
                 'roomLabel' => room_type_label($roomType),
                 'hotel_boarding_type' => $parts['hotel_boarding_type'],
                 'room_size' => $parts['room_size'],
-                'total' => $capacity,
+                'total' => $capacity - count(array_filter($unitStatusMap, fn($status) => $status === 'retired')),
                 'available' => 0,
                 'reserved' => 0,
                 'occupied' => 0,
@@ -867,11 +1216,14 @@ function rooms_action(PDO $pdo): void
             ];
 
             for ($roomNumber = 1; $roomNumber <= $capacity; $roomNumber += 1) {
+                if (($unitStatusMap[$roomNumber] ?? null) === 'retired') {
+                    continue;
+                }
                 $key = $roomType . '-' . $roomNumber;
                 $assignment = $activeAssignments[$key] ?? null;
                 $status = 'available';
 
-                if (isset($maintenanceLookup[$roomNumber])) {
+                if (($unitStatusMap[$roomNumber] ?? null) === 'maintenance') {
                     $status = 'maintenance';
                 } elseif ($assignment) {
                     $status = $assignment['status'] === 'occupied' ? 'occupied' : 'reserved';
@@ -918,6 +1270,7 @@ function rooms_action(PDO $pdo): void
         }
 
         echo json_encode([
+            'branchId' => $branchId,
             'rooms' => $summaries,
             'units' => $units,
         ]);
@@ -926,6 +1279,7 @@ function rooms_action(PDO $pdo): void
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = boarding_json_input();
+        $branchId = boarding_branch_id($pdo, $input);
         $roomType = normalize_room_type_input($input);
         $quantity = (int)($input['quantity'] ?? 0);
         $description = trim((string)($input['description'] ?? ''));
@@ -939,11 +1293,12 @@ function rooms_action(PDO $pdo): void
             $hasDescriptionColumn = boarding_column_exists($pdo, 'rooms', 'description');
             $hasRoomIdColumn = boarding_column_exists($pdo, 'rooms', 'room_id');
             $selectSql = $hasRoomIdColumn
-                ? "SELECT room_id, total_capacity FROM rooms WHERE room_type = ? ORDER BY room_id ASC LIMIT 1 FOR UPDATE"
-                : "SELECT room_type, total_capacity FROM rooms WHERE room_type = ? LIMIT 1 FOR UPDATE";
+                ? "SELECT room_id, total_capacity FROM rooms WHERE branch_id = ? AND room_type = ? ORDER BY room_id ASC LIMIT 1 FOR UPDATE"
+                : "SELECT room_type, total_capacity FROM rooms WHERE branch_id = ? AND room_type = ? LIMIT 1 FOR UPDATE";
             $stmt = $pdo->prepare($selectSql);
-            $stmt->execute([$roomType]);
+            $stmt->execute([$branchId, $roomType]);
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
+            $oldCapacity = (int)($room['total_capacity'] ?? 0);
 
             if ($room) {
                 $whereColumn = $hasRoomIdColumn ? 'room_id' : 'room_type';
@@ -958,12 +1313,21 @@ function rooms_action(PDO $pdo): void
                 }
             } else {
                 if ($hasDescriptionColumn) {
-                    $insert = $pdo->prepare("INSERT INTO rooms (room_type, total_capacity, description) VALUES (?, ?, ?)");
-                    $insert->execute([$roomType, $quantity, $description !== '' ? $description : room_type_label($roomType)]);
+                    $insert = $pdo->prepare("INSERT INTO rooms (branch_id, room_type, total_capacity, description) VALUES (?, ?, ?, ?)");
+                    $insert->execute([$branchId, $roomType, $quantity, $description !== '' ? $description : room_type_label($roomType)]);
                 } else {
-                    $insert = $pdo->prepare("INSERT INTO rooms (room_type, total_capacity) VALUES (?, ?)");
-                    $insert->execute([$roomType, $quantity]);
+                    $insert = $pdo->prepare("INSERT INTO rooms (branch_id, room_type, total_capacity) VALUES (?, ?, ?)");
+                    $insert->execute([$branchId, $roomType, $quantity]);
                 }
+            }
+
+            $unitStmt = $pdo->prepare("
+                INSERT INTO room_unit_statuses (branch_id, room_type, room_number, status, notes)
+                VALUES (?, ?, ?, 'available', NULL)
+                ON DUPLICATE KEY UPDATE status = 'available', notes = NULL
+            ");
+            for ($roomNumber = $oldCapacity + 1; $roomNumber <= $oldCapacity + $quantity; $roomNumber += 1) {
+                $unitStmt->execute([$branchId, $roomType, $roomNumber]);
             }
 
             $pdo->commit();
@@ -971,7 +1335,8 @@ function rooms_action(PDO $pdo): void
             echo json_encode([
                 'message' => $quantity === 1 ? 'Room added.' : 'Rooms added.',
                 'roomType' => $roomType,
-                'totalCapacity' => get_room_capacity($pdo, $roomType),
+                'branchId' => $branchId,
+                'totalCapacity' => get_room_capacity($pdo, $roomType, $branchId),
             ]);
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
@@ -984,45 +1349,50 @@ function rooms_action(PDO $pdo): void
 
     if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
         $input = boarding_json_input();
+        $branchId = boarding_branch_id($pdo, $input);
         $roomType = normalize_room_type_input($input);
         $roomNumber = (int)($input['room_number'] ?? 0);
         $status = strtolower(trim((string)($input['status'] ?? '')));
         $notes = trim((string)($input['notes'] ?? ''));
 
-        if ($roomNumber <= 0 || !in_array($status, ['available', 'maintenance'], true)) {
+        if ($roomNumber <= 0 || !in_array($status, ['available', 'maintenance', 'retired'], true)) {
             boarding_error(400, 'Room number and a valid status are required.');
         }
 
-        if ($roomNumber > get_room_capacity($pdo, $roomType)) {
+        if ($roomNumber > get_room_capacity($pdo, $roomType, $branchId)) {
             boarding_error(404, 'Room or kennel not found.');
         }
 
-        if ($status === 'maintenance') {
+        if (in_array($status, ['maintenance', 'retired'], true)) {
             $activeStmt = $pdo->prepare("
                 SELECT b.booking_number
                 FROM boarding_assignments ba
                 JOIN bookings b ON b.booking_id = ba.booking_id
-                WHERE ba.room_type = ?
+                WHERE ba.branch_id = ? AND ba.room_type = ?
                   AND ba.room_number = ?
                   AND ba.status IN ('reserved', 'occupied')
                   AND b.status <> 'cancelled'
                 LIMIT 1
             ");
-            $activeStmt->execute([$roomType, $roomNumber]);
+            $activeStmt->execute([$branchId, $roomType, $roomNumber]);
             $activeBooking = $activeStmt->fetchColumn();
             if ($activeBooking) {
                 boarding_error(409, "Room has active booking {$activeBooking} and cannot be marked for maintenance.");
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO room_unit_statuses (room_type, room_number, status, notes)
-                VALUES (?, ?, 'maintenance', ?)
+                INSERT INTO room_unit_statuses (branch_id, room_type, room_number, status, notes)
+                VALUES (?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE status = VALUES(status), notes = VALUES(notes)
             ");
-            $stmt->execute([$roomType, $roomNumber, $notes]);
+            $stmt->execute([$branchId, $roomType, $roomNumber, $status, $notes]);
         } else {
-            $stmt = $pdo->prepare("DELETE FROM room_unit_statuses WHERE room_type = ? AND room_number = ?");
-            $stmt->execute([$roomType, $roomNumber]);
+            $stmt = $pdo->prepare("
+                INSERT INTO room_unit_statuses (branch_id, room_type, room_number, status, notes)
+                VALUES (?, ?, ?, 'available', NULL)
+                ON DUPLICATE KEY UPDATE status = 'available', notes = NULL
+            ");
+            $stmt->execute([$branchId, $roomType, $roomNumber]);
         }
 
         echo json_encode(['message' => 'Room status updated.']);
@@ -1062,6 +1432,7 @@ function direct_check_in_action(PDO $pdo): void
     }
 
     $input = boarding_json_input();
+    $branchId = boarding_branch_id($pdo, $input);
     $petId = resolve_boarding_pet_id($pdo, $input['pet_id'] ?? null);
     $roomType = normalize_room_type($input['hotel_boarding_type'] ?? $input['type'] ?? null, $input['room_size'] ?? $input['size'] ?? null);
     $checkOut = $input['check_out_date'] ?? $input['desired_check_out_date'] ?? null;
@@ -1130,10 +1501,28 @@ function direct_check_in_action(PDO $pdo): void
 
     $pdo->beginTransaction();
     try {
+        booking_daily_lock_subjects($pdo, [$petId], $ownerId);
+        $dailyBookingConflict = booking_daily_find_conflict(
+            $pdo,
+            [$petId],
+            $today
+        );
+        if ($dailyBookingConflict) {
+            $payload = booking_daily_conflict_payload($dailyBookingConflict);
+            boarding_error(
+                409,
+                $payload['message'],
+                [
+                    'code' => $payload['code'],
+                    'conflict' => $payload['conflict'],
+                ]
+            );
+        }
+
         assert_pets_not_in_active_boarding($pdo, [$petId]);
         assert_pets_no_overlapping_boarding_booking($pdo, [$petId], $today, (string)$checkOut);
 
-        $availableRooms = get_available_room_numbers($pdo, $roomType, $today, (string)$checkOut);
+        $availableRooms = get_available_room_numbers($pdo, $roomType, $today, (string)$checkOut, 0, $branchId);
         $roomNumber = $requestedRoom ?: ($availableRooms[0] ?? 0);
         if ($roomNumber <= 0 || !in_array($roomNumber, $availableRooms, true)) {
             boarding_error(409, 'Selected room or kennel is not available.');
@@ -1147,6 +1536,8 @@ function direct_check_in_action(PDO $pdo): void
                 user_id,
                 pet_id,
                 booking_number,
+                branch_id,
+                original_branch_id,
                 service_type,
                 booking_date,
                 booking_time,
@@ -1160,12 +1551,14 @@ function direct_check_in_action(PDO $pdo): void
                 emergency_contact,
                 hotel_boarding_type,
                 created_at
-            ) VALUES (?, ?, ?, 'boarding', ?, ?, ?, 'Registered', 'confirmed', ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, 'boarding', ?, ?, ?, 'Registered', 'confirmed', ?, ?, ?, ?, ?, ?, NOW())
         ");
         $stmt->execute([
             $ownerId,
             $petId,
             $bookingNumber,
+            $branchId,
+            $branchId,
             $today,
             $nowTime,
             $fullNotes,
@@ -1187,6 +1580,7 @@ function direct_check_in_action(PDO $pdo): void
         $assignmentStmt = $pdo->prepare("
             INSERT INTO boarding_assignments (
                 booking_id,
+                branch_id,
                 room_type,
                 room_number,
                 status,
@@ -1194,9 +1588,9 @@ function direct_check_in_action(PDO $pdo): void
                 actual_check_in_at,
                 desired_check_out_date,
                 notes
-            ) VALUES (?, ?, ?, 'occupied', NOW(), NOW(), ?, ?)
+            ) VALUES (?, ?, ?, ?, 'occupied', NOW(), NOW(), ?, ?)
         ");
-        $assignmentStmt->execute([$bookingId, $roomType, $roomNumber, $checkOut, $notes]);
+        $assignmentStmt->execute([$bookingId, $branchId, $roomType, $roomNumber, $checkOut, $notes]);
 
         $pdo->commit();
 
@@ -1222,30 +1616,51 @@ function direct_check_in_action(PDO $pdo): void
     }
 }
 
-function fetch_assignment_for_monitoring(PDO $pdo, array $input): array
+function fetch_assignment_for_monitoring(
+    PDO $pdo,
+    array $input,
+    bool $requireActive = true,
+    bool $forUpdate = false
+): array
 {
-    $assignmentId = isset($input['assignment_id']) ? (int)$input['assignment_id'] : 0;
-    $bookingId = isset($input['booking_id']) ? (int)$input['booking_id'] : 0;
+    $assignmentId = (int)($input['assignment_id'] ?? $input['assignmentId'] ?? 0);
+    $bookingId = (int)($input['booking_id'] ?? $input['bookingId'] ?? 0);
 
     if ($assignmentId > 0) {
-        $stmt = $pdo->prepare("
-            SELECT ba.*, b.pet_id
+        $sql = "
+            SELECT
+                ba.*,
+                b.pet_id,
+                b.branch_id,
+                b.service_type,
+                b.status AS booking_status
             FROM boarding_assignments ba
             JOIN bookings b ON b.booking_id = ba.booking_id
             WHERE ba.assignment_id = ?
             LIMIT 1
-        ");
+        ";
+        if ($forUpdate) {
+            $sql .= ' FOR UPDATE';
+        }
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$assignmentId]);
     } elseif ($bookingId > 0) {
-        $stmt = $pdo->prepare("
-            SELECT ba.*, b.pet_id
+        $sql = "
+            SELECT
+                ba.*,
+                b.pet_id,
+                b.service_type,
+                b.status AS booking_status
             FROM boarding_assignments ba
             JOIN bookings b ON b.booking_id = ba.booking_id
             WHERE ba.booking_id = ?
-              AND ba.status IN ('reserved', 'occupied')
             ORDER BY ba.assignment_id DESC
             LIMIT 1
-        ");
+        ";
+        if ($forUpdate) {
+            $sql .= ' FOR UPDATE';
+        }
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$bookingId]);
     } else {
         boarding_error(400, 'Please select a room or pet assignment.');
@@ -1254,6 +1669,22 @@ function fetch_assignment_for_monitoring(PDO $pdo, array $input): array
     $assignment = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$assignment) {
         boarding_error(404, 'Room assignment not found.');
+    }
+
+    if ($bookingId > 0 && (int)$assignment['booking_id'] !== $bookingId) {
+        boarding_error(409, 'The selected room assignment does not belong to this boarding booking.');
+    }
+
+    if (($assignment['service_type'] ?? '') !== 'boarding') {
+        boarding_error(409, 'The selected assignment is not a boarding stay.');
+    }
+
+    if (($assignment['booking_status'] ?? '') === 'cancelled' || ($assignment['status'] ?? '') === 'cancelled') {
+        boarding_error(409, 'Cancelled boarding assignments cannot be updated.');
+    }
+
+    if ($requireActive && !in_array((string)($assignment['status'] ?? ''), ['reserved', 'occupied'], true)) {
+        boarding_error(409, 'Monitoring can only be updated while a boarding assignment is reserved or occupied.');
     }
 
     return $assignment;
@@ -1266,7 +1697,7 @@ function boarding_documents_schema_ready(PDO $pdo): bool
 
 function boarding_document_missing_message(): string
 {
-    return 'Boarding document schema is missing. Run DDL/visit_service_payment_migration_20260604.sql first.';
+    return 'Boarding document schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.';
 }
 
 function boarding_document_nullable_text($value): ?string
@@ -1275,17 +1706,147 @@ function boarding_document_nullable_text($value): ?string
     return $text === '' ? null : $text;
 }
 
+function boarding_optional_status(array $input, string $snakeKey, string $camelKey): ?string
+{
+    $value = $input[$snakeKey] ?? $input[$camelKey] ?? null;
+    if ($value === null || trim((string)$value) === '') {
+        return null;
+    }
+
+    $status = strtolower(trim((string)$value));
+    $status = preg_replace('/[\s-]+/', '_', $status);
+    if (!preg_match('/^[a-z0-9_]{1,40}$/', $status)) {
+        boarding_error(422, str_replace('_', ' ', ucfirst($snakeKey)) . ' is invalid.');
+    }
+
+    return $status;
+}
+
+function boarding_optional_measurement(
+    array $input,
+    string $snakeKey,
+    string $camelKey,
+    float $minimum,
+    float $maximum
+): ?float {
+    $value = $input[$snakeKey] ?? $input[$camelKey] ?? null;
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    if (!is_numeric($value)) {
+        boarding_error(422, str_replace('_', ' ', ucfirst($snakeKey)) . ' must be numeric.');
+    }
+
+    $measurement = (float)$value;
+    if (!is_finite($measurement) || $measurement < $minimum || $measurement > $maximum) {
+        boarding_error(
+            422,
+            str_replace('_', ' ', ucfirst($snakeKey)) . " must be between {$minimum} and {$maximum}."
+        );
+    }
+
+    return $measurement;
+}
+
+function boarding_optional_boolean(array $input, string $snakeKey, string $camelKey): ?bool
+{
+    if (!array_key_exists($snakeKey, $input) && !array_key_exists($camelKey, $input)) {
+        return null;
+    }
+
+    $value = $input[$snakeKey] ?? $input[$camelKey] ?? null;
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($normalized === null) {
+        boarding_error(422, str_replace('_', ' ', ucfirst($snakeKey)) . ' must be true or false.');
+    }
+
+    return $normalized;
+}
+
+function boarding_normalize_document_path(string $documentPath): string
+{
+    $path = parse_url(trim($documentPath), PHP_URL_PATH);
+    $path = ltrim((string)$path, '/');
+    if (str_starts_with($path, 'api/uploads/media/')) {
+        $path = substr($path, strlen('api/uploads/media/'));
+    }
+
+    if (!preg_match('#^boarding_documents/[A-Za-z0-9][A-Za-z0-9._-]*$#', $path)) {
+        boarding_error(400, 'The uploaded boarding document path is invalid.');
+    }
+
+    return $path;
+}
+
+function boarding_document_file_metadata(string $documentPath, array $input): array
+{
+    $fileName = boarding_document_nullable_text($input['file_name'] ?? $input['fileName'] ?? null);
+    $mimeType = boarding_document_nullable_text($input['mime_type'] ?? $input['mimeType'] ?? null);
+    $absolutePath = __DIR__ . '/../public/' . $documentPath;
+
+    if (is_file($absolutePath)) {
+        $fileName = $fileName ?: basename($documentPath);
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo->file($absolutePath);
+        if (is_string($detectedMime) && $detectedMime !== '') {
+            $mimeType = $detectedMime;
+        }
+    }
+
+    return [
+        'file_name' => $fileName,
+        'mime_type' => $mimeType,
+    ];
+}
+
+function boarding_cleanup_unstored_document(PDO $pdo, string $documentPath): void
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM boarding_documents
+            WHERE document_path = ?
+        ");
+        $stmt->execute([$documentPath]);
+        if ((int)$stmt->fetchColumn() > 0) {
+            return;
+        }
+    } catch (Throwable $e) {
+        // If reference state cannot be verified, preserving the file is safer than deleting it.
+        return;
+    }
+
+    $documentRoot = realpath(__DIR__ . '/../public/boarding_documents');
+    $absolutePath = realpath(__DIR__ . '/../public/' . $documentPath);
+    if ($documentRoot === false || $absolutePath === false) {
+        return;
+    }
+
+    if (dirname($absolutePath) === $documentRoot && is_file($absolutePath)) {
+        @unlink($absolutePath);
+    }
+}
+
 function boarding_fetch_document_subject(PDO $pdo, array $input): array
 {
-    $assignmentId = isset($input['assignment_id']) ? (int)$input['assignment_id'] : 0;
-    $bookingId = isset($input['booking_id']) ? (int)$input['booking_id'] : 0;
+    $assignmentId = (int)($input['assignment_id'] ?? $input['assignmentId'] ?? 0);
+    $bookingId = (int)($input['booking_id'] ?? $input['bookingId'] ?? 0);
+    $subject = null;
 
     if ($assignmentId > 0) {
         $stmt = $pdo->prepare("
             SELECT
                 ba.assignment_id,
                 ba.booking_id,
-                b.pet_id
+                ba.status,
+                b.pet_id,
+                b.service_type,
+                b.status AS booking_status
             FROM boarding_assignments ba
             JOIN bookings b ON b.booking_id = ba.booking_id
             WHERE ba.assignment_id = ?
@@ -1293,17 +1854,16 @@ function boarding_fetch_document_subject(PDO $pdo, array $input): array
         ");
         $stmt->execute([$assignmentId]);
         $subject = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($subject) {
-            return $subject;
-        }
-    }
-
-    if ($bookingId > 0) {
+    } elseif ($bookingId > 0) {
         $stmt = $pdo->prepare("
             SELECT
                 ba.assignment_id,
+                ba.status,
                 b.booking_id,
-                b.pet_id
+                b.pet_id,
+                b.branch_id,
+                b.service_type,
+                b.status AS booking_status
             FROM bookings b
             LEFT JOIN boarding_assignments ba ON ba.booking_id = b.booking_id
             WHERE b.booking_id = ?
@@ -1312,12 +1872,29 @@ function boarding_fetch_document_subject(PDO $pdo, array $input): array
         ");
         $stmt->execute([$bookingId]);
         $subject = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($subject) {
-            return $subject;
-        }
     }
 
-    boarding_error(404, 'Boarding booking or assignment was not found.');
+    if (!$subject) {
+        boarding_error(404, 'Boarding booking or assignment was not found.');
+    }
+
+    boarding_assert_booking_branch_access($pdo, $subject);
+
+    if ($bookingId > 0 && (int)$subject['booking_id'] !== $bookingId) {
+        boarding_error(409, 'The selected assignment does not belong to this boarding booking.');
+    }
+
+    if (($subject['service_type'] ?? '') !== 'boarding') {
+        boarding_error(409, 'Documents can only be attached to boarding bookings.');
+    }
+
+    if (($subject['booking_status'] ?? '') === 'cancelled' || ($subject['status'] ?? '') === 'cancelled') {
+        boarding_error(409, 'Documents cannot be attached to a cancelled boarding stay.');
+    }
+
+    $subject['pet_id'] = boarding_resolve_assignment_pet_id($pdo, $subject, $input);
+
+    return $subject;
 }
 
 function boarding_format_document(array $document): array
@@ -1355,14 +1932,23 @@ function boarding_fetch_documents(PDO $pdo, array $filters = []): array
         ['assignment_id', 'bd.assignment_id'],
         ['booking_id', 'bd.booking_id'],
         ['pet_id', 'bd.pet_id'],
+        ['branch_id', 'b.branch_id'],
     ] as [$key, $column]) {
-        if (isset($filters[$key]) && $filters[$key] !== '' && $filters[$key] !== null) {
+        if ((int)($filters[$key] ?? 0) > 0) {
             $conditions[] = "{$column} = ?";
             $params[] = (int)$filters[$key];
         }
     }
 
     $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+    $limitSql = '';
+    $requestedLimit = (int)($filters['limit'] ?? 0);
+    if ($requestedLimit > 0) {
+        $limit = min($requestedLimit, 1000);
+        $offset = max(0, (int)($filters['offset'] ?? 0));
+        $limitSql = "LIMIT {$limit} OFFSET {$offset}";
+    }
+
     $stmt = $pdo->prepare("
         SELECT
             bd.*,
@@ -1375,7 +1961,7 @@ function boarding_fetch_documents(PDO $pdo, array $filters = []): array
         JOIN users u ON u.user_id = b.user_id
         {$whereSql}
         ORDER BY bd.created_at DESC, bd.document_id DESC
-        LIMIT 200
+        {$limitSql}
     ");
     $stmt->execute($params);
 
@@ -1385,6 +1971,7 @@ function boarding_fetch_documents(PDO $pdo, array $filters = []): array
 function boarding_documents_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $branchId = boarding_branch_id($pdo);
         if (!boarding_documents_schema_ready($pdo)) {
             echo json_encode([
                 'schemaReady' => false,
@@ -1400,6 +1987,9 @@ function boarding_documents_action(PDO $pdo): void
                 'assignment_id' => $_GET['assignmentId'] ?? $_GET['assignment_id'] ?? null,
                 'booking_id' => $_GET['bookingId'] ?? $_GET['booking_id'] ?? null,
                 'pet_id' => $_GET['petId'] ?? $_GET['pet_id'] ?? null,
+                'branch_id' => $branchId,
+                'limit' => $_GET['limit'] ?? $_GET['pageSize'] ?? null,
+                'offset' => $_GET['offset'] ?? null,
             ])
         ]);
         return;
@@ -1419,6 +2009,10 @@ function boarding_documents_action(PDO $pdo): void
     if (!$documentPath || !$title) {
         boarding_error(400, 'Document title and document_path are required.');
     }
+    $titleLength = function_exists('mb_strlen') ? mb_strlen($title) : strlen($title);
+    if ($titleLength > 180) {
+        boarding_error(422, 'Document title must be 180 characters or fewer.');
+    }
 
     $allowedTypes = ['monitoring_report', 'boarding_history', 'checkout_summary', 'diagnosis_reference', 'other'];
     $documentType = strtolower(trim((string)($input['document_type'] ?? $input['documentType'] ?? 'monitoring_report')));
@@ -1426,40 +2020,106 @@ function boarding_documents_action(PDO $pdo): void
         $documentType = 'monitoring_report';
     }
 
+    $documentPath = boarding_normalize_document_path($documentPath);
+    $fileMetadata = boarding_document_file_metadata($documentPath, $input);
     $subject = boarding_fetch_document_subject($pdo, $input);
-    $stmt = $pdo->prepare("
-        INSERT INTO boarding_documents (
-            assignment_id,
-            booking_id,
-            pet_id,
-            document_type,
-            title,
-            document_path,
-            file_name,
-            mime_type,
-            notes,
-            uploaded_by_user_id,
-            uploaded_by_name
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([
-        $subject['assignment_id'] !== null ? (int)$subject['assignment_id'] : null,
-        (int)$subject['booking_id'],
-        $subject['pet_id'] !== null ? (int)$subject['pet_id'] : null,
-        $documentType,
-        $title,
-        ltrim($documentPath, '/'),
-        boarding_document_nullable_text($input['file_name'] ?? $input['fileName'] ?? null),
-        boarding_document_nullable_text($input['mime_type'] ?? $input['mimeType'] ?? null),
-        boarding_document_nullable_text($input['notes'] ?? null),
-        isset($input['uploaded_by_user_id']) ? (int)$input['uploaded_by_user_id'] : (isset($input['uploadedByUserId']) ? (int)$input['uploadedByUserId'] : null),
-        boarding_document_nullable_text($input['uploaded_by_name'] ?? $input['uploadedByName'] ?? null),
-    ]);
+    $actor = boarding_current_actor($pdo, $input);
+    $uploadedByName = $actor['name']
+        ?? boarding_document_nullable_text($input['uploaded_by_name'] ?? $input['uploadedByName'] ?? null);
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO boarding_documents (
+                assignment_id,
+                booking_id,
+                pet_id,
+                document_type,
+                title,
+                document_path,
+                file_name,
+                mime_type,
+                notes,
+                uploaded_by_user_id,
+                uploaded_by_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $subject['assignment_id'] !== null ? (int)$subject['assignment_id'] : null,
+            (int)$subject['booking_id'],
+            $subject['pet_id'] !== null ? (int)$subject['pet_id'] : null,
+            $documentType,
+            $title,
+            $documentPath,
+            $fileMetadata['file_name'],
+            $fileMetadata['mime_type'],
+            boarding_document_nullable_text($input['notes'] ?? null),
+            $actor['user_id'],
+            $uploadedByName,
+        ]);
+    } catch (Throwable $e) {
+        boarding_cleanup_unstored_document($pdo, $documentPath);
+        throw $e;
+    }
 
     echo json_encode([
         'message' => 'Boarding document saved.',
         'documentId' => (int)$pdo->lastInsertId()
     ]);
+}
+
+function boarding_monitoring_filters(): array
+{
+    return [
+        'assignment_id' => (int)($_GET['assignmentId'] ?? $_GET['assignment_id'] ?? 0),
+        'booking_id' => (int)($_GET['bookingId'] ?? $_GET['booking_id'] ?? 0),
+        'pet_id' => (int)($_GET['petId'] ?? $_GET['pet_id'] ?? 0),
+    ];
+}
+
+function boarding_monitoring_scope(string $alias, array $filters): array
+{
+    $conditions = [];
+    $params = [];
+    foreach ([
+        'assignment_id' => 'assignment_id',
+        'booking_id' => 'booking_id',
+        'pet_id' => 'pet_id',
+    ] as $filterKey => $columnName) {
+        if (($filters[$filterKey] ?? 0) > 0) {
+            $conditions[] = "{$alias}.{$columnName} = ?";
+            $params[] = (int)$filters[$filterKey];
+        }
+    }
+
+    return [
+        'conditions' => $conditions,
+        'params' => $params,
+    ];
+}
+
+function boarding_monitoring_pagination(): array
+{
+    $rawLimit = $_GET['limit'] ?? $_GET['pageSize'] ?? null;
+    if ($rawLimit === null || $rawLimit === '') {
+        return ['limit' => null, 'offset' => 0, 'page' => 1, 'sql' => ''];
+    }
+
+    $limit = (int)$rawLimit;
+    if ($limit <= 0) {
+        boarding_error(400, 'Monitoring limit must be greater than zero.');
+    }
+    $limit = min($limit, 1000);
+
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $offset = isset($_GET['offset'])
+        ? max(0, (int)$_GET['offset'])
+        : ($page - 1) * $limit;
+
+    return [
+        'limit' => $limit,
+        'offset' => $offset,
+        'page' => $page,
+        'sql' => "LIMIT {$limit} OFFSET {$offset}",
+    ];
 }
 
 function monitoring_action(PDO $pdo): void
@@ -1468,27 +2128,38 @@ function monitoring_action(PDO $pdo): void
         boarding_error(405, 'Method not allowed.');
     }
 
-    $tasksStmt = $pdo->query("
+    $branchId = boarding_branch_id($pdo);
+    $filters = boarding_monitoring_filters();
+    $pagination = boarding_monitoring_pagination();
+    $taskScope = boarding_monitoring_scope('bt', $filters);
+    $taskConditions = array_merge(["bt.status <> 'cancelled'", 'b.branch_id = ?'], $taskScope['conditions']);
+    $taskWhere = 'WHERE ' . implode(' AND ', $taskConditions);
+
+    $tasksStmt = $pdo->prepare("
         SELECT
             bt.*,
             b.booking_number,
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
             COALESCE(p.pet_species, b.petType, 'Pet') AS pet_species,
-            CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name
+            CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name,
+            CONCAT_WS(' ', creator.first_Name, creator.last_Name) AS created_by_name
         FROM boarding_tasks bt
         JOIN bookings b ON b.booking_id = bt.booking_id
         LEFT JOIN pets_information p ON p.pet_id = bt.pet_id
         JOIN users u ON u.user_id = b.user_id
-        WHERE bt.status <> 'cancelled'
+        LEFT JOIN users creator ON creator.user_id = bt.created_by_user_id
+        {$taskWhere}
         ORDER BY
             CASE
                 WHEN bt.status = 'pending' AND bt.due_at < NOW() THEN 0
                 WHEN bt.status = 'pending' THEN 1
                 ELSE 2
             END,
-            bt.due_at ASC
-        LIMIT 200
+            bt.due_at ASC,
+            bt.task_id DESC
+        {$pagination['sql']}
     ");
+    $tasksStmt->execute(array_merge([$branchId], $taskScope['params']));
 
     $tasks = array_map(function ($task) {
         $status = $task['status'];
@@ -1514,23 +2185,33 @@ function monitoring_action(PDO $pdo): void
             'assignedTo' => $task['assigned_to'],
             'notes' => $task['notes'],
             'completedAt' => $task['completed_at'],
+            'createdByUserId' => $task['created_by_user_id'] !== null ? (int)$task['created_by_user_id'] : null,
+            'createdByName' => trim((string)$task['created_by_name']),
+            'createdAt' => $task['created_at'],
         ];
     }, $tasksStmt->fetchAll(PDO::FETCH_ASSOC));
 
-    $observationsStmt = $pdo->query("
+    $observationScope = boarding_monitoring_scope('bo', $filters);
+    $observationConditions = array_merge(['b.branch_id = ?'], $observationScope['conditions']);
+    $observationWhere = 'WHERE ' . implode(' AND ', $observationConditions);
+    $observationsStmt = $pdo->prepare("
         SELECT
             bo.*,
             b.booking_number,
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
             COALESCE(p.pet_species, b.petType, 'Pet') AS pet_species,
-            CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name
+            CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name,
+            CONCAT_WS(' ', creator.first_Name, creator.last_Name) AS created_by_name
         FROM boarding_observations bo
         JOIN bookings b ON b.booking_id = bo.booking_id
         LEFT JOIN pets_information p ON p.pet_id = bo.pet_id
         JOIN users u ON u.user_id = b.user_id
-        ORDER BY bo.observed_at DESC
-        LIMIT 100
+        LEFT JOIN users creator ON creator.user_id = bo.created_by_user_id
+        {$observationWhere}
+        ORDER BY bo.observed_at DESC, bo.observation_id DESC
+        {$pagination['sql']}
     ");
+    $observationsStmt->execute(array_merge([$branchId], $observationScope['params']));
 
     $observations = array_map(function ($observation) {
         return [
@@ -1548,16 +2229,45 @@ function monitoring_action(PDO $pdo): void
             'observationType' => $observation['observation_type'],
             'notes' => $observation['notes'],
             'observedAt' => $observation['observed_at'],
+            'appetiteStatus' => $observation['appetite_status'] ?? null,
+            'waterIntakeStatus' => $observation['water_intake_status'] ?? null,
+            'eliminationStatus' => $observation['elimination_status'] ?? null,
+            'behaviorStatus' => $observation['behavior_status'] ?? null,
+            'temperatureC' => isset($observation['temperature_c']) ? (float)$observation['temperature_c'] : null,
+            'weightKg' => isset($observation['weight_kg']) ? (float)$observation['weight_kg'] : null,
+            'conditionSeverity' => $observation['condition_severity'] ?? null,
+            'requiresVetReview' => isset($observation['requires_vet_review'])
+                ? (bool)$observation['requires_vet_review']
+                : null,
+            'createdByUserId' => $observation['created_by_user_id'] !== null ? (int)$observation['created_by_user_id'] : null,
+            'createdByName' => trim((string)$observation['created_by_name']),
+            'createdAt' => $observation['created_at'],
         ];
     }, $observationsStmt->fetchAll(PDO::FETCH_ASSOC));
 
     $documentSchemaReady = boarding_documents_schema_ready($pdo);
+    $documentFilters = array_merge($filters, [
+        'branch_id' => $branchId,
+        'limit' => $pagination['limit'],
+        'offset' => $pagination['offset'],
+    ]);
+    $documents = $documentSchemaReady ? boarding_fetch_documents($pdo, $documentFilters) : [];
 
     echo json_encode([
         'tasks' => $tasks,
         'observations' => $observations,
         'documentSchemaReady' => $documentSchemaReady,
-        'documents' => $documentSchemaReady ? boarding_fetch_documents($pdo) : [],
+        'documents' => $documents,
+        'pagination' => [
+            'limit' => $pagination['limit'],
+            'offset' => $pagination['offset'],
+            'page' => $pagination['page'],
+            'returned' => [
+                'tasks' => count($tasks),
+                'observations' => count($observations),
+                'documents' => count($documents),
+            ],
+        ],
     ]);
 }
 
@@ -1581,32 +2291,70 @@ function observation_action(PDO $pdo): void
     }
 
     $assignment = fetch_assignment_for_monitoring($pdo, $input);
-    $petId = isset($input['pet_id']) && $input['pet_id'] !== '' ? (int)$input['pet_id'] : (int)($assignment['pet_id'] ?? 0);
+    $petId = boarding_resolve_assignment_pet_id($pdo, $assignment, $input);
+    $actor = boarding_current_actor($pdo, $input);
+    $observedAt = date('Y-m-d H:i:s');
 
-    $stmt = $pdo->prepare("
-        INSERT INTO boarding_observations (
-            assignment_id,
-            booking_id,
-            pet_id,
-            room_type,
-            room_number,
-            observation_type,
-            notes,
-            created_by_user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([
+    $columns = [
+        'assignment_id',
+        'booking_id',
+        'pet_id',
+        'room_type',
+        'room_number',
+        'observation_type',
+        'notes',
+        'observed_at',
+        'created_by_user_id',
+    ];
+    $values = [
         (int)$assignment['assignment_id'],
         (int)$assignment['booking_id'],
-        $petId > 0 ? $petId : null,
+        $petId,
         $assignment['room_type'],
         (int)$assignment['room_number'],
         $type,
         $notes,
-        isset($input['created_by_user_id']) ? (int)$input['created_by_user_id'] : null,
-    ]);
+        $observedAt,
+        $actor['user_id'],
+    ];
+    $structuredValues = [
+        'appetite_status' => boarding_optional_status($input, 'appetite_status', 'appetiteStatus'),
+        'water_intake_status' => boarding_optional_status($input, 'water_intake_status', 'waterIntakeStatus'),
+        'elimination_status' => boarding_optional_status($input, 'elimination_status', 'eliminationStatus'),
+        'behavior_status' => boarding_optional_status($input, 'behavior_status', 'behaviorStatus'),
+        'temperature_c' => boarding_optional_measurement($input, 'temperature_c', 'temperatureC', 20, 50),
+        'weight_kg' => boarding_optional_measurement($input, 'weight_kg', 'weightKg', 0.01, 1000),
+        'condition_severity' => boarding_optional_status($input, 'condition_severity', 'conditionSeverity'),
+        'requires_vet_review' => boarding_optional_boolean($input, 'requires_vet_review', 'requiresVetReview'),
+    ];
 
-    echo json_encode(['message' => 'Observation recorded.']);
+    $storedStructuredFields = [];
+    $skippedStructuredFields = [];
+    foreach ($structuredValues as $columnName => $value) {
+        if ($value === null) {
+            continue;
+        }
+
+        if (boarding_column_exists($pdo, 'boarding_observations', $columnName)) {
+            $columns[] = $columnName;
+            $values[] = is_bool($value) ? (int)$value : $value;
+            $storedStructuredFields[] = $columnName;
+        } else {
+            $skippedStructuredFields[] = $columnName;
+        }
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+    $stmt = $pdo->prepare(
+        'INSERT INTO boarding_observations (' . implode(', ', $columns) . ") VALUES ({$placeholders})"
+    );
+    $stmt->execute($values);
+
+    echo json_encode([
+        'message' => 'Observation recorded.',
+        'structuredFieldsStored' => $storedStructuredFields,
+        'structuredFieldsSkipped' => $skippedStructuredFields,
+    ]);
 }
 
 function task_action(PDO $pdo): void
@@ -1631,7 +2379,8 @@ function task_action(PDO $pdo): void
     }
 
     $assignment = fetch_assignment_for_monitoring($pdo, $input);
-    $petId = isset($input['pet_id']) && $input['pet_id'] !== '' ? (int)$input['pet_id'] : (int)($assignment['pet_id'] ?? 0);
+    $petId = boarding_resolve_assignment_pet_id($pdo, $assignment, $input);
+    $actor = boarding_current_actor($pdo, $input);
     $normalizedDueAt = date('Y-m-d H:i:s', strtotime($dueAt));
 
     $stmt = $pdo->prepare("
@@ -1651,17 +2400,602 @@ function task_action(PDO $pdo): void
     $stmt->execute([
         (int)$assignment['assignment_id'],
         (int)$assignment['booking_id'],
-        $petId > 0 ? $petId : null,
+        $petId,
         $assignment['room_type'],
         (int)$assignment['room_number'],
         $type,
         $normalizedDueAt,
         $assignedTo !== '' ? $assignedTo : null,
         $notes !== '' ? $notes : null,
-        isset($input['created_by_user_id']) ? (int)$input['created_by_user_id'] : null,
+        $actor['user_id'],
     ]);
 
     echo json_encode(['message' => 'Task scheduled.']);
+}
+
+function boarding_materials_schema_ready(PDO $pdo): bool
+{
+    if (!boarding_table_exists($pdo, 'boarding_material_usages')) {
+        return false;
+    }
+
+    foreach ([
+        'usage_id',
+        'client_reference',
+        'assignment_id',
+        'booking_id',
+        'pet_id',
+        'item_id',
+        'item_name',
+        'category',
+        'unit',
+        'quantity',
+        'unit_price',
+        'notes',
+        'status',
+        'recorded_by_user_id',
+        'recorded_by_name',
+        'voided_by_user_id',
+        'voided_by_name',
+        'voided_at',
+        'created_at',
+        'updated_at',
+    ] as $columnName) {
+        if (!boarding_column_exists($pdo, 'boarding_material_usages', $columnName)) {
+            return false;
+        }
+    }
+
+    return boarding_index_exists(
+        $pdo,
+        'boarding_material_usages',
+        'boarding_material_client_reference_unique'
+    );
+}
+
+function boarding_material_billing_trace_ready(PDO $pdo): bool
+{
+    return boarding_materials_schema_ready($pdo)
+        && boarding_table_exists($pdo, 'visit_charges')
+        && boarding_column_exists($pdo, 'visit_charges', 'boarding_material_usage_id')
+        && boarding_index_exists($pdo, 'visit_charges', 'visit_charges_boarding_material_unique')
+        && boarding_constraint_exists($pdo, 'visit_charges', 'visit_charges_boarding_material_fk');
+}
+
+function boarding_materials_missing_message(): string
+{
+    return 'Boarding material usage schema is not installed. Run DDL/20260723_01_backend_integrity_schema.sql first.';
+}
+
+function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookingId): void
+{
+    foreach (['visits', 'visit_payments'] as $tableName) {
+        if (!boarding_table_exists($pdo, $tableName)) {
+            boarding_error(
+                409,
+                'Boarding materials cannot be changed until the visit billing migration is installed.'
+            );
+        }
+    }
+
+    $visitLockStmt = $pdo->prepare("
+        SELECT visit_id
+        FROM visits
+        WHERE booking_id = ?
+        ORDER BY visit_id ASC
+        FOR UPDATE
+    ");
+    $visitLockStmt->execute([$bookingId]);
+    $visitLockStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    $paymentStmt = $pdo->prepare("
+        SELECT vp.payment_status
+        FROM visit_payments vp
+        JOIN visits v ON v.visit_id = vp.visit_id
+        WHERE v.booking_id = ?
+          AND vp.payment_status IN ('verified', 'refunded')
+        ORDER BY vp.payment_id ASC
+        LIMIT 1
+    ");
+    $paymentStmt->execute([$bookingId]);
+    $lockedPaymentStatus = (string)($paymentStmt->fetchColumn() ?: '');
+    if ($lockedPaymentStatus !== '') {
+        boarding_error(
+            409,
+            'Boarding materials are locked because this stay has a '
+            . $lockedPaymentStatus
+            . ' payment. Resolve billing through the payment record instead of changing the recorded stay.'
+        );
+    }
+}
+
+function boarding_format_material_usage(array $row): array
+{
+    $visitChargeId = isset($row['visit_charge_id']) && $row['visit_charge_id'] !== null
+        ? (int)$row['visit_charge_id']
+        : null;
+    $assignmentStatus = (string)($row['assignment_status'] ?? '');
+    $hasLockedPayment = !empty($row['has_locked_payment']);
+
+    return [
+        'id' => 'material-' . (int)$row['usage_id'],
+        'usageId' => (int)$row['usage_id'],
+        'clientReference' => $row['client_reference'] ?? null,
+        'assignmentId' => (int)$row['assignment_id'],
+        'bookingId' => (int)$row['booking_id'],
+        'bookingNumber' => $row['booking_number'] ?? '',
+        'petId' => $row['pet_id'] !== null ? (int)$row['pet_id'] : null,
+        'petName' => $row['pet_name'] ?? 'Pet',
+        'roomLabel' => room_type_label((string)$row['room_type']) . ' #' . (int)$row['room_number'],
+        'inventoryId' => $row['item_id'] !== null ? (string)$row['item_id'] : null,
+        'itemId' => $row['item_id'] !== null ? (int)$row['item_id'] : null,
+        'itemName' => $row['item_name'],
+        'category' => $row['category'] ?? '',
+        'quantity' => (float)$row['quantity'],
+        'unit' => $row['unit'],
+        'unitPrice' => (float)$row['unit_price'],
+        'notes' => $row['notes'] ?? '',
+        'status' => $row['status'],
+        'assignmentStatus' => $assignmentStatus,
+        'visitChargeId' => $visitChargeId,
+        'billedVisitId' => isset($row['billed_visit_id']) && $row['billed_visit_id'] !== null
+            ? (int)$row['billed_visit_id']
+            : null,
+        'isBilled' => $visitChargeId !== null,
+        'hasLockedPayment' => $hasLockedPayment,
+        'canRemove' => ($row['status'] ?? '') === 'recorded'
+            && in_array($assignmentStatus, ['reserved', 'occupied'], true)
+            && $visitChargeId === null
+            && !$hasLockedPayment,
+        'createdAt' => $row['created_at'],
+        'createdByUserId' => $row['recorded_by_user_id'] !== null ? (int)$row['recorded_by_user_id'] : null,
+        'createdByName' => $row['recorded_by_name'] ?? '',
+        'voidedAt' => $row['voided_at'],
+        'voidedByUserId' => $row['voided_by_user_id'] !== null ? (int)$row['voided_by_user_id'] : null,
+        'voidedByName' => $row['voided_by_name'] ?? '',
+    ];
+}
+
+function boarding_fetch_material_usages(PDO $pdo, array $filters = []): array
+{
+    $conditions = [];
+    $params = [];
+    foreach ([
+        'usage_id' => 'bmu.usage_id',
+        'assignment_id' => 'bmu.assignment_id',
+        'booking_id' => 'bmu.booking_id',
+        'pet_id' => 'bmu.pet_id',
+        'branch_id' => 'b.branch_id',
+    ] as $filterKey => $columnName) {
+        if ((int)($filters[$filterKey] ?? 0) > 0) {
+            $conditions[] = "{$columnName} = ?";
+            $params[] = (int)$filters[$filterKey];
+        }
+    }
+
+    if (empty($filters['include_voided'])) {
+        $conditions[] = "bmu.status = 'recorded'";
+    }
+
+    $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+    $limitSql = '';
+    if ((int)($filters['limit'] ?? 0) > 0) {
+        $limit = min(1000, (int)$filters['limit']);
+        $offset = max(0, (int)($filters['offset'] ?? 0));
+        $limitSql = "LIMIT {$limit} OFFSET {$offset}";
+    }
+
+    $chargeSelectSql = 'NULL AS visit_charge_id, NULL AS billed_visit_id';
+    $chargeJoinSql = '';
+    if (boarding_material_billing_trace_ready($pdo)) {
+        $chargeSelectSql = 'vc.charge_id AS visit_charge_id, vc.visit_id AS billed_visit_id';
+        $chargeJoinSql = '
+            LEFT JOIN visit_charges vc
+              ON vc.boarding_material_usage_id = bmu.usage_id
+        ';
+    }
+
+    $lockedPaymentSelectSql = '0 AS has_locked_payment';
+    if (boarding_table_exists($pdo, 'visits') && boarding_table_exists($pdo, 'visit_payments')) {
+        $lockedPaymentSelectSql = "
+            EXISTS (
+                SELECT 1
+                FROM visits payment_visit
+                JOIN visit_payments vp ON vp.visit_id = payment_visit.visit_id
+                WHERE payment_visit.booking_id = bmu.booking_id
+                  AND vp.payment_status IN ('verified', 'refunded')
+            ) AS has_locked_payment
+        ";
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            bmu.*,
+            ba.room_type,
+            ba.room_number,
+            ba.status AS assignment_status,
+            b.booking_number,
+            COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+            {$chargeSelectSql},
+            {$lockedPaymentSelectSql}
+        FROM boarding_material_usages bmu
+        JOIN boarding_assignments ba ON ba.assignment_id = bmu.assignment_id
+        JOIN bookings b ON b.booking_id = bmu.booking_id
+        LEFT JOIN pets_information p ON p.pet_id = bmu.pet_id
+        {$chargeJoinSql}
+        {$whereSql}
+        ORDER BY bmu.created_at DESC, bmu.usage_id DESC
+        {$limitSql}
+    ");
+    $stmt->execute($params);
+
+    return array_map('boarding_format_material_usage', $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function boarding_materials_action(PDO $pdo): void
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $branchId = boarding_branch_id($pdo);
+        if (!boarding_materials_schema_ready($pdo)) {
+            echo json_encode([
+                'schemaReady' => false,
+                'billingTraceReady' => false,
+                'message' => boarding_materials_missing_message(),
+                'materials' => [],
+            ]);
+            return;
+        }
+
+        $includeVoided = filter_var(
+            $_GET['includeVoided'] ?? $_GET['include_voided'] ?? false,
+            FILTER_VALIDATE_BOOLEAN
+        );
+        echo json_encode([
+            'schemaReady' => true,
+            'billingTraceReady' => boarding_material_billing_trace_ready($pdo),
+            'materials' => boarding_fetch_material_usages($pdo, [
+                'assignment_id' => $_GET['assignmentId'] ?? $_GET['assignment_id'] ?? null,
+                'booking_id' => $_GET['bookingId'] ?? $_GET['booking_id'] ?? null,
+                'pet_id' => $_GET['petId'] ?? $_GET['pet_id'] ?? null,
+                'branch_id' => $branchId,
+                'include_voided' => $includeVoided,
+                'limit' => $_GET['limit'] ?? $_GET['pageSize'] ?? null,
+                'offset' => $_GET['offset'] ?? null,
+            ]),
+        ]);
+        return;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        boarding_error(405, 'Method not allowed.');
+    }
+
+    if (!boarding_materials_schema_ready($pdo)) {
+        boarding_error(409, boarding_materials_missing_message());
+    }
+
+    $input = boarding_json_input();
+    $pdo->beginTransaction();
+    $assignment = fetch_assignment_for_monitoring($pdo, $input);
+    fetch_boarding_booking($pdo, (int)$assignment['booking_id'], true);
+    $lockedAssignment = fetch_active_assignment($pdo, (int)$assignment['booking_id'], true);
+    if (
+        !$lockedAssignment
+        || (int)$lockedAssignment['assignment_id'] !== (int)$assignment['assignment_id']
+    ) {
+        boarding_error(409, 'The boarding assignment is no longer active. Refresh and try again.');
+    }
+    $assignment = array_merge($assignment, $lockedAssignment);
+    boarding_lock_visits_and_assert_materials_mutable($pdo, (int)$assignment['booking_id']);
+    $petId = boarding_resolve_assignment_pet_id($pdo, $assignment, $input);
+    $itemId = (int)($input['item_id'] ?? $input['itemId'] ?? $input['inventory_id'] ?? $input['inventoryId'] ?? 0);
+    $quantity = (float)($input['quantity'] ?? 0);
+    $clientReference = boarding_document_nullable_text(
+        $input['client_reference'] ?? $input['clientReference'] ?? null
+    );
+    $hasClientReference = boarding_column_exists($pdo, 'boarding_material_usages', 'client_reference');
+
+    if ($itemId <= 0) {
+        boarding_error(400, 'Select a valid inventory item.');
+    }
+    if (!is_finite($quantity) || $quantity <= 0 || abs($quantity - round($quantity)) > 0.0001) {
+        boarding_error(400, 'Material quantity must be a positive whole number.');
+    }
+    $clientReferenceLength = $clientReference === null
+        ? 0
+        : (function_exists('mb_strlen') ? mb_strlen($clientReference) : strlen($clientReference));
+    if ($clientReferenceLength > 100) {
+        boarding_error(422, 'Material client reference must be 100 characters or fewer.');
+    }
+    $unitPriceInput = $input['unit_price'] ?? $input['unitPrice'] ?? null;
+    if (
+        $unitPriceInput !== null
+        && $unitPriceInput !== ''
+        && (
+            !is_numeric($unitPriceInput)
+            || !is_finite((float)$unitPriceInput)
+            || (float)$unitPriceInput < 0
+        )
+    ) {
+        boarding_error(400, 'Material unit price must be a valid non-negative number.');
+    }
+
+    if ($hasClientReference && $clientReference !== null) {
+        $existingReferenceStmt = $pdo->prepare("
+            SELECT usage_id, item_id, quantity, unit_price, status
+            FROM boarding_material_usages
+            WHERE assignment_id = ?
+              AND client_reference = ?
+            LIMIT 1
+        ");
+        $existingReferenceStmt->execute([(int)$assignment['assignment_id'], $clientReference]);
+        $existingUsage = $existingReferenceStmt->fetch(PDO::FETCH_ASSOC);
+        $existingUsageId = (int)($existingUsage['usage_id'] ?? 0);
+        if ($existingUsageId > 0) {
+            if (($existingUsage['status'] ?? '') !== 'recorded') {
+                boarding_error(
+                    409,
+                    'This material client reference belongs to a voided record. Remove the local line and add it again if it is still needed.'
+                );
+            }
+            if (
+                (int)$existingUsage['item_id'] !== $itemId
+                || abs((float)$existingUsage['quantity'] - $quantity) > 0.0001
+                || (
+                    $unitPriceInput !== null
+                    && $unitPriceInput !== ''
+                    && abs((float)$existingUsage['unit_price'] - (float)$unitPriceInput) > 0.009
+                )
+            ) {
+                boarding_error(409, 'This material client reference is already used by a different material record.');
+            }
+            $materials = boarding_fetch_material_usages($pdo, [
+                'usage_id' => $existingUsageId,
+                'include_voided' => true,
+            ]);
+            $pdo->commit();
+            echo json_encode([
+                'schemaReady' => true,
+                'billingTraceReady' => boarding_material_billing_trace_ready($pdo),
+                'message' => 'Boarding material already recorded.',
+                'material' => $materials[0] ?? null,
+            ]);
+            return;
+        }
+    }
+
+    $itemStmt = $pdo->prepare("
+        SELECT item_id, item_name, category, unit, unit_cost, status
+        FROM inventory_items
+        WHERE item_id = ?
+        LIMIT 1
+    ");
+    $itemStmt->execute([$itemId]);
+    $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$item || ($item['status'] ?? '') !== 'active') {
+        boarding_error(404, 'The selected active inventory item was not found.');
+    }
+
+    if (boarding_table_exists($pdo, 'inventory_batches')) {
+        $stockStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(quantity), 0)
+            FROM inventory_batches
+            WHERE item_id = ?
+              AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+        ");
+        $stockStmt->execute([$itemId]);
+        $availableQuantity = (float)$stockStmt->fetchColumn();
+        if ($quantity > $availableQuantity + 0.0001) {
+            boarding_error(
+                409,
+                $item['item_name'] . ' has only ' . number_format($availableQuantity, 2) . ' ' . $item['unit'] . ' in stock.'
+            );
+        }
+    }
+
+    $unitPrice = ($unitPriceInput === null || $unitPriceInput === '')
+        ? (float)$item['unit_cost']
+        : (float)$unitPriceInput;
+    if (!is_finite($unitPrice) || $unitPrice < 0) {
+        boarding_error(400, 'Material unit price must be a valid non-negative number.');
+    }
+
+    $actor = boarding_current_actor($pdo, $input);
+    $columns = [
+        'assignment_id',
+        'booking_id',
+        'pet_id',
+        'item_id',
+        'item_name',
+        'category',
+        'unit',
+        'quantity',
+        'unit_price',
+        'notes',
+        'recorded_by_user_id',
+        'recorded_by_name',
+    ];
+    $values = [
+        (int)$assignment['assignment_id'],
+        (int)$assignment['booking_id'],
+        $petId,
+        $itemId,
+        $item['item_name'],
+        boarding_document_nullable_text($item['category'] ?? null),
+        $item['unit'],
+        round($quantity, 2),
+        round($unitPrice, 2),
+        boarding_document_nullable_text($input['notes'] ?? null),
+        $actor['user_id'],
+        $actor['name'],
+    ];
+    if ($hasClientReference && $clientReference !== null) {
+        array_unshift($columns, 'client_reference');
+        array_unshift($values, $clientReference);
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+    $stmt = $pdo->prepare(
+        'INSERT INTO boarding_material_usages (`'
+        . implode('`, `', $columns)
+        . "`) VALUES ({$placeholders})"
+    );
+    try {
+        $stmt->execute($values);
+    } catch (PDOException $e) {
+        if ($hasClientReference && $clientReference !== null && $e->getCode() === '23000') {
+            $existingReferenceStmt = $pdo->prepare("
+                SELECT usage_id, item_id, quantity, unit_price, status
+                FROM boarding_material_usages
+                WHERE assignment_id = ?
+                  AND client_reference = ?
+                LIMIT 1
+            ");
+            $existingReferenceStmt->execute([(int)$assignment['assignment_id'], $clientReference]);
+            $existingUsage = $existingReferenceStmt->fetch(PDO::FETCH_ASSOC);
+            $existingUsageId = (int)($existingUsage['usage_id'] ?? 0);
+            if ($existingUsageId > 0) {
+                if (($existingUsage['status'] ?? '') !== 'recorded') {
+                    boarding_error(
+                        409,
+                        'This material client reference belongs to a voided record. Remove the local line and add it again if it is still needed.'
+                    );
+                }
+                if (
+                    (int)$existingUsage['item_id'] !== $itemId
+                    || abs((float)$existingUsage['quantity'] - $quantity) > 0.0001
+                    || abs((float)$existingUsage['unit_price'] - $unitPrice) > 0.009
+                ) {
+                    boarding_error(409, 'This material client reference is already used by a different material record.');
+                }
+                $materials = boarding_fetch_material_usages($pdo, [
+                    'usage_id' => $existingUsageId,
+                    'include_voided' => true,
+                ]);
+                $pdo->commit();
+                echo json_encode([
+                    'schemaReady' => true,
+                    'billingTraceReady' => boarding_material_billing_trace_ready($pdo),
+                    'message' => 'Boarding material already recorded.',
+                    'material' => $materials[0] ?? null,
+                ]);
+                return;
+            }
+        }
+        throw $e;
+    }
+    $usageId = (int)$pdo->lastInsertId();
+    $materials = boarding_fetch_material_usages($pdo, ['usage_id' => $usageId, 'include_voided' => true]);
+    $pdo->commit();
+
+    echo json_encode([
+        'schemaReady' => true,
+        'billingTraceReady' => boarding_material_billing_trace_ready($pdo),
+        'message' => 'Boarding material recorded.',
+        'material' => $materials[0] ?? null,
+    ]);
+}
+
+function boarding_material_item_action(PDO $pdo): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'DELETE' && $_SERVER['REQUEST_METHOD'] !== 'PATCH') {
+        boarding_error(405, 'Method not allowed.');
+    }
+
+    if (!boarding_materials_schema_ready($pdo)) {
+        boarding_error(409, boarding_materials_missing_message());
+    }
+
+    $usageId = (int)($_GET['usageId'] ?? 0);
+    if ($usageId <= 0) {
+        boarding_error(400, 'Boarding material usage ID is required.');
+    }
+
+    $existingBeforeLock = boarding_fetch_material_usages($pdo, [
+        'usage_id' => $usageId,
+        'include_voided' => true,
+    ]);
+    if (empty($existingBeforeLock)) {
+        boarding_error(404, 'Boarding material usage was not found.');
+    }
+
+    $pdo->beginTransaction();
+    $bookingId = (int)$existingBeforeLock[0]['bookingId'];
+    fetch_boarding_booking($pdo, $bookingId, true);
+    $lockedAssignment = fetch_active_assignment($pdo, $bookingId, true);
+    if (
+        !$lockedAssignment
+        || (int)$lockedAssignment['assignment_id'] !== (int)$existingBeforeLock[0]['assignmentId']
+    ) {
+        boarding_error(409, 'Boarding materials cannot be removed after checkout or cancellation.');
+    }
+    boarding_lock_visits_and_assert_materials_mutable($pdo, $bookingId);
+
+    $usageLockStmt = $pdo->prepare("
+        SELECT
+            bmu.status,
+            bmu.booking_id,
+            ba.status AS assignment_status
+        FROM boarding_material_usages bmu
+        JOIN boarding_assignments ba ON ba.assignment_id = bmu.assignment_id
+        WHERE bmu.usage_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $usageLockStmt->execute([$usageId]);
+    $existing = $usageLockStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$existing) {
+        boarding_error(404, 'Boarding material usage was not found.');
+    }
+    if ((int)$existing['booking_id'] !== $bookingId) {
+        boarding_error(409, 'Boarding material usage changed while it was being updated. Refresh and try again.');
+    }
+    if (!in_array((string)$existing['assignment_status'], ['reserved', 'occupied'], true)) {
+        boarding_error(409, 'Boarding materials cannot be removed after checkout or cancellation.');
+    }
+    if (($existing['status'] ?? '') === 'voided') {
+        $pdo->commit();
+        echo json_encode(['message' => 'Boarding material removed.']);
+        return;
+    }
+
+    if (boarding_material_billing_trace_ready($pdo)) {
+        $chargeStmt = $pdo->prepare("
+            SELECT charge_id
+            FROM visit_charges
+            WHERE boarding_material_usage_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $chargeStmt->execute([$usageId]);
+        if ((int)($chargeStmt->fetchColumn() ?: 0) > 0) {
+            boarding_error(
+                409,
+                'This material is already linked to an invoice charge. Remove it from the unpaid invoice before removing the usage record.'
+            );
+        }
+    }
+
+    $actor = boarding_current_actor($pdo);
+    $stmt = $pdo->prepare("
+        UPDATE boarding_material_usages
+        SET status = 'voided',
+            voided_by_user_id = ?,
+            voided_by_name = ?,
+            voided_at = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE usage_id = ?
+          AND status = 'recorded'
+    ");
+    $stmt->execute([
+        $actor['user_id'],
+        $actor['name'],
+        date('Y-m-d H:i:s'),
+        $usageId,
+    ]);
+    $pdo->commit();
+
+    echo json_encode(['message' => 'Boarding material removed.']);
 }
 
 function task_complete_action(PDO $pdo): void
@@ -1675,15 +3009,51 @@ function task_complete_action(PDO $pdo): void
         boarding_error(400, 'Task ID is required.');
     }
 
+    $taskStmt = $pdo->prepare("
+        SELECT
+            bt.status,
+            ba.status AS assignment_status,
+            b.status AS booking_status,
+            b.service_type
+        FROM boarding_tasks bt
+        LEFT JOIN boarding_assignments ba ON ba.assignment_id = bt.assignment_id
+        JOIN bookings b ON b.booking_id = bt.booking_id
+        WHERE bt.task_id = ?
+        LIMIT 1
+    ");
+    $taskStmt->execute([$taskId]);
+    $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$task) {
+        boarding_error(404, 'Boarding task not found.');
+    }
+
+    if (($task['status'] ?? '') === 'completed') {
+        echo json_encode(['message' => 'Task marked complete.']);
+        return;
+    }
+
+    if (($task['status'] ?? '') === 'cancelled') {
+        boarding_error(409, 'Cancelled boarding tasks cannot be completed.');
+    }
+
+    if (
+        ($task['service_type'] ?? '') !== 'boarding'
+        || ($task['booking_status'] ?? '') === 'cancelled'
+        || !in_array((string)($task['assignment_status'] ?? ''), ['reserved', 'occupied'], true)
+    ) {
+        boarding_error(409, 'This task can no longer be completed because the boarding stay is not active.');
+    }
+
+    $completedAt = date('Y-m-d H:i:s');
     $stmt = $pdo->prepare("
         UPDATE boarding_tasks
         SET status = 'completed',
-            completed_at = NOW(),
+            completed_at = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE task_id = ?
           AND status = 'pending'
     ");
-    $stmt->execute([$taskId]);
+    $stmt->execute([$completedAt, $taskId]);
 
     echo json_encode(['message' => 'Task marked complete.']);
 }
@@ -1727,6 +3097,12 @@ try {
             break;
         case 'documents':
             boarding_documents_action($pdo);
+            break;
+        case 'materials':
+            boarding_materials_action($pdo);
+            break;
+        case 'material-item':
+            boarding_material_item_action($pdo);
             break;
         case 'observation':
             observation_action($pdo);

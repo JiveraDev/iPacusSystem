@@ -1,308 +1,1271 @@
-function PolicySection({ title, children }) {
+export const REGISTRATION_TERMS_VERSION = '0.2';
+export const REGISTRATION_TERMS_EFFECTIVE_DATE = '28 July 2026';
+export const REGISTRATION_TERMS_DOCUMENT_ID = 'ipawcus-registration-terms-and-privacy-v0.2-2026-07-28';
+
+const DOCUMENT_BLOCKS = [
+    {
+        "type":  "part",
+        "text":  "Part I — Pet Owner Terms of Use and General Service Conditions"
+    },
+    {
+        "type":  "section",
+        "text":  "1. Agreement and operator"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "iPawcus is a veterinary-management and pet electronic-medical-record platform operated for Vetfocus Care Animal Clinic (“Clinic,” “we,” “us,” or “our”) in Lucena City, Quezon, Philippines."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Clinic details:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "Registered business name: Vetfocus Care Animal Clinic (verify the exact spelling against the Clinic’s DTI/BIR registration)",
+                      "Clinic address: Oakbrook Avenue corner Clayton Street, Phase 3, Pleasantville Subdivision, Barangay Ilayang Iyam, Lucena City, Quezon 4301, Philippines",
+                      "Telephone/mobile number: (042) 421-9086 / 0933 476 8522",
+                      "General email: support@ipawcus.com (proposed—create and test before publication)",
+                      "Privacy contact: Designated Privacy Officer, vetfocuscare@ipawcus.com (proposed—formally appoint the officer and activate the address before publication)"
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "By selecting the required registration checkbox and creating an account, the user confirms that the user has read, understood, and agrees to these Terms of Use. The Privacy Notice in Part II explains how personal data is processed. Any optional processing, such as direct marketing or promotional use of photographs, requires a separate choice and is not a condition of registration."
+    },
+    {
+        "type":  "section",
+        "text":  "2. Eligibility and authority"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user must be at least 18 years old and legally capable of entering into this agreement. A person below 18 may use the system only through an account controlled by a parent or legal guardian and only if the Clinic adopts a written minor-use policy."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user represents that:"
+    },
+    {
+        "type":  "list",
+        "ordered":  true,
+        "items":  [
+                      "the registration information supplied is accurate and current;",
+                      "the user is the pet’s owner or is properly authorized by the owner to manage the pet’s account and request services;",
+                      "the user has authority to provide the personal information of an emergency contact or authorized representative;",
+                      "the user will not impersonate another person, veterinarian, staff member, or pet owner; and",
+                      "the user will notify the Clinic of any ownership dispute or restriction on treatment authority."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Registration does not by itself prove legal ownership of an animal. The Clinic may request identification, vaccination documents, adoption papers, previous medical records, proof of ownership, or authorization from another owner when reasonably necessary."
+    },
+    {
+        "type":  "section",
+        "text":  "3. Account security"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user is responsible for keeping account credentials, verification codes, and access devices secure. The user must not share passwords or verification codes with another person. Any suspected unauthorized access must be reported promptly to the Clinic."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic may require email verification, suspend an account, limit access, or request additional identity verification when there is suspected fraud, unauthorized access, abuse, an ownership dispute, a risk to an animal, or a violation of these Terms."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Account deactivation does not automatically erase veterinary medical records, consent records, financial records, or other information that the Clinic must retain for lawful clinical, contractual, tax, security, or legal-claim purposes."
+    },
+    {
+        "type":  "section",
+        "text":  "4. Permitted use of iPawcus"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Pet owners may use iPawcus for supported activities such as:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "maintaining their account and contact information;",
+                      "viewing pets properly linked to their account;",
+                      "requesting appointments and joining supported queues;",
+                      "receiving booking, queue, payment, medication, and follow-up notifications;",
+                      "accessing medical information that has been finalized and released by the Clinic;",
+                      "participating in approved online consultations;",
+                      "submitting service-specific consent and payment proof when required; and",
+                      "viewing or obtaining supported copies of prescriptions, invoices, receipts, and medical summaries."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user must not:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "access another person’s account or another pet’s restricted records;",
+                      "submit false, misleading, altered, unlawful, or malicious information;",
+                      "upload malware, prohibited files, or material that violates another person’s rights;",
+                      "interfere with the operation, security, queue, schedule, payment, or access controls of the system;",
+                      "use prescriptions, medical records, signatures, invoices, or receipts fraudulently;",
+                      "scrape, resell, reverse engineer, or commercially exploit protected system content except as allowed by law; or",
+                      "threaten, harass, abuse, or endanger Clinic personnel, other clients, or animals."
+                  ]
+    },
+    {
+        "type":  "section",
+        "text":  "5. Pet profiles, ownership, and co-owner access"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "A pet profile may be linked to a primary owner and, where supported, approved co-owners or co-parents. Each authorized user must use only that user’s own account."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user understands that:"
+    },
+    {
+        "type":  "list",
+        "ordered":  true,
+        "items":  [
+                      "a sharable pet identifier must be protected and shared only with trusted persons;",
+                      "co-owner access may expose pet appointments, released medical information, prescriptions, and other pet-related records;",
+                      "the Clinic may pause non-emergency requests when owners dispute access or treatment authority;",
+                      "the Clinic may require the primary owner or another legally authorized person to approve an invasive, high-risk, end-of-life, or financially substantial procedure; and",
+                      "an emergency contact does not automatically have authority to approve treatment, CPR/DNR, euthanasia, transfer, or release of remains unless the owner has granted that authority in a separate record accepted by the Clinic."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Proposed clinic policy: Approved co-owners may view released pet records, request appointments, and authorize routine or previously approved care. Only the primary owner—or a legally authorized representative specifically recorded by the Clinic—may authorize surgery, anesthesia, euthanasia, CPR/DNR instructions, release or disposition of remains, or another invasive, high-risk, end-of-life, or financially substantial decision. A co-owner may exercise such authority only when the primary owner has granted it in a separate Clinic-approved authorization. The Clinic may require proof of authority and may pause non-emergency treatment during an ownership dispute."
+    },
+    {
+        "type":  "section",
+        "text":  "6. Appointment requests and service availability"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Submitting a booking request does not guarantee an appointment, veterinarian, room, time, price, or service. A booking becomes confirmed only after Clinic review and confirmation through the system or another official Clinic channel."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic may approve, decline, reschedule, prioritize, or refer a request based on veterinarian availability, equipment, staffing, case urgency, animal-welfare considerations, the pet’s condition, service eligibility, or safety."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Displayed prices may be estimates, starting prices, or ranges. The final price may depend on weight, species, clinical findings, medicine, supplies, laboratory work, anesthesia, boarding duration, room, transport, complications, and services actually provided. The Clinic must explain material additional charges and obtain authorization when reasonably practicable."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Proposed clinic policies—the applicable policy and any service-specific variation must be displayed before confirmation or payment:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "Cancellation: The owner should cancel at least 24 hours before the confirmed appointment. A shorter period may apply to boarding, surgery, home service, or another service that reserves staff, supplies, transport, or facilities, but it must be shown before payment.",
+                      "Rescheduling: The owner may request one reschedule without an administrative fee when the request is made at least 24 hours before the appointment. The new schedule remains subject to veterinarian and facility availability. Clinic-initiated rescheduling does not count against the owner.",
+                      "No-show: A missed appointment may be marked as a no-show and returned to the booking process. No general no-show fee applies unless a deposit-required service disclosed a non-refundable reservation amount before payment. Repeated no-shows may require a deposit for later bookings.",
+                      "Deposits: No deposit is required for an ordinary appointment unless disclosed during booking. The Clinic may require a clearly stated deposit for surgery, special procedures, online consultation, home service, boarding/confinement, or another service involving reserved resources or advance purchases.",
+                      "Refunds: If the Clinic cancels a prepaid service that was not provided, the unused amount is refundable or transferable at the owner’s choice. If the owner cancels at least 24 hours in advance, the unused deposit is refundable or transferable unless a clearly disclosed non-refundable third-party or specially ordered cost has already been incurred. Late cancellation and no-show deposits may be retained only under the policy disclosed before payment. Approved refunds should be processed within 5–10 business days, subject to the payment channel.",
+                      "Processing charges: Non-refundable fees actually charged by a bank or payment provider may be deducted from a refund only when they were disclosed before payment and are not caused by a Clinic billing error. The Clinic must not add an undisclosed payment surcharge."
+                  ]
+    },
+    {
+        "type":  "section",
+        "text":  "7. Payments, billing, and proof of payment"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The system may support cash and approved manual or electronic payment methods identified by the Clinic, which may include QR Ph, GCash, Maya, or bank transfer. Availability may change."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user must provide accurate payment information and authentic proof of payment. Uploading proof does not establish payment until the Clinic verifies receipt. The Clinic must not promise a verification deadline unless it can operationally meet and monitor that deadline."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "A bill may include professional services, diagnostic tests, medicines, vaccines, supplies, consumables, room or boarding charges, home-service or transport charges, taxes, and other authorized items. Included and separately billable materials should be identified in the service catalog or final bill."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "If a pet deteriorates or dies, charges already incurred for examinations, stabilization, medicines, diagnostics, professional services, hospitalization, or other properly authorized care may remain payable. This does not prevent the owner from disputing an inaccurate or unauthorized charge or raising a complaint about the standard of care."
+    },
+    {
+        "type":  "section",
+        "text":  "8. Veterinary relationship and professional judgment"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "iPawcus assists with records, scheduling, communication, consent capture, billing, and access to released information. It does not replace the professional judgment of a licensed veterinarian."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Only a properly authorized and licensed veterinarian may diagnose, prescribe, perform surgery, or undertake other acts reserved to veterinarians under Philippine law. Administrative staff may assist with scheduling, records, billing, patient flow, and authorized clinical-support tasks but must not represent administrative guidance as a veterinary diagnosis."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The attending veterinarian may:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "recommend diagnostic tests, treatment, monitoring, referral, confinement, or follow-up;",
+                      "decline or postpone a procedure when the pet is not medically fit or required preparation was not followed;",
+                      "require an in-person examination before diagnosing, prescribing, or continuing an online consultation; or",
+                      "refer the pet to another facility when the required service, equipment, expertise, staffing, or emergency capacity is unavailable."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Veterinary medicine cannot guarantee recovery, survival, a particular response to treatment, or freedom from adverse effects. Any material known risks, reasonable alternatives, likely benefits, and expected costs of a proposed high-risk procedure should be explained through the appropriate informed-consent process."
+    },
+    {
+        "type":  "section",
+        "text":  "9. Owner responsibilities concerning the pet"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner or authorized representative must, to the best of that person’s knowledge:"
+    },
+    {
+        "type":  "list",
+        "ordered":  true,
+        "items":  [
+                      "provide complete and truthful information about the pet’s identity, history, symptoms, diet, allergies, medicines, prior reactions, pregnancy or reproductive status, vaccination status, infectious-disease exposure, behavior, and bite or aggression history;",
+                      "disclose changes in the pet’s condition before treatment;",
+                      "follow fasting, medication, isolation, vaccination, preparation, discharge, and follow-up instructions;",
+                      "transport and control the pet using an appropriate leash, carrier, harness, or other safe restraint;",
+                      "remain reachable using the registered contact details while the pet is receiving care;",
+                      "identify who may authorize additional treatment and the applicable financial limit;",
+                      "collect the pet at the agreed time and follow boarding or confinement discharge rules; and",
+                      "treat Clinic personnel, other clients, and animals respectfully and safely."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Failure to disclose important medical or behavioral information may increase risk, delay treatment, require additional precautions or charges, or result in postponement or refusal of a non-emergency service."
+    },
+    {
+        "type":  "section",
+        "text":  "10. Humane handling, restraint, and safety"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic must handle animals humanely and use reasonable precautions appropriate to the pet’s condition, behavior, species, and proposed service. Staff should verify the pet and intended service, review known allergies and warnings, and use appropriately trained personnel and veterinary supervision."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Reasonable physical restraint, a leash, carrier, towel, cone, muzzle, separation, or similar non-punitive safety measure may be used when needed to prevent injury, escape, or interference with care. Restraint must be proportionate and discontinued or changed if it presents unreasonable risk."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Sedation and anesthesia are not authorized by registration. They require veterinary assessment and separate informed consent, except to the limited extent that immediate action is legally and professionally justified to prevent imminent serious harm. Any emergency use must be documented and communicated to the owner as soon as reasonably practicable."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner must disclose known fear, aggression, escape behavior, or bite history. The Clinic may stop or reschedule a non-emergency service if it cannot be performed safely and humanely."
+    },
+    {
+        "type":  "section",
+        "text":  "11. Separate medical and service consent"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Registration authorizes account creation and use of the platform only. It does not authorize every future veterinary or non-veterinary service."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic must obtain separate consent appropriate to the service and risk, which may include:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "vaccination and possible adverse reactions;",
+                      "blood collection, laboratory testing, sample handling, and imaging;",
+                      "medication administration;",
+                      "sedation and anesthesia;",
+                      "surgery, spay/neuter, dentistry, extraction, and wound repair;",
+                      "grooming risks, mat removal, and handling of aggressive pets;",
+                      "confinement, boarding, home service, and online consultation;",
+                      "emergency stabilization and authorized spending limits;",
+                      "CPR or DNR instructions;",
+                      "euthanasia and end-of-life decisions;",
+                      "necropsy or post-mortem examination; and",
+                      "release, cremation, burial, or other handling of remains."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Where circumstances materially change, the veterinarian should obtain updated authorization when reasonably practicable. Consent may be withdrawn before a procedure begins, subject to payment for services already performed and the practical limits of safely stopping a procedure already underway."
+    },
+    {
+        "type":  "section",
+        "text":  "12. Emergency and inability to contact the owner"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner must keep primary and emergency contact information current. Before confinement, boarding, surgery, anesthesia, or another higher-risk service, the Clinic should record:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "the persons authorized to make decisions;",
+                      "the emergency spending limit;",
+                      "CPR/DNR instructions where relevant;",
+                      "referral or transfer authority; and",
+                      "any treatment restrictions."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "If the pet unexpectedly deteriorates, the Clinic will use reasonable efforts to contact the owner or authorized decision-maker. If delay presents an imminent risk of serious suffering, injury, or death and no authorized person can be reached, the Clinic may provide reasonable and professionally appropriate stabilization only to the extent permitted by law and the separate emergency authorization."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Registration alone does not authorize euthanasia, a DNR order, or disposal of remains."
+    },
+    {
+        "type":  "section",
+        "text":  "13. Pet deterioration, injury, unexpected event, or death"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Illness, age, trauma, infection, anesthesia, surgery, medication, vaccination, transport, stress, and other medical or environmental factors can cause complications despite appropriate care. The occurrence of a complication or death does not by itself establish negligence. Likewise, acceptance of inherent medical risk does not excuse negligent, reckless, cruel, fraudulent, unauthorized, or intentionally harmful conduct."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "If a pet is seriously injured, unexpectedly deteriorates, escapes, is involved in a medication or identity error, or dies while under Clinic care, the Clinic should:"
+    },
+    {
+        "type":  "list",
+        "ordered":  true,
+        "items":  [
+                      "provide reasonable immediate care within its capability;",
+                      "notify the owner or authorized contact as soon as reasonably practicable;",
+                      "preserve relevant medical, consent, billing, monitoring, communication, and incident records;",
+                      "document the known circumstances and actions taken;",
+                      "explain available transfer, necropsy, remains, and aftercare options where applicable;",
+                      "provide a channel for questions and complaints; and",
+                      "review the incident under the Clinic’s incident-response policy without altering the original clinical record improperly."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Medical-record corrections should preserve the original entry or a reliable audit history. A complaint or investigation does not automatically suspend legitimate outstanding charges, but it also does not remove the owner’s right to contest a charge or seek available legal remedies."
+    },
+    {
+        "type":  "section",
+        "text":  "14. Euthanasia, CPR/DNR, necropsy, and remains"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "No euthanasia, DNR instruction, necropsy, cremation, burial, disposal, or release of remains is authorized through general registration."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "These matters require separate documented instructions from the legally authorized person, appropriate identity verification, and veterinary confirmation where relevant. The separate form must identify the pet, decision-maker, requested action, date and time, veterinarian, and any provider receiving the remains."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic must adopt and publish rules for:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "who may authorize euthanasia and what proof of authority is required;",
+                      "when CPR is attempted and how DNR instructions are recorded;",
+                      "how long remains may be held;",
+                      "owner pickup and identity verification;",
+                      "cremation, burial, or third-party aftercare;",
+                      "abandoned or unclaimed remains after documented notice;",
+                      "necropsy availability and cost; and",
+                      "payment obligations after death."
+                  ]
+    },
+    {
+        "type":  "section",
+        "text":  "15. Online consultation"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Online consultation is intended only for cases the Clinic considers appropriate for remote assessment. It is not an emergency-response service and may be unsuitable when a physical examination, diagnostic testing, imaging, specimen collection, or immediate treatment is required."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner must provide accurate information and, when requested, clear photographs, video, prior records, current medicines, temperature or other observations, and the pet’s current location. Technical limitations, poor connection, incomplete information, or the inability to physically examine the pet may limit the veterinarian’s assessment."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The veterinarian may stop the online consultation and advise an in-clinic visit, emergency facility, laboratory test, or referral. The owner must seek urgent physical care if the pet has difficulty breathing, uncontrolled bleeding, collapse, poisoning, repeated seizures, severe trauma, inability to urinate, prolonged labor, suspected heatstroke, or another emergency warning sign."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Online consultations are conducted through the Clinic’s Jitsi Meet service at ipawcus.com. The Clinic must verify that this is the deployed provider and publish the applicable provider/privacy information before enabling the feature. Sessions will not be recorded unless the Clinic gives advance notice and obtains separate consent. Failed-call, rescheduling, cancellation, and refund rules must be displayed before payment. If Google Meet or another provider is used instead, this section and the Privacy Notice must be updated before use."
+    },
+    {
+        "type":  "section",
+        "text":  "16. Home service"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner must provide an accurate service address, safe access, adequate lighting and space, disclosure of hazards, and reasonable control of people and animals at the location. The Clinic may refuse or stop a home service when the environment, animal behavior, weather, travel conditions, or requested procedure creates an unreasonable safety or welfare risk."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Some examinations or procedures cannot be safely completed at home. The attending veterinarian may recommend transport, clinic examination, diagnostic testing, or referral. Home-service travel or call-out charges and any cancellation rules must be disclosed before confirmation."
+    },
+    {
+        "type":  "section",
+        "text":  "17. Boarding and medical confinement"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Boarding and medical confinement are different services. Boarding provides agreed accommodation and routine care; medical confinement involves veterinary monitoring or treatment. The applicable service, inclusions, feeding plan, medicines, authorized contacts, collection time, and charges must be documented."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner must disclose infectious-disease exposure, behavioral risks, special dietary needs, allergies, and medicines. The Clinic may require current vaccinations, parasite control, testing, isolation, or referral."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Before admission, a separate agreement must address emergency treatment, contact attempts, spending authority, transfer, deterioration, abandonment, extended stay, uncollected pets, death, remains, and personal belongings."
+    },
+    {
+        "type":  "section",
+        "text":  "18. Medical records and corrections"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic maintains veterinary records to support continuity of care, legal and professional responsibilities, billing, and service administration. Pet owners may access records released to them through supported system functions, subject to identity, ownership, confidentiality, safety, and lawful-retention restrictions."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Veterinary records must not be altered to conceal the original entry. Corrections should identify the correction, reason, responsible person, and date when supported by the system or Clinic procedure."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The owner may request correction of inaccurate owner or pet information. A request to change a veterinarian’s professional assessment may be documented as a correction request or owner disagreement but does not require the Clinic to replace a professionally accurate original record."
+    },
+    {
+        "type":  "section",
+        "text":  "19. Notifications and electronic communications"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The user agrees to receive service communications necessary for account verification, security, appointments, payments, queue status, medical follow-up, medication reminders, consent, and other requested Clinic services through the enabled channels."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Promotional or marketing communications require a separate optional consent. Refusing marketing consent will not prevent account creation or necessary service communications. The user may withdraw marketing consent through Profile Settings → Notification Preferences or by emailing vetfocuscare@ipawcus.com. Withdrawal applies to future promotional messages and does not disable necessary service or security communications."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Email, push, and internet communications may be delayed, filtered, interrupted, or accessed on a shared device. The user is responsible for securing the user’s devices and notifying the Clinic when contact information changes."
+    },
+    {
+        "type":  "section",
+        "text":  "20. System and third-party availability"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic will take reasonable steps to maintain iPawcus but does not guarantee continuous or error-free availability. Maintenance, internet failure, hosting issues, power interruptions, third-party services, cybersecurity events, emergencies, or circumstances beyond reasonable control may interrupt access."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "If the system is unavailable, urgent veterinary concerns must be directed to the Clinic through its official emergency or contact channels. The system must not be relied upon as the sole method of requesting emergency care."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Third-party services may have their own terms and privacy notices. The Privacy Notice identifies known categories of providers and data sharing."
+    },
+    {
+        "type":  "section",
+        "text":  "21. Suspension and termination"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic may restrict or suspend access when reasonably necessary to protect users, animals, records, security, Clinic operations, or legal rights. Grounds may include fraud, security threats, abusive conduct, unauthorized access, dangerous behavior, nonpayment under an adopted policy, or material violation of these Terms."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Where appropriate, the user will be informed of the reason and available review or complaint process. Termination of account access does not automatically terminate ongoing clinical responsibilities or erase records subject to lawful retention."
+    },
+    {
+        "type":  "section",
+        "text":  "22. Responsibility and limitation of liability"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "To the extent permitted by Philippine law:"
+    },
+    {
+        "type":  "list",
+        "ordered":  true,
+        "items":  [
+                      "the user remains responsible for the accuracy of information supplied and compliance with preparation, medication, discharge, and follow-up instructions;",
+                      "the Clinic is not responsible for harm caused solely by materially false or withheld information, unauthorized account use despite reasonable security, failure to follow professional instructions, or risks the owner knowingly accepts through valid informed consent;",
+                      "the Clinic does not guarantee a medical outcome or uninterrupted system availability; and",
+                      "any limitation applies only to the extent lawful and proportionate to the circumstances."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Nothing in these Terms excludes or limits responsibility for fraud, willful misconduct, gross negligence, intentional cruelty, unauthorized treatment, unlawful data processing, or another duty or remedy that cannot lawfully be excluded."
+    },
+    {
+        "type":  "section",
+        "text":  "23. Complaints and dispute handling"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Service, billing, privacy, conduct, handling, or medical-record concerns may be submitted to:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "Clinic complaints contact: Clinic Owner or Authorized Clinic Manager, support@ipawcus.com, (042) 421-9086 / 0933 476 8522",
+                      "Privacy contact: Designated Privacy Officer, vetfocuscare@ipawcus.com"
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The complaint should identify the owner, pet, service date, concern, and requested response, without publishing private medical or personal information unnecessarily. Proposed clinic policy: The Clinic will acknowledge a complaint within 3 business days and provide a substantive response or written status update within 10 business days. A complex medical, privacy, insurance, third-party, or legal investigation may require more time, in which case the Clinic will explain the delay and provide a reasonable next update date."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Nothing in the internal complaint process prevents a person from exercising rights before the National Privacy Commission, Professional Regulation Commission, appropriate animal-welfare authority, consumer authority, court, or other competent body."
+    },
+    {
+        "type":  "section",
+        "text":  "24. Governing law"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "These Terms are governed by the laws of the Republic of the Philippines. Subject to applicable law, consumer rights, and mandatory remedies or venue rules, disputes shall be brought before the appropriate authorities or courts having jurisdiction in Lucena City, Quezon."
+    },
+    {
+        "type":  "section",
+        "text":  "25. Changes to these Terms"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic may revise these Terms when the system, services, law, or Clinic policies change. The system should display the effective date and material changes. Where required, the user will be asked to accept a new version before continuing to use affected services."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic should preserve evidence of the accepted document version, user, affirmative action, and timestamp."
+    },
+    {
+        "type":  "part",
+        "text":  "Part II — Privacy Notice"
+    },
+    {
+        "type":  "section",
+        "text":  "1. Who controls the personal data"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "For personal data processed through iPawcus, the personal information controller is:"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Vetfocus Care Animal Clinic (exact DTI/BIR-registered name to be verified)\nOakbrook Avenue corner Clayton Street, Phase 3, Pleasantville Subdivision, Barangay Ilayang Iyam, Lucena City, Quezon 4301, Philippines\nsupport@ipawcus.com; (042) 421-9086 / 0933 476 8522"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Privacy and data-subject requests may be sent to:"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Designated Privacy Officer (the Clinic must formally appoint and internally record the responsible person)\nvetfocuscare@ipawcus.com\n(042) 421-9086 / Oakbrook Avenue corner Clayton Street, Phase 3, Pleasantville Subdivision, Barangay Ilayang Iyam, Lucena City, Quezon 4301"
+    },
+    {
+        "type":  "section",
+        "text":  "2. Personal data processed"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Depending on the user’s role and services used, iPawcus may process:"
+    },
+    {
+        "type":  "subsection",
+        "text":  "Account and contact data"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "name, email, residential or service address, phone number, birthdate, profile photograph, role, account status, and verification status;",
+                      "emergency-contact name and number;",
+                      "password hash, verification-code records, access-token records, login or security metadata, IP address, browser/user-agent data, and device push-subscription data."
+                  ]
+    },
+    {
+        "type":  "subsection",
+        "text":  "Pet, ownership, and veterinary data"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "pet identity, registration identifier, species, breed, sex, birthdate or age, color, markings, weight, status, photograph, owner and co-owner relationship;",
+                      "vaccination, allergy, medicine, medical-history, behavioral-warning, examination, diagnosis, assessment, treatment, prescription, laboratory, imaging, confinement, boarding, follow-up, and deceased-status information;",
+                      "booking, queue, veterinarian assignment, online consultation, home-service, and service notes;",
+                      "signatures, consent selections, consent documents, and related timestamps."
+                  ]
+    },
+    {
+        "type":  "subsection",
+        "text":  "Transaction and communication data"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "prices, bills, invoices, receipts, payment method, payment reference, sender details supplied for verification, and payment-proof images;",
+                      "email, push-notification, reminder, support, complaint, and service-communication records;",
+                      "uploaded photographs, concern images, medical attachments, and documents."
+                  ]
+    },
+    {
+        "type":  "subsection",
+        "text":  "Staff and veterinarian data"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "professional profile, PRC or license information, specialization, position, employment information, schedule, availability, and work-related system activity."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Pet information may constitute or reveal personal information when it is linked to an identifiable owner, co-owner, staff member, veterinarian, payer, signer, or contact person."
+    },
+    {
+        "type":  "section",
+        "text":  "3. Sources of data"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Data may come from:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "the user or an authorized representative;",
+                      "a primary owner, approved co-owner, emergency contact, or payer;",
+                      "Clinic veterinarians and staff;",
+                      "records supplied by another clinic, laboratory, pharmacy, service provider, or authority with a lawful basis;",
+                      "the user’s device or browser during account, security, queue, upload, or notification functions; and",
+                      "records generated while providing requested services."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Users who provide another person’s data must have authority to do so and should inform that person when appropriate."
+    },
+    {
+        "type":  "section",
+        "text":  "4. Purposes and lawful grounds"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic processes personal data only for declared, specified, and legitimate purposes, which may include:"
+    },
+    {
+        "type":  "table",
+        "rows":  [
+                     [
+                         "Purpose",
+                         "Typical lawful ground"
+                     ],
+                     [
+                         "Creating and securing an account",
+                         "Contract steps, contract performance, legitimate interests, and consent where required"
+                     ],
+                     [
+                         "Verifying identity and ownership authority",
+                         "Contract performance, legitimate interests, animal and record safety"
+                     ],
+                     [
+                         "Scheduling and administering veterinary services",
+                         "Contract performance and legitimate interests"
+                     ],
+                     [
+                         "Maintaining veterinary, consent, prescription, and continuity-of-care records",
+                         "Contract performance, legal/professional obligations, legitimate interests, and protection of vital interests where applicable"
+                     ],
+                     [
+                         "Providing online consultation, home service, boarding, confinement, and queue services",
+                         "Contract performance and service-specific consent where required"
+                     ],
+                     [
+                         "Billing, payment verification, invoices, receipts, refunds, accounting, and fraud prevention",
+                         "Contract performance, legal obligations, and legitimate interests"
+                     ],
+                     [
+                         "Sending OTP, security, booking, queue, payment, medication, and follow-up communications",
+                         "Contract performance, security, legal/professional obligations, and legitimate interests"
+                     ],
+                     [
+                         "Responding to emergencies, safety events, complaints, disputes, and legal claims",
+                         "Vital interests, legal obligations, contract, and legitimate interests"
+                     ],
+                     [
+                         "Producing operational and management reports",
+                         "Legitimate interests, using aggregated or minimized data where practicable"
+                     ],
+                     [
+                         "Sending promotions or using identifiable cases/photos for publicity",
+                         "Separate, optional, specific consent"
+                     ]
+                 ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Consent may be withdrawn for processing that relies on consent, but withdrawal does not invalidate processing performed lawfully before withdrawal and may not require deletion when another lawful ground or retention duty applies."
+    },
+    {
+        "type":  "section",
+        "text":  "5. Required and optional data"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Information identified as required is necessary to create the account, verify the user, administer a requested service, protect animal or account safety, process a payment, or meet a legal or professional requirement. Failure to provide required information may prevent registration, confirmation, treatment, payment verification, release of records, or another requested function."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Optional profile data, browser notifications, marketing, promotional photographs, teaching use, and other optional processing may be refused without preventing ordinary account registration, except when an optional feature cannot function without its required data."
+    },
+    {
+        "type":  "section",
+        "text":  "6. People who may access data"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Access should be limited according to role and legitimate need. Recipients may include:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "authorized Clinic veterinarians, administrators, nurses, staff, and the Clinic owner;",
+                      "the registered owner and approved co-owners, subject to ownership and access rules;",
+                      "service providers that support hosting, database, email, browser push, address search, video consultation, storage, backup, cybersecurity, or technical support;",
+                      "payment providers selected directly by the user and Clinic staff verifying manual payment;",
+                      "laboratories, referral clinics, pharmacies, aftercare providers, or other professionals when authorized or otherwise lawfully necessary;",
+                      "insurers, professional advisers, auditors, regulators, courts, law enforcement, animal-welfare authorities, or government agencies when required or permitted by law; and",
+                      "a successor operator in a lawful reorganization or transfer, subject to appropriate notice and safeguards."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Clinic personnel must not access personal or veterinary data merely out of curiosity or for an unrelated purpose."
+    },
+    {
+        "type":  "section",
+        "text":  "7. Known external services"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The repository audit identified or suggested the following categories. The entries below reflect the proposed iPawcus production setup. The Clinic must verify the actual deployed providers, contracts, data locations, and privacy information before publication:"
+    },
+    {
+        "type":  "table",
+        "rows":  [
+                     [
+                         "Function",
+                         "Provider/status",
+                         "Information involved"
+                     ],
+                     [
+                         "Hosting and database",
+                         "Hostinger hosting with the Clinic’s MySQL/MariaDB database",
+                         "Account, veterinary, booking, consent, transaction, and system data"
+                     ],
+                     [
+                         "Transactional email",
+                         "Hostinger Email/SMTP using the ipawcus.com domain",
+                         "Recipient email and message content"
+                     ],
+                     [
+                         "Online consultation",
+                         "Clinic-controlled Jitsi Meet service at meet.ipawcus.com; replace this entry if Google Meet or another provider is deployed",
+                         "Meeting-room link and live audio/video; no recording unless separately disclosed and consented"
+                     ],
+                     [
+                         "Address autocomplete",
+                         "Geoapify",
+                         "Address search query and returned address information"
+                     ],
+                     [
+                         "Browser push",
+                         "Browser/push infrastructure",
+                         "Push endpoint, keys, notification content, and user-agent data"
+                     ],
+                     [
+                         "GCash, Maya, QR Ph, bank transfer",
+                         "User-selected external payment channel; no active gateway API confirmed",
+                         "Payment occurs outside iPawcus; proof/reference may be submitted to the Clinic"
+                     ],
+                     [
+                         "Backup/storage",
+                         "Hostinger backup facilities plus encrypted Clinic-controlled backup storage",
+                         "Data included in backups or stored files"
+                     ]
+                 ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic must maintain appropriate processor or data-sharing arrangements where required."
+    },
+    {
+        "type":  "section",
+        "text":  "8. Online consultation and media"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Live audio and video may pass through the configured consultation provider. The Clinic will not record a session unless recording is specifically disclosed and separately authorized."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Uploaded photographs, videos, medical images, signatures, payment proofs, and documents are used only for the declared service, record, security, billing, complaint, or legal purpose. Identifiable media will not be used for advertising, social media, testimonials, or unrelated teaching without separate specific consent."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Anonymized or aggregated information may be used for internal reports, service planning, quality improvement, and capstone or research purposes only if the Clinic adopts an approved policy, removes direct identifiers where practicable, applies appropriate safeguards, and obtains any consent or ethics approval required."
+    },
+    {
+        "type":  "section",
+        "text":  "9. Storage, retention, and disposal"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Personal data will be retained only for as long as necessary for the declared service, continuity of veterinary care, professional and legal obligations, accounting and tax requirements, security, dispute resolution, and establishment, exercise, or defense of legal claims."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Proposed clinic retention schedule: These periods are operational recommendations for formal approval. A legal hold, active complaint, audit, ownership dispute, animal-welfare matter, or other applicable legal requirement may require a longer period. Where one item belongs to more than one record category, the longest applicable approved period will govern."
+    },
+    {
+        "type":  "table",
+        "rows":  [
+                     [
+                         "Record",
+                         "Approved retention period"
+                     ],
+                     [
+                         "Account/profile records",
+                         "While the account is active and for 2 years after account closure or last activity, except for data retained as part of a longer-lived veterinary, consent, financial, incident, or legal record"
+                     ],
+                     [
+                         "Veterinary/EMR and prescription records",
+                         "5 years after the pet’s last recorded treatment, consultation, prescription, discharge, or death entry, whichever is later"
+                     ],
+                     [
+                         "Consent and signature records",
+                         "5 years after the related service or decision, or as long as the related EMR, complaint, incident, or legal record is retained, whichever is longer"
+                     ],
+                     [
+                         "Booking, queue, boarding, home-service, and consultation records",
+                         "2 years after completion, cancellation, or last activity; clinical notes and completed online-consultation records that form part of the EMR follow the 5-year EMR period"
+                     ],
+                     [
+                         "Billing, invoice, receipt, refund, and payment-proof records",
+                         "At least 5 years, reckoned in accordance with applicable BIR tax and accounting rules; longer when required for an audit, dispute, or legal hold"
+                     ],
+                     [
+                         "Security, access-token, OTP, and technical logs",
+                         "OTP and expired token data: up to 90 days after expiry; security, authentication, IP, and audit logs: 1 year after creation, unless required for an active security incident or legal hold"
+                     ],
+                     [
+                         "Notifications and email delivery logs",
+                         "1 year after sending or final delivery attempt; the underlying medical or booking instruction follows its applicable record category"
+                     ],
+                     [
+                         "Uploads and medical media",
+                         "5 years after the last relevant care entry when part of the EMR; 1 year after final resolution when used only for support or complaint handling; payment-proof media follows the billing-record period"
+                     ],
+                     [
+                         "Backups",
+                         "Daily encrypted operational backups on a rolling 30-day cycle and monthly encrypted archives for 12 months; expired backups must be securely overwritten or deleted where technically supported"
+                     ],
+                     [
+                         "Complaints and incident records",
+                         "5 years after final closure, or longer while a claim, investigation, audit, or legal hold remains active"
+                     ]
+                 ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "When retention is no longer justified, data will be securely deleted, anonymized, or disposed of in a manner intended to prevent unauthorized access or further processing. Account deactivation may restrict access without immediately deleting records that remain subject to legitimate retention."
+    },
+    {
+        "type":  "section",
+        "text":  "10. Security"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic uses or will use reasonable organizational, physical, and technical safeguards appropriate to the nature of the data and risk. Repository-confirmed controls include password hashing, email verification, role-based route rules, access tokens, and upload-type checks. Security measures require continuing review and do not guarantee that an incident can never occur."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Before publication, the Clinic must address the audit findings concerning broad profile access, public/direct media routing, permissive cross-origin settings, production error display, missing general rate limiting, and inconsistent authorization or schema assumptions. The Clinic must not describe those matters as resolved until they are verified in the deployed system."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Users should use strong unique passwords, secure their devices, avoid sharing OTPs or links, and report suspected unauthorized access promptly."
+    },
+    {
+        "type":  "section",
+        "text":  "11. Data-subject rights"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Subject to the Data Privacy Act of 2012, its implementing rules, and applicable exceptions, a data subject may have rights to:"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "be informed about personal-data processing;",
+                      "request reasonable access;",
+                      "object to certain processing;",
+                      "request correction of inaccurate or incomplete data;",
+                      "request erasure or blocking when legally justified;",
+                      "withdraw consent for processing based on consent;",
+                      "obtain data portability where applicable;",
+                      "seek damages for violations; and",
+                      "lodge a complaint with the National Privacy Commission."
+                  ]
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Requests may be submitted to the Designated Privacy Officer at vetfocuscare@ipawcus.com or through a written request delivered to the Clinic address. The Clinic may verify identity and authority before acting, particularly for veterinary records connected to multiple owners, third-party information, financial records, or confidential staff information."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "A request for deletion may be limited when information remains necessary for veterinary-record integrity, another person’s rights, tax or accounting duties, fraud prevention, legal claims, public safety, animal welfare, or another lawful purpose."
+    },
+    {
+        "type":  "section",
+        "text":  "12. Children and minors"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "iPawcus pet-owner accounts are intended for adults. The Clinic does not knowingly permit an individual below 18 to create an independent pet-owner account unless an approved guardian-consent process is implemented. A parent or guardian who believes a minor submitted information improperly should contact the Privacy Officer."
+    },
+    {
+        "type":  "section",
+        "text":  "13. Data incidents"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "Suspected loss, unauthorized access, disclosure, alteration, or misuse of personal data should be reported immediately to the Designated Privacy Officer at vetfocuscare@ipawcus.com or by telephone at (042) 421-9086 / 0933 476 8522."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The Clinic will assess and respond to incidents, preserve relevant evidence, take reasonable containment and remediation measures, and notify affected persons and the National Privacy Commission when required by applicable law."
+    },
+    {
+        "type":  "section",
+        "text":  "14. Changes to this Privacy Notice"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The effective date and current version will be displayed. Material changes will be communicated through iPawcus or an appropriate registered channel. New consent will be requested when a change introduces processing that legally requires consent."
+    },
+    {
+        "type":  "part",
+        "text":  "Part III — Registration-Page Text"
+    },
+    {
+        "type":  "section",
+        "text":  "A. Short notice displayed above the Register button"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "By creating an iPawcus account, you confirm that you are at least 18 years old, that the information you provide is accurate, and that you are the pet owner or are authorized to act for the owner. iPawcus uses your information to manage your account, pets, appointments, veterinary records, consent, billing, security, and service communications as described in the Privacy Notice. Registration does not authorize surgery, anesthesia, euthanasia, or other future procedures; separate informed consent will be required when applicable."
+    },
+    {
+        "type":  "section",
+        "text":  "B. Required Terms checkbox"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "☐ I have read and agree to the iPawcus Terms of Use and General Service Conditions, Version 0.2, effective 28 July 2026."
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The words Terms of Use and General Service Conditions should open the full document."
+    },
+    {
+        "type":  "part",
+        "text":  "Part IV — Matters That Must Use Separate Consent"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "The following must not be hidden inside the registration agreement:"
+    },
+    {
+        "type":  "table",
+        "rows":  [
+                     [
+                         "Separate document",
+                         "Minimum content"
+                     ],
+                     [
+                         "General veterinary treatment consent",
+                         "Authority, routine examination/treatment scope, information accuracy, withdrawal, fees"
+                     ],
+                     [
+                         "Vaccination consent",
+                         "Vaccine, benefits, common/serious reactions, post-vaccine monitoring, emergency response"
+                     ],
+                     [
+                         "Laboratory/imaging consent",
+                         "Sample/procedure, handling, limitations, fees, referral testing, release of results"
+                     ],
+                     [
+                         "Sedation/anesthesia consent",
+                         "Specific drug/procedure category, fasting, monitoring, risks, emergency authority, resuscitation choice"
+                     ],
+                     [
+                         "Surgical/dental consent",
+                         "Exact procedure, alternatives, major risks, possible extension of procedure, cost range, aftercare"
+                     ],
+                     [
+                         "Grooming consent",
+                         "Coat/matting, handling, pre-existing conditions, injury/irritation risks, stop-work authority"
+                     ],
+                     [
+                         "Online consultation consent",
+                         "Remote limitations, no emergency use, platform, recording status, follow-up/referral, failed-call/refund rule"
+                     ],
+                     [
+                         "Home-service agreement",
+                         "Location/access safety, travel fee, service limitations, referral/transport"
+                     ],
+                     [
+                         "Boarding agreement",
+                         "Vaccination, feeding/medicines, behavior, belongings, emergencies, collection and abandonment"
+                     ],
+                     [
+                         "Medical confinement agreement",
+                         "Monitoring/treatment plan, daily fees, updates, emergency limit, transfer, deterioration/death"
+                     ],
+                     [
+                         "Emergency authorization",
+                         "Decision-makers, contact attempts, spending limit, stabilization, transfer and additional treatment"
+                     ],
+                     [
+                         "CPR/DNR authorization",
+                         "Choice, scope, expiration/review, veterinarian explanation, signer authority"
+                     ],
+                     [
+                         "Euthanasia authorization",
+                         "Identity, ownership authority, veterinarian confirmation, final consent, remains instructions"
+                     ],
+                     [
+                         "Remains/necropsy authorization",
+                         "Release, identification, provider, cremation/burial, necropsy, unclaimed-remains rule"
+                     ],
+                     [
+                         "Photo/case-use consent",
+                         "Exact media, audience, purpose, duration, identifiability, withdrawal limits"
+                     ]
+                 ]
+    },
+    {
+        "type":  "part",
+        "text":  "Review note"
+    },
+    {
+        "type":  "paragraph",
+        "text":  "This draft is designed around the Data Privacy Act of 2012 and its implementing rules, the Philippine Veterinary Medicine Act of 2004, the Animal Welfare Act of 1998 as amended, and the Electronic Commerce Act of 2000. It is not a substitute for review by a Philippine lawyer, the Clinic owner, the attending veterinarian, and the person responsible for data protection and actual Clinic operations."
+    },
+    {
+        "type":  "section",
+        "text":  "Reference basis for prefilled details and proposed retention"
+    },
+    {
+        "type":  "list",
+        "ordered":  false,
+        "items":  [
+                      "The publicly listed clinic address and telephone numbers were cross-checked against the Clinic’s public Facebook listing and Waze business listing on 28 July 2026. The Clinic must still verify them before publication.",
+                      "The National Privacy Commission’s implementing rules state that personal data must not be retained longer than necessary for the declared purpose, legal claims, legitimate business purposes, or a period provided by law.",
+                      "BIR Revenue Regulations No. 7-2024 provides a five-year preservation period for books of accounts and accounting records. The proposed five-year financial-record period should be checked against the Clinic’s tax circumstances and later amendments.",
+                      "No Philippine veterinary-specific retention period was confirmed in the sources reviewed for this prefill. The proposed five-year EMR period is therefore a Clinic policy recommendation, not a representation that Philippine law universally mandates exactly five years."
+                  ]
+    }
+];
+
+function InlineText({ text }) {
+    const parts = String(text || '').split(/(\bhttps?:\/\/[^\s]+|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|\n)/gi);
+
+    return parts.map((part, index) => {
+        if (part === '\n') {
+            return <br key={`break-${index}`} />;
+        }
+
+        if (/^https?:\/\//i.test(part)) {
+            return (
+                <a
+                    key={`${part}-${index}`}
+                    href={part}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-[#155dfc] underline underline-offset-2"
+                >
+                    {part}
+                </a>
+            );
+        }
+
+        if (/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(part)) {
+            return (
+                <a
+                    key={`${part}-${index}`}
+                    href={`mailto:${part}`}
+                    className="font-semibold text-[#155dfc] underline underline-offset-2"
+                >
+                    {part}
+                </a>
+            );
+        }
+
+        return part;
+    });
+}
+
+function PolicyTable({ rows }) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return null;
+    }
+
+    const [headings, ...bodyRows] = rows;
+
     return (
-        <section className="space-y-3 border-t border-slate-200 pt-5 first:border-t-0 first:pt-0">
-            <h3 className="text-base font-black text-slate-950">{title}</h3>
-            <div className="space-y-3 text-sm font-medium leading-6 text-slate-700">{children}</div>
-        </section>
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-[44rem] w-full border-collapse text-left text-sm leading-6">
+                <thead className="bg-blue-50 text-slate-950">
+                    <tr>
+                        {headings.map((heading, index) => (
+                            <th
+                                key={`${heading}-${index}`}
+                                scope="col"
+                                className="border-b border-slate-200 px-4 py-3 font-black"
+                            >
+                                <InlineText text={heading} />
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-slate-700">
+                    {bodyRows.map((row, rowIndex) => (
+                        <tr key={`row-${rowIndex}`} className="align-top even:bg-slate-50/70">
+                            {row.map((cell, cellIndex) => (
+                                <td key={`cell-${rowIndex}-${cellIndex}`} className="px-4 py-3 font-medium">
+                                    <InlineText text={cell} />
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
-function BulletList({ items }) {
-    return (
-        <ul className="list-disc space-y-1 pl-5">
-            {items.map((item) => (
-                <li key={item}>{item}</li>
-            ))}
-        </ul>
-    );
-}
-
-function NumberedList({ items }) {
-    return (
-        <ol className="list-decimal space-y-1 pl-5">
-            {items.map((item) => (
-                <li key={item}>{item}</li>
-            ))}
-        </ol>
-    );
+function DocumentBlock({ block, index }) {
+    switch (block.type) {
+        case 'part':
+            return (
+                <header className="mt-8 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-4 first:mt-0">
+                    <h2 className="text-lg font-black leading-7 text-slate-950 sm:text-xl">
+                        <InlineText text={block.text} />
+                    </h2>
+                </header>
+            );
+        case 'section':
+            return (
+                <h3
+                    id={`terms-section-${index}`}
+                    className="border-t border-slate-200 pt-6 text-base font-black leading-7 text-slate-950 sm:text-lg"
+                >
+                    <InlineText text={block.text} />
+                </h3>
+            );
+        case 'subsection':
+            return (
+                <h4 className="text-sm font-black uppercase tracking-wide text-blue-700">
+                    <InlineText text={block.text} />
+                </h4>
+            );
+        case 'list': {
+            return (
+                <ul className="list-disc space-y-2 pl-6 text-sm font-medium leading-6 text-slate-700">
+                    {block.items.map((item, itemIndex) => (
+                        <li key={`${item}-${itemIndex}`}>
+                            <InlineText text={item} />
+                        </li>
+                    ))}
+                </ul>
+            );
+        }
+        case 'table':
+            return <PolicyTable rows={block.rows} />;
+        default:
+            return (
+                <p className="text-sm font-medium leading-6 text-slate-700">
+                    <InlineText text={block.text} />
+                </p>
+            );
+    }
 }
 
 export default function RegistrationTermsPreview() {
     return (
-        <article className="space-y-5">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <h2 className="text-lg font-black text-slate-950">iPawcus Clinic System Policy</h2>
-                <p className="mt-2 text-sm font-semibold text-slate-700">
-                    <span className="font-black">Status:</span> Proposed policy for Clinic approval
+        <article className="space-y-4">
+            <header className="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-[#0b2f6b] via-[#155dfc] to-[#0789b8] p-5 text-white shadow-lg sm:p-7">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                    Registration Terms &bull; Privacy Notice
                 </p>
-                <p className="text-sm font-semibold text-slate-700">
-                    <span className="font-black">Document version and effective date:</span> To be added later
-                </p>
+                <h1 className="mt-3 text-2xl font-black sm:text-3xl">iPawcus Terms and Privacy</h1>
+                <p className="mt-2 text-sm font-bold text-blue-100">Vetfocus Care Animal Clinic</p>
+                <p className="text-sm font-semibold text-blue-100">Lucena City, Quezon, Philippines</p>
+                <div className="mt-5 flex flex-wrap gap-2 text-xs font-black uppercase tracking-wide">
+                    <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5">
+                        Version {REGISTRATION_TERMS_VERSION}
+                    </span>
+                    <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5">
+                        Draft/effective date for review: {REGISTRATION_TERMS_EFFECTIVE_DATE}
+                    </span>
+                </div>
+            </header>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+                This document is presented for Clinic and legal review. Statements marked as proposed,
+                requiring verification, or requiring formal approval should be confirmed before publication.
             </div>
 
-            <PolicySection title="1. Clinic Information">
-                <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-2">
-                    <p><span className="font-black text-slate-900">Clinic name:</span> Vetfocus Animal Care Clinic</p>
-                    <p><span className="font-black text-slate-900">Trade name:</span> VFC</p>
-                    <p className="sm:col-span-2"><span className="font-black text-slate-900">Address:</span> Oakbrook Avenue, Phase 3, Pleasantville Subdivision, corner Clayton, Ilayang Iyam, Lucena City, Quezon</p>
-                    <p><span className="font-black text-slate-900">Telephone:</span> (042) 373-5678</p>
-                    <p>
-                        <span className="font-black text-slate-900">Email:</span>{' '}
-                        <a href="mailto:support@vetfocuscare.com" className="text-[#155dfc] underline">support@vetfocuscare.com</a>
-                    </p>
-                    <p className="sm:col-span-2"><span className="font-black text-slate-900">Legal venue:</span> Lucena City, Quezon, Philippines</p>
-                </div>
-                <p>Complaints and privacy requests may be sent to the Clinic through the same email address, telephone number, or business address.</p>
-                <p>The official privacy contact will be identified as the <span className="font-black text-slate-900">Clinic Privacy Officer</span> until the Clinic appoints a specific person.</p>
-                <p>The Clinic will:</p>
-                <BulletList items={[
-                    'acknowledge an ordinary complaint within three business days;',
-                    'provide a response or status update within 15 business days; and',
-                    'handle urgent safety or privacy incidents as soon as possible.',
-                ]} />
-            </PolicySection>
-
-            <PolicySection title="2. Registration and Pet Ownership">
-                <p>Only persons who are at least 18 years old may create an independent pet-owner account. Minors must use an account controlled by a parent or legal guardian.</p>
-                <p>Registration may require the owner&apos;s:</p>
-                <BulletList items={[
-                    'full name;',
-                    'birthdate;',
-                    'address;',
-                    'email address;',
-                    'telephone number;',
-                    'emergency contact;',
-                    'account-verification information; and',
-                    'pet information.',
-                ]} />
-                <p>The first verified person who registers or links the pet will normally be recorded as the primary owner. Registration alone does not conclusively prove legal ownership. The Clinic may request a valid ID, vaccination record, adoption document, previous veterinary record, photograph of the pet, or other reasonable proof.</p>
-                <p>A pet may have approved co-owners. Approved co-owners may see the pet&apos;s records and request routine services.</p>
-                <p>Surgery, anesthesia, euthanasia, DNR instructions and other high-risk or end-of-life decisions must be discussed with the recorded owners when reasonably possible. Written approval from the primary owner or another person with documented authority is required.</p>
-                <p>If owners disagree, the Clinic may suspend disputed account access and postpone non-emergency treatment until authority is clarified. The Clinic will not delete medical, consent or billing records merely because of an ownership dispute.</p>
-                <p>An emergency contact may make decisions only when the primary owner has specifically granted that authority in a separate Clinic record. Being listed as an emergency contact does not automatically permit that person to authorize surgery, euthanasia or DNR.</p>
-            </PolicySection>
-
-            <PolicySection title="3. Appointments, Cancellations and Payments">
-                <p>An appointment is confirmed only after it is approved by Clinic staff through Booking Management.</p>
-                <p>The following rules apply:</p>
-                <BulletList items={[
-                    'Cancellation or rescheduling must normally be requested at least 24 hours before the appointment.',
-                    'A booking may be rescheduled up to two times, subject to availability.',
-                    'A missed appointment will be cancelled.',
-                    'There is no standard no-show charge.',
-                    'The Clinic may cancel or reschedule when the veterinarian is unavailable, the service cannot be performed safely, an emergency receives priority, or the required equipment or facilities are unavailable.',
-                    'A user who repeatedly misses appointments may be required to prepay future bookings.',
-                ]} />
-                <p>Accepted payment methods are cash, QR Ph, GCash, Maya and bank transfer.</p>
-                <p>Payment proofs are normally reviewed within one to two business days.</p>
-                <p>The following advance payments apply:</p>
-                <BulletList items={[
-                    'Online consultation: ₱500 full prepayment',
-                    'Home service: ₱50 transportation or booking payment',
-                    'Boarding: payable at the Clinic when the pet is admitted',
-                    'Special services: the initial payment shown in the service quotation',
-                ]} />
-                <p>An online consultation that cannot proceed may be rescheduled. The pet owner may instead request cancellation and a refund before the consultation is completed.</p>
-                <p>Approved refunds will normally be processed within one to two business days. Bank and payment-provider charges that have already been charged and cannot be recovered are not refundable.</p>
-                <p>An overpayment will first be applied to the owner&apos;s final Clinic bill. If the service is cancelled or the overpayment cannot be applied, the remaining amount should be refunded.</p>
-                <p>The Clinic does not normally provide credit accounts. Payment is due according to the bill and before discharge or release of the pet, unless the Clinic approves another arrangement.</p>
-                <p>Services already performed remain payable even if the pet later deteriorates or dies. Additional non-emergency charges require owner approval. Emergency charges must follow the emergency authorization signed for that service or admission.</p>
-            </PolicySection>
-
-            <PolicySection title="4. Emergency Treatment">
-                <p>The Clinic will make at least three reasonable contact attempts over approximately 20 minutes, unless the pet needs immediate action.</p>
-                <p>The Clinic will normally contact:</p>
-                <NumberedList items={[
-                    'the primary owner;',
-                    'an authorized co-owner; and',
-                    'the recorded emergency contact.',
-                ]} />
-                <p>Contact may be attempted through telephone call, SMS or email.</p>
-                <p>Registration alone does not create an unlimited emergency spending authority. Before surgery, boarding, confinement or another higher-risk service, the owner should complete a separate emergency authorization that identifies:</p>
-                <BulletList items={[
-                    'authorized decision-makers;',
-                    'the emergency spending limit;',
-                    'treatment restrictions;',
-                    'transfer authority; and',
-                    'CPR or DNR instructions.',
-                ]} />
-                <p>If no authorized person can be reached, the veterinarian may provide only reasonable and professionally appropriate emergency stabilization when immediate delay could cause serious suffering, injury or death. The veterinarian must document the condition, contact attempts, treatment and reason for acting.</p>
-                <p>The Clinic may recommend transfer to another veterinary facility when it lacks the necessary equipment, staff or emergency capacity. Transfer expenses are normally paid by the owner.</p>
-                <p>If there is no valid DNR instruction, the attending veterinarian may attempt reasonable CPR when medically appropriate. A DNR instruction must come from the primary owner or a properly authorized adult, be explained by the veterinarian, and be recorded in a separate signed form.</p>
-                <p>A veterinarian may recommend a DNR order but should not create one solely from a diagnosis without the owner&apos;s authorization, except where the law or applicable professional duties provide otherwise.</p>
-            </PolicySection>
-
-            <PolicySection title="5. Humane Handling and Aggressive Pets">
-                <p>The Clinic will use the least restrictive humane method reasonably necessary to examine or treat the pet.</p>
-                <p>Permitted safety measures may include:</p>
-                <BulletList items={[
-                    'a leash or harness;',
-                    'a carrier;',
-                    'a towel;',
-                    'a protective cone;',
-                    'separation from other animals; or',
-                    'an appropriately fitted muzzle.',
-                ]} />
-                <p>Hitting, choking, frightening, punishing, or unnecessarily painful restraint is prohibited.</p>
-                <p>Owners must disclose any bite history, fear, aggression or escape behavior. The Clinic may ask the owner to bring an appropriate carrier or muzzle.</p>
-                <p>A non-emergency service may be stopped or postponed when:</p>
-                <BulletList items={[
-                    'the animal, owner or staff member could be injured;',
-                    'humane restraint is not possible;',
-                    "the pet's stress or condition makes the service unsafe;",
-                    'required consent has not been provided; or',
-                    'the risks are greater than the expected benefit.',
-                ]} />
-                <p>Sedation may be used only after assessment by a licensed veterinarian and separate informed consent from an authorized owner. Emergency sedation without prior consent is limited to situations where immediate action is professionally justified to prevent serious harm. The reason must be documented and communicated to the owner.</p>
-                <p>A serious handling or treatment incident must be reported to the owner as soon as reasonably possible. Staff should complete an internal incident report within 24 hours. The attending veterinarian and Clinic administration will review the incident.</p>
-            </PolicySection>
-
-            <PolicySection title="6. Deterioration, Injury or Death">
-                <p>If a pet seriously deteriorates, is injured, escapes, receives the wrong medicine, is involved in an identification error, or dies while under Clinic care, the Clinic will:</p>
-                <NumberedList items={[
-                    'provide reasonable immediate care;',
-                    'contact the owner as soon as the pet is stabilized or the event is discovered;',
-                    'preserve the relevant records;',
-                    'document what is known;',
-                    'explain available referral, necropsy and aftercare options; and',
-                    'provide a complaint and review process.',
-                ]} />
-                <p>The Clinic should make its first owner-contact attempt immediately or, when treatment must take priority, within 30 minutes after the pet is stabilized.</p>
-                <p>Relevant medical records, monitoring records, medicines, consent forms, payment records, messages, photographs, CCTV footage and incident reports must be preserved when they relate to the event.</p>
-                <p>The attending veterinarian will explain the medical facts. Clinic administration may explain billing, records and the complaint procedure.</p>
-                <p>Upon request, the Clinic should provide an available medical summary or incident status within seven business days. A complete investigation may take longer, but the owner must receive reasonable updates.</p>
-            </PolicySection>
-
-            <PolicySection title="7. Euthanasia, DNR, Necropsy and Remains">
-                <p>Euthanasia requires:</p>
-                <BulletList items={[
-                    'an assessment and recommendation from a licensed veterinarian;',
-                    'separate written consent;',
-                    'valid identification from the signer; and',
-                    'proof that the signer is the primary owner or is properly authorized.',
-                ]} />
-                <p>An emergency contact may not authorize euthanasia unless the primary owner gave that person specific written authority accepted by the Clinic.</p>
-                <p>If owners disagree, euthanasia should be postponed unless immediate action is legally and professionally necessary to prevent severe suffering.</p>
-                <p>When the Clinic has suitable facilities, remains may be held in secure refrigerated storage for up to 72 hours. The person collecting the remains must present identification and sign a release record.</p>
-                <p>Available aftercare may include:</p>
-                <BulletList items={[
-                    'release to the owner;',
-                    'private cremation;',
-                    'communal cremation; or',
-                    'another lawful arrangement offered through a Clinic-approved provider.',
-                ]} />
-                <p>The owner is responsible for aftercare expenses.</p>
-                <p>For unclaimed remains, the Clinic will make at least three contact attempts and provide at least seven calendar days&apos; notice. If there is still no response, the Clinic may arrange lawful and sanitary disposition and record the actions taken.</p>
-                <p>Necropsy is available only when it can be performed by the Clinic or a qualified referral provider. It requires separate owner authorization and is charged according to the provider&apos;s quotation.</p>
-                <p>Properly authorized services performed before or after the pet&apos;s death remain payable.</p>
-            </PolicySection>
-
-            <PolicySection title="8. Online Consultation">
-                <p>Online consultations use Jitsi Meet through the iPawcus meeting link.</p>
-                <p>Only the veterinarian, pet owner and another person approved by the owner and veterinarian may participate.</p>
-                <p>The live meeting will not be recorded. The veterinarian&apos;s diagnosis, assessment, advice, prescription and consultation notes may be stored in the pet&apos;s medical record.</p>
-                <p>If the Clinic experiences a technical failure, the consultation will be rescheduled without another consultation charge.</p>
-                <p>If the pet owner disconnects, the veterinarian will wait up to 10 minutes. The consultation may then be marked missed, but one reasonable rescheduling request may be allowed.</p>
-                <p>A refund may be requested when the owner cancels before the consultation is completed. Approved refunds are normally processed within one to two business days.</p>
-                <p>Online consultation is not an emergency service. The veterinarian may require an in-clinic booking or referral when the pet needs a physical examination, testing, imaging, surgery or immediate treatment.</p>
-            </PolicySection>
-
-            <PolicySection title="9. Home Service, Boarding and Confinement">
-                <h4 className="text-sm font-black text-slate-900">Home Service</h4>
-                <p>Home service is available within Lucena City and nearby locations accepted by the Clinic. Availability depends on distance, staffing, weather, travel and the requested service.</p>
-                <p>The home-service transportation or booking payment is ₱50 unless a different amount is displayed and accepted before confirmation.</p>
-                <p>The owner must provide:</p>
-                <BulletList items={[
-                    'an accurate address;',
-                    'safe access;',
-                    'adequate lighting and space;',
-                    'an adult contact at the location; and',
-                    'reasonable control of the pet and other animals.',
-                ]} />
-                <p>The Clinic may stop or cancel a home service if the location or animal presents an unreasonable safety risk.</p>
-                <p>Surgery, general anesthesia, major emergency treatment, advanced imaging and procedures requiring full Clinic facilities will not normally be performed at home. The veterinarian may recommend transport or referral. The owner is responsible for arranging and paying for transport unless another arrangement is confirmed.</p>
-
-                <h4 className="pt-2 text-sm font-black text-slate-900">Boarding and Confinement</h4>
-                <p>Owners must disclose vaccination status, parasite-control status, infectious-disease exposure, allergies, medicines, diet and behavioral risks.</p>
-                <p>The Clinic may require proof of vaccination, parasite control, testing or isolation. A pet with a suspected infectious condition may be refused, isolated or referred.</p>
-                <p>Food and medicine supplied by the owner must be properly labelled and accompanied by written instructions.</p>
-                <p>Emergency authority and spending limits must be recorded in the admission form.</p>
-                <p>Owners of medically confined pets should receive at least one daily update and additional updates when the pet&apos;s condition materially changes.</p>
-                <p>Extended stays and late collection are charged according to the published daily rate. The Clinic will contact the owner before taking action concerning an uncollected pet. Medical and ownership records will not be deleted.</p>
-                <p>Personal belongings should be listed during admission. The Clinic is not responsible for ordinary wear or damage that occurs despite reasonable care.</p>
-            </PolicySection>
-
-            <PolicySection title="10. Communications, CCTV, Photos and Research">
-                <p>Service communications may be sent through email, SMS or telephone.</p>
-                <p>
-                    Marketing messages are optional and may be sent through email or SMS only after separate consent. Consent may be withdrawn through the account settings or by emailing{' '}
-                    <a href="mailto:support@vetfocuscare.com" className="text-[#155dfc] underline">support@vetfocuscare.com</a>. The Clinic should apply the withdrawal within five business days.
-                </p>
-                <p>The Clinic uses CCTV at entrances, reception and appropriate common or security areas. CCTV must not be installed in restrooms or other areas where people reasonably expect privacy.</p>
-                <p>CCTV is used for safety, security, incident review and protection of people, animals and property. Visible CCTV notices must be displayed.</p>
-                <p>CCTV recordings will normally be retained for 30 days. Footage connected to an incident, complaint, access request or legal claim may be preserved until the matter is resolved.</p>
-                <p>Access is limited to the Clinic owner, authorized administration, the Privacy Officer and persons who are legally entitled to receive it.</p>
-                <p>Pet photographs and medical images may be stored as part of the pet&apos;s medical record. Identifiable photographs, videos or case information must not be posted on social media, used in advertising or used for identifiable teaching without separate consent.</p>
-                <p>Anonymized data may be used for internal reports and service improvement. Research or capstone use must use anonymized or minimized data and receive any required Clinic, academic, ethics or legal approval. Identifiable research use requires separate informed consent when applicable.</p>
-            </PolicySection>
-
-            <PolicySection title="11. Technology Providers">
-                <p>iPawcus uses or is expected to use:</p>
-                <BulletList items={[
-                    'Hostinger: website hosting, application hosting, database, transactional email and backup storage;',
-                    'Singapore data center: primary production storage location selected for hosting;',
-                    'MySQL or MariaDB: database hosted within the Hostinger environment;',
-                    'Jitsi Meet: online veterinary consultations;',
-                    'Geoapify: address search and autocomplete;',
-                    'Browser notification services: optional push notifications; and',
-                    'GCash, Maya, QR Ph and bank transfer: external payment methods, with payment proof submitted to the Clinic.',
-                ]} />
-                <p>Personal data may therefore be processed or stored in Singapore and may be handled by authorized provider subprocessors. The Clinic must keep appropriate provider contracts, security arrangements and data-processing terms.</p>
-                <p>If the final system uses additional analytics, error monitoring, cloud storage, media hosting or email services, those providers must be added to the Privacy Notice before deployment.</p>
-            </PolicySection>
-
-            <PolicySection title="12. Data Retention">
-                <p>The proposed retention schedule is:</p>
-                <BulletList items={[
-                    'Account and owner profile: five years after account closure or last Clinic service',
-                    "Veterinary records and prescriptions: 10 years after the pet's last treatment",
-                    'Consent forms and signatures: 10 years after the related service',
-                    'Bookings, online consultations, home services, boarding and confinement: five years after completion or cancellation',
-                    'Billing records, invoices, receipts, refunds and payment proofs: five years from the applicable accounting or tax-record date',
-                    'Login and security logs: one year',
-                    'OTP and password-reset records: 90 days after expiration',
-                    'Notification and email-delivery logs: two years',
-                    'Medical photographs and files: the same period as the related veterinary record',
-                    'Temporary or failed uploads: 30 days',
-                    'Complaints, serious incidents and death-related records: 10 years after the matter is closed',
-                    'CCTV footage: 30 days unless needed for an incident, request or legal matter',
-                    'Daily backups: rolling 30-day period',
-                    'Monthly backups: 12 months',
-                ]} />
-                <p>Records connected to an unresolved complaint, audit, investigation or legal claim may be kept until the matter is completed.</p>
-                <p>After the retention period, information will be securely deleted or anonymized. Account closure does not require the Clinic to delete medical, consent, billing or incident records that must still be retained.</p>
-            </PolicySection>
-
-            <PolicySection title="13. Privacy Rights and System Responsibilities">
-                <p>
-                    Privacy requests may be sent to{' '}
-                    <a href="mailto:support@vetfocuscare.com" className="text-[#155dfc] underline">support@vetfocuscare.com</a> or submitted at the Clinic.
-                </p>
-                <p>The Clinic may request a valid ID and account information to verify the requester. A co-owner may request that person&apos;s own information and pet records that the person is authorized to access.</p>
-                <p>The Clinic will respond without undue delay and within 30 working days after receiving the complete request. A complex request may require an extension allowed by applicable privacy rules.</p>
-                <p>A person may request:</p>
-                <BulletList items={[
-                    'access to personal data;',
-                    'correction of inaccurate information;',
-                    'withdrawal of marketing consent;',
-                    'deletion or blocking when legally allowed; or',
-                    'a copy of portable information when the feature is available.',
-                ]} />
-                <p>Deletion may be refused when the information must be retained for veterinary care, accounting, security, animal welfare, an investigation or a legal claim.</p>
-                <p>Security audit items are the developer&apos;s responsibility. Before deployment, the developer must verify access controls, media-file protection, CORS settings, production error settings, rate limiting, role authorization, database consistency, password hashing, email verification, upload restrictions, backups and incident logging.</p>
-                <p>The system will preserve the user, signature or checkbox action, timestamp, pet or service, and exact agreement version accepted.</p>
-                <p>Procedure-specific consent forms, including surgery, anesthesia, vaccination, grooming, confinement, CPR/DNR, euthanasia and remains handling, will be created and uploaded by the Clinic. Registration will not replace those separate consent forms.</p>
-            </PolicySection>
+            <div className="space-y-4">
+                {DOCUMENT_BLOCKS.map((block, index) => (
+                    <DocumentBlock key={`${block.type}-${index}`} block={block} index={index} />
+                ))}
+            </div>
         </article>
     );
 }

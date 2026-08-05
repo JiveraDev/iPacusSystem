@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { Copyright } from 'lucide-react';
 import logoImg from '../../assets/logo-no-bg.png';
+import { resolveConsentTemplate } from '../../lib/consentTemplateCodes';
 
 function resolveText(value, fallback = '') {
     return String(value || fallback).trim();
@@ -14,12 +15,21 @@ const ConsentDocument = forwardRef(function ConsentDocument({
     signedAt,
     veterinarianName,
     veterinarianLicense,
+    templateContext = {},
     variant = 'default',
     className = ''
 }, ref) {
     const isCompact = variant === 'compact';
     const vetNameText = resolveText(veterinarianName, 'Veterinarian');
     const vetLicenseText = veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A';
+    const resolvedContext = {
+        ...templateContext,
+        signerName,
+        signedAt,
+        veterinarianName,
+        veterinarianLicense
+    };
+    const resolvedContent = resolveConsentTemplate(content, resolvedContext, { preview: true });
 
     return (
         <div
@@ -45,7 +55,7 @@ const ConsentDocument = forwardRef(function ConsentDocument({
             </div>
 
             <div className={`flex-1 whitespace-pre-wrap px-0 text-justify text-gray-800 sm:px-4 ${isCompact ? 'min-h-[220px] text-xs leading-relaxed' : 'text-sm leading-relaxed'}`}>
-                {resolveText(content, 'No content available for this form.')}
+                {resolveText(resolvedContent, 'No content available for this form.')}
             </div>
 
             <div className={`flex items-end justify-between gap-6 px-0 sm:px-4 ${isCompact ? 'mt-8' : 'mt-12'}`}>
@@ -57,8 +67,8 @@ const ConsentDocument = forwardRef(function ConsentDocument({
                             <span className="text-xs text-gray-300">Signature placeholder</span>
                         )}
                     </div>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide">Owner&apos;s Signature</p>
-                    {signerName && <p className="mt-1 text-[10px] font-sans text-gray-500">{signerName}</p>}
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide">Owner&apos;s Electronic Signature over Printed Name</p>
+                    <p className="mt-1 text-[10px] font-sans text-gray-500">{signerName || 'Printed owner name'}</p>
                     {signedAt && <p className="text-[10px] font-sans text-gray-400">{signedAt}</p>}
                 </div>
 

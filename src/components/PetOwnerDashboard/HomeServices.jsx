@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { Checkbox } from "../../ui/checkbox";
+import { PhotoViewer } from "../../ui/photo-viewer";
 import { toast } from "../../reusecomponent/toast.jsx";
 import {
   ArrowLeft, Bath, Bug, Scissors, Syringe, Heart, Stethoscope, Pill, Check,
@@ -17,6 +18,7 @@ import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDec
 import { fetchUserPets } from "../../services/petService";
 import { homeServicePriceById } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 
 export default function HomeServices() {
   const navigate = useNavigate();
@@ -133,7 +135,7 @@ export default function HomeServices() {
   ];
 
   const timeSlots = [
-    "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
     "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
 
@@ -202,12 +204,21 @@ export default function HomeServices() {
 
     const fileArray = Array.from(files);
     fileArray.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`${file.name} is not a supported image.`);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target?.result) {
+        if (String(event.target?.result || "").startsWith("data:image")) {
           setUploadedImages((prev) => [...prev, event.target.result]);
+        } else {
+          toast.error(`${file.name} could not be prepared for preview.`);
         }
       };
+      reader.onerror = () => toast.error(`${file.name} could not be read. Please choose another image.`);
+      reader.onabort = () => toast.error(`${file.name} preview was cancelled.`);
       reader.readAsDataURL(file);
     });
 
@@ -305,8 +316,7 @@ export default function HomeServices() {
       address: address,
       specific_location: specificLocation,
       images: uploadedImages,
-      transport_fee: 50,
-      total_base_fee: 50
+      transport_fee: 50
     };
 
     // Store in session for a final confirmation/payment screen
@@ -521,16 +531,15 @@ export default function HomeServices() {
                     <div className="mb-4 grid grid-cols-2 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6">
                       {uploadedImages.map((img, i) => (
                         <div key={`${img}-${i}`} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-white">
-                          <img
+                          <UploadImagePreview
                             src={img}
                             alt={`Uploaded concern ${i + 1}`}
-                            className="size-full cursor-zoom-in object-cover"
-                            onClick={() => setViewingImage(img)}
+                            onPreview={setViewingImage}
                           />
                           <button
                             type="button"
                             onClick={() => handleRemoveImage(i)}
-                            className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
+                            className="absolute right-1 top-1 z-20 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
                             aria-label="Remove uploaded photo"
                           >
                             <X className="h-3 w-3" />
@@ -599,13 +608,12 @@ export default function HomeServices() {
         </div>
       </div>
 
-      {/* Image Viewer */}
-      {viewingImage && (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={() => setViewingImage(null)}>
-          <button className="absolute top-4 right-4 text-white"><X className="h-8 w-8" /></button>
-          <img src={viewingImage} className="max-w-full max-h-full object-contain" />
-        </div>
-      )}
+      <PhotoViewer
+        open={Boolean(viewingImage)}
+        src={viewingImage || ""}
+        alt="Home-service concern preview"
+        onOpenChange={(open) => !open && setViewingImage(null)}
+      />
     </div>
   );
 }

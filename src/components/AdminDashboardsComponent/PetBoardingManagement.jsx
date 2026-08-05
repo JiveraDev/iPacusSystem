@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     Bell,
+    Building2,
     CalendarClock,
     Cat,
     CheckCircle,
@@ -47,12 +48,15 @@ import {
     checkOutBoardingBooking,
     completeBoardingTask,
     createBoardingDocument,
+    createBoardingMaterial,
     createBoardingObservation,
     createBoardingRooms,
     createBoardingTask,
     directBoardingCheckIn,
     fetchBoardingMonitoring,
+    fetchBoardingMaterials,
     fetchBoardingRooms,
+    removeBoardingMaterial,
     updateBoardingRoom,
     updateDesiredCheckOut
 } from '../../services/boardingService';
@@ -60,6 +64,7 @@ import { fetchBookings } from '../../services/bookingService';
 import { fetchAllPets } from '../../services/petService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadFormData } from '../../services/uploadService';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 
 const FACILITY_LABELS = {
     boarding: 'Kennel Boarding',
@@ -147,10 +152,19 @@ const emptyMaterialForm = {
     inventoryId: '',
     quantity: '1',
     unitPrice: '',
-    notes: ''
+    notes: '',
+    clientReference: ''
 };
 
 const BOARDING_MATERIAL_STORAGE_KEY = 'ipawcus-boarding-material-usage';
+
+function createBoardingMaterialClientReference() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return `mat-${crypto.randomUUID()}`;
+    }
+
+    return `mat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function todayIso() {
     return new Date().toISOString().split('T')[0];
@@ -389,6 +403,37 @@ function saveBoardingMaterialUsage(value) {
     localStorage.setItem(BOARDING_MATERIAL_STORAGE_KEY, JSON.stringify(value));
 }
 
+function groupBoardingMaterialUsage(materials = []) {
+    return materials.reduce((grouped, material) => {
+        const assignmentId = String(material.assignmentId || '');
+        if (!assignmentId) return grouped;
+
+        grouped[assignmentId] = [...(grouped[assignmentId] || []), material];
+        return grouped;
+    }, {});
+}
+
+function uniqueBoardingMaterialLines(materials = []) {
+    const uniqueLines = new Map();
+    materials.forEach((material) => {
+        const key = material.usageId
+            ? `usage-${material.usageId}`
+            : `local-${material.clientReference || material.id}`;
+        uniqueLines.set(key, material);
+    });
+    return [...uniqueLines.values()];
+}
+
+function getPendingLocalMaterialUsage(materialUsage) {
+    return Object.entries(materialUsage).reduce((pending, [assignmentId, lines]) => {
+        const localLines = (Array.isArray(lines) ? lines : []).filter((line) => !line.usageId);
+        if (localLines.length > 0) {
+            pending[assignmentId] = localLines;
+        }
+        return pending;
+    }, {});
+}
+
 function getAssignmentMaterialLines(materialUsage, assignmentId) {
     if (!assignmentId) return [];
     const lines = materialUsage[String(assignmentId)];
@@ -430,6 +475,7 @@ function buildPaymentPrefill(unit, materialLines = []) {
         quantity: Number(line.quantity) || 1,
         price: Number(line.unitPrice) || 0,
         inventoryId: line.inventoryId,
+        boardingMaterialUsageId: line.usageId || null,
         receiptType: 'SERVICE',
         classificationId: 'services'
     }));
@@ -496,10 +542,6 @@ function getUserName(user) {
     ].filter(Boolean).join(' ').trim();
 
     return fullName || user?.name || user?.email || 'Staff';
-}
-
-function getUserId(user) {
-    return user?.id || user?.user_id || user?.userId || '';
 }
 
 function resolveFileUrl(path) {
@@ -620,8 +662,8 @@ export default function PetBoardingManagement() {
     const navigate = useNavigate();
     const dashboardUser = useDashboardUser();
     const documentFileInputRef = useRef(null);
+    const materialMutationVersionRef = useRef(0);
     const currentUserName = getUserName(dashboardUser);
-    const currentUserId = getUserId(dashboardUser);
     const [activeTab, setActiveTab] = useState('overview');
     const [facilityView, setFacilityView] = useState('boarding');
     const [units, setUnits] = useState([]);
@@ -632,6 +674,10 @@ export default function PetBoardingManagement() {
     const [pets, setPets] = useState([]);
     const [inventoryItems, setInventoryItems] = useState([]);
     const [materialUsage, setMaterialUsage] = useState(loadBoardingMaterialUsage);
+    const [materialBackendReady, setMaterialBackendReady] = useState(false);
+    const [materialSchemaReady, setMaterialSchemaReady] = useState(null);
+    const [materialBillingTraceReady, setMaterialBillingTraceReady] = useState(null);
+    const [materialSyncMessage, setMaterialSyncMessage] = useState('');
     const [boardingBookings, setBoardingBookings] = useState([]);
     const [serviceCatalog, setServiceCatalog] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -657,24 +703,53 @@ export default function PetBoardingManagement() {
     const [materialForm, setMaterialForm] = useState(emptyMaterialForm);
     const [desiredOutDate, setDesiredOutDate] = useState('');
     const [actionLoading, setActionLoading] = useState('');
+    const [branches, setBranches] = useState([]);
+    const [branchId, setBranchId] = useState(() => String(
+        dashboardUser?.preferred_branch_id || dashboardUser?.preferredBranchId || ''
+    ));
+
+    useAutoRefresh(async () => {
+        try {
+            const data = await fetchBranches({ service: 'boarding', assignedOnly: true });
+            const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+            setBranches(nextBranches);
+            setBranchId(current => {
+                if (nextBranches.some(branch => String(branch.id) === String(current))) return current;
+                const preferred = dashboardUser?.preferred_branch_id || dashboardUser?.preferredBranchId;
+                const next = nextBranches.find(branch => String(branch.id) === String(preferred))
+                    || nextBranches.find(branch => branch.isMain)
+                    || nextBranches[0];
+                return next ? String(next.id) : '';
+            });
+        } catch (error) {
+            console.error('Failed to load boarding locations:', error);
+        }
+    }, { intervalMs: 30000, refreshKey: 'boarding-branches' });
 
     useEffect(() => {
-        saveBoardingMaterialUsage(materialUsage);
+        const pendingMaterialUsage = getPendingLocalMaterialUsage(materialUsage);
+        if (Object.keys(pendingMaterialUsage).length === 0) {
+            localStorage.removeItem(BOARDING_MATERIAL_STORAGE_KEY);
+        } else {
+            saveBoardingMaterialUsage(pendingMaterialUsage);
+        }
     }, [materialUsage]);
 
     const fetchBoardingData = useCallback(async ({ isAutoRefresh = false } = {}) => {
+        const materialVersionAtStart = materialMutationVersionRef.current;
         if (!isAutoRefresh) {
             setIsLoading(true);
         }
 
         try {
-            const [roomsResult, monitoringResult, petsResult, bookingsResult, catalogResult, inventoryResult] = await Promise.allSettled([
-                fetchBoardingRooms(),
-                fetchBoardingMonitoring(),
+            const [roomsResult, monitoringResult, materialsResult, petsResult, bookingsResult, catalogResult, inventoryResult] = await Promise.allSettled([
+                fetchBoardingRooms({ branch_id: branchId }),
+                fetchBoardingMonitoring({ branch_id: branchId }),
+                fetchBoardingMaterials({ branch_id: branchId }),
                 fetchAllPets(),
                 fetchBookings(),
                 fetchServiceCatalog(),
-                fetchInventoryItems()
+                fetchInventoryItems({ branch_id: branchId })
             ]);
 
             if (roomsResult.status === 'fulfilled') {
@@ -690,9 +765,85 @@ export default function PetBoardingManagement() {
                 setDocuments(Array.isArray(monitoringResult.value.documents) ? monitoringResult.value.documents : []);
                 setDocumentSchemaMessage(
                     monitoringResult.value.documentSchemaReady === false
-                        ? 'Run DDL/visit_service_payment_migration_20260604.sql to enable boarding document uploads.'
+                        ? 'Run DDL/20260723_01_backend_integrity_schema.sql to enable boarding document uploads.'
                         : ''
                 );
+            }
+
+            if (materialsResult.status === 'fulfilled') {
+                const materialSchemaIsReady = materialsResult.value?.schemaReady !== false;
+                const billingTraceIsReady = materialsResult.value?.billingTraceReady === true;
+                setMaterialSchemaReady(materialSchemaIsReady);
+                setMaterialBillingTraceReady(billingTraceIsReady);
+
+                if (!materialSchemaIsReady) {
+                    setMaterialBackendReady(false);
+                    setMaterialSyncMessage(
+                        materialsResult.value?.message
+                        || 'Boarding material persistence is waiting for the database migration.'
+                    );
+                } else {
+                    const localMaterialUsage = loadBoardingMaterialUsage();
+                    const localMaterialLines = Object.values(localMaterialUsage)
+                        .flatMap((lines) => Array.isArray(lines) ? lines : [])
+                        .filter((line) => !line.usageId);
+                    const migrationResults = await Promise.allSettled(localMaterialLines.map((line) => (
+                        createBoardingMaterial({
+                            assignment_id: Number(line.assignmentId),
+                            item_id: Number(line.itemId || line.inventoryId),
+                            quantity: Number(line.quantity),
+                            unit_price: Number(line.unitPrice || 0),
+                            notes: line.notes || null,
+                            client_reference: line.clientReference || line.id
+                        })
+                    )));
+                    const migratedLines = migrationResults
+                        .filter((result) => (
+                            result.status === 'fulfilled'
+                            && result.value?.material?.status === 'recorded'
+                        ))
+                        .map((result) => result.value.material);
+                    const failedLines = migrationResults
+                        .map((result, index) => ({ result, line: localMaterialLines[index] }))
+                        .filter(({ result }) => (
+                            result.status !== 'fulfilled'
+                            || result.value?.material?.status !== 'recorded'
+                        ));
+
+                    if (materialVersionAtStart === materialMutationVersionRef.current) {
+                        const serverLines = uniqueBoardingMaterialLines([
+                            ...(materialsResult.value.materials || []),
+                            ...migratedLines
+                        ]);
+                        const nextUsage = groupBoardingMaterialUsage(serverLines);
+                        failedLines.forEach(({ line }) => {
+                            const key = String(line.assignmentId || '');
+                            if (key) {
+                                nextUsage[key] = [...(nextUsage[key] || []), line];
+                            }
+                        });
+                        setMaterialUsage(nextUsage);
+                        setMaterialBackendReady(failedLines.length === 0);
+                    }
+
+                    if (failedLines.length > 0) {
+                        const firstFailure = failedLines[0].result.status === 'rejected'
+                            ? failedLines[0].result.reason?.message
+                            : failedLines[0].result.value?.message;
+                        setMaterialSyncMessage(
+                            `${failedLines.length} locally staged material record${failedLines.length === 1 ? '' : 's'} could not be synchronized.`
+                            + (firstFailure ? ` ${firstFailure}` : '')
+                        );
+                    } else if (!billingTraceIsReady) {
+                        setMaterialSyncMessage(
+                            'Boarding material billing trace is waiting for DDL/20260723_01_backend_integrity_schema.sql.'
+                        );
+                    } else {
+                        setMaterialSyncMessage('');
+                    }
+                }
+            } else if (!isAutoRefresh) {
+                setMaterialSyncMessage(materialsResult.reason?.message || 'Failed to load boarding materials.');
             }
 
             if (petsResult.status === 'fulfilled') {
@@ -725,9 +876,9 @@ export default function PetBoardingManagement() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [branchId]);
 
-    useAutoRefresh(fetchBoardingData);
+    useAutoRefresh(fetchBoardingData, { enabled: Boolean(branchId), refreshKey: branchId || 'no-branch' });
 
     const filteredUnits = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -786,6 +937,7 @@ export default function PetBoardingManagement() {
         });
 
         boardingBookings
+            .filter((booking) => String(booking.branchId || '') === String(branchId || ''))
             .filter((booking) => booking.type === 'boarding' && booking.boardingAssignment)
             .forEach((booking) => {
                 const assignment = booking.boardingAssignment;
@@ -817,10 +969,11 @@ export default function PetBoardingManagement() {
             });
 
         return subjects;
-    }, [activeAssignments, boardingBookings]);
+    }, [activeAssignments, boardingBookings, branchId]);
 
     const visibleBoardingBookings = useMemo(() => (
         boardingBookings
+            .filter((booking) => String(booking.branchId || '') === String(branchId || ''))
             .filter((booking) => booking.type === 'boarding' && booking.hotelBoardingType)
             .filter((booking) => booking.status !== 'completed' && booking.status !== 'cancelled')
             .filter((booking) => booking.hotelBoardingType === facilityView)
@@ -828,7 +981,7 @@ export default function PetBoardingManagement() {
                 const statusOrder = { pending: 1, confirmed: 2 };
                 return (statusOrder[a.status] || 9) - (statusOrder[b.status] || 9);
             })
-    ), [boardingBookings, facilityView]);
+    ), [boardingBookings, branchId, facilityView]);
 
     const pendingReservationCount = useMemo(() => (
         visibleBoardingBookings.filter((booking) => !booking.boardingAssignment).length
@@ -942,7 +1095,8 @@ export default function PetBoardingManagement() {
         const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : activeAssignments[0]?.value || '';
         setMaterialForm({
             ...emptyMaterialForm,
-            assignmentId
+            assignmentId,
+            clientReference: createBoardingMaterialClientReference()
         });
         setIsMaterialOpen(true);
     };
@@ -995,12 +1149,19 @@ export default function PetBoardingManagement() {
         setActionLoading(`room-${unit.id}`);
         try {
             await updateBoardingRoom({
+                branch_id: Number(branchId),
                 room_type: unit.roomType,
                 room_number: unit.roomNumber,
                 status
             });
 
-            toast.success(status === 'maintenance' ? 'Room marked for maintenance.' : 'Room marked available.');
+            toast.success(
+                status === 'maintenance'
+                    ? 'Room marked for maintenance.'
+                    : status === 'retired'
+                        ? 'Room removed from active capacity.'
+                        : 'Room marked available.'
+            );
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
@@ -1034,6 +1195,7 @@ export default function PetBoardingManagement() {
         setActionLoading('add-room');
         try {
             await createBoardingRooms({
+                branch_id: Number(branchId),
                 room_type: `${addRoomForm.type}-${addRoomForm.roomSize}`,
                 hotel_boarding_type: addRoomForm.type,
                 room_size: addRoomForm.roomSize,
@@ -1074,6 +1236,7 @@ export default function PetBoardingManagement() {
         setActionLoading('direct-check-in');
         try {
             const result = await directBoardingCheckIn({
+                branch_id: Number(branchId),
                 pet_id: directCheckInForm.petId,
                 type: directCheckInForm.type,
                 room_size: directCheckInForm.roomSize,
@@ -1125,19 +1288,19 @@ export default function PetBoardingManagement() {
 
     const checkOutPet = async (unit) => {
         if (!unit.assignment?.bookingId) return;
+        const assignmentId = unit.assignment?.assignmentId ? String(unit.assignment.assignmentId) : '';
+        const hasPendingLocalMaterial = getAssignmentMaterialLines(materialUsage, assignmentId)
+            .some((line) => !line.usageId);
+        if (hasPendingLocalMaterial) {
+            toast.error('Synchronize or remove locally staged materials before checking this pet out.');
+            return;
+        }
 
         setActionLoading(`check-out-${unit.id}`);
         try {
             await checkOutBoardingBooking(unit.assignment.bookingId);
 
             toast.success('Pet checked out.');
-            if (unit.assignment.assignmentId) {
-                setMaterialUsage((current) => {
-                    const next = { ...current };
-                    delete next[String(unit.assignment.assignmentId)];
-                    return next;
-                });
-            }
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
@@ -1168,15 +1331,15 @@ export default function PetBoardingManagement() {
         }
     };
 
-    const addMaterialUsage = () => {
+    const addMaterialUsage = async () => {
         if (!materialForm.assignmentId || !materialForm.inventoryId) {
             toast.error('Select a pet room and inventory item.');
             return;
         }
 
         const quantity = Number(materialForm.quantity);
-        if (!Number.isFinite(quantity) || quantity <= 0) {
-            toast.error('Enter a valid material quantity.');
+        if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+            toast.error('Enter a positive whole-number material quantity.');
             return;
         }
 
@@ -1198,8 +1361,13 @@ export default function PetBoardingManagement() {
         }
 
         const selectedAssignment = activeAssignments.find(({ value }) => value === materialForm.assignmentId);
+        const clientReference = materialForm.clientReference || createBoardingMaterialClientReference();
+        if (!materialForm.clientReference) {
+            setMaterialForm((current) => ({ ...current, clientReference }));
+        }
         const line = {
-            id: `mat-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            id: clientReference,
+            clientReference,
             assignmentId: materialForm.assignmentId,
             bookingId: selectedAssignment?.assignment?.bookingId || null,
             petName: selectedAssignment?.assignment?.petName || 'Pet',
@@ -1216,30 +1384,74 @@ export default function PetBoardingManagement() {
             createdByName: currentUserName
         };
 
-        setMaterialUsage((current) => {
-            const key = String(materialForm.assignmentId);
-            return {
-                ...current,
-                [key]: [...getAssignmentMaterialLines(current, key), line]
-            };
-        });
-        toast.success('Boarding material added to checkout.');
-        setIsMaterialOpen(false);
-        setMaterialForm(emptyMaterialForm);
+        setActionLoading('material');
+        materialMutationVersionRef.current += 1;
+        try {
+            const savedLine = materialSchemaReady === true
+                ? (await createBoardingMaterial({
+                    assignment_id: Number(materialForm.assignmentId),
+                    item_id: item.itemId,
+                    quantity,
+                    unit_price: unitPrice,
+                    notes: materialForm.notes.trim() || null,
+                    client_reference: clientReference
+                })).material
+                : line;
+
+            if (!savedLine) {
+                throw new Error('The boarding material could not be saved.');
+            }
+
+            materialMutationVersionRef.current += 1;
+            setMaterialUsage((current) => {
+                const key = String(materialForm.assignmentId);
+                const currentLines = getAssignmentMaterialLines(current, key);
+                const nextLines = currentLines.some((existingLine) => (
+                    String(existingLine.usageId || existingLine.id) === String(savedLine.usageId || savedLine.id)
+                ))
+                    ? currentLines
+                    : [...currentLines, savedLine];
+
+                return {
+                    ...current,
+                    [key]: nextLines
+                };
+            });
+            toast.success('Boarding material added to checkout.');
+            setIsMaterialOpen(false);
+            setMaterialForm(emptyMaterialForm);
+        } catch (error) {
+            toast.error(error.message || 'Failed to save boarding material.');
+        } finally {
+            setActionLoading('');
+        }
     };
 
-    const removeMaterialUsage = (assignmentId, lineId) => {
-        setMaterialUsage((current) => {
-            const key = String(assignmentId);
-            const nextLines = getAssignmentMaterialLines(current, key).filter((line) => line.id !== lineId);
-            const next = { ...current };
-            if (nextLines.length > 0) {
-                next[key] = nextLines;
-            } else {
-                delete next[key];
+    const removeMaterialUsage = async (assignmentId, lineId) => {
+        const line = getAssignmentMaterialLines(materialUsage, assignmentId)
+            .find((candidate) => candidate.id === lineId);
+
+        materialMutationVersionRef.current += 1;
+        try {
+            if (line?.usageId) {
+                await removeBoardingMaterial(line.usageId);
             }
-            return next;
-        });
+
+            materialMutationVersionRef.current += 1;
+            setMaterialUsage((current) => {
+                const key = String(assignmentId);
+                const nextLines = getAssignmentMaterialLines(current, key).filter((candidate) => candidate.id !== lineId);
+                const next = { ...current };
+                if (nextLines.length > 0) {
+                    next[key] = nextLines;
+                } else {
+                    delete next[key];
+                }
+                return next;
+            });
+        } catch (error) {
+            toast.error(error.message || 'Failed to remove boarding material.');
+        }
     };
 
     const addObservation = async () => {
@@ -1345,9 +1557,7 @@ export default function PetBoardingManagement() {
                 document_path: uploadResult.relative_url || uploadResult.url,
                 file_name: documentForm.file.name,
                 mime_type: documentForm.file.type,
-                notes: documentForm.notes,
-                uploaded_by_user_id: currentUserId || null,
-                uploaded_by_name: currentUserName
+                notes: documentForm.notes
             });
 
             toast.success('Boarding document attached.');
@@ -1402,6 +1612,14 @@ export default function PetBoardingManagement() {
     const goToPayment = (unit) => {
         const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : '';
         const materialLines = getAssignmentMaterialLines(materialUsage, assignmentId);
+        if (materialBillingTraceReady !== true) {
+            toast.error('Install the boarding material billing trace migration before opening payment.');
+            return;
+        }
+        if (!materialBackendReady && materialLines.some((line) => !line.usageId)) {
+            toast.error('Wait for locally staged boarding materials to synchronize before opening payment.');
+            return;
+        }
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill(unit, materialLines)));
         navigate('/dashboard/pos');
     };
@@ -1740,6 +1958,22 @@ export default function PetBoardingManagement() {
                             </div>
                         </div>
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                            <div className="min-w-64">
+                                <Select value={branchId} onValueChange={setBranchId}>
+                                    <SelectTrigger aria-label="Boarding clinic location">
+                                        <Building2 className="mr-2 size-4 text-slate-500" />
+                                        <SelectValue
+                                            placeholder="Select clinic location"
+                                            displayValue={getBranchDisplayName(branches, branchId)}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {branches.map(branch => (
+                                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             {renderFacilityToggle()}
                         </div>
                     </div>
@@ -1753,7 +1987,7 @@ export default function PetBoardingManagement() {
                         <div>
                             <p className="font-black">Boarding database migration required</p>
                             <p className="mt-1">{schemaMessage}</p>
-                            <p className="mt-1">Run DDL/boarding_management_migration_20260603.sql, then refresh this screen.</p>
+                            <p className="mt-1">Run DDL/20260723_01_backend_integrity_schema.sql, then refresh this screen.</p>
                         </div>
                     </div>
                 </div>
@@ -2198,6 +2432,13 @@ export default function PetBoardingManagement() {
                             </Button>
                         </div>
 
+                        {materialSyncMessage && (
+                            <div className="flex items-start gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-900">
+                                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                                <p>{materialSyncMessage}</p>
+                            </div>
+                        )}
+
                         {visibleMaterialUsage.length === 0 ? (
                             <div className="flex min-h-36 flex-col items-center justify-center px-5 text-center text-slate-500">
                                 <Package className="mb-3 size-9" />
@@ -2223,6 +2464,7 @@ export default function PetBoardingManagement() {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => removeMaterialUsage(line.assignmentId, line.id)}
+                                            disabled={line.canRemove === false}
                                         >
                                             <Trash2 className="size-4" />
                                             Remove
@@ -2447,6 +2689,8 @@ export default function PetBoardingManagement() {
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={() => removeMaterialUsage(line.assignmentId, line.id)}
+                                                                    disabled={line.canRemove === false}
+                                                                    aria-label={`Remove ${line.itemName}`}
                                                                 >
                                                                     <Trash2 className="size-4" />
                                                                 </Button>
@@ -2502,6 +2746,18 @@ export default function PetBoardingManagement() {
                             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
                             {selectedUnit.status === 'available' && (
                                 <>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => {
+                                            if (window.confirm(`Remove ${selectedUnit.roomLabel} from active capacity? Existing history will be preserved.`)) {
+                                                updateRoomStatus(selectedUnit, 'retired');
+                                            }
+                                        }}
+                                        disabled={actionLoading === `room-${selectedUnit.id}`}
+                                    >
+                                        <Trash2 className="size-4" />
+                                        Remove Room
+                                    </Button>
                                     <Button variant="outline" onClick={() => updateRoomStatus(selectedUnit, 'maintenance')} disabled={actionLoading === `room-${selectedUnit.id}`}>
                                         <Wrench className="size-4" />
                                         Maintenance
@@ -2513,10 +2769,24 @@ export default function PetBoardingManagement() {
                                 </>
                             )}
                             {selectedUnit.status === 'maintenance' && (
-                                <Button className="bg-[#0c6a3c]" onClick={() => updateRoomStatus(selectedUnit, 'available')} disabled={actionLoading === `room-${selectedUnit.id}`}>
-                                    <CheckCircle className="size-4" />
-                                    Mark Available
-                                </Button>
+                                <>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => {
+                                            if (window.confirm(`Remove ${selectedUnit.roomLabel} from active capacity? Existing history will be preserved.`)) {
+                                                updateRoomStatus(selectedUnit, 'retired');
+                                            }
+                                        }}
+                                        disabled={actionLoading === `room-${selectedUnit.id}`}
+                                    >
+                                        <Trash2 className="size-4" />
+                                        Remove Room
+                                    </Button>
+                                    <Button className="bg-[#0c6a3c]" onClick={() => updateRoomStatus(selectedUnit, 'available')} disabled={actionLoading === `room-${selectedUnit.id}`}>
+                                        <CheckCircle className="size-4" />
+                                        Mark Available
+                                    </Button>
+                                </>
                             )}
                             {selectedUnit.status === 'reserved' && (
                                 <Button className="bg-[#155dfc]" onClick={() => checkInReservedPet(selectedUnit)} disabled={actionLoading === `check-in-${selectedUnit.id}`}>
@@ -2879,9 +3149,9 @@ export default function PetBoardingManagement() {
                                 <Label>Quantity *</Label>
                                 <Input
                                     type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    restriction="decimal"
+                                    min="1"
+                                    step="1"
+                                    restriction="integer"
                                     value={materialForm.quantity}
                                     onChange={(event) => setMaterialForm({ ...materialForm, quantity: event.target.value })}
                                 />
@@ -2911,8 +3181,8 @@ export default function PetBoardingManagement() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsMaterialOpen(false)}>Cancel</Button>
-                        <Button onClick={addMaterialUsage} className="bg-[#155dfc]">
-                            <Package className="size-4" />
+                        <Button onClick={addMaterialUsage} disabled={actionLoading === 'material'} className="bg-[#155dfc]">
+                            {actionLoading === 'material' ? <Loader2 className="size-4 animate-spin" /> : <Package className="size-4" />}
                             Add Material
                         </Button>
                     </DialogFooter>
@@ -2931,7 +3201,7 @@ export default function PetBoardingManagement() {
                         <input
                             ref={documentFileInputRef}
                             type="file"
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,image/jpeg,image/png,image/gif,image/webp,application/pdf"
                             onChange={handleDocumentFileSelect}
                             className="hidden"
                         />
@@ -3198,7 +3468,7 @@ function SearchablePetField({ value, pets = [], onChange }) {
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm font-black text-[#101828]">{getPetSearchLabel(pet)}</span>
                                         <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
-                                            {[ownerName && `Owner: ${ownerName}`, pet.breed].filter(Boolean).join(' / ') || `Pet ID: ${petValue}`}
+                                            {[ownerName && `Owner: ${ownerName}`, pet.breed].filter(Boolean).join(' / ') || 'Pet details unavailable'}
                                         </span>
                                     </span>
                                     {isSelected && <CheckCircle className="mt-0.5 size-4 shrink-0 text-blue-700" />}

@@ -3,6 +3,8 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/consent_record_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -120,12 +122,15 @@ try {
             b.booking_time,
             b.status,
             b.price,
+            b.transport_fee,
             b.notes,
             b.is_home_service,
             b.is_online_consultation,
             b.address,
             b.payment_proof_url,
             b.signature_path,
+            b.consent_forms,
+            b.consent_status,
             b.Image_Booking_Concern_Path,
             b.registered_status,
             b.petType,
@@ -225,7 +230,7 @@ try {
         }
     }
 
-    $formattedBookings = array_map(function($booking) use ($specialServiceItemsByBooking) {
+    $formattedBookings = array_map(function($booking) use ($specialServiceItemsByBooking, $pdo) {
         $addOns = null;
         if (!empty($booking['add_ons'])) {
             $decodedAddOns = json_decode($booking['add_ons'], true);
@@ -235,6 +240,29 @@ try {
         $serviceName = normalizeServiceName($booking, $specialServiceItems);
 
         $isRegistered = $booking['registered_status'] === 'Registered' || (!empty($booking['pet_id']) && !empty($booking['pet_name']));
+        $isHomeService = (bool)$booking['is_home_service']
+            || strtolower(trim((string)($booking['service_type'] ?? ''))) === 'home-service';
+        $isOnlineConsultation = (bool)$booking['is_online_consultation'];
+        $onlineConsultationDetails = $isOnlineConsultation
+            ? bookingOnlineConsultationNoteDetails($booking['notes'] ?? '')
+            : null;
+        $transportFee = (float)($booking['transport_fee'] ?? 0);
+        $bookingPrice = (float)($booking['price'] ?? 0);
+        if ($isHomeService && $bookingPrice <= max(50.0, $transportFee)) {
+            $bookingPrice = 1400.0;
+        }
+        $consentForms = consent_record_forms_for_response($booking['consent_forms'] ?? null);
+        $signedConsentDocumentPath = consent_record_first_signed_document_path($consentForms);
+        $physicalConsentPath = consent_record_first_physical_document_path($consentForms);
+        $legacyConsentSignaturePath = consent_record_first_legacy_signature_path($consentForms);
+        $storedBookingSignaturePath = consent_record_nullable_text($booking['signature_path'] ?? null);
+        if (
+            $legacyConsentSignaturePath === null
+            && $storedBookingSignaturePath !== null
+            && $storedBookingSignaturePath !== $signedConsentDocumentPath
+        ) {
+            $legacyConsentSignaturePath = $storedBookingSignaturePath;
+        }
 
         return [
             'id' => $booking['booking_id'],
@@ -252,7 +280,9 @@ try {
             'petWeight' => $booking['pet_weight'] ?? $booking['unregistered_pet_weight'],
             'petMicrochipId' => $booking['pet_microchip'] ?? null,
             'petColor' => $booking['pet_color_marking'] ?? null,
-            'petAllergies' => $booking['pet_allergies'] ?? null,
+            'petAllergies' => $isRegistered
+                ? pet_allergy_effective_text($pdo, (int)$booking['pet_id'], $booking['pet_allergies'] ?? null)
+                : null,
             'petTempOwner' => $booking['pet_Temp_owner'] ?? null,
             'petProfileImage' => $booking['setpetImage_url'] ?? null,
             'ownerName' => trim(($booking['first_Name'] ?? '') . ' ' . ($booking['last_Name'] ?? '')),
@@ -267,14 +297,27 @@ try {
             'date' => $booking['booking_date'],
             'time' => $booking['booking_time'],
             'status' => $booking['status'],
-            'price' => $booking['price'],
-            'notes' => bookingCleanVisibleNotes($booking['notes'] ?? ''),
+            'price' => $bookingPrice,
+            'transportFee' => (float)($booking['transport_fee'] ?? 0),
+            'notes' => $onlineConsultationDetails['additionalNotes']
+                ?? bookingCleanVisibleNotes($booking['notes'] ?? ''),
+            'discussionTopic' => $onlineConsultationDetails['discussionTopic'] ?? null,
+            'discussionTopics' => $onlineConsultationDetails['discussionTopics'] ?? [],
+            'paymentSenderNumber' => $onlineConsultationDetails['paymentSenderNumber'] ?? null,
+            'transactionReference' => $onlineConsultationDetails['transactionReference'] ?? null,
             'isRegistered' => $isRegistered,
-            'isHomeService' => (bool)$booking['is_home_service'],
-            'isOnlineConsultation' => (bool)$booking['is_online_consultation'],
+            'isHomeService' => $isHomeService,
+            'isOnlineConsultation' => $isOnlineConsultation,
             'address' => $booking['address'] ?? null,
             'paymentProof' => $booking['payment_proof_url'] ?? null,
-            'signaturePath' => $booking['signature_path'] ?? null,
+            // Keep the existing field name for callers, while preventing a
+            // legacy signature-only image from being presented as the form.
+            'signaturePath' => $signedConsentDocumentPath,
+            'consentDocumentPath' => $signedConsentDocumentPath,
+            'legacyConsentSignaturePath' => $legacyConsentSignaturePath,
+            'physicalConsentPath' => $physicalConsentPath,
+            'consentForms' => $consentForms,
+            'consentStatus' => $booking['consent_status'] ?? null,
             'image_Booking_Concern_Path' => $booking['Image_Booking_Concern_Path'] ?? null,
             'hotelBoardingType' => $booking['hotel_boarding_type'] ?? null,
             'checkInDate' => $booking['check_in_date'] ?? null,

@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
@@ -15,6 +15,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
 import { resolveImageUrl } from '../../lib/image';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 
 const PERSONNEL_POSITION_OPTIONS = [
     { value: 'Nurse', label: 'Senior Nurse' },
@@ -45,7 +46,7 @@ export default function AccountManagement() {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
-    const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time' });
+    const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time', branchId: '' });
     const [deleteForm, setDeleteForm] = useState({ masterKey: '', reason: '' });
     const [isSavingPersonnel, setIsSavingPersonnel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +54,7 @@ export default function AccountManagement() {
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [branches, setBranches] = useState([]);
 
     // Create Account Form State
     const [createForm, setCreateForm] = useState({
@@ -61,6 +63,7 @@ export default function AccountManagement() {
         email: '',
         password: '',
         role: 'Veterinarian',
+        branchId: '',
         hireDate: new Date().toISOString().split('T')[0],
         licenseNumber: '',
         specialization: '',
@@ -70,6 +73,19 @@ export default function AccountManagement() {
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        fetchBranches()
+            .then((data) => {
+                const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+                setBranches(nextBranches);
+                const main = nextBranches.find((branch) => branch.isMain) || nextBranches[0];
+                if (main) {
+                    setCreateForm((current) => current.branchId ? current : { ...current, branchId: String(main.id) });
+                }
+            })
+            .catch((error) => console.error('Failed to load branches:', error));
+    }, []);
 
     const clearCreatePasswordFields = () => {
         setCreateForm((currentForm) => ({
@@ -125,6 +141,7 @@ export default function AccountManagement() {
             setCreateForm({
                 firstName: '', lastName: '', email: '', password: '',
                 role: 'Veterinarian', hireDate: new Date().toISOString().split('T')[0],
+                branchId: String((branches.find((branch) => branch.isMain) || branches[0])?.id || ''),
                 licenseNumber: '', specialization: '',
                 position: 'Nurse', employmentStatus: 'full-time', masterKey: ''
             });
@@ -177,7 +194,8 @@ export default function AccountManagement() {
     const formatEmploymentStatus = (value) => employmentStatusLabels[String(value || '').toLowerCase()] || displayValue(value);
     const getPersonnelFormFromUser = (user) => ({
         position: String(user?.postionn || '').trim(),
-        employmentStatus: String(user?.employment_status || 'full-time').trim().toLowerCase()
+        employmentStatus: String(user?.employment_status || 'full-time').trim().toLowerCase(),
+        branchId: String(user?.preferred_branch_id || '')
     });
     const openAccountDetails = (user, type) => {
         const detailsUser = { ...user, type };
@@ -393,6 +411,7 @@ export default function AccountManagement() {
 
         const position = personnelForm.position.trim();
         const employmentStatus = personnelForm.employmentStatus;
+        const branchId = personnelForm.branchId;
 
         if (!position) {
             toast.error('Position is required.');
@@ -403,24 +422,34 @@ export default function AccountManagement() {
             toast.error('Select a valid employment status.');
             return;
         }
+        if (!branches.some((branch) => String(branch.id) === String(branchId))) {
+            toast.error('Select the branch this Admin account is assigned to.');
+            return;
+        }
 
         setIsSavingPersonnel(true);
         try {
             const response = await updatePersonnelAccountDetails(selectedUser.user_id, {
                 type: selectedUser.type,
                 position,
-                employmentStatus
+                employmentStatus,
+                branchId: Number(branchId)
             });
+            const assignedBranch = branches.find((branch) => String(branch.id) === String(branchId));
             const updatedAccount = response.account || {
                 ...selectedUser,
                 postionn: position,
-                employment_status: employmentStatus
+                employment_status: employmentStatus,
+                preferred_branch_id: Number(branchId),
+                preferred_branch_name: assignedBranch?.name || ''
             };
 
             setSelectedUser((current) => current ? {
                 ...current,
                 postionn: updatedAccount.postionn ?? position,
-                employment_status: updatedAccount.employment_status ?? employmentStatus
+                employment_status: updatedAccount.employment_status ?? employmentStatus,
+                preferred_branch_id: updatedAccount.preferred_branch_id ?? Number(branchId),
+                preferred_branch_name: updatedAccount.preferred_branch_name ?? assignedBranch?.name ?? ''
             } : current);
             setAccounts((current) => ({
                 ...current,
@@ -429,13 +458,15 @@ export default function AccountManagement() {
                         ? {
                             ...account,
                             postionn: updatedAccount.postionn ?? position,
-                            employment_status: updatedAccount.employment_status ?? employmentStatus
+                            employment_status: updatedAccount.employment_status ?? employmentStatus,
+                            preferred_branch_id: updatedAccount.preferred_branch_id ?? Number(branchId),
+                            preferred_branch_name: updatedAccount.preferred_branch_name ?? assignedBranch?.name ?? ''
                         }
                         : account
                 ))
             }));
             setIsEditingPersonnel(false);
-            toast.success('Personnel details updated successfully.');
+            toast.success('Personnel details and assigned branch updated successfully.');
             fetchAccounts({ isAutoRefresh: true });
         } catch (error) {
             console.error('Personnel update error:', error);
@@ -860,6 +891,19 @@ export default function AccountManagement() {
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                                             <ProfileField icon={UserCog} label="Employee ID" value={selectedUser.employee_id} accent="text-purple-700" />
                                             <EditableProfileSelectField
+                                                icon={MapPin}
+                                                label="Assigned Branch"
+                                                value={personnelForm.branchId}
+                                                displayText={isEditingPersonnel
+                                                    ? branches.find((branch) => String(branch.id) === personnelForm.branchId)?.name
+                                                    : selectedUser.preferred_branch_name}
+                                                options={branches.map((branch) => ({ value: String(branch.id), label: branch.name }))}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(branchId) => setPersonnelForm((current) => ({ ...current, branchId }))}
+                                                accent="text-blue-700"
+                                            />
+                                            <EditableProfileSelectField
                                                 icon={UserCog}
                                                 label="Position"
                                                 value={personnelForm.position}
@@ -924,7 +968,7 @@ export default function AccountManagement() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <Save className="size-4 mr-2" /> Save Employment Info
+                                                                <Save className="size-4 mr-2" /> Save Admin Assignment
                                                             </>
                                                         )}
                                                     </Button>
@@ -1145,6 +1189,33 @@ export default function AccountManagement() {
                                 <Input type="date" value={createForm.hireDate} onChange={(e) => setCreateForm({...createForm, hireDate: e.target.value})} className="bg-gray-100" />
                             </div>
                         </div>
+
+                        {createForm.role !== 'Super Admin' && (
+                            <div>
+                                <Label className="mb-2 block text-gray-900">
+                                    {createForm.role === 'Admin' ? 'Assigned Branch *' : 'Preferred Branch'}
+                                </Label>
+                                <Select
+                                    value={createForm.branchId}
+                                    onValueChange={(branchId) => setCreateForm({ ...createForm, branchId })}
+                                >
+                                    <SelectTrigger className="bg-gray-100 border-gray-300">
+                                        <SelectValue
+                                            placeholder="Select branch"
+                                            displayValue={getBranchDisplayName(branches, createForm.branchId)}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {branches.map((branch) => (
+                                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                    Admin access is limited to this branch. Veterinarians may later change their preferred location.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>

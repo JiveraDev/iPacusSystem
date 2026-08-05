@@ -77,6 +77,33 @@ function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
 }
 
+function normalizeRole(user) {
+    return String(user?.role || user?.user_role || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[ _-]+/g, '_');
+}
+
+function preferenceGroupsForRole(user) {
+    const role = normalizeRole(user);
+    const isSuperAdmin = ['super_admin', 'superadmin'].includes(role);
+    const allowedUpdateKeys = role === 'veterinarian' || role === 'vet'
+        ? ['booking_updates', 'schedule_reminders', 'diagnosis_updates', 'queue_updates']
+        : role === 'admin'
+            ? ['booking_updates', 'schedule_reminders', 'diagnosis_updates', 'queue_updates', 'boarding_updates']
+            : null;
+
+    return PREFERENCE_GROUPS
+        .filter(group => !isSuperAdmin || group.title === 'Where Updates Appear')
+        .map(group => ({
+            ...group,
+            items: allowedUpdateKeys && group.title === 'Updates You Want'
+                ? group.items.filter(item => allowedUpdateKeys.includes(item.key))
+                : group.items
+        }))
+        .filter(group => group.items.length > 0);
+}
+
 function normalizePreferences(preferences) {
     return Object.keys(DEFAULT_PREFERENCES).reduce((normalized, key) => ({
         ...normalized,
@@ -118,6 +145,9 @@ function browserPushMessage(state) {
 
 export default function NotificationPreferencesCard({ user }) {
     const userId = getUserId(user);
+    const role = normalizeRole(user);
+    const isSuperAdmin = ['super_admin', 'superadmin'].includes(role);
+    const visiblePreferenceGroups = preferenceGroupsForRole(user);
     const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -359,8 +389,19 @@ export default function NotificationPreferencesCard({ user }) {
                     </div>
                 </section>
 
+                {isSuperAdmin && (
+                    <section className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+                        <h3 className="text-base font-black text-slate-950">Super Admin governance notifications</h3>
+                        <p className="mt-1 text-sm font-medium leading-6 text-slate-600">
+                            Your account receives personnel-account, pet-owner account, payment-method, service-catalog,
+                            consent-template, and generated-report updates. Routine booking, queue, boarding, payment-status,
+                            and diagnosis notifications are excluded.
+                        </p>
+                    </section>
+                )}
+
                 <div className="space-y-5">
-                    {PREFERENCE_GROUPS.map(group => (
+                    {visiblePreferenceGroups.map(group => (
                         <section key={group.title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <div className="mb-4">
                                 <h3 className="text-base font-black text-slate-950">{group.title}</h3>

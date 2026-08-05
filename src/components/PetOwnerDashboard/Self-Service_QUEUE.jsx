@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { PhotoViewer } from "../../ui/photo-viewer";
 import {
     ClipboardList,
     CheckCircle,
@@ -17,6 +18,7 @@ import {
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import ConsentDocument from "../shared/ConsentDocument.jsx";
+import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import { createConsentDocumentImage } from "../../services/consentDocumentImage.js";
 import { resolveImageUrl } from "../../lib/image";
 import { formatQueueReference } from "../../lib/referenceNumbers";
@@ -27,6 +29,7 @@ import { checkSelfServiceAccess, fetchPublicWanIp } from "../../services/selfSer
 import { fetchUserPets } from "../../services/petService";
 import { fetchConsentFiles } from "../../services/consentFileService";
 import { uploadDataUrlImage } from "../../services/uploadService";
+import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 
 const SERVICES = [
     "General Check-up",
@@ -103,6 +106,7 @@ export default function QueueDashboard() {
     const [publicWanIp, setPublicWanIp] = useState("");
     const [selectedPet, setSelectedPet] = useState(null);
     const [selectedService, setSelectedService] = useState("");
+    const [selectedBranchId, setSelectedBranchId] = useState("");
     const [signature, setSignature] = useState(null);
     const [submitted, setSubmitted] = useState(false);
     const [concernStatement, setConcernStatement] = useState("");
@@ -236,14 +240,24 @@ export default function QueueDashboard() {
 
         const fileArray = Array.from(files);
         fileArray.forEach((file) => {
+            if (!file.type.startsWith("image/")) {
+                toast.error(`${file.name} is not a supported image.`);
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (event) => {
-                if (event.target?.result) {
+                if (String(event.target?.result || "").startsWith("data:image")) {
                     setUploadedImages((prev) => [...prev, event.target.result]);
+                } else {
+                    toast.error(`${file.name} could not be prepared for preview.`);
                 }
             };
+            reader.onerror = () => toast.error(`${file.name} could not be read. Please choose another image.`);
+            reader.onabort = () => toast.error(`${file.name} preview was cancelled.`);
             reader.readAsDataURL(file);
         });
+        e.target.value = "";
     };
 
     const handleRemoveImage = (index) => {
@@ -287,7 +301,17 @@ export default function QueueDashboard() {
                 signerName,
                 signedAt: signedAtDate.toLocaleString(),
                 veterinarianName: "Clinic Intake",
-                veterinarianLicense: ""
+                veterinarianLicense: "",
+                templateContext: {
+                    ownerName: signerName,
+                    ownerAddress: currentUser.personal_Address || currentUser.address || '',
+                    ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+                    petName: selectedPetData.name || selectedPetData.pet_name || '',
+                    petSpecies: selectedPetData.species || selectedPetData.pet_species || '',
+                    petBreed: selectedPetData.breed || selectedPetData.pet_breed || '',
+                    serviceName: selectedService,
+                    branchName: selectedPetData.branch_name || ''
+                }
             });
             const signaturePath = await uploadDataUrlImage(signedConsentImage, "booking_signature", "queue_consent");
             if (!signaturePath) {
@@ -303,6 +327,7 @@ export default function QueueDashboard() {
                 pet_id: Number(selectedPetData.id),
                 user_id: userId ? Number(userId) : null,
                 service_name: selectedService,
+                branch_id: selectedBranchId ? Number(selectedBranchId) : null,
                 priority: "normal",
                 complaint: concernStatement || "",
                 image_path: imagePath,
@@ -328,6 +353,7 @@ export default function QueueDashboard() {
                 setSubmitted(false);
                 setSelectedPet(null);
                 setSelectedService("");
+                setSelectedBranchId("");
                 setSignature(null);
                 setConcernStatement("");
                 setUploadedImages([]);
@@ -357,7 +383,7 @@ export default function QueueDashboard() {
     const selectedConsent = selectedService ? findConsentTemplateForService(consentTemplates, selectedService) : null;
     const currentUser = getCurrentUser();
     const ownerName = getOwnerName(currentUser);
-    const canSubmit = selectedPet && selectedService && selectedConsent && signature && !isSubmitting;
+    const canSubmit = selectedPet && selectedService && selectedBranchId && selectedConsent && signature && !isSubmitting;
 
     if (isAccessLoading) {
         return (
@@ -526,6 +552,14 @@ export default function QueueDashboard() {
                                             </Select>
                                         </div>
 
+                                        {selectedService && (
+                                            <BranchBookingSelect
+                                                service={selectedService}
+                                                value={selectedBranchId}
+                                                onChange={setSelectedBranchId}
+                                            />
+                                        )}
+
                                         {/* Service Consent Display */}
                                         {selectedService && (
                                             <div className="space-y-3">
@@ -549,6 +583,15 @@ export default function QueueDashboard() {
                                                             signedAt={signature ? "Pending submission" : ""}
                                                             veterinarianName="Clinic Intake"
                                                             variant="compact"
+                                                            templateContext={{
+                                                                ownerName,
+                                                                ownerAddress: currentUser.personal_Address || currentUser.address || '',
+                                                                ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+                                                                petName: selectedPetData?.name || selectedPetData?.pet_name || '',
+                                                                petSpecies: selectedPetData?.species || selectedPetData?.pet_species || '',
+                                                                petBreed: selectedPetData?.breed || selectedPetData?.pet_breed || '',
+                                                                serviceName: selectedService
+                                                            }}
                                                         />
                                                     </div>
                                                 ) : (
@@ -608,17 +651,16 @@ export default function QueueDashboard() {
                                                                 key={index}
                                                                 className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200"
                                                             >
-                                                                <img
+                                                                <UploadImagePreview
                                                                     src={image}
                                                                     alt={`Uploaded ${index + 1}`}
-                                                                    className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                                    onClick={() => setViewingImage(image)}
+                                                                    onPreview={setViewingImage}
                                                                 />
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleRemoveImage(index)}
                                                                     disabled={isSubmitting}
-                                                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                                    className="absolute top-2 right-2 z-20 bg-red-500 text-white rounded-full p-1 opacity-100 transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100"
                                                                     aria-label="Remove image"
                                                                 >
                                                                     <X className="h-4 w-4" />
@@ -795,29 +837,12 @@ export default function QueueDashboard() {
                 </div>
             </div>
 
-            {/* Image Viewer Modal */}
-            {viewingImage && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-                    onClick={() => setViewingImage(null)}
-                >
-                    <div className="relative max-w-4xl max-h-[90vh] w-full">
-                        <button
-                            onClick={() => setViewingImage(null)}
-                            className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
-                            aria-label="Close image viewer"
-                        >
-                            <X className="h-8 w-8" />
-                        </button>
-                        <img
-                            src={viewingImage}
-                            alt="Viewing uploaded image"
-                            className="w-full h-full object-contain rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                </div>
-            )}
+            <PhotoViewer
+                open={Boolean(viewingImage)}
+                src={viewingImage || ""}
+                alt="Self-service concern preview"
+                onOpenChange={(open) => !open && setViewingImage(null)}
+            />
         </div>
     );
 }

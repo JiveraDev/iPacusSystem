@@ -16,24 +16,25 @@ import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
-import { uploadImageFile } from "../../services/uploadService";
+import { createConsentDocumentImage } from "../../services/consentDocumentImage";
+import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
-import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import ProtectedImage from "../shared/ProtectedImage";
 import { homeServicePriceById } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
+
+const HOME_SERVICE_TRANSPORT_FEE = 50;
 
 export default function HomeServiceConfirmation() {
-  const navigate = useNavigate();
-  const { config: priceProjectionConfig } = useBookingPriceProjections();
-  const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
-  const homeServiceName = (id, fallback) => (
-    priceProjectionConfig.homeServices.find((item) => item.id === id)?.name || fallback
-  );
-  const [booking, setBooking] = useState(null);
+    const navigate = useNavigate();
+    const { config: priceProjectionConfig } = useBookingPriceProjections();
+    const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
+    const [booking, setBooking] = useState(null);
   const [signature, setSignature] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewer, setViewer] = useState(null);
@@ -44,14 +45,13 @@ export default function HomeServiceConfirmation() {
   const [paymentFormData, setPaymentFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
-    amount: "50",
     notes: "",
     receiptFile: null
   });
   const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
   const selectedMethod = paymentMethods.find((m) => m.value === paymentFormData.paymentMethod);
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
-  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
+  const selectedQrUrl = selectedMethod?.qrImageUrl || "";
   const homeServiceConsentTemplate = useMemo(
     () => pickConsentForContext(consentTemplates, "home-service"),
     [consentTemplates]
@@ -146,18 +146,37 @@ export default function HomeServiceConfirmation() {
         ? await uploadImageFile(paymentFormData.receiptFile, "booking_payment")
         : null;
 
-      // 2. Upload Signature
-      let finalSignatureUrl = signature;
-      if (signature.startsWith('data:image')) {
-        const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
-        finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
-      }
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
       const ownerName = [
         currentUser.firstName || currentUser.first_Name || currentUser.first_name,
         currentUser.lastName || currentUser.last_Name || currentUser.last_name
       ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
       const signedAt = new Date().toISOString();
+      const signedConsentImage = await createConsentDocumentImage({
+        title: homeServiceConsentTemplate.title,
+        content: homeServiceConsentTemplate.content,
+        signatureImage: signature,
+        signerName: ownerName,
+        signedAt,
+        templateContext: {
+          ownerName,
+          ownerAddress: currentUser.personal_Address || currentUser.address || booking.address || '',
+          ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+          petName: booking.new_pet_name || booking.petName,
+          petSpecies: booking.petType || booking.petSpecies,
+          petBreed: booking.new_pet_breed || booking.petBreed,
+          serviceName: 'Home Service',
+          branchName: 'Vetfocus Care Animal Clinic'
+        }
+      });
+      const signedConsentDocumentUrl = await uploadDataUrlImage(
+        signedConsentImage,
+        "booking_signature",
+        "home_service_consent"
+      );
+      if (!signedConsentDocumentUrl) {
+        throw new Error("The signed consent document could not be saved. Please try again.");
+      }
 
       // 3. Upload Additional Images (Concerns)
       let uploadedConcernUrls = [];
@@ -177,13 +196,13 @@ export default function HomeServiceConfirmation() {
       // 4. Prepare Final Booking Data
       const finalBookingData = {
         ...booking,
-        signature: finalSignatureUrl,
+        signature: signedConsentDocumentUrl,
         payment_proof_url: receiptUrl,
         payment_method: paymentFormData.paymentMethod,
         payment_reference: paymentFormData.referenceNumber,
-        price: paymentFormData.amount,
+        transport_fee: HOME_SERVICE_TRANSPORT_FEE,
         specific_location: booking.specific_location,
-        Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls[0] : null,
+        Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls.join(",") : null,
         consent_forms: [{
           id: homeServiceConsentTemplate.id,
           title: homeServiceConsentTemplate.title,
@@ -191,7 +210,8 @@ export default function HomeServiceConfirmation() {
           content: homeServiceConsentTemplate.content,
           signerName: ownerName,
           signedAt,
-          signaturePath: finalSignatureUrl,
+          documentPath: signedConsentDocumentUrl,
+          signaturePath: signedConsentDocumentUrl,
           serviceType: "Home Service"
         }],
         consent_status: "signed"
@@ -224,6 +244,24 @@ export default function HomeServiceConfirmation() {
       </div>
     );
   }
+
+  const previewUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const previewOwnerName = [
+    previewUser.firstName || previewUser.first_Name || previewUser.first_name,
+    previewUser.lastName || previewUser.last_Name || previewUser.last_name
+  ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
+  const consentPreviewContent = homeServiceConsentTemplate
+    ? resolveConsentTemplate(homeServiceConsentTemplate.content, {
+        ownerName: previewOwnerName,
+        ownerAddress: previewUser.personal_Address || previewUser.address || booking.address || '',
+        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+        petName: booking.new_pet_name || booking.petName,
+        petSpecies: booking.petType || booking.petSpecies,
+        petBreed: booking.new_pet_breed || booking.petBreed,
+        serviceName: 'Home Service',
+        branchName: 'Vetfocus Care Animal Clinic'
+      }, { preview: true })
+    : '';
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-10">
@@ -305,7 +343,7 @@ export default function HomeServiceConfirmation() {
                         )}
                     </div>
                     <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                        {homeServiceConsentTemplate?.content || "An admin must assign a home service consent form in Consent Management before this booking can be submitted."}
+                        {consentPreviewContent || "An admin must assign a home service consent form in Consent Management before this booking can be submitted."}
                     </p>
                 </div>
 
@@ -329,7 +367,7 @@ export default function HomeServiceConfirmation() {
                 Home-Service Pricing Projection
               </CardTitle>
               <CardDescription>
-                {homeServiceName("home-visit-consultation", "Home Visit + Consultation within Lucena")} starts at {homeServicePrice("home-visit-consultation")}; outside Lucena is quoted by location.
+                The PHP 50 payment is the transport fee. The home service itself starts at {homeServicePrice("home-visit-consultation")} and is billed separately on the clinic invoice.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -368,7 +406,12 @@ export default function HomeServiceConfirmation() {
                             className="mt-3 block w-full rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200"
                             aria-label={`Open larger ${selectedMethod.label} QR image`}
                           >
-                            <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="h-56 w-full rounded-md object-contain sm:h-64" />
+                            <ProtectedImage
+                              src={selectedQrUrl}
+                              alt={`${selectedMethod.label} QR`}
+                              className="h-56 w-full rounded-md object-contain sm:h-64"
+                              fallbackClassName="h-56 w-full rounded-md sm:h-64"
+                            />
                           </button>
                         )}
                       </div>
@@ -401,9 +444,18 @@ export default function HomeServiceConfirmation() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Projected Starting Amount</Label>
-                      <Input value={homeServicePrice("home-visit-consultation")} readOnly className="bg-gray-100 font-bold text-blue-600" />
+                    <div className="space-y-3 rounded-xl border border-blue-100 bg-white p-4">
+                      <div className="flex items-center justify-between gap-4 text-sm">
+                        <span className="font-semibold text-slate-600">Home service starting price</span>
+                        <span className="font-black text-slate-900">{homeServicePrice("home-visit-consultation")}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 text-sm">
+                        <span className="font-semibold text-slate-600">Transport fee paid at booking</span>
+                        <span className="font-black text-blue-600">PHP {HOME_SERVICE_TRANSPORT_FEE.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs font-semibold leading-5 text-slate-500">
+                        The transport fee will appear as its own line on the final invoice and receipt.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
 import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2 } from 'lucide-react';
@@ -15,6 +16,7 @@ import { getServiceDisplayName } from '../../lib/serviceLabels';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchAccounts } from '../../services/accountService';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import {
     assignQueueToVeterinarian,
     fetchQueues as fetchQueuesService,
@@ -27,11 +29,15 @@ export default function QueueManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
+    const [branchFilter, setBranchFilter] = useState('all');
+    const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
     const [veterinarians, setVeterinarians] = useState([]);
     const [selectedVetByQueue, setSelectedVetByQueue] = useState({});
     const [assigningQueueId, setAssigningQueueId] = useState(null);
+    const [updatingQueueId, setUpdatingQueueId] = useState(null);
+    const [queueToCancel, setQueueToCancel] = useState(null);
 
     const fetchQueues = async () => {
         try {
@@ -47,6 +53,15 @@ export default function QueueManagement() {
     };
 
     useAutoRefresh(fetchQueues);
+
+    useAutoRefresh(async () => {
+        try {
+            const data = await fetchBranches();
+            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+        } catch (error) {
+            console.error('Failed to load branch filters:', error);
+        }
+    }, { intervalMs: 30000, refreshKey: 'queue-branches' });
 
     const fetchVeterinarians = async () => {
         try {
@@ -84,26 +99,52 @@ export default function QueueManagement() {
     };
 
     const handleApprove = async (id) => {
-        await updateStatus(id, 'in-progress');
-        toast.success('Queue approved and moved to the approved list.');
+        const updated = await updateStatus(id, 'in-progress');
+        if (updated) {
+            toast.success('Queue approved and moved to the approved list.');
+        }
     };
 
-    const handleCancel = async (id) => {
-        await updateStatus(id, 'cancelled');
-    };
+    const updateStatus = async (id, newStatus, reason = '') => {
+        setUpdatingQueueId(id);
 
-    const updateStatus = async (id, newStatus) => {
         try {
-            const data = await updateQueueStatus({ queue_id: id, status: newStatus });
-            if (data.success) {
-                setQueue(items =>
-                    items.map(item =>
-                        item.queue_id === id ? { ...item, status: newStatus } : item
-                    )
-                );
+            const data = await updateQueueStatus({
+                queue_id: id,
+                status: newStatus,
+                reason
+            });
+            if (!data.success) {
+                throw new Error(data.error || data.message || 'Failed to update queue status.');
             }
+
+            setQueue(items =>
+                items.map(item =>
+                    item.queue_id === id ? { ...item, status: newStatus, has_active_assignment: 0 } : item
+                )
+            );
+            return true;
         } catch (error) {
             console.error('Error updating status:', error);
+            toast.error(error.message || 'Failed to update queue status.');
+            return false;
+        } finally {
+            setUpdatingQueueId(null);
+        }
+    };
+
+    const confirmQueueCancellation = async () => {
+        if (!queueToCancel) return;
+
+        const updated = await updateStatus(
+            queueToCancel.queue_id,
+            'cancelled',
+            'Cancelled by clinic staff from Queue Management.'
+        );
+
+        if (updated) {
+            toast.success(`${formatQueueReference(queueToCancel)} was cancelled and removed from the active queue.`);
+            setQueueToCancel(null);
         }
     };
 
@@ -119,7 +160,9 @@ export default function QueueManagement() {
             .join(' ')
             .trim();
 
-        return fullName ? `Dr. ${fullName}` : vet.mail_Address || vet.email || 'Veterinarian';
+        const vetName = fullName ? `Dr. ${fullName}` : vet.mail_Address || vet.email || 'Veterinarian';
+        const branchName = vet.preferred_branch_name || vet.branch_name;
+        return branchName ? `${vetName} · ${branchName}` : vetName;
     };
 
     const getSelectedVetId = (queueId, item = null) => {
@@ -220,10 +263,11 @@ export default function QueueManagement() {
             
             const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
             const matchesService = serviceFilter === 'all' || item.service_name === serviceFilter;
+            const matchesBranch = branchFilter === 'all' || String(item.branch_id) === branchFilter;
 
-            return matchesSearch && matchesPriority && matchesService;
+            return matchesSearch && matchesPriority && matchesService && matchesBranch;
         });
-    }, [queue, searchTerm, priorityFilter, serviceFilter]);
+    }, [queue, searchTerm, priorityFilter, serviceFilter, branchFilter]);
 
     const now = new Date();
     const todayFilteredQueue = filteredQueue.filter(item => isSameLocalDay(item.timestamp, now));
@@ -304,8 +348,8 @@ export default function QueueManagement() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 bg-white p-4 rounded-xl border border-slate-200">
-                <div className="md:col-span-1 lg:col-span-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5 bg-white p-4 rounded-xl border border-slate-200">
+                <div className="md:col-span-2 xl:col-span-2">
                     <Input 
                         placeholder="Search pet or queue ID..." 
                         value={searchTerm}
@@ -326,6 +370,22 @@ export default function QueueManagement() {
                     <SelectContent>
                         <SelectItem value="all">Select Service</SelectItem>
                         {services.map(s => <SelectItem key={s} value={s}>{getServiceDisplayName(s)}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                    <SelectTrigger>
+                        <SelectValue
+                            placeholder="Clinic location"
+                            displayValue={branchFilter === 'all'
+                                ? 'All assigned locations'
+                                : getBranchDisplayName(branches, branchFilter)}
+                        />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All assigned locations</SelectItem>
+                        {branches.map(branch => (
+                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>
@@ -381,17 +441,22 @@ export default function QueueManagement() {
                                                         <Button 
                                                             size="sm" 
                                                             onClick={() => handleApprove(item.queue_id)} 
+                                                            disabled={updatingQueueId === item.queue_id}
                                                             className="bg-blue-600 hover:bg-blue-700 h-8 px-2 text-[11px] font-bold"
                                                         >
-                                                            <UserCheck className="mr-1 size-3" />
+                                                            {updatingQueueId === item.queue_id
+                                                                ? <Loader2 className="mr-1 size-3 animate-spin" />
+                                                                : <UserCheck className="mr-1 size-3" />}
                                                             Approve
                                                         </Button>
                                                         <Button 
                                                             size="sm" 
                                                             variant="destructive" 
-                                                            onClick={() => handleCancel(item.queue_id)} 
+                                                            onClick={() => setQueueToCancel(item)}
+                                                            disabled={updatingQueueId === item.queue_id}
                                                             className="h-8 px-2 text-[11px] font-bold"
                                                         >
+                                                            <XCircle className="mr-1 size-3" />
                                                             Cancel
                                                         </Button>
                                                     </>
@@ -415,6 +480,19 @@ export default function QueueManagement() {
                                                             {assigningQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <UserCheck className="mr-1 size-3" />}
                                                             {item.has_active_assignment ? 'Reassign' : 'Assign'}
                                                         </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => setQueueToCancel(item)}
+                                                            disabled={
+                                                                assigningQueueId === item.queue_id
+                                                                || updatingQueueId === item.queue_id
+                                                            }
+                                                            className="h-8 px-2 text-[11px] font-bold"
+                                                        >
+                                                            <XCircle className="mr-1 size-3" />
+                                                            Cancel
+                                                        </Button>
                                                     </>
                                                 )}
                                             </div>
@@ -432,6 +510,7 @@ export default function QueueManagement() {
                                                             <DetailItem label="Address" value={item.address} isFullWidth />
                                                             <DetailItem label="Source" value={getSourceBadge(item.queue_source)} />
                                                             <DetailItem label="Assigned Veterinarian" value={item.veterinarian_name || 'Unassigned'} />
+                                                            <DetailItem label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
                                                             <DetailItem label="Registration Time" value={formatDateTime(item.timestamp)} />
                                                         </div>
                                                         {item.image_path && (
@@ -492,6 +571,64 @@ export default function QueueManagement() {
                     </div>
                 </div>
             )}
+
+            <Dialog
+                open={Boolean(queueToCancel)}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen && updatingQueueId !== queueToCancel?.queue_id) {
+                        setQueueToCancel(null);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                            <XCircle className="size-5" />
+                        </div>
+                        <DialogTitle>Cancel this queue entry?</DialogTitle>
+                        <DialogDescription>
+                            {queueToCancel
+                                ? `${formatQueueReference(queueToCancel)} for ${queueToCancel.pet_name || 'this pet'} will be removed from the active and approved queue lists.`
+                                : 'This queue entry will be removed from the active list.'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        <p>
+                            The cancelled entry stays in queue history for accountability and cannot be reactivated.
+                        </p>
+                        {queueToCancel?.has_active_assignment ? (
+                            <p className="mt-2 font-medium text-red-700 dark:text-red-300">
+                                This pet is assigned to a veterinarian. Cancelling will also close that active assignment.
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setQueueToCancel(null)}
+                            disabled={updatingQueueId === queueToCancel?.queue_id}
+                        >
+                            Keep Queue
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={confirmQueueCancellation}
+                            disabled={updatingQueueId === queueToCancel?.queue_id}
+                        >
+                            {updatingQueueId === queueToCancel?.queue_id ? (
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                            ) : (
+                                <XCircle className="mr-2 size-4" />
+                            )}
+                            {updatingQueueId === queueToCancel?.queue_id ? 'Cancelling...' : 'Cancel Queue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {viewingImage && (
                 <PhotoViewer src={viewingImage.src} alt={viewingImage.alt} open={!!viewingImage} onOpenChange={o => !o && setViewingImage(null)} />

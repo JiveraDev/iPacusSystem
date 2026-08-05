@@ -1,4 +1,4 @@
-import { apiRequest, patchJson, postJson } from './apiClient';
+import { apiRequest, deleteRequest, patchJson, postJson } from './apiClient';
 
 export function fetchRoomAvailability(params) {
     const query = params instanceof URLSearchParams
@@ -8,12 +8,17 @@ export function fetchRoomAvailability(params) {
     return apiRequest(`/rooms/availability?${query}`);
 }
 
-export function fetchBoardingRooms() {
-    return apiRequest('/boarding/rooms');
+function withQuery(path, params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return `${path}${query ? `?${query}` : ''}`;
 }
 
-export function fetchBoardingMonitoring() {
-    return apiRequest('/boarding/monitoring');
+export function fetchBoardingRooms(params = {}) {
+    return apiRequest(withQuery('/boarding/rooms', params));
+}
+
+export function fetchBoardingMonitoring(params = {}) {
+    return apiRequest(withQuery('/boarding/monitoring', params));
 }
 
 export function createBoardingRooms(payload) {
@@ -63,4 +68,17 @@ export function fetchBoardingDocuments(params = {}) {
 
 export function createBoardingDocument(payload) {
     return postJson('/boarding/documents', payload);
+}
+
+export function fetchBoardingMaterials(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/boarding/materials${query ? `?${query}` : ''}`);
+}
+
+export function createBoardingMaterial(payload) {
+    return postJson('/boarding/materials', payload);
+}
+
+export function removeBoardingMaterial(usageId) {
+    return deleteRequest(`/boarding/materials/${usageId}`);
 }

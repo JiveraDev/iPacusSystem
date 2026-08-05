@@ -4,6 +4,8 @@ require_once __DIR__ . '/mail_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/clinical_record_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -17,6 +19,28 @@ function pet_medical_error(int $statusCode, string $message): void
     http_response_code($statusCode);
     echo json_encode(['success' => false, 'message' => $message]);
     exit;
+}
+
+function pet_medical_run_atomic(PDO $pdo, callable $operation)
+{
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $result = $operation();
+        if ($ownsTransaction) {
+            $pdo->commit();
+        }
+
+        return $result;
+    } catch (Throwable $e) {
+        if ($ownsTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function pet_medical_table_exists(PDO $pdo, string $tableName): bool
@@ -55,6 +79,36 @@ function pet_medical_decode_json($value)
     $decoded = json_decode((string)$value, true);
 
     return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+}
+
+function pet_medical_json_display_text($value): string
+{
+    $decoded = is_string($value) ? pet_medical_decode_json($value) : $value;
+    if ($decoded === null) {
+        return is_string($value) ? trim($value) : '';
+    }
+    if (!is_array($decoded)) {
+        return trim((string)$decoded);
+    }
+
+    $lines = [];
+    foreach ($decoded as $key => $item) {
+        $itemText = is_array($item)
+            ? pet_medical_json_display_text($item)
+            : trim((string)$item);
+        if ($itemText === '') {
+            continue;
+        }
+
+        if (is_string($key)) {
+            $label = trim((string)preg_replace('/(?<!^)[A-Z]/', ' $0', str_replace('_', ' ', $key)));
+            $lines[] = $label !== '' ? ucfirst($label) . ': ' . $itemText : $itemText;
+        } else {
+            $lines[] = $itemText;
+        }
+    }
+
+    return implode("\n", $lines);
 }
 
 function pet_medical_json($value): ?string
@@ -189,6 +243,9 @@ function pet_medical_resolve_pet_id(PDO $pdo, $petId): int
 
 function pet_medical_pet_summary(PDO $pdo, int $petId): array
 {
+    $primaryOwnerOrder = pet_medical_column_exists($pdo, 'pet_ownership', 'is_primary')
+        ? 'COALESCE(po.is_primary, 0) DESC,'
+        : '';
     $stmt = $pdo->prepare("
         SELECT
             p.*,
@@ -199,7 +256,7 @@ function pet_medical_pet_summary(PDO $pdo, int $petId): array
         LEFT JOIN pet_ownership po ON po.pet_id = p.pet_id
         LEFT JOIN users u ON u.user_id = po.user_id
         WHERE p.pet_id = ?
-        ORDER BY po.link_id DESC
+        ORDER BY {$primaryOwnerOrder} po.link_id DESC
         LIMIT 1
     ");
     $stmt->execute([$petId]);
@@ -347,25 +404,7 @@ function pet_medical_vaccination_group_record(array $vaccine): array
 
 function pet_medical_fetch_allergies(PDO $pdo, int $petId, array $pet): array
 {
-    $allergies = [];
-
-    if (pet_medical_table_exists($pdo, 'pet_allergies')) {
-        $stmt = $pdo->prepare("SELECT allergy_id AS id, allergen, severity FROM pet_allergies WHERE pet_id = ? ORDER BY allergy_id DESC");
-        $stmt->execute([$petId]);
-        $allergies = array_map(function ($row) {
-            return [
-                'id' => (int)$row['id'],
-                'allergen' => $row['allergen'],
-                'severity' => $row['severity'] ?: 'Known',
-            ];
-        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
-    }
-
-    if (!$allergies && !empty($pet['allergiesRaw'])) {
-        $allergies[] = ['allergen' => $pet['allergiesRaw'], 'severity' => 'Known'];
-    }
-
-    return $allergies;
+    return pet_allergy_effective_entries($pdo, $petId, $pet['allergiesRaw'] ?? null);
 }
 
 function pet_medical_normalize_attachments($value): array
@@ -395,6 +434,10 @@ function pet_medical_normalize_attachments($value): array
 
 function pet_medical_diagnosis_summary(array $record): string
 {
+    $record = clinical_record_sanitize_response_record(
+        $record,
+        ['diagnosis', 'treatment', 'notes']
+    );
     $parts = [];
 
     foreach (['diagnosis', 'treatment', 'notes'] as $key) {
@@ -418,7 +461,7 @@ function pet_medical_diagnosis_summary(array $record): string
         }
     }
 
-    return trim(implode("\n\n", array_filter($parts))) ?: 'Clinical service completed.';
+    return trim(implode("\n\n", array_filter($parts)));
 }
 
 function pet_medical_fetch_visit_charges(PDO $pdo, array $visitIds): array
@@ -772,6 +815,32 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
     $diagnosisIdsFromVisits = [];
 
     if (pet_medical_table_exists($pdo, 'visits')) {
+        $onlineDiagnosisSelect = pet_medical_table_exists($pdo, 'online_consultation_diagnoses')
+            ? ",
+                ocd.diagnosis_id AS online_diagnosis_id,
+                ocd.diagnosis AS online_diagnosis,
+                ocd.recommendations AS online_recommendations,
+                ocd.treatment AS online_treatment,
+                ocd.medications AS online_medications,
+                ocd.notes AS online_notes,
+                ocd.vital_signs AS online_vital_signs,
+                ocd.symptoms AS online_symptoms,
+                ocd.lab_tests AS online_lab_tests,
+                ocd.finalized_at AS online_finalized_at"
+            : ",
+                NULL AS online_diagnosis_id,
+                NULL AS online_diagnosis,
+                NULL AS online_recommendations,
+                NULL AS online_treatment,
+                NULL AS online_medications,
+                NULL AS online_notes,
+                NULL AS online_vital_signs,
+                NULL AS online_symptoms,
+                NULL AS online_lab_tests,
+                NULL AS online_finalized_at";
+        $onlineDiagnosisJoin = pet_medical_table_exists($pdo, 'online_consultation_diagnoses')
+            ? 'LEFT JOIN online_consultation_diagnoses ocd ON ocd.booking_id = v.booking_id'
+            : '';
         $stmt = $pdo->prepare("
             SELECT
                 v.*,
@@ -797,11 +866,13 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 q.timestamp AS queue_timestamp,
                 b.booking_number,
                 CONCAT(vet.first_Name, ' ', vet.last_Name) AS visit_veterinarian_name
+                {$onlineDiagnosisSelect}
             FROM visits v
             LEFT JOIN vet_diagnoses vd ON vd.diagnosis_id = v.diagnosis_id
             LEFT JOIN queues q ON q.queue_id = v.queue_id
             LEFT JOIN bookings b ON b.booking_id = v.booking_id
             LEFT JOIN users vet ON vet.user_id = v.veterinarian_user_id
+            {$onlineDiagnosisJoin}
             WHERE v.pet_id = ?
               AND (
                 v.billing_status IN ('paid', 'partial', 'unpaid')
@@ -818,6 +889,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
         foreach ($visits as $visit) {
             $visitId = (int)$visit['visit_id'];
             $diagnosisId = !empty($visit['diagnosis_id']) ? (int)$visit['diagnosis_id'] : null;
+            $isOnlineDiagnosis = !empty($visit['online_diagnosis_id']) && $diagnosisId === null;
             if ($diagnosisId !== null) {
                 $diagnosisIdsFromVisits[] = $diagnosisId;
             }
@@ -826,6 +898,8 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
             $total = array_reduce($charges, fn($sum, $charge) => $sum + (float)$charge['subtotal'], 0.0);
             $paid = $paidByVisit[$visitId] ?? 0.0;
             $customSections = pet_medical_decode_json($visit['custom_sections'] ?? null) ?: [];
+            $onlineVitalSigns = pet_medical_decode_json($visit['online_vital_signs'] ?? null);
+            $onlineVitalSigns = is_array($onlineVitalSigns) ? $onlineVitalSigns : [];
             $record = [
                 'id' => 'visit-' . $visitId,
                 'sourceType' => 'visit',
@@ -837,22 +911,36 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 'queueReference' => $visit['queue_number'] !== null ? ipawcus_format_queue_reference($visit['queue_number'], $visit['queue_timestamp'] ?? null) : '',
                 'bookingId' => $visit['booking_id'] !== null ? (int)$visit['booking_id'] : null,
                 'bookingNumber' => $visit['booking_number'] ?? null,
-                'title' => $visit['diagnosis_service_name'] ?: ($charges[0]['description'] ?? 'Clinic visit'),
-                'serviceName' => $visit['diagnosis_service_name'] ?: ($charges[0]['serviceName'] ?? ''),
-                'serviceDate' => $visit['finalized_at'] ?: $visit['updated_at'] ?: $visit['created_at'],
+                'title' => $isOnlineDiagnosis
+                    ? 'Online Consultation'
+                    : ($visit['diagnosis_service_name'] ?: ($charges[0]['description'] ?? 'Clinic visit')),
+                'serviceName' => $isOnlineDiagnosis
+                    ? 'Online Consultation'
+                    : ($visit['diagnosis_service_name'] ?: ($charges[0]['serviceName'] ?? '')),
+                'serviceDate' => $isOnlineDiagnosis
+                    ? ($visit['online_finalized_at'] ?: $visit['updated_at'] ?: $visit['created_at'])
+                    : ($visit['finalized_at'] ?: $visit['updated_at'] ?: $visit['created_at']),
                 'status' => $visit['visit_status'],
                 'billingStatus' => $visit['billing_status'],
                 'veterinarianName' => trim((string)($visit['visit_veterinarian_name'] ?? '')),
                 'chiefComplaint' => $visit['chief_complaint'] ?? '',
                 'majorSymptoms' => $visit['major_symptoms'] ?? '',
-                'symptoms' => $visit['symptoms'] ?? '',
+                'symptoms' => $isOnlineDiagnosis
+                    ? pet_medical_json_display_text($visit['online_symptoms'] ?? null)
+                    : ($visit['symptoms'] ?? ''),
                 'physicalExam' => $visit['physical_exam'] ?? '',
-                'diagnosis' => $visit['diagnosis'] ?? '',
-                'treatment' => $visit['treatment'] ?? '',
-                'labResults' => $visit['lab_results'] ?? '',
+                'diagnosis' => $isOnlineDiagnosis ? ($visit['online_diagnosis'] ?? '') : ($visit['diagnosis'] ?? ''),
+                'recommendations' => $isOnlineDiagnosis ? ($visit['online_recommendations'] ?? '') : '',
+                'treatment' => $isOnlineDiagnosis ? ($visit['online_treatment'] ?? '') : ($visit['treatment'] ?? ''),
+                'medications' => $isOnlineDiagnosis ? ($visit['online_medications'] ?? '') : '',
+                'labResults' => $isOnlineDiagnosis
+                    ? pet_medical_json_display_text($visit['online_lab_tests'] ?? null)
+                    : ($visit['lab_results'] ?? ''),
                 'followUp' => $visit['follow_up_date'] ?? '',
-                'notes' => $visit['notes'] ?? '',
-                'vitalSigns' => pet_medical_decode_json($visit['vital_signs'] ?? null) ?: [],
+                'notes' => $isOnlineDiagnosis ? ($visit['online_notes'] ?? '') : ($visit['notes'] ?? ''),
+                'vitalSigns' => $isOnlineDiagnosis
+                    ? $onlineVitalSigns
+                    : (pet_medical_decode_json($visit['vital_signs'] ?? null) ?: []),
                 'prescriptions' => pet_medical_decode_json($visit['prescriptions'] ?? null) ?: [],
                 'customSections' => $customSections,
                 'attachments' => pet_medical_normalize_attachments(pet_medical_decode_json($visit['attachments'] ?? null) ?: []),
@@ -864,6 +952,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                     'balance' => round(max(0, $total - $paid), 2),
                 ],
             ];
+            $record = clinical_record_sanitize_response_record($record);
             $record['summary'] = pet_medical_diagnosis_summary($record);
             $records[] = $record;
         }
@@ -929,6 +1018,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 'charges' => [],
                 'totals' => ['charges' => 0, 'paid' => 0, 'balance' => 0],
             ];
+            $record = clinical_record_sanitize_response_record($record);
             $record['summary'] = pet_medical_diagnosis_summary($record);
             $records[] = $record;
         }
@@ -1105,22 +1195,42 @@ function pet_medical_editor_label($name): string
 function pet_medical_source_note_rows(array $source): array
 {
     $rows = [];
-    $fields = [
-        'Chief Complaint' => $source['chiefComplaint'] ?? $source['chief_complaint'] ?? '',
-        'Major Symptoms' => $source['majorSymptoms'] ?? $source['symptoms'] ?? $source['major_symptoms'] ?? '',
-        'Physical Exam' => $source['physicalExam'] ?? $source['physical_exam'] ?? '',
-        'Diagnosis' => $source['diagnosis'] ?? '',
-        'Treatment' => $source['treatment'] ?? '',
-        'Lab Results' => $source['labResults'] ?? $source['lab_results'] ?? '',
-        'Doctor Notes' => $source['notes'] ?? '',
-        'Follow-up' => $source['followUp'] ?? $source['follow_up_date'] ?? '',
+    $fields = clinical_record_sanitize_repeated_fields([
+        'chiefComplaint' => $source['chiefComplaint'] ?? $source['chief_complaint'] ?? '',
+        'majorSymptoms' => $source['majorSymptoms'] ?? $source['major_symptoms'] ?? '',
+        'symptoms' => $source['symptoms'] ?? '',
+        'physicalExam' => $source['physicalExam'] ?? $source['physical_exam'] ?? '',
+        'diagnosis' => $source['diagnosis'] ?? '',
+        'recommendations' => $source['recommendations'] ?? '',
+        'treatment' => $source['treatment'] ?? '',
+        'medications' => $source['medications'] ?? '',
+        'labResults' => $source['labResults'] ?? $source['lab_results'] ?? '',
+        'notes' => $source['notes'] ?? '',
+    ]);
+    $labels = [
+        'chiefComplaint' => 'Chief Complaint',
+        'majorSymptoms' => 'Major Symptoms',
+        'symptoms' => 'Symptoms',
+        'physicalExam' => 'Physical Exam',
+        'diagnosis' => 'Diagnosis',
+        'recommendations' => 'Recommendations',
+        'treatment' => 'Treatment',
+        'medications' => 'Medications',
+        'labResults' => 'Lab Results',
+        'notes' => 'Doctor Notes',
     ];
 
-    foreach ($fields as $label => $value) {
+    foreach ($labels as $key => $label) {
+        $value = $fields[$key] ?? null;
         $text = trim((string)$value);
         if ($text !== '') {
             $rows[] = ['label' => $label, 'value' => $text];
         }
+    }
+
+    $followUp = trim((string)($source['followUp'] ?? $source['follow_up_date'] ?? ''));
+    if ($followUp !== '') {
+        $rows[] = ['label' => 'Follow-up', 'value' => $followUp];
     }
 
     $customSections = $source['customSections'] ?? $source['custom_sections'] ?? [];
@@ -1314,43 +1424,51 @@ function pet_medical_email_copy_html(array $pet, array $groups, array $vaccinati
     ';
 }
 
-function pet_medical_send_email_copy(PDO $pdo, int $petId): void
+function pet_medical_send_email_copy(PDO $pdo, int $petId, ?array $recipient = null): void
 {
     $pet = pet_medical_pet_summary($pdo, $petId);
-    $email = trim((string)($pet['ownerEmail'] ?? ''));
+    $email = trim((string)($recipient['email'] ?? $pet['ownerEmail'] ?? ''));
+    $recipientName = trim((string)($recipient['name'] ?? $pet['ownerName'] ?? ''));
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        pet_medical_error(400, 'The pet owner does not have a valid email address.');
+        pet_medical_error(400, 'The selected record recipient does not have a valid email address.');
     }
 
     $groups = pet_medical_fetch_groups($pdo, $petId, true);
     $vaccinations = pet_medical_fetch_vaccinations($pdo, $petId);
     $allergies = pet_medical_fetch_allergies($pdo, $petId, $pet);
     $subject = 'iPawcus organized medical record - ' . ($pet['name'] ?? 'Pet');
-    $html = pet_medical_email_copy_html($pet, $groups, $vaccinations, $allergies);
+    $emailPet = $pet;
+    if ($recipientName !== '') {
+        $emailPet['ownerName'] = $recipientName;
+    }
+    $html = pet_medical_email_copy_html($emailPet, $groups, $vaccinations, $allergies);
 
     try {
         if (mail_queue_enabled()) {
-            mail_queue_email($pdo, $email, $subject, $html, null, [
-                'toName' => $pet['ownerName'] ?? '',
+            $queueResult = mail_queue_email($pdo, $email, $subject, $html, null, [
+                'toName' => $recipientName,
             ]);
 
             echo json_encode([
                 'success' => true,
                 'message' => 'Organized medical record copy was queued for email delivery.',
                 'email' => $email,
+                'deliveryStatus' => 'queued',
+                'queueId' => (int)($queueResult['queueId'] ?? 0),
             ]);
             return;
         }
 
         send_smtp_email($email, $subject, $html, null, [
-            'toName' => $pet['ownerName'] ?? '',
+            'toName' => $recipientName,
         ]);
 
         echo json_encode([
             'success' => true,
             'message' => 'Organized medical record copy was emailed to the pet owner.',
             'email' => $email,
+            'deliveryStatus' => 'sent',
         ]);
     } catch (Throwable $error) {
         error_log('Medical record email copy failed: ' . $error->getMessage());
@@ -1718,26 +1836,142 @@ function pet_medical_save_vaccination(PDO $pdo, int $petId, array $input): void
 
 function pet_medical_save_allergy(PDO $pdo, int $petId, array $input): void
 {
-    $action = $input['action'] ?? 'add';
+    $action = strtolower(trim((string)($input['action'] ?? 'add')));
 
     if ($action === 'add') {
-        if (!pet_medical_table_exists($pdo, 'pet_allergies')) {
+        if (!pet_allergy_table_exists($pdo)) {
             pet_medical_error(409, 'Allergy table is missing.');
         }
 
-        $stmt = $pdo->prepare("INSERT INTO pet_allergies (pet_id, allergen, severity) VALUES (?, ?, ?)");
-        $stmt->execute([
-            $petId,
-            $input['allergen'] ?? '',
-            $input['severity'] ?? 'Known',
-        ]);
-        echo json_encode(['success' => true, 'id' => (int)$pdo->lastInsertId()]);
+        $allergen = pet_allergy_clean_text($input['allergen'] ?? '');
+        $severity = pet_allergy_clean_text($input['severity'] ?? '') ?: 'Known';
+        if ($allergen === '') {
+            pet_medical_error(422, 'Allergen is required.');
+        }
+        if (strlen($allergen) > 255) {
+            pet_medical_error(422, 'Allergen must not exceed 255 characters.');
+        }
+        if (strlen($severity) > 100) {
+            pet_medical_error(422, 'Allergy severity must not exceed 100 characters.');
+        }
+
+        $currentUser = $GLOBALS['ipawcus_current_api_user'] ?? null;
+        $actorUserId = is_array($currentUser) ? ipawcus_guard_user_id($currentUser) : null;
+        $result = pet_medical_run_atomic(
+            $pdo,
+            function () use ($pdo, $petId, $allergen, $severity, $actorUserId): array {
+                $legacyStmt = $pdo->prepare("
+                    SELECT pet_allergies
+                    FROM pets_information
+                    WHERE pet_id = ?
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $legacyStmt->execute([$petId]);
+                pet_allergy_import_legacy($pdo, $petId, $legacyStmt->fetchColumn(), $actorUserId);
+
+                $duplicate = $pdo->prepare("
+                    SELECT allergy_id
+                    FROM pet_allergies
+                    WHERE pet_id = ?
+                      AND LOWER(TRIM(allergen)) = LOWER(?)
+                    LIMIT 1
+                ");
+                $duplicate->execute([$petId, $allergen]);
+                $existingId = (int)($duplicate->fetchColumn() ?: 0);
+                if ($existingId > 0) {
+                    $setParts = ['severity = ?'];
+                    $updateParams = [$severity];
+                    if ($actorUserId !== null && pet_allergy_column_exists($pdo, 'updated_by_user_id')) {
+                        $setParts[] = 'updated_by_user_id = ?';
+                        $updateParams[] = $actorUserId;
+                    }
+                    if (pet_allergy_column_exists($pdo, 'source')) {
+                        $setParts[] = 'source = ?';
+                        $updateParams[] = 'clinical';
+                    } elseif (pet_allergy_column_exists($pdo, 'source_type')) {
+                        $setParts[] = 'source_type = ?';
+                        $updateParams[] = 'clinical';
+                    }
+                    if (pet_allergy_column_exists($pdo, 'verification_status')) {
+                        $setParts[] = 'verification_status = ?';
+                        $updateParams[] = 'verified';
+                    }
+                    if ($actorUserId !== null && pet_allergy_column_exists($pdo, 'verified_by_user_id')) {
+                        $setParts[] = 'verified_by_user_id = ?';
+                        $updateParams[] = $actorUserId;
+                    }
+                    if (pet_allergy_column_exists($pdo, 'verified_at')) {
+                        $setParts[] = 'verified_at = NOW()';
+                    }
+                    $updateParams[] = $existingId;
+                    $updateParams[] = $petId;
+                    $update = $pdo->prepare(
+                        'UPDATE pet_allergies SET ' . implode(', ', $setParts) . ' WHERE allergy_id = ? AND pet_id = ?'
+                    );
+                    $update->execute($updateParams);
+                    pet_allergy_forget_cache($pdo, $petId);
+                    pet_allergy_sync_legacy_summary($pdo, $petId);
+
+                    return ['success' => true, 'id' => $existingId, 'created' => false];
+                }
+
+                $allergyId = pet_allergy_insert($pdo, $petId, $allergen, $severity, $actorUserId, 'clinical');
+                pet_allergy_sync_legacy_summary($pdo, $petId);
+
+                return ['success' => true, 'id' => $allergyId, 'created' => true];
+            }
+        );
+        echo json_encode($result);
         return;
     }
 
     if ($action === 'delete') {
-        $stmt = $pdo->prepare("DELETE FROM pet_allergies WHERE allergy_id = ? AND pet_id = ?");
-        $stmt->execute([$input['id'] ?? 0, $petId]);
+        $allergyId = $input['id'] ?? null;
+        if (is_string($allergyId) && preg_match('/^legacy-\d+$/', $allergyId)) {
+            $legacyPetId = (int)substr($allergyId, 7);
+            if ($legacyPetId !== $petId) {
+                pet_medical_error(404, 'Allergy record was not found.');
+            }
+
+            pet_medical_run_atomic($pdo, function () use ($pdo, $petId): void {
+                $lockPet = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_id = ? FOR UPDATE");
+                $lockPet->execute([$petId]);
+
+                if (pet_allergy_table_exists($pdo)) {
+                    pet_allergy_forget_cache($pdo, $petId);
+                    pet_allergy_sync_legacy_summary($pdo, $petId);
+                } else {
+                    $clearLegacy = $pdo->prepare("UPDATE pets_information SET pet_allergies = NULL WHERE pet_id = ?");
+                    $clearLegacy->execute([$petId]);
+                }
+            });
+            echo json_encode(['success' => true]);
+            return;
+        }
+
+        if (!is_numeric($allergyId) || (int)$allergyId <= 0) {
+            pet_medical_error(400, 'A valid allergy ID is required.');
+        }
+
+        $deleted = pet_medical_run_atomic($pdo, function () use ($pdo, $petId, $allergyId): bool {
+            $lockPet = $pdo->prepare("SELECT pet_id FROM pets_information WHERE pet_id = ? FOR UPDATE");
+            $lockPet->execute([$petId]);
+
+            $stmt = $pdo->prepare("DELETE FROM pet_allergies WHERE allergy_id = ? AND pet_id = ?");
+            $stmt->execute([(int)$allergyId, $petId]);
+            if ($stmt->rowCount() === 0) {
+                return false;
+            }
+
+            pet_allergy_forget_cache($pdo, $petId);
+            pet_allergy_sync_legacy_summary($pdo, $petId);
+
+            return true;
+        });
+        if (!$deleted) {
+            pet_medical_error(404, 'Allergy record was not found.');
+        }
         echo json_encode(['success' => true]);
         return;
     }
@@ -1791,7 +2025,22 @@ try {
     $type = $input['type'] ?? null;
 
     if ($method === 'POST' && $action === 'email_copy') {
-        pet_medical_send_email_copy($pdo, $petNumericId);
+        $emailRecipient = null;
+        if ($currentRole === 'pet_owner') {
+            $emailRecipient = [
+                // A co-owner requesting a copy receives their own record copy;
+                // do not silently send it to whichever ownership row was added
+                // most recently.
+                'email' => $currentUser['mail_Address'] ?? '',
+                'name' => trim(
+                    (string)($currentUser['first_Name'] ?? '')
+                    . ' '
+                    . (string)($currentUser['last_Name'] ?? '')
+                ),
+            ];
+        }
+
+        pet_medical_send_email_copy($pdo, $petNumericId, $emailRecipient);
         exit;
     }
 

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
+require_once __DIR__ . '/booking_daily_guard.php';
 
 const MAINTENANCE_TIMEZONE = 'Asia/Manila';
 const MAINTENANCE_ORIGINAL_BOOKING_NOTE = '[Original Booking Date: %s]';
@@ -323,7 +324,7 @@ function maintenance_cancel_expired_queues(PDO $pdo, ?int $petId = null, bool $n
                 $startedTransaction = true;
             }
 
-            $cancelled = maintenance_cancel_queue($pdo, $queueId, $reason, $notify, true);
+            $cancelled = maintenance_cancel_queue($pdo, $queueId, $reason, false, true);
 
             if ($startedTransaction) {
                 $pdo->commit();
@@ -331,6 +332,21 @@ function maintenance_cancel_expired_queues(PDO $pdo, ?int $petId = null, bool $n
 
             if ($cancelled) {
                 $cancelledIds[] = $queueId;
+
+                // Notifications must never describe a cancellation that can
+                // still be rolled back. Current lifecycle entry points own
+                // their transactions; if a future caller supplies an outer
+                // transaction, that owner is responsible for post-commit
+                // notification delivery.
+                if ($notify && !$pdo->inTransaction()) {
+                    try {
+                        notification_send_queue_event($pdo, $queueId, 'cancelled', [
+                            'reason' => $reason,
+                        ]);
+                    } catch (Throwable $notificationError) {
+                        error_log('Lifecycle queue notification failed: ' . $notificationError->getMessage());
+                    }
+                }
             }
         } catch (Throwable $error) {
             if ($startedTransaction && $pdo->inTransaction()) {
@@ -431,6 +447,28 @@ function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $t
 {
     $bookingId = (int)$booking['booking_id'];
     $previousDate = (string)$booking['booking_date'];
+    $petIds = booking_daily_pet_ids_for_booking(
+        $pdo,
+        $bookingId,
+        $booking['pet_id'] ?? null
+    );
+    booking_daily_lock_subjects(
+        $pdo,
+        $petIds,
+        (int)($booking['user_id'] ?? 0),
+        $booking['unregistered_pet_name'] ?? null
+    );
+    if (booking_daily_find_conflict(
+        $pdo,
+        $petIds,
+        $today,
+        $bookingId,
+        (int)($booking['user_id'] ?? 0),
+        $booking['unregistered_pet_name'] ?? null
+    )) {
+        return false;
+    }
+
     $notes = bookingStripLifecycleNotes($booking['notes'] ?? '', false);
     $notes = maintenance_append_original_booking_note_if_missing(
         array_merge($booking, ['notes' => $notes]),
@@ -503,12 +541,25 @@ function maintenance_process_bookings(PDO $pdo, ?int $petId = null, bool $notify
                 }
 
                 $reason = 'Booking expired after 7 days from original desired date (' . $originalDate . ').';
-                if (maintenance_cancel_booking($pdo, $bookingId, $reason, $notify)) {
-                    $cancelledIds[] = $bookingId;
-                }
+                $cancelled = maintenance_cancel_booking($pdo, $bookingId, $reason, false);
 
                 if ($startedTransaction) {
                     $pdo->commit();
+                }
+
+                if ($cancelled) {
+                    $cancelledIds[] = $bookingId;
+
+                    if ($notify && !$pdo->inTransaction()) {
+                        try {
+                            notification_send_booking_event($pdo, $bookingId, 'cancelled', [
+                                'reason' => $reason,
+                                'cancellation_message' => $reason,
+                            ]);
+                        } catch (Throwable $notificationError) {
+                            error_log('Lifecycle booking notification failed: ' . $notificationError->getMessage());
+                        }
+                    }
                 }
             } catch (Throwable $error) {
                 if ($startedTransaction && $pdo->inTransaction()) {
@@ -536,12 +587,26 @@ function maintenance_process_bookings(PDO $pdo, ?int $petId = null, bool $notify
                     $startedTransaction = true;
                 }
 
-                if (maintenance_auto_reschedule_booking($pdo, $booking, $today, $notify)) {
-                    $rescheduledIds[] = $bookingId;
-                }
+                $rescheduled = maintenance_auto_reschedule_booking($pdo, $booking, $today, false);
 
                 if ($startedTransaction) {
                     $pdo->commit();
+                }
+
+                if ($rescheduled) {
+                    $rescheduledIds[] = $bookingId;
+
+                    if ($notify && !$pdo->inTransaction()) {
+                        try {
+                            notification_send_booking_event($pdo, $bookingId, 'rescheduled', [
+                                'old_date' => (string)$booking['booking_date'],
+                                'new_date' => $today,
+                                'reason' => 'Auto-rescheduled due to missed approved booking / not reached during scheduled date.',
+                            ]);
+                        } catch (Throwable $notificationError) {
+                            error_log('Lifecycle booking reschedule notification failed: ' . $notificationError->getMessage());
+                        }
+                    }
                 }
             } catch (Throwable $error) {
                 if ($startedTransaction && $pdo->inTransaction()) {

@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2, Image as ImageIcon } from "lucide-react";
 import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
 import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { toast } from "../../reusecomponent/toast.jsx";
@@ -13,17 +13,22 @@ import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookingById, updateBookingStatus } from "../../services/bookingService";
 import { fetchOnlineConsultations, joinOnlineConsultation } from "../../services/onlineConsultationService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
+import { PhotoViewer } from "../../ui/photo-viewer";
+import { readOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
 
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
   const { bookingId } = useParams();
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { servicePrices } = priceProjectionConfig;
+  const [submissionReceipt] = useState(() => readOnlineConsultationSubmission(bookingId));
   const [consultation, setConsultation] = useState(null);
   const [onlineConsultation, setOnlineConsultation] = useState(null);
   const [canJoin, setCanJoin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [viewerImage, setViewerImage] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationData, setCancellationData] = useState({
     message: "",
@@ -32,10 +37,21 @@ export default function ConsultConfirmation() {
   });
 
   const fetchConsultation = async () => {
+    if (!/^\d+$/.test(String(bookingId || ""))) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const data = await fetchBookingById(bookingId, { apiPrefix: true });
-      // get_bookings returns an array
-      const consult = data.find(b => b.id.toString() === bookingId.toString());
+      const bookings = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.bookings)
+          ? data.bookings
+          : data
+            ? [data]
+            : [];
+      const consult = bookings.find((item) => String(item?.id || item?.booking_id || "") === String(bookingId));
 
       if (consult) {
         setConsultation(consult);
@@ -43,7 +59,7 @@ export default function ConsultConfirmation() {
           const senderNumberMatch = String(consult.notes || "").match(/\[Sender Number:\s*(.*?)\]/i);
           setCancellationData((current) => ({
             ...current,
-            walletNumber: normalizePhilippinePhoneInput(senderNumberMatch?.[1] || "")
+            walletNumber: normalizePhilippinePhoneInput(consult.paymentSenderNumber || senderNumberMatch?.[1] || "")
           }));
         }
         const onlineData = await fetchOnlineConsultations({ bookingId: consult.id }).catch(() => []);
@@ -67,6 +83,8 @@ export default function ConsultConfirmation() {
           vetHasStarted &&
           withinScheduledJoinWindow
         );
+      } else {
+        setConsultation(null);
       }
     } catch (error) {
       console.error("Error fetching consultation:", error);
@@ -76,7 +94,7 @@ export default function ConsultConfirmation() {
   };
 
   useAutoRefresh(fetchConsultation, {
-    enabled: Boolean(bookingId),
+    enabled: /^\d+$/.test(String(bookingId || "")),
     refreshKey: bookingId
   });
 
@@ -153,6 +171,59 @@ export default function ConsultConfirmation() {
   }
 
   if (!consultation) {
+    if (submissionReceipt) {
+      return (
+        <div className="mx-auto max-w-3xl space-y-6">
+          <Card className="border-emerald-200 bg-emerald-50/50">
+            <CardContent className="py-10 text-center sm:py-12">
+              <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <CheckCircle className="size-9" aria-hidden="true" />
+              </span>
+              <h1 className="mt-5 text-2xl font-bold text-slate-950 sm:text-3xl">Consultation Submitted!</h1>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
+                Your booking and payment details were saved successfully. The clinic will review the payment and confirm your schedule.
+              </p>
+
+              <dl className="mx-auto mt-7 grid max-w-xl gap-3 text-left sm:grid-cols-2">
+                <div className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                  <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Booking</dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {submissionReceipt.bookingNumber || (submissionReceipt.bookingId ? `Booking #${submissionReceipt.bookingId}` : 'Successfully registered')}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                  <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</dt>
+                  <dd className="mt-1 font-semibold text-amber-700">Pending clinic review</dd>
+                </div>
+                {submissionReceipt.petName && (
+                  <div className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Pet</dt>
+                    <dd className="mt-1 font-semibold text-slate-900">{submissionReceipt.petName}</dd>
+                  </div>
+                )}
+                {(submissionReceipt.bookingDate || submissionReceipt.bookingTime) && (
+                  <div className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                    <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Requested schedule</dt>
+                    <dd className="mt-1 font-semibold text-slate-900">
+                      {[submissionReceipt.bookingDate, submissionReceipt.bookingTime].filter(Boolean).join(' at ')}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              <p className="mx-auto mt-5 max-w-xl text-xs font-medium leading-5 text-slate-500">
+                Confirmation details will refresh automatically as soon as the booking lookup is available.
+              </p>
+              <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+                <Button variant="outline" onClick={() => navigate("/dashboard/consult")}>View Consultations</Button>
+                <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6 max-w-3xl mx-auto">
         <Card>
@@ -204,6 +275,12 @@ export default function ConsultConfirmation() {
             titleColor: 'text-gray-900'
           };
   const StatusIcon = statusMeta.icon;
+  const concernImages = Array.isArray(onlineConsultation?.concernImages)
+    ? onlineConsultation.concernImages
+    : String(consultation.image_Booking_Concern_Path || '')
+        .split(',')
+        .map((path) => path.trim())
+        .filter(Boolean);
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
@@ -221,8 +298,8 @@ export default function ConsultConfirmation() {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-600">Booking ID</p>
-              <p className="font-semibold">{consultation.id}</p>
+              <p className="text-sm text-gray-600">Booking Number</p>
+              <p className="font-semibold">{consultation.bookingNumber || `Booking #${consultation.id}`}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Status</p>
@@ -244,12 +321,37 @@ export default function ConsultConfirmation() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Discussion Topics</p>
-                <p className="font-semibold">{consultation.service || consultation.discussionTopic}</p>
+                <p className="font-semibold">{consultation.discussionTopic || consultation.service || 'Not specified'}</p>
               </div>
               {consultation.notes && (
                 <div>
                   <p className="text-sm text-gray-600">Additional Notes</p>
                   <p className="text-sm whitespace-pre-wrap">{consultation.notes}</p>
+                </div>
+              )}
+              {concernImages.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm text-gray-600">
+                    <ImageIcon className="h-4 w-4" />
+                    <span>Concern Images</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {concernImages.map((path, index) => (
+                      <button
+                        key={`${path}-${index}`}
+                        type="button"
+                        onClick={() => setViewerImage({ src: path, alt: `Concern image ${index + 1}` })}
+                        className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
+                        aria-label={`View concern image ${index + 1}`}
+                      >
+                        <ProtectedImage
+                          src={path}
+                          alt={`Concern image ${index + 1}`}
+                          className="aspect-square w-full object-cover transition-transform hover:scale-105"
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -480,6 +582,14 @@ export default function ConsultConfirmation() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <PhotoViewer
+        src={viewerImage?.src}
+        alt={viewerImage?.alt}
+        open={Boolean(viewerImage)}
+        onOpenChange={(open) => {
+          if (!open) setViewerImage(null);
+        }}
+      />
     </div>
   );
 }

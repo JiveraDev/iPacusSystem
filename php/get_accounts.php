@@ -11,25 +11,31 @@ try {
     $accountStatusSelect = $hasUserAccountStatus ? 'u.account_status' : "'active' AS account_status";
 
     // 1. Fetch Veterinarians
-    $vetSql = "SELECT u.*, v.*, {$accountStatusSelect}, v.is_active AS is_active
+    $vetSql = "SELECT u.*, v.*, {$accountStatusSelect}, v.is_active AS is_active,
+                      branch.branch_name AS preferred_branch_name
                FROM users u 
                JOIN veterinarian_profiles v ON u.user_id = v.user_id 
+               LEFT JOIN branches branch ON branch.branch_id = u.preferred_branch_id
                WHERE u.role = 'Veterinarian'";
     $vetStmt = $pdo->query($vetSql);
     $veterinarians = $vetStmt->fetchAll();
 
     // 2. Fetch Admin/Staff
-    $staffSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
+    $staffSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect},
+                        branch.branch_name AS preferred_branch_name
                  FROM users u 
                  JOIN admin_profiles a ON u.user_id = a.user_id 
+                 LEFT JOIN branches branch ON branch.branch_id = u.preferred_branch_id
                  WHERE u.role = 'Admin'";
     $staffStmt = $pdo->query($staffSql);
     $staff = $staffStmt->fetchAll();
 
     // 3. Fetch Super Admins
-    $superAdminSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect}
+    $superAdminSql = "SELECT u.*, a.*, {$accountStatusSelect}, {$staffActiveSelect},
+                             branch.branch_name AS preferred_branch_name
                       FROM users u
                       LEFT JOIN admin_profiles a ON u.user_id = a.user_id
+                      LEFT JOIN branches branch ON branch.branch_id = u.preferred_branch_id
                       WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('super_admin', 'superadmin')";
     $superAdminStmt = $pdo->query($superAdminSql);
     $superAdmins = $superAdminStmt->fetchAll();

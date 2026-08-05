@@ -76,7 +76,7 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
     notification_create_event($pdo, [
         'user_id' => $userId,
         'type' => 'account_removed',
-        'category' => 'system',
+        'category' => 'account_updates',
         'title' => $title,
         'message' => 'Your account access has been removed by clinic administration.',
         'push_title' => $title,
@@ -105,11 +105,12 @@ function delete_account_notify_super_admins(PDO $pdo, array $account, string $re
 
     notification_create_event_for_roles($pdo, ['super_admin', 'superadmin'], [
         'type' => 'account_removed_audit',
-        'category' => 'system',
+        'category' => 'account_updates',
         'title' => $title,
         'message' => $message,
         'push_title' => $title,
         'push_message' => $message,
+        'redirect_path' => '/dashboard/accounts',
         'force_in_app' => true,
         'dedupe_key' => 'account-removed-audit-' . (int)($account['user_id'] ?? 0) . '-' . date('YmdHis'),
         'email_subject' => "Account removed: {$accountName}",

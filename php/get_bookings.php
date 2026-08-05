@@ -3,6 +3,9 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -129,6 +132,9 @@ try {
                    u.birthdate,
                    u.setProfilePic_url,
                    v.first_Name as vet_first_name, v.last_Name as vet_last_name,
+                   branch.branch_code,
+                   branch.branch_name,
+                   branch.address AS branch_address,
                    {$multiPetSelect}
                    {$boardingAssignmentSelect}
                    1 as select_marker
@@ -136,6 +142,7 @@ try {
             LEFT JOIN pets_information p ON b.pet_id = p.pet_id
             JOIN users u ON b.user_id = u.user_id
             LEFT JOIN users v ON b.veterinarian_id = v.user_id
+            LEFT JOIN branches branch ON branch.branch_id = b.branch_id
             {$multiPetJoin}
             {$boardingAssignmentJoin}";
 
@@ -180,6 +187,19 @@ try {
 
         $ownerScopeSql .= ")";
         $where[] = $ownerScopeSql;
+    } elseif ($currentApiRole === 'admin') {
+        $adminBranchIds = branch_user_ids($pdo, $currentApiUserId);
+        if (!$adminBranchIds) {
+            $where[] = "b.status = 'pending'";
+        } else {
+            $branchPlaceholders = implode(',', array_fill(0, count($adminBranchIds), '?'));
+            $where[] = "(b.status = 'pending' OR b.branch_id IN ({$branchPlaceholders}))";
+            array_push($params, ...$adminBranchIds);
+        }
+        if ($userId) {
+            $where[] = "b.user_id = ?";
+            $params[] = $userId;
+        }
     } elseif ($userId) {
         $where[] = "b.user_id = ?";
         $params[] = $userId;
@@ -245,14 +265,35 @@ try {
         }
     }
 
-    $formattedBookings = array_map(function($b) use ($specialServiceItemsByBooking) {
+    $formattedBookings = array_map(function($b) use ($specialServiceItemsByBooking, $pdo) {
         $isRegistered = $b['registered_status'] === 'Registered' || (!empty($b['pet_id']) && !empty($b['pet_name']));
-        $isHomeService = (bool)$b['is_home_service'];
+        $isHomeService = (bool)$b['is_home_service']
+            || strtolower(trim((string)($b['service_type'] ?? ''))) === 'home-service';
         $isOnlineConsultation = (bool)$b['is_online_consultation'];
+        $onlineConsultationDetails = $isOnlineConsultation
+            ? bookingOnlineConsultationNoteDetails($b['notes'] ?? '')
+            : null;
+        $transportFee = (float)($b['transport_fee'] ?? 0);
+        $bookingPrice = (float)($b['price'] ?? 0);
+        if ($isHomeService && $bookingPrice <= max(50.0, $transportFee)) {
+            $bookingPrice = 1400.0;
+        }
         $hasCancellationRequest = !empty($b['notes']) && preg_match('/\[Cancellation Request\]/i', $b['notes']) === 1;
         $specialServiceItems = [];
         if (!empty($specialServiceItemsByBooking[(int)$b['booking_id']])) {
             $specialServiceItems = $specialServiceItemsByBooking[(int)$b['booking_id']];
+        }
+        $consentForms = consent_record_forms_for_response($b['consent_forms'] ?? null);
+        $signedConsentDocumentPath = consent_record_first_signed_document_path($consentForms);
+        $physicalConsentPath = consent_record_first_physical_document_path($consentForms);
+        $legacyConsentSignaturePath = consent_record_first_legacy_signature_path($consentForms);
+        $storedBookingSignaturePath = consent_record_nullable_text($b['signature_path'] ?? null);
+        if (
+            $legacyConsentSignaturePath === null
+            && $storedBookingSignaturePath !== null
+            && $storedBookingSignaturePath !== $signedConsentDocumentPath
+        ) {
+            $legacyConsentSignaturePath = $storedBookingSignaturePath;
         }
         $addOns = null;
         if (!empty($b['add_ons'])) {
@@ -307,6 +348,10 @@ try {
             'id' => $b['booking_id'],
             'userId' => $b['user_id'],
             'bookingNumber' => $b['booking_number'],
+            'branchId' => (int)($b['branch_id'] ?? 0),
+            'branchCode' => $b['branch_code'] ?? null,
+            'branchName' => $b['branch_name'] ?? null,
+            'branchAddress' => $b['branch_address'] ?? null,
             'petId' => $b['pet_id'],
             'petShareableId' => $b['pet_sharable_ID'],
             'petIds' => $b['booked_pet_ids'] ? array_map('intval', explode(',', $b['booked_pet_ids'])) : ($b['pet_id'] ? [(int)$b['pet_id']] : []),
@@ -321,7 +366,9 @@ try {
             'petWeight' => $isRegistered ? $b['pet_weight'] : $b['unregistered_pet_weight'],
             'petMicrochipId' => $isRegistered ? $b['pet_microchip'] : null,
             'petColor' => $isRegistered ? $b['pet_color_marking'] : null,
-            'petAllergies' => $isRegistered ? $b['pet_allergies'] : null,
+            'petAllergies' => $isRegistered
+                ? pet_allergy_effective_text($pdo, (int)$b['pet_id'], $b['pet_allergies'] ?? null)
+                : null,
             'petTempOwner' => $isRegistered ? $b['pet_Temp_owner'] : null,
             'ownerName' => $b['first_Name'] . ' ' . $b['last_Name'],
             'ownerEmail' => $b['mail_Address'],
@@ -335,8 +382,14 @@ try {
             'date' => $b['booking_date'],
             'time' => $b['booking_time'],
             'status' => $b['status'],
-            'price' => $b['price'],
-            'notes' => bookingCleanVisibleNotes($b['notes'] ?? ''),
+            'price' => $bookingPrice,
+            'transportFee' => $transportFee,
+            'notes' => $onlineConsultationDetails['additionalNotes']
+                ?? bookingCleanVisibleNotes($b['notes'] ?? ''),
+            'discussionTopic' => $onlineConsultationDetails['discussionTopic'] ?? null,
+            'discussionTopics' => $onlineConsultationDetails['discussionTopics'] ?? [],
+            'paymentSenderNumber' => $onlineConsultationDetails['paymentSenderNumber'] ?? null,
+            'transactionReference' => $onlineConsultationDetails['transactionReference'] ?? null,
             'hasCancellationRequest' => $hasCancellationRequest,
             'isHomeService' => $isHomeService,
             'address' => $b['address'],
@@ -355,8 +408,13 @@ try {
             'specialServiceItems' => $specialServiceItems,
             'emergencyContact' => $b['emergency_contact'] ?? null,
             'image_Booking_Concern_Path' => $b['Image_Booking_Concern_Path'],
-            'signaturePath' => $b['signature_path'],
-            'consentForms' => decodeJsonArray($b['consent_forms'] ?? null),
+            // signaturePath is retained for response compatibility, but now
+            // identifies only a complete rendered consent document.
+            'signaturePath' => $signedConsentDocumentPath,
+            'consentDocumentPath' => $signedConsentDocumentPath,
+            'legacyConsentSignaturePath' => $legacyConsentSignaturePath,
+            'physicalConsentPath' => $physicalConsentPath,
+            'consentForms' => $consentForms,
             'consentStatus' => $b['consent_status'] ?? null,
             'isRegistered' => $isRegistered,
             'createdAt' => $b['created_at']

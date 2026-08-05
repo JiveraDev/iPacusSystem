@@ -5,6 +5,8 @@ import {
     CalendarDays,
     Camera,
     ClipboardList,
+    Download,
+    Eye,
     FileText,
     Loader2,
     Mail,
@@ -21,9 +23,12 @@ import { Card, CardContent } from '../../ui/card';
 import { PhotoViewer } from '../../ui/photo-viewer';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { downloadConsentDocument, openProtectedDocument } from '../../hooks/useConsentDocumentSource';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
+import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { emailPetMedicalRecords, fetchPetMedicalRecords } from '../../services/petService';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -61,15 +66,31 @@ function compactText(value) {
 }
 
 function doctorNoteRows(source) {
+    const clinical = dedupeClinicalFields([
+        ['chiefComplaint', source.chiefComplaint || source.chief_complaint],
+        ['majorSymptoms', source.majorSymptoms || source.major_symptoms],
+        ['symptoms', source.symptoms],
+        ['physicalExam', source.physicalExam || source.physical_exam],
+        ['diagnosis', source.diagnosis],
+        ['recommendations', source.recommendations],
+        ['treatment', source.treatment],
+        ['medications', source.medications],
+        ['labResults', source.labResults || source.lab_results],
+        ['followUp', source.followUp || source.follow_up_date],
+        ['notes', source.notes]
+    ]);
     const rows = [
-        ['Chief Complaint', source.chiefComplaint || source.chief_complaint],
-        ['Major Symptoms', source.majorSymptoms || source.symptoms || source.major_symptoms],
-        ['Physical Exam', source.physicalExam || source.physical_exam],
-        ['Diagnosis', source.diagnosis],
-        ['Treatment', source.treatment],
-        ['Lab Results', source.labResults || source.lab_results],
-        ['Doctor Notes', source.notes],
-        ['Follow-up', source.followUp || source.follow_up_date]
+        ['Chief Complaint', clinical.chiefComplaint],
+        ['Major Symptoms', clinical.majorSymptoms],
+        ['Symptoms', clinical.symptoms],
+        ['Physical Exam', clinical.physicalExam],
+        ['Diagnosis', clinical.diagnosis],
+        ['Recommendations', clinical.recommendations],
+        ['Treatment', clinical.treatment],
+        ['Medications', clinical.medications],
+        ['Lab Results', clinical.labResults],
+        ['Doctor Notes', clinical.notes],
+        ['Follow-up', clinical.followUp]
     ].map(([label, value]) => ({ label, value: compactText(value) })).filter(row => row.value);
 
     asArray(source.customSections).forEach((section, index) => {
@@ -125,7 +146,20 @@ export default function MedicalRecords() {
     const pet = records?.pet;
     const organizedRecords = useMemo(() => asArray(records?.organizedRecords), [records]);
     const vaccinations = asArray(records?.vaccinations);
-    const serviceHistoryCount = asArray(records?.serviceHistory).length;
+    const serviceHistory = useMemo(() => asArray(records?.serviceHistory), [records]);
+    const serviceHistoryCount = serviceHistory.length;
+    const clinicalDocuments = useMemo(() => {
+        const seen = new Set();
+
+        return serviceHistory.flatMap(record => asArray(record.attachments))
+            .filter(attachment => ['additional_consent', 'prescription_document'].includes(attachment.category))
+            .filter(attachment => {
+                const key = attachment.url || attachment.relativeUrl || attachment.id;
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    }, [serviceHistory]);
 
     const handleRecordAction = async (action) => {
         if (action === 'print') {
@@ -297,6 +331,7 @@ export default function MedicalRecords() {
 	                </section>
 
                     <VaccinationSection vaccinations={vaccinations} />
+                    <ClinicalDocumentsSection documents={clinicalDocuments} onPreview={setViewer} />
 
 	                {organizedRecords.length === 0 ? (
                     <Card className="print-break-inside">
@@ -366,6 +401,126 @@ function VaccinationSection({ vaccinations }) {
                 </div>
             )}
         </section>
+    );
+}
+
+function ClinicalDocumentsSection({ documents, onPreview }) {
+    if (documents.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <FileText className="size-5 text-[#155dfc]" />
+                        <h2 className="text-lg font-black text-slate-950">Clinical Documents</h2>
+                    </div>
+                    <Badge className="border-0 bg-blue-50 text-[#155dfc]">{documents.length}</Badge>
+                </div>
+            </header>
+            <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
+                {documents.map((document, index) => {
+                    const url = imageUrl(document);
+                    const title = document.category === 'additional_consent'
+                        ? document.name || 'Signed consent form'
+                        : document.name || 'Prescription document';
+
+                    return (
+                        <ClinicalDocumentCard
+                            key={document.id || `${url}-${index}`}
+                            document={document}
+                            title={title}
+                            url={url}
+                            onPreview={onPreview}
+                        />
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+function ClinicalDocumentCard({ document, title, url, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const canPreviewImage = Boolean(url && isImage(document));
+    const rawPath = document?.url || document?.relativeUrl || url;
+
+    const handleView = async () => {
+        if (!rawPath || isOpening) return;
+        if (canPreviewImage) {
+            onPreview({ src: rawPath, alt: title });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(rawPath);
+        } catch (error) {
+            toast.error(error.message || 'Could not open this clinical document.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!rawPath || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(rawPath, document?.name || `${title}.png`);
+        } catch (error) {
+            toast.error(error.message || 'Could not download this clinical document.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="no-print overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex h-32 items-center justify-center overflow-hidden rounded-md bg-white">
+                {canPreviewImage ? (
+                    <ProtectedImage
+                        src={rawPath}
+                        alt={title}
+                        className="h-full w-full object-contain"
+                        fallbackClassName="h-full w-full"
+                    />
+                ) : (
+                    <FileText className="size-8 text-slate-300" />
+                )}
+            </div>
+            <p className="mt-3 truncate text-sm font-black text-slate-800">{title}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+                {document.category === 'additional_consent' ? 'Signed consent form' : 'Prescription document'}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleView}
+                    disabled={!rawPath || isOpening}
+                    className="h-8 gap-1 text-xs"
+                >
+                    {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                    View
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={!rawPath || isDownloading}
+                    className="h-8 gap-1 text-xs"
+                >
+                    {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    Download
+                </Button>
+            </div>
+        </div>
     );
 }
 
@@ -513,52 +668,97 @@ function OrganizedItem({ item, onPreview }) {
                         Images and Documents
                     </p>
                     <div className="grid gap-2 sm:grid-cols-3">
-                        {attachments.map((attachment, index) => {
-                            const url = imageUrl(attachment);
-                            const canPreview = isImage(attachment);
-                            const title = attachment.name || 'Attachment';
-                            const tile = (
-                                <>
-                                    <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-white">
-                                        {canPreview && url ? (
-                                            <img src={url} alt={title} className="h-full w-full object-cover" />
-                                        ) : (
-                                            <FileText className="size-7 text-slate-300" />
-                                        )}
-                                    </div>
-                                    <p className="mt-2 truncate text-xs font-bold text-slate-700">{title}</p>
-                                </>
-                            );
-
-                            if (!canPreview && url) {
-                                return (
-                                    <a
-                                        key={attachment.id || `${url}-${index}`}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left transition hover:border-blue-200 hover:bg-blue-50"
-                                    >
-                                        {tile}
-                                    </a>
-                                );
-                            }
-
-                            return (
-                                <button
-                                    key={attachment.id || `${url}-${index}`}
-                                    type="button"
-                                    onClick={() => canPreview && onPreview({ src: url, alt: title })}
-                                    disabled={!canPreview || !url}
-                                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left transition hover:border-blue-200 hover:bg-blue-50"
-                                >
-                                    {tile}
-                                </button>
-                            );
-                        })}
+                        {attachments.map((attachment, index) => (
+                            <MedicalRecordAttachmentCard
+                                key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
+                                attachment={attachment}
+                                onPreview={onPreview}
+                            />
+                        ))}
                     </div>
                 </div>
             )}
         </section>
+    );
+}
+
+function MedicalRecordAttachmentCard({ attachment, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const rawPath = attachment?.preview || attachment?.url || attachment?.relativeUrl || '';
+    const url = imageUrl(attachment);
+    const canPreview = isImage(attachment);
+    const title = attachment?.name || 'Attachment';
+
+    const handleView = async () => {
+        if (!rawPath || isOpening) return;
+        if (canPreview) {
+            onPreview({ src: rawPath, alt: title });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(rawPath);
+        } catch (error) {
+            toast.error(error.message || 'Could not open this medical-record attachment.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!rawPath || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(rawPath, title);
+        } catch (error) {
+            toast.error(error.message || 'Could not download this medical-record attachment.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
+            <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-white">
+                {canPreview && url ? (
+                    <ProtectedImage
+                        src={rawPath}
+                        alt={title}
+                        className="h-full w-full object-cover"
+                        fallbackClassName="h-full w-full"
+                    />
+                ) : (
+                    <FileText className="size-7 text-slate-300" />
+                )}
+            </div>
+            <p className="mt-2 truncate text-xs font-bold text-slate-700">{title}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleView}
+                    disabled={!rawPath || isOpening}
+                    className="h-8 gap-1 text-xs"
+                >
+                    {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                    View
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={!rawPath || isDownloading}
+                    className="h-8 gap-1 text-xs"
+                >
+                    {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    Download
+                </Button>
+            </div>
+        </div>
     );
 }

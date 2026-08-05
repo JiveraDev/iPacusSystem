@@ -23,8 +23,9 @@ export function fetchInventoryMeta() {
   return request("/inventory/meta");
 }
 
-export function fetchInventoryItems() {
-  return request("/inventory");
+export function fetchInventoryItems(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/inventory${query ? `?${query}` : ''}`);
 }
 
 export function createInventoryItem(payload) {

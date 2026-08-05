@@ -23,7 +23,7 @@ if (!$email || !$password || !$firstName || !$lastName || !$address || !$phoneNu
 
 if (!$termsAccepted) {
     http_response_code(400);
-    echo json_encode(['message' => 'Please accept the Terms of Use to register.']);
+    echo json_encode(['message' => 'Please accept the Terms of Use and General Service Conditions to register.']);
     exit;
 }
 

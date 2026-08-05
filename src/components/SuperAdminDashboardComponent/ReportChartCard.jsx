@@ -185,13 +185,13 @@ export default function ReportChartCard({ title, summary, chart, compact = false
     const ChartComponent = chartType === 'line' ? Line : (chartType === 'doughnut' || chartType === 'pie' ? Doughnut : Bar);
 
     return (
-        <Card className="overflow-hidden border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
-            <CardContent className="space-y-4 p-5">
+        <Card className="h-full overflow-hidden border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
+            <CardContent className="flex h-full flex-col gap-4 p-5">
                 <div>
                     <h3 className="text-base font-black text-slate-950 dark:text-white">{title}</h3>
                     {summary ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">{summary}</p> : null}
                 </div>
-                <div className={heightClass}>
+                <div className={`${heightClass} mt-auto w-full`}>
                     {hasData ? (
                         <ChartComponent data={chartData} options={options} />
                     ) : (

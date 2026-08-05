@@ -19,10 +19,38 @@ function mail_queue_worker_limit(): int
     return max(1, min(100, $limit));
 }
 
-if (PHP_SAPI !== 'cli' && !mail_env_bool('MAIL_QUEUE_WEB_ENABLED', false)) {
-    http_response_code(404);
-    echo json_encode(['message' => 'Mail queue worker is only available from CLI.']);
-    exit;
+function mail_queue_worker_web_authorized(): bool
+{
+    $expectedKey = trim(mail_env_value('MAIL_QUEUE_WORKER_KEY'));
+    if ($expectedKey === '') {
+        return false;
+    }
+
+    $providedKey = trim((string)($_SERVER['HTTP_X_MAIL_QUEUE_WORKER_KEY'] ?? ''));
+
+    return $providedKey !== '' && hash_equals($expectedKey, $providedKey);
+}
+
+if (PHP_SAPI !== 'cli') {
+    header('Content-Type: application/json');
+
+    if (!mail_env_bool('MAIL_QUEUE_WEB_ENABLED', false)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Mail queue worker is only available from CLI.']);
+        exit;
+    }
+
+    if (trim(mail_env_value('MAIL_QUEUE_WORKER_KEY')) === '') {
+        http_response_code(503);
+        echo json_encode(['message' => 'Web mail queue processing is not securely configured.']);
+        exit;
+    }
+
+    if (!mail_queue_worker_web_authorized()) {
+        http_response_code(403);
+        echo json_encode(['message' => 'Mail queue worker is not authorized.']);
+        exit;
+    }
 }
 
 try {

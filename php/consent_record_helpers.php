@@ -341,6 +341,322 @@ function consent_record_forms_from_value($forms): array
     return [$forms];
 }
 
+function consent_record_form_path(array $form, array $keys): ?string
+{
+    foreach ($keys as $key) {
+        $path = consent_record_nullable_text($form[$key] ?? null);
+        if ($path !== null) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+function consent_record_form_signed_document_path($form): ?string
+{
+    if (!is_array($form)) {
+        return null;
+    }
+
+    return consent_record_form_path($form, [
+        'documentPath',
+        'document_path',
+        'signedDocumentPath',
+        'signed_document_path',
+        'signedFilePath',
+        'signed_file_path',
+        'consentDocumentPath',
+        'consent_document_path',
+    ]);
+}
+
+function consent_record_form_physical_document_path($form): ?string
+{
+    if (!is_array($form)) {
+        return null;
+    }
+
+    return consent_record_form_path($form, [
+        'physicalConsentPath',
+        'physical_consent_path',
+        'physicalFilePath',
+        'physical_file_path',
+    ]);
+}
+
+function consent_record_form_legacy_signature_path($form): ?string
+{
+    if (!is_array($form)) {
+        return null;
+    }
+
+    return consent_record_form_path($form, [
+        'legacySignaturePath',
+        'legacy_signature_path',
+        'signaturePath',
+        'signature_path',
+        'signatureUrl',
+        'signature_url',
+    ]);
+}
+
+function consent_record_demote_signature_only_paths(array $forms): array
+{
+    foreach ($forms as &$form) {
+        if (!is_array($form)) {
+            $form = [];
+            continue;
+        }
+
+        $legacySignaturePath = consent_record_form_legacy_signature_path($form);
+        $signedDocumentPath = consent_record_form_signed_document_path($form);
+        if (
+            $legacySignaturePath !== null
+            && ($signedDocumentPath === null || $legacySignaturePath !== $signedDocumentPath)
+        ) {
+            $form['legacySignaturePath'] = $legacySignaturePath;
+        }
+
+        unset(
+            $form['signaturePath'],
+            $form['signature_path'],
+            $form['signatureUrl'],
+            $form['signature_url']
+        );
+    }
+    unset($form);
+
+    return $forms;
+}
+
+function consent_record_first_signed_document_path($forms): ?string
+{
+    foreach (consent_record_forms_from_value($forms) as $form) {
+        $path = consent_record_form_signed_document_path($form);
+        if ($path !== null) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+function consent_record_first_physical_document_path($forms): ?string
+{
+    foreach (consent_record_forms_from_value($forms) as $form) {
+        $path = consent_record_form_physical_document_path($form);
+        if ($path !== null) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+function consent_record_first_legacy_signature_path($forms): ?string
+{
+    foreach (consent_record_forms_from_value($forms) as $form) {
+        $path = consent_record_form_legacy_signature_path($form);
+        if ($path !== null) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+function consent_record_normalize_booking_forms(
+    $forms,
+    ?string $signedDocumentPath = null,
+    ?string $physicalDocumentPath = null
+): array {
+    $normalized = [];
+    foreach (consent_record_forms_from_value($forms) as $form) {
+        $normalized[] = is_array($form) ? $form : [];
+    }
+
+    if (empty($normalized) && ($signedDocumentPath !== null || $physicalDocumentPath !== null)) {
+        $normalized[] = [
+            'id' => null,
+            'title' => 'Booking Consent',
+        ];
+    }
+
+    // A booking-level artifact can only be assigned safely when it represents
+    // the sole consent form. Multiple forms must each provide their own path.
+    if (count($normalized) === 1) {
+        if (
+            $signedDocumentPath !== null
+            && consent_record_form_signed_document_path($normalized[0]) === null
+        ) {
+            $normalized[0]['documentPath'] = $signedDocumentPath;
+        }
+
+        if (
+            $physicalDocumentPath !== null
+            && consent_record_form_physical_document_path($normalized[0]) === null
+        ) {
+            $normalized[0]['physicalConsentPath'] = $physicalDocumentPath;
+        }
+    }
+
+    return consent_record_demote_signature_only_paths($normalized);
+}
+
+function consent_record_forms_for_response($forms): array
+{
+    $normalized = [];
+    foreach (consent_record_forms_from_value($forms) as $form) {
+        if (!is_array($form)) {
+            continue;
+        }
+
+        $signedDocumentPath = consent_record_form_signed_document_path($form);
+        $physicalDocumentPath = consent_record_form_physical_document_path($form);
+        if ($signedDocumentPath !== null) {
+            $form['documentPath'] = $signedDocumentPath;
+        }
+        if ($physicalDocumentPath !== null) {
+            $form['physicalConsentPath'] = $physicalDocumentPath;
+        }
+
+        $normalized[] = $form;
+    }
+
+    return consent_record_demote_signature_only_paths($normalized);
+}
+
+function consent_record_queue_response_row(array $row): array
+{
+    $signedDocumentPath = consent_record_nullable_text($row['signed_file_path'] ?? null);
+    $physicalDocumentPath = consent_record_nullable_text($row['physical_file_path'] ?? null);
+
+    return [
+        'consent_record_id' => consent_record_nullable_int($row['consent_record_id'] ?? null),
+        'consent_file_id' => consent_record_file_id($row['consent_file_id'] ?? null),
+        'consent_type' => consent_record_nullable_text($row['consent_type'] ?? null),
+        'owner_user_id' => consent_record_nullable_int($row['owner_user_id'] ?? null),
+        'pet_id' => consent_record_nullable_int($row['pet_id'] ?? null),
+        'booking_id' => consent_record_nullable_int($row['booking_id'] ?? null),
+        'queue_id' => consent_record_nullable_int($row['queue_id'] ?? null),
+        'visit_id' => consent_record_nullable_int($row['visit_id'] ?? null),
+        'service_name' => consent_record_nullable_text($row['service_name'] ?? null),
+        'status' => consent_record_nullable_text($row['status'] ?? null) ?: 'pending',
+        'source' => consent_record_nullable_text($row['source'] ?? null) ?: 'manual',
+        'requested_at' => $row['requested_at'] ?? null,
+        'signed_at' => $row['signed_at'] ?? null,
+        'released_at' => $row['released_at'] ?? null,
+        'signed_file_path' => $signedDocumentPath,
+        'physical_file_path' => $physicalDocumentPath,
+        'signed_consent_document_path' => $signedDocumentPath,
+        'physical_consent_path' => $physicalDocumentPath,
+        'signer_name' => consent_record_nullable_text($row['signer_name'] ?? null),
+        'processed_by_user_id' => consent_record_nullable_int($row['processed_by_user_id'] ?? null),
+        'processed_by_name' => consent_record_nullable_text($row['processed_by_name'] ?? null),
+        'notes' => consent_record_nullable_text($row['notes'] ?? null),
+        'created_at' => $row['created_at'] ?? null,
+        'updated_at' => $row['updated_at'] ?? null,
+    ];
+}
+
+function consent_record_fetch_queue_records(PDO $pdo, array $queueIds): array
+{
+    $normalizedQueueIds = array_values(array_unique(array_filter(
+        array_map('consent_record_nullable_int', $queueIds),
+        static fn($queueId) => $queueId !== null && $queueId > 0
+    )));
+    if (empty($normalizedQueueIds) || !consent_record_table_exists($pdo)) {
+        return [];
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($normalizedQueueIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT
+            consent_record_id,
+            consent_file_id,
+            consent_type,
+            owner_user_id,
+            pet_id,
+            booking_id,
+            queue_id,
+            visit_id,
+            service_name,
+            status,
+            source,
+            requested_at,
+            signed_at,
+            released_at,
+            signed_file_path,
+            physical_file_path,
+            signer_name,
+            processed_by_user_id,
+            processed_by_name,
+            notes,
+            created_at,
+            updated_at
+        FROM consent_form_records
+        WHERE queue_id IN ({$placeholders})
+        ORDER BY queue_id ASC, consent_record_id DESC
+    ");
+    $stmt->execute($normalizedQueueIds);
+
+    $recordsByQueue = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $queueId = consent_record_nullable_int($row['queue_id'] ?? null);
+        if ($queueId === null || $queueId <= 0) {
+            continue;
+        }
+
+        $recordsByQueue[$queueId][] = consent_record_queue_response_row($row);
+    }
+
+    return $recordsByQueue;
+}
+
+function consent_record_queue_compatibility_fields(array $records): array
+{
+    $primaryRecord = null;
+    $signedDocumentPath = null;
+    $physicalDocumentPath = null;
+
+    foreach ($records as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+
+        $recordSignedPath = consent_record_nullable_text(
+            $record['signed_consent_document_path']
+                ?? $record['signed_file_path']
+                ?? null
+        );
+        $recordPhysicalPath = consent_record_nullable_text(
+            $record['physical_consent_path']
+                ?? $record['physical_file_path']
+                ?? null
+        );
+        if ($primaryRecord === null && ($recordSignedPath !== null || $recordPhysicalPath !== null)) {
+            $primaryRecord = $record;
+        }
+        if ($signedDocumentPath === null && $recordSignedPath !== null) {
+            $signedDocumentPath = $recordSignedPath;
+        }
+        if ($physicalDocumentPath === null && $recordPhysicalPath !== null) {
+            $physicalDocumentPath = $recordPhysicalPath;
+        }
+    }
+
+    $primaryRecord = $primaryRecord ?: ($records[0] ?? []);
+
+    return [
+        'signed_consent_record_id' => consent_record_nullable_int($primaryRecord['consent_record_id'] ?? null),
+        'signed_consent_type' => consent_record_nullable_text($primaryRecord['consent_type'] ?? null),
+        'signed_consent_document_path' => $signedDocumentPath,
+        'physical_consent_path' => $physicalDocumentPath,
+        'signed_consent_at' => $primaryRecord['signed_at'] ?? null,
+    ];
+}
+
 function consent_record_capture_booking(PDO $pdo, array $data): void
 {
     if (!consent_record_table_exists($pdo)) {
@@ -352,9 +668,26 @@ function consent_record_capture_booking(PDO $pdo, array $data): void
         return;
     }
 
-    $signaturePath = consent_record_nullable_text($data['signature_path'] ?? null);
-    $forms = consent_record_forms_from_value($data['consent_forms'] ?? null);
-    if (empty($forms) && $signaturePath === null) {
+    $defaultSignedDocumentPath = consent_record_nullable_text(
+        $data['signed_document_path']
+            ?? $data['signedDocumentPath']
+            ?? $data['consent_document_path']
+            ?? $data['consentDocumentPath']
+            ?? null
+    );
+    $defaultPhysicalDocumentPath = consent_record_nullable_text(
+        $data['physical_file_path']
+            ?? $data['physicalFilePath']
+            ?? $data['physical_consent_path']
+            ?? $data['physicalConsentPath']
+            ?? null
+    );
+    $forms = consent_record_normalize_booking_forms(
+        $data['consent_forms'] ?? null,
+        $defaultSignedDocumentPath,
+        $defaultPhysicalDocumentPath
+    );
+    if (empty($forms)) {
         return;
     }
 
@@ -379,6 +712,9 @@ function consent_record_capture_booking(PDO $pdo, array $data): void
             $form = is_array($form) ? $form : [];
             $formId = $form['id'] ?? $form['file_id'] ?? $form['fileId'] ?? null;
             $title = $form['title'] ?? $form['file_name'] ?? $form['fileName'] ?? $form['name'] ?? 'Booking Consent';
+            $signedDocumentPath = consent_record_form_signed_document_path($form);
+            $physicalDocumentPath = consent_record_form_physical_document_path($form);
+            $hasCompleteConsent = $signedDocumentPath !== null || $physicalDocumentPath !== null;
 
             try {
                 consent_record_save($pdo, [
@@ -388,10 +724,14 @@ function consent_record_capture_booking(PDO $pdo, array $data): void
                     'pet_id' => $petId,
                     'booking_id' => $bookingId,
                     'service_name' => $data['service_name'] ?? null,
-                    'status' => $signaturePath ? 'signed' : ($data['status'] ?? 'pending'),
+                    'status' => $hasCompleteConsent ? 'signed' : 'pending',
                     'source' => 'booking',
-                    'signed_file_path' => $signaturePath,
-                    'signed_at' => $signaturePath ? date('Y-m-d H:i:s') : null,
+                    'signed_file_path' => $signedDocumentPath,
+                    'physical_file_path' => $physicalDocumentPath,
+                    'signed_at' => $hasCompleteConsent
+                        ? ($form['signedAt'] ?? $form['signed_at'] ?? date('Y-m-d H:i:s'))
+                        : null,
+                    'signer_name' => $form['signerName'] ?? $form['signer_name'] ?? null,
                     'notes' => $data['notes'] ?? 'Captured during booking creation.',
                 ], false);
             } catch (Throwable $e) {

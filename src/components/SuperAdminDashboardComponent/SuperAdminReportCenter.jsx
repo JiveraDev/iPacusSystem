@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Download, FileSpreadsheet, FileText, Loader2, Printer, Search } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
-import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
@@ -11,6 +10,9 @@ import { formatReportDateLabel, formatReportDateRange } from '../../lib/date';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
 import ReportDateInput from './ReportDateInput';
 import ReportPreview from './ReportPreview';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import { exportReportExcel, exportReportPdf } from '../../lib/reportExport';
+import { fetchVeterinarians } from '../../services/accountService';
 
 const SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -77,6 +79,19 @@ function normalizeRole(role) {
 
 function isSuperAdmin(user) {
     return ['super_admin', 'superadmin'].includes(normalizeRole(user?.role));
+}
+
+function veterinarianId(veterinarian) {
+    return String(veterinarian?.user_id || veterinarian?.userId || veterinarian?.id || '');
+}
+
+function veterinarianName(veterinarian) {
+    const fullName = [
+        veterinarian?.first_Name || veterinarian?.firstName,
+        veterinarian?.last_Name || veterinarian?.lastName
+    ].filter(Boolean).join(' ').trim();
+
+    return fullName ? `Dr. ${fullName}` : veterinarian?.mail_Address || veterinarian?.email || 'Veterinarian';
 }
 
 function dateInputValue(date) {
@@ -325,7 +340,19 @@ export default function SuperAdminReportCenter() {
     const [filters, setFilters] = useState({});
     const [report, setReport] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState('');
     const [error, setError] = useState('');
+    const [branches, setBranches] = useState([]);
+    const [veterinarians, setVeterinarians] = useState([]);
+
+    useEffect(() => {
+        fetchBranches()
+            .then(data => setBranches(Array.isArray(data?.branches) ? data.branches : []))
+            .catch(requestError => console.error('Failed to load report branches:', requestError));
+        fetchVeterinarians()
+            .then(data => setVeterinarians(Array.isArray(data?.veterinarians) ? data.veterinarians : []))
+            .catch(requestError => console.error('Failed to load report veterinarians:', requestError));
+    }, []);
 
     const selectedReportLabel = useMemo(() => (
         REPORT_TYPES.find(item => item.value === reportType)?.label || 'Sales Report'
@@ -392,6 +419,25 @@ export default function SuperAdminReportCenter() {
         }
     };
 
+    const handleExport = async (format) => {
+        if (!report || exportingFormat) return;
+
+        setExportingFormat(format);
+        setError('');
+        try {
+            if (format === 'pdf') {
+                await exportReportPdf(report);
+            } else {
+                await exportReportExcel(report);
+            }
+        } catch (exportError) {
+            console.error(`Failed to export ${format}:`, exportError);
+            setError(`The ${format.toUpperCase()} file could not be generated. Please try again.`);
+        } finally {
+            setExportingFormat('');
+        }
+    };
+
     if (!isSuperAdmin(user)) {
         return (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6">
@@ -420,7 +466,7 @@ export default function SuperAdminReportCenter() {
                 <DashboardPageHeader
                     className="mb-4"
                     title="Report Export & Print Center"
-                    description="Generate detailed table reports, preview the output, print clean copies, and export CSV files."
+                    description="Generate detailed table reports, preview the output, print clean copies, and export CSV, PDF, or Excel files."
                     layout="stacked"
                     actions={(
                         <Button type="button" variant="outline" onClick={() => navigate('/dashboard/reports')} className="h-10 justify-center gap-2 whitespace-nowrap">
@@ -491,6 +537,46 @@ export default function SuperAdminReportCenter() {
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            {reportType !== 'consent_form' && (
+                                <div>
+                                    <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Clinic Location</Label>
+                                    <Select
+                                        value={filters.branch_id || 'all'}
+                                        onValueChange={(value) => {
+                                            if (value === 'all') {
+                                                setFilters(current => {
+                                                    const next = { ...current };
+                                                    delete next.branch_id;
+                                                    delete next.branch_name;
+                                                    return next;
+                                                });
+                                                return;
+                                            }
+                                            const branch = branches.find(item => String(item.id) === String(value));
+                                            setFilters(current => ({
+                                                ...current,
+                                                branch_id: value,
+                                                branch_name: branch?.name || value
+                                            }));
+                                        }}
+                                    >
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue
+                                                placeholder="All clinic locations"
+                                                displayValue={!filters.branch_id
+                                                    ? 'All clinic locations'
+                                                    : getBranchDisplayName(branches, filters.branch_id)}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All clinic locations</SelectItem>
+                                            {branches.map(branch => (
+                                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                             {filterConfig.length ? filterConfig.map(filter => (
                                 <FilterSelect
                                     key={filter.key}
@@ -508,33 +594,64 @@ export default function SuperAdminReportCenter() {
 
                             {['consultation', 'follow_up', 'veterinarian_activity'].includes(reportType) ? (
                                 <div>
-                                    <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Veterinarian ID</Label>
-                                    <Input
-                                        value={filters.veterinarian || ''}
-                                        onChange={(event) => updateFilter('veterinarian', event.target.value)}
-                                        restriction="integer"
-                                        placeholder="Optional vet user ID"
-                                        className="mt-1"
-                                    />
+                                    <Label className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Veterinarian</Label>
+                                    <Select
+                                        value={filters.veterinarian || 'all'}
+                                        onValueChange={(value) => {
+                                            if (value === 'all') {
+                                                setFilters(current => {
+                                                    const next = { ...current };
+                                                    delete next.veterinarian;
+                                                    delete next.veterinarian_name;
+                                                    return next;
+                                                });
+                                                return;
+                                            }
+
+                                            const selectedVeterinarian = veterinarians.find(item => veterinarianId(item) === String(value));
+                                            setFilters(current => ({
+                                                ...current,
+                                                veterinarian: value,
+                                                veterinarian_name: veterinarianName(selectedVeterinarian)
+                                            }));
+                                        }}
+                                    >
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue
+                                                placeholder="All veterinarians"
+                                                displayValue={!filters.veterinarian
+                                                    ? 'All veterinarians'
+                                                    : veterinarianName(veterinarians.find(item => veterinarianId(item) === String(filters.veterinarian)))}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All veterinarians</SelectItem>
+                                            {veterinarians.map(veterinarian => (
+                                                <SelectItem key={veterinarianId(veterinarian)} value={veterinarianId(veterinarian)}>
+                                                    {veterinarianName(veterinarian)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             ) : null}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" onClick={() => exportReportCsv(report)} disabled={!report} className="gap-2">
+                            <Button type="button" variant="outline" onClick={() => exportReportCsv(report)} disabled={!report || Boolean(exportingFormat)} className="gap-2">
                                 <Download className="size-4" />
                                 Export CSV
                             </Button>
-                            <Button type="button" variant="outline" disabled className="gap-2">
-                                <FileText className="size-4" />
-                                Export PDF
+                            <Button type="button" variant="outline" onClick={() => handleExport('pdf')} disabled={!report || Boolean(exportingFormat)} className="gap-2">
+                                {exportingFormat === 'pdf' ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+                                {exportingFormat === 'pdf' ? 'Creating PDF...' : 'Export PDF'}
                             </Button>
-                            <Button type="button" variant="outline" disabled className="gap-2">
-                                <FileSpreadsheet className="size-4" />
-                                Export Excel
+                            <Button type="button" variant="outline" onClick={() => handleExport('excel')} disabled={!report || Boolean(exportingFormat)} className="gap-2">
+                                {exportingFormat === 'excel' ? <Loader2 className="size-4 animate-spin" /> : <FileSpreadsheet className="size-4" />}
+                                {exportingFormat === 'excel' ? 'Creating Excel...' : 'Export Excel'}
                             </Button>
                             <p className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-300">
-                                PDF/Excel export can be added after dependency setup.
+                                Files are created from the current report preview.
                             </p>
                         </div>
                     </CardContent>

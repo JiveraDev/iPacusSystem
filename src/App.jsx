@@ -11,6 +11,7 @@ import {
   isStoredAuthTokenExpired,
   subscribeToServerStatus
 } from "./services/apiClient.js";
+import { clearPushContext } from "./services/pushNotificationService.js";
 
 // Lazy load components
 const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
@@ -280,6 +281,7 @@ function App() {
   }, []);
 
   const handleLogout = useCallback(() => {
+    clearPushContext().catch(() => {});
     clearStoredAuthSession();
     setCurrentUser(null);
     navigateTo(routes.login);
@@ -354,6 +356,7 @@ function App() {
   if (serverStatus.isDown) {
     return (
       <ServerDownPage
+        key={`${serverStatus.kind}:${serverStatus.code}:${serverStatus.status}`}
         isRetrying={isCheckingServer}
         onRetry={retryServerConnection}
         serverStatus={serverStatus}

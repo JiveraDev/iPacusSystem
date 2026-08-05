@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/booking_daily_guard.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -65,50 +67,6 @@ function booking_status_pet_ids(PDO $pdo, array $booking): array
     }
 
     return array_values(array_unique(array_filter($petIds, fn($petId) => $petId > 0)));
-}
-
-function booking_status_active_same_service_conflict(PDO $pdo, array $booking, array $petIds): ?array
-{
-    if (empty($petIds)) {
-        return null;
-    }
-
-    $serviceKey = booking_status_service_key($booking);
-    $placeholders = implode(',', array_fill(0, count($petIds), '?'));
-    $params = $petIds;
-    $petCondition = "b.pet_id IN ({$placeholders})";
-    $bookingPetsJoin = '';
-
-    if (ipawcus_guard_table_exists($pdo, 'booking_pets')) {
-        $bookingPetsJoin = 'LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id';
-        $petCondition = "(b.pet_id IN ({$placeholders}) OR bp.pet_id IN ({$placeholders}))";
-        $params = array_merge($petIds, $petIds);
-    }
-
-    if ($serviceKey === 'home-service') {
-        $serviceCondition = "(b.is_home_service = 1 OR b.service_type = 'home-service')";
-    } elseif ($serviceKey === 'online-consultation') {
-        $serviceCondition = "(b.is_online_consultation = 1 OR b.service_type = 'online-consultation')";
-    } else {
-        $serviceCondition = "b.service_type = ? AND COALESCE(b.is_home_service, 0) = 0 AND COALESCE(b.is_online_consultation, 0) = 0";
-        $params[] = $serviceKey;
-    }
-
-    $params[] = (int)$booking['booking_id'];
-    $stmt = $pdo->prepare("
-        SELECT b.booking_id, b.booking_number
-        FROM bookings b
-        {$bookingPetsJoin}
-        WHERE b.status IN ('pending', 'confirmed')
-          AND {$petCondition}
-          AND {$serviceCondition}
-          AND b.booking_id <> ?
-        LIMIT 1
-    ");
-    $stmt->execute($params);
-    $conflict = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $conflict ?: null;
 }
 
 function booking_status_has_online_vet_conflict(PDO $pdo, array $booking): bool
@@ -202,9 +160,39 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
     }
 
     $serviceKey = booking_status_service_key($booking);
+    try {
+        $branchResolution = branch_resolve_booking(
+            $pdo,
+            $booking['branch_id'] ?? null,
+            $booking['service_type'] ?? null,
+            $booking['is_home_service'] ?? 0,
+            $booking['is_online_consultation'] ?? 0,
+            (string)($booking['booking_date'] ?? ''),
+            (string)($booking['booking_time'] ?? ''),
+            is_numeric($booking['veterinarian_id'] ?? null) ? (int)$booking['veterinarian_id'] : null
+        );
+        if ((int)$branchResolution['branch_id'] !== (int)($booking['branch_id'] ?? 0)) {
+            ipawcus_guard_error(409, 'Relocate this booking to the required branch before confirming it.');
+        }
+    } catch (InvalidArgumentException $e) {
+        ipawcus_guard_error(409, $e->getMessage());
+    }
     $requiresConsent = in_array($serviceKey, ['home-service', 'online-consultation', 'boarding'], true);
     if ($requiresConsent && empty($booking['signature_path']) && strtolower((string)($booking['consent_status'] ?? '')) !== 'signed') {
         ipawcus_guard_error(409, 'Required owner consent is missing for this booking.');
+    }
+
+    if ($serviceKey === 'home-service' && (float)($booking['transport_fee'] ?? 0) > 0) {
+        $paymentMethod = strtolower(trim((string)($booking['payment_method'] ?? '')));
+        if (
+            empty($booking['payment_proof_url'])
+            || !in_array($paymentMethod, ['qrph', 'gcash', 'maya', 'bank_transfer'], true)
+        ) {
+            ipawcus_guard_error(
+                409,
+                'Verify the PHP 50 home-service transport payment proof and payment method before confirming this booking.'
+            );
+        }
     }
 
     $timezone = new DateTimeZone('Asia/Manila');
@@ -214,10 +202,25 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
     }
 
     $petIds = booking_status_pet_ids($pdo, $booking);
-    $sameServiceConflict = booking_status_active_same_service_conflict($pdo, $booking, $petIds);
-    if ($sameServiceConflict) {
-        ipawcus_guard_error(409, 'Another active booking already exists for this pet and service.', [
-            'conflictingBookingNumber' => $sameServiceConflict['booking_number'] ?? null,
+    booking_daily_lock_subjects(
+        $pdo,
+        $petIds,
+        (int)($booking['user_id'] ?? 0),
+        $booking['unregistered_pet_name'] ?? null
+    );
+    $dailyBookingConflict = booking_daily_find_conflict(
+        $pdo,
+        $petIds,
+        (string)$booking['booking_date'],
+        (int)$booking['booking_id'],
+        (int)($booking['user_id'] ?? 0),
+        $booking['unregistered_pet_name'] ?? null
+    );
+    if ($dailyBookingConflict) {
+        $payload = booking_daily_conflict_payload($dailyBookingConflict);
+        ipawcus_guard_error(409, $payload['message'], [
+            'code' => $payload['code'],
+            'conflict' => $payload['conflict'],
         ]);
     }
 
@@ -309,6 +312,32 @@ try {
     $pdo->beginTransaction();
     $onlineConsultation = null;
 
+    if ($status === 'confirmed') {
+        $subjectStmt = $pdo->prepare("
+            SELECT booking_id, user_id, pet_id, unregistered_pet_name
+            FROM bookings
+            WHERE booking_id = ?
+            LIMIT 1
+        ");
+        $subjectStmt->execute([$bookingId]);
+        $bookingSubject = $subjectStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$bookingSubject) {
+            throw new Exception('Booking not found.');
+        }
+
+        $subjectPetIds = booking_daily_pet_ids_for_booking(
+            $pdo,
+            (int)$bookingSubject['booking_id'],
+            $bookingSubject['pet_id'] ?? null
+        );
+        booking_daily_lock_subjects(
+            $pdo,
+            $subjectPetIds,
+            (int)($bookingSubject['user_id'] ?? 0),
+            $bookingSubject['unregistered_pet_name'] ?? null
+        );
+    }
+
     $bookingStmt = $pdo->prepare("
         SELECT b.*, p.pet_status
         FROM bookings b
@@ -322,6 +351,14 @@ try {
 
     if (!$booking) {
         throw new Exception('Booking not found.');
+    }
+
+    if (
+        $currentApiRole === 'admin'
+        && $booking['status'] !== 'pending'
+        && !branch_user_can_access($pdo, $currentApiUser, (int)($booking['branch_id'] ?? 0))
+    ) {
+        ipawcus_guard_error(403, 'This booking belongs to another branch.');
     }
 
     $effectiveStatus = ($booking['status'] === 'completed' && $status === 'confirmed' && $hasPaymentUpdate)
@@ -354,13 +391,26 @@ try {
         $values = [];
 
         if ($reviewServiceType !== '') {
-            $fields[] = 'service_type = ?';
-            $values[] = $reviewServiceType;
+            $isOnlineConsultation = booking_status_service_key($booking) === 'online-consultation';
+            if (
+                $isOnlineConsultation
+                && !in_array(strtolower($reviewServiceType), ['consultation', 'online-consultation'], true)
+            ) {
+                ipawcus_guard_error(409, 'Online consultation bookings cannot be converted to another service during review.');
+            }
+
+            if (!$isOnlineConsultation) {
+                $fields[] = 'service_type = ?';
+                $values[] = $reviewServiceType;
+            }
         }
 
         if ($hasReviewNotes) {
             $fields[] = 'notes = ?';
-            $values[] = $reviewNotes;
+            $values[] = bookingMergeReviewNotesPreservingMetadata(
+                $booking['notes'] ?? '',
+                $reviewNotes
+            );
         }
 
         if (!empty($fields)) {

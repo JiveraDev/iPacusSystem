@@ -9,11 +9,11 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser } from '../dashboardRouter.jsx';
-import { resolveImageUrl } from '../../lib/image';
 import { uploadImageFile } from '../../services/uploadService';
 import { fetchPaymentMethods, requestPaymentMethodsOtp, updatePaymentMethods } from '../../services/paymentMethodService';
 import { PAYMENT_METHOD_FALLBACK } from '../../hooks/usePaymentMethods';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
+import ProtectedImage from '../shared/ProtectedImage';
 
 const METHOD_HELP = {
     qrph: 'QR payment image and account display shown to pet owners.',
@@ -134,7 +134,14 @@ export default function PaymentMethodsManagement() {
         }
     };
 
-    const qrPreviewUrl = qrFile ? URL.createObjectURL(qrFile) : resolveImageUrl(qrMethod?.qrImageUrl || '');
+    const qrFilePreviewUrl = useMemo(() => (qrFile ? URL.createObjectURL(qrFile) : ''), [qrFile]);
+    const qrPreviewSource = qrFilePreviewUrl || qrMethod?.qrImageUrl || '';
+
+    useEffect(() => () => {
+        if (qrFilePreviewUrl) {
+            URL.revokeObjectURL(qrFilePreviewUrl);
+        }
+    }, [qrFilePreviewUrl]);
 
     return (
         <div className="space-y-6">
@@ -231,13 +238,18 @@ export default function PaymentMethodsManagement() {
 
                             <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                                 <div className="flex h-44 items-center justify-center bg-white">
-                                    {qrPreviewUrl ? (
+                                    {qrPreviewSource ? (
                                         <button
                                             type="button"
-                                            onClick={() => setViewer({ src: qrPreviewUrl, alt: 'QRPH payment code' })}
+                                            onClick={() => setViewer({ src: qrPreviewSource, alt: 'QRPH payment code' })}
                                             className="h-full w-full"
                                         >
-                                            <img src={qrPreviewUrl} alt="QRPH payment code" className="h-full w-full object-contain" />
+                                            <ProtectedImage
+                                                src={qrPreviewSource}
+                                                alt="QRPH payment code"
+                                                className="h-full w-full object-contain"
+                                                fallbackClassName="h-full w-full"
+                                            />
                                         </button>
                                     ) : (
                                         <Camera className="size-12 text-slate-300" />

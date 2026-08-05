@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/mail_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 function notification_column_exists(PDO $pdo, string $tableName, string $columnName): bool
 {
@@ -239,7 +240,7 @@ function notification_category_enabled(array $preferences, string $category): bo
 function notification_fetch_user(PDO $pdo, int $userId): ?array
 {
     $stmt = $pdo->prepare("
-        SELECT user_id, mail_Address, first_Name, last_Name
+        SELECT user_id, mail_Address, first_Name, last_Name, role
         FROM users
         WHERE user_id = ?
         LIMIT 1
@@ -265,6 +266,18 @@ function notification_normalize_role(?string $role): string
     return strtolower(str_replace(['_', '-'], ' ', trim((string)$role)));
 }
 
+function notification_is_operational_category(string $category): bool
+{
+    return in_array($category, [
+        'booking_updates',
+        'schedule_reminders',
+        'payment_updates',
+        'queue_updates',
+        'boarding_updates',
+        'diagnosis_updates',
+    ], true);
+}
+
 function notification_fetch_users_by_roles(PDO $pdo, array $roles): array
 {
     $wantedRoles = array_values(array_unique(array_map('notification_normalize_role', $roles)));
@@ -272,7 +285,15 @@ function notification_fetch_users_by_roles(PDO $pdo, array $roles): array
         return [];
     }
 
-    $stmt = $pdo->query("SELECT user_id, role FROM users WHERE role IS NOT NULL");
+    $activeAccountFilter = notification_column_exists($pdo, 'users', 'account_status')
+        ? " AND COALESCE(account_status, 'active') = 'active'"
+        : '';
+    $stmt = $pdo->query("
+        SELECT user_id, role
+        FROM users
+        WHERE role IS NOT NULL
+        {$activeAccountFilter}
+    ");
     $users = [];
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $user) {
@@ -287,7 +308,25 @@ function notification_fetch_users_by_roles(PDO $pdo, array $roles): array
 
 function notification_create_event_for_roles(PDO $pdo, array $roles, array $payload): void
 {
-    foreach (notification_fetch_users_by_roles($pdo, $roles) as $user) {
+    $users = notification_fetch_users_by_roles($pdo, $roles);
+    $category = trim((string)($payload['category'] ?? 'system')) ?: 'system';
+    if (notification_is_operational_category($category)) {
+        $users = array_values(array_filter($users, static function (array $user): bool {
+            return notification_normalize_role($user['role'] ?? '') !== 'super admin';
+        }));
+    }
+
+    $branchId = (int)($payload['branch_id'] ?? 0);
+    if ($branchId > 0 && branch_table_exists($pdo, 'user_branch_assignments')) {
+        $users = array_values(array_filter($users, static function (array $user) use ($pdo, $branchId): bool {
+            $role = branch_normalize_role($user['role'] ?? '');
+            return $role === 'super_admin'
+                || $role !== 'admin'
+                || in_array($branchId, branch_user_ids($pdo, (int)($user['user_id'] ?? 0)), true);
+        }));
+    }
+
+    foreach ($users as $user) {
         $userId = (int)($user['user_id'] ?? 0);
         if ($userId <= 0) {
             continue;
@@ -300,6 +339,20 @@ function notification_create_event_for_roles(PDO $pdo, array $roles, array $payl
             'dedupe_key' => $dedupeKey !== '' ? "{$dedupeKey}-user-{$userId}" : null,
         ]);
     }
+}
+
+function notification_send_super_admin_governance_event(PDO $pdo, array $payload): void
+{
+    notification_create_event_for_roles($pdo, ['super admin'], [
+        'type' => 'governance_update',
+        'category' => 'configuration_updates',
+        'title' => 'System configuration updated',
+        'message' => 'A system configuration record was updated.',
+        'redirect_path' => '/dashboard/accounts',
+        'dedupe_key' => 'governance-update-' . md5(json_encode($payload) . '|' . microtime(true)),
+        'force_in_app' => true,
+        ...$payload,
+    ]);
 }
 
 function notification_create(PDO $pdo, array $payload): ?int
@@ -315,15 +368,26 @@ function notification_create(PDO $pdo, array $payload): ?int
     $category = trim((string)($payload['category'] ?? 'system')) ?: 'system';
     $forceInApp = !empty($payload['force_in_app']);
 
+    if (notification_is_operational_category($category)) {
+        $recipient = notification_fetch_user($pdo, $userId);
+        if (notification_normalize_role($recipient['role'] ?? '') === 'super admin') {
+            return null;
+        }
+    }
+
     if (!$forceInApp && !notification_category_enabled($preferences, $category)) {
         return null;
     }
 
     $inAppVisible = $forceInApp || notification_bool($preferences['in_app_enabled'] ?? 1) === 1;
 
+    $hasBranchColumn = notification_column_exists($pdo, 'user_notifications', 'branch_id');
+    $branchColumn = $hasBranchColumn ? "branch_id," : '';
+    $branchValue = $hasBranchColumn ? "?," : '';
     $stmt = $pdo->prepare("
         INSERT INTO user_notifications (
             user_id,
+            {$branchColumn}
             type,
             category,
             title,
@@ -335,7 +399,7 @@ function notification_create(PDO $pdo, array $payload): ?int
             dedupe_key,
             email_subject,
             read_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, {$branchValue} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             notification_id = LAST_INSERT_ID(notification_id),
             type = VALUES(type),
@@ -350,8 +414,12 @@ function notification_create(PDO $pdo, array $payload): ?int
             read_at = CASE WHEN VALUES(in_app_visible) = 1 THEN read_at ELSE COALESCE(read_at, NOW()) END,
             updated_at = CURRENT_TIMESTAMP
     ");
-    $stmt->execute([
-        $userId,
+    $params = [$userId];
+    if ($hasBranchColumn) {
+        $branchId = (int)($payload['branch_id'] ?? 0);
+        $params[] = $branchId > 0 ? $branchId : null;
+    }
+    $params = array_merge($params, [
         trim((string)($payload['type'] ?? 'system')) ?: 'system',
         $category,
         trim((string)($payload['title'] ?? 'Notification')),
@@ -364,6 +432,7 @@ function notification_create(PDO $pdo, array $payload): ?int
         trim((string)($payload['email_subject'] ?? '')) ?: null,
         $inAppVisible ? null : date('Y-m-d H:i:s'),
     ]);
+    $stmt->execute($params);
 
     return (int)$pdo->lastInsertId();
 }
@@ -642,7 +711,6 @@ function notification_push_config_status(): array
     return [
         'enabled' => $publicKey !== '' && $hasPrivateKey && $hasOpenSsl,
         'publicKey' => $publicKey,
-        'caBundle' => $caBundle,
         'needsCaBundle' => $caBundle === '',
         'needsSetup' => $publicKey === '' || !$hasPrivateKey || !$hasOpenSsl,
     ];
@@ -822,6 +890,54 @@ function notification_push_deactivate_subscription(PDO $pdo, int $subscriptionId
     $stmt->execute([$error ?: 'Push subscription is no longer active.', $subscriptionId]);
 }
 
+function notification_push_endpoint_is_safe(string $endpoint): bool
+{
+    if ($endpoint === '' || strlen($endpoint) > 4096) {
+        return false;
+    }
+
+    $parts = parse_url($endpoint);
+    if (!is_array($parts)) {
+        return false;
+    }
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $host = strtolower(rtrim((string)($parts['host'] ?? ''), '.'));
+    $port = isset($parts['port']) ? (int)$parts['port'] : 443;
+
+    if (
+        $scheme !== 'https'
+        || $host === ''
+        || $port !== 443
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || filter_var($host, FILTER_VALIDATE_IP)
+        || $host === 'localhost'
+        || str_ends_with($host, '.localhost')
+        || str_ends_with($host, '.local')
+        || str_ends_with($host, '.internal')
+    ) {
+        return false;
+    }
+
+    $configuredHosts = array_values(array_filter(array_map(
+        fn($value) => strtolower(trim($value)),
+        explode(',', notification_push_env('PUSH_ENDPOINT_ALLOWED_HOSTS'))
+    )));
+    if (!$configuredHosts) {
+        return true;
+    }
+
+    foreach ($configuredHosts as $allowedHost) {
+        $allowedHost = ltrim(rtrim($allowedHost, '.'), '.');
+        if ($allowedHost !== '' && ($host === $allowedHost || str_ends_with($host, '.' . $allowedHost))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function notification_push_save_subscription(PDO $pdo, int $userId, array $subscription, string $userAgent = ''): array
 {
     notification_ensure_schema($pdo);
@@ -830,10 +946,16 @@ function notification_push_save_subscription(PDO $pdo, int $userId, array $subsc
     if ($userId <= 0 || $endpoint === '') {
         throw new InvalidArgumentException('User and browser subscription are required.');
     }
+    if (!notification_push_endpoint_is_safe($endpoint)) {
+        throw new InvalidArgumentException('Browser push endpoint is not allowed.');
+    }
 
     $keys = is_array($subscription['keys'] ?? null) ? $subscription['keys'] : [];
     $p256dh = trim((string)($keys['p256dh'] ?? $subscription['p256dh'] ?? ''));
     $auth = trim((string)($keys['auth'] ?? $subscription['auth'] ?? ''));
+    if (strlen($p256dh) > 512 || strlen($auth) > 256 || strlen($userAgent) > 1000) {
+        throw new InvalidArgumentException('Browser push subscription data is too large.');
+    }
     $contentEncoding = trim((string)($subscription['contentEncoding'] ?? $subscription['content_encoding'] ?? 'aes128gcm')) ?: 'aes128gcm';
     $endpointHash = hash('sha256', $endpoint);
 
@@ -1482,6 +1604,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
     }
 
     $ownerUserId = (int)$booking['user_id'];
+    $branchId = (int)($booking['branch_id'] ?? 0);
     $petName = trim((string)($booking['pet_name'] ?? $booking['unregistered_pet_name'] ?? 'your pet'));
     $bookingNumber = (string)$booking['booking_number'];
     $serviceName = notification_service_name($booking);
@@ -1566,6 +1689,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
 
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
+        'branch_id' => $branchId,
         'type' => $type,
         'category' => 'booking_updates',
         'title' => $title,
@@ -1609,9 +1733,10 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         ],
     ];
 
-    if (isset($clinicBookingEvents[$event])) {
-        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+    if ($event === 'submitted' && isset($clinicBookingEvents[$event])) {
+        notification_create_event_for_roles($pdo, ['admin'], [
             ...$clinicBookingEvents[$event],
+            'branch_id' => $branchId,
             'category' => 'booking_updates',
             'redirect_path' => '/dashboard/bookings',
             'force_in_app' => true,
@@ -1653,6 +1778,7 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         $vetUserId = (int)$booking['veterinarian_id'];
         notification_create_event($pdo, [
             'user_id' => $vetUserId,
+            'branch_id' => $branchId,
             ...$vetEvents[$event],
             'redirect_path' => $vetRedirectPath,
             'force_in_app' => true,
@@ -1837,10 +1963,13 @@ function notification_fetch_queue(PDO $pdo, int $queueId): ?array
             p.pet_species,
             u.first_Name,
             u.last_Name,
-            u.mail_Address
+            u.mail_Address,
+            b.branch_name,
+            b.branch_code
         FROM queues q
         JOIN users u ON u.user_id = q.user_id
         LEFT JOIN pets_information p ON p.pet_id = q.pet_id
+        LEFT JOIN branches b ON b.branch_id = q.branch_id
         WHERE q.queue_id = ?
         LIMIT 1
     ");
@@ -1861,6 +1990,8 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
     $petName = trim((string)($queue['pet_name'] ?? 'your pet'));
     $queueNumber = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
     $serviceName = trim((string)($queue['service_name'] ?? 'Clinic queue')) ?: 'Clinic queue';
+    $branchId = (int)($queue['branch_id'] ?? 0);
+    $branchName = trim((string)($queue['branch_name'] ?? 'Main Clinic')) ?: 'Main Clinic';
     $status = trim((string)($queue['status'] ?? 'waiting'));
     $reason = trim((string)($context['reason'] ?? ''));
     $title = 'Queue update';
@@ -1932,6 +2063,7 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
 
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
+        'branch_id' => $branchId,
         'type' => $type,
         'category' => 'queue_updates',
         'title' => $title,
@@ -1983,13 +2115,34 @@ function notification_send_queue_event(PDO $pdo, int $queueId, string $event, ar
         ],
     ];
 
-    if (isset($clinicQueueEvents[$clinicQueueEvent])) {
-        notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
+    if ($clinicQueueEvent === 'created' && isset($clinicQueueEvents[$clinicQueueEvent])) {
+        notification_create_event_for_roles($pdo, ['admin'], [
             ...$clinicQueueEvents[$clinicQueueEvent],
+            'branch_id' => $branchId,
             'category' => 'queue_updates',
             'redirect_path' => '/dashboard/queue',
             'force_in_app' => true,
         ]);
+    }
+
+    if ($event === 'created' && strtolower((string)($queue['priority'] ?? 'normal')) === 'urgent') {
+        $complaint = trim(preg_replace('/\s+/', ' ', strip_tags((string)($queue['complaint'] ?? ''))) ?? '');
+        $complaint = $complaint !== '' ? $complaint : 'No comment or complaint was provided.';
+        $pushComplaint = function_exists('mb_substr') ? mb_substr($complaint, 0, 140) : substr($complaint, 0, 140);
+        foreach (branch_active_veterinarian_ids($pdo) as $vetUserId) {
+            notification_create_event($pdo, [
+                'user_id' => $vetUserId,
+                'branch_id' => $branchId,
+                'type' => 'urgent_branch_queue',
+                'category' => 'queue_updates',
+                'title' => 'Urgent patient at ' . $branchName,
+                'message' => "Urgent queue {$queueNumber}: {$petName} at {$branchName}. Comment/complaint: {$complaint}",
+                'push_message' => "URGENT at {$branchName}: {$petName}. Comment: {$pushComplaint}",
+                'redirect_path' => null,
+                'dedupe_key' => "urgent-branch-queue-{$queueId}-vet-{$vetUserId}",
+                'force_in_app' => true,
+            ]);
+        }
     }
 }
 
@@ -2010,6 +2163,7 @@ function notification_send_queue_assignment_to_vet(PDO $pdo, int $queueId, int $
 
     notification_create_event($pdo, [
         'user_id' => $vetUserId,
+        'branch_id' => (int)($queue['branch_id'] ?? branch_main_id($pdo)),
         'type' => 'queue_assigned_to_vet',
         'category' => 'queue_updates',
         'title' => 'Queue assigned to you',
@@ -2073,6 +2227,7 @@ function notification_send_record_update_request_event(PDO $pdo, int $requestId,
 
     notification_create_event($pdo, [
         'user_id' => $vetUserId,
+        'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
         'type' => 'record_update_request_assigned',
         'category' => 'diagnosis_updates',
         'title' => $title,
@@ -2130,12 +2285,15 @@ function notification_send_record_update_request_staff_event(PDO $pdo, int $requ
         $payload['message'] .= ' Request: ' . substr($requestedChanges, 0, 140);
     }
 
-    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
-        ...$payload,
-        'category' => 'diagnosis_updates',
-        'redirect_path' => '/dashboard/record-requests',
-        'force_in_app' => true,
-    ]);
+    if ($event === 'submitted') {
+        notification_create_event_for_roles($pdo, ['admin'], [
+            ...$payload,
+            'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
+            'category' => 'diagnosis_updates',
+            'redirect_path' => '/dashboard/record-requests',
+            'force_in_app' => true,
+        ]);
+    }
 }
 
 function notification_send_record_update_request_completed_to_owner(PDO $pdo, int $requestId): void
@@ -2158,6 +2316,7 @@ function notification_send_record_update_request_completed_to_owner(PDO $pdo, in
 
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
+        'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
         'type' => 'record_update_request_completed',
         'category' => 'diagnosis_updates',
         'title' => 'Record update completed',
@@ -2220,16 +2379,6 @@ function notification_send_boarding_event(PDO $pdo, int $bookingId, string $even
         ]);
     }
 
-    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
-        'type' => 'clinic_' . $payload['type'],
-        'category' => 'boarding_updates',
-        'title' => $payload['clinic_title'],
-        'message' => $payload['message'],
-        'push_message' => $payload['push_message'],
-        'redirect_path' => '/dashboard/bookings',
-        'dedupe_key' => 'clinic-' . $payload['dedupe_key'],
-        'force_in_app' => true,
-    ]);
 }
 
 function notification_fetch_online_consultation_summary(PDO $pdo, int $onlineConsultationId): ?array
@@ -2316,30 +2465,6 @@ function notification_send_online_consultation_event(PDO $pdo, int $onlineConsul
         ]);
     }
 
-    if ($vetUserId > 0) {
-        notification_create_event($pdo, [
-            'user_id' => $vetUserId,
-            'type' => 'online_consultation_diagnosis_saved',
-            'category' => 'diagnosis_updates',
-            'title' => 'Online diagnosis saved',
-            'message' => "Your diagnosis for {$petName} ({$bookingNumber}) was saved successfully.",
-            'push_message' => "Diagnosis saved for {$petName}.",
-            'redirect_path' => '/dashboard/vet/online-consultations',
-            'dedupe_key' => "online-consultation-completed-{$onlineConsultationId}-vet-{$vetUserId}",
-            'force_in_app' => true,
-        ]);
-    }
-
-    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
-        'type' => 'clinic_online_consultation_completed',
-        'category' => 'diagnosis_updates',
-        'title' => 'Online diagnosis completed',
-        'message' => "{$bookingNumber} for {$petName} was completed by {$vetName}.",
-        'push_message' => "Online diagnosis completed for {$petName}.",
-        'redirect_path' => '/dashboard/bookings',
-        'dedupe_key' => "clinic-online-consultation-completed-{$onlineConsultationId}",
-        'force_in_app' => true,
-    ]);
 }
 
 function notification_fetch_visit_summary(PDO $pdo, int $visitId): ?array
@@ -2582,29 +2707,4 @@ function notification_send_diagnosis_event(PDO $pdo, int $diagnosisId): void
         'email_text' => $emailText,
     ]);
 
-    $veterinarianUserId = (int)($diagnosis['veterinarian_user_id'] ?? 0);
-    if ($veterinarianUserId > 0) {
-        notification_create_event($pdo, [
-            'user_id' => $veterinarianUserId,
-            'type' => 'diagnosis_saved_by_vet',
-            'category' => 'diagnosis_updates',
-            'title' => 'Diagnosis saved',
-            'message' => "Your {$serviceName} diagnosis for {$petName} ({$reference}) was saved successfully.",
-            'push_message' => "Diagnosis saved for {$petName}.",
-            'redirect_path' => '/dashboard/vet/medical-records',
-            'dedupe_key' => "diagnosis-completed-{$diagnosisId}-vet-{$veterinarianUserId}",
-            'force_in_app' => true,
-        ]);
-    }
-
-    notification_create_event_for_roles($pdo, ['admin', 'super admin'], [
-        'type' => 'clinic_diagnosis_completed',
-        'category' => 'diagnosis_updates',
-        'title' => 'Diagnosis completed',
-        'message' => "A {$serviceName} diagnosis for {$petName} ({$reference}) was completed.",
-        'push_message' => "Diagnosis completed for {$petName}.",
-        'redirect_path' => '/dashboard/queue',
-        'dedupe_key' => "clinic-diagnosis-completed-{$diagnosisId}",
-        'force_in_app' => true,
-    ]);
 }

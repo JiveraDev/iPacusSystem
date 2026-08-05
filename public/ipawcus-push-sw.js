@@ -216,8 +216,27 @@ function buildApiUrl(apiBase, path) {
     return `${normalizeApiBase(apiBase)}${path}`;
 }
 
+function buildTrustedApiUrl(settings, path) {
+    const apiUrl = new URL(buildApiUrl(settings.apiBase, path), self.location.origin);
+    const allowedOrigins = new Set([self.location.origin]);
+
+    try {
+        if (settings.apiOrigin) {
+            allowedOrigins.add(new URL(settings.apiOrigin, self.location.origin).origin);
+        }
+    } catch {
+        // Keep same-origin as the only trusted API origin.
+    }
+
+    if (!allowedOrigins.has(apiUrl.origin)) {
+        throw new Error('Notification API origin is not trusted.');
+    }
+
+    return apiUrl.href;
+}
+
 async function fetchLatestNotification(settings) {
-    if (!settings.userId) {
+    if (!settings.userId || !settings.accessToken) {
         return null;
     }
 
@@ -225,8 +244,11 @@ async function fetchLatestNotification(settings) {
         userId: String(settings.userId),
         limit: '5'
     });
-    const response = await fetch(buildApiUrl(settings.apiBase, `/notifications?${query.toString()}`), {
-        cache: 'no-store'
+    const response = await fetch(buildTrustedApiUrl(settings, `/notifications?${query.toString()}`), {
+        cache: 'no-store',
+        headers: {
+            Authorization: `Bearer ${settings.accessToken}`
+        }
     });
 
     if (!response.ok) {
@@ -245,6 +267,9 @@ async function showIpaWcusNotification() {
 
     try {
         settings = await readPushSettings();
+        if (!settings.userId || !settings.accessToken) {
+            return;
+        }
         notification = await fetchLatestNotification(settings);
     } catch (error) {
         console.error('[iPawcus push worker] Could not load latest notification for push display.', error);
@@ -275,21 +300,48 @@ async function markNotificationRead(data) {
         return;
     }
 
-    await fetch(buildApiUrl(data.apiBase, `/notifications/${data.notificationId}/read`), {
+    const settings = await readPushSettings().catch(() => ({}));
+    if (
+        !settings.accessToken
+        || !settings.userId
+        || String(settings.userId) !== String(data.userId)
+    ) {
+        return;
+    }
+
+    await fetch(buildTrustedApiUrl(settings, `/notifications/${data.notificationId}/read`), {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${settings.accessToken}`
         },
-        body: JSON.stringify({ user_id: data.userId })
+        body: JSON.stringify({ user_id: settings.userId })
     }).catch((error) => {
         console.error('[iPawcus push worker] Could not mark notification as read.', error);
     });
 }
 
 async function openNotificationTarget(data) {
-    const appOrigin = data?.appOrigin || self.location.origin;
+    let appOrigin = self.location.origin;
+    try {
+        const configuredOrigin = new URL(data?.appOrigin || self.location.origin, self.location.origin).origin;
+        if (configuredOrigin === self.location.origin) {
+            appOrigin = configuredOrigin;
+        }
+    } catch {
+        appOrigin = self.location.origin;
+    }
+
     const redirectPath = data?.redirectPath || '/dashboard';
-    const targetUrl = new URL(redirectPath, appOrigin);
+    let targetUrl;
+    try {
+        targetUrl = new URL(redirectPath, appOrigin);
+        if (targetUrl.origin !== appOrigin) {
+            targetUrl = new URL('/dashboard', appOrigin);
+        }
+    } catch {
+        targetUrl = new URL('/dashboard', appOrigin);
+    }
     const windows = await clients.matchAll({
         type: 'window',
         includeUncontrolled: true
@@ -314,14 +366,51 @@ self.addEventListener('message', event => {
         return;
     }
 
-    const writeTask = writePushSettings({
-        userId: event.data.userId || '',
-        apiBase: event.data.apiBase || '',
-        appOrigin: event.data.appOrigin || self.location.origin
-    });
+    const writeTask = (async () => {
+        const currentSettings = await readPushSettings().catch(() => ({}));
+        const incomingUserId = String(event.data.userId || '');
+        const existingSubscriptionUserId = String(
+            currentSettings.subscriptionUserId
+            || currentSettings.userId
+            || ''
+        );
+        const subscriptionUserId = event.data.bindSubscription
+            ? incomingUserId
+            : (existingSubscriptionUserId || incomingUserId);
+        const contextMatchesSubscription = incomingUserId !== ''
+            && incomingUserId === subscriptionUserId;
+
+        await writePushSettings({
+            userId: contextMatchesSubscription ? incomingUserId : '',
+            accessToken: contextMatchesSubscription ? (event.data.accessToken || '') : '',
+            subscriptionUserId,
+            apiBase: event.data.apiBase || '',
+            apiOrigin: event.data.apiOrigin || '',
+            appOrigin: event.data.appOrigin || self.location.origin
+        });
+    })();
 
     if (typeof event.waitUntil === 'function') {
         event.waitUntil(writeTask);
+    }
+});
+
+self.addEventListener('message', event => {
+    if (event.data?.type !== 'IPAWCUS_PUSH_CONTEXT_CLEAR') {
+        return;
+    }
+
+    const clearTask = (async () => {
+        const currentSettings = await readPushSettings().catch(() => ({}));
+        await writePushSettings({
+            subscriptionUserId: currentSettings.subscriptionUserId
+                || currentSettings.userId
+                || ''
+        });
+    })();
+
+    if (typeof event.waitUntil === 'function') {
+        event.waitUntil(clearTask);
     }
 });
 

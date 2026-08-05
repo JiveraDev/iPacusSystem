@@ -2,8 +2,11 @@ import { createElement, useCallback, useEffect, useMemo, useRef, useState } from
 import {
     Activity,
     AlertTriangle,
+    Building2,
+    CalendarDays,
     CreditCard,
     PawPrint,
+    Radio,
     Stethoscope,
     Wifi,
 } from 'lucide-react';
@@ -17,6 +20,44 @@ const RESIZE_STORAGE_KEY = 'ipawcus-tv-status-left-column';
 const DEFAULT_LEFT_COLUMN_PERCENT = 36;
 const MIN_LEFT_COLUMN_PERCENT = 28;
 const MAX_LEFT_COLUMN_PERCENT = 58;
+
+function getInitialBranchCode() {
+    if (typeof window === 'undefined') {
+        return 'MAIN';
+    }
+
+    return new URLSearchParams(window.location.search).get('branch') || 'MAIN';
+}
+
+const STATUS_TONES = {
+    serving: {
+        section: 'border-blue-200/80 bg-blue-50/70',
+        headerIcon: 'bg-blue-600 text-white shadow-blue-200/80',
+        count: 'bg-blue-600 text-white',
+        item: 'border-blue-100 bg-white',
+        accent: 'bg-blue-600',
+        meta: 'text-blue-700',
+        empty: 'border-blue-200 bg-white/80 text-blue-400',
+    },
+    payment: {
+        section: 'border-amber-200/80 bg-amber-50/70',
+        headerIcon: 'bg-amber-500 text-white shadow-amber-200/80',
+        count: 'bg-amber-500 text-white',
+        item: 'border-amber-100 bg-white',
+        accent: 'bg-amber-500',
+        meta: 'text-amber-700',
+        empty: 'border-amber-200 bg-white/80 text-amber-500',
+    },
+    waiting: {
+        section: 'border-cyan-200/80 bg-cyan-50/70',
+        headerIcon: 'bg-cyan-600 text-white shadow-cyan-200/80',
+        count: 'bg-cyan-600 text-white',
+        item: 'border-cyan-100 bg-white',
+        accent: 'bg-cyan-500',
+        meta: 'text-cyan-700',
+        empty: 'border-cyan-200 bg-white/80 text-cyan-500',
+    },
+};
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -86,14 +127,18 @@ function sourceLabel(item) {
     return '';
 }
 
-function WaitingListItem({ item }) {
+function WaitingListItem({ item, position }) {
     const label = sourceLabel(item);
 
     return (
-        <article className="flex min-h-16 items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="min-w-0 truncate text-2xl font-black text-slate-950">{item.petName}</p>
+        <article className="group relative flex min-h-16 items-center gap-4 overflow-hidden rounded-xl border border-cyan-100 bg-white px-4 py-3 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md">
+            <span className="absolute inset-y-0 left-0 w-1 bg-cyan-500" aria-hidden="true" />
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-lg font-black text-cyan-700">
+                {position}
+            </span>
+            <p className="min-w-0 flex-1 truncate text-2xl font-black text-slate-950">{item.petName}</p>
             {label && (
-                <span className="shrink-0 text-sm font-black uppercase text-slate-400">
+                <span className="shrink-0 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-slate-500">
                     {label}
                 </span>
             )}
@@ -101,18 +146,20 @@ function WaitingListItem({ item }) {
     );
 }
 
-function StatusItem({ item, showVeterinarian = false }) {
+function StatusItem({ item, showVeterinarian = false, tone = 'serving' }) {
     const time = formatTime(item.time);
     const species = item.species ? ` ${item.species}` : '';
     const veterinarianName = String(item.veterinarianName || '').trim();
+    const toneClasses = STATUS_TONES[tone] || STATUS_TONES.serving;
 
     return (
-        <article className="grid min-h-24 grid-cols-[1fr,auto] items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <article className={`group relative grid min-h-24 grid-cols-1 items-center gap-3 overflow-hidden rounded-xl border p-4 pl-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md sm:grid-cols-[1fr,auto] sm:gap-4 ${toneClasses.item}`}>
+            <span className={`absolute inset-y-0 left-0 w-1.5 ${toneClasses.accent}`} aria-hidden="true" />
             <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <p className="truncate text-3xl font-black text-slate-950">{item.petName}</p>
                     {item.petStatus && item.petStatus !== 'Healthy' && (
-                        <span className="rounded-md border border-rose-100 bg-rose-50 px-2 py-1 text-sm font-black uppercase text-rose-700">
+                        <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-black uppercase tracking-wide text-rose-700">
                             {item.petStatus}
                         </span>
                     )}
@@ -121,41 +168,46 @@ function StatusItem({ item, showVeterinarian = false }) {
                 {showVeterinarian && veterinarianName && (
                     <p className="mt-1 truncate text-base font-bold text-slate-500">{veterinarianName}</p>
                 )}
-                <p className="mt-1 text-sm font-black uppercase text-slate-400">Ref {item.reference}</p>
+                <p className={`mt-1 text-sm font-black uppercase tracking-wide ${toneClasses.meta}`}>Ref {item.reference}</p>
             </div>
-            <div className="flex min-w-28 flex-col items-end gap-2">
-                {time && <p className="text-sm font-bold uppercase text-slate-500">{time}</p>}
+            <div className="flex min-w-28 flex-col items-start gap-2 sm:items-end">
+                {time && (
+                    <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-black uppercase text-slate-700">
+                        {time}
+                    </p>
+                )}
             </div>
         </article>
     );
 }
 
-function StatusSection({ title, icon, items, emptyLabel, className = '', limit = SECTION_LIMIT, showVeterinarian = false, compactList = false }) {
+function StatusSection({ title, icon, items, emptyLabel, tone = 'serving', className = '', limit = SECTION_LIMIT, showVeterinarian = false, compactList = false }) {
     const visibleItems = normalizeItems(items).slice(0, limit);
+    const toneClasses = STATUS_TONES[tone] || STATUS_TONES.serving;
 
     return (
-        <section className={`min-h-0 rounded-lg border border-slate-200 bg-slate-50 p-4 ${className}`}>
+        <section className={`min-h-0 rounded-2xl border p-4 shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)] ${toneClasses.section} ${className}`}>
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="rounded-md bg-white p-2 text-slate-800 shadow-sm">
+                    <div className={`rounded-xl p-2.5 shadow-lg ${toneClasses.headerIcon}`}>
                         {createElement(icon, { className: 'size-6' })}
                     </div>
-                    <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+                    <h2 className="text-xl font-black text-slate-950 sm:text-2xl">{title}</h2>
                 </div>
-                <span className="rounded-md bg-white px-3 py-1 text-lg font-black text-slate-700 shadow-sm">
+                <span className={`min-w-11 rounded-lg px-3 py-1 text-center text-lg font-black shadow-sm ${toneClasses.count}`}>
                     {visibleItems.length}
                 </span>
             </div>
 
             <div className="grid gap-3">
                 {visibleItems.length > 0 ? (
-                    visibleItems.map((item) => compactList ? (
-                        <WaitingListItem key={item.id} item={item} />
+                    visibleItems.map((item, index) => compactList ? (
+                        <WaitingListItem key={item.id} item={item} position={index + 1} />
                     ) : (
-                        <StatusItem key={item.id} item={item} showVeterinarian={showVeterinarian} />
+                        <StatusItem key={item.id} item={item} showVeterinarian={showVeterinarian} tone={tone} />
                     ))
                 ) : (
-                    <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-xl font-bold text-slate-400">
+                    <div className={`flex min-h-24 items-center justify-center rounded-xl border border-dashed text-xl font-bold ${toneClasses.empty}`}>
                         {emptyLabel}
                     </div>
                 )}
@@ -165,6 +217,8 @@ function StatusSection({ title, icon, items, emptyLabel, className = '', limit =
 }
 
 export default function TVStatusDisplay() {
+    const [branchCode, setBranchCode] = useState(getInitialBranchCode);
+    const [branches, setBranches] = useState([]);
     const [statusData, setStatusData] = useState(null);
     const [error, setError] = useState('');
     const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -187,8 +241,11 @@ export default function TVStatusDisplay() {
 
     const loadStatus = useCallback(async ({ isAutoRefresh = false } = {}) => {
         try {
-            const data = await fetchStatusDisplay();
+            const data = await fetchStatusDisplay({ branch: branchCode });
             setStatusData(data);
+            if (Array.isArray(data?.branches) && data.branches.length > 0) {
+                setBranches(data.branches);
+            }
             setError('');
         } catch (loadError) {
             setError(loadError.message || 'Unable to load status display.');
@@ -197,12 +254,28 @@ export default function TVStatusDisplay() {
                 setIsInitialLoading(false);
             }
         }
-    }, []);
+    }, [branchCode]);
 
     useAutoRefresh(loadStatus, {
         intervalMs: Math.max(4000, Number(statusData?.refreshSeconds || 8) * 1000),
-        refreshKey: statusData?.refreshSeconds || 'initial',
+        refreshKey: `${branchCode}:${statusData?.refreshSeconds || 'initial'}`,
     });
+
+    const handleBranchChange = useCallback((event) => {
+        const nextBranchCode = event.target.value;
+        if (!nextBranchCode || nextBranchCode === branchCode) {
+            return;
+        }
+
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('branch', nextBranchCode);
+        window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+
+        setBranchCode(nextBranchCode);
+        setStatusData(null);
+        setError('');
+        setIsInitialLoading(true);
+    }, [branchCode]);
 
     const sections = statusData?.sections || {};
 
@@ -221,6 +294,9 @@ export default function TVStatusDisplay() {
 
     const billing = normalizeItems(sections.billing);
     const generatedAt = statusData?.generatedAt ? formatTime(statusData.generatedAt) : '';
+    const selectedBranchCode = branches.find((branch) => (
+        String(branch.code) === String(branchCode) || String(branch.id) === String(branchCode)
+    ))?.code || branchCode;
 
     const resizeColumns = useCallback((clientX) => {
         const layout = layoutRef.current;
@@ -259,37 +335,72 @@ export default function TVStatusDisplay() {
     }, [resizeColumns]);
 
     return (
-        <div className="min-h-screen bg-[#f5f7fb] text-slate-950">
-            <header className="border-b border-slate-200 bg-white px-6 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-5">
+        <div className="theme-static-light relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-slate-950">
+            <div className="pointer-events-none absolute -left-24 top-40 size-80 rounded-full bg-blue-300/20 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -right-28 bottom-16 size-96 rounded-full bg-cyan-300/25 blur-3xl" aria-hidden="true" />
+
+            <header className="relative overflow-hidden bg-gradient-to-r from-[#0b2f6b] via-[#155dfc] to-[#0789b8] px-6 py-5 text-white shadow-xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.22),transparent_30%)]" aria-hidden="true" />
+                <div className="relative mx-auto flex max-w-[2400px] flex-wrap items-center justify-between gap-5">
                     <div className="flex items-center gap-4">
-                        <img src={logo} alt="iPawcus" className="size-16 shrink-0 rounded-full bg-white object-contain" />
+                        <img src={logo} alt="iPawcus" className="size-14 shrink-0 rounded-full border-2 border-white/50 bg-white object-contain shadow-lg sm:size-16" />
                         <div>
-                            <h1 className="whitespace-nowrap text-4xl font-black leading-tight text-slate-950">
-                                iPawcus <span className="font-normal">∞</span> Vetfocus Animal Care Clinic
+                            <div className="mb-1 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100">
+                                <Radio className="size-4" />
+                                Live clinic status
+                            </div>
+                            <p className="mb-1 text-sm font-bold text-blue-100">{statusData?.branch?.name || 'VFC Pharmacy / Main Clinic'}</p>
+                            <h1 className="text-2xl font-black leading-tight text-white sm:text-3xl xl:whitespace-nowrap xl:text-4xl">
+                                iPawcus <span className="font-normal text-cyan-200">&infin;</span> Vetfocus Animal Care Clinic
                             </h1>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-5xl font-black leading-none text-slate-950">{formatClock(clock)}</p>
-                        <p className="mt-2 text-lg font-bold text-slate-500">{formatDate(clock)}</p>
+                    <div className="flex flex-wrap items-stretch justify-end gap-3">
+                        <label className="flex min-w-64 flex-col justify-center rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-lg backdrop-blur-sm">
+                            <span className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-100">
+                                <Building2 className="size-4" aria-hidden="true" />
+                                Display location
+                            </span>
+                            <select
+                                value={selectedBranchCode}
+                                onChange={handleBranchChange}
+                                className="w-full rounded-lg border border-white/30 bg-white px-3 py-2 text-sm font-black text-slate-900 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-200"
+                                aria-label="Select TV display location"
+                            >
+                                {branches.length > 0 ? branches.map((branch) => (
+                                    <option key={branch.id || branch.code} value={branch.code || branch.id}>
+                                        {branch.name}
+                                    </option>
+                                )) : (
+                                    <option value={branchCode}>{statusData?.branch?.name || 'VFC Pharmacy / Main Clinic'}</option>
+                                )}
+                            </select>
+                        </label>
+                        <div className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-right shadow-lg backdrop-blur-sm">
+                            <p className="text-4xl font-black leading-none text-white sm:text-5xl">{formatClock(clock)}</p>
+                            <p className="mt-2 flex items-center justify-end gap-2 text-lg font-bold text-blue-100">
+                                <CalendarDays className="size-5" />
+                                {formatDate(clock)}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <main className="grid gap-5 p-5">
+            <main className="relative z-10 mx-auto grid w-full max-w-[2400px] flex-1 gap-5 p-5">
                 {error && (
-                    <div className="flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-rose-900">
+                    <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-900 shadow-sm">
                         <AlertTriangle className="size-7 shrink-0" />
                         <p className="text-xl font-black">{error}</p>
                     </div>
                 )}
 
                 {isInitialLoading && !statusData ? (
-                    <div className="flex min-h-[55vh] items-center justify-center rounded-lg border border-slate-200 bg-white">
+                    <div className="flex min-h-[55vh] items-center justify-center rounded-2xl border border-blue-100 bg-white/90 shadow-xl">
                         <div className="text-center">
                             <Activity className="mx-auto size-14 animate-pulse text-blue-600" />
-                            <p className="mt-4 text-2xl font-black text-slate-700">Loading live status</p>
+                            <p className="mt-4 text-2xl font-black text-slate-800">Loading live status</p>
+                            <p className="mt-2 font-bold text-slate-500">Connecting to the clinic queue</p>
                         </div>
                     </div>
                 ) : (
@@ -304,6 +415,7 @@ export default function TVStatusDisplay() {
                                 icon={Stethoscope}
                                 items={nowServing}
                                 emptyLabel="No pets in service"
+                                tone="serving"
                                 showVeterinarian
                             />
                             <StatusSection
@@ -311,22 +423,24 @@ export default function TVStatusDisplay() {
                                 icon={CreditCard}
                                 items={billing}
                                 emptyLabel="No pets for payment"
+                                tone="payment"
                             />
                         </div>
                         <button
                             type="button"
                             aria-label="Resize display columns"
-                            className="hidden cursor-col-resize touch-none rounded-full border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:bg-slate-50 xl:flex xl:min-h-full xl:items-center xl:justify-center"
+                            className="hidden cursor-col-resize touch-none rounded-full border border-blue-200 bg-white/80 shadow-sm transition hover:border-blue-300 hover:bg-white xl:flex xl:min-h-full xl:items-center xl:justify-center"
                             onPointerDown={startColumnResize}
                             onDoubleClick={() => setLeftColumnPercent(DEFAULT_LEFT_COLUMN_PERCENT)}
                         >
-                            <span className="h-14 w-1 rounded-full bg-slate-300" aria-hidden="true" />
+                            <span className="h-14 w-1 rounded-full bg-blue-300" aria-hidden="true" />
                         </button>
                         <StatusSection
                             title="Waiting and Scheduled"
                             icon={PawPrint}
                             items={waiting}
                             emptyLabel="No waiting pets"
+                            tone="waiting"
                             limit={16}
                             compactList
                         />
@@ -334,12 +448,18 @@ export default function TVStatusDisplay() {
                 )}
             </main>
 
-            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-4 text-sm font-bold uppercase text-slate-500">
-                <div className="flex items-center gap-2">
-                    <Wifi className="size-5 text-emerald-600" />
-                    <span>Live status</span>
+            <footer className="relative z-10 border-t border-blue-100 bg-white/85 px-6 py-4 text-sm font-bold uppercase text-slate-500 backdrop-blur">
+                <div className="mx-auto flex max-w-[2400px] flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex size-3">
+                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                            <span className="relative inline-flex size-3 rounded-full bg-emerald-500" />
+                        </span>
+                        <Wifi className="size-5 text-emerald-600" />
+                        <span className="text-slate-700">Live status</span>
+                    </div>
+                    <span>{generatedAt ? `Updated ${generatedAt}` : 'Waiting for update'}</span>
                 </div>
-                <span>{generatedAt ? `Updated ${generatedAt}` : 'Waiting for update'}</span>
             </footer>
         </div>
     );

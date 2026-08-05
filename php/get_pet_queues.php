@@ -4,6 +4,7 @@ require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/consent_record_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -67,9 +68,19 @@ try {
     $stmt->execute([$petId]);
 
     $queues = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $consentRecordsByQueue = consent_record_fetch_queue_records(
+        $pdo,
+        array_column($queues, 'queue_id')
+    );
     foreach ($queues as &$queue) {
         $queue['queue_reference'] = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
         $queue['complaint'] = cleanBookingQueueComplaint($queue['complaint'] ?? '');
+
+        $queueConsentRecords = $consentRecordsByQueue[(int)($queue['queue_id'] ?? 0)] ?? [];
+        $queue['consent_records'] = $queueConsentRecords;
+        foreach (consent_record_queue_compatibility_fields($queueConsentRecords) as $field => $value) {
+            $queue[$field] = $value;
+        }
     }
     unset($queue);
 

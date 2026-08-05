@@ -4,11 +4,23 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { PawPrint, FileText, Plus, Copy, CheckCircle2, ListTodo, Camera, Loader2 } from 'lucide-react';
+import {
+    PawPrint,
+    FileText,
+    Plus,
+    Copy,
+    CheckCircle2,
+    ListTodo,
+    Camera,
+    Loader2,
+    CircleAlert,
+    Link2,
+} from 'lucide-react';
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "../../ui/dialog";
@@ -57,6 +69,7 @@ export default function PetRegister() {
     const [generatedPetId, setGeneratedPetId] = useState('');
     const [copiedPetId, setCopiedPetId] = useState(false);
     const [registeredPetName, setRegisteredPetName] = useState('');
+    const [registrationQueueStatus, setRegistrationQueueStatus] = useState('added');
 
     const fetchPets = useCallback(async () => {
         try {
@@ -160,6 +173,7 @@ export default function PetRegister() {
 
             const result = await addPetService(petPayload);
             const registeredPetId = Number(result?.id);
+            let nextQueueStatus = 'failed';
 
             // Post newly registered pet into queue as Consultation source=register.
             // If this secondary step fails, keep the successful pet registration intact.
@@ -173,6 +187,7 @@ export default function PetRegister() {
                         complaint: complaintFromMedicalInfo,
                         queue_source: 'register'
                     });
+                    nextQueueStatus = 'added';
                 } catch (queueError) {
                     console.error('Failed to auto-add registered pet to queue:', queueError);
                     toast.error('Pet registered, but failed to add to queue automatically.');
@@ -184,6 +199,7 @@ export default function PetRegister() {
             toast.success("Pet registered successfully!");
             setRegisteredPetName(formData.petName);
             setGeneratedPetId(result.sharableId);
+            setRegistrationQueueStatus(nextQueueStatus);
             setFormData({ ...emptyPetProfile });
             setShowSuccessDialog(true);
             fetchPets(); 
@@ -780,81 +796,138 @@ export default function PetRegister() {
             </div>
 
             {/* Success Dialog */}
-            <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-                <DialogContent className="sm:max-w-[500px] scroll-auto">
-                    <DialogHeader>
-                        <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px] text-[#0c6a3c] flex items-center gap-2">
-                            <CheckCircle2 className="size-7" />
-                            Pet Registered Successfully!
-                        </DialogTitle>
-                        <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                            Share the Pet ID below with the owner to link their account.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-6 py-4">
-                        {/* Pet Info */}
-                        <div className="bg-[#e0f2e9] border-2 border-[#0c6a3c] rounded-[12px] p-4 text-center">
-                            <PawPrint className="size-12 text-[#0c6a3c] mx-auto mb-2" />
-                            <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">
-                                {registeredPetName} has been registered!
-                            </h3>
-                        </div>
-
-                        {/* Shareable Pet ID Card */}
-                        <div className="bg-gradient-to-br from-[#155dfc] to-[#0d4fd4] rounded-[12px] p-6 text-center">
-                            <p className="font-['Arimo:Bold',sans-serif] text-[12px] text-white/80 mb-2 uppercase tracking-wide">
-                                Shareable Pet ID
-                            </p>
-                            <div className="bg-white/10 backdrop-blur rounded-[8px] p-4 mb-4">
-                                <p className="font-['Montserrat:Bold',sans-serif] font-bold text-[24px] text-white tracking-wider break-all">
-                                    {generatedPetId}
-                                </p>
+            <Dialog
+                open={showSuccessDialog}
+                onOpenChange={(open) => {
+                    setShowSuccessDialog(open);
+                    if (!open) setCopiedPetId(false);
+                }}
+            >
+                <DialogContent className="w-[calc(100%_-_1rem)] max-w-[640px] overflow-hidden border border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:w-[calc(100%_-_2rem)]">
+                    <div className="border-b border-slate-200 px-4 py-5 dark:border-slate-700 sm:px-6">
+                        <DialogHeader className="mb-0 pr-10">
+                            <div className="flex items-start gap-3.5">
+                                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                    <CheckCircle2 className="size-6" strokeWidth={2.5} />
+                                </div>
+                                <div className="min-w-0">
+                                    <DialogTitle className="text-xl font-black text-slate-950 dark:text-white sm:text-2xl">
+                                        Registration complete
+                                    </DialogTitle>
+                                    <DialogDescription className="mt-1 max-w-lg text-sm leading-5 text-slate-600 dark:text-slate-300">
+                                        The patient profile is saved. Copy the Pet ID so the owner can securely link this profile.
+                                    </DialogDescription>
+                                </div>
                             </div>
-                            <Button
-                                onClick={handleCopyPetId}
-                                className="bg-white text-[#000]  font-['Arimo:Bold',sans-serif] h-[40px]"
-                            >
-                                {copiedPetId ? (
-                                    <>
-                                        <CheckCircle2 className="size-4 mr-2" />
-                                        Copied!
-                                    </>
-                                ) : (
-                                    <>
-                                        <Copy className="size-4 mr-2" />
-                                        Copy Pet ID
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-
-                        {/* Instructions */}
-                        <div className="bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] rounded-[12px] p-4">
-                            <h4 className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-2">
-                                📋 Instructions for Pet Owner
-                            </h4>
-                            <ol className="space-y-1 font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] list-decimal list-inside">
-                                <li>Go to the iPawcus Website</li>
-                                <li>Create or log in to your account</li>
-                                <li>Navigate to "Link Pet" in Pets section</li>
-                                <li>Enter Pet ID: <span className="font-['Arimo:Bold',sans-serif] text-[#155dfc]">{generatedPetId}</span></li>
-                                <li>Complete the linking process</li>
-                            </ol>
-                        </div>
+                        </DialogHeader>
                     </div>
 
-                    <div className="flex justify-end pt-4 border-t">
+                    <div className="space-y-4 px-4 py-5 sm:px-6">
+                        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-800/70">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-[#155dfc] dark:bg-blue-950/70 dark:text-blue-300">
+                                <PawPrint className="size-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Registered pet</p>
+                                <p className="truncate text-base font-black text-slate-950 dark:text-white">{registeredPetName}</p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                Registered
+                            </span>
+                        </div>
+
+                        <div className={`flex items-start gap-3 rounded-xl border p-3.5 ${
+                            registrationQueueStatus === 'added'
+                                ? 'border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30'
+                                : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
+                        }`}>
+                            {registrationQueueStatus === 'added' ? (
+                                <ListTodo className="mt-0.5 size-5 shrink-0 text-[#155dfc] dark:text-blue-300" />
+                            ) : (
+                                <CircleAlert className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
+                            )}
+                            <div>
+                                <p className="text-sm font-black text-slate-950 dark:text-white">
+                                    {registrationQueueStatus === 'added' ? 'Added to the consultation queue' : 'Queue entry needs attention'}
+                                </p>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                                    {registrationQueueStatus === 'added'
+                                        ? 'The new patient is ready for the normal queue workflow.'
+                                        : 'The profile was saved, but the automatic queue step failed. Add the patient manually from Queue Management.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <section className="rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/30" aria-labelledby="shareable-pet-id-label">
+                            <div className="mb-3">
+                                <h3 id="shareable-pet-id-label" className="flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white">
+                                    <Link2 className="size-4 text-[#155dfc] dark:text-blue-300" />
+                                    Owner linking Pet ID
+                                </h3>
+                                <p className="mt-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                    The owner will enter this ID from the Link Pet screen.
+                                </p>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                                <div className="flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-blue-200 bg-white px-3 dark:border-blue-800 dark:bg-slate-900">
+                                    <code className="max-w-full break-all text-center text-lg font-black tracking-wider text-[#155dfc] dark:text-blue-300 sm:text-xl">
+                                        {generatedPetId}
+                                    </code>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCopyPetId}
+                                    disabled={!generatedPetId}
+                                    className={`w-full gap-2 sm:w-auto ${
+                                        copiedPetId
+                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                            : 'border-blue-200 text-[#155dfc] hover:bg-blue-100 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/60'
+                                    }`}
+                                    aria-live="polite"
+                                >
+                                    {copiedPetId ? <CheckCircle2 /> : <Copy />}
+                                    {copiedPetId ? 'Copied' : 'Copy Pet ID'}
+                                </Button>
+                            </div>
+                        </section>
+
+                        <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700" aria-labelledby="owner-linking-instructions">
+                            <div className="mb-3 flex items-center gap-2">
+                                <ListTodo className="size-4 text-slate-500 dark:text-slate-400" />
+                                <h3 id="owner-linking-instructions" className="text-sm font-black text-slate-950 dark:text-white">
+                                    What the owner needs to do
+                                </h3>
+                            </div>
+                            <ol className="grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+                                <li className="flex gap-2.5">
+                                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">1</span>
+                                    <span>Sign in to the owner account and open <strong className="font-bold text-slate-800 dark:text-slate-100">Pets</strong>.</span>
+                                </li>
+                                <li className="flex gap-2.5">
+                                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">2</span>
+                                    <span>Select <strong className="font-bold text-slate-800 dark:text-slate-100">Link Pet</strong> and enter the Pet ID shown above.</span>
+                                </li>
+                                <li className="flex gap-2.5">
+                                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">3</span>
+                                    <span>Confirm the pet details to finish linking the profile.</span>
+                                </li>
+                            </ol>
+                        </section>
+                    </div>
+
+                    <DialogFooter className="m-0 border-t border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/50 sm:px-6">
                         <Button
+                            type="button"
                             onClick={() => {
                                 setShowSuccessDialog(false);
                                 setCopiedPetId(false);
                             }}
-                            className="bg-[#155dfc] hover:bg-[#0d4acf] text-white h-[40px] w-[100px]"
+                            className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:w-auto sm:min-w-28"
                         >
                             Done
                         </Button>
-                    </div>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

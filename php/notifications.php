@@ -15,14 +15,18 @@ function notifications_user_id(array $input = []): int
     return (int)($_GET['userId'] ?? $_GET['user_id'] ?? $input['user_id'] ?? $input['userId'] ?? 0);
 }
 
-function notifications_effective_user_id(PDO $pdo, array $input = []): int
+function notifications_effective_user_id(
+    PDO $pdo,
+    array $input = [],
+    bool $allowAdminReadTarget = false
+): int
 {
     $user = ipawcus_guard_current_user($pdo);
     $currentUserId = ipawcus_guard_user_id($user);
     $role = ipawcus_guard_role($user);
     $requestedUserId = notifications_user_id($input);
 
-    if (ipawcus_guard_is_admin_role($role) && $requestedUserId > 0) {
+    if ($allowAdminReadTarget && ipawcus_guard_is_admin_role($role) && $requestedUserId > 0) {
         return $requestedUserId;
     }
 
@@ -45,7 +49,7 @@ function notifications_reminder_authorized(array $input): bool
     $expectedKey = trim((string)(getenv('NOTIFICATION_REMINDER_KEY') ?: ''));
 
     if ($expectedKey === '') {
-        return true;
+        return false;
     }
 
     $providedKey = trim((string)(
@@ -159,7 +163,7 @@ try {
             notifications_error(405, 'Method not allowed.');
         }
 
-        $userId = notifications_effective_user_id($pdo);
+        $userId = notifications_effective_user_id($pdo, [], true);
         if ($userId <= 0) {
             notifications_error(400, 'userId is required.');
         }
@@ -220,7 +224,7 @@ try {
 
     if ($action === 'preferences') {
         if ($method === 'GET') {
-            $userId = notifications_effective_user_id($pdo);
+            $userId = notifications_effective_user_id($pdo, [], true);
             if ($userId <= 0) {
                 notifications_error(400, 'userId is required.');
             }
@@ -330,7 +334,7 @@ try {
     }
 
     if ($method === 'GET') {
-        $userId = notifications_effective_user_id($pdo);
+        $userId = notifications_effective_user_id($pdo, [], true);
         if ($userId <= 0) {
             notifications_error(400, 'userId is required.');
         }
@@ -345,6 +349,12 @@ try {
         $where = 'user_id = ? AND in_app_visible = 1';
         $params = [$userId];
         $orderBy = 'created_at DESC, notification_id DESC';
+        $notificationUser = notification_fetch_user($pdo, $userId);
+        $isSuperAdminFeed = notification_normalize_role($notificationUser['role'] ?? '') === 'super admin';
+        $superAdminCategoryFilter = $isSuperAdminFeed
+            ? " AND category NOT IN ('booking_updates', 'schedule_reminders', 'payment_updates', 'diagnosis_updates', 'queue_updates', 'boarding_updates')"
+            : '';
+        $where .= $superAdminCategoryFilter;
 
         if ($scope === 'current') {
             $where .= ' AND (read_at IS NULL OR DATE(created_at) = CURDATE())';
@@ -362,6 +372,7 @@ try {
             FROM user_notifications
             WHERE user_id = ?
               AND in_app_visible = 1
+              {$superAdminCategoryFilter}
               AND (read_at IS NULL OR DATE(created_at) = CURDATE())
         ");
         $currentCountStmt->execute([$userId]);
@@ -372,6 +383,7 @@ try {
             FROM user_notifications
             WHERE user_id = ?
               AND in_app_visible = 1
+              {$superAdminCategoryFilter}
               AND read_at IS NOT NULL
               AND DATE(created_at) < CURDATE()
         ");
@@ -383,6 +395,7 @@ try {
             FROM user_notifications
             WHERE user_id = ?
               AND in_app_visible = 1
+              {$superAdminCategoryFilter}
         ");
         $allCountStmt->execute([$userId]);
         $allCount = (int)$allCountStmt->fetchColumn();
@@ -434,7 +447,7 @@ try {
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
-        $unreadStmt = $pdo->prepare("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND in_app_visible = 1 AND read_at IS NULL");
+        $unreadStmt = $pdo->prepare("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND in_app_visible = 1 {$superAdminCategoryFilter} AND read_at IS NULL");
         $unreadStmt->execute([$userId]);
         $unreadCount = (int)$unreadStmt->fetchColumn();
 
@@ -446,6 +459,7 @@ try {
             FROM user_notifications
             WHERE user_id = ?
               AND in_app_visible = 1
+              {$superAdminCategoryFilter}
               AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY category
             ORDER BY unread_count DESC, total_count DESC, category ASC

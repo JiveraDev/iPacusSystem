@@ -15,10 +15,13 @@ import { createBooking } from "../../services/bookingService";
 import { fetchRoomAvailability } from "../../services/boardingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
 import { fetchUserPets } from "../../services/petService";
+import { createConsentDocumentImage } from "../../services/consentDocumentImage";
 import { uploadDataUrlImage } from "../../services/uploadService";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
+import BranchBookingSelect from "../shared/BranchBookingSelect";
+import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
 
 const ROOM_OPTIONS = {
   hotel: [
@@ -133,6 +136,7 @@ export default function PetHotel() {
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
   const [pets, setPets] = useState([]);
   const [serviceType, setServiceType] = useState("hotel");
+  const [branchId, setBranchId] = useState("");
   const [selectedPets, setSelectedPets] = useState([]);
   const [roomSize, setRoomSize] = useState("");
   const [checkInDate, setCheckInDate] = useState("");
@@ -166,6 +170,22 @@ export default function PetHotel() {
     () => pickConsentForContext(consentTemplates, "boarding"),
     [consentTemplates]
   );
+  const previewUser = getCurrentUser();
+  const previewOwnerName = [
+    previewUser.firstName || previewUser.first_Name || previewUser.first_name,
+    previewUser.lastName || previewUser.last_Name || previewUser.last_name
+  ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
+  const boardingConsentPreview = boardingConsentTemplate
+    ? resolveConsentTemplate(boardingConsentTemplate.content, {
+        ownerName: previewOwnerName,
+        ownerAddress: previewUser.personal_Address || previewUser.address || '',
+        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+        petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
+        petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
+        petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
+        serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+      }, { preview: true })
+    : '';
 
   const selectedAddOnItems = useMemo(() => {
     return addOns
@@ -253,7 +273,7 @@ export default function PetHotel() {
 
   useEffect(() => {
     const loadAvailability = async () => {
-      if (!checkInDate || !checkOutDate || stayDuration < 1) {
+      if (!branchId || !checkInDate || !checkOutDate || stayDuration < 1) {
         setRoomAvailability([]);
         return;
       }
@@ -265,6 +285,7 @@ export default function PetHotel() {
           check_in_date: checkInDate,
           check_out_date: checkOutDate
         });
+        params.set('branch_id', branchId);
         const data = await fetchRoomAvailability(params);
 
         setRoomAvailability(Array.isArray(data.rooms) ? data.rooms : []);
@@ -278,7 +299,7 @@ export default function PetHotel() {
     };
 
     loadAvailability();
-  }, [checkInDate, checkOutDate, serviceType, stayDuration]);
+  }, [branchId, checkInDate, checkOutDate, serviceType, stayDuration]);
 
   useEffect(() => {
     if (!roomSize || roomAvailability.length === 0) return;
@@ -442,9 +463,31 @@ export default function PetHotel() {
         specialRequests.trim() ? `Special requests: ${specialRequests.trim()}` : ""
       ].filter(Boolean).join("\n");
       const signedAt = new Date().toISOString();
-      const signaturePath = boardingSignature?.startsWith("data:image")
-        ? await uploadDataUrlImage(boardingSignature, "booking_signature", "boarding_consent")
-        : boardingSignature;
+      const signedConsentImage = await createConsentDocumentImage({
+        title: boardingConsentTemplate.title,
+        content: boardingConsentTemplate.content,
+        signatureImage: boardingSignature,
+        signerName: ownerName,
+        signedAt,
+        templateContext: {
+          ownerName,
+          ownerAddress: currentUser.personal_Address || currentUser.address || '',
+          ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+          petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
+          petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
+          petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
+          serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding',
+          branchName: selectedAvailability?.branchName || selectedAvailability?.branch_name || ''
+        }
+      });
+      const signedConsentDocumentPath = await uploadDataUrlImage(
+        signedConsentImage,
+        "booking_signature",
+        "boarding_consent"
+      );
+      if (!signedConsentDocumentPath) {
+        throw new Error("The signed consent document could not be saved. Please try again.");
+      }
       const consentForms = [{
         id: boardingConsentTemplate.id,
         title: boardingConsentTemplate.title,
@@ -452,7 +495,8 @@ export default function PetHotel() {
         content: boardingConsentTemplate.content,
         signerName: ownerName,
         signedAt,
-        signaturePath,
+        documentPath: signedConsentDocumentPath,
+        signaturePath: signedConsentDocumentPath,
         serviceType: serviceType === "hotel" ? "Pet Hotel Boarding" : "Kennel Boarding"
       }];
 
@@ -461,6 +505,7 @@ export default function PetHotel() {
         pet_id: Number(selectedPets[0]),
         pet_ids: selectedPets.map((petId) => Number(petId)),
         service_type: "boarding",
+        branch_id: Number(branchId),
         booking_date: checkInDate,
         booking_time: "09:00:00",
         registered_status: "Registered",
@@ -472,7 +517,7 @@ export default function PetHotel() {
         add_ons: addOnPayload,
         emergency_contact: normalizedEmergencyContact,
         hotel_boarding_type: serviceType,
-        signature: signaturePath,
+        signature: signedConsentDocumentPath,
         consent_forms: consentForms,
         consent_status: "signed"
       });
@@ -536,6 +581,13 @@ export default function PetHotel() {
                 })}
               </div>
             </div>
+
+            <BranchBookingSelect
+              service="boarding"
+              date={checkInDate}
+              value={branchId}
+              onChange={setBranchId}
+            />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -772,7 +824,7 @@ export default function PetHotel() {
                   )}
                 </div>
                 <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-sm font-medium leading-6 text-gray-700">
-                  {boardingConsentTemplate?.content || "An admin must assign a boarding consent form in Consent Management before this booking can be submitted."}
+                  {boardingConsentPreview || "An admin must assign a boarding consent form in Consent Management before this booking can be submitted."}
                 </p>
               </div>
 

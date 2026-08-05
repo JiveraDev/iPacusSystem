@@ -25,7 +25,7 @@ import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
-import { fetchAccounts } from '../../services/accountService';
+import { fetchVeterinarians } from '../../services/accountService';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
 
 function currentUserId(user) {
@@ -41,7 +41,7 @@ function vetId(vet) {
 }
 
 function vetName(vet) {
-    return [vet?.first_Name || vet?.firstName, vet?.last_Name || vet?.lastName].filter(Boolean).join(' ') || vet?.mail_Address || `Vet #${vetId(vet)}`;
+    return [vet?.first_Name || vet?.firstName, vet?.last_Name || vet?.lastName].filter(Boolean).join(' ') || vet?.mail_Address || 'Veterinarian name unavailable';
 }
 
 function statusLabel(status) {
@@ -103,13 +103,27 @@ export default function RecordUpdateRequestsManagement() {
         }
 
         try {
-            const [requestData, accountData] = await Promise.all([
+            const [requestResult, veterinarianResult] = await Promise.allSettled([
                 fetchRecordUpdateRequests(),
-                fetchAccounts()
+                fetchVeterinarians()
             ]);
 
+            if (requestResult.status === 'rejected') {
+                throw requestResult.reason;
+            }
+
+            const requestData = requestResult.value;
             setRequests(Array.isArray(requestData.requests) ? requestData.requests : []);
-            setVeterinarians(Array.isArray(accountData.veterinarians) ? accountData.veterinarians : []);
+            if (veterinarianResult.status === 'fulfilled') {
+                const veterinarianData = veterinarianResult.value;
+                setVeterinarians(Array.isArray(veterinarianData.veterinarians) ? veterinarianData.veterinarians : []);
+            } else {
+                console.error('Failed to load veterinarians for record update assignment:', veterinarianResult.reason);
+                setVeterinarians([]);
+                if (!isAutoRefresh) {
+                    toast.error('Requests loaded, but veterinarian choices are temporarily unavailable.');
+                }
+            }
         } catch (error) {
             if (!isAutoRefresh) {
                 toast.error(error.message || 'Failed to load record update requests.');

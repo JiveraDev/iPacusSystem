@@ -4,9 +4,15 @@ export const AUTH_MESSAGE_KEY = 'ipawcus-auth-message';
 export const AUTH_EMAIL_KEY = 'ipawcus-auth-email';
 export const AUTH_EXPIRES_AT_KEY = 'ipawcus-auth-expires-at';
 
-const SERVER_UNAVAILABLE_MESSAGE = 'This site is temporarily unavailable due to maintenance. Please try again in a moment.';
+const DATABASE_UNAVAILABLE_MESSAGE = 'The iPawcus database is temporarily unavailable. The clinic may be performing maintenance. Please try again in a moment.';
+const OFFLINE_MESSAGE = 'Your device appears to be offline. Check your internet connection, then try again.';
+const REQUEST_TIMEOUT_MESSAGE = 'iPawcus took too long to respond. Check your connection and try again.';
+const SERVER_UNREACHABLE_MESSAGE = 'We could not reach the iPawcus server. Check your connection or try again shortly.';
+const SERVER_UNAVAILABLE_MESSAGE = 'iPawcus is temporarily unavailable. Please try again in a moment.';
 const DEFAULT_GET_TIMEOUT_MS = 15000;
 const DEFAULT_MUTATION_TIMEOUT_MS = 120000;
+const DEFAULT_GET_RETRY_COUNT = 1;
+const GET_RETRY_DELAY_MS = 600;
 const AUTH_REQUIRED_CODE = 'api_auth_required';
 const AUTH_EXPIRED_MESSAGE = 'Please log in again to continue.';
 const LOGIN_ROUTE = '/landing/login';
@@ -14,6 +20,7 @@ const inFlightGetRequests = new Map();
 
 let serverStatus = {
     isDown: false,
+    kind: '',
     message: '',
     code: '',
     status: 0,
@@ -75,6 +82,7 @@ function updateServerStatus(nextStatus) {
         checkedAt: new Date().toISOString()
     };
     const hasChanged = serverStatus.isDown !== nextSnapshot.isDown
+        || serverStatus.kind !== nextSnapshot.kind
         || serverStatus.message !== nextSnapshot.message
         || serverStatus.code !== nextSnapshot.code
         || serverStatus.status !== nextSnapshot.status
@@ -88,10 +96,55 @@ function updateServerStatus(nextStatus) {
     }
 }
 
+function browserIsOffline() {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function unavailablePresentation(code, status, incomingMessage = '') {
+    if (browserIsOffline() || code === 'client_offline') {
+        return {
+            kind: 'offline',
+            code: 'client_offline',
+            message: OFFLINE_MESSAGE
+        };
+    }
+
+    if (code === 'database_unavailable') {
+        return {
+            kind: 'maintenance',
+            code,
+            message: incomingMessage || DATABASE_UNAVAILABLE_MESSAGE
+        };
+    }
+
+    if (code === 'request_timeout') {
+        return {
+            kind: 'timeout',
+            code,
+            message: REQUEST_TIMEOUT_MESSAGE
+        };
+    }
+
+    if (code === 'server_unreachable' || status === 0) {
+        return {
+            kind: 'connection',
+            code: code || 'server_unreachable',
+            message: SERVER_UNREACHABLE_MESSAGE
+        };
+    }
+
+    return {
+        kind: 'service',
+        code: code || 'server_unavailable',
+        message: SERVER_UNAVAILABLE_MESSAGE
+    };
+}
+
 function getUnavailableDetails(error, details = {}) {
     const data = details.data || error?.data || {};
     const status = details.status || error?.status || 0;
     const code = data.code || details.code || (status === 0 ? 'server_unreachable' : 'server_unavailable');
+    const presentation = unavailablePresentation(code, status, data.message || error?.message || '');
     const incomingPath = sanitizeDiagnosticPath(details.requestPath);
     const preserveOriginalPath = serverStatus.isDown
         && incomingPath === '/health'
@@ -108,8 +161,7 @@ function getUnavailableDetails(error, details = {}) {
 
     return {
         isDown: true,
-        message: data.message || error?.message || SERVER_UNAVAILABLE_MESSAGE,
-        code,
+        ...presentation,
         status,
         requestPath,
         requestMethod
@@ -134,6 +186,15 @@ export function subscribeToServerStatus(listener) {
 }
 
 export function reportServerUnavailable(error, details = {}) {
+    const code = details?.data?.code || details?.code || error?.data?.code || '';
+
+    // A single slow request is transient and must not replace the whole app
+    // with the server-unavailable screen. GET requests retry below and
+    // GET-backed screens continue their normal quiet refresh cycle.
+    if (code === 'request_timeout') {
+        return;
+    }
+
     updateServerStatus(getUnavailableDetails(error, details));
 }
 
@@ -144,6 +205,7 @@ export function reportServerAvailable() {
 
     updateServerStatus({
         isDown: false,
+        kind: '',
         message: '',
         code: '',
         status: 0,
@@ -194,6 +256,17 @@ export function getStoredAuthToken() {
 export function clearStoredAuthSession() {
     if (typeof window === 'undefined') {
         return;
+    }
+
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration('/').then((registration) => {
+            const worker = registration?.active
+                || registration?.waiting
+                || registration?.installing
+                || navigator.serviceWorker.controller;
+
+            worker?.postMessage({ type: 'IPAWCUS_PUSH_CONTEXT_CLEAR' });
+        }).catch(() => {});
     }
 
     window.localStorage.removeItem('authToken');
@@ -392,17 +465,25 @@ export async function apiFetch(path, options = {}) {
         });
 
         if (response.status >= 500) {
-            const errorData = suppressServerUnavailable
-                ? await readJsonResponse(response.clone(), {})
-                : {};
+            const errorData = await readJsonResponse(response.clone(), {});
 
-            if (!suppressServerUnavailable || errorData.code === 'database_unavailable') {
-                reportServerUnavailable(new ApiError(errorData.message || SERVER_UNAVAILABLE_MESSAGE, {
+            if (errorData.code === 'database_unavailable') {
+                reportServerUnavailable(new ApiError(errorData.message || DATABASE_UNAVAILABLE_MESSAGE, {
                     status: response.status,
-                    data: { code: errorData.code || 'server_unavailable' }
+                    data: errorData
                 }), {
                     status: response.status,
                     data: errorData,
+                    requestPath: path,
+                    requestMethod: method
+                });
+            } else if (!suppressServerUnavailable && path === '/health') {
+                reportServerUnavailable(new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
+                    status: response.status,
+                    data: { ...errorData, code: errorData.code || 'server_unavailable' }
+                }), {
+                    status: response.status,
+                    data: { ...errorData, code: errorData.code || 'server_unavailable' },
                     requestPath: path,
                     requestMethod: method
                 });
@@ -419,23 +500,27 @@ export async function apiFetch(path, options = {}) {
         return response;
     } catch (error) {
         if (timeoutController?.signal.aborted && !signal?.aborted) {
-            const timeoutError = new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
+            const timeoutError = new ApiError(REQUEST_TIMEOUT_MESSAGE, {
                 status: 0,
                 data: { code: 'request_timeout' }
             });
-            reportServerUnavailable(timeoutError, { requestPath: path, requestMethod: method });
+            if (!suppressServerUnavailable) {
+                reportServerUnavailable(timeoutError, { requestPath: path, requestMethod: method });
+            }
             throw timeoutError;
         }
 
         if (!signal?.aborted) {
             const connectionError = error instanceof ApiError
                 ? error
-                : new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
+                : new ApiError(browserIsOffline() ? OFFLINE_MESSAGE : SERVER_UNREACHABLE_MESSAGE, {
                     status: 0,
-                    data: { code: 'server_unreachable' }
+                    data: { code: browserIsOffline() ? 'client_offline' : 'server_unreachable' }
                 });
 
-            reportServerUnavailable(connectionError, { requestPath: path, requestMethod: method });
+            if (!suppressServerUnavailable) {
+                reportServerUnavailable(connectionError, { requestPath: path, requestMethod: method });
+            }
             throw connectionError;
         }
 
@@ -451,32 +536,74 @@ export async function apiFetch(path, options = {}) {
     }
 }
 
+function waitForTransientRetry(attempt) {
+    return new Promise((resolve) => {
+        window.setTimeout(resolve, GET_RETRY_DELAY_MS * Math.max(1, attempt));
+    });
+}
+
+function isTransientConnectionError(error) {
+    const code = String(error?.data?.code || '');
+
+    return code === 'request_timeout' || code === 'server_unreachable';
+}
+
 async function performApiRequest(path, options = {}) {
-    const response = await apiFetch(path, options);
-    const data = await readJsonResponse(response);
+    const {
+        transientRetryCount,
+        ...requestOptions
+    } = options;
+    const method = getApiRequestMethod(requestOptions);
+    const retryCount = method === 'GET'
+        ? (Number.isFinite(Number(transientRetryCount))
+            ? Math.max(0, Number(transientRetryCount))
+            : DEFAULT_GET_RETRY_COUNT)
+        : 0;
+    let attempt = 0;
 
-    if (!response.ok) {
-        const error = new ApiError(data.message || data.error || `Request failed with status ${response.status}`, {
-            status: response.status,
-            data
-        });
-
-        if (response.status >= 500 || data.code === 'database_unavailable') {
-            reportServerUnavailable(error, {
-                status: response.status,
-                data,
-                requestPath: path,
-                requestMethod: getApiRequestMethod(options)
+    while (true) {
+        try {
+            const response = await apiFetch(path, {
+                ...requestOptions,
+                suppressServerUnavailable: Boolean(requestOptions.suppressServerUnavailable) || attempt < retryCount
             });
+            const data = await readJsonResponse(response);
+
+            if (!response.ok) {
+                const error = new ApiError(data.message || data.error || `Request failed with status ${response.status}`, {
+                    status: response.status,
+                    data
+                });
+
+                if (data.code === 'database_unavailable') {
+                    reportServerUnavailable(error, {
+                        status: response.status,
+                        data,
+                        requestPath: path,
+                        requestMethod: method
+                    });
+                }
+
+                handleAuthRequired(data);
+
+                throw error;
+            }
+
+            reportServerAvailable();
+            return data;
+        } catch (error) {
+            const canRetry = attempt < retryCount
+                && !requestOptions.signal?.aborted
+                && isTransientConnectionError(error);
+
+            if (!canRetry) {
+                throw error;
+            }
+
+            attempt += 1;
+            await waitForTransientRetry(attempt);
         }
-
-        handleAuthRequired(data);
-
-        throw error;
     }
-
-    reportServerAvailable();
-    return data;
 }
 
 export async function apiRequest(path, options = {}) {
@@ -521,7 +648,7 @@ export async function checkServerHealth(options = {}) {
     } catch (error) {
         const data = error?.data || {};
         const healthError = error instanceof ApiError
-            ? new ApiError(data.code === 'database_unavailable' ? (data.message || SERVER_UNAVAILABLE_MESSAGE) : SERVER_UNAVAILABLE_MESSAGE, {
+            ? new ApiError(data.code === 'database_unavailable' ? (data.message || DATABASE_UNAVAILABLE_MESSAGE) : (error.message || SERVER_UNAVAILABLE_MESSAGE), {
                 status: error.status,
                 data: { ...data, code: data.code || 'server_unavailable' }
             })

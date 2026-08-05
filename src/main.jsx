@@ -7,7 +7,7 @@ import './index.css'
 
 import App from './App.jsx'
 import ThemeProvider from './context/ThemeProvider.jsx'
-import { ensurePwaHeadTags } from './pwa/pwaConfig.js'
+import { ensurePwaHeadTags, initializePwaInstallPromptCapture } from './pwa/pwaConfig.js'
 import { registerPwaServiceWorker } from './pwa/registerPwaServiceWorker.js'
 
 const mantineTheme = createTheme({
@@ -16,6 +16,7 @@ const mantineTheme = createTheme({
 })
 
 ensurePwaHeadTags()
+initializePwaInstallPromptCapture()
 registerPwaServiceWorker().catch((error) => {
   console.error('[iPawcus push] PWA service worker setup failed.', error)
 })

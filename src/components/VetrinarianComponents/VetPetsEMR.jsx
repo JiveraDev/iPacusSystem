@@ -4,6 +4,8 @@ import {
     CalendarDays,
     CheckCircle2,
     ClipboardList,
+    Download,
+    Eye,
     FileText,
     GripVertical,
     Loader2,
@@ -11,6 +13,7 @@ import {
     PanelRightOpen,
     PawPrint,
     Pencil,
+    Pill,
     Plus,
     Search,
     Stethoscope,
@@ -29,8 +32,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { downloadConsentDocument, openProtectedDocument } from '../../hooks/useConsentDocumentSource';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatDisplayDate } from '../../lib/date';
+import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import {
@@ -44,6 +49,7 @@ import {
     updatePetMedicalRecordGroupItem
 } from '../../services/petService';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -64,8 +70,8 @@ function recordKey(record) {
 function sourceLabel(record) {
     if (record.bookingNumber) return `Booking ${record.bookingNumber}`;
     if (record.queueNumber) return formatQueueReference(record);
-    if (record.sourceType === 'vaccination') return `Vaccination #${record.sourceId}`;
-    return record.sourceType === 'visit' ? `Visit #${record.sourceId}` : `Diagnosis #${record.sourceId}`;
+    if (record.sourceType === 'vaccination') return 'Vaccination record';
+    return record.sourceType === 'visit' ? 'Clinical visit' : 'Diagnosis record';
 }
 
 const MEDICAL_RECORD_DRAG_TYPE = 'application/x-ipawcus-medical-record';
@@ -1518,55 +1524,97 @@ function ServiceRecordCard({ record, onOpenPreview, onPreview }) {
 
 function AttachmentStrip({ attachments, onPreview, compact = false }) {
     return (
-        <div className={`mt-3 grid gap-2 ${compact ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'}`}>
-            {attachments.map((attachment, index) => {
-                const url = imageUrl(attachment);
-                const canPreview = isImage(attachment);
-                const title = attachment.name || 'Attachment';
-                const tile = (
-                    <div className="flex h-16 items-center justify-center bg-white">
-                        {canPreview && url ? (
-                            <img src={url} alt={title} className="h-full w-full object-cover" />
-                        ) : (
-                            <FileText className="size-5 text-slate-300" />
-                        )}
-                    </div>
-                );
+        <div className={`mt-3 grid gap-2 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}`}>
+            {attachments.map((attachment, index) => (
+                <EmrAttachmentCard
+                    key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
+                    attachment={attachment}
+                    onPreview={onPreview}
+                />
+            ))}
+        </div>
+    );
+}
 
-                if (!canPreview && url) {
-                    return (
-                        <a
-                            key={attachment.id || `${url}-${index}`}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(event) => event.stopPropagation()}
-                            className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
-                            title={title}
-                        >
-                            {tile}
-                        </a>
-                    );
-                }
+function EmrAttachmentCard({ attachment, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const rawPath = attachment?.preview || attachment?.url || attachment?.relativeUrl || '';
+    const url = imageUrl(attachment);
+    const canPreview = isImage(attachment);
+    const title = attachment?.name || 'Attachment';
 
-                return (
-                    <button
-                        key={attachment.id || `${url}-${index}`}
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            if (canPreview) {
-                                onPreview({ src: url, alt: title });
-                            }
-                        }}
-                        disabled={!canPreview || !url}
-                        className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
-                        title={title}
-                    >
-                        {tile}
-                    </button>
-                );
-            })}
+    const handleView = async (event) => {
+        event.stopPropagation();
+        if (!rawPath || isOpening) return;
+        if (canPreview) {
+            onPreview({ src: rawPath, alt: title });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(rawPath);
+        } catch (error) {
+            toast.error(error.message || 'Could not open this medical-record attachment.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async (event) => {
+        event.stopPropagation();
+        if (!rawPath || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(rawPath, title);
+        } catch (error) {
+            toast.error(error.message || 'Could not download this medical-record attachment.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50" title={title}>
+            <div className="flex h-20 items-center justify-center bg-white">
+                {canPreview && url ? (
+                    <ProtectedImage
+                        src={rawPath}
+                        alt={title}
+                        className="h-full w-full object-cover"
+                        fallbackClassName="h-full w-full"
+                    />
+                ) : (
+                    <FileText className="size-5 text-slate-300" />
+                )}
+            </div>
+            <p className="truncate px-2 pt-2 text-xs font-semibold text-slate-600">{title}</p>
+            <div className="grid grid-cols-2 gap-1 p-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleView}
+                    disabled={!rawPath || isOpening}
+                    className="h-8 gap-1 px-2 text-xs"
+                >
+                    {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                    View
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={!rawPath || isDownloading}
+                    className="h-8 gap-1 px-2 text-xs"
+                >
+                    {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                    Download
+                </Button>
+            </div>
         </div>
     );
 }
@@ -1590,6 +1638,19 @@ function SourceRecordDetails({ record, onPreview }) {
         : [];
     const charges = asArray(record.charges);
     const totals = record.totals || {};
+    const clinical = dedupeClinicalFields([
+        ['chiefComplaint', record.chiefComplaint],
+        ['majorSymptoms', record.majorSymptoms],
+        ['symptoms', record.symptoms],
+        ['physicalExam', record.physicalExam],
+        ['diagnosis', record.diagnosis],
+        ['recommendations', record.recommendations],
+        ['treatment', record.treatment],
+        ['medications', record.medications],
+        ['labResults', record.labResults],
+        ['followUp', record.followUp ? formatDisplayDate(record.followUp) : ''],
+        ['notes', record.notes]
+    ]);
 
     return (
         <div className="space-y-4 text-sm">
@@ -1599,14 +1660,17 @@ function SourceRecordDetails({ record, onPreview }) {
                 <Detail label="Vet" value={record.veterinarianName || 'Clinic Team'} />
                 <Detail label="Billing" value={record.billingStatus || record.status || 'N/A'} />
             </div>
-            <TextBlock icon={AlertCircle} label="Chief Complaint" value={record.chiefComplaint} />
-            <TextBlock icon={ClipboardList} label="Major Symptoms" value={record.majorSymptoms || record.symptoms} />
-            <TextBlock icon={ClipboardList} label="Physical Exam" value={record.physicalExam} />
-            <TextBlock icon={Stethoscope} label="Diagnosis" value={record.diagnosis || record.summary} />
-            <TextBlock icon={ClipboardList} label="Treatment" value={record.treatment} />
-            <TextBlock icon={ClipboardList} label="Lab Results" value={record.labResults} />
-            <TextBlock icon={CalendarDays} label="Follow-up" value={record.followUp ? formatDisplayDate(record.followUp) : ''} />
-            <TextBlock icon={AlertCircle} label="Notes" value={record.notes} />
+            <TextBlock icon={AlertCircle} label="Chief Complaint" value={clinical.chiefComplaint} />
+            <TextBlock icon={ClipboardList} label="Major Symptoms" value={clinical.majorSymptoms} />
+            <TextBlock icon={ClipboardList} label="Symptoms" value={clinical.symptoms} />
+            <TextBlock icon={ClipboardList} label="Physical Exam" value={clinical.physicalExam} />
+            <TextBlock icon={Stethoscope} label="Diagnosis" value={clinical.diagnosis} />
+            <TextBlock icon={ClipboardList} label="Recommendations" value={clinical.recommendations} />
+            <TextBlock icon={ClipboardList} label="Treatment" value={clinical.treatment} />
+            <TextBlock icon={Pill} label="Medications" value={clinical.medications} />
+            <TextBlock icon={ClipboardList} label="Lab Results" value={clinical.labResults} />
+            <TextBlock icon={CalendarDays} label="Follow-up" value={clinical.followUp} />
+            <TextBlock icon={AlertCircle} label="Notes" value={clinical.notes} />
             {vitalSigns.length > 0 && (
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                     <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Vital Signs</p>

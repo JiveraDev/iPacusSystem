@@ -1,4 +1,4 @@
-import { getApiUrl } from './apiClient';
+import { getApiUrl, getStoredAuthToken } from './apiClient';
 import { getPwaServiceWorkerUrl, isPwaActivated } from '../pwa/pwaConfig';
 import {
     disableNotificationPushSubscription,
@@ -69,7 +69,7 @@ async function registerPushWorker() {
     return registration;
 }
 
-export async function syncPushContext(userId) {
+export async function syncPushContext(userId, { bindSubscription = false } = {}) {
     if (!browserPushAvailable() || !userId) {
         return;
     }
@@ -81,13 +81,38 @@ export async function syncPushContext(userId) {
     const worker = registration?.active || registration?.waiting || registration?.installing || navigator.serviceWorker.controller;
 
     if (worker) {
+        const apiBase = getApiUrl('', { apiPrefix: true });
+        let apiOrigin = window.location.origin;
+        try {
+            apiOrigin = new URL(apiBase, window.location.origin).origin;
+        } catch {
+            apiOrigin = window.location.origin;
+        }
+
         worker.postMessage({
             type: 'IPAWCUS_PUSH_CONTEXT',
             userId,
-            apiBase: getApiUrl('', { apiPrefix: true }),
+            accessToken: getStoredAuthToken(),
+            bindSubscription,
+            apiBase,
+            apiOrigin,
             appOrigin: window.location.origin
         });
     }
+}
+
+export async function clearPushContext() {
+    if (!browserPushAvailable()) {
+        return;
+    }
+
+    const registration = await getExistingRegistration();
+    const worker = registration?.active
+        || registration?.waiting
+        || registration?.installing
+        || navigator.serviceWorker.controller;
+
+    worker?.postMessage({ type: 'IPAWCUS_PUSH_CONTEXT_CLEAR' });
 }
 
 export async function getBrowserPushState(userId) {
@@ -211,7 +236,7 @@ export async function enableBrowserPush(userId) {
         logPushError('Push subscription could not be saved to the server.', error);
         throw error;
     }
-    await syncPushContext(userId);
+    await syncPushContext(userId, { bindSubscription: true });
 
     return getBrowserPushState(userId);
 }

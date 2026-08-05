@@ -63,7 +63,7 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['public' => true];
     }
 
-    if (preg_match('#^/uploads/media/#', $path)) {
+    if ($path === '/uploads/media' || preg_match('#^/uploads/media/#', $path)) {
         return ['roles' => ipawcus_roles('all'), 'media' => true];
     }
 
@@ -89,6 +89,14 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if ($path === '/veterinarians') {
         return ['roles' => ipawcus_roles('all')];
+    }
+
+    if ($path === '/branches') {
+        return ['roles' => ipawcus_roles('all')];
+    }
+
+    if ($path === '/veterinarian-branch-schedules') {
+        return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('vet')];
     }
 
     if ($path === '/upload' || $path === '/upload/delete') {
@@ -117,6 +125,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if (preg_match('#^/bookings/\d+/(schedule|receive)$#', $path)) {
         return ['roles' => ipawcus_roles('clinic')];
+    }
+
+    if (preg_match('#^/bookings/\d+/branch$#', $path)) {
+        return ['roles' => ipawcus_roles('admin')];
     }
 
     if ($path === '/queues') {

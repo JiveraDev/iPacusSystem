@@ -96,7 +96,7 @@ if (!function_exists('createDatabaseConnection')) {
         return [
             'ok' => false,
             'code' => 'database_unavailable',
-            'message' => 'This site is temporarily unavailable due to maintenance. Please try again in a moment.',
+            'message' => 'The iPawcus database is temporarily unavailable. The clinic may be performing maintenance. Please try again in a moment.',
         ];
     }
 

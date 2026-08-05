@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/role_access.php';
 require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -127,6 +128,32 @@ function payment_methods_ensure_otp_purpose(PDO $pdo): void
         payment_methods_error(500, 'Email OTP database migration is required.');
     }
 
+    $missingColumns = [];
+    foreach ([
+        'otp_id',
+        'user_id',
+        'email',
+        'purpose',
+        'token_hash',
+        'expires_at',
+        'used_at',
+        'attempt_count',
+        'max_attempts',
+        'last_sent_at',
+        'request_ip',
+        'user_agent',
+    ] as $columnName) {
+        if (!authOtpColumnExists($pdo, 'email_otp_tokens', $columnName)) {
+            $missingColumns[] = $columnName;
+        }
+    }
+    if (!empty($missingColumns)) {
+        payment_methods_error(
+            500,
+            'Email OTP table is missing required columns: ' . implode(', ', $missingColumns) . '. Run the approved deployment SQL.'
+        );
+    }
+
     $columnType = payment_methods_column_type($pdo, 'email_otp_tokens', 'purpose');
     if ($columnType !== '' && strpos($columnType, AUTH_OTP_PAYMENT_SETTINGS_CHANGE) === false) {
         payment_methods_error(500, 'email_otp_tokens.purpose does not support payment_settings_change. Run the approved deployment SQL before editing payment settings.');
@@ -202,17 +229,31 @@ function payment_methods_fetch(PDO $pdo, bool $includeInactive = false): array
 function payment_methods_request_otp(PDO $pdo, array $input): void
 {
     payment_methods_ensure_otp_purpose($pdo);
-    authOtpRequireSchema($pdo);
 
     $user = payment_methods_user($pdo, $input);
     $email = authOtpNormalizeEmail($user['mail_Address'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        payment_methods_error(422, 'The Super Admin account needs a valid email address before a verification code can be sent.');
+    }
 
     if (!authOtpCanSend($pdo, (int)$user['user_id'], $email, AUTH_OTP_PAYMENT_SETTINGS_CHANGE)) {
         payment_methods_error(429, 'Please wait before requesting another code.');
     }
 
-    $otp = authOtpCreate($pdo, (int)$user['user_id'], $email, AUTH_OTP_PAYMENT_SETTINGS_CHANGE);
-    authOtpSendCodeEmail($email, $otp['code'], AUTH_OTP_PAYMENT_SETTINGS_CHANGE, $user, $otp['expiresMinutes']);
+    $otp = null;
+    try {
+        $otp = authOtpCreate($pdo, (int)$user['user_id'], $email, AUTH_OTP_PAYMENT_SETTINGS_CHANGE);
+        authOtpSendCodeEmail($email, $otp['code'], AUTH_OTP_PAYMENT_SETTINGS_CHANGE, $user, $otp['expiresMinutes']);
+    } catch (Throwable $error) {
+        if (!empty($otp['otpId'])) {
+            authOtpMarkUsed($pdo, (int)$otp['otpId']);
+        }
+        error_log('Payment settings OTP delivery failed: ' . $error->getMessage());
+        payment_methods_error(
+            503,
+            'Verification email could not be delivered. Check OTP_SECRET and the clinic mail settings, then try again.'
+        );
+    }
 
     echo json_encode([
         'success' => true,
@@ -229,7 +270,6 @@ function payment_methods_save(PDO $pdo, array $input): void
     $code = trim((string)($input['code'] ?? $input['otp'] ?? ''));
 
     payment_methods_ensure_otp_purpose($pdo);
-    authOtpRequireSchema($pdo);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $code)) {
         payment_methods_error(400, 'Super Admin email and 6-digit OTP code are required.');
@@ -285,6 +325,33 @@ function payment_methods_save(PDO $pdo, array $input): void
         $byKey[$requiredKey]['_normalizedAccountNumber'] = $accountNumber;
     }
 
+    $previousMethodsByKey = [];
+    foreach (payment_methods_fetch($pdo, true) as $previousMethod) {
+        $previousMethodsByKey[$previousMethod['methodKey']] = $previousMethod;
+    }
+    $changedMethodLabels = [];
+    foreach (PAYMENT_METHOD_KEYS as $key) {
+        $method = $byKey[$key];
+        $previous = $previousMethodsByKey[$key] ?? [];
+        $before = [
+            'label' => trim((string)($previous['label'] ?? '')),
+            'accountName' => trim((string)($previous['accountName'] ?? '')),
+            'accountNumber' => preg_replace('/\D+/', '', (string)($previous['accountNumber'] ?? '')),
+            'instructions' => trim((string)($previous['instructions'] ?? '')),
+            'qrImageUrl' => trim((string)($previous['qrImageUrl'] ?? '')),
+        ];
+        $after = [
+            'label' => $method['_normalizedLabel'],
+            'accountName' => trim((string)($method['accountName'] ?? $method['account_name'] ?? '')),
+            'accountNumber' => $method['_normalizedAccountNumber'],
+            'instructions' => trim((string)($method['instructions'] ?? '')),
+            'qrImageUrl' => trim((string)($method['qrImageUrl'] ?? $method['qr_image_url'] ?? '')),
+        ];
+        if ($before !== $after) {
+            $changedMethodLabels[] = $after['label'];
+        }
+    }
+
     $pdo->beginTransaction();
     try {
         $stmt = $pdo->prepare("
@@ -327,6 +394,24 @@ function payment_methods_save(PDO $pdo, array $input): void
             $pdo->rollBack();
         }
         throw $e;
+    }
+
+    if ($changedMethodLabels) {
+        try {
+            $actorName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? ''))) ?: 'Super Admin';
+            $methodList = implode(', ', array_values(array_unique($changedMethodLabels)));
+            notification_send_super_admin_governance_event($pdo, [
+                'type' => 'payment_methods_updated',
+                'category' => 'configuration_updates',
+                'title' => 'Payment methods updated',
+                'message' => "{$actorName} changed payment settings for: {$methodList}.",
+                'push_message' => "Payment settings changed: {$methodList}.",
+                'redirect_path' => '/dashboard/payment-methods',
+                'dedupe_key' => 'payment-methods-updated-' . date('YmdHis'),
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Payment methods governance notification failed: ' . $notificationError->getMessage());
+        }
     }
 
     echo json_encode([

@@ -1,17 +1,68 @@
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
+const installPromptSubscribers = new Set();
+
+let capturedInstallPrompt = null;
+let installPromptCaptureInitialized = false;
+let appInstalled = false;
 
 export const PWA_SERVICE_WORKER_PATH = '/ipawcus-push-sw.js';
 export const PWA_MANIFEST_PATH = '/pwa/manifest.webmanifest';
 export const PWA_APPLE_TOUCH_ICON_PATH = '/pwa/icons/apple-touch-icon.png';
 
 export function isPwaActivated() {
-  const value = import.meta.env.PWAACTIVATOR ?? import.meta.env.VITE_PWAACTIVATOR ?? '';
+  const value = import.meta.env.VITE_PWAACTIVATOR ?? import.meta.env.PWAACTIVATOR ?? '';
 
   return TRUE_VALUES.has(String(value).trim().toLowerCase());
 }
 
 export function getPwaServiceWorkerUrl({ pwaEnabled = false } = {}) {
   return `${PWA_SERVICE_WORKER_PATH}?pwa=${pwaEnabled ? '1' : '0'}`;
+}
+
+function notifyInstallPromptSubscribers() {
+  const snapshot = {
+    prompt: capturedInstallPrompt,
+    installed: appInstalled,
+  };
+
+  installPromptSubscribers.forEach((subscriber) => subscriber(snapshot));
+}
+
+export function initializePwaInstallPromptCapture() {
+  if (
+    installPromptCaptureInitialized
+    || !isPwaActivated()
+    || typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  installPromptCaptureInitialized = true;
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    capturedInstallPrompt = event;
+    notifyInstallPromptSubscribers();
+  });
+  window.addEventListener('appinstalled', () => {
+    capturedInstallPrompt = null;
+    appInstalled = true;
+    notifyInstallPromptSubscribers();
+  });
+}
+
+export function subscribePwaInstallPrompt(subscriber) {
+  installPromptSubscribers.add(subscriber);
+  subscriber({
+    prompt: capturedInstallPrompt,
+    installed: appInstalled,
+  });
+
+  return () => installPromptSubscribers.delete(subscriber);
+}
+
+export function clearCapturedPwaInstallPrompt() {
+  capturedInstallPrompt = null;
+  notifyInstallPromptSubscribers();
 }
 
 function upsertHeadElement(selector, createElement) {

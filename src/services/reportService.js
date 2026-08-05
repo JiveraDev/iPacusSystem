@@ -33,6 +33,7 @@ function buildQuery(params = {}) {
     add('range', params.range);
     add('start_date', params.startDate || params.start_date);
     add('end_date', params.endDate || params.end_date);
+    add('branch_id', params.branchId || params.branch_id);
 
     return query.toString();
 }

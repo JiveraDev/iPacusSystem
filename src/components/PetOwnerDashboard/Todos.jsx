@@ -35,6 +35,7 @@ import {
     updatePetOwnerTodo
 } from '../../services/todoService';
 import { useNavigate } from '../dashboardRouter.jsx';
+import { fetchBranches, fetchVeterinarianBranchSchedules, getBranchDisplayName, saveVeterinarianBranchSchedule } from '../../services/branchService';
 
 const calendarLocalizer = dayjsLocalizer(dayjs);
 
@@ -59,6 +60,7 @@ const CATEGORY_STYLES = {
 };
 
 CATEGORY_STYLES['Online Consultation'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
+CATEGORY_STYLES['Branch Visit'] = { dot: 'bg-teal-600', badge: 'bg-teal-50 text-teal-700', border: 'border-teal-200' };
 
 const CATEGORY_COLORS = {
     Booking: '#2563eb',
@@ -68,6 +70,7 @@ const CATEGORY_COLORS = {
     Medication: '#d97706',
     'Personal Task': '#475569',
     'Online Consultation': '#2563eb',
+    'Branch Visit': '#0f766e',
     Other: '#64748b'
 };
 
@@ -310,6 +313,12 @@ export default function Todos({ user }) {
     const [loadError, setLoadError] = useState('');
     const [editingTask, setEditingTask] = useState(null);
     const [form, setForm] = useState(() => emptyForm(new Date()));
+    const [branches, setBranches] = useState([]);
+    const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
+    const [visitForm, setVisitForm] = useState({
+        branchId: '', date: dateInputValue(new Date()), startsAt: '09:00', endsAt: '12:00',
+        serviceKeys: ['vaccination', 'lab-testing', 'parasite-control'], notes: ''
+    });
 
     const range = useMemo(() => visibleCalendarRange(calendarDate, calendarView), [calendarDate, calendarView]);
 
@@ -327,7 +336,30 @@ export default function Todos({ user }) {
                 end: dateInputValue(range.end),
                 role: user?.role || ''
             });
-            setTasks(Array.isArray(data.tasks) ? data.tasks : []);
+            let nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
+            if (isVeterinarian) {
+                const scheduleData = await fetchVeterinarianBranchSchedules({
+                    veterinarianId: userId,
+                    from: dateInputValue(range.start),
+                    to: dateInputValue(range.end)
+                });
+                const visits = (scheduleData?.schedules || []).map((visit) => ({
+                    id: `branch-visit-${visit.id}`,
+                    sourceId: visit.id,
+                    source: 'branch_visit',
+                    title: `Visit: ${visit.branchName}`,
+                    details: `${visit.veterinarianName} · ${(visit.serviceKeys || []).join(', ')}${visit.notes ? ` · ${visit.notes}` : ''}`,
+                    category: 'Branch Visit',
+                    startAt: visit.startsAt,
+                    endAt: visit.endsAt,
+                    status: visit.status,
+                    editable: false,
+                    branchId: visit.branchId,
+                    branchName: visit.branchName
+                }));
+                nextTasks = [...nextTasks, ...visits];
+            }
+            setTasks(nextTasks);
             return data;
         } catch (error) {
             if (!isAutoRefresh) {
@@ -346,6 +378,44 @@ export default function Todos({ user }) {
         intervalMs: 10000,
         refreshKey: `todos-${normalizeRole(user?.role)}-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
     });
+
+    useAutoRefresh(async () => {
+        if (!isVeterinarian) return;
+        try {
+            const data = await fetchBranches();
+            const petCorners = (data?.branches || []).filter((branch) => branch.type === 'pet_corner');
+            setBranches(petCorners);
+            if (petCorners.length) {
+                setVisitForm((current) => current.branchId ? current : { ...current, branchId: String(petCorners[0].id) });
+            }
+        } catch (error) {
+            console.error('Failed to load Pet Corner branches:', error);
+        }
+    }, { enabled: isVeterinarian, intervalMs: 30000, refreshKey: `vet-visit-branches-${userId}` });
+
+    const saveBranchVisit = async () => {
+        if (!visitForm.branchId || !visitForm.date || !visitForm.startsAt || !visitForm.endsAt) {
+            toast.error('Branch, date, start time, and end time are required.');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await saveVeterinarianBranchSchedule({
+                branchId: Number(visitForm.branchId),
+                startsAt: combineDateTime(visitForm.date, visitForm.startsAt),
+                endsAt: combineDateTime(visitForm.date, visitForm.endsAt),
+                serviceKeys: visitForm.serviceKeys,
+                notes: visitForm.notes
+            });
+            toast.success('Branch visit published. Branch admins were notified.');
+            setIsVisitDialogOpen(false);
+            await loadTasks();
+        } catch (error) {
+            toast.error(error.message || 'Branch visit could not be published.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const tasksByDay = useMemo(() => {
         const grouped = new Map();
@@ -612,6 +682,12 @@ export default function Todos({ user }) {
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    {isVeterinarian && (
+                        <Button type="button" onClick={() => setIsVisitDialogOpen(true)}>
+                            <Stethoscope className="size-4" />
+                            Schedule Pet Corner Visit
+                        </Button>
+                    )}
                     <Button type="button" variant="outline" onClick={() => loadTasks()} disabled={isLoading}>
                         {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                         Refresh
@@ -842,6 +918,76 @@ export default function Todos({ user }) {
                                 </Button>
                             </div>
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Schedule Pet Corner Visit</DialogTitle>
+                        <DialogDescription>Publishing is immediate and notifies the selected branch Admins by system notification and push.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Pet Corner</Label>
+                            <Select value={visitForm.branchId} onValueChange={(branchId) => setVisitForm((current) => ({ ...current, branchId }))}>
+                                <SelectTrigger>
+                                    <SelectValue
+                                        placeholder="Select Pet Corner"
+                                        displayValue={getBranchDisplayName(branches, visitForm.branchId)}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {branches.map((branch) => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div className="space-y-2 sm:col-span-1">
+                                <Label>Date</Label>
+                                <Input type="date" min={dateInputValue(new Date())} value={visitForm.date} onChange={(event) => setVisitForm((current) => ({ ...current, date: event.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Start</Label>
+                                <Input type="time" min="08:00" max="18:00" value={visitForm.startsAt} onChange={(event) => setVisitForm((current) => ({ ...current, startsAt: event.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>End</Label>
+                                <Input type="time" min="08:00" max="18:00" value={visitForm.endsAt} onChange={(event) => setVisitForm((current) => ({ ...current, endsAt: event.target.value }))} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Available clinical services</Label>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                                {[
+                                    ['vaccination', 'Vaccination'],
+                                    ['lab-testing', 'Laboratory'],
+                                    ['parasite-control', 'Parasite Control']
+                                ].map(([key, label]) => (
+                                    <label key={key} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-semibold">
+                                        <Checkbox
+                                            checked={visitForm.serviceKeys.includes(key)}
+                                            onCheckedChange={(checked) => setVisitForm((current) => ({
+                                                ...current,
+                                                serviceKeys: checked
+                                                    ? [...new Set([...current.serviceKeys, key])]
+                                                    : current.serviceKeys.filter((serviceKey) => serviceKey !== key)
+                                            }))}
+                                        />
+                                        {label}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Notes</Label>
+                            <Textarea value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional instructions for the branch" />
+                        </div>
+                        <Button type="button" className="w-full" onClick={saveBranchVisit} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <CalendarDays className="size-4" />}
+                            Publish Visit
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

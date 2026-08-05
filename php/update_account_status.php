@@ -3,6 +3,7 @@
 /** @var PDO $pdo */
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/account_status_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 $input = json_decode(file_get_contents('php://input'), true);
@@ -19,7 +20,7 @@ if (!$userId) {
 }
 
 try {
-    $userStmt = $pdo->prepare("SELECT role FROM users WHERE user_id = ?");
+    $userStmt = $pdo->prepare("SELECT role, first_Name, last_Name, mail_Address FROM users WHERE user_id = ?");
     $userStmt->execute([$userId]);
     $user = $userStmt->fetch();
 
@@ -64,6 +65,23 @@ try {
         $reactivateParams[] = $userId;
         $reactivateStmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $reactivateColumns) . ' WHERE user_id = ?');
         $reactivateStmt->execute($reactivateParams);
+    }
+
+    try {
+        $accountName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')))
+            ?: trim((string)($user['mail_Address'] ?? 'Personnel account'));
+        $statusLabel = $isActive ? 'activated' : 'deactivated';
+        notification_send_super_admin_governance_event($pdo, [
+            'type' => 'personnel_account_status_updated',
+            'category' => 'account_updates',
+            'title' => 'Personnel account status changed',
+            'message' => "{$accountName} ({$user['role']}) was {$statusLabel}.",
+            'push_message' => "{$accountName} was {$statusLabel}.",
+            'redirect_path' => '/dashboard/accounts',
+            'dedupe_key' => 'personnel-account-status-' . (int)$userId . '-' . $isActive . '-' . date('YmdHis'),
+        ]);
+    } catch (Throwable $notificationError) {
+        error_log('Personnel status notification failed: ' . $notificationError->getMessage());
     }
 
     echo json_encode([

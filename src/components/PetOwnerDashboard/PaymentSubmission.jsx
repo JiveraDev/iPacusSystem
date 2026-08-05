@@ -10,12 +10,42 @@ import { ArrowLeft, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
-import { uploadImageFile } from "../../services/uploadService";
+import { createConsentDocumentImage } from "../../services/consentDocumentImage";
+import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
-import { resolveImageUrl } from "../../lib/image";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import ProtectedImage from "../shared/ProtectedImage";
+
+function normalizeConsentForms(bookingData) {
+  const source = bookingData?.consent_forms ?? bookingData?.consentForms ?? [];
+
+  if (Array.isArray(source)) {
+    return source.filter((form) => form && typeof form === "object");
+  }
+
+  if (typeof source === "string" && source.trim()) {
+    try {
+      const parsed = JSON.parse(source);
+      return Array.isArray(parsed)
+        ? parsed.filter((form) => form && typeof form === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function consentDocumentPath(form) {
+  return form?.documentPath
+    || form?.document_path
+    || form?.signedDocumentPath
+    || form?.signed_file_path
+    || "";
+}
 
 export default function PaymentSubmission() {
   const navigate = useNavigate();
@@ -33,7 +63,7 @@ export default function PaymentSubmission() {
   const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
   const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
-  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
+  const selectedQrUrl = selectedMethod?.qrImageUrl || "";
 
   useEffect(() => {
     const details = sessionStorage.getItem("paymentDetails");
@@ -82,16 +112,71 @@ export default function PaymentSubmission() {
       // 1. Upload Receipt
       const receiptUrl = formData.receiptFile ? await uploadImageFile(formData.receiptFile, "booking_payment") : null;
 
-      // 2. Handle Signature if it exists (base64)
-      let signatureUrl = paymentData.bookingData.signature;
-      if (signatureUrl && signatureUrl.startsWith('data:image')) {
-        try {
-          const signatureFile = dataURLtoFile(signatureUrl, `signature_${Date.now()}.png`);
-          signatureUrl = await uploadImageFile(signatureFile, "booking_signature");
-        } catch (sigError) {
-          console.error("Signature upload failed:", sigError);
-        }
+      // 2. Save complete signed consent documents, never the isolated signature image.
+      const sourceBookingData = paymentData.bookingData;
+      const sourceConsentForms = normalizeConsentForms(sourceBookingData);
+      const sourceSignature = sourceBookingData.signature || sourceBookingData.signature_path || "";
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const ownerName = [
+        currentUser.firstName || currentUser.first_Name || currentUser.first_name,
+        currentUser.lastName || currentUser.last_Name || currentUser.last_name
+      ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
+      const defaultSignedAt = new Date().toISOString();
+      const savedConsentForms = [];
+
+      if (sourceSignature && sourceConsentForms.length === 0) {
+        throw new Error("The consent form details are missing. Please return to the booking form and sign the complete consent.");
       }
+
+      for (let index = 0; index < sourceConsentForms.length; index += 1) {
+        const form = sourceConsentForms[index];
+        let documentPath = consentDocumentPath(form);
+
+        if (!documentPath && sourceSignature) {
+          if (!String(form.content || "").trim()) {
+            throw new Error("The consent form content is missing. Please return to the booking form and try again.");
+          }
+
+          const signedConsentImage = await createConsentDocumentImage({
+            title: form.title || form.name || "Consent Form",
+            content: form.content,
+            signatureImage: sourceSignature,
+            signerName: form.signerName || form.signer_name || ownerName,
+            signedAt: form.signedAt || form.signed_at || defaultSignedAt,
+            templateContext: {
+              ownerName: form.signerName || form.signer_name || ownerName,
+              petName: bookingData.petName || bookingData.new_pet_name,
+              petSpecies: bookingData.petSpecies || bookingData.petType,
+              petBreed: bookingData.petBreed || bookingData.new_pet_breed,
+              veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+              serviceName: form.serviceType || bookingData.serviceType || bookingData.service_type,
+              branchName: bookingData.branchName || bookingData.branch_name,
+              bookingNumber: bookingData.bookingNumber || bookingData.booking_number
+            }
+          });
+          documentPath = await uploadDataUrlImage(
+            signedConsentImage,
+            "booking_signature",
+            `booking_consent_${index + 1}`
+          );
+          if (!documentPath) {
+            throw new Error("The signed consent document could not be saved. Please try again.");
+          }
+        }
+
+        savedConsentForms.push(documentPath
+          ? {
+              ...form,
+              signerName: form.signerName || form.signer_name || ownerName,
+              signedAt: form.signedAt || form.signed_at || defaultSignedAt,
+              documentPath,
+              signaturePath: documentPath
+            }
+          : form);
+      }
+      const signedConsentDocumentUrl = savedConsentForms
+        .map((form) => consentDocumentPath(form))
+        .find(Boolean) || "";
 
       // 3. Handle additional images if they exist (base64 array)
       let uploadedImageUrls = [];
@@ -114,15 +199,17 @@ export default function PaymentSubmission() {
 
       // 4. Prepare Booking Data (Generic structure)
       const bookingData = {
-        ...paymentData.bookingData,
+        ...sourceBookingData,
         payment_proof_url: receiptUrl,
         payment_method: formData.paymentMethod,
         payment_reference: formData.referenceNumber,
         price: formData.amount,
-        signature: signatureUrl, // Map to signature_path in PHP
-        Image_Booking_Concern_Path: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : null, // PHP expects single path
-        // You might want to store all images in a JSON field if the DB supports it, 
-        // but for now let's use the first one as per add_booking.php
+        signature: signedConsentDocumentUrl || null,
+        signature_path: signedConsentDocumentUrl || null,
+        consent_signature_path: signedConsentDocumentUrl || null,
+        consent_forms: savedConsentForms,
+        consentForms: savedConsentForms,
+        Image_Booking_Concern_Path: uploadedImageUrls.length > 0 ? uploadedImageUrls.join(",") : null,
       };
 
       // 5. Submit Booking to DB
@@ -221,7 +308,12 @@ export default function PaymentSubmission() {
                           className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200"
                           aria-label={`Open larger ${selectedMethod.label} QR image`}
                         >
-                          <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-48 rounded-md object-contain" />
+                          <ProtectedImage
+                            src={selectedQrUrl}
+                            alt={`${selectedMethod.label} QR`}
+                            className="max-h-48 rounded-md object-contain"
+                            fallbackClassName="h-48 w-48 rounded-md"
+                          />
                         </button>
                       )}
                     </div>

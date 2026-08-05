@@ -1,5 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, Loader2, Maximize2, Minimize2, PhoneOff, Video } from 'lucide-react';
+import { createElement, useCallback, useEffect, useState } from 'react';
+import {
+    ArrowLeft,
+    CheckCircle,
+    CircleAlert,
+    ClipboardList,
+    FileText,
+    Loader2,
+    Maximize2,
+    Minimize2,
+    PanelRightClose,
+    PanelRightOpen,
+    PhoneOff,
+    Pill,
+    Stethoscope,
+    Video
+} from 'lucide-react';
 import { useNavigate, useParams } from '../dashboardRouter.jsx';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -57,6 +72,71 @@ function getStatusBadge(status) {
     return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Scheduled</Badge>;
 }
 
+function ClinicalTextareaField({
+    id,
+    label,
+    helper,
+    icon: Icon,
+    value,
+    onChange,
+    placeholder,
+    required = false,
+    error = '',
+    className = 'min-h-[120px]'
+}) {
+    const helperId = `${id}-helper`;
+    const errorId = `${id}-error`;
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {createElement(Icon, { className: 'size-4', 'aria-hidden': true })}
+                    </span>
+                    <div className="min-w-0">
+                        <Label htmlFor={id} className="block text-sm font-bold text-slate-900 dark:text-slate-100">
+                            {label}
+                        </Label>
+                        <p id={helperId} className="mt-0.5 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">
+                            {helper}
+                        </p>
+                    </div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${
+                    required
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
+                    {required ? 'Required' : 'Optional'}
+                </span>
+            </div>
+
+            <Textarea
+                id={id}
+                name={id}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                aria-describedby={`${helperId}${error ? ` ${errorId}` : ''}`}
+                aria-invalid={Boolean(error)}
+                className={`${className} resize-y rounded-lg border-slate-300 bg-white px-3.5 py-3 text-sm leading-6 text-slate-900 shadow-none transition placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 ${
+                    error
+                        ? 'border-red-400 bg-red-50/40 focus-visible:border-red-500 focus-visible:ring-red-500/20 dark:border-red-500 dark:bg-red-950/20'
+                        : ''
+                }`}
+            />
+
+            {error && (
+                <p id={errorId} className="flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-300">
+                    <CircleAlert className="size-3.5" aria-hidden="true" />
+                    {error}
+                </p>
+            )}
+        </div>
+    );
+}
+
 export default function VetOnlineConsultDiagnosis() {
     const navigate = useNavigate();
     const { onlineConsultationId } = useParams();
@@ -67,6 +147,8 @@ export default function VetOnlineConsultDiagnosis() {
     const [isStarting, setIsStarting] = useState(false);
     const [lastAutosavedAt, setLastAutosavedAt] = useState('');
     const [diagnosisForm, setDiagnosisForm] = useState(emptyDiagnosisForm);
+    const [diagnosisError, setDiagnosisError] = useState('');
+    const [isClinicalPanelOpen, setIsClinicalPanelOpen] = useState(true);
 
     const buildCallDetails = useCallback((source) => ({
         consultationId: source?.id || onlineConsultationId,
@@ -152,6 +234,10 @@ export default function VetOnlineConsultDiagnosis() {
             ...current,
             [field]: value
         }));
+
+        if (field === 'diagnosis' && value.trim()) {
+            setDiagnosisError('');
+        }
     };
 
     const startConsultation = async () => {
@@ -176,7 +262,9 @@ export default function VetOnlineConsultDiagnosis() {
         if (!consultation) return;
 
         if (!diagnosisForm.diagnosis.trim()) {
+            setDiagnosisError('Enter the primary diagnosis before completing the consultation.');
             toast.error('Diagnosis is required.');
+            window.requestAnimationFrame(() => document.getElementById('online-consult-diagnosis')?.focus());
             return;
         }
 
@@ -256,8 +344,9 @@ export default function VetOnlineConsultDiagnosis() {
     };
 
     return (
-        <div className="flex h-[calc(100vh-120px)] min-h-[680px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <div className="flex min-h-[calc(100vh-120px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 2xl:h-[calc(100vh-120px)] 2xl:min-h-[680px]">
+                <div className="flex flex-col gap-4 border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
@@ -270,10 +359,10 @@ export default function VetOnlineConsultDiagnosis() {
                     </Button>
                     <div>
                         <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-xl font-bold text-slate-900">Consultation Diagnosis</h1>
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Consultation Diagnosis</h1>
                             {getStatusBadge(consultation.status)}
                         </div>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                             {consultation.petName || 'Unnamed Pet'} with {consultation.ownerName || 'Pet Owner'} - {formatDisplayDateTime(consultation.scheduledStart)}
                         </p>
                         {lastAutosavedAt && (
@@ -284,24 +373,36 @@ export default function VetOnlineConsultDiagnosis() {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                    {!callStarted && canUseRoom && (
-                        <Button onClick={startConsultation} disabled={isStarting} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
-                            {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                            Start Meeting
+                    <div className="flex flex-wrap gap-2">
+                        {!callStarted && canUseRoom && (
+                            <Button onClick={startConsultation} disabled={isStarting} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
+                                {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                                Start Meeting
+                            </Button>
+                        )}
+                        {callStarted && canUseRoom && (
+                            <Button variant="outline" onClick={isMinimized ? handleOpenCall : minimizeCall} className="gap-2">
+                                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                                {isMinimized ? 'Open Call' : 'Minimize'}
+                            </Button>
+                        )}
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsClinicalPanelOpen((isOpen) => !isOpen)}
+                            aria-controls="online-consult-clinical-panel"
+                            aria-expanded={isClinicalPanelOpen}
+                            className="gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70"
+                        >
+                            {isClinicalPanelOpen
+                                ? <PanelRightClose className="size-4" aria-hidden="true" />
+                                : <PanelRightOpen className="size-4" aria-hidden="true" />}
+                            {isClinicalPanelOpen ? 'Hide Clinical Notes' : 'Show Clinical Notes'}
                         </Button>
-                    )}
-                    {callStarted && canUseRoom && (
-                        <Button variant="outline" onClick={isMinimized ? handleOpenCall : minimizeCall} className="gap-2">
-                            {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-                            {isMinimized ? 'Open Call' : 'Minimize'}
-                        </Button>
-                    )}
+                    </div>
                 </div>
-            </div>
 
-            <div className="grid flex-1 overflow-hidden lg:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
-                <section className="flex min-h-[360px] flex-col bg-[#101828]">
+                <div className="flex min-h-0 flex-1 flex-col overflow-auto 2xl:flex-row 2xl:overflow-hidden">
+                    <section className="flex min-h-[520px] min-w-0 flex-1 flex-col bg-[#101828] 2xl:min-h-0">
                     <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
                         <div>
                             <p className="text-sm font-semibold">Jitsi Meeting Room</p>
@@ -343,7 +444,7 @@ export default function VetOnlineConsultDiagnosis() {
                                 <h2 className="text-xl font-bold">{isFinal ? 'Meeting is closed' : 'Meeting has not started'}</h2>
                                 <p className="mt-2 max-w-md text-sm text-white/70">
                                     {isFinal
-                                        ? 'This consultation is no longer active. You can review or update the diagnosis on the right.'
+                                        ? 'This consultation is no longer active. Open Clinical Notes to review or update the diagnosis.'
                                         : 'Start the meeting from this page when you are ready. Public Jitsi may ask the veterinarian to log in as moderator before the room opens.'}
                                 </p>
                                 {canUseRoom && (
@@ -355,106 +456,170 @@ export default function VetOnlineConsultDiagnosis() {
                             </div>
                         )}
                     </div>
-                </section>
-
-                <section className="overflow-y-auto bg-[#f9fafb] p-5">
-                    <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4">
-                        <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    </section>
+                    {isClinicalPanelOpen && (
+                        <aside
+                            id="online-consult-clinical-panel"
+                            className="w-full shrink-0 border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 2xl:h-full 2xl:w-[34rem] 2xl:border-l 2xl:border-t-0"
+                            aria-label="Clinical consultation notes"
+                        >
+                <section className="h-full overflow-y-auto bg-slate-50 p-4 dark:bg-slate-900 sm:p-5" aria-label="Clinical consultation form">
+                    <div className="mx-auto max-w-3xl space-y-5">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pet</p>
-                                <p className="font-semibold text-slate-900">{consultation.petName || 'Not set'}</p>
+                                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600 dark:text-blue-400">Clinical record</p>
+                                <h2 className="mt-1 text-lg font-black text-slate-950 dark:text-white">Document the consultation</h2>
+                                <p className="mt-1 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
+                                    Record the assessment first, then the care plan discussed with the owner.
+                                </p>
                             </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Owner</p>
-                                <p className="font-semibold text-slate-900">{consultation.ownerName || 'Not set'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Booking</p>
-                                <p className="font-semibold text-slate-900">{consultation.bookingNumber || `#${consultation.bookingId}`}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Species</p>
-                                <p className="font-semibold text-slate-900">{consultation.petSpecies || 'Not set'}</p>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                                    <CheckCircle className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                    {lastAutosavedAt ? `Saved ${formatDisplayDateTime(lastAutosavedAt)}` : 'Drafts save automatically'}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsClinicalPanelOpen(false)}
+                                    className="shrink-0 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                    aria-label="Hide clinical notes"
+                                >
+                                    <PanelRightClose className="size-4" aria-hidden="true" />
+                                </Button>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="space-y-4">
-                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                            <Label className="mb-2 block text-sm font-semibold text-slate-900">
-                                Diagnosis *
-                            </Label>
-                            <Textarea
-                                value={diagnosisForm.diagnosis}
-                                onChange={(event) => updateDiagnosisField('diagnosis', event.target.value)}
-                                placeholder="Enter diagnosis based on the online consultation..."
-                                className="min-h-[170px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
-                            />
-                        </div>
+                        <dl className="grid overflow-hidden rounded-xl border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-950 md:grid-cols-2 2xl:grid-cols-1">
+                            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 md:border-r 2xl:border-r-0">
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Pet</dt>
+                                <dd className="mt-1 truncate font-bold text-slate-900 dark:text-slate-100">{consultation.petName || 'Not set'}</dd>
+                            </div>
+                            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Owner</dt>
+                                <dd className="mt-1 truncate font-bold text-slate-900 dark:text-slate-100">{consultation.ownerName || 'Not set'}</dd>
+                            </div>
+                            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 md:border-b-0 md:border-r 2xl:border-b 2xl:border-r-0">
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Booking</dt>
+                                <dd className="mt-1 truncate font-bold text-slate-900 dark:text-slate-100">{consultation.bookingNumber || `#${consultation.bookingId}`}</dd>
+                            </div>
+                            <div className="px-4 py-3">
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Species</dt>
+                                <dd className="mt-1 truncate font-bold text-slate-900 dark:text-slate-100">{consultation.petSpecies || 'Not set'}</dd>
+                            </div>
+                        </dl>
 
-                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                            <Label className="mb-2 block text-sm font-semibold text-slate-900">
-                                Recommendations
-                            </Label>
-                            <Textarea
-                                value={diagnosisForm.recommendations}
-                                onChange={(event) => updateDiagnosisField('recommendations', event.target.value)}
-                                placeholder="Follow-up instructions, monitoring, or care plan..."
-                                className="min-h-[130px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
-                            />
-                        </div>
+                        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950" aria-labelledby="assessment-heading">
+                            <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80 sm:px-5">
+                                <div className="flex items-center gap-2">
+                                    <Stethoscope className="size-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                                    <h3 id="assessment-heading" className="text-sm font-black text-slate-900 dark:text-slate-100">Assessment</h3>
+                                </div>
+                                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Clinical findings and guidance based on the remote consultation.</p>
+                            </div>
+                            <div className="space-y-5 p-4 sm:p-5">
+                                <ClinicalTextareaField
+                                    id="online-consult-diagnosis"
+                                    label="Primary diagnosis"
+                                    helper="State the principal assessment supported by the consultation."
+                                    icon={ClipboardList}
+                                    value={diagnosisForm.diagnosis}
+                                    onChange={(event) => updateDiagnosisField('diagnosis', event.target.value)}
+                                    placeholder="Enter the primary diagnosis or clinical assessment..."
+                                    required
+                                    error={diagnosisError}
+                                    className="min-h-[160px]"
+                                />
+                                <div className="border-t border-slate-100 pt-5 dark:border-slate-800">
+                                    <ClinicalTextareaField
+                                        id="online-consult-recommendations"
+                                        label="Recommendations and follow-up"
+                                        helper="Include monitoring instructions, follow-up timing, tests, or referral advice."
+                                        icon={FileText}
+                                        value={diagnosisForm.recommendations}
+                                        onChange={(event) => updateDiagnosisField('recommendations', event.target.value)}
+                                        placeholder="Document owner instructions and the recommended next steps..."
+                                        className="min-h-[130px]"
+                                    />
+                                </div>
+                            </div>
+                        </section>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                                <Label className="mb-2 block text-sm font-semibold text-slate-900">
-                                    Treatment
-                                </Label>
-                                <Textarea
+                        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950" aria-labelledby="care-plan-heading">
+                            <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80 sm:px-5">
+                                <div className="flex items-center gap-2">
+                                    <Pill className="size-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                                    <h3 id="care-plan-heading" className="text-sm font-black text-slate-900 dark:text-slate-100">Care plan</h3>
+                                </div>
+                                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Keep treatment and medication directions specific and easy to review.</p>
+                            </div>
+                            <div className="grid gap-5 p-4 sm:p-5">
+                                <ClinicalTextareaField
+                                    id="online-consult-treatment"
+                                    label="Treatment plan"
+                                    helper="Document care provided or planned after the consultation."
+                                    icon={Stethoscope}
                                     value={diagnosisForm.treatment}
                                     onChange={(event) => updateDiagnosisField('treatment', event.target.value)}
-                                    placeholder="Treatment plan..."
-                                    className="min-h-[110px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
+                                    placeholder="Describe the treatment plan..."
+                                    className="min-h-[125px]"
                                 />
-                            </div>
-                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                                <Label className="mb-2 block text-sm font-semibold text-slate-900">
-                                    Medications
-                                </Label>
-                                <Textarea
+                                <ClinicalTextareaField
+                                    id="online-consult-medications"
+                                    label="Medication instructions"
+                                    helper="Include medicine, dose, route, frequency, and duration when applicable."
+                                    icon={Pill}
                                     value={diagnosisForm.medications}
                                     onChange={(event) => updateDiagnosisField('medications', event.target.value)}
-                                    placeholder="Medication, dosage, and instructions..."
-                                    className="min-h-[110px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
+                                    placeholder="Example: Medicine, dose, route, frequency, duration..."
+                                    className="min-h-[125px]"
                                 />
                             </div>
-                        </div>
+                        </section>
 
-                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                            <Label className="mb-2 block text-sm font-semibold text-slate-900">
-                                Internal Notes
-                            </Label>
-                            <Textarea
-                                value={diagnosisForm.notes}
-                                onChange={(event) => updateDiagnosisField('notes', event.target.value)}
-                                placeholder="Optional clinic notes..."
-                                className="min-h-[90px] resize-y border-slate-200 bg-white leading-6 focus-visible:ring-[#155dfc]"
-                            />
-                        </div>
-                    </div>
+                        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950" aria-labelledby="internal-notes-heading">
+                            <div className="p-4 sm:p-5">
+                                <ClinicalTextareaField
+                                    id="online-consult-notes"
+                                    label="Internal clinic notes"
+                                    helper="Add operational context for clinic staff. This is separate from owner instructions."
+                                    icon={FileText}
+                                    value={diagnosisForm.notes}
+                                    onChange={(event) => updateDiagnosisField('notes', event.target.value)}
+                                    placeholder="Optional internal notes..."
+                                    className="min-h-[100px]"
+                                />
+                            </div>
+                        </section>
 
-                    <div className="sticky bottom-0 mt-5 flex flex-col gap-3 border-t border-slate-200 bg-[#f9fafb] py-4 sm:flex-row sm:justify-end">
-                        {!isFinal && (
-                            <Button variant="outline" onClick={endWithoutDiagnosis} disabled={isSaving}>
-                                <PhoneOff className="mr-2 h-4 w-4" />
-                                End Call Only
-                            </Button>
-                        )}
-                        <Button onClick={saveDiagnosis} disabled={isSaving} className="bg-[#155dfc] hover:bg-[#0d4acf]">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            {isFinal ? 'Save Diagnosis' : 'Save Diagnosis & Complete'}
-                        </Button>
+                        <div className="sticky bottom-0 z-10 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg shadow-slate-950/5 backdrop-blur dark:border-slate-700 dark:bg-slate-950/95 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Primary diagnosis is required to complete the consultation.
+                            </p>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                {!isFinal && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={endWithoutDiagnosis}
+                                        disabled={isSaving}
+                                        className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                                    >
+                                        <PhoneOff className="mr-2 h-4 w-4" />
+                                        End Call Only
+                                    </Button>
+                                )}
+                                <Button onClick={saveDiagnosis} disabled={isSaving} className="bg-[#155dfc] hover:bg-[#0d4acf]">
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                                    {isFinal ? 'Save Diagnosis' : 'Save Diagnosis & Complete'}
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </section>
+                        </aside>
+                    )}
+                </div>
             </div>
         </div>
     );

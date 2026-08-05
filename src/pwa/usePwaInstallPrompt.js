@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { isPwaActivated } from './pwaConfig';
+import {
+  clearCapturedPwaInstallPrompt,
+  initializePwaInstallPromptCapture,
+  isPwaActivated,
+  subscribePwaInstallPrompt,
+} from './pwaConfig';
 
 function isStandaloneDisplay() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -30,23 +35,17 @@ export function usePwaInstallPrompt() {
       setIsInstalled(isStandaloneDisplay());
     };
 
-    const handleBeforeInstallPrompt = (event) => {
-      event.preventDefault();
-      setInstallPrompt(event);
-    };
-
-    const handleAppInstalled = () => {
-      setInstallPrompt(null);
-      setIsInstalled(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+    initializePwaInstallPromptCapture();
+    const unsubscribe = subscribePwaInstallPrompt(({ prompt, installed }) => {
+      setInstallPrompt(prompt);
+      if (installed) {
+        setIsInstalled(true);
+      }
+    });
     standaloneQuery?.addEventListener?.('change', refreshInstalledState);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      unsubscribe();
       standaloneQuery?.removeEventListener?.('change', refreshInstalledState);
     };
   }, [isEnabled]);
@@ -62,9 +61,7 @@ export function usePwaInstallPrompt() {
       await installPrompt.prompt();
       const choice = await installPrompt.userChoice;
 
-      if (choice?.outcome === 'accepted') {
-        setInstallPrompt(null);
-      }
+      clearCapturedPwaInstallPrompt();
 
       return choice;
     } finally {

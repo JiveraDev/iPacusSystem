@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -23,11 +25,6 @@ if (!is_array($input)) {
     exit;
 }
 
-function updatePetNormalizeRole($role): string
-{
-    return strtolower(str_replace([' ', '-'], '_', trim((string)$role)));
-}
-
 // Map frontend keys to DB columns
 $allowedFields = [
     'petName' => 'pet_name',
@@ -49,11 +46,18 @@ $allowedFields = [
 
 $idColumn = (strpos($petId, 'PET-') === 0) ? "pet_sharable_ID" : "pet_id";
 $hasTempOwnerUpdate = array_key_exists('tempOwner', $input) || array_key_exists('tempOwnerName', $input);
+$hasAllergyUpdate = array_key_exists('allergies', $input);
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+if ($currentApiRole !== 'pet_owner' && !ipawcus_guard_is_clinic_role($currentApiRole)) {
+    ipawcus_guard_error(403, 'You are not allowed to update pet records.');
+}
 
 try {
     if ($hasTempOwnerUpdate) {
-        $role = updatePetNormalizeRole($_SERVER['HTTP_X_USER_ROLE'] ?? ($input['role'] ?? ''));
-        if (!in_array($role, ['admin', 'super_admin', 'superadmin'], true)) {
+        if (!ipawcus_guard_is_admin_role($currentApiRole)) {
             http_response_code(403);
             echo json_encode(['message' => 'Only Admin or Super Admin can update a temporary owner name.']);
             exit;
@@ -119,12 +123,45 @@ if (empty($setParts)) {
 $params[] = $petId;
 
 try {
+    $pdo->beginTransaction();
+
+    $petLookup = $pdo->prepare("SELECT pet_id FROM pets_information WHERE $idColumn = ? LIMIT 1 FOR UPDATE");
+    $petLookup->execute([$petId]);
+    $resolvedPetId = (int)($petLookup->fetchColumn() ?: 0);
+    if ($resolvedPetId <= 0) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode(['message' => 'Pet not found.']);
+        exit;
+    }
+
+    if (
+        $currentApiRole === 'pet_owner'
+        && !ipawcus_guard_pet_access($pdo, $resolvedPetId, $currentApiUserId)
+    ) {
+        ipawcus_guard_error(403, 'You are not allowed to update this pet record.');
+    }
+
     $sql = "UPDATE pets_information SET " . implode(', ', $setParts) . " WHERE $idColumn = ?";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
+    if ($hasAllergyUpdate) {
+        pet_allergy_merge_from_legacy(
+            $pdo,
+            $resolvedPetId,
+            $input['allergies'] ?? null,
+            $currentApiUserId,
+            'profile_edit'
+        );
+    }
+
+    $pdo->commit();
     echo json_encode(['message' => 'Pet updated successfully.', 'success' => true]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['message' => 'Failed to update pet: ' . $e->getMessage()]);
 }

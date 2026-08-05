@@ -6,6 +6,7 @@ require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -52,6 +53,7 @@ try {
             b.user_id,
             b.pet_id,
             b.booking_number,
+            b.branch_id,
             b.service_type,
             b.booking_date,
             b.booking_time,
@@ -79,6 +81,10 @@ try {
     if ($booking['status'] !== 'confirmed') {
         http_response_code(409);
         throw new RuntimeException('Only confirmed bookings can be received.');
+    }
+
+    if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, (int)$booking['branch_id'])) {
+        ipawcus_guard_error(403, 'This confirmed booking belongs to another branch.');
     }
 
     if ((int)($booking['pet_id'] ?? 0) <= 0) {
@@ -191,15 +197,17 @@ try {
     }
 
     if (!$queue) {
-        $maxStmt = $pdo->query("
+        $maxStmt = $pdo->prepare("
             SELECT queue_number
             FROM queues
-            WHERE timestamp >= CURDATE()
+            WHERE branch_id = ?
+              AND timestamp >= CURDATE()
               AND timestamp < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
             ORDER BY queue_number DESC
             LIMIT 1
             FOR UPDATE
         ");
+        $maxStmt->execute([(int)$booking['branch_id']]);
         $newQueueNumber = ((int)($maxStmt->fetch(PDO::FETCH_ASSOC)['queue_number'] ?? 0)) + 1;
         $insertColumns = ['pet_id', 'user_id', 'service_name', 'queue_number', 'status', 'priority', 'complaint', 'timestamp'];
         $insertValues = [
@@ -212,6 +220,13 @@ try {
             $cleanComplaint
         ];
         $placeholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
+
+        $insertColumns[] = 'branch_id';
+        $insertValues[] = (int)$booking['branch_id'];
+        $placeholders[] = '?';
+        $insertColumns[] = 'queue_date';
+        $insertValues[] = $todayDate;
+        $placeholders[] = '?';
 
         if ($hasQueueSourceColumn) {
             $insertColumns[] = 'queue_source';
@@ -242,8 +257,8 @@ try {
         $queueStmt->execute([(int)$pdo->lastInsertId()]);
         $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($queue['status'] !== 'in-progress') {
-        $updateQueue = $pdo->prepare("UPDATE queues SET status = 'in-progress', timestamp = NOW() WHERE queue_id = ?");
-        $updateQueue->execute([(int)$queue['queue_id']]);
+        $updateQueue = $pdo->prepare("UPDATE queues SET branch_id = ?, queue_date = CURDATE(), status = 'in-progress', timestamp = NOW() WHERE queue_id = ?");
+        $updateQueue->execute([(int)$booking['branch_id'], (int)$queue['queue_id']]);
         $queue['status'] = 'in-progress';
         $queue['timestamp'] = date('Y-m-d H:i:s');
     }

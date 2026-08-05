@@ -4,6 +4,7 @@ require_once __DIR__ . '/queue_assignment_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -39,7 +40,7 @@ try {
 
     $pdo->beginTransaction();
 
-    $queueStmt = $pdo->prepare("SELECT queue_id, status FROM queues WHERE queue_id = ? FOR UPDATE");
+    $queueStmt = $pdo->prepare("SELECT queue_id, branch_id, status FROM queues WHERE queue_id = ? FOR UPDATE");
     $queueStmt->execute([$queueId]);
     $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -47,6 +48,14 @@ try {
         $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
+
+
+    if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, (int)($queue['branch_id'] ?? 0))) {
+        $pdo->rollBack();
+        http_response_code(403);
+        echo json_encode(['error' => 'This queue belongs to another branch.']);
         exit;
     }
 

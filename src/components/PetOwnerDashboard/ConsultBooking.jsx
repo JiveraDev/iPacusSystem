@@ -6,6 +6,7 @@ import { Label } from "../../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
+import { PhotoViewer } from "../../ui/photo-viewer";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, CalendarPlus, Image as ImageIcon, PawPrint, Plus, Upload, X } from "lucide-react";
 import { addDays, format } from "../../lib/date";
@@ -16,9 +17,10 @@ import { fetchUserBookings } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchVetSchedules } from "../../services/vetScheduleService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 
 const TIME_SLOT_ORDER = [
-  "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
   "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
   "04:00 PM", "05:00 PM", "06:00 PM"
 ];
@@ -132,6 +134,7 @@ export default function ConsultBooking() {
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedVet, setSelectedVet] = useState("");
   const [concernImages, setConcernImages] = useState([]);
+  const [viewingImage, setViewingImage] = useState(null);
   const [existingConsultBookings, setExistingConsultBookings] = useState([]);
 
   // New Pet Information (for anonymous booking)
@@ -298,12 +301,21 @@ export default function ConsultBooking() {
     if (files.length === 0) return;
 
     files.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`${file.name} is not a supported image.`);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
-        if (loadEvent.target?.result) {
+        if (String(loadEvent.target?.result || "").startsWith("data:image")) {
           setConcernImages((prev) => [...prev, loadEvent.target.result]);
+        } else {
+          toast.error(`${file.name} could not be prepared for preview.`);
         }
       };
+      reader.onerror = () => toast.error(`${file.name} could not be read. Please choose another image.`);
+      reader.onabort = () => toast.error(`${file.name} preview was cancelled.`);
       reader.readAsDataURL(file);
     });
 
@@ -738,11 +750,15 @@ export default function ConsultBooking() {
                 <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-4">
                   {concernImages.map((image, index) => (
                     <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img src={image} alt={`Concern ${index + 1}`} className="size-full object-cover" />
+                      <UploadImagePreview
+                        src={image}
+                        alt={`Concern ${index + 1}`}
+                        onPreview={setViewingImage}
+                      />
                       <button
                         type="button"
                         onClick={() => handleRemoveConcernImage(index)}
-                        className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
+                        className="absolute right-1 top-1 z-20 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
                         aria-label="Remove concern photo"
                       >
                         <X className="size-3.5" />
@@ -779,6 +795,12 @@ export default function ConsultBooking() {
           </form>
         </CardContent>
       </Card>
+      <PhotoViewer
+        open={Boolean(viewingImage)}
+        src={viewingImage || ""}
+        alt="Booking concern preview"
+        onOpenChange={(open) => !open && setViewingImage(null)}
+      />
     </div>
   );
 }

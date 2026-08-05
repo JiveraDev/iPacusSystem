@@ -16,6 +16,7 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import BranchBookingSelect from "../shared/BranchBookingSelect";
 
 export default function Vaccination() {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export default function Vaccination() {
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
+    branchId: "",
     date: "",
     time: "",
     notes: "",
@@ -119,6 +121,7 @@ export default function Vaccination() {
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
         service_type: 'vaccination',
+        branch_id: Number(formData.branchId),
         booking_date: formData.date,
         booking_time: formData.time,
         notes: formData.notes,
@@ -294,6 +297,13 @@ export default function Vaccination() {
                   </div>
                 </div>
               )}
+
+              <BranchBookingSelect
+                service="vaccination"
+                date={formData.date}
+                value={formData.branchId}
+                onChange={(branchId) => setFormData((current) => ({ ...current, branchId }))}
+              />
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

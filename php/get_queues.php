@@ -5,6 +5,9 @@ require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -23,6 +26,19 @@ function queue_table_exists(PDO $pdo, string $tableName): bool
 
 try {
     autoCancelStaleQueues($pdo);
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $scopeWhere = '';
+    $scopeParams = [];
+    if ($currentApiRole === 'admin') {
+        $branchIds = branch_user_ids($pdo, ipawcus_guard_user_id($currentApiUser));
+        if (!$branchIds) {
+            $scopeWhere = ' AND 1 = 0';
+        } else {
+            $scopeWhere = ' AND q.branch_id IN (' . implode(',', array_fill(0, count($branchIds), '?')) . ')';
+            $scopeParams = $branchIds;
+        }
+    }
 
     $columnsStmt = $pdo->query("SHOW COLUMNS FROM queues");
     $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
@@ -101,11 +117,15 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             q.*, 
+            branch.branch_code,
+            branch.branch_name,
+            branch.address AS branch_address,
             {$relatedBookingIdSelect} AS booking_id,
             bq.booking_number AS related_booking_number,
             bq.notes AS booking_notes,
             bq.Image_Booking_Concern_Path AS booking_concern_paths,
             bq.signature_path AS booking_signature_path,
+            bq.consent_forms AS booking_consent_forms,
             bq.booking_date AS related_booking_date,
             bq.booking_time AS related_booking_time,
             p.pet_name, 
@@ -177,20 +197,52 @@ try {
         FROM queues q
         JOIN pets_information p ON q.pet_id = p.pet_id
         LEFT JOIN users u ON q.user_id = u.user_id
+        LEFT JOIN branches branch ON branch.branch_id = q.branch_id
         {$bookingJoin}
         {$assignmentJoin}
         {$consentRecordJoin}
+        WHERE 1 = 1 {$scopeWhere}
         ORDER BY q.timestamp DESC
     ");
-    $stmt->execute();
+    $stmt->execute($scopeParams);
     $queues = $stmt->fetchAll();
+    $consentRecordsByQueue = consent_record_fetch_queue_records(
+        $pdo,
+        array_column($queues, 'queue_id')
+    );
 
     foreach ($queues as &$queue) {
         $queue['queue_reference'] = ipawcus_format_queue_reference($queue['queue_number'] ?? 0, $queue['timestamp'] ?? null);
         $queue['complaint'] = cleanBookingQueueComplaint($queue['complaint'] ?? '');
+        $queue['pet_allergies'] = pet_allergy_effective_text(
+            $pdo,
+            (int)($queue['pet_id'] ?? 0),
+            $queue['pet_allergies'] ?? null
+        );
 
         if (array_key_exists('booking_notes', $queue)) {
             $queue['booking_notes'] = bookingCleanVisibleNotes($queue['booking_notes'] ?? '');
+        }
+
+        $bookingConsentForms = consent_record_forms_for_response($queue['booking_consent_forms'] ?? null);
+        $storedBookingSignaturePath = consent_record_nullable_text($queue['booking_signature_path'] ?? null);
+        $signedBookingConsentPath = consent_record_first_signed_document_path($bookingConsentForms);
+        $legacyBookingSignaturePath = consent_record_first_legacy_signature_path($bookingConsentForms);
+        if (
+            $legacyBookingSignaturePath === null
+            && $storedBookingSignaturePath !== null
+            && $storedBookingSignaturePath !== $signedBookingConsentPath
+        ) {
+            $legacyBookingSignaturePath = $storedBookingSignaturePath;
+        }
+        $queue['booking_consent_forms'] = $bookingConsentForms;
+        $queue['booking_signature_path'] = $signedBookingConsentPath;
+        $queue['booking_legacy_consent_signature_path'] = $legacyBookingSignaturePath;
+
+        $queueConsentRecords = $consentRecordsByQueue[(int)($queue['queue_id'] ?? 0)] ?? [];
+        $queue['consent_records'] = $queueConsentRecords;
+        foreach (consent_record_queue_compatibility_fields($queueConsentRecords) as $field => $value) {
+            $queue[$field] = $value;
         }
     }
     unset($queue);

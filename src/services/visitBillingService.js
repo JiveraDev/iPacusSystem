@@ -1,7 +1,12 @@
 import { apiRequest, postJson } from './apiClient';
 
-export function fetchVisits() {
-    return apiRequest('/visits');
+export function fetchVisits(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') query.set(key, value);
+    });
+    const suffix = query.toString();
+    return apiRequest(`/visits${suffix ? `?${suffix}` : ''}`);
 }
 
 export function createVisit(payload) {

@@ -174,6 +174,7 @@ function reports_filters(array $payload): array
         'inventory_category',
         'stock_status',
         'consent_status',
+        'branch_id',
     ];
 
     foreach ($flatKeys as $key) {
@@ -185,6 +186,15 @@ function reports_filters(array $payload): array
     return array_filter($filters, static function ($value) {
         return $value !== null && trim((string)$value) !== '' && $value !== 'all';
     });
+}
+
+function reports_append_branch_filter(array &$where, array &$params, array $filters, string $column): void
+{
+    $branchId = (int)($filters['branch_id'] ?? 0);
+    if ($branchId > 0) {
+        $where[] = "{$column} = ?";
+        $params[] = $branchId;
+    }
 }
 
 function reports_table_exists(PDO $pdo, string $tableName): bool
@@ -815,6 +825,7 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         )";
         $params[] = $filters['payment_method'];
     }
+    reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $sql = "
         SELECT
@@ -874,6 +885,15 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
 
     $rows = reports_fetch_all($pdo, $sql, $params, $missing, 'Financial visit data could not be loaded.');
     foreach ($rows as &$row) {
+        $sourceLabels = [
+            'booking' => 'Booked clinic visit',
+            'queue' => 'Queue clinic visit',
+            'boarding' => 'Boarding service',
+            'online_consultation' => 'Online consultation',
+            'online-consultation' => 'Online consultation',
+        ];
+        $sourceType = strtolower(trim((string)($row['source_type'] ?? '')));
+        $row['source_label'] = $sourceLabels[$sourceType] ?? 'Clinic visit';
         $row['total_bill'] = reports_money($row['total_bill']);
         $row['service_sales'] = reports_money($row['service_sales']);
         $row['product_sales'] = reports_money($row['product_sales']);
@@ -900,10 +920,12 @@ function reports_record_update_payment_rows(PDO $pdo, array $range, array $filte
         $where[] = 'r.payment_method = ?';
         $params[] = $filters['payment_method'];
     }
+    reports_append_branch_filter($where, $params, $filters, 'r.branch_id');
 
     $sql = "
         SELECT
             CONCAT('record-update-', r.request_id) AS visit_id,
+            'Record update service' AS source_label,
             DATE(COALESCE(r.reviewed_at, r.updated_at, r.created_at)) AS visit_date,
             COALESCE(r.reviewed_at, r.updated_at, r.created_at) AS created_at,
             'record_update' AS source_type,
@@ -1053,7 +1075,7 @@ function reports_billing_report(PDO $pdo, array $range, array $filters): array
         'type' => 'billing',
         'title' => 'Billing Report',
         'columns' => [
-            ['key' => 'visit_id', 'label' => 'Visit ID'],
+            ['key' => 'source_label', 'label' => 'Billing Source'],
             ['key' => 'visit_date', 'label' => 'Visit Date'],
             ['key' => 'owner_name', 'label' => 'Client'],
             ['key' => 'pet_name', 'label' => 'Pet'],
@@ -1089,6 +1111,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
         $where[] = 'vp.payment_method = ?';
         $params[] = $filters['payment_method'];
     }
+    reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1152,6 +1175,10 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
         return reports_blank_report('service_utilization', $missing);
     }
 
+    $branchId = (int)($filters['branch_id'] ?? 0);
+    $branchChargeCondition = $branchId > 0
+        ? " AND EXISTS (SELECT 1 FROM visits branch_visit WHERE branch_visit.visit_id = vc.visit_id AND branch_visit.branch_id = {$branchId})"
+        : '';
     if (reports_table_exists($pdo, 'service_catalog')) {
         $catalogWhere = ['sc.is_active = 1'];
         $manualWhere = ["vc.created_at BETWEEN ? AND ?", "vc.charge_type IN ('service', 'diagnostic', 'boarding', 'other')", 'vc.service_id IS NULL'];
@@ -1181,6 +1208,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                 LEFT JOIN visit_charges vc ON vc.service_id = sc.service_id
                     AND vc.created_at BETWEEN ? AND ?
                     AND vc.charge_type IN ('service', 'diagnostic', 'boarding', 'other')
+                    {$branchChargeCondition}
                 WHERE " . implode(' AND ', $catalogWhere) . "
                 GROUP BY sc.service_id, sc.service_name, sc.service_type
                 UNION ALL
@@ -1191,7 +1219,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                     COALESCE(SUM(vc.quantity), 0) AS total_quantity,
                     COALESCE(SUM(vc.subtotal), 0) AS total_revenue
                 FROM visit_charges vc
-                WHERE " . implode(' AND ', $manualWhere) . "
+                WHERE " . implode(' AND ', $manualWhere) . " {$branchChargeCondition}
                 GROUP BY vc.description, vc.charge_type
             ) service_usage
             ORDER BY usage_count DESC, total_revenue DESC, service_name ASC
@@ -1212,7 +1240,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                 SUM(vc.quantity) AS total_quantity,
                 SUM(vc.subtotal) AS total_revenue
             FROM visit_charges vc
-            WHERE " . implode(' AND ', $where) . "
+            WHERE " . implode(' AND ', $where) . " {$branchChargeCondition}
             GROUP BY vc.description, vc.charge_type
             ORDER BY usage_count DESC, total_revenue DESC
         ", $params, $missing, 'Service utilization data could not be loaded.');
@@ -1274,6 +1302,7 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
         $where[] = "CASE WHEN b.is_online_consultation = 1 THEN 'online-consultation' ELSE b.service_type END = ?";
         $params[] = $filters['service_type'];
     }
+    reports_append_branch_filter($where, $params, $filters, 'b.branch_id');
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1374,6 +1403,7 @@ function reports_queue_report(PDO $pdo, array $range, array $filters): array
         $where[] = 'q.status = ?';
         $params[] = $filters['queue_status'];
     }
+    reports_append_branch_filter($where, $params, $filters, 'q.branch_id');
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1456,6 +1486,10 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
             $where[] = 'vd.veterinarian_user_id = ?';
             $params[] = (int)$vetFilter;
         }
+        if ((int)($filters['branch_id'] ?? 0) > 0) {
+            $where[] = 'COALESCE(face_booking.branch_id, face_queue.branch_id) = ?';
+            $params[] = (int)$filters['branch_id'];
+        }
         $faceRows = reports_fetch_all($pdo, "
             SELECT
                 'Face-to-face' AS consultation_type,
@@ -1470,6 +1504,8 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
                 vd.notes
             FROM vet_diagnoses vd
             JOIN pets_information p ON p.pet_id = vd.pet_id
+            LEFT JOIN bookings face_booking ON face_booking.booking_id = vd.booking_id
+            LEFT JOIN queues face_queue ON face_queue.queue_id = vd.queue_id
             WHERE " . implode(' AND ', $where) . "
         ", $params, $missing, 'Face-to-face consultation data could not be loaded.');
         $rows = array_merge($rows, $faceRows);
@@ -1482,6 +1518,7 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
             $where[] = 'ocd.veterinarian_user_id = ?';
             $params[] = (int)$vetFilter;
         }
+        reports_append_branch_filter($where, $params, $filters, 'b.branch_id');
         $onlineRows = reports_fetch_all($pdo, "
             SELECT
                 'Online' AS consultation_type,
@@ -1551,6 +1588,10 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
         $where[] = 'vd.veterinarian_user_id = ?';
         $params[] = (int)$filters['veterinarian'];
     }
+    if ((int)($filters['branch_id'] ?? 0) > 0) {
+        $where[] = 'COALESCE(follow_booking.branch_id, follow_queue.branch_id) = ?';
+        $params[] = (int)$filters['branch_id'];
+    }
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1567,6 +1608,8 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
             END AS reminder_status
         FROM vet_diagnoses vd
         JOIN pets_information p ON p.pet_id = vd.pet_id
+        LEFT JOIN bookings follow_booking ON follow_booking.booking_id = vd.booking_id
+        LEFT JOIN queues follow_queue ON follow_queue.queue_id = vd.queue_id
         WHERE " . implode(' AND ', $where) . "
         ORDER BY vd.follow_up_date ASC
     ", array_merge([$today, $today], $params), $missing, 'Follow-up data could not be loaded.');
@@ -1612,6 +1655,7 @@ function reports_emr_request_report(PDO $pdo, array $range, array $filters): arr
 
     $where = ['r.created_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
+    reports_append_branch_filter($where, $params, $filters, 'r.branch_id');
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1670,6 +1714,10 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
     }
 
     $hasBatches = reports_table_exists($pdo, 'inventory_batches');
+    $branchId = (int)($filters['branch_id'] ?? 0);
+    $batchBranchWhere = $branchId > 0
+        ? "WHERE location_id IN (SELECT location_id FROM inventory_locations WHERE branch_id = {$branchId})"
+        : '';
     $stockJoin = $hasBatches
         ? "LEFT JOIN (
               SELECT
@@ -1677,6 +1725,7 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
                   SUM(quantity) AS total_stock,
                   MIN(CASE WHEN quantity > 0 THEN expiry_date ELSE NULL END) AS nearest_expiry
               FROM inventory_batches
+              {$batchBranchWhere}
               GROUP BY item_id
           ) stock ON stock.item_id = ii.item_id"
         : '';
@@ -1780,6 +1829,10 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
         $where[] = 'ii.category = ?';
         $params[] = $filters['inventory_category'];
     }
+    if ((int)($filters['branch_id'] ?? 0) > 0) {
+        $where[] = 'm.location_id IN (SELECT location_id FROM inventory_locations WHERE branch_id = ?)';
+        $params[] = (int)$filters['branch_id'];
+    }
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1849,10 +1902,15 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
     }
 
     $itemJoin = reports_table_exists($pdo, 'inventory_items') ? 'LEFT JOIN inventory_items ii ON ii.item_id = vc.item_id' : '';
+    $branchId = (int)($filters['branch_id'] ?? 0);
+    $batchBranchWhere = $branchId > 0
+        ? "WHERE location_id IN (SELECT location_id FROM inventory_locations WHERE branch_id = {$branchId})"
+        : '';
     $batchJoin = reports_table_exists($pdo, 'inventory_batches')
         ? "LEFT JOIN (
               SELECT item_id, SUM(quantity) AS remaining_stock
               FROM inventory_batches
+              {$batchBranchWhere}
               GROUP BY item_id
           ) stock ON stock.item_id = vc.item_id"
         : '';
@@ -1865,6 +1923,11 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         $where[] = 'ii.category = ?';
         $params[] = $filters['inventory_category'];
     }
+    $visitJoin = $branchId > 0 ? 'JOIN visits report_visit ON report_visit.visit_id = vc.visit_id' : '';
+    if ($branchId > 0) {
+        $where[] = 'report_visit.branch_id = ?';
+        $params[] = $branchId;
+    }
 
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1874,6 +1937,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
             SUM(vc.subtotal) AS total_sales,
             {$stock} AS remaining_stock
         FROM visit_charges vc
+        {$visitJoin}
         {$itemJoin}
         {$batchJoin}
         WHERE " . implode(' AND ', $where) . "
@@ -1937,6 +2001,13 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
         ? "DATEDIFF(COALESCE(DATE(ba.actual_check_out_at), b.check_out_date, b.check_in_date), COALESCE(DATE(ba.actual_check_in_at), b.check_in_date)) + 1"
         : "DATEDIFF(COALESCE(b.check_out_date, b.check_in_date, b.booking_date), COALESCE(b.check_in_date, b.booking_date)) + 1";
 
+    $boardingWhere = [
+        "b.service_type = 'boarding'",
+        'COALESCE(b.check_in_date, b.booking_date) <= ?',
+        'COALESCE(b.check_out_date, b.check_in_date, b.booking_date) >= ?',
+    ];
+    $boardingParams = [$range['end_date'], $range['start_date']];
+    reports_append_branch_filter($boardingWhere, $boardingParams, $filters, 'b.branch_id');
     $rows = reports_fetch_all($pdo, "
         SELECT
             b.booking_number,
@@ -1949,11 +2020,9 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
         FROM bookings b
         {$petJoin}
         {$assignmentJoin}
-        WHERE b.service_type = 'boarding'
-          AND COALESCE(b.check_in_date, b.booking_date) <= ?
-          AND COALESCE(b.check_out_date, b.check_in_date, b.booking_date) >= ?
+        WHERE " . implode(' AND ', $boardingWhere) . "
         ORDER BY COALESCE(b.check_in_date, b.booking_date) DESC
-    ", [$range['end_date'], $range['start_date']], $missing, 'Confinement and pet hotel data could not be loaded.');
+    ", $boardingParams, $missing, 'Confinement and pet hotel data could not be loaded.');
 
     foreach ($rows as &$row) {
         $row['duration_days'] = max(1, reports_int($row['duration_days']));
@@ -2298,12 +2367,17 @@ function reports_categorized_pet_cases_report(PDO $pdo, array $range, array $fil
     }
 
     $bookingJoin = reports_table_exists($pdo, 'bookings') ? 'LEFT JOIN bookings b ON b.booking_id = vd.booking_id' : '';
+    $queueJoin = reports_table_exists($pdo, 'queues') ? 'LEFT JOIN queues case_queue ON case_queue.queue_id = vd.queue_id' : '';
     $bookingService = reports_table_exists($pdo, 'bookings') ? "COALESCE(vd.service_name, b.service_type, 'Uncategorized')" : "COALESCE(vd.service_name, 'Uncategorized')";
     $where = ['COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
     if (!empty($filters['pet_type'])) {
         $where[] = 'p.pet_species = ?';
         $params[] = $filters['pet_type'];
+    }
+    if ((int)($filters['branch_id'] ?? 0) > 0 && reports_table_exists($pdo, 'bookings') && reports_table_exists($pdo, 'queues')) {
+        $where[] = 'COALESCE(b.branch_id, case_queue.branch_id) = ?';
+        $params[] = (int)$filters['branch_id'];
     }
 
     $rows = reports_fetch_all($pdo, "
@@ -2316,6 +2390,7 @@ function reports_categorized_pet_cases_report(PDO $pdo, array $range, array $fil
         FROM vet_diagnoses vd
         JOIN pets_information p ON p.pet_id = vd.pet_id
         {$bookingJoin}
+        {$queueJoin}
         WHERE " . implode(' AND ', $where) . "
         GROUP BY {$bookingService}, p.pet_species
         ORDER BY visit_frequency DESC
@@ -2354,6 +2429,13 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
 {
     $missing = [];
     $activity = [];
+    $branchId = (int)($filters['branch_id'] ?? 0);
+    $diagnosisBranchJoin = $branchId > 0
+        ? 'LEFT JOIN bookings activity_booking ON activity_booking.booking_id = vd.booking_id LEFT JOIN queues activity_queue ON activity_queue.queue_id = vd.queue_id'
+        : '';
+    $diagnosisBranchWhere = $branchId > 0
+        ? " AND COALESCE(activity_booking.branch_id, activity_queue.branch_id) = {$branchId}"
+        : '';
 
     if (reports_has_tables($pdo, ['vet_diagnoses'], $missing)) {
         $rows = reports_fetch_all($pdo, "
@@ -2362,7 +2444,9 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
                 COALESCE(vd.veterinarian_name, 'Unassigned') AS veterinarian_name,
                 COUNT(*) AS completed_cases
             FROM vet_diagnoses vd
+            {$diagnosisBranchJoin}
             WHERE COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?
+            {$diagnosisBranchWhere}
             GROUP BY vd.veterinarian_user_id, vd.veterinarian_name
         ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Veterinarian diagnosis activity could not be loaded.');
 
@@ -2379,14 +2463,20 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
     }
 
     if (reports_has_tables($pdo, ['online_consultation_diagnoses', 'users'], $missing)) {
+        $onlineBranchJoin = $branchId > 0
+            ? 'JOIN bookings activity_online_booking ON activity_online_booking.booking_id = ocd.booking_id'
+            : '';
+        $onlineBranchWhere = $branchId > 0 ? " AND activity_online_booking.branch_id = {$branchId}" : '';
         $rows = reports_fetch_all($pdo, "
             SELECT
                 ocd.veterinarian_user_id,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_Name, ''), ' ', COALESCE(u.last_Name, ''))), ''), u.mail_Address, 'Unassigned') AS veterinarian_name,
                 COUNT(*) AS online_count
             FROM online_consultation_diagnoses ocd
+            {$onlineBranchJoin}
             LEFT JOIN users u ON u.user_id = ocd.veterinarian_user_id
             WHERE COALESCE(ocd.finalized_at, ocd.created_at) BETWEEN ? AND ?
+            {$onlineBranchWhere}
             GROUP BY ocd.veterinarian_user_id, u.first_Name, u.last_Name, u.mail_Address
         ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Online consultation activity could not be loaded.');
 
@@ -2412,9 +2502,11 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
                 veterinarian_user_id,
                 COALESCE(veterinarian_name, 'Unassigned') AS veterinarian_name,
                 COUNT(*) AS follow_up_count
-            FROM vet_diagnoses
-            WHERE follow_up_date BETWEEN ? AND ?
-            GROUP BY veterinarian_user_id, veterinarian_name
+            FROM vet_diagnoses vd
+            {$diagnosisBranchJoin}
+            WHERE vd.follow_up_date BETWEEN ? AND ?
+            {$diagnosisBranchWhere}
+            GROUP BY vd.veterinarian_user_id, vd.veterinarian_name
         ", [$range['start_date'], $range['end_date']], $missing, 'Follow-up activity could not be loaded.');
 
         foreach ($rows as $row) {
@@ -2658,6 +2750,14 @@ function reports_filter_summary(array $filters): array
     $labels = [];
     foreach ($filters as $key => $value) {
         if ($value === null || $value === '' || $value === 'all') {
+            continue;
+        }
+
+        if ($key === 'branch_id' && !empty($filters['branch_name'])) {
+            continue;
+        }
+
+        if ($key === 'veterinarian' && !empty($filters['veterinarian_name'])) {
             continue;
         }
 

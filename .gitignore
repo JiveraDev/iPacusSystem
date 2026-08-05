@@ -25,6 +25,8 @@ GEMINI.md
 *.sln
 *.sw?
 .env
+/Jitsi/.jitsi-meet-cfg/
+/Jitsi/.jitsi-meet-cfg-stable-*/
     #*.sql
 
 

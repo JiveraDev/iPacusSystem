@@ -42,6 +42,7 @@ import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
 import ProtectedImage from "./shared/ProtectedImage.jsx";
 import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
+import { clearSessionFormDraftsForUser, useSessionFormPersistence } from "../hooks/useSessionFormPersistence.js";
 
 // Lazy load screens
 const HomeScreen = lazy(() => import("./PetOwnerDashboard/Home.jsx"));
@@ -604,6 +605,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
   const routeMatch = getRouteMatch(currentPath);
   const activeTab = getActiveTab(currentPath);
 
+  useSessionFormPersistence({ user, path: currentPath });
+
   const userRole = getUserValue(user, ["role"]);
 
   // Filter nav items based on roles if specified
@@ -665,6 +668,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
 
   const confirmLogout = () => {
     setIsLogoutDialogOpen(false);
+    clearSessionFormDraftsForUser(user);
     toast.success("Logged out successfully.");
     onLogout?.();
   };

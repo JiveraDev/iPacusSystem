@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Ban, CheckCircle, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, Search, ShieldAlert, Trash2 } from 'lucide-react';
+import { Ban, CheckCircle, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, Search, ShieldAlert, Trash2, X } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -9,8 +9,8 @@ import { Textarea } from '../../ui/textarea';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { fetchPetOwnerAccounts, removePetOwnerOwnership, updatePetOwnerStatus } from '../../services/accountService';
-import { resolveImageUrl } from '../../lib/image';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 function ownerName(owner) {
     return `${owner.first_Name || ''} ${owner.last_Name || ''}`.trim() || owner.mail_Address || 'Pet Owner';
@@ -30,7 +30,7 @@ function ownerInitials(owner) {
 }
 
 function ownerProfileImage(owner) {
-    return resolveImageUrl(owner?.setProfilePic_url || owner?.profileImage || owner?.profile_image || owner?.setProfilePicUrl);
+    return owner?.setProfilePic_url || owner?.profileImage || owner?.profile_image || owner?.setProfilePicUrl || '';
 }
 
 function cleanValue(value, fallback = 'N/A') {
@@ -97,11 +97,12 @@ function OwnerAvatar({ owner, className }) {
 
     if (image) {
         return (
-            <img
+            <ProtectedImage
                 src={image}
-                alt=""
+                alt={`${ownerName(owner)} profile`}
                 className={className}
-                onError={() => setFailed(true)}
+                fallbackClassName={className}
+                onLoadError={() => setFailed(true)}
             />
         );
     }
@@ -115,15 +116,16 @@ function OwnerAvatar({ owner, className }) {
 
 function PetAvatar({ pet, className }) {
     const [failed, setFailed] = useState(false);
-    const image = failed ? null : resolveImageUrl(pet?.setpetImage_url);
+    const image = failed ? null : pet?.setpetImage_url;
 
     if (image) {
         return (
-            <img
+            <ProtectedImage
                 src={image}
-                alt=""
+                alt={`${pet?.pet_name || 'Pet'} profile`}
                 className={className}
-                onError={() => setFailed(true)}
+                fallbackClassName={className}
+                onLoadError={() => setFailed(true)}
             />
         );
     }
@@ -402,7 +404,7 @@ export default function PetOwnerAccountsManagement() {
                                                 <OwnerAvatar owner={owner} className="size-10 shrink-0 rounded-xl object-cover text-sm" />
                                                 <div className="min-w-0">
                                                     <p className="truncate font-black text-slate-950">{ownerName(owner)}</p>
-                                                    <p className="truncate text-xs font-semibold text-slate-500">Owner ID #{owner.user_id}</p>
+                                                    <p className="truncate text-xs font-semibold text-slate-500">{owner.mail_Address || 'Pet owner account'}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -449,17 +451,25 @@ export default function PetOwnerAccountsManagement() {
             )}
 
             <Dialog open={Boolean(selectedOwner)} onOpenChange={(open) => !open && setSelectedOwner(null)}>
-                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogContent showClose={false} className="max-w-5xl max-h-[90vh] overflow-y-auto">
                     {selectedOwner ? (
                         <>
                             <DialogHeader className="text-left">
-                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 dark:border-slate-700 dark:bg-none dark:bg-slate-900">
+                                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#ffffff_44%,#f0fdf4_100%)] p-5 pr-16 dark:border-slate-700 dark:bg-none dark:bg-slate-900">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedOwner(null)}
+                                        aria-label="Close pet owner profile"
+                                        className="absolute right-3 top-3 z-10 inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                    >
+                                        <X className="size-4" />
+                                    </button>
                                     <div className="flex flex-col gap-5 md:flex-row md:items-start">
                                         <OwnerAvatar owner={selectedOwner} className="size-24 shrink-0 rounded-2xl object-cover text-2xl shadow-sm" />
                                         <div className="min-w-0 flex-1">
                                             <div className="mb-2 flex flex-wrap items-center gap-2">
                                                 <StatusBadge owner={selectedOwner} />
-                                                <Badge className="border-0 bg-blue-50 text-[#155dfc]">Owner ID #{selectedOwner.user_id}</Badge>
+                                                <Badge className="border-0 bg-blue-50 text-[#155dfc]">Pet Owner Account</Badge>
                                             </div>
                                             <DialogTitle className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">{ownerName(selectedOwner)}</DialogTitle>
                                             <DialogDescription className="mt-1 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
@@ -541,9 +551,11 @@ export default function PetOwnerAccountsManagement() {
                                                     <p className="mt-1 truncate text-sm font-semibold text-slate-500">
                                                         {cleanValue(pet.pet_species)} / {cleanValue(pet.pet_breed)}
                                                     </p>
-                                                    <p className="mt-1 text-xs font-bold text-slate-400">
-                                                        Pet ID #{pet.pet_id}{pet.pet_sharable_ID ? ` / ${pet.pet_sharable_ID}` : ''}
-                                                    </p>
+                                                    {pet.pet_sharable_ID ? (
+                                                        <p className="mt-1 text-xs font-bold text-slate-400">
+                                                            Owner linking ID: {pet.pet_sharable_ID}
+                                                        </p>
+                                                    ) : null}
                                                 </div>
                                             </div>
                                             <Button

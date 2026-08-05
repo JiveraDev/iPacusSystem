@@ -44,6 +44,7 @@ const EMPTY_SERVICE_FORM = {
     service_description: "",
     service_details: "",
     price_label: "",
+    base_price: "",
     duration_label: "",
     max_pets: 1,
     sort_order: 0,
@@ -174,6 +175,7 @@ function buildServiceForm(service) {
         service_description: service?.serviceDescription || "",
         service_details: service?.serviceDetails || "",
         price_label: normalizeCurrencyLabel(service?.priceLabel, ""),
+        base_price: service?.basePrice ?? "",
         duration_label: service?.durationLabel || "",
         max_pets: service?.maxPets || 1,
         sort_order: service?.sortOrder || 0,
@@ -188,6 +190,7 @@ function buildServicePayload(form) {
     return {
         ...form,
         price_label: normalizeCurrencyLabel(form.price_label, ""),
+        base_price: form.base_price === "" ? null : form.base_price,
     };
 }
 
@@ -341,6 +344,9 @@ export default function SpecialServices({ user }) {
 
     const dateRestrictionSupported = useMemo(() => {
         return services.length === 0 || services.some((service) => service.dateRestrictionSupported !== false);
+    }, [services]);
+    const basePriceSupported = useMemo(() => {
+        return services.length === 0 || services.some((service) => service.basePriceSupported !== false);
     }, [services]);
 
     const loadPets = useCallback(async ({ isAutoRefresh = false } = {}) => {
@@ -750,6 +756,24 @@ export default function SpecialServices({ user }) {
                                     placeholder="2-3 hours"
                                 />
                             </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="base_price">Invoice Base Price (PHP)</Label>
+                                <Input
+                                    id="base_price"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={serviceForm.base_price}
+                                    onChange={(event) => setServiceForm({ ...serviceForm, base_price: event.target.value })}
+                                    disabled={!basePriceSupported}
+                                    placeholder="Exact amount carried into POS"
+                                />
+                                <p className={`text-xs ${basePriceSupported ? "text-slate-500" : "text-amber-700"}`}>
+                                    {basePriceSupported
+                                        ? "Use one exact default amount. Leave blank for quoted or variable-price services."
+                                        : "Run DDL/20260727_01_special_service_billing_price.sql before setting an invoice price."}
+                                </p>
+                            </div>
                             <div className="space-y-2">
                                 <Label htmlFor="max_pets">Max Pets</Label>
                                 <Input
@@ -872,6 +896,24 @@ export default function SpecialServices({ user }) {
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, duration_label: event.target.value })}
                                 placeholder="2-3 hours"
                             />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="edit_base_price">Invoice Base Price (PHP)</Label>
+                            <Input
+                                id="edit_base_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editServiceForm.base_price}
+                                onChange={(event) => setEditServiceForm({ ...editServiceForm, base_price: event.target.value })}
+                                disabled={!basePriceSupported}
+                                placeholder="Exact amount carried into POS"
+                            />
+                            <p className={`text-xs ${basePriceSupported ? "text-slate-500" : "text-amber-700"}`}>
+                                {basePriceSupported
+                                    ? "Use one exact default amount. Leave blank when staff must enter an approved quote."
+                                    : "Run DDL/20260727_01_special_service_billing_price.sql before setting an invoice price."}
+                            </p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="edit_max_pets">Max Pets</Label>

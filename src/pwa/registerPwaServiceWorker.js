@@ -76,7 +76,16 @@ export function registerPwaServiceWorker() {
   }
 
   return navigator.serviceWorker
-    .register(getPwaServiceWorkerUrl({ pwaEnabled: true }), { scope: '/' })
+    .register(getPwaServiceWorkerUrl({ pwaEnabled: true }), {
+      scope: '/',
+      updateViaCache: 'none',
+    })
+    .then(async (registration) => {
+      await registration.update().catch((error) => {
+        console.warn('iPawcus PWA service worker update check failed:', error);
+      });
+      return registration;
+    })
     .catch((error) => {
       console.warn('iPawcus PWA service worker registration failed:', error);
       return null;

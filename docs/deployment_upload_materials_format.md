@@ -42,7 +42,7 @@ php/
 The optional standalone TV package is:
 
 ```text
-Subdomain_folder/
+dist/tv-status/
 ```
 
 ## 3. Frontend Upload Format
@@ -282,7 +282,7 @@ domains/status.ipawcus.com/public_html/
 Upload the contents of:
 
 ```text
-Subdomain_folder/
+dist/tv-status/
 ```
 
 Expected files:
@@ -310,7 +310,7 @@ or:
 public_html/config.php
 ```
 
-Use placeholders from `Subdomain_folder/.env.example` or `Subdomain_folder/config.example.php`, then set production database values on the server.
+Use placeholders from `dist/tv-status/.env.example` or `dist/tv-status/config.example.php`, then set production database values on the server.
 
 Validation URLs:
 

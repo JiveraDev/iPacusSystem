@@ -94,6 +94,9 @@ switch ($path) {
     case '/upload/delete':
         require_once __DIR__ . '/delete_upload.php';
         break;
+    case '/uploads/media':
+        require_once __DIR__ . '/upload_media.php';
+        break;
     case '/payment-methods':
         require_once __DIR__ . '/payment_methods.php';
         break;
@@ -159,6 +162,12 @@ switch ($path) {
     case '/service-catalog':
         require_once __DIR__ . '/service_catalog.php';
         break;
+    case '/branches':
+        require_once __DIR__ . '/branches.php';
+        break;
+    case '/veterinarian-branch-schedules':
+        require_once __DIR__ . '/veterinarian_branch_schedules.php';
+        break;
     case '/visits':
         require_once __DIR__ . '/visit_billing.php';
         break;
@@ -187,6 +196,10 @@ switch ($path) {
         break;
     case '/boarding/documents':
         $_GET['action'] = 'documents';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
+    case '/boarding/materials':
+        $_GET['action'] = 'materials';
         require_once __DIR__ . '/boarding_management.php';
         break;
     case '/record-update-requests':
@@ -301,7 +314,7 @@ switch ($path) {
             echo json_encode([
                 'ok' => false,
                 'code' => 'database_unavailable',
-                'message' => 'This site is temporarily unavailable due to maintenance. Please try again in a moment.',
+                'message' => 'The iPawcus database is temporarily unavailable. The clinic may be performing maintenance. Please try again in a moment.',
             ]);
         }
         break;
@@ -407,6 +420,9 @@ switch ($path) {
         } elseif (preg_match('/^\/bookings\/(\d+)\/schedule$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_schedule.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/branch$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/update_booking_branch.php';
         } elseif (preg_match('/^\/boarding\/bookings\/(\d+)\/assign-room$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             $_GET['action'] = 'assign-room';
@@ -430,6 +446,10 @@ switch ($path) {
         } elseif (preg_match('/^\/boarding\/tasks\/(\d+)\/complete$/', $path, $matches)) {
             $_GET['taskId'] = $matches[1];
             $_GET['action'] = 'task-complete';
+            require_once __DIR__ . '/boarding_management.php';
+        } elseif (preg_match('/^\/boarding\/materials\/(\d+)$/', $path, $matches)) {
+            $_GET['usageId'] = $matches[1];
+            $_GET['action'] = 'material-item';
             require_once __DIR__ . '/boarding_management.php';
         } elseif (preg_match('/^\/service-catalog\/(\d+)\/materials$/', $path, $matches)) {
             $_GET['serviceId'] = $matches[1];

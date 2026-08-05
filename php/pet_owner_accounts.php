@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/pet_allergy_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -146,7 +148,11 @@ function owner_accounts_list(PDO $pdo): void
             'pet_age' => $pet['pet_age'],
             'pet_weight' => $pet['pet_weight'],
             'pet_microchip' => $pet['pet_microchip'],
-            'pet_allergies' => $pet['pet_allergies'],
+            'pet_allergies' => pet_allergy_effective_text(
+                $pdo,
+                (int)$pet['pet_id'],
+                $pet['pet_allergies'] ?? null
+            ),
             'pet_color_marking' => $pet['pet_color_marking'],
             'setpetImage_url' => $pet['setpetImage_url'],
         ];
@@ -186,9 +192,10 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
         owner_accounts_json(['success' => false, 'message' => 'Valid user_id and account_status are required.'], 422);
     }
 
-    $stmt = $pdo->prepare("SELECT user_id FROM users WHERE user_id = ? AND LOWER(TRIM(role)) IN ('pet owner', 'pet_owner') LIMIT 1");
+    $stmt = $pdo->prepare("SELECT user_id, first_Name, last_Name, mail_Address FROM users WHERE user_id = ? AND LOWER(TRIM(role)) IN ('pet owner', 'pet_owner') LIMIT 1");
     $stmt->execute([$userId]);
-    if (!$stmt->fetchColumn()) {
+    $ownerAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$ownerAccount) {
         owner_accounts_json(['success' => false, 'message' => 'Pet owner account not found.'], 404);
     }
 
@@ -208,6 +215,23 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     $params[] = $userId;
     $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
     $update->execute($params);
+
+    try {
+        $ownerName = trim((string)(($ownerAccount['first_Name'] ?? '') . ' ' . ($ownerAccount['last_Name'] ?? '')))
+            ?: trim((string)($ownerAccount['mail_Address'] ?? 'Pet owner'));
+        $statusLabel = $status === 'deactivated' ? 'deactivated' : 'reactivated';
+        notification_send_super_admin_governance_event($pdo, [
+            'type' => 'pet_owner_account_status_updated',
+            'category' => 'account_updates',
+            'title' => 'Pet owner account status changed',
+            'message' => "{$ownerName} was {$statusLabel}." . ($reason !== '' ? " Reason: {$reason}" : ''),
+            'push_message' => "Pet owner {$ownerName} was {$statusLabel}.",
+            'redirect_path' => '/dashboard/pet-owner-accounts',
+            'dedupe_key' => 'pet-owner-account-status-' . $userId . '-' . $status . '-' . date('YmdHis'),
+        ]);
+    } catch (Throwable $notificationError) {
+        error_log('Pet owner account status notification failed: ' . $notificationError->getMessage());
+    }
 
     owner_accounts_json([
         'success' => true,

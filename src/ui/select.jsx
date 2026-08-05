@@ -164,6 +164,13 @@ function Select({
       updateContentPosition,
     }}>
       <div ref={containerRef} className="relative w-full min-w-0">
+        <input
+          type="hidden"
+          value={value ?? ""}
+          readOnly
+          data-session-persist="select"
+          onInput={(event) => handleSelect(event.currentTarget.value)}
+        />
         {children}
       </div>
     </SelectContext.Provider>

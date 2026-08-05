@@ -26,6 +26,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { createConsentDocumentImage } from '../../services/consentDocumentImage.js';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { saveConsentFormRecord } from '../../services/consentRecordService';
@@ -35,7 +36,8 @@ import {
     returnQueue as returnQueueService,
     updateQueueStatus as updateQueueStatusService
 } from '../../services/queueService';
-import { deleteUpload, uploadDataUrlImage } from '../../services/uploadService';
+import { uploadDataUrlImage } from '../../services/uploadService';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -66,24 +68,6 @@ function isPastQueueDate(value) {
     today.setHours(0, 0, 0, 0);
 
     return queueDate < today;
-}
-
-function isCurrentDate(value) {
-    if (!value) return false;
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return false;
-    }
-
-    const today = new Date();
-
-    return (
-        date.getFullYear() === today.getFullYear()
-        && date.getMonth() === today.getMonth()
-        && date.getDate() === today.getDate()
-    );
 }
 
 function ownerName(item) {
@@ -127,27 +111,15 @@ function getUserName(user) {
     return fullName || user?.name || user?.email || 'Veterinarian';
 }
 
+function getPreferredBranchFilter(user) {
+    const branchId = user?.preferred_branch_id || user?.preferredBranchId;
+    return branchId ? String(branchId) : 'all';
+}
+
 function numericId(value) {
     const numberValue = Number(value);
 
     return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
-}
-
-async function deleteUploadedFile(path) {
-    if (!path || String(path).startsWith('data:')) return;
-
-    try {
-        await deleteUpload({ path });
-    } catch {
-        // Local consent cleanup should not be blocked by a missing file.
-    }
-}
-
-function deleteConsentFiles(record) {
-    [
-        record?.signedDocumentPath,
-        record?.physicalConsentPath
-    ].filter(Boolean).forEach(deleteUploadedFile);
 }
 
 export default function VetMyList() {
@@ -176,6 +148,8 @@ export default function VetMyList() {
     const [uploadedFileName, setUploadedFileName] = useState('');
     const [previewUrl, setPreviewUrl] = useState('');
     const [completedViewMode, setCompletedViewMode] = useState('table');
+    const [branches, setBranches] = useState([]);
+    const [branchFilter, setBranchFilter] = useState(() => getPreferredBranchFilter(currentUser));
 
     useEffect(() => {
         localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(consentRecords));
@@ -192,8 +166,6 @@ export default function VetMyList() {
         const staleQueueIds = Object.keys(consentRecords).filter(queueId => !visibleQueueIds.has(String(queueId)));
 
         if (staleQueueIds.length === 0) return;
-
-        staleQueueIds.forEach(queueId => deleteConsentFiles(consentRecords[queueId]));
 
         setConsentRecords(current => {
             const nextRecords = { ...current };
@@ -262,6 +234,14 @@ export default function VetMyList() {
 
     useAutoRefresh(loadQueue);
     useAutoRefresh(loadConsentForms, { intervalMs: 15000, refreshKey: 'vet-consent-files' });
+    useAutoRefresh(async () => {
+        try {
+            const data = await fetchBranches();
+            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+        } catch (error) {
+            console.error('Failed to load My List branches:', error);
+        }
+    }, { intervalMs: 30000, refreshKey: 'vet-my-list-branches' });
 
     const assignedQueue = useMemo(() => {
         if (!veterinarianUserId) return [];
@@ -280,26 +260,90 @@ export default function VetMyList() {
     const completedItems = useMemo(() => {
         return assignedQueue
             .filter(isCompleted)
-            .filter(item => isCurrentDate(item.completed_at || item.timestamp))
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            .sort((a, b) => new Date(b.completed_at || b.timestamp) - new Date(a.completed_at || a.timestamp));
     }, [assignedQueue]);
 
-    const filteredReceivedItems = useMemo(() => filterItems(receivedItems, searchQuery), [receivedItems, searchQuery]);
-    const filteredCompletedItems = useMemo(() => filterItems(completedItems, searchQuery), [completedItems, searchQuery]);
+    const filteredReceivedItems = useMemo(
+        () => filterItems(receivedItems, searchQuery, branchFilter),
+        [branchFilter, receivedItems, searchQuery]
+    );
+    const filteredCompletedItems = useMemo(
+        () => filterItems(completedItems, searchQuery, branchFilter),
+        [branchFilter, completedItems, searchQuery]
+    );
     const urgentCount = receivedItems.filter(item => normalize(item.priority) === 'urgent').length;
 
     const selectedConsent = consentForms.find(form => String(form.file_id) === selectedConsentId);
 
-    const getConsentRecord = (item) => consentRecords[item.queue_id] || null;
-    const selectedConsentRecord = selectedPatient ? getConsentRecord(selectedPatient) : null;
-
-    const deleteConsentRecord = useCallback((queueId, { deleteFiles = false } = {}) => {
-        const record = consentRecords[String(queueId)];
-
-        if (deleteFiles) {
-            deleteConsentFiles(record);
+    const getConsentRecord = (item) => {
+        const storedRecord = consentRecords[item.queue_id] || consentRecords[String(item.queue_id)] || {};
+        const serverRecords = Array.isArray(item.consent_records)
+            ? item.consent_records
+            : Array.isArray(item.consentRecords)
+                ? item.consentRecords
+                : [];
+        const signedServerRecord = serverRecords.find(record =>
+            record?.signed_file_path || record?.signedFilePath || record?.signed_consent_document_path
+        ) || {};
+        const physicalServerRecord = serverRecords.find(record =>
+            record?.physical_file_path || record?.physicalFilePath || record?.physical_consent_path
+        ) || {};
+        const signedDocumentPath = storedRecord.signedDocumentPath
+            || signedServerRecord.signed_file_path
+            || signedServerRecord.signedFilePath
+            || signedServerRecord.signed_consent_document_path
+            || item.signed_consent_document_path
+            || '';
+        const physicalConsentPath = storedRecord.physicalConsentPath
+            || physicalServerRecord.physical_file_path
+            || physicalServerRecord.physicalFilePath
+            || physicalServerRecord.physical_consent_path
+            || item.physical_consent_path
+            || '';
+        const signedAt = storedRecord.signedAt
+            || signedServerRecord.signed_at
+            || signedServerRecord.signedAt
+            || physicalServerRecord.signed_at
+            || physicalServerRecord.signedAt
+            || item.signed_consent_at
+            || '';
+        if (!signedDocumentPath && !physicalConsentPath && !storedRecord.signedAt) {
+            return null;
         }
 
+        return {
+            ...storedRecord,
+            consentRecordId: storedRecord.consentRecordId
+                || signedServerRecord.consent_record_id
+                || signedServerRecord.consentRecordId
+                || physicalServerRecord.consent_record_id
+                || physicalServerRecord.consentRecordId
+                || item.signed_consent_record_id
+                || null,
+            consentName: storedRecord.consentName
+                || signedServerRecord.consent_type
+                || signedServerRecord.consentType
+                || item.signed_consent_type
+                || (physicalConsentPath ? 'Physical Consent Upload' : 'Signed Consent'),
+            signedDocumentPath,
+            physicalConsentPath,
+            signedAt: signedAt || (physicalConsentPath ? item.received_at || item.timestamp || '' : ''),
+            physicalConsentUploadedAt: physicalConsentPath
+                ? storedRecord.physicalConsentUploadedAt
+                    || physicalServerRecord.signed_at
+                    || physicalServerRecord.signedAt
+                    || signedAt
+                    || item.received_at
+                    || item.timestamp
+                    || ''
+                : '',
+            hasSignature: Boolean(signedDocumentPath),
+            isTemporary: false
+        };
+    };
+    const selectedConsentRecord = selectedPatient ? getConsentRecord(selectedPatient) : null;
+
+    const deleteConsentRecord = useCallback((queueId) => {
         setConsentRecords(current => {
             const key = String(queueId);
 
@@ -311,13 +355,17 @@ export default function VetMyList() {
             delete nextRecords[key];
             return nextRecords;
         });
-    }, [consentRecords]);
+    }, []);
 
     const updateQueueStatus = async (queueId, status) => {
         setUpdatingQueueId(queueId);
 
         try {
-            const data = await updateQueueStatusService({ queue_id: queueId, status });
+            const data = await updateQueueStatusService({
+                queue_id: queueId,
+                status,
+                action: status === 'in-progress' ? 'reopen' : undefined
+            });
 
             if (!data.success) {
                 throw new Error(data.error || data.message || 'Failed to update queue status.');
@@ -378,8 +426,14 @@ export default function VetMyList() {
                         : item
                 )
             );
-            deleteConsentRecord(queueId, { deleteFiles: true });
-            toast.success('Patient returned to the approved queue list.');
+            deleteConsentRecord(queueId);
+            toast.success(
+                data.return_destination === 'bookings'
+                    ? 'Booking returned to the confirmed bookings list.'
+                    : data.return_destination === 'queue_history'
+                        ? 'Past queue closed. It can be re-entered when needed.'
+                        : 'Patient returned to the approved queue list.'
+            );
         } catch (error) {
             toast.error(error.message || 'Failed to return patient.');
         } finally {
@@ -400,7 +454,7 @@ export default function VetMyList() {
         const record = getConsentRecord(item);
         setSelectedPatient(item);
         setUploadedFileName(record?.physicalConsentName || '');
-        setPreviewUrl(record?.physicalConsentPreview || '');
+        setPreviewUrl(record?.physicalConsentPreview || record?.physicalConsentPath || '');
         setUploadDialogOpen(true);
     };
 
@@ -428,7 +482,16 @@ export default function VetMyList() {
                 signerName: signerName.trim() || ownerName(selectedPatient),
                 signedAt,
                 veterinarianName,
-                veterinarianLicense
+                veterinarianLicense,
+                templateContext: {
+                    ownerName: signerName.trim() || ownerName(selectedPatient),
+                    petName: selectedPatient.pet_name,
+                    petSpecies: selectedPatient.pet_species,
+                    petBreed: selectedPatient.pet_breed,
+                    serviceName: selectedPatient.service_name || selectedPatient.service_type,
+                    branchName: selectedPatient.branch_name,
+                    queueNumber: selectedPatient.queue_number
+                }
             });
             const signedDocumentPath = await uploadDataUrlImage(signedDocumentImage, 'booking_signature', 'signed_consent');
             let consentRecordId = null;
@@ -491,7 +554,7 @@ export default function VetMyList() {
     };
 
     const savePhysicalConsent = async () => {
-        if (!selectedPatient || !uploadedFileName) {
+        if (!selectedPatient || !uploadedFileName || !previewUrl) {
             toast.error('Please select a consent image first.');
             return;
         }
@@ -539,6 +602,7 @@ export default function VetMyList() {
                     physicalConsentPath,
                     physicalConsentPreview: previewUrl,
                     physicalConsentUploadedAt: uploadedAt,
+                    signedAt: current[selectedPatient.queue_id]?.signedAt || uploadedAt,
                     isTemporary: false
                 }
             }));
@@ -563,15 +627,32 @@ export default function VetMyList() {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file.');
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+            toast.error('Please select a PNG, JPG, or WEBP image so the consent preview can be verified.');
             event.target.value = '';
             return;
         }
 
-        setUploadedFileName(file.name);
+        setUploadedFileName('');
+        setPreviewUrl('');
         const reader = new FileReader();
-        reader.onloadend = () => setPreviewUrl(String(reader.result || ''));
+        reader.onload = () => {
+            const result = String(reader.result || '');
+            if (!result.startsWith('data:image/')) {
+                toast.error('The selected image could not be previewed. Please choose another file.');
+                event.target.value = '';
+                return;
+            }
+
+            setUploadedFileName(file.name);
+            setPreviewUrl(result);
+        };
+        reader.onerror = () => {
+            setUploadedFileName('');
+            setPreviewUrl('');
+            event.target.value = '';
+            toast.error('The selected image could not be read. Please try another PNG or JPG file.');
+        };
         reader.readAsDataURL(file);
     };
 
@@ -627,7 +708,7 @@ export default function VetMyList() {
     const startDiagnosis = (item) => {
         const record = getConsentRecord(item);
 
-        if (!record?.signedAt) {
+        if (!record?.signedAt && !record?.signedDocumentPath && !record?.physicalConsentPath) {
             toast.error('Please record consent before starting diagnosis.');
             return;
         }
@@ -640,7 +721,7 @@ export default function VetMyList() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)]">
                     <h2 className="text-2xl font-bold text-[#101828]">My List</h2>
                     <p className="text-sm font-medium text-slate-500">
                         Received queue patients assigned to veterinarian handling.
@@ -676,6 +757,22 @@ export default function VetMyList() {
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
+                    <Select value={branchFilter} onValueChange={setBranchFilter}>
+                        <SelectTrigger>
+                            <SelectValue
+                                placeholder="Filter by clinic location"
+                                displayValue={branchFilter === 'all'
+                                    ? 'All clinic locations'
+                                    : getBranchDisplayName(branches, branchFilter)}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All clinic locations</SelectItem>
+                            {branches.map(branch => (
+                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
@@ -694,7 +791,7 @@ export default function VetMyList() {
                 {isLoading ? (
                     <LoadingState />
                 ) : filteredReceivedItems.length === 0 ? (
-                    <EmptyState message="No received queue patients Today." />
+                    <EmptyState message="No received queue patients." />
                 ) : (
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                         {filteredReceivedItems.map(item => (
@@ -742,7 +839,7 @@ export default function VetMyList() {
                 </div>
 
                 {filteredCompletedItems.length === 0 ? (
-                    <EmptyState message="No completed queue patients Today." compact />
+                    <EmptyState message="No completed queue patients." compact />
                 ) : completedViewMode === 'cards' ? (
                     <CompletedPatientsCards
                         items={filteredCompletedItems}
@@ -782,6 +879,15 @@ export default function VetMyList() {
                                 signedAt={signatureImage ? selectedConsentRecord?.signedAt || new Date().toLocaleString() : ''}
                                 veterinarianName={veterinarianName}
                                 veterinarianLicense={veterinarianLicense}
+                                templateContext={{
+                                    ownerName: signerName.trim() || ownerName(selectedPatient || {}),
+                                    petName: selectedPatient?.pet_name,
+                                    petSpecies: selectedPatient?.pet_species,
+                                    petBreed: selectedPatient?.pet_breed,
+                                    serviceName: selectedPatient?.service_name || selectedPatient?.service_type,
+                                    branchName: selectedPatient?.branch_name,
+                                    queueNumber: selectedPatient?.queue_number
+                                }}
                             />
                         </div>
 
@@ -858,7 +964,7 @@ export default function VetMyList() {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp"
                             onChange={handleFileSelect}
                             className="hidden"
                         />
@@ -876,7 +982,12 @@ export default function VetMyList() {
                         ) : (
                             <div className="space-y-3">
                                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                                    <img src={previewUrl} alt="Consent preview" className="max-h-[340px] w-full object-contain" />
+                                    <ProtectedImage
+                                        src={previewUrl}
+                                        alt="Complete physical consent preview"
+                                        className="max-h-[340px] w-full object-contain"
+                                        fallbackClassName="min-h-48 w-full"
+                                    />
                                 </div>
                                 <Button
                                     type="button"
@@ -884,6 +995,9 @@ export default function VetMyList() {
                                     onClick={() => {
                                         setUploadedFileName('');
                                         setPreviewUrl('');
+                                        if (fileInputRef.current) {
+                                            fileInputRef.current.value = '';
+                                        }
                                     }}
                                     className="w-full"
                                 >
@@ -907,7 +1021,7 @@ export default function VetMyList() {
                         <Button
                             type="button"
                             onClick={savePhysicalConsent}
-                            disabled={isSavingConsent || !uploadedFileName}
+                            disabled={isSavingConsent || !uploadedFileName || !previewUrl}
                             className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                         >
                             {isSavingConsent ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -920,12 +1034,13 @@ export default function VetMyList() {
     );
 }
 
-function filterItems(items, searchQuery) {
+function filterItems(items, searchQuery, branchFilter = 'all') {
     const query = normalize(searchQuery);
+    const byBranch = items.filter(item => branchFilter === 'all' || String(item.branch_id) === branchFilter);
 
-    if (!query) return items;
+    if (!query) return byBranch;
 
-    return items.filter(item => {
+    return byBranch.filter(item => {
         const searchableText = [
             formatQueueReference(item),
             item.pet_name,
@@ -934,7 +1049,8 @@ function filterItems(items, searchQuery) {
             item.complaint,
             item.pet_species,
             item.pet_breed,
-            item.priority
+            item.priority,
+            item.branch_name
         ].join(' ');
 
         return normalize(searchableText).includes(query);
@@ -965,7 +1081,11 @@ function StatCard({ icon, label, value, tone }) {
 }
 
 function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConsent, onStartDiagnosis, onReturnToApproved }) {
-    const hasConsent = Boolean(consentRecord?.signedAt);
+    const hasConsent = Boolean(
+        consentRecord?.signedAt
+        || consentRecord?.signedDocumentPath
+        || consentRecord?.physicalConsentPath
+    );
     const queueDatePassed = isPastQueueDate(item.timestamp);
 
     return (
@@ -1137,6 +1257,7 @@ function PatientSummary({ item }) {
             <div className="flex flex-wrap items-center gap-2">
                 <h4 className="truncate text-xl font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</h4>
                 <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
+                <Badge className="border-0 bg-slate-100 text-slate-700">{item.branch_name || 'Main Clinic'}</Badge>
             </div>
             <p className="mt-1 text-sm font-semibold text-slate-500">
                 {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
@@ -1150,6 +1271,7 @@ function PatientDetails({ item }) {
         <div className="mt-4 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm md:grid-cols-2">
             <Detail label="Owner" value={ownerName(item)} />
             <Detail label="Service" value={getServiceDisplayName(item.service_name, 'Queue')} />
+            <Detail label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
             <Detail label="Received" value={formatQueueTime(item.received_at || item.timestamp)} />
             <Detail label="Contact" value={item.contactNumber} />
             <Detail label="Age" value={petAge(item)} />
@@ -1182,7 +1304,7 @@ function getPriorityBadge(priority) {
 }
 
 function getConsentBadge(record) {
-    if (!record?.signedAt) {
+    if (!record?.signedAt && !record?.signedDocumentPath && !record?.physicalConsentPath) {
         return <Badge className="border-0 bg-red-50 text-red-700">No Consent</Badge>;
     }
 

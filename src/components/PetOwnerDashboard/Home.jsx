@@ -1,11 +1,11 @@
 import PropTypes from "prop-types";
 import { useCallback, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   Calendar,
   CheckCircle2,
   ClipboardList,
   Clock,
+  ExternalLink,
   FileText,
   Hotel,
   ListTodo,
@@ -25,7 +25,6 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
-import PwaInstallButton from "../../pwa/PwaInstallButton.jsx";
 import { fetchBookings, fetchUserBookings } from "../../services/bookingService";
 import { fetchInventoryItems } from "../../services/inventoryApi";
 import { fetchOnlineConsultations } from "../../services/onlineConsultationService";
@@ -36,12 +35,16 @@ import { fetchPetOwnerTodos } from "../../services/todoService";
 import { fetchVisits } from "../../services/visitBillingService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import consultImage from "../../assets/consultimage.png";
+import VetActiveLocationPanel from "../VetrinarianComponents/VetActiveLocationPanel.jsx";
+import AdminAssignedLocationPanel from "../AdminDashboardsComponent/AdminAssignedLocationPanel.jsx";
 
 const CLINIC_DETAILS = {
-  hours: "7:00 AM - 6:00 PM",
+  hours: "8:00 AM - 6:00 PM",
   address: "Oakbrook Avenue, Phase 3, Pleasantville Subdivision, Corner Clayton, Ilayang Iyam, Lucena City",
   phone: "(042) 373-5678",
 };
+
+const CLINIC_GOOGLE_MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(CLINIC_DETAILS.address)}`;
 
 const emptyHomeData = {
   bookings: [],
@@ -298,6 +301,34 @@ function isOpenRecordRequest(request) {
   return !["completed", "cancelled", "canceled", "rejected"].includes(normalizeStatus(request.status));
 }
 
+function isOpenTodo(task) {
+  return !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status))
+    && !task.completedAt;
+}
+
+function isPaymentTodo(task) {
+  const source = normalizeStatus(task.source);
+  const category = normalizeStatus(task.category);
+  const title = normalizeStatus(task.title);
+  const sourceLabel = normalizeStatus(task.sourceLabel);
+
+  return source === "payment"
+    || category === "payment"
+    || sourceLabel.includes("payment")
+    || title.includes("payment_balance")
+    || title.includes("balance_due")
+    || title.includes("outstanding_balance");
+}
+
+function isVisibleHomeTodo(task) {
+  return isOpenTodo(task) && !isPaymentTodo(task);
+}
+
+function ownerBookingPath(booking) {
+  const petId = booking.petId || booking.pet_id;
+  return petId ? `/dashboard/my-pets/${petId}` : "/dashboard/my-pets";
+}
+
 function isAssignedToVet(item, userId) {
   if (!userId) return false;
   return String(item.veterinarian_user_id || item.assignedVeterinarianUserId || item.assigned_veterinarian_user_id || "") === String(userId);
@@ -343,7 +374,7 @@ function buildAttentionItems(roleKey, data, userId) {
     const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId) && normalizeStatus(item.assignment_status) === "received");
     const consultations = data.onlineConsultations.filter(item => !["completed", "cancelled", "canceled"].includes(normalizeStatus(item.status)));
     const requests = data.recordRequests.filter(isOpenRecordRequest);
-    const openTodos = data.todos.filter(task => !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status)) && !task.completedAt);
+    const openTodos = data.todos.filter(isOpenTodo);
 
     return [
       ...receivedQueues.slice(0, 2).map(item => ({
@@ -380,20 +411,20 @@ function buildAttentionItems(roleKey, data, userId) {
   }
 
   const activeBookings = data.bookings.filter(isActiveBooking);
-  const openTodos = data.todos.filter(task => !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status)) && !task.completedAt);
+  const openTodos = data.todos.filter(isVisibleHomeTodo);
 
   return [
     ...activeBookings.slice(0, 3).map(item => ({
       title: item.petName || "Booked pet",
       detail: `${item.service || item.type || "Service"} - ${formatShortDate(item.date, item.time)}`,
       badge: item.status || "Booking",
-      path: "/dashboard/my-pets",
+      path: ownerBookingPath(item),
     })),
     ...openTodos.slice(0, 3).map(item => ({
       title: item.title || "To-do",
       detail: formatShortDate(item.startAt),
       badge: item.sourceLabel || "TODO",
-      path: item.redirectPath || "/dashboard/todos",
+      path: "/dashboard/todos",
     })),
   ].slice(0, 6);
 }
@@ -424,7 +455,7 @@ function buildRoleSummary(roleKey, data, userId) {
     const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId) && normalizeStatus(item.assignment_status) === "received");
     const openConsultations = data.onlineConsultations.filter(item => !["completed", "cancelled", "canceled"].includes(normalizeStatus(item.status)));
     const assignedRequests = data.recordRequests.filter(isOpenRecordRequest);
-    const openTodos = data.todos.filter(task => !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status)) && !task.completedAt);
+    const openTodos = data.todos.filter(isOpenTodo);
 
     return {
       title: "Veterinarian Overview",
@@ -442,7 +473,7 @@ function buildRoleSummary(roleKey, data, userId) {
   }
 
   const activeBookings = data.bookings.filter(isActiveBooking);
-  const openTodos = data.todos.filter(task => !["completed", "done", "cancelled", "canceled"].includes(normalizeStatus(task.status)) && !task.completedAt);
+  const openTodos = data.todos.filter(isVisibleHomeTodo);
   const completedBookings = data.bookings.filter(item => normalizeStatus(item.status) === "completed");
 
   return {
@@ -525,6 +556,8 @@ export default function Home({ user }) {
 
   return (
     <div className="space-y-6">
+      {roleKey === "veterinarian" && <VetActiveLocationPanel />}
+      {roleKey === "admin" && <AdminAssignedLocationPanel />}
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
@@ -546,7 +579,6 @@ export default function Home({ user }) {
                 <SecondaryIcon className="mr-2 h-4 w-4" />
                 {dashboardFocus.secondary.label}
               </Button>
-              <PwaInstallButton />
             </div>
           </div>
           <div className="relative min-h-56 bg-slate-950 lg:min-h-full">
@@ -588,27 +620,6 @@ export default function Home({ user }) {
               </button>
             );
           })}
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Overview</p>
-            <h2 className="text-xl font-black text-slate-950 sm:text-2xl">{roleSummary.title}</h2>
-          </div>
-          {homeData.errors.length > 0 && (
-            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              Some data could not load: {homeData.errors.join(", ")}
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {roleSummary.cards.map((item) => (
-            <SummaryCard key={item.label} item={item} onOpen={() => navigate(item.path)} />
-          ))}
         </div>
       </section>
 
@@ -657,7 +668,12 @@ export default function Home({ user }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <InfoBlock icon={Clock} label="Hours" value={`Daily, ${CLINIC_DETAILS.hours}`} />
-            <InfoBlock icon={MapPin} label="Address" value={CLINIC_DETAILS.address} />
+            <InfoBlock
+              icon={MapPin}
+              label="Address"
+              value={CLINIC_DETAILS.address}
+              href={CLINIC_GOOGLE_MAPS_URL}
+            />
             <InfoBlock icon={CheckCircle2} label="Contact" value={CLINIC_DETAILS.phone} />
           </CardContent>
         </Card>
@@ -666,41 +682,40 @@ export default function Home({ user }) {
   );
 }
 
-function SummaryCard({ item, onOpen }) {
-  const Icon = item.icon;
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${item.tone}`}>
-          <Icon className="h-5 w-5" />
-        </span>
-        <span className="text-right text-2xl font-black text-slate-950">{formatCount(item.value)}</span>
-      </div>
-      <span className="mt-4 block text-sm font-black uppercase tracking-[0.14em] text-slate-500">{item.label}</span>
-      <span className="mt-2 block text-sm font-semibold leading-5 text-slate-700">{item.detail}</span>
-    </button>
-  );
-}
-
-function InfoBlock({ icon, label, value }) {
+function InfoBlock({ icon, label, value, href }) {
   const IconComponent = icon;
+  const content = (
+    <div className="flex items-start gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
+        <IconComponent className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+        <p className="mt-1 flex items-start gap-2 text-sm font-semibold leading-6 text-slate-800">
+          <span className={href ? "underline-offset-4 group-hover:underline" : ""}>{value}</span>
+          {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-[#155dfc]" aria-hidden="true" />}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open ${label} in Google Maps`}
+        className="group block rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-blue-300 hover:bg-blue-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2"
+      >
+        {content}
+      </a>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
-          <IconComponent className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-800">{value}</p>
-        </div>
-      </div>
+      {content}
     </div>
   );
 }
@@ -722,20 +737,9 @@ Home.propTypes = {
   }),
 };
 
-SummaryCard.propTypes = {
-  item: PropTypes.shape({
-    label: PropTypes.string.isRequired,
-    value: PropTypes.number.isRequired,
-    detail: PropTypes.string.isRequired,
-    icon: PropTypes.elementType.isRequired,
-    tone: PropTypes.string.isRequired,
-    path: PropTypes.string.isRequired,
-  }).isRequired,
-  onOpen: PropTypes.func.isRequired,
-};
-
 InfoBlock.propTypes = {
   icon: PropTypes.elementType.isRequired,
   label: PropTypes.string.isRequired,
   value: PropTypes.string.isRequired,
+  href: PropTypes.string,
 };

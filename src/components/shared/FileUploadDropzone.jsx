@@ -73,6 +73,7 @@ export default function FileUploadDropzone({
     files = [],
     multiple = false,
     disabled = false,
+    compact = false,
     label = 'Click to upload',
     helper = 'Images or PDF documents',
     onFilesSelected,
@@ -88,6 +89,44 @@ export default function FileUploadDropzone({
         }
         event.target.value = '';
     };
+
+    if (compact) {
+        return (
+            <div className={`space-y-2 ${className}`}>
+                <input
+                    id={id}
+                    type="file"
+                    accept={accept}
+                    multiple={multiple}
+                    disabled={disabled}
+                    onChange={handleChange}
+                    className="hidden"
+                />
+                <label
+                    htmlFor={id}
+                    className={`inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-bold text-blue-700 transition hover:border-blue-400 hover:bg-blue-50 focus-within:ring-2 focus-within:ring-blue-500/20 ${disabled ? 'pointer-events-none opacity-60' : ''}`}
+                >
+                    <Upload className="size-4" aria-hidden="true" />
+                    {selectedFiles.length > 0 ? 'Replace document' : label}
+                </label>
+                {selectedFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.size}-${file.lastModified}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                        <FileText className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">{file.name}</span>
+                        <span className="shrink-0 text-[11px] font-medium text-slate-400">{formatFileSize(file.size)}</span>
+                        <button
+                            type="button"
+                            onClick={() => onRemove(index)}
+                            className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-200"
+                            aria-label={`Remove ${file.name}`}
+                        >
+                            <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div
@@ -124,7 +163,7 @@ export default function FileUploadDropzone({
                 <span className="text-sm font-bold text-blue-600">
                     {selectedFiles.length > 0 ? (multiple ? 'Add more files' : 'Replace file') : label}
                 </span>
-                <span className="mt-1 text-xs font-medium text-slate-400">{helper}</span>
+                {helper && <span className="mt-1 text-xs font-medium text-slate-400">{helper}</span>}
             </label>
         </div>
     );

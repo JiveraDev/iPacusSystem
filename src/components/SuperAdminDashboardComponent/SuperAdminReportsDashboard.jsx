@@ -419,38 +419,42 @@ export default function SuperAdminReportsDashboard() {
                 description="Clinic performance, service activity, billing, inventory, and patient case overview."
                 layout="stacked"
                 toolbar={(
-                    <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)_minmax(8rem,max-content)_minmax(10rem,max-content)] lg:items-end">
-                        <div className="min-w-0">
-                            <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
-                            <Select value={range} onValueChange={setRange}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue displayValue={selectedRangeLabel} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {REPORT_QUICK_RANGES.map(item => (
-                                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    <div className="flex w-full flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)]">
+                            <div className="min-w-0">
+                                <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
+                                <Select value={range} onValueChange={setRange}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue displayValue={selectedRangeLabel} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {REPORT_QUICK_RANGES.map(item => (
+                                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <ReportDateInput
+                                label="Start"
+                                value={visibleDateRange.start}
+                                onChange={handleCustomStartChange}
+                            />
+                            <ReportDateInput
+                                label="End"
+                                value={visibleDateRange.end}
+                                onChange={handleCustomEndChange}
+                            />
                         </div>
-                        <ReportDateInput
-                            label="Start"
-                            value={visibleDateRange.start}
-                            onChange={handleCustomStartChange}
-                        />
-                        <ReportDateInput
-                            label="End"
-                            value={visibleDateRange.end}
-                            onChange={handleCustomEndChange}
-                        />
-                        <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="h-10 w-full justify-center gap-2 whitespace-nowrap px-3">
-                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                            Refresh
-                        </Button>
-                        <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 w-full justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white hover:bg-[#0d4acf]">
-                            <FileText className="size-4" />
-                            Report Center
-                        </Button>
+                        <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:flex lg:justify-end">
+                            <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap px-3">
+                                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                                Refresh
+                            </Button>
+                            <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white hover:bg-[#0d4acf]">
+                                <FileText className="size-4" />
+                                Report Center
+                            </Button>
+                        </div>
                     </div>
                 )}
             />
@@ -512,7 +516,7 @@ export default function SuperAdminReportsDashboard() {
                                     <div
                                         key={chartItem.id}
                                         id={`report-chart-${chartItem.id}`}
-                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                        className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
                                             highlightedTargetId === `report-chart-${chartItem.id}`
                                                 ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
@@ -540,7 +544,7 @@ export default function SuperAdminReportsDashboard() {
                                     <div
                                         key={chartItem.id}
                                         id={`report-chart-${chartItem.id}`}
-                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                        className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
                                             highlightedTargetId === `report-chart-${chartItem.id}`
                                                 ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
@@ -601,7 +605,7 @@ export default function SuperAdminReportsDashboard() {
 function OperationalAttentionCard({ table }) {
     const navigate = useNavigate();
     const allRows = Array.isArray(table?.rows) ? table.rows : [];
-    const rows = allRows.slice(0, 5);
+    const rows = allRows;
     const columns = Array.isArray(table?.columns) ? table.columns : [];
     const config = getAttentionConfig(table?.title);
     const Icon = config.icon;
@@ -638,9 +642,9 @@ function OperationalAttentionCard({ table }) {
             </div>
 
             {rows.length && columns.length ? (
-                <div className="overflow-x-auto scrollbar-hide">
+                <div className="max-h-[23.5rem] overflow-auto">
                     <table className="min-w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                        <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgb(226_232_240)] dark:bg-slate-800 dark:text-slate-300 dark:shadow-[0_1px_0_0_rgb(51_65_85)]">
                             <tr>
                                 {columns.map(column => (
                                     <th key={column.key} className="whitespace-nowrap px-3 py-3 font-black">
@@ -656,7 +660,7 @@ function OperationalAttentionCard({ table }) {
                                 return (
                                 <tr
                                     key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
-                                    className={`align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
+                                    className={`h-12 align-middle hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
                                     role={isInteractiveRow ? 'button' : undefined}
                                     tabIndex={isInteractiveRow ? 0 : undefined}
                                     onClick={() => openInventoryRow(row)}
@@ -672,13 +676,13 @@ function OperationalAttentionCard({ table }) {
                                     }}
                                 >
                                     {columns.map(column => (
-                                        <td key={column.key} className="max-w-[14rem] px-3 py-3 text-slate-700 dark:text-slate-200">
+                                        <td key={column.key} className="max-w-[14rem] px-3 py-2 text-slate-700 dark:text-slate-200">
                                             {isStatusColumn(column) ? (
                                                 <Badge className={`${statusBadgeClass(row[column.key])} max-w-full`}>
                                                     <span className="truncate">{humanizeValue(row[column.key] || 'N/A')}</span>
                                                 </Badge>
                                             ) : (
-                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950 dark:text-white' : ''} line-clamp-2`}>
+                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950 dark:text-white' : ''} block truncate`}>
                                                     {formatAttentionValue(row[column.key], column)}
                                                 </span>
                                             )}

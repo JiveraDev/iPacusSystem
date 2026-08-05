@@ -1,17 +1,22 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
-import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Upload, FileText, Trash2, Edit3, Eye, Plus, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, Trash2, Edit3, Eye, EyeOff, Plus, AlertTriangle } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
 import FileUploadDropzone from '../shared/FileUploadDropzone.jsx';
+import { ConsentCodeReference, ConsentTemplateEditor } from '../shared/ConsentTemplateEditor.jsx';
 import { PET_OWNER_CONSENT_CONTEXTS, parseConsentContexts } from '../../lib/consentAssignments';
+import {
+    inspectConsentTemplate,
+    insertConsentCode,
+    normalizeImportedConsentTemplate
+} from '../../lib/consentTemplateCodes';
 import {
     createConsentFile,
     deleteConsentFile,
@@ -27,6 +32,7 @@ export default function ConsentFilesManagement() {
     // Upload States
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadTitle, setUploadTitle] = useState('');
+    const [uploadContent, setUploadContent] = useState('');
     const [uploadCategory, setUploadCategory] = useState('');
     const [uploadPetOwnerContexts, setUploadPetOwnerContexts] = useState([]);
 
@@ -34,12 +40,18 @@ export default function ConsentFilesManagement() {
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [uploadEditorOpen, setUploadEditorOpen] = useState(true);
+    const [uploadPreviewOpen, setUploadPreviewOpen] = useState(false);
+    const [editEditorOpen, setEditEditorOpen] = useState(true);
+    const [editPreviewOpen, setEditPreviewOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [fileToDelete, setFileToDelete] = useState(null);
     const [editTitle, setEditTitle] = useState('');
     const [editContent, setEditContent] = useState('');
     const [editCategory, setEditCategory] = useState('');
     const [editPetOwnerContexts, setEditPetOwnerContexts] = useState([]);
+    const uploadEditorRef = useRef(null);
+    const editEditorRef = useRef(null);
 
     const categories = [
         { value: 'General Check-up', label: 'General Check-up' },
@@ -88,7 +100,7 @@ export default function ConsentFilesManagement() {
 
     useAutoRefresh(fetchConsentFiles);
 
-    const handleFileChange = (files) => {
+    const handleFileChange = async (files) => {
         const file = Array.from(files || [])[0];
         if (file && !file.name.toLowerCase().endsWith('.txt')) {
             toast.error('Please upload only TXT files');
@@ -96,18 +108,64 @@ export default function ConsentFilesManagement() {
         }
         setUploadFile(file);
         setUploadTitle(file ? file.name.replace(/\.[^/.]+$/, '') : '');
+        if (file) {
+            try {
+                const originalText = await file.text();
+                const normalizedText = normalizeImportedConsentTemplate(originalText);
+                setUploadContent(normalizedText);
+                if (normalizedText !== originalText.replace(/\r\n/g, '\n')) {
+                    toast.success('Common pet and legal-date blanks were converted into template codes.');
+                }
+            } catch {
+                toast.error('The TXT document could not be read.');
+                setUploadFile(null);
+            }
+        }
     };
 
     const handleRemoveUploadFile = () => {
         setUploadFile(null);
+    };
+
+    const resetUploadEditor = () => {
+        setUploadFile(null);
         setUploadTitle('');
+        setUploadContent('');
+        setUploadCategory('');
+        setUploadPetOwnerContexts([]);
+        setUploadEditorOpen(true);
+        setUploadPreviewOpen(false);
+    };
+
+    const validateTemplateContent = (content) => {
+        const inspection = inspectConsentTemplate(content);
+        if (inspection.unknownCodes.length > 0) {
+            toast.error(`Unknown consent code${inspection.unknownCodes.length === 1 ? '' : 's'}: ${inspection.unknownCodes.join(', ')}`);
+            return false;
+        }
+        return true;
+    };
+
+    const insertCodeIntoActiveEditor = (code) => {
+        const isEditingExisting = editModalOpen;
+        const editorRef = isEditingExisting ? editEditorRef : uploadEditorRef;
+        const currentValue = isEditingExisting ? editContent : uploadContent;
+        const setValue = isEditingExisting ? setEditContent : setUploadContent;
+        const textarea = editorRef.current;
+        const result = insertConsentCode(
+            currentValue,
+            code,
+            textarea?.selectionStart,
+            textarea?.selectionEnd
+        );
+        setValue(result.value);
+        window.requestAnimationFrame(() => {
+            editorRef.current?.focus();
+            editorRef.current?.setSelectionRange(result.caret, result.caret);
+        });
     };
 
     const handleUploadSubmit = async () => {
-        if (!uploadFile) {
-            toast.error("Please select a file first");
-            return;
-        }
         if (!uploadTitle.trim()) {
             toast.error("Please enter a document title");
             return;
@@ -116,31 +174,27 @@ export default function ConsentFilesManagement() {
             toast.error("Please select a category");
             return;
         }
+        if (!uploadContent.trim()) {
+            toast.error('Enter the consent document content or upload a TXT document.');
+            return;
+        }
+        if (!validateTemplateContent(uploadContent)) return;
 
         setIsUploading(true);
         try {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const text = e.target.result;
-                
-                const formData = new FormData();
-                formData.append('file_name', uploadTitle.trim());
-                formData.append('content', text);
-                formData.append('file_size', formatFileSize(uploadFile.size));
-                formData.append('category', uploadCategory);
-                formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts.slice(0, 1)));
+            const formData = new FormData();
+            formData.append('file_name', uploadTitle.trim());
+            formData.append('content', uploadContent);
+            formData.append('file_size', formatFileSize(new Blob([uploadContent]).size));
+            formData.append('category', uploadCategory);
+            formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts.slice(0, 1)));
 
-                await createConsentFile(formData);
-                toast.success("Consent form added successfully");
-                setUploadFile(null);
-                setUploadTitle('');
-                setUploadCategory('');
-                setUploadPetOwnerContexts([]);
-                const fileInput = document.getElementById('consent-file-input');
-                if (fileInput) fileInput.value = '';
-                fetchConsentFiles();
-            };
-            reader.readAsText(uploadFile);
+            await createConsentFile(formData);
+            toast.success("Consent form added successfully");
+            resetUploadEditor();
+            const fileInput = document.getElementById('consent-file-input');
+            if (fileInput) fileInput.value = '';
+            fetchConsentFiles();
         } catch (error) {
             console.error("Upload error:", error);
             toast.error("Upload failed");
@@ -156,6 +210,11 @@ export default function ConsentFilesManagement() {
             toast.error("Document title is required");
             return;
         }
+        if (!editContent.trim()) {
+            toast.error('Document content is required.');
+            return;
+        }
+        if (!validateTemplateContent(editContent)) return;
         
         try {
             await updateConsentFile(selectedFile.file_id, {
@@ -199,10 +258,10 @@ export default function ConsentFilesManagement() {
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
                     <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-                        Consent Files Management
+                        Consent Template Management
                     </h2>
                     <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                        Official clinic consent templates and legal documents
+                        Create reusable consent letters with automatic owner, patient, service, and date fields
                     </p>
                 </div>
                 <div className="bg-[#eff6ff] border border-[#bedbff] rounded-lg px-4 py-2 text-center">
@@ -211,28 +270,35 @@ export default function ConsentFilesManagement() {
                 </div>
             </div>
 
-            {/* Upload Section */}
+            {/* Template editor */}
             <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 shadow-sm sm:p-6">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="mb-5 flex items-start gap-3">
                     <div className="p-2 bg-blue-50 rounded-lg">
                         <Upload className="size-5 text-blue-600" />
                     </div>
-                    <h3 className="font-['Arimo:Bold',sans-serif] font-bold text-[18px] text-[#101828]">
-                        Upload New Consent Template
-                    </h3>
+                    <div>
+                        <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] font-bold text-[#101828]">
+                            New Consent Template Editor
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Start from a blank template or import TXT. System codes are filled from the current consent record.
+                        </p>
+                    </div>
                 </div>
+
                 <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Select TXT File</Label>
+                    <div>
                         <FileUploadDropzone
                             id="consent-file-input"
                             accept=".txt"
                             files={uploadFile ? [uploadFile] : []}
                             onFilesSelected={handleFileChange}
                             onRemove={handleRemoveUploadFile}
-                            label="Click to upload TXT consent template"
-                            helper="Selected document appears here before upload"
+                            compact
+                            label="Upload document"
+                            helper=""
                         />
+                        <p className="mt-1 text-[11px] text-slate-500">Optional—uploading a TXT document loads its content into the editor.</p>
                     </div>
                     <div className="space-y-1">
                         <Label className="text-xs text-gray-500 block">Document Title</Label>
@@ -243,7 +309,7 @@ export default function ConsentFilesManagement() {
                         />
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Assign Category</Label>
+                        <Label className="text-xs text-gray-500 block">Document category</Label>
                         <Select value={uploadCategory} onValueChange={setUploadCategory}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select service category" />
@@ -256,7 +322,7 @@ export default function ConsentFilesManagement() {
                         </Select>
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Pet-owner readable assignment</Label>
+                        <Label className="text-xs text-gray-500 block">Pet-owner flow</Label>
                         <Select
                             value={uploadPetOwnerContexts[0] || 'none'}
                             onValueChange={(value) => setUploadPetOwnerContexts(value === 'none' ? [] : [value])}
@@ -264,26 +330,112 @@ export default function ConsentFilesManagement() {
                             <SelectTrigger>
                                 <SelectValue
                                     displayValue={
-                                        PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === uploadPetOwnerContexts[0])?.label || 'Not assigned'
+                                        PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === uploadPetOwnerContexts[0])?.label || 'Not used'
                                     }
                                 />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="none">Not assigned</SelectItem>
+                                <SelectItem value="none">Not used</SelectItem>
                                 {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
                                     <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button 
-                        onClick={handleUploadSubmit}
-                        disabled={isUploading || !uploadFile || !uploadTitle.trim() || !uploadCategory}
-                        className="h-10 gap-2 bg-blue-600 font-bold hover:bg-blue-700 md:col-span-2 xl:col-span-4 xl:justify-self-end"
+                </div>
+
+                <div className="mt-5 flex flex-col justify-end gap-2 sm:flex-row">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            if (uploadEditorOpen) {
+                                setUploadPreviewOpen(false);
+                            }
+                            setUploadEditorOpen((current) => !current);
+                        }}
+                        aria-expanded={uploadEditorOpen}
+                        aria-controls="new-consent-editor"
+                        className="w-full gap-2 sm:w-auto"
                     >
-                        {isUploading ? "Uploading..." : (
-                            <><Plus className="size-4" /> Add Consent</>
+                        <FileText className="size-4" />
+                        {uploadEditorOpen ? 'Hide template content' : 'Show template content'}
+                    </Button>
+                    {uploadEditorOpen && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setUploadPreviewOpen((current) => !current)}
+                            aria-expanded={uploadPreviewOpen}
+                            aria-controls="new-consent-preview"
+                            className="w-full gap-2 sm:w-auto"
+                        >
+                            {uploadPreviewOpen ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                            {uploadPreviewOpen ? 'Hide preview' : 'Show preview'}
+                        </Button>
+                    )}
+                </div>
+
+                {uploadEditorOpen && (
+                    <div
+                        id="new-consent-editor"
+                        className={`mt-3 grid gap-5 ${uploadPreviewOpen ? '2xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]' : ''}`}
+                    >
+                        <ConsentTemplateEditor
+                            value={uploadContent}
+                            onChange={setUploadContent}
+                            textareaRef={uploadEditorRef}
+                            onInsertCode={insertCodeIntoActiveEditor}
+                        />
+                        {uploadPreviewOpen && (
+                        <aside id="new-consent-preview" className="min-w-0">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <p className="text-xs font-black uppercase tracking-wider text-slate-500">Live document preview</p>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setUploadPreviewOpen(false)}
+                                    className="hidden gap-2 2xl:inline-flex"
+                                >
+                                    <EyeOff className="size-4" /> Hide
+                                </Button>
+                            </div>
+                            <div className="max-h-[600px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
+                                <ConsentDocument
+                                    variant="compact"
+                                    title={uploadTitle || 'Consent Form'}
+                                    content={uploadContent || 'Your consent template preview will appear here.'}
+                                    templateContext={{
+                                        ownerName: 'Sample Pet Owner',
+                                        petName: 'Sample Pet',
+                                        petSpecies: 'Dog',
+                                        petBreed: 'Aspin',
+                                        veterinarianName: 'Assigned Veterinarian',
+                                        veterinarianLicense: 'PRC License',
+                                        serviceName: categoryLabels[uploadCategory] || uploadCategory || 'Veterinary Service',
+                                        branchName: 'Selected VFC Branch',
+                                        bookingNumber: 'BK-SAMPLE',
+                                        queueNumber: 'Q-SAMPLE'
+                                    }}
+                                />
+                            </div>
+                        </aside>
                         )}
+                    </div>
+                )}
+
+                <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" onClick={resetUploadEditor} disabled={isUploading}>Clear editor</Button>
+                    <Button
+                        type="button"
+                        onClick={handleUploadSubmit}
+                        disabled={isUploading || !uploadTitle.trim() || !uploadCategory || !uploadContent.trim()}
+                        className="gap-2 bg-blue-600 font-bold hover:bg-blue-700"
+                    >
+                        {isUploading ? "Saving..." : <><Plus className="size-4" /> Save Consent Template</>}
                     </Button>
                 </div>
             </div>
@@ -312,6 +464,8 @@ export default function ConsentFilesManagement() {
                                             setEditContent(file.content || '');
                                             setEditCategory(file.category || '');
                                             setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1));
+                                            setEditEditorOpen(true);
+                                            setEditPreviewOpen(false);
                                             setEditModalOpen(true);
                                         }}
                                     >
@@ -354,7 +508,7 @@ export default function ConsentFilesManagement() {
                                             </Badge>
                                         ))
                                     ) : (
-                                        <span className="text-xs font-medium text-slate-400">Not assigned</span>
+                                        <span className="text-xs font-medium text-slate-400">Not used</span>
                                     )}
                                 </div>
                             </div>
@@ -397,62 +551,132 @@ export default function ConsentFilesManagement() {
 
             {/* Edit Modal */}
             <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Consent Template</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Document Title</Label>
-                            <Input
-                                value={editTitle}
-                                onChange={(event) => setEditTitle(event.target.value)}
-                                placeholder="Consent document title"
-                            />
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div className="space-y-2">
+                                <Label className="text-xs text-gray-500">Document Title</Label>
+                                <Input
+                                    value={editTitle}
+                                    onChange={(event) => setEditTitle(event.target.value)}
+                                    placeholder="Consent document title"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs text-gray-500">Document Category</Label>
+                                <Select value={editCategory} onValueChange={setEditCategory}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map((cat) => (
+                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs text-gray-500">Pet-owner flow</Label>
+                                <Select
+                                    value={editPetOwnerContexts[0] || 'none'}
+                                    onValueChange={(value) => setEditPetOwnerContexts(value === 'none' ? [] : [value])}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue
+                                            displayValue={
+                                                PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === editPetOwnerContexts[0])?.label || 'Not used'
+                                            }
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Not used</SelectItem>
+                                        {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
+                                            <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Document Category</Label>
-                            <Select value={editCategory} onValueChange={setEditCategory}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {categories.map((cat) => (
-                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Pet-owner readable assignment</Label>
-                            <Select
-                                value={editPetOwnerContexts[0] || 'none'}
-                                onValueChange={(value) => setEditPetOwnerContexts(value === 'none' ? [] : [value])}
+
+                        <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (editEditorOpen) {
+                                        setEditPreviewOpen(false);
+                                    }
+                                    setEditEditorOpen((current) => !current);
+                                }}
+                                aria-expanded={editEditorOpen}
+                                aria-controls="edit-consent-editor"
+                                className="w-full gap-2 sm:w-auto"
                             >
-                                <SelectTrigger>
-                                    <SelectValue
-                                        displayValue={
-                                            PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === editPetOwnerContexts[0])?.label || 'Not assigned'
-                                        }
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Not assigned</SelectItem>
-                                    {PET_OWNER_CONSENT_CONTEXTS.map((context) => (
-                                        <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <FileText className="size-4" />
+                                {editEditorOpen ? 'Hide template content' : 'Show template content'}
+                            </Button>
+                            {editEditorOpen && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditPreviewOpen((current) => !current)}
+                                    aria-expanded={editPreviewOpen}
+                                    aria-controls="edit-consent-preview"
+                                    className="w-full gap-2 sm:w-auto"
+                                >
+                                    {editPreviewOpen ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                    {editPreviewOpen ? 'Hide preview' : 'Show preview'}
+                                </Button>
+                            )}
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Document Content</Label>
-                            <Textarea 
-                                value={editContent}
-                                onChange={(e) => setEditContent(e.target.value)}
-                                rows={12}
-                                className="font-mono text-sm"
-                            />
-                        </div>
+
+                        {editEditorOpen && (
+                            <div
+                                id="edit-consent-editor"
+                                className={`grid gap-5 ${editPreviewOpen ? '2xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]' : ''}`}
+                            >
+                                <ConsentTemplateEditor
+                                    value={editContent}
+                                    onChange={setEditContent}
+                                    textareaRef={editEditorRef}
+                                    onInsertCode={insertCodeIntoActiveEditor}
+                                />
+                                {editPreviewOpen && (
+                                <aside id="edit-consent-preview" className="min-w-0">
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                        <p className="text-xs font-black uppercase tracking-wider text-slate-500">Live document preview</p>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setEditPreviewOpen(false)}
+                                            className="hidden gap-2 2xl:inline-flex"
+                                        >
+                                            <EyeOff className="size-4" /> Hide
+                                        </Button>
+                                    </div>
+                                    <div className="max-h-[600px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
+                                        <ConsentDocument
+                                            variant="compact"
+                                            title={editTitle || 'Consent Form'}
+                                            content={editContent || 'No content available.'}
+                                            templateContext={{
+                                                ownerName: 'Sample Pet Owner', petName: 'Sample Pet', petSpecies: 'Dog', petBreed: 'Aspin',
+                                                veterinarianName: 'Assigned Veterinarian', veterinarianLicense: 'PRC License',
+                                                serviceName: categoryLabels[editCategory] || editCategory || 'Veterinary Service',
+                                                branchName: 'Selected VFC Branch', bookingNumber: 'BK-SAMPLE', queueNumber: 'Q-SAMPLE'
+                                            }}
+                                        />
+                                    </div>
+                                </aside>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
@@ -484,6 +708,8 @@ export default function ConsentFilesManagement() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConsentCodeReference onInsertCode={insertCodeIntoActiveEditor} />
         </div>
     );
 }

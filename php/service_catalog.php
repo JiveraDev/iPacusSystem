@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -44,7 +46,7 @@ function service_catalog_schema_ready(PDO $pdo): bool
 
 function service_catalog_missing_message(): string
 {
-    return 'Service catalog schema is missing. Run DDL/visit_service_payment_migration_20260604.sql first.';
+    return 'Service catalog schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.';
 }
 
 function service_catalog_text($value): string
@@ -71,6 +73,33 @@ function service_catalog_require_schema(PDO $pdo): void
 {
     if (!service_catalog_schema_ready($pdo)) {
         service_catalog_error(409, service_catalog_missing_message());
+    }
+}
+
+function service_catalog_require_admin(PDO $pdo): array
+{
+    $currentUser = ipawcus_guard_current_user($pdo);
+    if (!ipawcus_guard_is_admin_role(ipawcus_guard_role($currentUser))) {
+        service_catalog_error(403, 'Only Admin or Super Admin can change the service catalog.');
+    }
+
+    return $currentUser;
+}
+
+function service_catalog_notify_super_admin(PDO $pdo, int $serviceId, string $serviceName, string $action): void
+{
+    try {
+        notification_send_super_admin_governance_event($pdo, [
+            'type' => 'service_catalog_updated',
+            'category' => 'configuration_updates',
+            'title' => 'Service catalog updated',
+            'message' => "{$serviceName} was {$action} in the service catalog.",
+            'push_message' => "Service catalog updated: {$serviceName}.",
+            'redirect_path' => '/dashboard/service-catalog',
+            'dedupe_key' => 'service-catalog-' . $serviceId . '-' . (int)floor(time() / 300),
+        ]);
+    } catch (Throwable $notificationError) {
+        error_log('Service catalog governance notification failed: ' . $notificationError->getMessage());
     }
 }
 
@@ -187,6 +216,8 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
     service_catalog_require_schema($pdo);
 
     $input = service_catalog_input();
+    $currentUser = service_catalog_require_admin($pdo);
+    $createdByUserId = ipawcus_guard_user_id($currentUser);
     $serviceName = service_catalog_text($input['service_name'] ?? $input['serviceName'] ?? '');
     $serviceType = service_catalog_validate_type(service_catalog_text($input['service_type'] ?? $input['serviceType'] ?? ''));
     $basePrice = (float)($input['base_price'] ?? $input['basePrice'] ?? 0);
@@ -208,8 +239,6 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
         $isMajorService = 0;
     }
     $isActive = isset($input['is_active']) ? (int)(bool)$input['is_active'] : (isset($input['isActive']) ? (int)(bool)$input['isActive'] : 1);
-    $createdByUserId = isset($input['created_by_user_id']) ? (int)$input['created_by_user_id'] : (isset($input['createdByUserId']) ? (int)$input['createdByUserId'] : null);
-
     try {
         if ($serviceId !== null && $serviceId > 0) {
             $stmt = $pdo->prepare("
@@ -224,6 +253,7 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
                 WHERE service_id = ?
             ");
             $stmt->execute([$serviceCode, $serviceName, $serviceType, $description, $basePrice, $isMajorService, $isActive, $serviceId]);
+            service_catalog_notify_super_admin($pdo, $serviceId, $serviceName, 'updated');
             echo json_encode(['success' => true, 'message' => 'Service updated.', 'serviceId' => $serviceId]);
             return;
         }
@@ -240,13 +270,15 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
                 created_by_user_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$serviceCode, $serviceName, $serviceType, $description, $basePrice, $isMajorService, $isActive, $createdByUserId ?: null]);
+        $stmt->execute([$serviceCode, $serviceName, $serviceType, $description, $basePrice, $isMajorService, $isActive, $createdByUserId]);
+        $createdServiceId = (int)$pdo->lastInsertId();
+        service_catalog_notify_super_admin($pdo, $createdServiceId, $serviceName, 'created');
 
         http_response_code(201);
         echo json_encode([
             'success' => true,
             'message' => 'Service created.',
-            'serviceId' => (int)$pdo->lastInsertId()
+            'serviceId' => $createdServiceId
         ]);
     } catch (PDOException $e) {
         service_catalog_error(500, 'Failed to save service: ' . $e->getMessage());
@@ -256,14 +288,16 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
 function service_catalog_save_materials(PDO $pdo, int $serviceId): void
 {
     service_catalog_require_schema($pdo);
+    service_catalog_require_admin($pdo);
 
     if ($serviceId <= 0) {
         service_catalog_error(400, 'Service ID is required.');
     }
 
-    $existsStmt = $pdo->prepare("SELECT service_id FROM service_catalog WHERE service_id = ? LIMIT 1");
+    $existsStmt = $pdo->prepare("SELECT service_id, service_name FROM service_catalog WHERE service_id = ? LIMIT 1");
     $existsStmt->execute([$serviceId]);
-    if (!$existsStmt->fetchColumn()) {
+    $service = $existsStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$service) {
         service_catalog_error(404, 'Service was not found.');
     }
 
@@ -364,6 +398,7 @@ function service_catalog_save_materials(PDO $pdo, int $serviceId): void
         }
 
         $pdo->commit();
+        service_catalog_notify_super_admin($pdo, $serviceId, (string)$service['service_name'], 'updated');
         echo json_encode(['success' => true, 'message' => 'Service materials saved.']);
     } catch (Exception $e) {
         service_catalog_error(500, 'Failed to save materials: ' . $e->getMessage());
@@ -385,20 +420,23 @@ function service_catalog_reference_count(PDO $pdo, string $tableName, string $co
 function service_catalog_delete(PDO $pdo, int $serviceId, bool $hardDelete = false): void
 {
     service_catalog_require_schema($pdo);
+    service_catalog_require_admin($pdo);
 
     if ($serviceId <= 0) {
         service_catalog_error(400, 'Service ID is required.');
     }
 
-    $existsStmt = $pdo->prepare("SELECT service_id FROM service_catalog WHERE service_id = ? LIMIT 1");
+    $existsStmt = $pdo->prepare("SELECT service_id, service_name FROM service_catalog WHERE service_id = ? LIMIT 1");
     $existsStmt->execute([$serviceId]);
-    if (!$existsStmt->fetchColumn()) {
+    $service = $existsStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$service) {
         service_catalog_error(404, 'Service was not found.');
     }
 
     if (!$hardDelete) {
         $stmt = $pdo->prepare("UPDATE service_catalog SET is_active = 0 WHERE service_id = ?");
         $stmt->execute([$serviceId]);
+        service_catalog_notify_super_admin($pdo, $serviceId, (string)$service['service_name'], 'deactivated');
 
         echo json_encode(['success' => true, 'message' => 'Service deactivated.']);
         return;
@@ -428,6 +466,8 @@ function service_catalog_delete(PDO $pdo, int $serviceId, bool $hardDelete = fal
 
         service_catalog_error(500, 'Failed to delete service: ' . $e->getMessage());
     }
+
+    service_catalog_notify_super_admin($pdo, $serviceId, (string)$service['service_name'], 'deleted');
 
     echo json_encode(['success' => true, 'message' => 'Service deleted.']);
 }

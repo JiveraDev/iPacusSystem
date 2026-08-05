@@ -15,18 +15,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { useDashboardUser } from '../dashboardRouter.jsx';
+import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import {
     fetchBookings as fetchBookingsService,
     receiveBooking as receiveBookingService,
     updateBookingSchedule
 } from '../../services/bookingService';
 import { fetchQueues, receiveQueue as receiveQueueService } from '../../services/queueService';
+import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 const BOOKING_QUEUE_SOURCE = 'booking_management';
 
 function normalize(value) {
@@ -187,7 +189,13 @@ function getUserName(user) {
     return fullName || user?.name || user?.email || 'Veterinarian';
 }
 
+function getPreferredBranchFilter(user) {
+    const branchId = user?.preferred_branch_id || user?.preferredBranchId;
+    return branchId ? String(branchId) : 'all';
+}
+
 export default function VetQueueList() {
+    const navigate = useNavigate();
     const dashboardUser = useDashboardUser();
     const currentUser = useMemo(() => dashboardUser || getStoredUser(), [dashboardUser]);
     const veterinarianUserId = getUserId(currentUser);
@@ -202,6 +210,8 @@ export default function VetQueueList() {
     const [bookingsErrorMessage, setBookingsErrorMessage] = useState('');
     const [updatingQueueId, setUpdatingQueueId] = useState(null);
     const [updatingBookingId, setUpdatingBookingId] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const [branchFilter, setBranchFilter] = useState(() => getPreferredBranchFilter(currentUser));
 
     const loadQueue = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -247,6 +257,14 @@ export default function VetQueueList() {
 
     useAutoRefresh(loadQueue, { refreshKey: 'approved-queue-list' });
     useAutoRefresh(loadBookings, { refreshKey: 'approved-bookings-list' });
+    useAutoRefresh(async () => {
+        try {
+            const data = await fetchBranches();
+            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+        } catch (error) {
+            console.error('Failed to load approved-list branches:', error);
+        }
+    }, { intervalMs: 30000, refreshKey: 'approved-list-branches' });
 
     const todayKey = toLocalDateKey(new Date());
 
@@ -269,12 +287,12 @@ export default function VetQueueList() {
         const mapped = new Map();
 
         queue.filter(isBookingQueue).forEach(item => {
-            if (item.booking_id) {
+            if (item.booking_id && !mapped.has(`id:${item.booking_id}`)) {
                 mapped.set(`id:${item.booking_id}`, item);
             }
 
             const bookingNumber = queueBookingNumber(item);
-            if (bookingNumber) {
+            if (bookingNumber && !mapped.has(`number:${bookingNumber}`)) {
                 mapped.set(`number:${bookingNumber}`, item);
             }
         });
@@ -323,12 +341,15 @@ export default function VetQueueList() {
 
     const filteredQueue = useMemo(() => {
         const query = normalize(searchQuery);
+        const byBranch = approvedQueue.filter(item => (
+            branchFilter === 'all' || String(item.branch_id) === branchFilter
+        ));
 
         if (!query) {
-            return approvedQueue;
+            return byBranch;
         }
 
-        return approvedQueue.filter(item => {
+        return byBranch.filter(item => {
             const searchableText = [
                 formatQueueReference(item),
                 item.pet_name,
@@ -337,21 +358,25 @@ export default function VetQueueList() {
                 item.priority,
                 item.complaint,
                 item.pet_species,
-                item.pet_breed
+                item.pet_breed,
+                item.branch_name
             ].join(' ');
 
             return normalize(searchableText).includes(query);
         });
-    }, [approvedQueue, searchQuery]);
+    }, [approvedQueue, branchFilter, searchQuery]);
 
     const filteredConfirmedBookings = useMemo(() => {
         const query = normalize(searchQuery);
+        const byBranch = confirmedBookings.filter(booking => (
+            branchFilter === 'all' || String(booking.branchId) === branchFilter
+        ));
 
         if (!query) {
-            return confirmedBookings;
+            return byBranch;
         }
 
-        return confirmedBookings.filter(booking => {
+        return byBranch.filter(booking => {
             const searchableText = [
                 booking.bookingNumber,
                 booking.petName,
@@ -362,21 +387,25 @@ export default function VetQueueList() {
                 booking.date,
                 booking.time,
                 booking.petSpecies,
-                booking.petBreed
+                booking.petBreed,
+                booking.branchName
             ].join(' ');
 
             return normalize(searchableText).includes(query);
         });
-    }, [confirmedBookings, searchQuery]);
+    }, [branchFilter, confirmedBookings, searchQuery]);
 
     const filteredMissedBookings = useMemo(() => {
         const query = normalize(searchQuery);
+        const byBranch = missedBookings.filter(booking => (
+            branchFilter === 'all' || String(booking.branchId) === branchFilter
+        ));
 
         if (!query) {
-            return missedBookings;
+            return byBranch;
         }
 
-        return missedBookings.filter(booking => {
+        return byBranch.filter(booking => {
             const searchableText = [
                 booking.bookingNumber,
                 booking.petName,
@@ -392,7 +421,7 @@ export default function VetQueueList() {
 
             return normalize(searchableText).includes(query);
         });
-    }, [missedBookings, searchQuery]);
+    }, [branchFilter, missedBookings, searchQuery]);
 
     const toggleRow = (id) => {
         setExpandedRows(prev => {
@@ -447,6 +476,7 @@ export default function VetQueueList() {
                 return next;
             });
             toast.success('Patient received and moved to My List.');
+            navigate('/dashboard/vet/my-list');
         } catch (error) {
             toast.error(error.message || 'Failed to receive queue patient.');
         } finally {
@@ -531,6 +561,7 @@ export default function VetQueueList() {
             loadQueue({ isAutoRefresh: true });
             loadBookings({ isAutoRefresh: true });
             toast.success('Booking received and moved to My List.');
+            navigate('/dashboard/vet/my-list');
         } catch (error) {
             toast.error(error.message || 'Failed to receive booking.');
         } finally {
@@ -630,7 +661,7 @@ export default function VetQueueList() {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div>
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)]">
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
@@ -638,6 +669,22 @@ export default function VetQueueList() {
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
+                    <Select value={branchFilter} onValueChange={setBranchFilter}>
+                        <SelectTrigger>
+                            <SelectValue
+                                placeholder="Filter by clinic location"
+                                displayValue={branchFilter === 'all'
+                                    ? 'All clinic locations'
+                                    : getBranchDisplayName(branches, branchFilter)}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All clinic locations</SelectItem>
+                            {branches.map(branch => (
+                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
@@ -706,6 +753,7 @@ export default function VetQueueList() {
                                         <TableCell>
                                             <div>
                                                 <p className="font-bold text-slate-900">{item.pet_name || 'Unknown Pet'}</p>
+                                                <p className="text-xs font-semibold text-blue-700">{item.branch_name || 'Main Clinic'}</p>
                                                 <p className="text-xs font-medium text-slate-500">
                                                     {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
                                                 </p>
@@ -752,6 +800,7 @@ export default function VetQueueList() {
                                                     <DetailItem label="Pet Weight" value={item.pet_weight ? `${item.pet_weight} kg` : ''} />
                                                     <DetailItem label="Source" value={getSourceLabel(item.queue_source)} />
                                                     <DetailItem label="Schedule / Approved Time" value={formatScheduleTime(item)} />
+                                                    <DetailItem label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -815,6 +864,7 @@ export default function VetQueueList() {
                                         <TableCell>
                                             <div>
                                                 <p className="font-bold text-slate-900">{booking.petName || 'Unknown Pet'}</p>
+                                                <p className="text-xs font-semibold text-blue-700">{booking.branchName || 'Main Clinic'}</p>
                                                 <p className="text-xs font-medium text-slate-500">
                                                     {[booking.petSpecies, booking.petBreed].filter(Boolean).join(' - ') || 'No pet profile details'}
                                                 </p>

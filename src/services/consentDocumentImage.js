@@ -1,4 +1,5 @@
 import logoImg from '../assets/logo-no-bg.png';
+import { resolveConsentTemplate } from '../lib/consentTemplateCodes';
 
 function resolveText(value, fallback = '') {
     return String(value || fallback).trim();
@@ -65,14 +66,48 @@ export async function createConsentDocumentImage({
     signerName,
     signedAt,
     veterinarianName,
-    veterinarianLicense
+    veterinarianLicense,
+    templateContext = {}
 }) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 900;
-    canvas.height = 1275;
-    const context = canvas.getContext('2d');
+    const width = 900;
     const padding = 76;
-    const textWidth = canvas.width - padding * 2;
+    const textWidth = width - padding * 2;
+    const bodyStartY = 330;
+    const bodyLineHeight = 25;
+    const measureCanvas = document.createElement('canvas');
+    const measureContext = measureCanvas.getContext('2d');
+
+    if (!measureContext) {
+        throw new Error('Could not prepare the complete consent document.');
+    }
+
+    const resolvedContext = {
+        ...templateContext,
+        signerName,
+        signedAt,
+        veterinarianName,
+        veterinarianLicense
+    };
+    const resolvedContent = resolveConsentTemplate(content, resolvedContext);
+
+    measureContext.font = '16px Georgia, serif';
+    const lines = wrapCanvasText(
+        measureContext,
+        resolveText(resolvedContent, 'No content available for this form.'),
+        textWidth
+    );
+    const bodyEndY = bodyStartY + (Math.max(lines.length, 1) * bodyLineHeight);
+    const signatureY = Math.max(1010, bodyEndY + 135);
+    const height = Math.max(1275, signatureY + 265);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+        throw new Error('Could not create the complete consent document.');
+    }
 
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -90,32 +125,30 @@ export async function createConsentDocumentImage({
     context.textAlign = 'center';
     context.fillStyle = '#111827';
     context.font = '700 25px Georgia, serif';
-    context.fillText('Vetfocus Animal Care Clinic', canvas.width / 2, 156);
+    context.fillText('Vetfocus Animal Care Clinic', width / 2, 156);
     context.font = '11px Arial, sans-serif';
     context.fillStyle = '#4b5563';
-    context.fillText('EXCELLENCE IN PET HEALTHCARE & SPECIALIZED SURGERY', canvas.width / 2, 178);
+    context.fillText('EXCELLENCE IN PET HEALTHCARE & SPECIALIZED SURGERY', width / 2, 178);
     context.strokeStyle = '#111827';
     context.lineWidth = 2;
     context.beginPath();
     context.moveTo(padding, 212);
-    context.lineTo(canvas.width - padding, 212);
+    context.lineTo(width - padding, 212);
     context.stroke();
 
     context.font = '700 22px Georgia, serif';
     context.fillStyle = '#111827';
-    context.fillText(resolveText(title, 'Consent Form'), canvas.width / 2, 270);
+    context.fillText(resolveText(title, 'Consent Form'), width / 2, 270);
 
     context.textAlign = 'left';
     context.fillStyle = '#1f2937';
     context.font = '16px Georgia, serif';
-    const lines = wrapCanvasText(context, resolveText(content, 'No content available for this form.'), textWidth);
-    let y = 330;
-    lines.slice(0, 34).forEach((line) => {
+    let y = bodyStartY;
+    lines.forEach((line) => {
         context.fillText(line, padding, y);
-        y += 25;
+        y += bodyLineHeight;
     });
 
-    const signatureY = 1010;
     const signature = await loadCanvasImage(signatureImage);
     if (signature) {
         const maxWidth = 210;
@@ -131,34 +164,36 @@ export async function createConsentDocumentImage({
     context.beginPath();
     context.moveTo(padding, signatureY);
     context.lineTo(padding + 230, signatureY);
-    context.moveTo(canvas.width - padding - 250, signatureY);
-    context.lineTo(canvas.width - padding, signatureY);
+    context.moveTo(width - padding - 250, signatureY);
+    context.lineTo(width - padding, signatureY);
     context.stroke();
 
     context.textAlign = 'center';
     context.fillStyle = '#111827';
+    context.font = '700 9px Arial, sans-serif';
+    context.fillText("OWNER'S ELECTRONIC SIGNATURE", padding + 115, signatureY + 20);
+    context.fillText('OVER PRINTED NAME', padding + 115, signatureY + 33);
     context.font = '700 11px Arial, sans-serif';
-    context.fillText("OWNER'S SIGNATURE", padding + 115, signatureY + 22);
-    context.fillText('VETERINARIAN NAME AND LICENSE', canvas.width - padding - 125, signatureY + 22);
+    context.fillText('VETERINARIAN NAME AND LICENSE', width - padding - 125, signatureY + 22);
 
     context.fillStyle = '#4b5563';
     context.font = '12px Arial, sans-serif';
-    if (signerName) context.fillText(signerName, padding + 115, signatureY + 42);
-    if (signedAt) context.fillText(signedAt, padding + 115, signatureY + 60);
+    context.fillText(signerName || 'Printed owner name', padding + 115, signatureY + 51);
+    if (signedAt) context.fillText(signedAt, padding + 115, signatureY + 68);
     context.font = '700 12px Arial, sans-serif';
-    context.fillText(veterinarianName || 'Veterinarian', canvas.width - padding - 125, signatureY - 34);
+    context.fillText(veterinarianName || 'Veterinarian', width - padding - 125, signatureY - 34);
     context.font = '700 11px Arial, sans-serif';
-    context.fillText(veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A', canvas.width - padding - 125, signatureY - 15);
+    context.fillText(veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A', width - padding - 125, signatureY - 15);
 
     context.strokeStyle = '#f3f4f6';
     context.beginPath();
-    context.moveTo(padding, 1160);
-    context.lineTo(canvas.width - padding, 1160);
+    context.moveTo(padding, height - 115);
+    context.lineTo(width - padding, height - 115);
     context.stroke();
 
     context.fillStyle = '#9ca3af';
     context.font = '11px Arial, sans-serif';
-    context.fillText('2026 Vetfocus Animal Care Clinic. All rights reserved.', canvas.width / 2, 1188);
+    context.fillText('2026 Vetfocus Animal Care Clinic. All rights reserved.', width / 2, height - 87);
 
     return canvas.toDataURL('image/png');
 }

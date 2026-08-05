@@ -5,7 +5,6 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
-import { Checkbox } from "../../ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, CheckCircle, AlertCircle, ShieldCheck } from "lucide-react";
@@ -13,14 +12,17 @@ import SignatureCapture from "../SignatureCapture";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
-import { uploadImageFile } from "../../services/uploadService";
+import { createConsentDocumentImage } from "../../services/consentDocumentImage";
+import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
-import { resolveImageUrl } from "../../lib/image";
 import { isValidPhilippinePhone, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
+import ProtectedImage from "../shared/ProtectedImage";
+import { saveOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
+import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
@@ -30,11 +32,6 @@ export default function ConsultPayment() {
   const [viewer, setViewer] = useState(null);
   const [consentTemplates, setConsentTemplates] = useState([]);
   const [isLoadingConsent, setIsLoadingConsent] = useState(false);
-  const [consents, setConsents] = useState({
-    terms: false,
-    privacy: false,
-    teleconsult: false,
-  });
   const [formData, setFormData] = useState({
     paymentMethod: "",
     referenceNumber: "",
@@ -46,7 +43,7 @@ export default function ConsultPayment() {
   const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
   const senderRequiresPhilippineMobile = ["gcash", "maya"].includes(String(selectedMethod?.value || "").toLowerCase());
-  const selectedQrUrl = resolveImageUrl(selectedMethod?.qrImageUrl || "");
+  const selectedQrUrl = selectedMethod?.qrImageUrl || "";
   const isMobileWalletPaymentMethod = (value) => ["gcash", "maya"].includes(String(value || "").toLowerCase());
   const onlineConsentTemplate = useMemo(
     () => pickConsentForContext(consentTemplates, "online-consultation"),
@@ -130,10 +127,6 @@ export default function ConsultPayment() {
       return;
     }
     
-    if (!consents.terms || !consents.privacy || !consents.teleconsult) {
-      toast.error("Please agree to all consultation consent items");
-      return;
-    }
     if (!onlineConsentTemplate) {
       toast.error("No online consultation consent form is assigned. Please contact the clinic.");
       return;
@@ -171,16 +164,37 @@ export default function ConsultPayment() {
         receiptUrl = await uploadImageFile(formData.receiptFile, "booking_payment");
       }
 
-      let finalSignatureUrl = signature;
-      if (signature.startsWith("data:image")) {
-        const signatureFile = dataURLtoFile(signature, `signature_${Date.now()}.png`);
-        finalSignatureUrl = await uploadImageFile(signatureFile, "booking_signature");
-      }
       const ownerName = [
         currentUser.firstName || currentUser.first_Name || currentUser.first_name,
         currentUser.lastName || currentUser.last_Name || currentUser.last_name
       ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
       const signedAt = new Date().toISOString();
+      const signedConsentImage = await createConsentDocumentImage({
+        title: onlineConsentTemplate.title,
+        content: onlineConsentTemplate.content,
+        signatureImage: signature,
+        signerName: ownerName,
+        signedAt,
+        templateContext: {
+          ownerName,
+          ownerAddress: currentUser.personal_Address || currentUser.address || '',
+          ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+          petName: bookingData.petName,
+          petSpecies: bookingData.petSpecies,
+          petBreed: bookingData.petBreed,
+          veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+          serviceName: 'Online Consultation',
+          branchName: 'Vetfocus Care Animal Clinic'
+        }
+      });
+      const signedConsentDocumentUrl = await uploadDataUrlImage(
+        signedConsentImage,
+        "booking_signature",
+        "online_consultation_consent"
+      );
+      if (!signedConsentDocumentUrl) {
+        throw new Error("The signed consent document could not be saved. Please try again.");
+      }
 
       const uploadedConcernUrls = [];
       if (Array.isArray(bookingData.concernImages)) {
@@ -217,7 +231,7 @@ export default function ConsultPayment() {
         new_pet_weight: bookingData.petId === "new-pet" ? bookingData.petWeight : null,
         is_online_consultation: 1,
         veterinarian_id: bookingData.veterinarianId,
-        signature: finalSignatureUrl,
+        signature: signedConsentDocumentUrl,
         Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls.join(",") : null,
         payment_proof_url: receiptUrl,
         payment_method: formData.paymentMethod,
@@ -230,7 +244,8 @@ export default function ConsultPayment() {
           content: onlineConsentTemplate.content,
           signerName: ownerName,
           signedAt,
-          signaturePath: finalSignatureUrl,
+          documentPath: signedConsentDocumentUrl,
+          signaturePath: signedConsentDocumentUrl,
           serviceType: "Online Consultation"
         }],
         consent_status: "signed"
@@ -238,9 +253,19 @@ export default function ConsultPayment() {
 
       // 3. Submit to DB
       const result = await createBooking(finalBookingData);
+      const createdBookingId = result?.booking_id || result?.bookingId || result?.id || "";
+      saveOnlineConsultationSubmission({
+        bookingId: createdBookingId,
+        bookingNumber: result?.booking_number || result?.bookingNumber || "",
+        petName: bookingData.petName || "",
+        bookingDate: bookingData.date || "",
+        bookingTime: bookingData.time || "",
+        veterinarianName: bookingData.veterinarianName || bookingData.veterinarian || "",
+        amount: formData.amount || result?.price || "500"
+      });
       toast.success("Consultation booking submitted successfully!");
       sessionStorage.removeItem("pendingBooking");
-      navigate(`/dashboard/consult/confirmation/${result.booking_id || "success"}`);
+      navigate(`/dashboard/consult/confirmation/${createdBookingId || "success"}`);
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(error.message || "An error occurred during submission");
@@ -256,6 +281,25 @@ export default function ConsultPayment() {
   if (!bookingData) {
     return null;
   }
+
+  const previewUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const previewOwnerName = [
+    previewUser.firstName || previewUser.first_Name || previewUser.first_name,
+    previewUser.lastName || previewUser.last_Name || previewUser.last_name
+  ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
+  const consentPreviewContent = onlineConsentTemplate
+    ? resolveConsentTemplate(onlineConsentTemplate.content, {
+        ownerName: previewOwnerName,
+        ownerAddress: previewUser.personal_Address || previewUser.address || '',
+        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+        petName: bookingData.petName,
+        petSpecies: bookingData.petSpecies,
+        petBreed: bookingData.petBreed,
+        veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+        serviceName: 'Online Consultation',
+        branchName: 'Vetfocus Care Animal Clinic'
+      }, { preview: true })
+    : '';
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -294,7 +338,7 @@ export default function ConsultPayment() {
             <ShieldCheck className="h-5 w-5 text-green-600" />
             Consent & Digital Signature
           </CardTitle>
-          <CardDescription>Confirm the online consultation consent before submitting payment</CardDescription>
+          <CardDescription>Review the assigned consent form, then sign it before submitting payment</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
@@ -311,56 +355,8 @@ export default function ConsultPayment() {
               )}
             </div>
             <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
-              {onlineConsentTemplate?.content || "An admin must assign an online consultation consent form in Consent Management before this booking can be submitted."}
+              {consentPreviewContent || "An admin must assign an online consultation consent form in Consent Management before this booking can be submitted."}
             </p>
-          </div>
-
-          <div className="space-y-4 rounded-lg border bg-gray-50 p-4">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="consultTerms"
-                checked={consents.terms}
-                onCheckedChange={(checked) => setConsents({ ...consents, terms: checked })}
-              />
-              <div className="space-y-1">
-                <Label htmlFor="consultTerms" className="text-sm font-medium">
-                  I agree to the online consultation fee and terms
-                </Label>
-                <p className="text-xs text-gray-500">
-                  I understand the consultation will be reviewed after payment verification.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="consultTelehealth"
-                checked={consents.teleconsult}
-                onCheckedChange={(checked) => setConsents({ ...consents, teleconsult: checked })}
-              />
-              <div className="space-y-1">
-                <Label htmlFor="consultTelehealth" className="text-sm font-medium">
-                  I authorize online veterinary consultation
-                </Label>
-                <p className="text-xs text-gray-500">
-                  I understand that an online consultation may require an in-clinic follow-up when needed.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="consultPrivacy"
-                checked={consents.privacy}
-                onCheckedChange={(checked) => setConsents({ ...consents, privacy: checked })}
-              />
-              <div className="space-y-1">
-                <Label htmlFor="consultPrivacy" className="text-sm font-medium">
-                  Data Privacy Consent
-                </Label>
-                <p className="text-xs text-gray-500">
-                  I allow the clinic to use the submitted pet details, photos, and signature for this booking.
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-3">
@@ -368,7 +364,7 @@ export default function ConsultPayment() {
             <SignatureCapture
               signature={signature}
               onSignatureChange={setSignature}
-              disabled={!consents.terms || !consents.privacy || !consents.teleconsult || !onlineConsentTemplate || isLoadingConsent}
+              disabled={!onlineConsentTemplate || isLoadingConsent}
             />
           </div>
         </CardContent>
@@ -420,7 +416,12 @@ export default function ConsultPayment() {
                           className="mt-3 group block rounded-lg border border-green-100 bg-white p-2 text-left transition hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200"
                           aria-label={`Open larger ${selectedMethod.label} QR image`}
                         >
-                          <img src={selectedQrUrl} alt={`${selectedMethod.label} QR`} className="max-h-48 rounded-md object-contain" />
+                          <ProtectedImage
+                            src={selectedQrUrl}
+                            alt={`${selectedMethod.label} QR`}
+                            className="max-h-48 rounded-md object-contain"
+                            fallbackClassName="h-48 w-48 rounded-md"
+                          />
                         </button>
                       )}
                     </div>

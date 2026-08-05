@@ -3,14 +3,12 @@ import PropTypes from 'prop-types';
 import {
     ArrowRight,
     CalendarCheck,
-    Cat,
     Check,
     ChevronRight,
     ClipboardList,
     Clock,
-    Dog,
+    ExternalLink,
     FileText,
-    HeartPulse,
     Hotel,
     ListTodo,
     Mail,
@@ -33,16 +31,51 @@ import {
 import vetImage from '../assets/vetImage.png';
 import consultImage from '../assets/consultimage.png';
 import logoImage from '../assets/circular_logo.png';
+import PwaInstallButton from '../pwa/PwaInstallButton.jsx';
 
 const clinicDetails = {
-    name: 'Vetfocus Animal Care Clinic',
+    name: 'Vetfocus Care Animal Clinic',
     product: 'iPawcus',
-    hours: '7:00 AM - 6:00 PM',
-    shortAddress: 'Pleasantville Subdivision, Ilayang Iyam, Lucena City',
-    fullAddress: 'Oakbrook Avenue, Phase 3, Pleasantville Subdivision, Corner Clayton, Ilayang Iyam, Lucena City',
-    phone: '(042) 373-5678',
-    email: 'support@vetfocuscare.com',
+    hours: '8:00 AM - 6:00 PM',
+    phone: '(042) 421-9086 / 0933 476 8522',
+    email: 'support@ipawcus.com',
 };
+
+const clinicLocations = [
+    {
+        code: 'MAIN',
+        name: 'VFC Pharmacy / Main Clinic',
+        type: 'Main clinic and pharmacy',
+        address: 'Oakbrook Avenue corner Clayton Street, Phase 3, Pleasantville Subdivision, Barangay Ilayang Iyam, Lucena City, Quezon 4301, Philippines',
+    },
+    {
+        code: 'ISABANG',
+        name: 'VFC Pet Corner Isabang',
+        type: 'Pet Corner',
+        address: '1229 Unit 8, Maharlika Highway, Isabang, Lucena City, Quezon 4301, Philippines',
+    },
+    {
+        code: 'ENRIQUEZ',
+        name: 'VFC Pet Corner Main Enriquez St.',
+        type: 'Pet Corner',
+        address: 'Enriquez St. corner Barcelona St., Barangay 2, Lucena City, Quezon 4301, Philippines',
+    },
+    {
+        code: 'GULANG_GULANG',
+        name: 'VFC Pet Corner Gulang-Gulang',
+        type: 'Pet Corner',
+        address: 'Doña Aurora Blvd., Purok Pagkakaisa, Gulang-Gulang, Lucena City, Quezon 4301, Philippines',
+    },
+    {
+        code: 'MAYAO',
+        name: 'VFC Pet Corner Mayao',
+        type: 'Pet Corner',
+        address: 'Mayao Kanluran, Lucena City, Quezon 4301, Philippines',
+    },
+].map(location => ({
+    ...location,
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${location.name}, ${location.address}`)}`,
+}));
 
 const navigationItems = [
     { label: 'Services', href: '#services' },
@@ -107,36 +140,6 @@ const serviceGroups = [
         items: ['Vet schedule selection', 'Payment submission', 'Video session', 'Consult summary'],
         note: 'If the admin books it directly, the payment can still be completed through POS.',
         tone: 'border-rose-200 bg-rose-50 text-rose-700',
-    },
-];
-
-const petCarePaths = [
-    {
-        id: 'dog',
-        label: 'Dog',
-        name: 'Active companion',
-        Icon: Dog,
-        headline: 'Build a routine around check-ups, vaccines, parasite control, dental care, and grooming.',
-        nextBest: 'Use General Check-up for routine exams, then keep vaccination and prescription records under the pet profile.',
-        services: ['General check-up', 'Vaccination', 'Parasite control', 'Grooming'],
-    },
-    {
-        id: 'cat',
-        label: 'Cat',
-        name: 'Careful observer',
-        Icon: Cat,
-        headline: 'Track appetite changes, litter habits, weight, vaccine status, and follow-up notes.',
-        nextBest: 'Use online consultation for non-emergency advice, or book clinic care when symptoms need examination.',
-        services: ['Online consult', 'Dental check-up', 'Vaccination', 'Medical records'],
-    },
-    {
-        id: 'senior',
-        label: 'Senior Pet',
-        name: 'Monitored care',
-        Icon: HeartPulse,
-        headline: 'Prioritize recurring exams, diagnostics, medication review, and clear visit summaries.',
-        nextBest: 'After diagnosis, prescriptions and invoice-ready charges can be prepared from the recorded treatment.',
-        services: ['Diagnostics', 'Medication review', 'Prescription document', 'Follow-up care'],
     },
 ];
 
@@ -252,14 +255,13 @@ const guidelines = [
 ];
 
 const quickStats = [
-    { label: 'Clinic hours', value: '7AM-6PM' },
+    { label: 'Clinic hours', value: '8AM-6PM' },
     { label: 'Online consult', value: 'PHP 500' },
     { label: 'Billing source', value: 'Catalog' },
 ];
 
 export default function LandingPageContent({ onLogin, onRegister }) {
     const [activeServiceId, setActiveServiceId] = useState(serviceGroups[0].id);
-    const [activePetId, setActivePetId] = useState(petCarePaths[0].id);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const activeService = useMemo(
@@ -267,13 +269,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
         [activeServiceId],
     );
 
-    const activePet = useMemo(
-        () => petCarePaths.find((pet) => pet.id === activePetId) || petCarePaths[0],
-        [activePetId],
-    );
-
     const ActiveServiceIcon = activeService.Icon;
-    const ActivePetIcon = activePet.Icon;
 
     const closeMobileMenu = () => setIsMobileMenuOpen(false);
     const handleLogin = () => {
@@ -316,8 +312,8 @@ export default function LandingPageContent({ onLogin, onRegister }) {
         <div className="min-w-0 overflow-x-hidden bg-[#f6f8fb] text-slate-950">
             <header className="sticky top-0 z-40 border-b border-slate-200  backdrop-blur">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label="Vetfocus Animal Care Clinic home" onClick={(event) => handleHashNavigation(event, '#top')}>
-                        <img src={logoImage} alt="Vetfocus Animal Care Clinic logo" className="h-11 w-11 shrink-0 object-contain" />
+                    <a href="#top" className="flex min-w-0 items-center gap-3" aria-label={`${clinicDetails.name} home`} onClick={(event) => handleHashNavigation(event, '#top')}>
+                        <img src={logoImage} alt={`${clinicDetails.name} logo`} className="h-11 w-11 shrink-0 object-contain" />
                         <div className="min-w-0">
                             <div className="text-base font-bold leading-tight text-slate-950 sm:text-lg">{clinicDetails.product}</div>
                             <div className="hidden text-xs font-medium text-slate-500 sm:block">{clinicDetails.name}</div>
@@ -334,6 +330,9 @@ export default function LandingPageContent({ onLogin, onRegister }) {
 
                     <div className="flex shrink-0 items-center gap-2">
                         <div className="hidden items-center gap-2 sm:flex">
+                            <div className="hidden lg:block">
+                                <PwaInstallButton collapsible className="h-10" />
+                            </div>
                             <button
                                 type="button"
                                 onClick={handleLogin}
@@ -376,6 +375,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                     {item.label}
                                 </a>
                             ))}
+                            <PwaInstallButton className="mt-1 h-11 w-full justify-center lg:hidden" />
                         </nav>
                         <div className="mx-auto mt-3 grid w-full max-w-7xl grid-cols-2 gap-2 sm:hidden">
                             <button
@@ -463,15 +463,22 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                 <div className="mt-1 text-sm text-slate-600">{clinicDetails.hours}</div>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3">
+                        <a
+                            href="#contact"
+                            onClick={(event) => handleHashNavigation(event, '#contact')}
+                            className="group flex items-start gap-3 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-4"
+                        >
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                                 <MapPin className="h-5 w-5" aria-hidden="true" />
                             </div>
-                            <div>
-                                <div className="text-sm font-bold text-slate-950">Lucena City clinic</div>
-                                <div className="mt-1 text-sm text-slate-600">{clinicDetails.shortAddress}</div>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-sm font-bold text-slate-950 transition group-hover:text-emerald-700">
+                                    {clinicLocations.length} Lucena locations
+                                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                                </div>
+                                <div className="mt-1 text-sm text-slate-600 underline-offset-4 group-hover:underline">Main clinic and four VFC Pet Corners</div>
                             </div>
-                        </div>
+                        </a>
                         <div className="flex items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
                                 <Video className="h-5 w-5" aria-hidden="true" />
@@ -545,78 +552,6 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                             <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
                                             <span>{item}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-white px-4 py-14 sm:px-6 lg:px-8">
-                    <div className="mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
-                        <div>
-                            <div className="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Pet care match</div>
-                            <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">
-                                Select a pet type and see the better next step.
-                            </h2>
-                            <p className="mt-4 text-base leading-7 text-slate-600">
-                                The guide points owners toward services already present in the dashboard, then keeps the
-                                records connected after the visit.
-                            </p>
-                            <div className="mt-6 grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-2">
-                                <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <FileText className="h-5 w-5 text-emerald-700" aria-hidden="true" />
-                                    Digital diagnosis history
-                                </div>
-                                <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <Receipt className="h-5 w-5 text-emerald-700" aria-hidden="true" />
-                                    Invoice-ready care records
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm sm:p-6">
-                            <div className="grid grid-cols-3 gap-2">
-                                {petCarePaths.map((pet) => {
-                                    const PetIcon = pet.Icon;
-                                    const isActive = pet.id === activePet.id;
-
-                                    return (
-                                        <button
-                                            key={pet.id}
-                                            type="button"
-                                            onClick={() => setActivePetId(pet.id)}
-                                            className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 text-center transition hover:-translate-y-0.5 ${
-                                                isActive
-                                                    ? 'border-emerald-300 bg-white text-emerald-700 shadow-sm ring-2 ring-emerald-100'
-                                                    : 'border-slate-200 bg-white text-slate-600 hover:text-slate-950'
-                                            }`}
-                                        >
-                                            <PetIcon className="h-7 w-7" aria-hidden="true" />
-                                            <span className="text-sm font-bold">{pet.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-5 rounded-lg border border-slate-200 bg-white p-5">
-                                <div className="flex items-start gap-4">
-                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                                        <ActivePetIcon className="h-6 w-6" aria-hidden="true" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-bold uppercase tracking-[0.14em] text-emerald-700">{activePet.name}</div>
-                                        <h3 className="mt-2 text-xl font-bold text-slate-950">{activePet.headline}</h3>
-                                    </div>
-                                </div>
-                                <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium leading-6 text-amber-800">
-                                    {activePet.nextBest}
-                                </p>
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                    {activePet.services.map((service) => (
-                                        <span key={service} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">
-                                            {service}
-                                        </span>
                                     ))}
                                 </div>
                             </div>
@@ -800,30 +735,52 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                 </section>
 
                 <section id="contact" className="bg-white px-4 py-14 sm:px-6 lg:px-8">
-                    <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                    <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
                         <div>
-                            <div className="text-sm font-bold uppercase tracking-[0.16em] text-rose-700">Visit details</div>
-                            <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">Know where to go and what to bring.</h2>
+                            <div className="text-sm font-bold uppercase tracking-[0.16em] text-rose-700">VFC locations</div>
+                            <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">Find the location nearest to you.</h2>
                             <p className="mt-4 text-base leading-7 text-slate-600">
-                                {clinicDetails.name} supports scheduled clinic visits, digital pet records, online consultation,
-                                boarding requests, and front-desk billing through {clinicDetails.product}.
+                                {clinicDetails.name} connects its main clinic and four Pet Corners through {clinicDetails.product}.
+                                Select a location below to open its address in Google Maps.
                             </p>
-                            <div className="mt-6 grid gap-3">
+
+                            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                                {clinicLocations.map(location => (
+                                    <a
+                                        key={location.code}
+                                        href={location.mapsUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={`Open ${location.name} in Google Maps`}
+                                        className="group flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-700 transition hover:border-rose-200 hover:bg-rose-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2"
+                                    >
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
+                                            <MapPin className="h-4.5 w-4.5" aria-hidden="true" />
+                                        </div>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="flex items-start justify-between gap-2">
+                                                <span className="text-sm font-bold text-slate-950 group-hover:text-rose-800">{location.name}</span>
+                                                <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 group-hover:text-rose-700" aria-hidden="true" />
+                                            </span>
+                                            <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{location.type}</span>
+                                            <span className="mt-2 block text-sm leading-5 text-slate-600 underline-offset-4 group-hover:underline">{location.address}</span>
+                                        </span>
+                                    </a>
+                                ))}
+                            </div>
+
+                            <div className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3">
                                 <div className="flex items-start gap-3 text-sm text-slate-700">
-                                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />
-                                    <span>{clinicDetails.fullAddress}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-slate-700">
                                     <Clock className="h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />
-                                    <span>Open daily, {clinicDetails.hours}</span>
+                                    <span><strong className="block text-slate-950">Clinic hours</strong>{clinicDetails.hours}</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-slate-700">
+                                <div className="flex items-start gap-3 text-sm text-slate-700">
                                     <Phone className="h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />
-                                    <span>{clinicDetails.phone}</span>
+                                    <span><strong className="block text-slate-950">Contact</strong>{clinicDetails.phone}</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-slate-700">
+                                <div className="flex items-start gap-3 text-sm text-slate-700">
                                     <Mail className="h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />
-                                    <span>{clinicDetails.email}</span>
+                                    <span className="min-w-0"><strong className="block text-slate-950">Email</strong><span className="break-all">{clinicDetails.email}</span></span>
                                 </div>
                             </div>
                         </div>
@@ -851,7 +808,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
             <footer className="border-t border-slate-200 bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
                 <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div className="flex items-center gap-3">
-                        <img src={logoImage} alt="Vetfocus Animal Care Clinic logo" className="h-10 w-10 object-contain" />
+                        <img src={logoImage} alt={`${clinicDetails.name} logo`} className="h-10 w-10 object-contain" />
                         <div>
                             <div className="font-bold">{clinicDetails.name}</div>
                             <div className="text-sm text-white/60">Powered by {clinicDetails.product}</div>

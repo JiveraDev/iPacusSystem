@@ -14,8 +14,38 @@ function onlineConsultationTableExists(PDO $pdo, string $tableName): bool
 
 function buildOnlineConsultationDateTime(string $date, string $time): DateTime
 {
-    $timeValue = strlen($time) === 5 ? $time . ':00' : $time;
-    return new DateTime($date . ' ' . $timeValue);
+    $dateValue = trim($date);
+    $timeValue = trim($time);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateValue)) {
+        throw new InvalidArgumentException('Booking date must use the YYYY-MM-DD format.');
+    }
+    if (!preg_match('/^\d{1,2}:\d{2}(?::\d{2})?$/', $timeValue)) {
+        throw new InvalidArgumentException('Booking time must use the HH:MM format.');
+    }
+
+    $timeParts = explode(':', $timeValue);
+    $normalizedTime = sprintf(
+        '%02d:%02d:%02d',
+        (int)($timeParts[0] ?? 0),
+        (int)($timeParts[1] ?? 0),
+        (int)($timeParts[2] ?? 0)
+    );
+    $timezone = new DateTimeZone('Asia/Manila');
+    $dateTime = DateTime::createFromFormat(
+        '!Y-m-d H:i:s',
+        $dateValue . ' ' . $normalizedTime,
+        $timezone
+    );
+    $errors = DateTime::getLastErrors();
+    if (
+        !$dateTime
+        || ($errors !== false && ((int)$errors['warning_count'] > 0 || (int)$errors['error_count'] > 0))
+        || $dateTime->format('Y-m-d H:i:s') !== $dateValue . ' ' . $normalizedTime
+    ) {
+        throw new InvalidArgumentException('Booking date or time is invalid.');
+    }
+
+    return $dateTime;
 }
 
 function fetchOnlineConsultationRow(PDO $pdo, int $onlineConsultationId): ?array
@@ -34,6 +64,79 @@ function fetchOnlineConsultationByBooking(PDO $pdo, int $bookingId): ?array
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row ?: null;
+}
+
+function fetchOnlineConsultationRescheduleHistoryMap(PDO $pdo, array $onlineConsultationIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $onlineConsultationIds))));
+    $historyByConsultation = [];
+    foreach ($ids as $id) {
+        $historyByConsultation[$id] = [];
+    }
+
+    if (!$ids || !onlineConsultationTableExists($pdo, 'online_consultation_reschedules')) {
+        return $historyByConsultation;
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+        SELECT
+            r.online_consultation_id,
+            r.reschedule_id,
+            r.old_start,
+            r.old_end,
+            r.new_start,
+            r.new_end,
+            r.reason,
+            r.changed_by_user_id,
+            r.created_at,
+            CONCAT(u.first_Name, ' ', u.last_Name) AS changed_by_name
+        FROM online_consultation_reschedules r
+        LEFT JOIN users u ON u.user_id = r.changed_by_user_id
+        WHERE r.online_consultation_id IN ({$placeholders})
+        ORDER BY r.online_consultation_id ASC, r.created_at DESC, r.reschedule_id DESC
+    ");
+    $stmt->execute($ids);
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $onlineConsultationId = (int)$row['online_consultation_id'];
+        $historyByConsultation[$onlineConsultationId][] = [
+            'rescheduleId' => (int)$row['reschedule_id'],
+            'oldStart' => $row['old_start'],
+            'oldEnd' => $row['old_end'],
+            'newStart' => $row['new_start'],
+            'newEnd' => $row['new_end'],
+            'reason' => $row['reason'] ?? null,
+            'changedByUserId' => $row['changed_by_user_id'] !== null
+                ? (int)$row['changed_by_user_id']
+                : null,
+            'changedByName' => trim((string)($row['changed_by_name'] ?? '')),
+            'createdAt' => $row['created_at'],
+        ];
+    }
+
+    return $historyByConsultation;
+}
+
+function fetchOnlineConsultationRescheduleHistory(PDO $pdo, int $onlineConsultationId): array
+{
+    $historyMap = fetchOnlineConsultationRescheduleHistoryMap($pdo, [$onlineConsultationId]);
+
+    return $historyMap[$onlineConsultationId] ?? [];
+}
+
+function onlineConsultationWithReschedules(PDO $pdo, ?array $consultation): ?array
+{
+    if ($consultation === null) {
+        return null;
+    }
+
+    $consultation['reschedules'] = fetchOnlineConsultationRescheduleHistory(
+        $pdo,
+        (int)($consultation['online_consultation_id'] ?? 0)
+    );
+
+    return $consultation;
 }
 
 function getJitsiBaseUrl(): string
@@ -123,13 +226,38 @@ function rescheduleOnlineConsultationForBooking(PDO $pdo, int $bookingId, string
         return null;
     }
 
-    $consultation = fetchOnlineConsultationByBooking($pdo, $bookingId);
+    $consultationStmt = $pdo->prepare("
+        SELECT *
+        FROM online_consultations
+        WHERE booking_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $consultationStmt->execute([$bookingId]);
+    $consultation = $consultationStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if (!$consultation) {
-        return createOnlineConsultationForBooking($pdo, $bookingId);
+        return onlineConsultationWithReschedules(
+            $pdo,
+            createOnlineConsultationForBooking($pdo, $bookingId)
+        );
+    }
+
+    $currentStatus = strtolower(trim((string)($consultation['status'] ?? '')));
+    if (in_array($currentStatus, ['in_progress', 'completed', 'cancelled', 'no_show'], true)) {
+        throw new DomainException("An online consultation with status {$currentStatus} cannot be rescheduled.");
     }
 
     $newStart = buildOnlineConsultationDateTime($newDate, $newTime);
     $newEnd = (clone $newStart)->modify('+1 hour');
+    $newStartSql = $newStart->format('Y-m-d H:i:s');
+    $newEndSql = $newEnd->format('Y-m-d H:i:s');
+
+    if (
+        (string)($consultation['scheduled_start'] ?? '') === $newStartSql
+        && (string)($consultation['scheduled_end'] ?? '') === $newEndSql
+    ) {
+        return onlineConsultationWithReschedules($pdo, $consultation);
+    }
 
     if (onlineConsultationTableExists($pdo, 'online_consultation_reschedules')) {
         $audit = $pdo->prepare("
@@ -147,8 +275,8 @@ function rescheduleOnlineConsultationForBooking(PDO $pdo, int $bookingId, string
             (int)$consultation['online_consultation_id'],
             $consultation['scheduled_start'],
             $consultation['scheduled_end'],
-            $newStart->format('Y-m-d H:i:s'),
-            $newEnd->format('Y-m-d H:i:s'),
+            $newStartSql,
+            $newEndSql,
             $reason,
             $changedByUserId,
         ]);
@@ -158,22 +286,22 @@ function rescheduleOnlineConsultationForBooking(PDO $pdo, int $bookingId, string
         UPDATE online_consultations
         SET scheduled_start = ?,
             scheduled_end = ?,
-            status = CASE
-                WHEN status IN ('completed', 'cancelled', 'no_show') THEN status
-                ELSE 'scheduled'
-            END,
+            status = 'scheduled',
             vet_started_at = NULL,
             owner_joined_at = NULL,
             ended_at = NULL
         WHERE online_consultation_id = ?
     ");
     $update->execute([
-        $newStart->format('Y-m-d H:i:s'),
-        $newEnd->format('Y-m-d H:i:s'),
+        $newStartSql,
+        $newEndSql,
         (int)$consultation['online_consultation_id'],
     ]);
 
-    return fetchOnlineConsultationRow($pdo, (int)$consultation['online_consultation_id']);
+    return onlineConsultationWithReschedules(
+        $pdo,
+        fetchOnlineConsultationRow($pdo, (int)$consultation['online_consultation_id'])
+    );
 }
 
 function cancelOnlineConsultationForBooking(PDO $pdo, int $bookingId): void

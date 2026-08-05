@@ -14,7 +14,11 @@ import {
     DialogTitle,
 } from '../ui/dialog';
 import { ArrowLeft, User, Mail, Phone, MapPin, Dog } from 'lucide-react';
-import RegistrationTermsPreview from './shared/RegistrationTermsPreview.jsx';
+import RegistrationTermsPreview, {
+    REGISTRATION_TERMS_DOCUMENT_ID,
+    REGISTRATION_TERMS_EFFECTIVE_DATE,
+    REGISTRATION_TERMS_VERSION,
+} from './shared/RegistrationTermsPreview.jsx';
 import { searchAddresses } from "../services/addressAutocomplete.js";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../lib/philippinePhone';
 
@@ -164,7 +168,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         if (phoneError) newErrors.phoneNumber = phoneError
         if (emergencyContactError) newErrors.emergencyContact = emergencyContactError
         if (!formData.address) newErrors.address = "Address is required"
-        if (!hasAcceptedTerms) newErrors.terms = "Please read and agree to the Terms of Use"
+        if (!hasAcceptedTerms) newErrors.terms = "Please read and agree to the Terms of Use and General Service Conditions"
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors)
@@ -179,7 +183,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             phoneNumber: normalizePhilippinePhoneForSubmit(formData.phoneNumber),
             emergencyContact: normalizePhilippinePhoneForSubmit(formData.emergencyContact, { optional: true }),
             termsAccepted: true,
-            termsDocument: "simplified-prefilled-ipawcus-clinic-policy",
+            termsDocument: REGISTRATION_TERMS_DOCUMENT_ID,
             email,
             role: "Pet Owner"
         })
@@ -414,6 +418,15 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                         <div className={`rounded-lg border p-4 ${
                             errors.terms ? "border-red-300 bg-red-50" : "border-gray-200 bg-gray-50"
                         }`}>
+                            <p className="mb-4 text-sm font-medium leading-6 text-gray-700">
+                                By creating an iPawcus account, you confirm that you are at least 18 years old,
+                                that the information you provide is accurate, and that you are the pet owner or
+                                are authorized to act for the owner. iPawcus uses your information to manage your
+                                account, pets, appointments, veterinary records, consent, billing, security, and
+                                service communications as described in the Privacy Notice. Registration does not
+                                authorize surgery, anesthesia, euthanasia, or other future procedures; separate
+                                informed consent will be required when applicable.
+                            </p>
                             <div className="flex items-start gap-3">
                                 <Checkbox
                                     id="termsOfUse"
@@ -432,15 +445,15 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                 />
                                 <div className="min-w-0 text-sm leading-6">
                                     <p className="font-medium text-gray-700">
-                                        <label htmlFor="termsOfUse">I have read and agree to the </label>
+                                        <label htmlFor="termsOfUse">I have read and agree to the iPawcus </label>
                                         <button
                                             type="button"
                                             onClick={() => setIsTermsPreviewOpen(true)}
                                             className="font-semibold text-[#155dfc] underline underline-offset-2 hover:text-[#0d4acf] focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
                                         >
-                                            Terms of Use
+                                            Terms of Use and General Service Conditions
                                         </button>
-                                        .
+                                        {`, Version ${REGISTRATION_TERMS_VERSION}, effective ${REGISTRATION_TERMS_EFFECTIVE_DATE}.`}
                                     </p>
                                     <p className="mt-1 text-xs font-medium text-gray-500">
                                         Registration does not replace separate consent forms for high-risk services or procedures.
@@ -533,9 +546,9 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             <Dialog open={isTermsPreviewOpen} onOpenChange={setIsTermsPreviewOpen}>
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
-                        <DialogTitle>Terms of Use</DialogTitle>
+                        <DialogTitle>Registration Terms and Privacy Notice</DialogTitle>
                         <DialogDescription>
-                            Review the clinic policy before completing registration.
+                            Review Version {REGISTRATION_TERMS_VERSION}, effective {REGISTRATION_TERMS_EFFECTIVE_DATE}, before completing registration.
                         </DialogDescription>
                     </DialogHeader>
                     <RegistrationTermsPreview />

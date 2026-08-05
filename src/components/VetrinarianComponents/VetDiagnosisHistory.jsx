@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
     CalendarClock,
+    Download,
     Eye,
     FileText,
     History,
@@ -25,8 +26,19 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import {
+    canReconstructConsentDocument,
+    consentDocumentPath,
+    downloadConsentDocument,
+    normalizeConsentForms,
+    openProtectedDocument,
+    useConsentDocumentSource
+} from '../../hooks/useConsentDocumentSource';
 import { useDashboardUser } from '../dashboardRouter.jsx';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
+import { toast } from '../../reusecomponent/toast.jsx';
 import { fetchBookings } from '../../services/bookingService';
 import { fetchOnlineConsultations } from '../../services/onlineConsultationService';
 import { fetchVetDiagnoses } from '../../services/vetDiagnosisService';
@@ -49,6 +61,25 @@ function normalize(value) {
 
 function safeArray(value) {
     return Array.isArray(value) ? value : [];
+}
+
+function structuredText(value) {
+    if (value === null || value === undefined) return '';
+    if (!Array.isArray(value) && typeof value !== 'object') {
+        return String(value).trim();
+    }
+
+    return Object.entries(value)
+        .map(([key, item]) => {
+            const text = structuredText(item);
+            if (!text) return '';
+            if (Array.isArray(value)) return text;
+
+            const label = key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+            return `${label}: ${text}`;
+        })
+        .filter(Boolean)
+        .join('\n');
 }
 
 function resolveFileUrl(path) {
@@ -97,7 +128,10 @@ function hasOnlineDiagnosis(consultation) {
         consultation.recommendations,
         consultation.treatment,
         consultation.medications,
-        consultation.diagnosisNotes
+        consultation.diagnosisNotes,
+        structuredText(consultation.symptoms),
+        structuredText(consultation.vitalSigns),
+        structuredText(consultation.labTests)
     ].some(value => String(value || '').trim());
 }
 
@@ -215,6 +249,9 @@ function recordSearchText(record) {
         record.raw?.recommendations,
         record.raw?.medications,
         record.raw?.diagnosisNotes,
+        structuredText(record.raw?.symptoms),
+        structuredText(record.raw?.vitalSigns),
+        structuredText(record.raw?.labTests),
         record.raw?.service,
         record.raw?.hotelBoardingType,
         record.raw?.roomSize,
@@ -563,14 +600,14 @@ function RecordDialog({ record, onClose, onPreview }) {
                         <Detail label="Booking" value={record.bookingNumber} />
                         <Detail label="Queue" value={formatQueueReference(record)} />
                         <Detail label="Pet Details" value={record.petDetails} />
-                        <Detail label="Record ID" value={`${record.sourceLabel} #${record.recordId}`} />
+                        <Detail label="Veterinarian" value={raw.veterinarianName || raw.veterinarian || raw.applicator || 'Clinic Team'} />
                         {isBoarding ? (
                             <Detail label="Status" value={raw.status} />
                         ) : isOnline ? (
                             <Detail label="Consult Status" value={raw.status} />
-                        ) : (
-                            <Detail label="Follow-up" value={raw.followUp ? formatDisplayDate(raw.followUp) : ''} />
-                        )}
+                        ) : raw.followUp ? (
+                            <Detail label="Follow-up" value={formatDisplayDate(raw.followUp)} />
+                        ) : null}
                     </div>
 
                     {isBoarding ? (
@@ -593,28 +630,54 @@ function RecordDialog({ record, onClose, onPreview }) {
 }
 
 function ClinicDetails({ record, onPreview }) {
+    const attachments = safeArray(record.attachments);
+    const signedConsentForms = attachments
+        .filter(attachment => attachment.category === 'additional_consent')
+        .map((attachment, index) => ({
+            ...attachment,
+            id: attachment.id || `diagnosis-consent-${index + 1}`,
+            title: attachment.title || attachment.name || `Signed Consent Form ${index + 1}`,
+            documentPath: attachment.documentPath || attachment.url || attachment.relativeUrl || attachment.preview || ''
+        }));
+    const prescriptionDocuments = attachments.filter(attachment => attachment.category === 'prescription_document');
+    const diagnosisUploads = attachments.filter(attachment =>
+        !['additional_consent', 'prescription_document'].includes(attachment.category)
+    );
+    const clinical = dedupeClinicalFields([
+        ['chiefComplaint', removeBookingMarker(record.chiefComplaint)],
+        ['majorSymptoms', record.majorSymptoms],
+        ['symptoms', record.symptoms],
+        ['physicalExam', record.physicalExam],
+        ['diagnosis', record.diagnosis],
+        ['treatment', record.treatment],
+        ['labResults', record.labResults],
+        ['notes', record.notes]
+    ]);
+
     return (
         <div className="space-y-4">
-            <TextBlock label="Chief Complaint" value={removeBookingMarker(record.chiefComplaint)} icon={MessageSquare} />
+            <TextBlock label="Chief Complaint" value={clinical.chiefComplaint} icon={MessageSquare} />
             <VaccinationReview record={record.vaccinationRecord} />
-            <TextBlock label="Major Symptoms" value={record.majorSymptoms} icon={FileText} />
-            <TextBlock label="Symptoms" value={record.symptoms} icon={FileText} />
+            <TextBlock label="Major Symptoms" value={clinical.majorSymptoms} icon={FileText} />
+            <TextBlock label="Symptoms" value={clinical.symptoms} icon={FileText} />
 
             {record.diagnosisType === 'custom' ? (
                 <CustomSectionList sections={record.customSections} onPreview={onPreview} />
             ) : (
                 <>
-                    <TextBlock label="Diagnosis" value={record.diagnosis} icon={Stethoscope} highlight />
-                    <TextBlock label="Physical Examination" value={record.physicalExam} icon={FileText} />
-                    <TextBlock label="Treatment Plan" value={record.treatment} icon={FileText} />
+                    <TextBlock label="Diagnosis" value={clinical.diagnosis} icon={Stethoscope} highlight />
+                    <TextBlock label="Physical Examination" value={clinical.physicalExam} icon={FileText} />
+                    <TextBlock label="Treatment Plan" value={clinical.treatment} icon={FileText} />
                     <PrescriptionList prescriptions={record.prescriptions} />
                 </>
             )}
 
             <VitalSigns vitalSigns={record.vitalSigns} />
-            <TextBlock label="Lab Results" value={record.labResults} icon={FileText} />
-            <TextBlock label="Notes" value={record.notes} icon={FileText} />
-            <AttachmentList title="Diagnosis Uploads" attachments={record.attachments} onPreview={onPreview} />
+            <TextBlock label="Lab Results" value={clinical.labResults} icon={FileText} />
+            <TextBlock label="Notes" value={clinical.notes} icon={FileText} />
+            <ConsentDocumentList title="Signed Consent Forms" forms={signedConsentForms} onPreview={onPreview} />
+            <AttachmentList title="Prescription Documents" attachments={prescriptionDocuments} onPreview={onPreview} />
+            <AttachmentList title="Diagnosis Uploads" attachments={diagnosisUploads} onPreview={onPreview} />
             <AttachmentList title="Source Uploads" attachments={record.sourceUploads} onPreview={onPreview} />
         </div>
     );
@@ -645,10 +708,10 @@ function VaccinationReview({ record }) {
 
 function BoardingDetails({ booking, onPreview }) {
     const assignment = booking.boardingAssignment || {};
+    const consentForms = completeBookingConsentForms(booking);
     const stayFiles = [
         { name: 'Payment Proof', url: booking.paymentProof },
-        { name: 'Booking Concern', url: booking.image_Booking_Concern_Path },
-        { name: 'Signed Consent', url: booking.signaturePath }
+        { name: 'Booking Concern', url: booking.image_Booking_Concern_Path }
     ].filter(file => file.url);
 
     return (
@@ -666,7 +729,7 @@ function BoardingDetails({ booking, onPreview }) {
                     <Detail label="Assignment Status" value={assignment.status} />
                     <Detail label="Booking Status" value={booking.status} />
                     <Detail label="Payment" value={booking.price ? `PHP ${booking.price}` : ''} />
-                    <Detail label="Boarding ID" value={booking.bookingNumber || booking.id} />
+                    <Detail label="Booking" value={booking.bookingNumber || booking.id} />
                 </div>
             </section>
 
@@ -677,18 +740,165 @@ function BoardingDetails({ booking, onPreview }) {
                 icon={FileText}
             />
             <AttachmentList title="Boarding Files" attachments={stayFiles} onPreview={onPreview} />
+            <ConsentDocumentList title="Signed Boarding Consent" forms={consentForms} booking={booking} onPreview={onPreview} />
+            {booking.legacyConsentSignaturePath && consentForms.length === 0 && (
+                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+                    A legacy signature exists, but no complete consent form text was retained. The signature is not displayed by itself.
+                </div>
+            )}
+        </div>
+    );
+}
+
+function completeBookingConsentForms(booking) {
+    const forms = normalizeConsentForms(booking?.consentForms)
+        .filter(form => (
+            consentDocumentPath(form)
+            || canReconstructConsentDocument(form, booking?.legacyConsentSignaturePath)
+        ));
+
+    if (forms.length > 0) {
+        return forms;
+    }
+
+    const documentPath = consentDocumentPath(booking);
+    return documentPath
+        ? [{
+            id: `boarding-consent-${booking?.id || 'document'}`,
+            title: 'Signed Boarding Consent',
+            documentPath,
+            signerName: booking?.ownerName || '',
+            signedAt: booking?.createdAt || booking?.date || ''
+        }]
+        : [];
+}
+
+function ConsentDocumentList({ title, forms, booking, onPreview }) {
+    const items = safeArray(forms);
+    if (items.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2">
+                <Paperclip className="size-4 text-slate-400" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">{title}</h3>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+                {items.map((form, index) => (
+                    <ConsentDocumentCard
+                        key={form.id || `${form.documentPath}-${index}`}
+                        form={form}
+                        booking={booking}
+                        onPreview={onPreview}
+                    />
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function ConsentDocumentCard({ form, booking, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const {
+        source,
+        isLoading,
+        isReconstructed,
+        isUnavailable
+    } = useConsentDocumentSource(form, booking?.legacyConsentSignaturePath);
+    const title = form.title || form.name || 'Signed Consent Form';
+
+    const handleDownload = async () => {
+        if (!source || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(source, `${booking?.bookingNumber || 'diagnosis'}-${title}.png`);
+        } catch (error) {
+            toast.error(error.message || 'Could not download the complete consent form.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <div className="flex h-56 items-center justify-center bg-white">
+                {source ? (
+                    <ProtectedImage
+                        src={source}
+                        alt={`${title} complete signed document`}
+                        className="h-full w-full object-contain"
+                        fallbackClassName="h-full w-full"
+                    />
+                ) : isLoading ? (
+                    <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
+                        <Loader2 className="size-5 animate-spin" />
+                        Building full form
+                    </div>
+                ) : (
+                    <p className="px-4 text-center text-xs font-semibold leading-5 text-amber-700">
+                        Complete consent image unavailable
+                    </p>
+                )}
+            </div>
+            <div className="space-y-3 p-3">
+                <div>
+                    <p className="truncate text-sm font-bold text-slate-700">{title}</p>
+                    {isReconstructed && <p className="mt-1 text-xs font-semibold text-amber-700">Rebuilt legacy full form</p>}
+                    {isUnavailable && <p className="mt-1 text-xs font-semibold text-slate-500">Signature-only display is disabled.</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => source && onPreview?.({ src: source, alt: `${title} complete signed document` })}
+                        disabled={!source}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        <Eye className="size-3" />
+                        View
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                        disabled={!source || isDownloading}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 }
 
 function OnlineDetails({ consultation }) {
+    const clinical = dedupeClinicalFields([
+        ['diagnosis', consultation.diagnosis],
+        ['recommendations', consultation.recommendations],
+        ['treatment', consultation.treatment],
+        ['medications', consultation.medications],
+        ['symptoms', structuredText(consultation.symptoms)],
+        ['labTests', structuredText(consultation.labTests)],
+        ['notes', consultation.diagnosisNotes]
+    ]);
+
     return (
         <div className="space-y-4">
-            <TextBlock label="Diagnosis" value={consultation.diagnosis} icon={Stethoscope} highlight />
-            <TextBlock label="Recommendations" value={consultation.recommendations} icon={FileText} />
-            <TextBlock label="Treatment" value={consultation.treatment} icon={FileText} />
-            <TextBlock label="Medications" value={consultation.medications} icon={Pill} />
-            <TextBlock label="Internal Notes" value={consultation.diagnosisNotes} icon={FileText} />
+            <TextBlock label="Diagnosis" value={clinical.diagnosis} icon={Stethoscope} highlight />
+            <TextBlock label="Symptoms" value={clinical.symptoms} icon={FileText} />
+            <TextBlock label="Recommendations" value={clinical.recommendations} icon={FileText} />
+            <TextBlock label="Treatment" value={clinical.treatment} icon={FileText} />
+            <TextBlock label="Medications" value={clinical.medications} icon={Pill} />
+            <VitalSigns vitalSigns={consultation.vitalSigns} />
+            <TextBlock label="Lab Tests" value={clinical.labTests} icon={FileText} />
+            <TextBlock label="Internal Notes" value={clinical.notes} icon={FileText} />
             {consultation.notes && (
                 <TextBlock label="Booking Notes" value={consultation.notes} icon={MessageSquare} />
             )}
@@ -699,6 +909,9 @@ function OnlineDetails({ consultation }) {
 function TextBlock({ label, value, icon, highlight = false }) {
     const Icon = icon;
     const hasValue = String(value || '').trim();
+    if (!hasValue) {
+        return null;
+    }
 
     return (
         <section className={`rounded-xl border p-4 ${highlight ? 'border-blue-100 bg-blue-50' : 'border-slate-200 bg-white'}`}>
@@ -709,7 +922,7 @@ function TextBlock({ label, value, icon, highlight = false }) {
                 </h3>
             </div>
             <p className="whitespace-pre-wrap break-words text-sm font-medium leading-6 text-slate-700">
-                {hasValue ? value : <span className="text-slate-300">Not recorded</span>}
+                {value}
             </p>
         </section>
     );
@@ -745,7 +958,7 @@ function PrescriptionList({ prescriptions }) {
     const items = safeArray(prescriptions);
 
     if (items.length === 0) {
-        return <TextBlock label="Prescription" value="" icon={Pill} />;
+        return null;
     }
 
     return (
@@ -775,7 +988,7 @@ function CustomSectionList({ sections, onPreview }) {
     const items = safeArray(sections);
 
     if (items.length === 0) {
-        return <TextBlock label="Custom Diagnosis Services" value="" icon={FileText} />;
+        return null;
     }
 
     return (
@@ -792,9 +1005,11 @@ function CustomSectionList({ sections, onPreview }) {
                             <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-amber-700">{section.majorSymptoms}</p>
                         )}
                     </div>
-                    <p className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">
-                        {section.value || section.notes || <span className="text-slate-300">No findings recorded</span>}
-                    </p>
+                    {(section.value || section.notes) && (
+                        <p className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">
+                            {section.value || section.notes}
+                        </p>
+                    )}
                     <PrescriptionList prescriptions={section.prescriptions || section.prescription} />
                     <AttachmentList title="Service Uploads" attachments={section.attachments || section.uploads} onPreview={onPreview} compact />
                 </div>
@@ -817,49 +1032,98 @@ function AttachmentList({ title, attachments, onPreview, compact = false }) {
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">{title}</h3>
             </div>
             <div className={`grid gap-3 ${compact ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
-                {items.map((attachment, index) => {
-                    const url = resolveFileUrl(attachment.preview || attachment.url || attachment.relativeUrl);
-                    const name = attachment.name || pathFileName(url);
-                    const canPreview = isImageFile({ ...attachment, url });
-
-                    return (
-                        <div key={attachment.id || `${url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                            <div className="flex h-28 items-center justify-center bg-white">
-                                {canPreview && url ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => onPreview?.({ src: url, alt: name })}
-                                        className="h-full w-full"
-                                    >
-                                        <img src={url} alt={name} className="h-full w-full object-cover" />
-                                    </button>
-                                ) : (
-                                    <FileText className="size-8 text-slate-300" />
-                                )}
-                            </div>
-                            <div className="space-y-2 p-3">
-                                <p className="truncate text-xs font-semibold text-slate-600">{name}</p>
-                                {canPreview && url ? (
-                                    <Button type="button" variant="outline" size="sm" onClick={() => onPreview?.({ src: url, alt: name })} className="h-8 w-full text-xs">
-                                        <Eye className="size-3" />
-                                        View
-                                    </Button>
-                                ) : url ? (
-                                    <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex h-8 w-full items-center justify-center rounded-md border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-white"
-                                    >
-                                        Open
-                                    </a>
-                                ) : null}
-                            </div>
-                        </div>
-                    );
-                })}
+                {items.map((attachment, index) => (
+                    <DiagnosisAttachmentCard
+                        key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
+                        attachment={attachment}
+                        onPreview={onPreview}
+                    />
+                ))}
             </div>
         </section>
+    );
+}
+
+function DiagnosisAttachmentCard({ attachment, onPreview }) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
+    const source = attachment.preview || attachment.url || attachment.relativeUrl || '';
+    const url = resolveFileUrl(source);
+    const name = attachment.name || pathFileName(url);
+    const canPreview = isImageFile({ ...attachment, url });
+
+    const handleView = async () => {
+        if (!source || isOpening) return;
+        if (canPreview) {
+            onPreview?.({ src: source, alt: name });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(source);
+        } catch (error) {
+            toast.error(error.message || 'Could not open the attachment.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!source || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(source, name);
+        } catch (error) {
+            toast.error(error.message || 'Could not download the attachment.');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <div className="flex h-28 items-center justify-center bg-white">
+                {canPreview && source ? (
+                    <ProtectedImage
+                        src={source}
+                        alt={name}
+                        className="h-full w-full object-cover"
+                        fallbackClassName="h-full w-full"
+                    />
+                ) : (
+                    <FileText className="size-8 text-slate-300" />
+                )}
+            </div>
+            <div className="space-y-2 p-3">
+                <p className="truncate text-xs font-semibold text-slate-600">{name}</p>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleView}
+                        disabled={!source || isOpening}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                        View
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                        disabled={!source || isDownloading}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
 }
 

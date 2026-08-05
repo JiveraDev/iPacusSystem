@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Calendar, Clock, Loader2, MessageSquare, RefreshCw, Search, User, Video } from 'lucide-react';
+import { Calendar, Clock, Image as ImageIcon, Loader2, MessageSquare, RefreshCw, Search, User, Video } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -9,6 +9,8 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchOnlineConsultations, startOnlineConsultation } from '../../services/onlineConsultationService';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
+import { PhotoViewer } from '../../ui/photo-viewer';
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
@@ -95,6 +97,7 @@ export default function ApprovedOnlineConsultation() {
     const [actionId, setActionId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFilter, setDateFilter] = useState('week');
+    const [viewerImage, setViewerImage] = useState(null);
 
     const loadConsultations = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!vetId) {
@@ -183,10 +186,45 @@ export default function ApprovedOnlineConsultation() {
                                 <span>{consultation.bookingNumber || `Booking #${consultation.bookingId}`}</span>
                             </div>
                         </div>
+                        {consultation.discussionTopic && (
+                            <div className="max-w-3xl rounded-lg border border-blue-100 bg-blue-50 p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                                    Discussion Topics
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-blue-950">
+                                    {consultation.discussionTopic}
+                                </p>
+                            </div>
+                        )}
                         {consultation.notes && (
                             <p className="max-w-3xl whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
                                 {consultation.notes}
                             </p>
+                        )}
+                        {Array.isArray(consultation.concernImages) && consultation.concernImages.length > 0 && (
+                            <div className="max-w-3xl">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <ImageIcon className="h-4 w-4" />
+                                    Concern Images
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                    {consultation.concernImages.map((path, index) => (
+                                        <button
+                                            key={`${path}-${index}`}
+                                            type="button"
+                                            onClick={() => setViewerImage({ src: path, alt: `Concern image ${index + 1}` })}
+                                            className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
+                                            aria-label={`View concern image ${index + 1}`}
+                                        >
+                                            <ProtectedImage
+                                                src={path}
+                                                alt={`Concern image ${index + 1}`}
+                                                className="aspect-square w-full object-cover transition-transform hover:scale-105"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </div>
 
@@ -298,6 +336,14 @@ export default function ApprovedOnlineConsultation() {
                     </div>
                 </section>
             )}
+            <PhotoViewer
+                src={viewerImage?.src}
+                alt={viewerImage?.alt}
+                open={Boolean(viewerImage)}
+                onOpenChange={(open) => {
+                    if (!open) setViewerImage(null);
+                }}
+            />
         </div>
     );
 }

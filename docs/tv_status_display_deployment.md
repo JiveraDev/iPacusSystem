@@ -11,21 +11,23 @@ Use the standalone folder when the hosting panel lets you point `status.ipawcus.
 
 ## URLs
 
-- Standalone TV folder: `Subdomain_folder`
+- Standalone TV source folder: `public/tv-status`
+- Standalone TV build folder: `dist/tv-status`
 - Standalone TV page: `https://status.ipawcus.com/`
 - Main app TV page: `/status-display`
+- Branch TV page: `/status-display?branch=MAIN` (replace `MAIN` with `ISABANG`, `ENRIQUEZ`, `GULANG_GULANG`, or `MAYAO`)
 - API endpoint: `/status-display`
 - API fallback alias: `/tv-status`
 - Standalone local API wrapper: `/status.php`
 
 ## Files
 
-- Standalone page: `Subdomain_folder/index.php`
-- Standalone API: `Subdomain_folder/status.php`
-- Standalone styles: `Subdomain_folder/assets/tv-display.css`
-- Standalone script: `Subdomain_folder/assets/tv-display.js`
-- Standalone config templates: `Subdomain_folder/.env.example` and `Subdomain_folder/config.example.php`
-- Standalone Apache defaults: `Subdomain_folder/.htaccess`
+- Standalone page: `public/tv-status/index.php`
+- Standalone API: `public/tv-status/status.php`
+- Standalone styles: `public/tv-status/assets/tv-display.css`
+- Standalone script: `public/tv-status/assets/tv-display.js`
+- Standalone config templates: `public/tv-status/.env.example` and `public/tv-status/config.example.php`
+- Standalone Apache defaults: `public/tv-status/.htaccess`
 - Frontend page: `src/components/StatusDisplay/TVStatusDisplay.jsx`
 - Frontend API service: `src/services/statusDisplayService.js`
 - App route/subdomain detection: `src/App.jsx`
@@ -47,7 +49,7 @@ The endpoint does not expose owner names, contact numbers, complaints, or diagno
 For `status.ipawcus.com`, point the subdomain document root to:
 
 ```text
-Subdomain_folder
+dist/tv-status
 ```
 
 Recommended setup:
@@ -83,11 +85,13 @@ Recommended setup:
 
 The app detects hostnames beginning with `status.` and renders the TV display at `/`, so the TV does not need `/status-display` in the address bar.
 
+For a branch-specific React TV, add the branch code to the URL, for example `https://status.ipawcus.com/?branch=ISABANG`. If no branch is supplied, the display uses the Main Clinic. Keep a separate bookmarked URL on each branch TV so queues, bookings, and payment status are never mixed between locations.
+
 ## Validation
 
-- `php -l Subdomain_folder/index.php`
-- `php -l Subdomain_folder/status.php`
-- `node --check Subdomain_folder/assets/tv-display.js`
+- `php -l public/tv-status/index.php`
+- `php -l public/tv-status/status.php`
+- `node --check public/tv-status/assets/tv-display.js`
 - `php -l php/status_display.php`
 - `php -l php/index.php`
 - `npm run build`

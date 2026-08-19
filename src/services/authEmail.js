@@ -1,20 +1,10 @@
-import { apiFetch } from './apiClient';
+import { postJson } from './apiClient';
 
 async function postAuth(path, payload) {
-    const response = await apiFetch(path, {
+    return postJson(path, payload, {
         apiPrefix: true,
-        method: "POST",
         suppressServerUnavailable: true,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
     });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        throw new Error(data.message || `Request failed with status ${response.status}`);
-    }
-
-    return data;
 }
 
 export function verifyEmail(payload) {

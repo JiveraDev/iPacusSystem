@@ -32,11 +32,14 @@ import vetImage from '../assets/vetImage.png';
 import consultImage from '../assets/consultimage.png';
 import logoImage from '../assets/circular_logo.png';
 import PwaInstallButton from '../pwa/PwaInstallButton.jsx';
+import ClinicAvailabilityCalendar from '../components/shared/ClinicAvailabilityCalendar.jsx';
+import { saveBookingAvailabilitySelection } from '../lib/bookingAvailabilityNavigation.js';
 
 const clinicDetails = {
     name: 'Vetfocus Care Animal Clinic',
     product: 'iPawcus',
     hours: '8:00 AM - 6:00 PM',
+    openDays: 'Monday - Saturday',
     phone: '(042) 421-9086 / 0933 476 8522',
     email: 'support@ipawcus.com',
 };
@@ -49,28 +52,10 @@ const clinicLocations = [
         address: 'Oakbrook Avenue corner Clayton Street, Phase 3, Pleasantville Subdivision, Barangay Ilayang Iyam, Lucena City, Quezon 4301, Philippines',
     },
     {
-        code: 'ISABANG',
-        name: 'VFC Pet Corner Isabang',
-        type: 'Pet Corner',
-        address: '1229 Unit 8, Maharlika Highway, Isabang, Lucena City, Quezon 4301, Philippines',
-    },
-    {
         code: 'ENRIQUEZ',
         name: 'VFC Pet Corner Main Enriquez St.',
         type: 'Pet Corner',
         address: 'Enriquez St. corner Barcelona St., Barangay 2, Lucena City, Quezon 4301, Philippines',
-    },
-    {
-        code: 'GULANG_GULANG',
-        name: 'VFC Pet Corner Gulang-Gulang',
-        type: 'Pet Corner',
-        address: 'Doña Aurora Blvd., Purok Pagkakaisa, Gulang-Gulang, Lucena City, Quezon 4301, Philippines',
-    },
-    {
-        code: 'MAYAO',
-        name: 'VFC Pet Corner Mayao',
-        type: 'Pet Corner',
-        address: 'Mayao Kanluran, Lucena City, Quezon 4301, Philippines',
     },
 ].map(location => ({
     ...location,
@@ -79,6 +64,7 @@ const clinicLocations = [
 
 const navigationItems = [
     { label: 'Services', href: '#services' },
+    { label: 'Availability', href: '#availability' },
     { label: 'Workflow', href: '#workflow' },
     { label: 'Records', href: '#records' },
     { label: 'Boarding', href: '#boarding' },
@@ -194,7 +180,7 @@ const systemFeatures = [
     },
     {
         title: 'Medical records',
-        text: 'Diagnosis summaries, vaccination rows, prescription image documents, and attachments stay with the pet.',
+        text: 'Diagnosis summaries, vaccination rows, prescription PDF documents, and attachments stay with the pet.',
         Icon: FileText,
     },
     {
@@ -240,8 +226,8 @@ const updates = [
         Icon: FileText,
     },
     {
-        title: 'Daily clinic access',
-        text: `The clinic is open daily from ${clinicDetails.hours} for scheduled visits and service requests.`,
+        title: 'Monday-Saturday clinic access',
+        text: `The clinic is open ${clinicDetails.openDays} from ${clinicDetails.hours}. All locations are closed on Sunday.`,
         Icon: Clock,
     },
 ];
@@ -255,7 +241,7 @@ const guidelines = [
 ];
 
 const quickStats = [
-    { label: 'Clinic hours', value: '8AM-6PM' },
+    { label: 'Clinic hours', value: 'Mon-Sat, 8AM-6PM' },
     { label: 'Online consult', value: 'PHP 500' },
     { label: 'Billing source', value: 'Catalog' },
 ];
@@ -279,6 +265,10 @@ export default function LandingPageContent({ onLogin, onRegister }) {
     const handleRegister = () => {
         closeMobileMenu();
         onRegister?.();
+    };
+    const handleAvailabilityBooking = (selection) => {
+        saveBookingAvailabilitySelection(selection);
+        handleLogin();
     };
     const handleHashNavigation = (event, href) => {
         event.preventDefault();
@@ -459,8 +449,8 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                 <Clock className="h-5 w-5" aria-hidden="true" />
                             </div>
                             <div>
-                                <div className="text-sm font-bold text-slate-950">Open daily</div>
-                                <div className="mt-1 text-sm text-slate-600">{clinicDetails.hours}</div>
+                                <div className="text-sm font-bold text-slate-950">Open Monday-Saturday</div>
+                                <div className="mt-1 text-sm text-slate-600">{clinicDetails.hours} · Sunday closed</div>
                             </div>
                         </div>
                         <a
@@ -476,7 +466,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                     {clinicLocations.length} Lucena locations
                                     <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                                 </div>
-                                <div className="mt-1 text-sm text-slate-600 underline-offset-4 group-hover:underline">Main clinic and four VFC Pet Corners</div>
+                                <div className="mt-1 text-sm text-slate-600 underline-offset-4 group-hover:underline">Main clinic and VFC Pet Corner Main, Enriquez St.</div>
                             </div>
                         </a>
                         <div className="flex items-start gap-3">
@@ -559,6 +549,24 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                     </div>
                 </section>
 
+                <section id="availability" className="bg-white px-4 py-14 sm:px-6 lg:px-8">
+                    <div className="mx-auto w-full max-w-7xl">
+                        <div className="mb-8 max-w-3xl">
+                            <div className="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Live availability</div>
+                            <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">Check a date before starting your booking.</h2>
+                            <p className="mt-4 text-base leading-7 text-slate-600">
+                                Pending requests already reserve their time. Select a service and date to see available appointments or boarding room counts.
+                            </p>
+                        </div>
+                        <ClinicAvailabilityCalendar
+                            title="Appointment and room availability"
+                            description="Select an available time or room to continue through the secure owner login."
+                            onSelectSlot={handleAvailabilityBooking}
+                            onSelectRoom={handleAvailabilityBooking}
+                        />
+                    </div>
+                </section>
+
                 <section id="workflow" className="bg-[#102a43] px-4 py-14 text-white sm:px-6 lg:px-8">
                     <div className="mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)] lg:items-center">
                         <div>
@@ -609,7 +617,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                                 Medical details and invoice details stay aligned.
                             </h2>
                             <p className="mt-4 text-base leading-7 text-slate-600">
-                                The system supports diagnosis notes, vaccination records, prescription image documents,
+                                The system supports diagnosis notes, vaccination records, prescription PDF documents,
                                 service catalog prices, inventory products, and receipt preview in the POS.
                             </p>
                         </div>
@@ -740,7 +748,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                             <div className="text-sm font-bold uppercase tracking-[0.16em] text-rose-700">VFC locations</div>
                             <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">Find the location nearest to you.</h2>
                             <p className="mt-4 text-base leading-7 text-slate-600">
-                                {clinicDetails.name} connects its main clinic and four Pet Corners through {clinicDetails.product}.
+                                {clinicDetails.name} currently connects two Lucena locations through {clinicDetails.product}: the VFC Pharmacy / Main Clinic and VFC Pet Corner Main Enriquez St.
                                 Select a location below to open its address in Google Maps.
                             </p>
 
@@ -772,7 +780,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                             <div className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3">
                                 <div className="flex items-start gap-3 text-sm text-slate-700">
                                     <Clock className="h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />
-                                    <span><strong className="block text-slate-950">Clinic hours</strong>{clinicDetails.hours}</span>
+                                    <span><strong className="block text-slate-950">Clinic hours</strong>{clinicDetails.openDays}, {clinicDetails.hours}<span className="block text-slate-500">Sunday closed</span></span>
                                 </div>
                                 <div className="flex items-start gap-3 text-sm text-slate-700">
                                     <Phone className="h-5 w-5 shrink-0 text-rose-700" aria-hidden="true" />

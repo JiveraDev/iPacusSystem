@@ -31,6 +31,7 @@ import { addQueueItem, fetchQueuePets } from '../../services/queueService';
 import { formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import BranchBookingSelect from '../shared/BranchBookingSelect.jsx';
+import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 
 const SERVICES = [
     'Consultation',
@@ -48,13 +49,16 @@ const SERVICES = [
 ];
 
 export default function AddQueueDialog({ onAddToQueue }) {
+    const dashboardUser = useMemo(() => storedDashboardUser(), []);
+    const lockedBranchId = assignedBranchId(dashboardUser);
+    const branchSelectionLocked = isBranchSelectionLocked(dashboardUser);
     const [allPets, setAllPets] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPet, setSelectedPet] = useState(null);
     const [service, setService] = useState('');
     const [priority, setPriority] = useState('normal');
     const [complaint, setComplaint] = useState('');
-    const [branchId, setBranchId] = useState('');
+    const [branchId, setBranchId] = useState(() => branchSelectionLocked ? lockedBranchId : '');
     const [verified, setVerified] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -95,7 +99,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
         setService('');
         setPriority('normal');
         setComplaint('');
-        setBranchId('');
+        setBranchId(branchSelectionLocked ? lockedBranchId : '');
         setVerified(false);
         setBookingConflict(null);
         setIsMenuOpen(false);
@@ -296,7 +300,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                         value={service}
                                         onValueChange={(nextService) => {
                                             setService(nextService);
-                                            setBranchId('');
+                                            setBranchId(branchSelectionLocked ? lockedBranchId : '');
                                             setBookingConflict(null);
                                         }}
                                         disabled={isSubmitting}
@@ -342,6 +346,8 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                         value={branchId}
                                         onChange={setBranchId}
                                         assignedOnly
+                                        locked={branchSelectionLocked}
+                                        lockedBranchId={lockedBranchId}
                                     />
                                 </div>
                             ) : (

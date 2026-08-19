@@ -1,7 +1,7 @@
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Home as HomeIcon, Hotel, Sparkles, Scissors, Syringe, Heart, Stethoscope, Bug, Activity } from "lucide-react";
+import { Home as HomeIcon, Hotel, Sparkles, Scissors, Syringe, Heart, Stethoscope, Bug, Activity, FlaskConical } from "lucide-react";
 
 export default function Services() {
   const navigate = useNavigate();
@@ -26,6 +26,14 @@ export default function Services() {
       icon: Bug,
       color: "bg-orange-100 text-orange-600",
       path: "/dashboard/services/parasite-control"
+    },
+    {
+      id: "laboratory-testing",
+      title: "Laboratory Testing",
+      description: "Tests available in-clinic or during scheduled veterinarian visits",
+      icon: FlaskConical,
+      color: "bg-violet-100 text-violet-600",
+      path: "/dashboard/services/laboratory-testing"
     },
     {
       id: "surgery",

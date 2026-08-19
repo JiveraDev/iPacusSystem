@@ -24,10 +24,10 @@ if (!isset($_FILES['image']) && !isset($_FILES['file'])) {
 $file = $_FILES['image'] ?? $_FILES['file'];
 $type = $_POST['type'] ?? 'user'; // 'user' or 'pet'
 $allowedUploadTypesByRole = [
-    'pet_owner' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern'],
-    'veterinarian' => ['user', 'booking_signature', 'booking_concern', 'diagnosis'],
-    'admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt'],
-    'super_admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt'],
+    'pet_owner' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'consent_document'],
+    'veterinarian' => ['user', 'booking_signature', 'booking_concern', 'diagnosis', 'consent_document', 'prescription_document'],
+    'admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt', 'consent_document', 'prescription_document', 'invoice_document'],
+    'super_admin' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'payment_qr', 'diagnosis', 'boarding_document', 'inventory_item', 'inventory_receipt', 'consent_document', 'prescription_document', 'invoice_document'],
 ];
 $allowedUploadTypes = $allowedUploadTypesByRole[$currentRole] ?? [];
 
@@ -83,6 +83,15 @@ if ($type === 'pet') {
 } elseif ($type === 'diagnosis') {
     $targetDir = __DIR__ . '/../public/diagnosis/';
     $urlPath = "diagnosis/";
+} elseif ($type === 'consent_document') {
+    $targetDir = __DIR__ . '/../public/signatures/';
+    $urlPath = "signatures/";
+} elseif ($type === 'prescription_document') {
+    $targetDir = __DIR__ . '/../public/diagnosis/';
+    $urlPath = "diagnosis/";
+} elseif ($type === 'invoice_document') {
+    $targetDir = __DIR__ . '/../public/invoices/';
+    $urlPath = "invoices/";
 } elseif ($type === 'boarding_document') {
     $targetDir = __DIR__ . '/../public/boarding_documents/';
     $urlPath = "boarding_documents/";
@@ -97,10 +106,11 @@ if ($type === 'pet') {
     $urlPath = "uploads/";
 }
 
-$documentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern'];
-$allowedExtensions = in_array($type, $documentUploadTypes, true)
-    ? $documentExtensions
-    : $imageExtensions;
+$mixedDocumentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern'];
+$pdfOnlyUploadTypes = ['consent_document', 'prescription_document', 'invoice_document'];
+$allowedExtensions = in_array($type, $pdfOnlyUploadTypes, true)
+    ? ['pdf']
+    : (in_array($type, $mixedDocumentUploadTypes, true) ? $documentExtensions : $imageExtensions);
 if (!in_array($extension, $allowedExtensions, true)) {
     http_response_code(422);
     echo json_encode(['message' => 'Unsupported file extension for this upload type.']);

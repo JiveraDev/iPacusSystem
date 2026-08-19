@@ -1,9 +1,16 @@
 (function () {
     'use strict';
 
+    const visibleBranchCodes = new Set(['MAIN', 'ENRIQUEZ']);
+
+    function normalizeBranchCode(value) {
+        const normalized = String(value || '').trim().toUpperCase();
+        return visibleBranchCodes.has(normalized) ? normalized : 'MAIN';
+    }
+
     const params = new URLSearchParams(window.location.search);
     const baseApiUrl = params.get('api') || new URL('status.php', window.location.href).toString();
-    let currentBranch = params.get('branch') || 'MAIN';
+    let currentBranch = normalizeBranchCode(params.get('branch'));
     const defaultRefreshMs = 8000;
     const maxNowServing = 6;
     const maxPayment = 5;
@@ -199,8 +206,13 @@
     }
 
     function renderBranchOptions(branches, selectedBranch) {
-        const availableBranches = list(branches);
-        const selectedCode = text(selectedBranch && selectedBranch.code, currentBranch);
+        const availableBranches = list(branches).filter((branch) => (
+            visibleBranchCodes.has(String(branch && branch.code || '').trim().toUpperCase())
+        ));
+        const selectedCode = normalizeBranchCode(text(selectedBranch && selectedBranch.code, currentBranch));
+        const visibleSelectedBranch = availableBranches.find((branch) => (
+            normalizeBranchCode(branch.code) === selectedCode
+        )) || availableBranches[0];
 
         if (availableBranches.length > 0) {
             const options = availableBranches.map((branch) => {
@@ -212,9 +224,11 @@
             elements.branchSelect.replaceChildren(...options);
         }
 
-        currentBranch = selectedCode;
-        elements.branchSelect.value = selectedCode;
-        elements.branchName.textContent = text(selectedBranch && selectedBranch.name, 'VFC Pharmacy / Main Clinic');
+        currentBranch = visibleSelectedBranch
+            ? normalizeBranchCode(visibleSelectedBranch.code)
+            : selectedCode;
+        elements.branchSelect.value = currentBranch;
+        elements.branchName.textContent = text(visibleSelectedBranch && visibleSelectedBranch.name, 'VFC Pharmacy / Main Clinic');
     }
 
     function renderStatus(data) {
@@ -302,7 +316,7 @@
     updateClock();
     window.setInterval(updateClock, 1000);
     elements.branchSelect.addEventListener('change', () => {
-        const nextBranch = elements.branchSelect.value;
+        const nextBranch = normalizeBranchCode(elements.branchSelect.value);
         if (!nextBranch || nextBranch === currentBranch) {
             return;
         }

@@ -167,6 +167,7 @@ function formatOnlineConsultation(array $row): array
         'ownerPhone' => $row['owner_phone'] ?? null,
         'veterinarianUserId' => (int)$row['veterinarian_user_id'],
         'veterinarianName' => $vetName !== '' ? $vetName : 'Assigned Veterinarian',
+        'veterinarianEmail' => $row['vet_email'] ?? null,
         'petName' => $petName,
         'petSpecies' => $petSpecies,
         'petBreed' => $petBreed,
@@ -174,8 +175,8 @@ function formatOnlineConsultation(array $row): array
         'time' => $row['booking_time'] ?? null,
         'scheduledStart' => $row['scheduled_start'],
         'scheduledEnd' => $row['scheduled_end'],
-        'meetingProvider' => $row['meeting_provider'],
-        'meetingUrl' => $row['meeting_url'],
+        'meetingProvider' => getJaaSAppId() !== null ? 'jaas' : $row['meeting_provider'],
+        'meetingUrl' => resolveJitsiMeetingUrl($row['meeting_code'] ?? null, $row['meeting_url'] ?? null),
         'meetingCode' => $row['meeting_code'],
         'status' => $row['status'],
         'vetStartedAt' => $row['vet_started_at'],
@@ -196,6 +197,30 @@ function formatOnlineConsultation(array $row): array
         'createdAt' => $row['created_at'],
         'updatedAt' => $row['updated_at'],
     ];
+}
+
+function attachOnlineConsultationMeetingAccess(?array $consultation, array $currentUser): ?array
+{
+    if ($consultation === null) {
+        return null;
+    }
+
+    $meetingCode = trim((string)($consultation['meetingCode'] ?? ''));
+    $meetingJwt = $meetingCode !== '' ? createJaaSMeetingJwt($currentUser, $meetingCode) : null;
+
+    if ($meetingJwt !== null) {
+        $consultation['meetingJwt'] = $meetingJwt;
+    }
+
+    return $consultation;
+}
+
+function fetchOnlineConsultationResponse(PDO $pdo, int $id, array $currentUser): ?array
+{
+    return attachOnlineConsultationMeetingAccess(
+        fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null,
+        $currentUser
+    );
 }
 
 function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
@@ -252,6 +277,7 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
             owner.phoneNumber AS owner_phone,
             vet.first_Name AS vet_first_name,
             vet.last_Name AS vet_last_name,
+            vet.mail_Address AS vet_email,
             {$diagnosisSelect}
             1 AS select_marker
         FROM online_consultations oc
@@ -392,12 +418,16 @@ try {
         }
 
         ensureMissingConfirmedOnlineConsultations($pdo, $bookingId, $vetId, $ownerId);
-        echo json_encode(fetchOnlineConsultations($pdo, [
+        $consultations = fetchOnlineConsultations($pdo, [
             'id' => $id,
             'bookingId' => $bookingId,
             'vetId' => $vetId,
             'ownerId' => $ownerId,
-        ]));
+        ]);
+        if ($id && isset($consultations[0])) {
+            $consultations[0] = attachOnlineConsultationMeetingAccess($consultations[0], $currentApiUser);
+        }
+        echo json_encode($consultations);
         exit;
     }
 
@@ -430,7 +460,7 @@ try {
             error_log('Online consultation ready notification failed: ' . $notificationError->getMessage());
         }
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
@@ -460,7 +490,7 @@ try {
             }
         }
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
@@ -481,7 +511,7 @@ try {
         $stmt->execute([$id]);
         $pdo->commit();
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
@@ -541,7 +571,7 @@ try {
             } catch (Throwable $notificationError) {
                 error_log('Online consultation invoice notification retry failed: ' . $notificationError->getMessage());
             }
-            echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+            echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
             exit;
         }
 
@@ -625,7 +655,7 @@ try {
             error_log('Online consultation invoice notification failed: ' . $notificationError->getMessage());
         }
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 

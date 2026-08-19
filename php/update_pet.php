@@ -101,6 +101,13 @@ foreach ($allowedFields as $inputKey => $dbColumn) {
         if ($inputKey === 'weight' && is_string($value)) {
             $value = floatval(preg_replace('/[^0-9.]/', '', $value));
         }
+        if ($inputKey === 'microchipId') {
+            $microchip = preg_replace('/\D+/', '', (string)($value ?? ''));
+            if ($microchip !== (string)($value ?? '') || strlen($microchip) > 15) {
+                ipawcus_guard_error(422, 'Microchip number must contain no more than 15 digits.');
+            }
+            $value = $microchip !== '' ? $microchip : null;
+        }
         if ($dbColumn === 'pet_Temp_owner') {
             $value = trim((string)($value ?? ''));
             $value = $value !== '' ? $value : null;

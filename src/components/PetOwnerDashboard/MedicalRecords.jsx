@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     ArrowLeft,
     CalendarDays,
     Camera,
+    ChevronDown,
+    ChevronUp,
     ClipboardList,
     Download,
     Eye,
@@ -29,6 +31,8 @@ import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { emailPetMedicalRecords, fetchPetMedicalRecords } from '../../services/petService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
+
+const MEDICAL_SEARCH_FOCUS_KEY = 'ipawcus-medical-search-focus';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -63,6 +67,75 @@ function editorLabel(name) {
 
 function compactText(value) {
     return String(value || '').trim();
+}
+
+function normalizeRole(value) {
+    return String(value || '').trim().toLowerCase().replace(/[ -]+/g, '_');
+}
+
+function medicalRecordTargetId(record) {
+    const rawId = record?.id || `${record?.sourceType || 'record'}-${record?.sourceId || 'unknown'}`;
+    return `medical-service-${String(rawId).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
+function highlightTargetClass(targetId, highlightedTarget) {
+    return targetId === highlightedTarget
+        ? 'ring-2 ring-amber-400 ring-offset-2 bg-amber-50/50 transition-colors duration-500'
+        : '';
+}
+
+function recordContainsQuery(record, query) {
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    if (!normalizedQuery) return false;
+
+    return doctorNoteRows(record)
+        .some((row) => String(row.value || '').toLowerCase().includes(normalizedQuery));
+}
+
+function resolveSearchFocusTarget(focus, serviceHistory, organizedRecords) {
+    const match = focus?.match || {};
+    const targetType = match.targetType || '';
+
+    if (targetType === 'allergies') {
+        return 'medical-allergies';
+    }
+    if (targetType === 'organized-group' && match.groupId) {
+        return `medical-group-${match.groupId}`;
+    }
+    if (targetType === 'organized-item' && match.itemId) {
+        return `medical-item-${match.itemId}`;
+    }
+
+    let matchedRecord = null;
+    if (targetType === 'diagnosis') {
+        const diagnosisId = Number(match.diagnosisId || match.sourceId || 0);
+        matchedRecord = serviceHistory.find((record) => Number(record.diagnosisId || 0) === diagnosisId);
+    } else if (targetType === 'online-diagnosis') {
+        const onlineDiagnosisId = Number(match.onlineDiagnosisId || match.sourceId || 0);
+        const bookingId = Number(match.bookingId || 0);
+        matchedRecord = serviceHistory.find((record) => (
+            Number(record.onlineDiagnosisId || 0) === onlineDiagnosisId
+            || (bookingId > 0 && Number(record.bookingId || 0) === bookingId)
+        ));
+    }
+
+    if (!matchedRecord && match.sourceType && match.sourceId) {
+        matchedRecord = serviceHistory.find((record) => (
+            record.sourceType === match.sourceType && Number(record.sourceId || 0) === Number(match.sourceId)
+        ));
+    }
+    if (!matchedRecord) {
+        matchedRecord = serviceHistory.find((record) => recordContainsQuery(record, focus?.query));
+    }
+    if (matchedRecord) {
+        return medicalRecordTargetId(matchedRecord);
+    }
+
+    const matchingItem = organizedRecords
+        .flatMap((group) => asArray(group.items))
+        .find((item) => recordContainsQuery(item.sourceSnapshot || item, focus?.query));
+
+    return matchingItem ? `medical-item-${matchingItem.itemId}` : 'medical-clinical-history';
 }
 
 function doctorNoteRows(source) {
@@ -113,6 +186,19 @@ export default function MedicalRecords() {
     const [isLoading, setIsLoading] = useState(true);
     const [isEmailing, setIsEmailing] = useState(false);
     const [viewer, setViewer] = useState(null);
+    const [searchFocus, setSearchFocus] = useState(null);
+    const [highlightedTarget, setHighlightedTarget] = useState('');
+    const [highlightedMatch, setHighlightedMatch] = useState(null);
+    const searchScrollTimerRef = useRef(null);
+    const searchHighlightTimerRef = useRef(null);
+    const currentRole = useMemo(() => {
+        try {
+            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            return normalizeRole(user.role || user.user_role);
+        } catch {
+            return '';
+        }
+    }, []);
 
     const loadRecords = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -120,7 +206,7 @@ export default function MedicalRecords() {
         }
 
         try {
-            const data = await fetchPetMedicalRecords(petId, { ownerOnly: true });
+            const data = await fetchPetMedicalRecords(petId, { ownerOnly: currentRole === 'pet_owner' });
             if (data.success === false) {
                 throw new Error(data.message || 'Medical records could not be loaded.');
             }
@@ -160,6 +246,42 @@ export default function MedicalRecords() {
                 return true;
             });
     }, [serviceHistory]);
+
+    useEffect(() => {
+        try {
+            const storedFocus = JSON.parse(sessionStorage.getItem(MEDICAL_SEARCH_FOCUS_KEY) || 'null');
+            sessionStorage.removeItem(MEDICAL_SEARCH_FOCUS_KEY);
+            if (storedFocus && Number(storedFocus.expiresAt || 0) > Date.now()) {
+                setSearchFocus(storedFocus);
+            }
+        } catch {
+            sessionStorage.removeItem(MEDICAL_SEARCH_FOCUS_KEY);
+        }
+    }, [petId]);
+
+    useEffect(() => {
+        if (!records || !searchFocus) return;
+
+        const targetId = resolveSearchFocusTarget(searchFocus, serviceHistory, organizedRecords);
+        setHighlightedTarget(targetId);
+        setHighlightedMatch(searchFocus.match || null);
+        setSearchFocus(null);
+
+        window.clearTimeout(searchScrollTimerRef.current);
+        window.clearTimeout(searchHighlightTimerRef.current);
+        searchScrollTimerRef.current = window.setTimeout(() => {
+            document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 120);
+        searchHighlightTimerRef.current = window.setTimeout(() => {
+            setHighlightedTarget('');
+            setHighlightedMatch(null);
+        }, 10_000);
+    }, [organizedRecords, records, searchFocus, serviceHistory]);
+
+    useEffect(() => () => {
+        window.clearTimeout(searchScrollTimerRef.current);
+        window.clearTimeout(searchHighlightTimerRef.current);
+    }, []);
 
     const handleRecordAction = async (action) => {
         if (action === 'print') {
@@ -288,6 +410,15 @@ export default function MedicalRecords() {
             </div>
 
             <main className="medical-print-area space-y-6">
+                {highlightedMatch && (
+                    <div className="no-print flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                        <Stethoscope className="mt-0.5 size-5 shrink-0" />
+                        <div className="min-w-0">
+                            <p className="text-xs font-black uppercase tracking-wide">Search match: {highlightedMatch.category}</p>
+                            <p className="mt-0.5 line-clamp-2 text-sm font-semibold">{highlightedMatch.text}</p>
+                        </div>
+                    </div>
+                )}
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm print-break-inside">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
@@ -314,7 +445,10 @@ export default function MedicalRecords() {
                     </div>
 
                     {asArray(records.allergies).length > 0 && (
-                        <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3">
+                        <div
+                            id="medical-allergies"
+                            className={`mt-4 rounded-lg border border-red-100 bg-red-50 p-3 ${highlightTargetClass('medical-allergies', highlightedTarget)}`}
+                        >
                             <div className="mb-2 flex items-center gap-2 text-sm font-black text-red-700">
                                 <AlertCircle className="size-4" />
                                 Allergies
@@ -332,6 +466,11 @@ export default function MedicalRecords() {
 
                     <VaccinationSection vaccinations={vaccinations} />
                     <ClinicalDocumentsSection documents={clinicalDocuments} onPreview={setViewer} />
+                    <ClinicalHistorySection
+                        records={serviceHistory}
+                        onPreview={setViewer}
+                        highlightedTarget={highlightedTarget}
+                    />
 
 	                {organizedRecords.length === 0 ? (
                     <Card className="print-break-inside">
@@ -346,7 +485,12 @@ export default function MedicalRecords() {
                 ) : (
                     <section className="space-y-5">
                         {organizedRecords.map((group) => (
-                            <OrganizedGroup key={group.groupId} group={group} onPreview={setViewer} />
+                            <OrganizedGroup
+                                key={group.groupId}
+                                group={group}
+                                onPreview={setViewer}
+                                highlightedTarget={highlightedTarget}
+                            />
                         ))}
                     </section>
                 )}
@@ -359,6 +503,162 @@ export default function MedicalRecords() {
                 onOpenChange={(open) => !open && setViewer(null)}
             />
         </div>
+    );
+}
+
+function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
+    const [expandedIds, setExpandedIds] = useState(() => new Set());
+
+    const toggleRecord = (record) => {
+        const recordId = String(record.id || record.sourceId);
+        setExpandedIds((current) => {
+            const next = new Set(current);
+            if (next.has(recordId)) {
+                next.delete(recordId);
+            } else {
+                next.add(recordId);
+            }
+            return next;
+        });
+    };
+
+    return (
+        <section
+            id="medical-clinical-history"
+            className={`print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${highlightTargetClass('medical-clinical-history', highlightedTarget)}`}
+        >
+            <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                        <Stethoscope className="size-5 text-[#155dfc]" />
+                        <div>
+                            <h2 className="text-lg font-black text-slate-950">Pet Health History</h2>
+                            <p className="text-xs font-semibold text-slate-500">Completed consultations, diagnoses, symptoms, treatment, and attachments.</p>
+                        </div>
+                    </div>
+                    <Badge className="w-fit border-0 bg-blue-50 text-[#155dfc]">
+                        {records.length} record{records.length === 1 ? '' : 's'}
+                    </Badge>
+                </div>
+            </header>
+
+            {records.length === 0 ? (
+                <div className="p-5 text-sm font-semibold text-slate-400">No completed clinical history is available yet.</div>
+            ) : (
+                <div className="divide-y divide-slate-100">
+                    {records.map((record) => {
+                        const recordId = String(record.id || record.sourceId);
+                        const targetId = medicalRecordTargetId(record);
+                        const isExpanded = expandedIds.has(recordId) || targetId === highlightedTarget;
+                        const doctorNotes = doctorNoteRows(record);
+                        const seenAttachments = new Set();
+                        const attachments = [
+                            ...asArray(record.attachments),
+                            ...asArray(record.sourceUploads)
+                        ].filter((attachment) => {
+                            const key = attachment.id || attachment.url || attachment.relativeUrl;
+                            if (!key || seenAttachments.has(key)) return false;
+                            seenAttachments.add(key);
+                            return true;
+                        });
+                        const prescriptions = asArray(record.prescriptions);
+                        const summary = compactText(
+                            record.summary
+                            || record.diagnosis
+                            || record.symptoms
+                            || record.chiefComplaint
+                            || record.notes
+                        );
+
+                        return (
+                            <article
+                                id={targetId}
+                                key={recordId}
+                                className={`scroll-mt-24 p-4 sm:p-5 ${highlightTargetClass(targetId, highlightedTarget)}`}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => toggleRecord(record)}
+                                    aria-expanded={isExpanded}
+                                    className="flex w-full items-start gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2"
+                                >
+                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
+                                        <Stethoscope className="size-4" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <span className="font-black text-slate-900">{record.title || record.serviceName || 'Clinical record'}</span>
+                                            {targetId === highlightedTarget && (
+                                                <Badge className="border-0 bg-amber-100 text-amber-800">Search match</Badge>
+                                            )}
+                                        </span>
+                                        <span className="mt-1 block text-xs font-semibold text-slate-500">
+                                            {[formatDisplayDate(record.serviceDate), editorLabel(record.veterinarianName)].filter(Boolean).join(' | ')}
+                                        </span>
+                                        {summary && <span className="mt-2 block line-clamp-2 text-sm font-medium leading-5 text-slate-600">{summary}</span>}
+                                    </span>
+                                    {isExpanded
+                                        ? <ChevronUp className="mt-1 size-4 shrink-0 text-slate-400" />
+                                        : <ChevronDown className="mt-1 size-4 shrink-0 text-slate-400" />}
+                                </button>
+
+                                {isExpanded && (
+                                    <div className="ml-0 mt-4 space-y-4 sm:ml-12">
+                                        {doctorNotes.length > 0 && (
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                {doctorNotes.map((row, index) => (
+                                                    <div key={`${row.label}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">{row.label}</p>
+                                                        <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{row.value}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {prescriptions.length > 0 && (
+                                            <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                                                <p className="mb-2 flex items-center gap-2 text-sm font-black text-[#155dfc]">
+                                                    <Pill className="size-4" />
+                                                    Prescriptions
+                                                </p>
+                                                <div className="space-y-2">
+                                                    {prescriptions.map((prescription, index) => (
+                                                        <div key={prescription.id || index} className="rounded-md bg-white p-2 text-sm">
+                                                            <p className="font-bold text-slate-900">{prescriptionLabel(prescription)}</p>
+                                                            {prescription.instructions && (
+                                                                <p className="mt-1 whitespace-pre-wrap text-xs font-semibold text-slate-500">{prescription.instructions}</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {attachments.length > 0 && (
+                                            <div className="no-print">
+                                                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                                                    <Camera className="size-4" />
+                                                    Images and Documents
+                                                </p>
+                                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                                    {attachments.map((attachment, index) => (
+                                                        <MedicalRecordAttachmentCard
+                                                            key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
+                                                            attachment={attachment}
+                                                            onPreview={onPreview}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -447,6 +747,8 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
     const [isOpening, setIsOpening] = useState(false);
     const canPreviewImage = Boolean(url && isImage(document));
     const rawPath = document?.url || document?.relativeUrl || url;
+    const isPdf = String(document?.mimeType || document?.mime_type || '').toLowerCase() === 'application/pdf'
+        || String(rawPath || '').split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
 
     const handleView = async () => {
         if (!rawPath || isOpening) return;
@@ -470,7 +772,7 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
 
         setIsDownloading(true);
         try {
-            await downloadConsentDocument(rawPath, document?.name || `${title}.png`);
+            await downloadConsentDocument(rawPath, document?.name || title);
         } catch (error) {
             toast.error(error.message || 'Could not download this clinical document.');
         } finally {
@@ -496,7 +798,7 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
             <p className="mt-1 text-xs font-semibold text-slate-500">
                 {document.category === 'additional_consent' ? 'Signed consent form' : 'Prescription document'}
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className={`mt-3 grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <Button
                     type="button"
                     variant="outline"
@@ -506,9 +808,9 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
                     className="h-8 gap-1 text-xs"
                 >
                     {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                    View
+                    {isPdf ? 'Open PDF' : 'View'}
                 </Button>
-                <Button
+                {!isPdf && <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -518,7 +820,7 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
                 >
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
-                </Button>
+                </Button>}
             </div>
         </div>
     );
@@ -546,9 +848,14 @@ function PetInfo({ label, value, strong = false }) {
     );
 }
 
-function OrganizedGroup({ group, onPreview }) {
+function OrganizedGroup({ group, onPreview, highlightedTarget }) {
+    const targetId = `medical-group-${group.groupId}`;
+
     return (
-        <article className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <article
+            id={targetId}
+            className={`scroll-mt-24 print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${highlightTargetClass(targetId, highlightedTarget)}`}
+        >
             <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -573,7 +880,12 @@ function OrganizedGroup({ group, onPreview }) {
                     <div className="p-5 text-sm font-semibold text-slate-400">No service records added to this group.</div>
                 ) : (
                     group.items.map((item) => (
-                        <OrganizedItem key={item.itemId} item={item} onPreview={onPreview} />
+                        <OrganizedItem
+                            key={item.itemId}
+                            item={item}
+                            onPreview={onPreview}
+                            highlightedTarget={highlightedTarget}
+                        />
                     ))
                 )}
             </div>
@@ -581,8 +893,9 @@ function OrganizedGroup({ group, onPreview }) {
     );
 }
 
-function OrganizedItem({ item, onPreview }) {
+function OrganizedItem({ item, onPreview, highlightedTarget }) {
     const source = item.sourceSnapshot || {};
+    const targetId = `medical-item-${item.itemId}`;
     const doctorNotes = doctorNoteRows(source);
     const attachments = [
         ...asArray(source.attachments),
@@ -594,12 +907,18 @@ function OrganizedItem({ item, onPreview }) {
     ];
 
     return (
-        <section className="p-5 print-break-inside">
+        <section
+            id={targetId}
+            className={`scroll-mt-24 p-5 print-break-inside ${highlightTargetClass(targetId, highlightedTarget)}`}
+        >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                         <Stethoscope className="size-4 text-[#155dfc]" />
                         <h3 className="text-base font-black text-slate-900">{item.title}</h3>
+                        {targetId === highlightedTarget && (
+                            <Badge className="border-0 bg-amber-100 text-amber-800">Search match</Badge>
+                        )}
                     </div>
                     <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
                         <CalendarDays className="size-3" />
@@ -689,6 +1008,8 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
     const url = imageUrl(attachment);
     const canPreview = isImage(attachment);
     const title = attachment?.name || 'Attachment';
+    const isPdf = String(attachment?.mimeType || attachment?.mime_type || '').toLowerCase() === 'application/pdf'
+        || rawPath.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
 
     const handleView = async () => {
         if (!rawPath || isOpening) return;
@@ -735,7 +1056,7 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                 )}
             </div>
             <p className="mt-2 truncate text-xs font-bold text-slate-700">{title}</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className={`mt-2 grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <Button
                     type="button"
                     variant="outline"
@@ -745,9 +1066,9 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                     className="h-8 gap-1 text-xs"
                 >
                     {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                    View
+                    {isPdf ? 'Open PDF' : 'View'}
                 </Button>
-                <Button
+                {!isPdf && <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -757,7 +1078,7 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                 >
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
-                </Button>
+                </Button>}
             </div>
         </div>
     );

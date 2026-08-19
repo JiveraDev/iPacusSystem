@@ -27,11 +27,14 @@ export default function VideoConsultation() {
             consultationId: found.id || consultationId,
             role: "pet_owner",
             meetingUrl: found.meetingUrl,
+            meetingJwt: found.meetingJwt,
             meetingCode: found.meetingCode,
             title: "Online Consultation",
             petName: found.petName,
             ownerName: found.ownerName,
             veterinarianName: found.veterinarianName,
+            displayName: found.ownerName,
+            email: found.ownerEmail,
             scheduledStart: found.scheduledStart,
             returnPath: `/dashboard/consult/video/${found.id || consultationId}`
           });
@@ -87,11 +90,14 @@ export default function VideoConsultation() {
       consultationId: consultation.id || consultationId,
       role: "pet_owner",
       meetingUrl: consultation.meetingUrl,
+      meetingJwt: consultation.meetingJwt,
       meetingCode: consultation.meetingCode,
       title: "Online Consultation",
       petName: consultation.petName,
       ownerName: consultation.ownerName,
       veterinarianName: consultation.veterinarianName,
+      displayName: consultation.ownerName,
+      email: consultation.ownerEmail,
       scheduledStart: consultation.scheduledStart,
       returnPath: `/dashboard/consult/video/${consultation.id || consultationId}`
     });
@@ -137,37 +143,41 @@ export default function VideoConsultation() {
       <div className="flex min-h-0 flex-1 flex-col bg-[#101828]">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
           <div>
-            <p className="text-sm font-semibold">Jitsi Meeting Room</p>
+            <p className="text-sm font-semibold">8x8 JaaS Meeting Room</p>
             <p className="text-xs text-white/60">{consultation.meetingCode || "Private consultation room"}</p>
           </div>
           <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-100">Live</span>
         </div>
 
-        <div className="flex h-full min-h-[560px] flex-col items-center justify-center p-6 text-center text-white">
-          <Video className="mb-4 h-12 w-12 text-white/60" />
-          <h2 className="text-xl font-bold">{isMinimized ? "Call minimized" : "Call open"}</h2>
-          <p className="mt-2 max-w-md text-sm text-white/70">
-            {consultation.meetingCode || "Private consultation room"}
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button onClick={openCall} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
-              <Maximize2 className="h-4 w-4" />
-              Open Call
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={minimizeCall}
-              className="gap-2 border border-white/20 text-white hover:bg-white/10"
-            >
-              <Minimize2 className="h-4 w-4" />
-              Minimize
-            </Button>
-          </div>
+        <div
+          data-video-call-dock={String(consultation.id || consultationId)}
+          className="relative flex min-h-[460px] flex-1 items-center justify-center overflow-hidden bg-black p-6 text-center text-white sm:min-h-[560px]"
+          aria-label="Online consultation video"
+        >
+          {(!isCurrentCall || isMinimized) && (
+            <div className="max-w-md">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-white/10">
+                <Video className="h-7 w-7 text-white/70" />
+              </div>
+              <h2 className="mt-4 text-xl font-bold">
+                {isMinimized && isCurrentCall ? "Call continues in picture-in-picture" : "Ready to join"}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-white/65">
+                {isMinimized && isCurrentCall
+                  ? "The camera call remains connected while you use other dashboard pages. Select the floating video to return."
+                  : "Open the private consultation room when you are ready."}
+              </p>
+              <Button onClick={openCall} className="mt-5 gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
+                <Maximize2 className="h-4 w-4" />
+                {isMinimized && isCurrentCall ? "Return to Call" : "Open Call"}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 border-t border-white/10 bg-black/20 px-5 py-3 text-sm text-white/70">
           <Video className="h-4 w-4" />
-          Public Jitsi may ask the veterinarian to log in as moderator before the room fully opens.
+          Video consultations are securely hosted through the clinic's 8x8 JaaS service.
         </div>
       </div>
     </div>

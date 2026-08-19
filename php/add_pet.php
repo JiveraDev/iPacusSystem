@@ -12,6 +12,11 @@ $breed = $input['breed'] ?? null;
 $birthDate = $input['birthDate'] ?? null;
 $gender = $input['gender'] ?? null;
 $status = $input['status'] ?? 'Healthy';
+$microchipNumber = preg_replace('/\D+/', '', (string)($input['microchipNumber'] ?? ''));
+if ($microchipNumber !== (string)($input['microchipNumber'] ?? '') || strlen($microchipNumber) > 15) {
+    ipawcus_guard_error(422, 'Microchip number must contain no more than 15 digits.');
+}
+$microchipNumber = $microchipNumber !== '' ? $microchipNumber : null;
 $currentApiUser = ipawcus_guard_current_user($pdo);
 $currentApiRole = ipawcus_guard_role($currentApiUser);
 $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
@@ -98,7 +103,7 @@ try {
         $status,
         $input['age'] ?? null,
         $input['weight'] ?? 0,
-        $input['microchipNumber'] ?? null,
+        $microchipNumber,
         $input['tempOwnerName'] ?? null,
         $input['allergies'] ?? null,
         $input['colorMarkings'] ?? null,

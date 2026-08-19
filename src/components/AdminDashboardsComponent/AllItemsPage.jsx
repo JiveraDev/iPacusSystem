@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Filter, Download, Plus, Trash2, Eye, Package, List, LayoutGrid, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
+import { Search, Filter, Download, Plus, Trash2, Eye, Package, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X } from 'lucide-react';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -14,8 +14,10 @@ import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
+import TablePagination from '../shared/TablePagination.jsx';
 
 const REPORT_INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
+const INVENTORY_PAGE_SIZE = 20;
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
@@ -28,7 +30,8 @@ export default function AllItemsPage() {
   const [locationFilter, setLocationFilter] = useState('Select Location');
   const [statusFilter, setStatusFilter] = useState('Select Status');
   const [selectedItems, setSelectedItems] = useState([]);
-  const [viewMode, setViewMode] = useState('card');
+  const viewMode = 'list';
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [stockOutItem, setStockOutItem] = useState(null);
@@ -37,7 +40,7 @@ export default function AllItemsPage() {
   const [batchSort, setBatchSort] = useState('newest');
   const [isEditingItem, setIsEditingItem] = useState(false);
   const [isSavingItem, setIsSavingItem] = useState(false);
-  const [editItemForm, setEditItemForm] = useState({ unitCost: '', locationId: '' });
+  const [editItemForm, setEditItemForm] = useState({ unitCost: '', sellingPrice: '', locationId: '' });
 
   const loadInventory = async ({ isAutoRefresh = false } = {}) => {
     if (!isAutoRefresh) {
@@ -85,6 +88,7 @@ export default function AllItemsPage() {
     setSelectedItem(item);
     setEditItemForm({
       unitCost: String(item.costPrice ?? ''),
+      sellingPrice: String(item.sellingPrice ?? item.costPrice ?? ''),
       locationId: String(item.locationId ?? '')
     });
     setIsEditingItem(false);
@@ -172,6 +176,7 @@ export default function AllItemsPage() {
         setSelectedItem(updatedItem);
         setEditItemForm({
           unitCost: String(updatedItem.costPrice ?? ''),
+          sellingPrice: String(updatedItem.sellingPrice ?? updatedItem.costPrice ?? ''),
           locationId: String(updatedItem.locationId ?? '')
         });
       }
@@ -187,6 +192,7 @@ export default function AllItemsPage() {
     if (!selectedItem) return;
     setEditItemForm({
       unitCost: String(selectedItem.costPrice ?? ''),
+      sellingPrice: String(selectedItem.sellingPrice ?? selectedItem.costPrice ?? ''),
       locationId: String(selectedItem.locationId ?? '')
     });
     setIsEditingItem(true);
@@ -196,8 +202,15 @@ export default function AllItemsPage() {
     if (!selectedItem) return;
 
     const unitCost = Number(editItemForm.unitCost);
+    const sellingPrice = Number(editItemForm.sellingPrice);
     if (!Number.isFinite(unitCost) || unitCost < 0) {
       const message = 'Enter a valid unit cost.';
+      setErrorMessage(message);
+      toast.error(message);
+      return;
+    }
+    if (!Number.isFinite(sellingPrice) || sellingPrice < 0) {
+      const message = 'Enter a valid selling price.';
       setErrorMessage(message);
       toast.error(message);
       return;
@@ -219,6 +232,7 @@ export default function AllItemsPage() {
         user_id: currentUser?.id || currentUser?.user_id,
         item_id: selectedItem.itemId || selectedItem.id,
         unit_cost: unitCost,
+        selling_price: sellingPrice,
         location_id: editItemForm.locationId
       });
       const updatedItems = await loadInventory();
@@ -227,6 +241,7 @@ export default function AllItemsPage() {
         setSelectedItem(updatedItem);
         setEditItemForm({
           unitCost: String(updatedItem.costPrice ?? ''),
+          sellingPrice: String(updatedItem.sellingPrice ?? updatedItem.costPrice ?? ''),
           locationId: String(updatedItem.locationId ?? '')
         });
       }
@@ -241,15 +256,37 @@ export default function AllItemsPage() {
     }
   };
 
-  const filteredItems = inventoryItems.filter(item => {
+  const hasInventoryQuery = Boolean(
+    searchQuery.trim()
+    || categoryFilter !== 'Select Categories'
+    || locationFilter !== 'Select Location'
+    || statusFilter !== 'Select Status'
+  );
+  const filteredItems = hasInventoryQuery ? inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (item.genericName && item.genericName.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = categoryFilter === 'Select Categories' || item.category === categoryFilter;
-    const matchesLocation = locationFilter === 'Select Location' || item.location === locationFilter;
+    const matchesLocation = locationFilter === 'Select Location'
+      || String(item.locationId) === String(locationFilter)
+      || (item.batches || []).some((batch) => String(batch.locationId) === String(locationFilter));
     const matchesStatus = statusFilter === 'Select Status' || item.status === statusFilter;
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
-  });
+  }) : [];
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
+  const activePage = Math.min(currentPage, totalPages);
+  const firstItemIndex = (activePage - 1) * INVENTORY_PAGE_SIZE;
+  const paginatedItems = filteredItems.slice(firstItemIndex, firstItemIndex + INVENTORY_PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, locationFilter, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const totalValue = inventoryItems.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
   const lowStockCount = inventoryItems.filter(item => item.status === 'low-stock').length;
@@ -336,7 +373,7 @@ export default function AllItemsPage() {
             <SelectContent>
               <SelectItem value="Select Location">All Locations</SelectItem>
               {locations.map((location) => (
-                <SelectItem key={location.id} value={location.name}>{location.name}</SelectItem>
+                <SelectItem key={location.id} value={String(location.id)}>{location.displayName || `${location.name} / ${location.storageArea || 'General Storage'}`}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -359,7 +396,7 @@ export default function AllItemsPage() {
         </div>
       </div>
 
-      {/* Summary Cards & View Toggle */}
+      {/* Inventory Summary */}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
@@ -394,28 +431,6 @@ export default function AllItemsPage() {
               {nearExpiryCount}
             </p>
           </div>
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="flex w-full gap-2 rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-2 sm:w-auto">
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('list')}
-            className={`flex-1 sm:flex-none ${viewMode === 'list' ? 'bg-[#155dfc]' : ''}`}
-          >
-            <List className="size-4 mr-2" />
-            List
-          </Button>
-          <Button
-            variant={viewMode === 'card' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('card')}
-            className={`flex-1 sm:flex-none ${viewMode === 'card' ? 'bg-[#155dfc]' : ''}`}
-          >
-            <LayoutGrid className="size-4 mr-2" />
-            Card
-          </Button>
         </div>
       </div>
 
@@ -471,7 +486,7 @@ export default function AllItemsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => (
+                {paginatedItems.map((item) => (
                   <TableRow
                     key={item.id}
                     className="hover:bg-[#f9fafb] cursor-pointer"
@@ -521,26 +536,13 @@ export default function AllItemsPage() {
             </Table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex flex-col gap-3 border-t border-[rgba(0,0,0,0.1)] p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-              Showing {filteredItems.length} of {inventoryItems.length} items
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm">Previous</Button>
-              <Button variant="outline" size="sm" className="bg-[#155dfc] text-white">1</Button>
-              <Button variant="outline" size="sm">2</Button>
-              <Button variant="outline" size="sm">3</Button>
-              <Button variant="outline" size="sm">Next</Button>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Content - Card View */}
       {!isLoading && viewMode === 'card' && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filteredItems.map((item) => (
+          {paginatedItems.map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 hover:border-[#155dfc]/30 hover:shadow-md transition cursor-pointer sm:p-4"
@@ -643,14 +645,22 @@ export default function AllItemsPage() {
                 </div>
               </div>
 
-              {/* Cost */}
-              <div className="flex justify-between items-center mb-3 pb-3 border-b border-[rgba(0,0,0,0.05)]">
+              {/* Prices */}
+              <div className="flex justify-between items-center gap-4 mb-3 pb-3 border-b border-[rgba(0,0,0,0.05)]">
                 <div>
                   <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Unit Cost
                   </p>
                   <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
                     {formatPhpCurrency(item.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
+                    Selling Price
+                  </p>
+                  <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
+                    {formatPhpCurrency(item.sellingPrice ?? item.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -668,15 +678,28 @@ export default function AllItemsPage() {
         </div>
       )}
 
+      {!isLoading && filteredItems.length > 0 && (
+        <TablePagination
+          currentPage={activePage}
+          totalItems={filteredItems.length}
+          pageSize={INVENTORY_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="inventory items"
+          className="rounded-[12px] border border-slate-200 bg-white p-4"
+        />
+      )}
+
       {/* Empty State */}
       {!isLoading && filteredItems.length === 0 && (
         <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-12 text-[#4a5565] mx-auto mb-4" />
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-2">
-            No items found
+            {hasInventoryQuery ? 'No items found' : 'Search or filter inventory'}
           </h3>
           <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-            Try adjusting your search or filter criteria
+            {hasInventoryQuery
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Enter a product name, SKU, or generic name, or choose a filter to display inventory records.'}
           </p>
         </div>
       )}
@@ -812,7 +835,7 @@ export default function AllItemsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               {locations.map((location) => (
-                                <SelectItem key={location.id} value={String(location.id)}>{location.name}</SelectItem>
+                                <SelectItem key={location.id} value={String(location.id)}>{location.displayName || `${location.name} / ${location.storageArea || 'General Storage'}`}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -918,8 +941,8 @@ export default function AllItemsPage() {
                   </div>
                 )}
 
-                {/* Cost */}
-                <div className="p-4 bg-[#f9fafb] rounded-[10px]">
+                {/* Prices */}
+                <div className="grid grid-cols-1 gap-4 rounded-[10px] bg-[#f9fafb] p-4 sm:grid-cols-2">
                   <div>
                     <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">Unit Cost</p>
                     {isEditingItem ? (
@@ -936,6 +959,24 @@ export default function AllItemsPage() {
                     <p className="font-['Arimo:Bold',sans-serif] text-[20px] text-[#101828]">
                       {formatPhpCurrency(selectedItem.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">Selling Price</p>
+                    {isEditingItem ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editItemForm.sellingPrice}
+                        onChange={(event) => setEditItemForm((current) => ({ ...current, sellingPrice: event.target.value }))}
+                        restriction="decimal"
+                        className="max-w-xs"
+                      />
+                    ) : (
+                      <p className="font-['Arimo:Bold',sans-serif] text-[20px] text-[#101828]">
+                        {formatPhpCurrency(selectedItem.sellingPrice ?? selectedItem.costPrice, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
                     )}
                   </div>
                 </div>

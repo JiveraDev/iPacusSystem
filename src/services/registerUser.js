@@ -1,25 +1,28 @@
-import { apiFetch, readJsonResponse } from './apiClient';
+import { ApiError, postJson } from './apiClient';
+import { getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
 export async function registerUser(payload) {
-    const response = await apiFetch('/register', {
-        apiPrefix: true,
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-    });
+    try {
+        return await postJson('/register', payload, { apiPrefix: true });
+    } catch (error) {
+        const firstError = Object.values(error?.data?.errors || {})
+            .flat()
+            .find((message) => typeof message === 'string' && message.trim());
 
-    const data = await readJsonResponse(response);
-
-    if (!response.ok) {
-        // Handle validation errors specifically if they exist
-        if (data.errors) {
-            const firstError = Object.values(data.errors)[0][0];
-            throw new Error(firstError);
+        if (firstError) {
+            const fallbackMessage = 'Please review your registration details and try again.';
+            throw new ApiError(
+                getUserFacingErrorMessage(firstError, fallbackMessage, {
+                    context: 'Registration error details were hidden from the user interface.'
+                }),
+                {
+                    status: error.status,
+                    data: error.data,
+                    fallbackMessage
+                }
+            );
         }
-        throw new Error(data.message || `Registration failed with status ${response.status}`);
-    }
 
-    return data;
+        throw error;
+    }
 }

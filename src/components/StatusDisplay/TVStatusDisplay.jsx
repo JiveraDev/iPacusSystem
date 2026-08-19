@@ -13,6 +13,7 @@ import {
 
 import logo from '../../assets/circular_logo.png';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { normalizeVisibleBranchCode } from '../../services/branchService';
 import { fetchStatusDisplay } from '../../services/statusDisplayService';
 
 const SECTION_LIMIT = 10;
@@ -26,7 +27,9 @@ function getInitialBranchCode() {
         return 'MAIN';
     }
 
-    return new URLSearchParams(window.location.search).get('branch') || 'MAIN';
+    return normalizeVisibleBranchCode(
+        new URLSearchParams(window.location.search).get('branch')
+    );
 }
 
 const STATUS_TONES = {
@@ -262,7 +265,7 @@ export default function TVStatusDisplay() {
     });
 
     const handleBranchChange = useCallback((event) => {
-        const nextBranchCode = event.target.value;
+        const nextBranchCode = normalizeVisibleBranchCode(event.target.value);
         if (!nextBranchCode || nextBranchCode === branchCode) {
             return;
         }
@@ -296,7 +299,7 @@ export default function TVStatusDisplay() {
     const generatedAt = statusData?.generatedAt ? formatTime(statusData.generatedAt) : '';
     const selectedBranchCode = branches.find((branch) => (
         String(branch.code) === String(branchCode) || String(branch.id) === String(branchCode)
-    ))?.code || branchCode;
+    ))?.code || normalizeVisibleBranchCode(branchCode);
 
     const resizeColumns = useCallback((clientX) => {
         const layout = layoutRef.current;

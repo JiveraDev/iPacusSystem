@@ -4,8 +4,19 @@ export function fetchUserPets(userId) {
     return apiRequest(`/users/${userId}/pets`);
 }
 
-export function fetchAllPets() {
-    return apiRequest('/pet_information', { apiPrefix: true });
+export function fetchAllPets(options = {}) {
+    const suffix = options.includeArchived ? '?includeArchived=1' : '';
+    return apiRequest(`/pet_information${suffix}`, { apiPrefix: true });
+}
+
+export function searchPetDirectory(query, options = {}) {
+    const params = new URLSearchParams({ search: String(query || '').trim() });
+    if (options.includeArchived) params.set('includeArchived', '1');
+    return apiRequest(`/pet_information?${params.toString()}`, {
+        apiPrefix: true,
+        signal: options.signal,
+        transientRetryCount: 0,
+    });
 }
 
 export function fetchPetDetails(petId) {

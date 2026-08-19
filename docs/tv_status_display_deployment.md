@@ -15,7 +15,7 @@ Use the standalone folder when the hosting panel lets you point `status.ipawcus.
 - Standalone TV build folder: `dist/tv-status`
 - Standalone TV page: `https://status.ipawcus.com/`
 - Main app TV page: `/status-display`
-- Branch TV page: `/status-display?branch=MAIN` (replace `MAIN` with `ISABANG`, `ENRIQUEZ`, `GULANG_GULANG`, or `MAYAO`)
+- Branch TV page: `/status-display?branch=MAIN` (use `MAIN` or `ENRIQUEZ`)
 - API endpoint: `/status-display`
 - API fallback alias: `/tv-status`
 - Standalone local API wrapper: `/status.php`
@@ -85,7 +85,7 @@ Recommended setup:
 
 The app detects hostnames beginning with `status.` and renders the TV display at `/`, so the TV does not need `/status-display` in the address bar.
 
-For a branch-specific React TV, add the branch code to the URL, for example `https://status.ipawcus.com/?branch=ISABANG`. If no branch is supplied, the display uses the Main Clinic. Keep a separate bookmarked URL on each branch TV so queues, bookings, and payment status are never mixed between locations.
+For a location-specific React TV, add the branch code to the URL, for example `https://status.ipawcus.com/?branch=ENRIQUEZ`. If no branch is supplied, the display uses the Main Clinic. Only `MAIN` and `ENRIQUEZ` are currently exposed in the application. Keep a separate bookmarked URL on each location TV so queues, bookings, and payment status are never mixed between locations.
 
 ## Validation
 

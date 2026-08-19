@@ -37,9 +37,15 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import consultImage from "../../assets/consultimage.png";
 import VetActiveLocationPanel from "../VetrinarianComponents/VetActiveLocationPanel.jsx";
 import AdminAssignedLocationPanel from "../AdminDashboardsComponent/AdminAssignedLocationPanel.jsx";
+import ClinicAvailabilityCalendar from "../shared/ClinicAvailabilityCalendar.jsx";
+import {
+  bookingRouteForAvailabilityService,
+  saveBookingAvailabilitySelection,
+} from "../../lib/bookingAvailabilityNavigation.js";
 
 const CLINIC_DETAILS = {
   hours: "8:00 AM - 6:00 PM",
+  openDays: "Monday - Saturday",
   address: "Oakbrook Avenue, Phase 3, Pleasantville Subdivision, Corner Clayton, Ilayang Iyam, Lucena City",
   phone: "(042) 373-5678",
 };
@@ -508,6 +514,11 @@ export default function Home({ user }) {
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
 
+  const openAvailabilityBooking = (selection) => {
+    saveBookingAvailabilitySelection(selection);
+    navigate(bookingRouteForAvailabilityService(selection.service));
+  };
+
   const loadHomeData = useCallback(async () => {
     const today = new Date();
     const todoStart = dateInputValue(today);
@@ -562,7 +573,7 @@ export default function Home({ user }) {
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-0 bg-emerald-50 text-emerald-700">Open daily {CLINIC_DETAILS.hours}</Badge>
+              <Badge className="border-0 bg-emerald-50 text-emerald-700">Open Mon-Sat {CLINIC_DETAILS.hours}</Badge>
             </div>
             <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
               Welcome back, {displayName}.
@@ -623,42 +634,53 @@ export default function Home({ user }) {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
-              <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
-              {roleSummary.attentionTitle}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {roleSummary.attentionItems.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500">
-                No active items need attention right now.
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {roleSummary.attentionItems.map((item) => (
-                  <button
-                    key={`${item.path}-${item.title}-${item.detail}`}
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-black text-slate-950">{item.title}</p>
-                        <p className="mt-1 text-sm font-medium leading-5 text-slate-600">{item.detail}</p>
+      <section>
+        {roleKey === "petowner" ? (
+          <ClinicAvailabilityCalendar
+            title="Book an available time"
+            description="Check clinic schedules before opening a booking form. Select an available time to continue."
+            onSelectSlot={openAvailabilityBooking}
+            onSelectRoom={openAvailabilityBooking}
+          />
+        ) : (
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+                <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
+                {roleSummary.attentionTitle}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {roleSummary.attentionItems.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500">
+                  No active items need attention right now.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {roleSummary.attentionItems.map((item) => (
+                    <button
+                      key={`${item.path}-${item.title}-${item.detail}`}
+                      type="button"
+                      onClick={() => navigate(item.path)}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-slate-950">{item.title}</p>
+                          <p className="mt-1 text-sm font-medium leading-5 text-slate-600">{item.detail}</p>
+                        </div>
+                        <Badge className="shrink-0 border-0 bg-white text-slate-600">{item.badge}</Badge>
                       </div>
-                      <Badge className="shrink-0 border-0 bg-white text-slate-600">{item.badge}</Badge>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </section>
 
+      <section>
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
@@ -666,8 +688,8 @@ export default function Home({ user }) {
               Clinic Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <InfoBlock icon={Clock} label="Hours" value={`Daily, ${CLINIC_DETAILS.hours}`} />
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <InfoBlock icon={Clock} label="Hours" value={`${CLINIC_DETAILS.openDays}, ${CLINIC_DETAILS.hours} (Sunday closed)`} />
             <InfoBlock
               icon={MapPin}
               label="Address"

@@ -15,13 +15,13 @@ import { createBooking } from "../../services/bookingService";
 import { fetchRoomAvailability } from "../../services/boardingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
 import { fetchUserPets } from "../../services/petService";
-import { createConsentDocumentImage } from "../../services/consentDocumentImage";
-import { uploadDataUrlImage } from "../../services/uploadService";
+import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 const ROOM_OPTIONS = {
   hotel: [
@@ -133,14 +133,20 @@ function getRoomPetLimit(size) {
 
 export default function PetHotel() {
   const navigate = useNavigate();
+  const availabilityPrefill = readBookingAvailabilitySelection('boarding');
+  const prefilledRoomParts = String(availabilityPrefill?.roomType || '').split('-');
+  const prefilledCheckOut = availabilityPrefill?.date
+    ? new Date(`${availabilityPrefill.date}T00:00:00`)
+    : null;
+  if (prefilledCheckOut) prefilledCheckOut.setDate(prefilledCheckOut.getDate() + 1);
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
   const [pets, setPets] = useState([]);
-  const [serviceType, setServiceType] = useState("hotel");
-  const [branchId, setBranchId] = useState("");
+  const [serviceType, setServiceType] = useState(prefilledRoomParts[0] === 'boarding' ? 'boarding' : 'hotel');
+  const [branchId, setBranchId] = useState(availabilityPrefill?.branchId ? String(availabilityPrefill.branchId) : "");
   const [selectedPets, setSelectedPets] = useState([]);
-  const [roomSize, setRoomSize] = useState("");
-  const [checkInDate, setCheckInDate] = useState("");
-  const [checkOutDate, setCheckOutDate] = useState("");
+  const [roomSize, setRoomSize] = useState(['small', 'medium', 'large'].includes(prefilledRoomParts[1]) ? prefilledRoomParts[1] : "");
+  const [checkInDate, setCheckInDate] = useState(availabilityPrefill?.date || "");
+  const [checkOutDate, setCheckOutDate] = useState(prefilledCheckOut ? prefilledCheckOut.toISOString().slice(0, 10) : "");
   const [addOns, setAddOns] = useState([]);
   const [specialRequests, setSpecialRequests] = useState("");
   const [emergencyContact, setEmergencyContact] = useState(() => normalizePhilippinePhoneInput(""));
@@ -463,7 +469,7 @@ export default function PetHotel() {
         specialRequests.trim() ? `Special requests: ${specialRequests.trim()}` : ""
       ].filter(Boolean).join("\n");
       const signedAt = new Date().toISOString();
-      const signedConsentImage = await createConsentDocumentImage({
+      const signedConsentDocumentPath = await createAndUploadConsentDocumentPdf({
         title: boardingConsentTemplate.title,
         content: boardingConsentTemplate.content,
         signatureImage: boardingSignature,
@@ -479,12 +485,7 @@ export default function PetHotel() {
           serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding',
           branchName: selectedAvailability?.branchName || selectedAvailability?.branch_name || ''
         }
-      });
-      const signedConsentDocumentPath = await uploadDataUrlImage(
-        signedConsentImage,
-        "booking_signature",
-        "boarding_consent"
-      );
+      }, "boarding_consent");
       if (!signedConsentDocumentPath) {
         throw new Error("The signed consent document could not be saved. Please try again.");
       }

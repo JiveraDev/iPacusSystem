@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/start-local-dev.mjs",
+    "dev:vite": "vite",
+    "php:dev": "php -S localhost:8000 -t .",
     "server": "node server/userAddPetOwner.js",
     "build": "vite build --configLoader native",
     "lint": "eslint .",

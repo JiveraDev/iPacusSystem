@@ -261,7 +261,8 @@ export default function VetPetsEMR() {
             return nextPets;
         } catch (error) {
             if (!isAutoRefresh) {
-                toast.error(error.message || 'Failed to load pets.');
+                console.error('Failed to load pets for medical records:', error);
+                toast.error('Pets could not be loaded. Refresh the page or try again later.');
             }
             return [];
         } finally {
@@ -283,6 +284,9 @@ export default function VetPetsEMR() {
             if (data.success === false) {
                 throw new Error(data.message || 'Medical records could not be loaded.');
             }
+            if (data.schemaReady === false && !isAutoRefresh) {
+                console.error('Medical records are unavailable:', data.message || data);
+            }
             setRecordsData(data);
             const groups = asArray(data.organizedRecords);
             setSelectedGroupId(current => (
@@ -293,7 +297,8 @@ export default function VetPetsEMR() {
             return data;
         } catch (error) {
             if (!isAutoRefresh) {
-                toast.error(error.message || 'Failed to load medical records.');
+                console.error('Failed to load medical records:', error);
+                toast.error('Medical records could not be loaded. Refresh the page or try again later.');
             }
             return null;
         } finally {
@@ -359,7 +364,8 @@ export default function VetPetsEMR() {
 
             toast.success('Record update finished. Pet owner notified.');
         } catch (error) {
-            toast.error(error.message || 'Failed to finish record update request.');
+            console.error('Failed to finish the medical record update request:', error);
+            toast.error('The record update could not be completed. Please try again.');
         } finally {
             setIsCompletingRequest(false);
         }
@@ -543,7 +549,8 @@ export default function VetPetsEMR() {
             toast.success('Organized summary created.');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to create organized summary.');
+            console.error('Failed to create an organized medical summary:', error);
+            toast.error('The organized summary could not be created. Please try again.');
         } finally {
             setIsSavingGroup(false);
         }
@@ -590,7 +597,8 @@ export default function VetPetsEMR() {
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
             setGroupAutosaveStatus('error');
-            toast.error(error.message || 'Failed to save organized summary.');
+            console.error('Failed to save an organized medical summary:', error);
+            toast.error('The organized summary could not be saved. Please try again.');
         } finally {
             setIsSavingGroup(false);
         }
@@ -611,7 +619,8 @@ export default function VetPetsEMR() {
             toast.success('Organized record deleted.');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to delete organized record.');
+            console.error('Failed to delete an organized medical record:', error);
+            toast.error('The organized record could not be deleted. Please try again.');
         }
     };
 
@@ -643,7 +652,8 @@ export default function VetPetsEMR() {
                 : 'Service record added to the organized summary.');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to add record to the organized summary.');
+            console.error('Failed to add a medical record to an organized summary:', error);
+            toast.error('The record could not be added to the organized summary. Please try again.');
         }
     };
 
@@ -684,7 +694,8 @@ export default function VetPetsEMR() {
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
             setItemAutosaveStatus('error');
-            toast.error(error.message || 'Failed to update grouped summary.');
+            console.error('Failed to update a grouped medical summary:', error);
+            toast.error('The grouped summary could not be updated. Please try again.');
         }
     };
 
@@ -694,7 +705,8 @@ export default function VetPetsEMR() {
             toast.success('Service record removed from group.');
             await loadRecords({ isAutoRefresh: true });
         } catch (error) {
-            toast.error(error.message || 'Failed to remove service record.');
+            console.error('Failed to remove a service record from its group:', error);
+            toast.error('The service record could not be removed. Please try again.');
         }
     };
 
@@ -864,7 +876,7 @@ export default function VetPetsEMR() {
 
             {selectedPetId && recordsData?.schemaReady === false && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-                    {recordsData.message || 'Medical record schema is not ready.'}
+                    Medical records are temporarily unavailable. Try again later or contact support.
                 </div>
             )}
 
@@ -1543,6 +1555,8 @@ function EmrAttachmentCard({ attachment, onPreview }) {
     const url = imageUrl(attachment);
     const canPreview = isImage(attachment);
     const title = attachment?.name || 'Attachment';
+    const isPdf = String(attachment?.mimeType || attachment?.mime_type || '').toLowerCase() === 'application/pdf'
+        || rawPath.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
 
     const handleView = async (event) => {
         event.stopPropagation();
@@ -1556,7 +1570,8 @@ function EmrAttachmentCard({ attachment, onPreview }) {
         try {
             await openProtectedDocument(rawPath);
         } catch (error) {
-            toast.error(error.message || 'Could not open this medical-record attachment.');
+            console.error('Failed to open a medical-record attachment:', error);
+            toast.error('The medical-record attachment could not be opened. Please try again.');
         } finally {
             setIsOpening(false);
         }
@@ -1570,7 +1585,8 @@ function EmrAttachmentCard({ attachment, onPreview }) {
         try {
             await downloadConsentDocument(rawPath, title);
         } catch (error) {
-            toast.error(error.message || 'Could not download this medical-record attachment.');
+            console.error('Failed to download a medical-record attachment:', error);
+            toast.error('The medical-record attachment could not be downloaded. Please try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -1591,7 +1607,7 @@ function EmrAttachmentCard({ attachment, onPreview }) {
                 )}
             </div>
             <p className="truncate px-2 pt-2 text-xs font-semibold text-slate-600">{title}</p>
-            <div className="grid grid-cols-2 gap-1 p-2">
+            <div className={`grid gap-1 p-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <Button
                     type="button"
                     variant="outline"
@@ -1601,9 +1617,9 @@ function EmrAttachmentCard({ attachment, onPreview }) {
                     className="h-8 gap-1 px-2 text-xs"
                 >
                     {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                    View
+                    {isPdf ? 'Open PDF' : 'View'}
                 </Button>
-                <Button
+                {!isPdf && <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1613,7 +1629,7 @@ function EmrAttachmentCard({ attachment, onPreview }) {
                 >
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
-                </Button>
+                </Button>}
             </div>
         </div>
     );

@@ -82,6 +82,7 @@ export default function AddNewItemPage() {
   const [brand, setBrand] = useState('');
   const [unit, setUnit] = useState('');
   const [locationName, setLocationName] = useState('');
+  const [storageArea, setStorageArea] = useState('General Storage');
   const [productImage, setProductImage] = useState(null);
   const [viewerImage, setViewerImage] = useState(null);
   const [pendingItem, setPendingItem] = useState(null);
@@ -159,9 +160,11 @@ export default function AddNewItemPage() {
       const selectedBrand = cleanText(brand);
       const selectedUnit = cleanText(unit);
       const selectedLocation = cleanText(locationName);
+      const selectedStorageArea = cleanText(storageArea);
       const quantity = Number(formData.get('quantity') || 0);
       const reorderLevel = Number(formData.get('reorderLevel') || 0);
       const unitCost = Number(formData.get('costPrice') || 0);
+      const sellingPrice = Number(formData.get('sellingPrice') || 0);
       const expiryDate = cleanText(formData.get('expiryDate'));
       const warningDays = Number(formData.get('warningDays') || 90);
 
@@ -169,8 +172,10 @@ export default function AddNewItemPage() {
       if (!category) throw new Error('Category is required.');
       if (!selectedUnit) throw new Error('Unit is required.');
       if (!selectedLocation) throw new Error('Inventory location is required.');
+      if (!selectedStorageArea) throw new Error('Storage area is required.');
       if (Number.isNaN(quantity) || quantity < 0) throw new Error('Quantity must be zero or higher.');
       if (Number.isNaN(unitCost) || unitCost < 0) throw new Error('Unit cost must be zero or higher.');
+      if (Number.isNaN(sellingPrice) || sellingPrice < 0) throw new Error('Selling price must be zero or higher.');
       if (Number.isNaN(reorderLevel) || reorderLevel < 0) throw new Error('Reorder level must be zero or higher.');
       if (Number.isNaN(warningDays) || warningDays < 1) throw new Error('Expiry warning days must be at least 1.');
 
@@ -191,10 +196,12 @@ export default function AddNewItemPage() {
         brand: selectedBrand || null,
         unit: selectedUnit,
         location_name: selectedLocation,
+        storage_area: selectedStorageArea,
         quantity,
         batch_number: codes.batchNumber || null,
         reorder_level: reorderLevel,
         unit_cost: unitCost,
+        selling_price: sellingPrice,
         expiry_date: expiryDate || null,
         expiry_warning_days: warningDays,
         profile_image_path: ''
@@ -210,9 +217,11 @@ export default function AddNewItemPage() {
           brand: selectedBrand,
           unit: selectedUnit,
           locationName: selectedLocation,
+          storageArea: selectedStorageArea,
           quantity,
           reorderLevel,
           unitCost,
+          sellingPrice,
           expiryDate,
           warningDays,
           sku: codes.sku,
@@ -476,11 +485,33 @@ export default function AddNewItemPage() {
                 list="inventory-location-options"
                 placeholder="Type or select a location"
                 value={locationName}
-                onChange={(event) => setLocationName(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setLocationName(value);
+                  const selectedLocation = meta.locations.find((location) => cleanText(location.name).toLowerCase() === cleanText(value).toLowerCase());
+                  if (selectedLocation?.storageArea) setStorageArea(selectedLocation.storageArea);
+                }}
                 required
               />
               <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565] mt-1">
                 New typed locations will be created automatically.
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="storageArea" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
+                Storage Area / Part *
+              </Label>
+              <Input
+                id="storageArea"
+                placeholder="e.g., Vaccine Refrigerator, Shelf A, Display Rack"
+                value={storageArea}
+                onChange={(event) => setStorageArea(event.target.value)}
+                maxLength={120}
+                required
+              />
+              <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565] mt-1">
+                Identifies the room, cabinet, refrigerator, shelf, or display inside the selected branch.
               </p>
             </div>
 
@@ -561,6 +592,23 @@ export default function AddNewItemPage() {
               <Input
                 id="costPrice"
                 name="costPrice"
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                restriction="decimal"
+                className="pl-12"
+                leftIcon={<span className="text-xs font-semibold">PHP</span>}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellingPrice" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
+                Selling Price *
+              </Label>
+              <Input
+                id="sellingPrice"
+                name="sellingPrice"
                 type="number"
                 placeholder="0.00"
                 step="0.01"
@@ -693,8 +741,10 @@ export default function AddNewItemPage() {
                 <SummaryValue label="Brand" value={pendingItem.summary.brand || 'No brand'} />
                 <SummaryValue label="Unit" value={pendingItem.summary.unit} />
                 <SummaryValue label="Location" value={pendingItem.summary.locationName} />
+                <SummaryValue label="Storage Area" value={pendingItem.summary.storageArea} />
                 <SummaryValue label="Starting Qty" value={pendingItem.summary.quantity} />
                 <SummaryValue label="Unit Cost" value={formatMoney(pendingItem.summary.unitCost)} />
+                <SummaryValue label="Selling Price" value={formatMoney(pendingItem.summary.sellingPrice)} />
                 <SummaryValue label="Reorder Level" value={pendingItem.summary.reorderLevel} />
                 <SummaryValue label="Barcode" value={pendingItem.summary.barcode || 'No barcode'} />
                 <SummaryValue label="Expiry" value={formatDisplayDate(pendingItem.summary.expiryDate, { fallback: 'No expiry date' })} />

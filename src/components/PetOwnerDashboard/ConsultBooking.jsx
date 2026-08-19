@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -9,31 +9,24 @@ import { Input } from "../../ui/input";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, CalendarPlus, Image as ImageIcon, PawPrint, Plus, Upload, X } from "lucide-react";
-import { addDays, format } from "../../lib/date";
+import { format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchVeterinarians } from "../../services/accountService";
-import { fetchUserBookings } from "../../services/bookingService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchVetSchedules } from "../../services/vetScheduleService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 const TIME_SLOT_ORDER = [
-  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
-  "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
-  "04:00 PM", "05:00 PM", "06:00 PM"
+  "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM",
+  "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM",
+  "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM",
+  "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM"
 ];
-const DEFAULT_AVAILABILITY = {
-  monday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-  tuesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-  wednesday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-  thursday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-  friday: ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"],
-  saturday: ["09:00 AM", "10:00 AM", "11:00 AM"],
-  sunday: []
-};
-
 function toId(value) {
   return value === null || value === undefined ? "" : String(value);
 }
@@ -74,21 +67,6 @@ function sortTimeSlots(slots) {
   });
 }
 
-function formatBookingTimeSlot(timeValue) {
-  const value = String(timeValue || "").trim();
-  if (!value) return "";
-
-  const [hourValue, minuteValue = "0"] = value.split(":");
-  const hours = Number(hourValue);
-  const minutes = Number(minuteValue);
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "";
-
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const displayHour = hours % 12 || 12;
-  return `${String(displayHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${suffix}`;
-}
-
 function isAvailableSchedule(schedule) {
   return Number(schedule?.is_available) === 1 || schedule?.is_available === true;
 }
@@ -122,6 +100,7 @@ function parseDateInput(value) {
 
 export default function ConsultBooking() {
   const navigate = useNavigate();
+  const availabilityPrefill = readBookingAvailabilitySelection('online-consultation');
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { instructions, servicePrices } = priceProjectionConfig;
   const [pets, setPets] = useState([]);
@@ -130,12 +109,11 @@ export default function ConsultBooking() {
   const [selectedPet, setSelectedPet] = useState("");
   const [discussionTopic, setDiscussionTopic] = useState([]);
   const [notes, setNotes] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [selectedVet, setSelectedVet] = useState("");
+  const [selectedDate, setSelectedDate] = useState(availabilityPrefill?.date || "");
+  const [selectedTime, setSelectedTime] = useState(availabilityPrefill?.time || "");
+  const [selectedVet, setSelectedVet] = useState(availabilityPrefill?.veterinarianId ? String(availabilityPrefill.veterinarianId) : "");
   const [concernImages, setConcernImages] = useState([]);
   const [viewingImage, setViewingImage] = useState(null);
-  const [existingConsultBookings, setExistingConsultBookings] = useState([]);
 
   // New Pet Information (for anonymous booking)
   const [isNewPet, setIsNewPet] = useState(false);
@@ -150,28 +128,13 @@ export default function ConsultBooking() {
   const selectedPetData = pets.find((pet) => getPetId(pet) === selectedPet);
   const selectedVetData = veterinarians.find((vet) => vet.id === selectedVet);
 
-  // Get available time slots for selected vet and date
-  const getAvailableTimeSlots = () => {
-    if (!selectedVet || !selectedDate) return [];
-    
-    const vet = veterinarians.find(v => v.id === selectedVet);
-    if (!vet) return [];
-
-    const date = parseDateInput(selectedDate);
+  const isUnavailableConsultationDate = (value) => {
+    if (!selectedVetData) return true;
+    const date = value instanceof Date ? value : parseDateInput(value);
+    if (Number.isNaN(date.getTime()) || date.getDay() === 0) return true;
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const baseSlots = (vet.availability && vet.availability[dayName]) || [];
-    const occupiedSlots = existingConsultBookings
-      .filter((booking) => (
-        booking &&
-        booking.isOnlineConsultation &&
-        String(booking.veterinarianId) === String(selectedVet) &&
-        String(booking.date) === String(selectedDate) &&
-        ["pending", "confirmed"].includes(String(booking.status || "").toLowerCase())
-      ))
-      .map((booking) => formatBookingTimeSlot(booking.time))
-      .filter(Boolean);
-
-    return baseSlots.filter((slot) => !occupiedSlots.includes(slot));
+    return !Array.isArray(selectedVetData.availability?.[dayName])
+      || selectedVetData.availability[dayName].length === 0;
   };
 
   const fetchData = async ({ isAutoRefresh = false } = {}) => {
@@ -222,20 +185,10 @@ export default function ConsultBooking() {
             userId: v.user_id,
             name: `Dr. ${v.first_Name} ${v.last_Name}`,
             specialization: v.specialization || "General Practice",
-            availability: schedule?.hasScheduleRows ? schedule.availability : DEFAULT_AVAILABILITY
+            availability: schedule?.hasScheduleRows ? schedule.availability : {}
           };
-        });
+        }).filter((vet) => Object.values(vet.availability).some((slots) => slots.length > 0));
         setVeterinarians(formattedVets);
-      }
-
-      try {
-        const bookingsData = await fetchUserBookings(userId, { apiPrefix: true });
-        const bookingRows = Array.isArray(bookingsData?.bookings)
-          ? bookingsData.bookings
-          : (Array.isArray(bookingsData) ? bookingsData : []);
-        setExistingConsultBookings(bookingRows);
-      } catch {
-        setExistingConsultBookings([]);
       }
     } catch (error) {
       console.error("Error fetching booking data:", error);
@@ -269,32 +222,6 @@ export default function ConsultBooking() {
     setSelectedDate(date);
     setSelectedTime("");
   };
-
-  useEffect(() => {
-    if (!selectedTime || !selectedVet || !selectedDate) return;
-
-    const vet = veterinarians.find(v => v.id === selectedVet);
-    if (!vet) return;
-
-    const date = parseDateInput(selectedDate);
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const baseSlots = (vet.availability && vet.availability[dayName]) || [];
-    const occupiedSlots = existingConsultBookings
-      .filter((booking) => (
-        booking &&
-        booking.isOnlineConsultation &&
-        String(booking.veterinarianId) === String(selectedVet) &&
-        String(booking.date) === String(selectedDate) &&
-        ["pending", "confirmed"].includes(String(booking.status || "").toLowerCase())
-      ))
-      .map((booking) => formatBookingTimeSlot(booking.time))
-      .filter(Boolean);
-    const currentAvailableSlots = baseSlots.filter((slot) => !occupiedSlots.includes(slot));
-
-    if (!currentAvailableSlots.includes(selectedTime)) {
-      setSelectedTime("");
-    }
-  }, [existingConsultBookings, selectedVet, selectedDate, selectedTime, veterinarians]);
 
   const handleConcernImageUpload = (event) => {
     const files = Array.from(event.target.files || []);
@@ -375,11 +302,6 @@ export default function ConsultBooking() {
       toast.error("Please select a time");
       return;
     }
-    if (!getAvailableTimeSlots().includes(selectedTime)) {
-      toast.error("Please select an available time slot");
-      return;
-    }
-
     // Store booking data in session storage
     const bookingData = {
       petId: isNewPet ? "new-pet" : selectedPet,
@@ -658,60 +580,27 @@ export default function ConsultBooking() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
-                min={format(addDays(new Date(), 1), "yyyy-MM-dd")}
+                min={format(new Date(), "yyyy-MM-dd")}
+                excludeDate={isUnavailableConsultationDate}
                 disabled={!selectedVet}
               />
               <p className="text-sm text-gray-600">
                 {!selectedVet 
                   ? "Please select a veterinarian first"
-                  : "Bookings available from tomorrow onwards"}
+                  : "Only the veterinarian's published dates and times can be booked"}
               </p>
             </div>
 
             {/* Select Time */}
-            <div className="space-y-2">
-              <Label>Select Time</Label>
-              <Select 
-                value={selectedTime} 
-                onValueChange={setSelectedTime}
-                disabled={!selectedVet || !selectedDate}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={
-                    !selectedVet 
-                      ? "Select a veterinarian first" 
-                      : !selectedDate 
-                        ? "Select a date first" 
-                        : getAvailableTimeSlots().length === 0
-                          ? "No available slots for this day"
-                          : "Choose a time slot"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailableTimeSlots().length > 0 ? (
-                    getAvailableTimeSlots().map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-slots" disabled>
-                      No available time slots
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {selectedVet && selectedDate && getAvailableTimeSlots().length > 0 && (
-                <p className="text-sm text-green-600">
-                  {getAvailableTimeSlots().length} time slot{getAvailableTimeSlots().length > 1 ? 's' : ''} available
-                </p>
-              )}
-              {selectedVet && selectedDate && getAvailableTimeSlots().length === 0 && (
-                <p className="text-sm text-orange-600">
-                  No available slots on this day. Please select another date.
-                </p>
-              )}
-            </div>
+            <BookingTimeSlotField
+              id="online-consultation-time"
+              service="online-consultation"
+              date={selectedDate}
+              veterinarianId={selectedVet}
+              value={selectedTime}
+              onChange={setSelectedTime}
+              label="Select time"
+            />
 
             {/* Additional Notes */}
             <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4">

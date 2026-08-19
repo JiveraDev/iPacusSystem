@@ -21,6 +21,10 @@ php DDL/export_database_ddl.php --include-views
 
 ## Manual Migrations
 
+- `20260819_01_invoice_pdf_documents.sql` adds immutable Point-Of-Sale invoice PDF records linked to the visit, verified payment, and pet. Run it after the visit billing/payment schema is installed and before enabling POS invoice posting in this build.
+- `20260809_02_archiving_payment_storage.sql` adds recoverable account/pet archiving, configurable encrypted payment details, dynamic payment ledger keys, and branch/location/storage-area inventory identity. Run it after `20260808_01_payment_integrity.sql`, then set `PAYMENT_DETAILS_KEY` before saving payment settings.
+- `20260809_01_sunday_closure.sql` applies Monday-Saturday 8:00 AM-6:00 PM hours and closes all configured branches on Sunday.
+- `20260808_01_payment_integrity.sql` adds the booking-payment review/refund ledgers, visit-payment refunds, inventory selling prices, and boarding overstay billing support.
 - `20260803_01_multi_branch_operations.sql` is the required multi-branch migration. Run it after `20260729_deployment_required_new.sql` and before deploying the matching multi-branch frontend/PHP build. It seeds the five VFC locations, 8:00 AM-6:00 PM operating hours, one small/medium/large hotel room and kennel per location, branch services, staff assignments, veterinarian visits, branch-local stock, and branch ownership for bookings, queues, visits, boarding, record requests, reports, and notifications.
 - `20260729_deployment_required_new.sql` is the single import file for the required deployed-database changes added after the July 10 bundle. It combines the July 23 integrity schema, legacy-allergy preservation, and July 27 Special Services billing-price migration. It intentionally excludes historical-visit and clinical-propagation data repairs because their preview/approval steps must be run separately against production.
 - `20260727_01_special_service_billing_price.sql` adds the optional exact Special Services price used for booking snapshots and POS defaults. Run it after the 20260723 integrity sequence; ranged or quote-based services intentionally remain unset.

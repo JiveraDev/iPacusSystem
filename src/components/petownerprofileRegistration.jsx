@@ -13,14 +13,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from '../ui/dialog';
-import { ArrowLeft, User, Mail, Phone, MapPin, Dog } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, MapPin, Dog, Loader2 } from 'lucide-react';
 import RegistrationTermsPreview, {
     REGISTRATION_TERMS_DOCUMENT_ID,
     REGISTRATION_TERMS_EFFECTIVE_DATE,
     REGISTRATION_TERMS_VERSION,
 } from './shared/RegistrationTermsPreview.jsx';
 import { searchAddresses } from "../services/addressAutocomplete.js";
+import { getUserFacingErrorMessage } from "../lib/errorPresentation.js";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../lib/philippinePhone';
+import { useCurrentAddressLookup } from '../hooks/useCurrentAddressLookup.js';
+import AddressMapPreview from './shared/AddressMapPreview.jsx';
 
 function normalizeNameInput(value) {
     return String(value || '')
@@ -57,9 +60,29 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const [isSearchingAddress, setIsSearchingAddress] = useState(false)
     const [addressLookupError, setAddressLookupError] = useState("")
     const [isAddressMenuOpen, setIsAddressMenuOpen] = useState(false)
+    const [selectedAddressLocation, setSelectedAddressLocation] = useState(null)
     const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false)
     const [isTermsPreviewOpen, setIsTermsPreviewOpen] = useState(false)
     const blurTimeoutRef = useRef(null)
+    const {
+        clearLocationFeedback,
+        isLocatingAddress,
+        locationFeedback,
+        useCurrentLocation,
+    } = useCurrentAddressLookup((result) => {
+        setFormData((currentData) => ({
+            ...currentData,
+            address: result.fullAddress,
+        }))
+        setErrors((currentErrors) => ({
+            ...currentErrors,
+            address: "",
+        }))
+        setAddressSuggestions([])
+        setAddressLookupError("")
+        setIsAddressMenuOpen(false)
+        setSelectedAddressLocation(result)
+    })
 
     const handleChange = (field, value) => {
         const nextValue = ["phoneNumber", "emergencyContact"].includes(field)
@@ -71,6 +94,8 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         setFormData({ ...formData, [field]: nextValue })
 
         if (field === "address") {
+            clearLocationFeedback()
+            setSelectedAddressLocation(null)
             setAddressLookupError("")
             setIsAddressMenuOpen(true)
         }
@@ -96,9 +121,11 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                 if (error.name !== "AbortError") {
                     console.error("Address autocomplete failed:", error)
                     setAddressSuggestions([])
-                    setAddressLookupError(
-                        error?.message || "Unable to load address suggestions right now."
-                    )
+                    setAddressLookupError(getUserFacingErrorMessage(
+                        error,
+                        "Unable to load address suggestions right now.",
+                        { context: "Address autocomplete details were hidden from the user interface." }
+                    ))
                 }
             } finally {
                 setIsSearchingAddress(false)
@@ -143,6 +170,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         setAddressSuggestions([])
         setAddressLookupError("")
         setIsAddressMenuOpen(false)
+        setSelectedAddressLocation(suggestion)
     }
 
     const handleSubmit = e => {
@@ -338,48 +366,87 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                         <MapPin className="w-4 h-4" />
                                         Address
                                     </Label>
-                                    <Input
-                                        id="address"
-                                        placeholder="Domoit, Lucena City Quezon"
-                                        value={formData.address}
-                                        onChange={e => handleChange("address", e.target.value)}
-                                        onFocus={handleAddressFocus}
-                                        onBlur={handleAddressBlur}
-                                        autoComplete="off"
-                                        className={`bg-gray-100 border-gray-300 ${
-                                            errors.address ? "border-red-500" : ""
-                                        }`}
-                                    />
-                                    {isAddressMenuOpen && (isSearchingAddress || addressSuggestions.length > 0) && (
-                                        <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-                                            {isSearchingAddress && (
-                                                <div className="px-4 py-3 text-sm text-gray-500">
-                                                    Searching addresses...
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                                        <div className="relative min-w-0 flex-1">
+                                            <Input
+                                                id="address"
+                                                placeholder="Domoit, Lucena City Quezon"
+                                                value={formData.address}
+                                                onChange={e => handleChange("address", e.target.value)}
+                                                onFocus={handleAddressFocus}
+                                                onBlur={handleAddressBlur}
+                                                autoComplete="off"
+                                                aria-describedby="registration-address-feedback"
+                                                className={`bg-gray-100 border-gray-300 ${
+                                                    errors.address ? "border-red-500" : ""
+                                                }`}
+                                            />
+                                            {isAddressMenuOpen && (isSearchingAddress || addressSuggestions.length > 0) && (
+                                                <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                                                    {isSearchingAddress && (
+                                                        <div className="px-4 py-3 text-sm text-gray-500">
+                                                            Searching addresses...
+                                                        </div>
+                                                    )}
+
+                                                    {!isSearchingAddress && addressSuggestions.map((suggestion) => (
+                                                        <button
+                                                            key={suggestion.id}
+                                                            type="button"
+                                                            onMouseDown={() => handleAddressSelect(suggestion)}
+                                                            className="flex w-full items-start gap-2 border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 last:border-b-0 hover:bg-blue-50 focus-visible:bg-blue-50 focus-visible:outline-none"
+                                                        >
+                                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                                                            <span>{suggestion.label}</span>
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             )}
-
-                                            {!isSearchingAddress && addressSuggestions.map((suggestion) => (
-                                                <button
-                                                    key={suggestion.id}
-                                                    type="button"
-                                                    onMouseDown={() => handleAddressSelect(suggestion)}
-                                                    className="flex w-full items-start gap-2 border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 last:border-b-0 hover:bg-blue-50"
-                                                >
-                                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                                                    <span>{suggestion.label}</span>
-                                                </button>
-                                            ))}
                                         </div>
-                                    )}
-                                    {addressLookupError && (
-                                        <p className="text-amber-600 text-xs mt-1">
-                                            {addressLookupError}
-                                        </p>
-                                    )}
-                                    {errors.address && (
-                                        <p className="text-red-500 text-xs mt-1">
-                                            {errors.address}
-                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={useCurrentLocation}
+                                            disabled={isLocatingAddress}
+                                            className="size-10 shrink-0 p-0"
+                                            aria-label={isLocatingAddress ? "Finding your current location" : "Use current location"}
+                                            title={isLocatingAddress ? "Finding your current location" : "Use current location"}
+                                        >
+                                            {isLocatingAddress ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <MapPin className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <div id="registration-address-feedback" aria-live="polite">
+                                        {!addressLookupError && !locationFeedback.message && !errors.address && (
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Choose a suggestion, use your location, or type the address yourself.
+                                            </p>
+                                        )}
+                                        {addressLookupError && (
+                                            <p className="text-amber-600 text-xs mt-1">
+                                                {addressLookupError}
+                                            </p>
+                                        )}
+                                        {locationFeedback.message && (
+                                            <p className={`mt-1 text-xs ${
+                                                locationFeedback.type === 'success' ? 'text-emerald-600' : 'text-amber-600'
+                                            }`}>
+                                                {locationFeedback.message}
+                                            </p>
+                                        )}
+                                        {errors.address && (
+                                            <p className="text-red-500 text-xs mt-1">
+                                                {errors.address}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {selectedAddressLocation && formData.address.trim() && (
+                                        <div className="mt-3">
+                                            <AddressMapPreview location={selectedAddressLocation} />
+                                        </div>
                                     )}
                                 </div>
 

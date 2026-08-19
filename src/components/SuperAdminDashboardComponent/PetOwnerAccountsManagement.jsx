@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Ban, CheckCircle, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, Search, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Archive, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, RotateCcw, Search, ShieldAlert, X } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
-import { fetchPetOwnerAccounts, removePetOwnerOwnership, updatePetOwnerStatus } from '../../services/accountService';
+import { fetchPetOwnerAccounts, updatePetOwnerStatus } from '../../services/accountService';
+import { updatePetStatus } from '../../services/petService';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 
@@ -16,8 +18,8 @@ function ownerName(owner) {
     return `${owner.first_Name || ''} ${owner.last_Name || ''}`.trim() || owner.mail_Address || 'Pet Owner';
 }
 
-function isDeactivated(owner) {
-    return String(owner.account_status || 'active').toLowerCase() === 'deactivated';
+function isArchived(owner) {
+    return ['archived', 'deactivated'].includes(String(owner.account_status || 'active').toLowerCase());
 }
 
 function ownerInitials(owner) {
@@ -149,11 +151,11 @@ function ProfileDetail({ label, value }) {
 export default function PetOwnerAccountsManagement() {
     const [owners, setOwners] = useState([]);
     const [statusSupported, setStatusSupported] = useState(true);
-    const [requiredSql, setRequiredSql] = useState('');
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('active');
     const [selectedOwner, setSelectedOwner] = useState(null);
     const [pendingStatusOwner, setPendingStatusOwner] = useState(null);
-    const [pendingOwnership, setPendingOwnership] = useState(null);
+    const [pendingPetArchive, setPendingPetArchive] = useState(null);
     const [reason, setReason] = useState('');
     const [viewMode, setViewMode] = useState('cards');
     const [isLoading, setIsLoading] = useState(true);
@@ -167,9 +169,9 @@ export default function PetOwnerAccountsManagement() {
             const data = await fetchPetOwnerAccounts();
             setOwners(Array.isArray(data.owners) ? data.owners : []);
             setStatusSupported(Boolean(data.status_supported));
-            setRequiredSql(data.required_status_sql || '');
         } catch (error) {
-            toast.error(error.message || 'Failed to load pet owner accounts.');
+            console.error('Failed to load pet owner accounts:', error);
+            toast.error('Pet owner accounts could not be loaded. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -179,28 +181,31 @@ export default function PetOwnerAccountsManagement() {
 
     const filteredOwners = useMemo(() => {
         const query = search.trim().toLowerCase();
-        if (!query) return owners;
+        const statusOwners = owners.filter((owner) => (
+            statusFilter === 'all' || (statusFilter === 'archived' ? isArchived(owner) : !isArchived(owner))
+        ));
+        if (!query) return statusOwners;
 
-        return owners.filter(owner => [
+        return statusOwners.filter(owner => [
             ownerName(owner),
             owner.mail_Address,
             owner.phoneNumber,
             owner.personal_Address,
             ...(owner.pets || []).map(pet => `${pet.pet_name} ${pet.pet_species} ${pet.pet_breed}`)
         ].filter(Boolean).join(' ').toLowerCase().includes(query));
-    }, [owners, search]);
+    }, [owners, search, statusFilter]);
 
     const handleToggleStatus = async () => {
         if (!pendingStatusOwner) return;
 
         setIsSaving(true);
         try {
-            const nextStatus = isDeactivated(pendingStatusOwner) ? 'active' : 'deactivated';
+            const nextStatus = isArchived(pendingStatusOwner) ? 'active' : 'archived';
             await updatePetOwnerStatus(pendingStatusOwner.user_id, {
                 account_status: nextStatus,
                 reason
             });
-            toast.success(nextStatus === 'deactivated' ? 'Pet owner deactivated.' : 'Pet owner reactivated.');
+            toast.success(nextStatus === 'archived' ? 'Pet owner archived.' : 'Pet owner restored.');
             setSelectedOwner(current => (
                 current?.user_id === pendingStatusOwner.user_id
                     ? { ...current, account_status: nextStatus }
@@ -210,36 +215,42 @@ export default function PetOwnerAccountsManagement() {
             setReason('');
             loadOwners();
         } catch (error) {
-            toast.error(error.message || 'Could not update pet owner status.');
-            if (error.data?.required_sql) {
+            console.error('Failed to update pet owner status:', error);
+            toast.error('The pet owner status could not be updated. Please try again.');
+            if (error.data?.technicalDetailsHidden) {
                 setStatusSupported(false);
-                setRequiredSql(error.data.required_sql);
             }
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleRemoveOwnership = async () => {
-        if (!pendingOwnership) return;
+    const handlePetArchive = async () => {
+        if (!pendingPetArchive) return;
 
         setIsSaving(true);
         try {
-            await removePetOwnerOwnership(pendingOwnership.owner.user_id, pendingOwnership.pet.pet_id);
-            toast.success('Pet ownership removed.');
-            setPendingOwnership(null);
+            const pet = pendingPetArchive.pet;
+            const nextArchived = !pet.is_archived;
+            await updatePetStatus(pet.pet_sharable_ID || pet.pet_id, {
+                action: nextArchived ? 'archive' : 'restore',
+                isArchived: nextArchived,
+            });
+            toast.success(nextArchived ? 'Pet archived.' : 'Pet restored.');
+            setPendingPetArchive(null);
             setSelectedOwner(null);
             loadOwners();
         } catch (error) {
-            toast.error(error.message || 'Could not remove ownership.');
+            console.error('Failed to update pet archive status:', error);
+            toast.error('The pet archive status could not be updated. Please try again.');
         } finally {
             setIsSaving(false);
         }
     };
 
     const StatusBadge = ({ owner }) => (
-        <Badge className={isDeactivated(owner) ? 'border-0 bg-red-50 text-red-700' : 'border-0 bg-emerald-50 text-emerald-700'}>
-            {isDeactivated(owner) ? 'Deactivated' : 'Active'}
+        <Badge className={isArchived(owner) ? 'border-0 bg-slate-100 text-slate-600' : 'border-0 bg-emerald-50 text-emerald-700'}>
+            {isArchived(owner) ? 'Archived' : 'Active'}
         </Badge>
     );
 
@@ -267,7 +278,7 @@ export default function PetOwnerAccountsManagement() {
         <div className="space-y-6">
             <DashboardPageHeader
                 title="Pet Owners"
-                description="Review owner accounts, owned pets, booking/queue activity, account status, and ownership links."
+                description="Review owner accounts, linked pets, activity, and reversible archive status."
                 layout="stacked"
                 actions={(
                     <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap">
@@ -283,13 +294,12 @@ export default function PetOwnerAccountsManagement() {
                         <div className="flex gap-3 text-amber-900">
                             <ShieldAlert className="mt-0.5 size-5 shrink-0" />
                             <div>
-                                <h2 className="font-black">Database change required for pet owner deactivation</h2>
+                                <h2 className="font-black">Pet owner archiving is temporarily unavailable</h2>
                                 <p className="mt-1 text-sm font-semibold leading-6">
-                                    Ownership removal works now. To deactivate owner login accounts, run this SQL yourself:
+                                    Owner login access cannot be changed right now. Try again later or contact support.
                                 </p>
                             </div>
                         </div>
-                        <pre className="overflow-x-auto rounded-lg bg-white p-3 text-xs font-semibold text-slate-700">{requiredSql}</pre>
                     </CardContent>
                 </Card>
             ) : null}
@@ -304,6 +314,14 @@ export default function PetOwnerAccountsManagement() {
                         leftIcon={<Search className="size-4" />}
                     />
                 </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 w-full bg-white lg:w-44"><SelectValue placeholder="Account status" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="active">Active owners</SelectItem>
+                        <SelectItem value="archived">Archived owners</SelectItem>
+                        <SelectItem value="all">All owners</SelectItem>
+                    </SelectContent>
+                </Select>
                 <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
                     <Button
                         type="button"
@@ -362,7 +380,7 @@ export default function PetOwnerAccountsManagement() {
                                     </div>
                                     <div className="rounded-xl bg-slate-50 p-3">
                                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Status</p>
-                                        <p className="mt-1 text-xl font-black text-slate-950">{isDeactivated(owner) ? 'Inactive' : 'Active'}</p>
+                                        <p className="mt-1 text-xl font-black text-slate-950">{isArchived(owner) ? 'Archived' : 'Active'}</p>
                                     </div>
                                 </div>
 
@@ -528,10 +546,10 @@ export default function PetOwnerAccountsManagement() {
                                             variant="outline"
                                             disabled={!statusSupported}
                                             onClick={() => beginStatusUpdate(selectedOwner)}
-                                            className={isDeactivated(selectedOwner) ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-red-200 text-red-700 hover:bg-red-50'}
+                                            className={isArchived(selectedOwner) ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}
                                         >
-                                            {isDeactivated(selectedOwner) ? <CheckCircle className="mr-2 size-4" /> : <Ban className="mr-2 size-4" />}
-                                            {isDeactivated(selectedOwner) ? 'Reactivate Account' : 'Deactivate Account'}
+                                            {isArchived(selectedOwner) ? <RotateCcw className="mr-2 size-4" /> : <Archive className="mr-2 size-4" />}
+                                            {isArchived(selectedOwner) ? 'Restore Account' : 'Archive Account'}
                                         </Button>
                                     </div>
                                 </div>
@@ -546,7 +564,9 @@ export default function PetOwnerAccountsManagement() {
                                                 <div className="min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <h3 className="truncate text-lg font-black text-slate-950">{pet.pet_name}</h3>
-                                                        <Badge className={petStatusClass(pet.pet_status)}>{cleanValue(pet.pet_status)}</Badge>
+                                                        {pet.is_archived
+                                                            ? <Badge className="border-0 bg-slate-100 text-slate-600">Archived</Badge>
+                                                            : <Badge className={petStatusClass(pet.pet_status)}>{cleanValue(pet.pet_status)}</Badge>}
                                                     </div>
                                                     <p className="mt-1 truncate text-sm font-semibold text-slate-500">
                                                         {cleanValue(pet.pet_species)} / {cleanValue(pet.pet_breed)}
@@ -561,11 +581,11 @@ export default function PetOwnerAccountsManagement() {
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="border-red-200 text-red-700 hover:bg-red-50 lg:shrink-0"
-                                                onClick={() => setPendingOwnership({ owner: selectedOwner, pet })}
+                                                className="border-slate-300 text-slate-700 hover:bg-slate-50 lg:shrink-0"
+                                                onClick={() => setPendingPetArchive({ owner: selectedOwner, pet })}
                                             >
-                                                <Trash2 className="mr-2 size-4" />
-                                                Remove Ownership
+                                                {pet.is_archived ? <RotateCcw className="mr-2 size-4" /> : <Archive className="mr-2 size-4" />}
+                                                {pet.is_archived ? 'Restore Pet' : 'Archive Pet'}
                                             </Button>
                                         </div>
 
@@ -596,11 +616,11 @@ export default function PetOwnerAccountsManagement() {
                     {pendingStatusOwner ? (
                         <>
                             <DialogHeader>
-                                <DialogTitle>{isDeactivated(pendingStatusOwner) ? 'Reactivate pet owner?' : 'Deactivate pet owner?'}</DialogTitle>
+                                <DialogTitle>{isArchived(pendingStatusOwner) ? 'Restore pet owner?' : 'Archive pet owner?'}</DialogTitle>
                                 <DialogDescription>
-                                    {isDeactivated(pendingStatusOwner)
+                                    {isArchived(pendingStatusOwner)
                                         ? 'The owner will be allowed to log in again.'
-                                        : 'The owner will be blocked from logging in once the status column exists.'}
+                                        : 'The owner will be hidden from active lists and blocked from logging in.'}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -610,11 +630,11 @@ export default function PetOwnerAccountsManagement() {
                                     {cleanValue(pendingStatusOwner.mail_Address, 'No email')}
                                 </p>
                             </div>
-                            {!isDeactivated(pendingStatusOwner) ? (
+                            {!isArchived(pendingStatusOwner) ? (
                                 <Textarea
                                     value={reason}
                                     onChange={(event) => setReason(event.target.value)}
-                                    placeholder="Reason for deactivation"
+                                    placeholder="Reason for archiving"
                                 />
                             ) : null}
                             <DialogFooter>
@@ -629,21 +649,23 @@ export default function PetOwnerAccountsManagement() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={Boolean(pendingOwnership)} onOpenChange={(open) => !open && setPendingOwnership(null)}>
+            <Dialog open={Boolean(pendingPetArchive)} onOpenChange={(open) => !open && setPendingPetArchive(null)}>
                 <DialogContent className="max-w-md">
-                    {pendingOwnership ? (
+                    {pendingPetArchive ? (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Remove ownership?</DialogTitle>
+                                <DialogTitle>{pendingPetArchive.pet.is_archived ? 'Restore pet?' : 'Archive pet?'}</DialogTitle>
                                 <DialogDescription>
-                                    This unlinks {pendingOwnership.pet.pet_name} from {ownerName(pendingOwnership.owner)}. The pet record itself is not deleted.
+                                    {pendingPetArchive.pet.is_archived
+                                        ? `${pendingPetArchive.pet.pet_name} will return to active pet lists.`
+                                        : `${pendingPetArchive.pet.pet_name} will be hidden from active lists. Its medical and ownership records remain intact.`}
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setPendingOwnership(null)} disabled={isSaving}>Cancel</Button>
-                                <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleRemoveOwnership} disabled={isSaving}>
+                                <Button type="button" variant="outline" onClick={() => setPendingPetArchive(null)} disabled={isSaving}>Cancel</Button>
+                                <Button type="button" onClick={handlePetArchive} disabled={isSaving}>
                                     {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                                    Remove
+                                    Confirm
                                 </Button>
                             </DialogFooter>
                         </>

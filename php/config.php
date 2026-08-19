@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/api_error_response.php';
+
 /**
  * Simple helper to load .env file into getenv(), $_ENV, and $_SERVER.
  */

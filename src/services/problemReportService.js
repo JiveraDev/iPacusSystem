@@ -1,4 +1,5 @@
 import { getApiUrl } from './apiClient.js';
+import { getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
 const REPORT_TIMEOUT_MS = 30000;
 const SUPPORT_EMAIL = 'support@vetfocuscare.com';
@@ -91,7 +92,14 @@ export async function sendMaintenanceProblemReport(serverStatus = {}) {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok || data.success !== true) {
-            throw new Error(data.message || 'The automatic problem report could not be sent.');
+            if (data.message) {
+                console.error('[iPawcus] Problem-report API request failed.', data.message);
+            }
+            throw new Error(getUserFacingErrorMessage(
+                response.status >= 500 ? '' : data.message,
+                'The automatic problem report could not be sent.',
+                { context: 'Problem-report API details were hidden from the status screen.' }
+            ));
         }
 
         return {
@@ -102,7 +110,11 @@ export async function sendMaintenanceProblemReport(serverStatus = {}) {
         const reportError = new Error(
             error?.name === 'AbortError'
                 ? 'The problem report request timed out.'
-                : (error?.message || 'The automatic problem report could not be sent.')
+                : getUserFacingErrorMessage(
+                    error,
+                    'The automatic problem report could not be sent.',
+                    { context: 'Problem-report failure details were hidden from the status screen.' }
+                )
         );
         reportError.reportId = payload.reportId;
         reportError.fallbackEmailUrl = createFallbackEmailUrl(payload);

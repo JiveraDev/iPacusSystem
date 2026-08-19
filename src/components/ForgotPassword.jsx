@@ -92,7 +92,10 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
             setCodeExpiresAt(Date.now() + (expiresInSeconds * 1000));
             setRemainingSeconds(expiresInSeconds);
             setCodeRequested(true);
-            toast.success(data.message || "If this email exists, a password reset code was sent.");
+            toast.success({
+                title: 'Code successfully sent',
+                description: data.message || 'If this email exists, a password reset code was sent via email.'
+            });
         } catch (error) {
             toast.error(error.message || "Failed to request reset code.");
         } finally {

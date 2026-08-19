@@ -7,6 +7,12 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/booking_payment_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
+if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
+    define('VISIT_BILLING_HELPERS_ONLY', true);
+}
+require_once __DIR__ . '/visit_billing.php';
 
 header("Content-Type: application/json");
 
@@ -35,15 +41,11 @@ function booking_status_ensure_payment_columns(PDO $pdo): void
 
 function booking_status_service_key(array $booking): string
 {
-    if ((int)($booking['is_home_service'] ?? 0) === 1 || strtolower(trim((string)($booking['service_type'] ?? ''))) === 'home-service') {
-        return 'home-service';
-    }
-
-    if ((int)($booking['is_online_consultation'] ?? 0) === 1 || strtolower(trim((string)($booking['service_type'] ?? ''))) === 'online-consultation') {
-        return 'online-consultation';
-    }
-
-    return strtolower(trim((string)($booking['service_type'] ?? '')));
+    return booking_slot_service_key(
+        $booking['service_type'] ?? null,
+        $booking['is_home_service'] ?? 0,
+        $booking['is_online_consultation'] ?? 0
+    );
 }
 
 function booking_status_is_deceased_pet(?string $status): bool
@@ -182,15 +184,50 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
         ipawcus_guard_error(409, 'Required owner consent is missing for this booking.');
     }
 
-    if ($serviceKey === 'home-service' && (float)($booking['transport_fee'] ?? 0) > 0) {
+    if (in_array($serviceKey, ['home-service', 'online-consultation'], true)) {
+        $requiredPayment = $serviceKey === 'home-service'
+            ? (float)($booking['transport_fee'] ?? 0)
+            : (float)($booking['price'] ?? 0);
         $paymentMethod = strtolower(trim((string)($booking['payment_method'] ?? '')));
+        $hasReviewableProof = !empty($booking['payment_proof_url'])
+            && ipawcus_payment_method_is_allowed($pdo, $paymentMethod, false);
+        $verifiedPosAmount = 0.0;
+
         if (
-            empty($booking['payment_proof_url'])
-            || !in_array($paymentMethod, ['qrph', 'gcash', 'maya', 'bank_transfer'], true)
+            $requiredPayment > 0
+            && booking_payment_table_exists($pdo, 'visits')
+            && booking_payment_table_exists($pdo, 'visit_payments')
         ) {
+            $refundJoin = booking_payment_table_exists($pdo, 'visit_payment_refunds')
+                ? "LEFT JOIN (
+                    SELECT visit_payment_id AS payment_id, SUM(amount) AS refunded_amount
+                    FROM visit_payment_refunds
+                    WHERE refund_status = 'processed'
+                    GROUP BY visit_payment_id
+                ) payment_refunds ON payment_refunds.payment_id = payment.payment_id"
+                : '';
+            $refundAmount = booking_payment_table_exists($pdo, 'visit_payment_refunds')
+                ? 'COALESCE(payment_refunds.refunded_amount, 0)'
+                : '0';
+            $verifiedPaymentStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(payment.amount - {$refundAmount}), 0)
+                FROM visits visit_record
+                JOIN visit_payments payment ON payment.visit_id = visit_record.visit_id
+                {$refundJoin}
+                WHERE visit_record.booking_id = ?
+                  AND visit_record.visit_status <> 'cancelled'
+                  AND payment.payment_status IN ('verified', 'refunded')
+            ");
+            $verifiedPaymentStmt->execute([(int)$booking['booking_id']]);
+            $verifiedPosAmount = max(0.0, (float)$verifiedPaymentStmt->fetchColumn());
+        }
+
+        if ($requiredPayment > 0 && !$hasReviewableProof && $verifiedPosAmount + 0.0001 < $requiredPayment) {
             ipawcus_guard_error(
                 409,
-                'Verify the PHP 50 home-service transport payment proof and payment method before confirming this booking.'
+                $serviceKey === 'home-service'
+                    ? 'Review the PHP 50 home-service transport proof or post its payment in Point-Of-Sale before confirming this booking.'
+                    : 'Review the online consultation payment proof or post its payment in Point-Of-Sale before confirming this booking.'
             );
         }
     }
@@ -224,13 +261,40 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
         ]);
     }
 
-    if ($serviceKey === 'online-consultation' && booking_status_has_online_vet_conflict($pdo, $booking)) {
-        ipawcus_guard_error(409, 'The assigned veterinarian already has an overlapping online consultation.');
-    }
+    if ($serviceKey !== 'boarding') {
+        try {
+            $normalizedTime = booking_slot_assert_aligned($serviceKey, (string)($booking['booking_time'] ?? ''));
+        } catch (InvalidArgumentException $e) {
+            ipawcus_guard_error(409, $e->getMessage());
+        }
+        $veterinarianId = $serviceKey === 'online-consultation'
+            ? (int)($booking['veterinarian_id'] ?? 0)
+            : null;
+        if ($serviceKey === 'online-consultation'
+            && ($veterinarianId <= 0 || !booking_slot_online_vet_is_available(
+                $pdo,
+                $veterinarianId,
+                (string)$booking['booking_date'],
+                $normalizedTime
+            ))) {
+            ipawcus_guard_error(409, 'That veterinarian has not made this online consultation time available. Select another date or time.');
+        }
 
-    $homeLimitMessage = booking_status_home_service_limit_conflict($pdo, $booking);
-    if ($homeLimitMessage !== null) {
-        ipawcus_guard_error(409, $homeLimitMessage);
+        $specialServiceId = null;
+        $slotConflict = booking_slot_find_conflict(
+            $pdo,
+            (int)($booking['branch_id'] ?? 0),
+            $serviceKey,
+            (string)$booking['booking_date'],
+            $normalizedTime,
+            $veterinarianId,
+            (int)$booking['booking_id'],
+            $specialServiceId,
+            true
+        );
+        if ($slotConflict) {
+            ipawcus_guard_error(409, booking_slot_conflict_message($serviceKey, $normalizedTime));
+        }
     }
 }
 
@@ -253,9 +317,8 @@ $hasPaymentProof = array_key_exists('payment_proof_url', $input) || array_key_ex
 $paymentProofUrl = trim((string)($input['payment_proof_url'] ?? $input['paymentProofUrl'] ?? ''));
 $paymentProofUrl = $paymentProofUrl !== '' ? $paymentProofUrl : null;
 $hasPaymentMethod = array_key_exists('payment_method', $input) || array_key_exists('paymentMethod', $input);
-$allowedPaymentMethods = ['cash', 'qrph', 'gcash', 'maya', 'bank_transfer'];
-$paymentMethod = strtolower(trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? '')));
-$paymentMethod = in_array($paymentMethod, $allowedPaymentMethods, true) ? $paymentMethod : null;
+$paymentMethod = ipawcus_payment_method_key($input['payment_method'] ?? $input['paymentMethod'] ?? '');
+$paymentMethod = ipawcus_payment_method_is_allowed($pdo, $paymentMethod) ? $paymentMethod : null;
 $hasPaymentReference = array_key_exists('payment_reference', $input) || array_key_exists('paymentReference', $input);
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
@@ -402,6 +465,7 @@ try {
             if (!$isOnlineConsultation) {
                 $fields[] = 'service_type = ?';
                 $values[] = $reviewServiceType;
+                $booking['service_type'] = $reviewServiceType;
             }
         }
 
@@ -481,6 +545,56 @@ try {
 
     if ($effectiveStatus === 'confirmed') {
         $onlineConsultation = createOnlineConsultationForBooking($pdo, (int)$bookingId);
+        $latestBookingStmt = $pdo->prepare("SELECT * FROM bookings WHERE booking_id = ? LIMIT 1 FOR UPDATE");
+        $latestBookingStmt->execute([(int)$bookingId]);
+        $latestBooking = $latestBookingStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (!empty($latestBooking['payment_proof_url'])) {
+            $matchingPosPaymentId = booking_payment_find_visit_payment_by_credentials(
+                $pdo,
+                (int)$bookingId,
+                $latestBooking['payment_method'] ?? null,
+                $latestBooking['payment_reference'] ?? null,
+                $latestBooking['payment_proof_url'] ?? null
+            );
+            if ($matchingPosPaymentId === null) {
+                if (!booking_payment_schema_ready($pdo)) {
+                    ipawcus_guard_error(
+                        409,
+                        'Payment review is not installed. Run DDL/20260808_01_payment_integrity.sql before confirming prepaid bookings.'
+                    );
+                }
+                booking_payment_verify_for_booking(
+                    $pdo,
+                    (int)$bookingId,
+                    $currentApiUserId,
+                    $reviewNotes !== '' ? $reviewNotes : 'Verified during booking confirmation.'
+                );
+
+                // A visit can already exist when an administrator reviews the
+                // owner's proof. Link the verified submission only when that
+                // visit already has an invoice; otherwise visit creation will
+                // apply it after the official charges have been saved.
+                $billableVisitStmt = $pdo->prepare("
+                    SELECT v.visit_id
+                    FROM visits v
+                    WHERE v.booking_id = ?
+                      AND v.visit_status <> 'cancelled'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM visit_charges vc
+                          WHERE vc.visit_id = v.visit_id
+                      )
+                    ORDER BY v.visit_id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $billableVisitStmt->execute([(int)$bookingId]);
+                $billableVisitId = (int)($billableVisitStmt->fetchColumn() ?: 0);
+                if ($billableVisitId > 0) {
+                    booking_payment_apply_verified_to_visit($pdo, $billableVisitId, (int)$bookingId);
+                }
+            }
+        }
     } elseif ($effectiveStatus === 'cancelled') {
         cancelOnlineConsultationForBooking($pdo, (int)$bookingId);
     }

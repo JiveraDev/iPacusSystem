@@ -16,6 +16,8 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 export default function DentalCheckup() {
   const navigate = useNavigate();
@@ -26,17 +28,20 @@ export default function DentalCheckup() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => {
+    const prefill = readBookingAvailabilitySelection('dental');
+    return ({
     petId: "",
     petName: "",
     newPetSpecies: "",
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
-    date: "",
-    time: "",
+    date: prefill?.date || "",
+    time: prefill?.time || "",
     notes: "",
     files: [],
+    });
   });
 
   useEffect(() => {
@@ -66,6 +71,11 @@ export default function DentalCheckup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) {
+      return;
+    }
+
+    if (!formData.date || !formData.time) {
+      toast.error("Select an available appointment date and time.");
       return;
     }
     
@@ -308,16 +318,14 @@ export default function DentalCheckup() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="time">Preferred Time *</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    required
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  />
-                </div>
+                <BookingTimeSlotField
+                  id="time"
+                  service="dental"
+                  date={formData.date}
+                  value={formData.time}
+                  onChange={(time) => setFormData((current) => ({ ...current, time }))}
+                  label="Preferred time"
+                />
               </div>
 
               <div className="space-y-2">

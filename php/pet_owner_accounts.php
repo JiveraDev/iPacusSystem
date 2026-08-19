@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/account_status_helpers.php';
 require_once __DIR__ . '/pet_allergy_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 
@@ -46,7 +47,7 @@ function owner_accounts_column_exists(PDO $pdo, string $table, string $column): 
 
 function owner_accounts_required_status_sql(): string
 {
-    return 'Run the approved account-status deployment SQL before using account deactivation.';
+    return 'Run the approved archive-status deployment SQL before archiving accounts.';
 }
 
 function owner_accounts_status_supported(PDO $pdo): bool
@@ -125,7 +126,10 @@ function owner_accounts_list(PDO $pdo): void
             p.pet_microchip,
             p.pet_allergies,
             p.pet_color_marking,
-            p.setpetImage_url
+            p.setpetImage_url,
+            COALESCE(p.is_archived, 0) AS is_archived,
+            p.archived_at,
+            p.archive_reason
         FROM pet_ownership po
         JOIN pets_information p ON p.pet_id = po.pet_id
         WHERE COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
@@ -155,6 +159,9 @@ function owner_accounts_list(PDO $pdo): void
             ),
             'pet_color_marking' => $pet['pet_color_marking'],
             'setpetImage_url' => $pet['setpetImage_url'],
+            'is_archived' => (int)($pet['is_archived'] ?? 0) === 1,
+            'archived_at' => $pet['archived_at'] ?? null,
+            'archive_reason' => $pet['archive_reason'] ?? '',
         ];
     }
 
@@ -179,7 +186,7 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     if (!owner_accounts_status_supported($pdo)) {
         owner_accounts_json([
             'success' => false,
-            'message' => 'Database change required before pet owner deactivation can be used.',
+            'message' => 'Database change required before pet owner archiving can be used.',
             'required_sql' => owner_accounts_required_status_sql(),
         ], 409);
     }
@@ -188,7 +195,10 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     $status = strtolower(trim((string)($payload['account_status'] ?? $payload['status'] ?? '')));
     $reason = trim((string)($payload['reason'] ?? $payload['deactivation_reason'] ?? ''));
 
-    if ($userId <= 0 || !in_array($status, ['active', 'deactivated'], true)) {
+    if ($status === 'deactivated') {
+        $status = 'archived';
+    }
+    if ($userId <= 0 || !in_array($status, ['active', 'archived'], true)) {
         owner_accounts_json(['success' => false, 'message' => 'Valid user_id and account_status are required.'], 422);
     }
 
@@ -204,22 +214,25 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
 
     if (owner_accounts_column_exists($pdo, 'users', 'deactivated_at')) {
         $sets[] = 'deactivated_at = ?';
-        $params[] = $status === 'deactivated' ? date('Y-m-d H:i:s') : null;
+        $params[] = $status === 'archived' ? date('Y-m-d H:i:s') : null;
     }
 
     if (owner_accounts_column_exists($pdo, 'users', 'deactivation_reason')) {
         $sets[] = 'deactivation_reason = ?';
-        $params[] = $status === 'deactivated' ? ($reason ?: 'Deactivated by Super Admin') : null;
+        $params[] = $status === 'archived' ? ($reason ?: 'Archived by Super Admin') : null;
     }
 
     $params[] = $userId;
     $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
     $update->execute($params);
+    if ($status === 'archived') {
+        accountRevokeAccessTokens($pdo, $userId);
+    }
 
     try {
         $ownerName = trim((string)(($ownerAccount['first_Name'] ?? '') . ' ' . ($ownerAccount['last_Name'] ?? '')))
             ?: trim((string)($ownerAccount['mail_Address'] ?? 'Pet owner'));
-        $statusLabel = $status === 'deactivated' ? 'deactivated' : 'reactivated';
+        $statusLabel = $status === 'archived' ? 'archived' : 'restored';
         notification_send_super_admin_governance_event($pdo, [
             'type' => 'pet_owner_account_status_updated',
             'category' => 'account_updates',
@@ -235,7 +248,7 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
 
     owner_accounts_json([
         'success' => true,
-        'message' => $status === 'deactivated' ? 'Pet owner account deactivated.' : 'Pet owner account reactivated.',
+        'message' => $status === 'archived' ? 'Pet owner account archived.' : 'Pet owner account restored.',
     ]);
 }
 

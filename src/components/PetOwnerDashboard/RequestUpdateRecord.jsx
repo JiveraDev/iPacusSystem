@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
 import { uploadImageFile } from "../../services/uploadService";
-import { createRecordUpdateRequest } from "../../services/recordUpdateRequestService";
+import { createRecordUpdateRequest, fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 import { useDashboardUser } from "../dashboardRouter.jsx";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
@@ -44,6 +44,8 @@ export default function RequestUpdateRecord() {
   const [submittedRequest, setSubmittedRequest] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [viewer, setViewer] = useState(null);
+  const [activeRequest, setActiveRequest] = useState(null);
+  const [isCheckingActiveRequest, setIsCheckingActiveRequest] = useState(true);
   const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
 
   const convenienceFee = 200; // PHP 200 convenience fee
@@ -52,6 +54,31 @@ export default function RequestUpdateRecord() {
   );
   const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedPaymentMethod);
   const selectedQrUrl = selectedPaymentMethod?.qrImageUrl || "";
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!canRequestRecordUpdate) {
+      setIsCheckingActiveRequest(false);
+      return undefined;
+    }
+
+    fetchRecordUpdateRequests({
+      petId,
+      ownerUserId: currentUserId(currentUser),
+      status: "pending_admin_review,approved,assigned,in_progress",
+    })
+      .then((response) => {
+        if (isMounted) setActiveRequest(response.requests?.[0] || null);
+      })
+      .catch(() => {
+        if (isMounted) setActiveRequest(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsCheckingActiveRequest(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [canRequestRecordUpdate, currentUser, petId]);
 
   const handleFileChange = (files) => {
     setPaymentProof(Array.from(files || [])[0] || null);
@@ -119,7 +146,9 @@ export default function RequestUpdateRecord() {
             {submittedRequest?.requestNumber && (
               <div className="mx-auto mb-6 w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-left">
                 <p className="text-xs font-black uppercase tracking-widest text-green-700">Request Number</p>
-                <p className="text-lg font-black text-green-900">{submittedRequest.requestNumber}</p>
+                <p className="text-lg font-black text-green-900">
+                  {submittedRequest.shortRequestNumber || `RUR-${String(submittedRequest.requestId || 0).padStart(5, "0")}`}
+                </p>
               </div>
             )}
             <div className="flex gap-4 justify-center">
@@ -151,6 +180,36 @@ export default function RequestUpdateRecord() {
             <p className="mx-auto max-w-md text-sm font-medium leading-6 text-slate-500">
               Record update requests can only be submitted by pet owner accounts.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isCheckingActiveRequest) {
+    return (
+      <div className="flex min-h-72 items-center justify-center gap-3 text-sm font-semibold text-slate-500">
+        <Loader2 className="size-5 animate-spin text-[#155dfc]" /> Checking update requests...
+      </div>
+    );
+  }
+
+  if (activeRequest) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
+          <ArrowLeft className="mr-2 size-4" /> Back to Pet Profile
+        </Button>
+        <Card className="border-blue-200">
+          <CardContent className="py-10 text-center">
+            <AlertCircle className="mx-auto mb-4 size-12 text-[#155dfc]" />
+            <h1 className="text-2xl font-black text-slate-950">Update request already in progress</h1>
+            <p className="mx-auto mt-2 max-w-lg text-sm font-medium leading-6 text-slate-600">
+              Wait for the clinic to finish this request before sending another one for the same pet.
+            </p>
+            <div className="mx-auto mt-5 w-fit rounded-full bg-blue-50 px-4 py-2 text-sm font-black capitalize text-blue-700">
+              {activeRequest.shortRequestNumber || `RUR-${String(activeRequest.requestId || 0).padStart(5, "0")}`} · {String(activeRequest.status || "in progress").replaceAll("_", " ")}
+            </div>
           </CardContent>
         </Card>
       </div>

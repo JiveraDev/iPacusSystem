@@ -31,7 +31,7 @@ try {
             : null;
         $from = trim((string)($_GET['from'] ?? date('Y-m-d')));
         $to = trim((string)($_GET['to'] ?? date('Y-m-d', strtotime('+90 days'))));
-        $where = ['DATE(schedule.starts_at) BETWEEN ? AND ?'];
+        $where = ["DATE(schedule.starts_at) BETWEEN ? AND ?", "b.branch_code IN ('MAIN', 'ENRIQUEZ')"];
         $params = [$from, $to];
         if ($branchId) {
             $where[] = 'schedule.branch_id = ?';
@@ -149,6 +149,9 @@ try {
     }
     if (date('Y-m-d', strtotime($startsAt)) !== date('Y-m-d', strtotime($endsAt))) {
         throw new InvalidArgumentException('A branch visit must start and end on the same day.');
+    }
+    if ((int)date('N', strtotime($startsAt)) === 7) {
+        throw new InvalidArgumentException('Veterinarian branch visits cannot be scheduled on Sunday because all clinic locations are closed.');
     }
     if (date('H:i:s', strtotime($startsAt)) < '08:00:00' || date('H:i:s', strtotime($endsAt)) > '18:00:00') {
         throw new InvalidArgumentException('Veterinarian visits must be scheduled between 8:00 AM and 6:00 PM.');

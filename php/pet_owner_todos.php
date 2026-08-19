@@ -359,6 +359,20 @@ function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
         return [];
     }
 
+    $refundJoin = '';
+    $refundAdjustment = '';
+    if (pet_owner_todos_table_exists($pdo, 'visit_payment_refunds')) {
+        $refundJoin = "
+            LEFT JOIN (
+                SELECT visit_id, SUM(amount) AS total_refunded
+                FROM visit_payment_refunds
+                WHERE refund_status = 'processed'
+                GROUP BY visit_id
+            ) refunds ON refunds.visit_id = payment_rows.visit_id
+        ";
+        $refundAdjustment = ' - COALESCE(MAX(refunds.total_refunded), 0)';
+    }
+
     $stmt = $pdo->prepare("
         SELECT
             v.visit_id,
@@ -378,10 +392,16 @@ function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
             GROUP BY visit_id
         ) charges ON charges.visit_id = v.visit_id
         LEFT JOIN (
-            SELECT visit_id, SUM(amount) AS total_paid
-            FROM visit_payments
-            WHERE payment_status = 'verified'
-            GROUP BY visit_id
+            SELECT
+                payment_rows.visit_id,
+                GREATEST(
+                    SUM(CASE WHEN payment_rows.payment_status IN ('verified', 'refunded') THEN payment_rows.amount ELSE 0 END)
+                    {$refundAdjustment},
+                    0
+                ) AS total_paid
+            FROM visit_payments payment_rows
+            {$refundJoin}
+            GROUP BY payment_rows.visit_id
         ) payments ON payments.visit_id = v.visit_id
         WHERE v.owner_user_id = ?
           AND v.billing_status IN ('unpaid','partial')

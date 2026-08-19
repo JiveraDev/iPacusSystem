@@ -261,7 +261,7 @@ try {
         ipawcus_guard_error(403, 'You can add a walk-in queue only for your assigned branch.');
     }
     if (!branch_is_open($pdo, $branchId, date('Y-m-d'), date('H:i:s'))) {
-        throw new InvalidArgumentException($branch['branch_name'] . ' is currently closed. Queue hours are 8:00 AM to 6:00 PM.');
+        throw new InvalidArgumentException($branch['branch_name'] . ' is currently closed. Queue hours are Monday to Saturday, 8:00 AM to 6:00 PM; Sundays are closed.');
     }
     $queueServiceKey = branch_service_key((string)$service_name);
     $serviceStmt = $pdo->prepare("

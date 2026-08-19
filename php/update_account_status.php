@@ -46,12 +46,12 @@ try {
     
     $stmt->execute([$isActive, $userId]);
 
-    if ($isActive && accountColumnExists($pdo, 'users', 'account_status')) {
+    if (accountColumnExists($pdo, 'users', 'account_status')) {
         $reactivateColumns = ['account_status = ?'];
-        $reactivateParams = ['active'];
+        $reactivateParams = [$isActive ? 'active' : 'archived'];
 
         if (accountColumnExists($pdo, 'users', 'deactivated_at')) {
-            $reactivateColumns[] = 'deactivated_at = NULL';
+            $reactivateColumns[] = $isActive ? 'deactivated_at = NULL' : 'deactivated_at = NOW()';
         }
 
         if (accountColumnExists($pdo, 'users', 'deactivated_by_user_id')) {
@@ -59,7 +59,7 @@ try {
         }
 
         if (accountColumnExists($pdo, 'users', 'deactivation_reason')) {
-            $reactivateColumns[] = 'deactivation_reason = NULL';
+            $reactivateColumns[] = $isActive ? 'deactivation_reason = NULL' : "deactivation_reason = 'Archived by Super Admin'";
         }
 
         $reactivateParams[] = $userId;
@@ -67,10 +67,14 @@ try {
         $reactivateStmt->execute($reactivateParams);
     }
 
+    if (!$isActive) {
+        accountRevokeAccessTokens($pdo, (int)$userId);
+    }
+
     try {
         $accountName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')))
             ?: trim((string)($user['mail_Address'] ?? 'Personnel account'));
-        $statusLabel = $isActive ? 'activated' : 'deactivated';
+        $statusLabel = $isActive ? 'restored' : 'archived';
         notification_send_super_admin_governance_event($pdo, [
             'type' => 'personnel_account_status_updated',
             'category' => 'account_updates',

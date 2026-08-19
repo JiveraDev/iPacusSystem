@@ -6,6 +6,7 @@ require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -52,6 +53,60 @@ function boarding_column_exists(PDO $pdo, string $tableName, string $columnName)
     $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
 
     return $cache[$cacheKey];
+}
+
+function boarding_calculate_overstay_daily_rate(array $booking): float
+{
+    $storedRate = (float)($booking['boarding_overstay_daily_rate'] ?? 0);
+    if ($storedRate > 0) {
+        return round($storedRate, 2);
+    }
+
+    $roomPrices = [
+        'hotel' => ['small' => 600.0, 'medium' => 1200.0, 'large' => 2000.0],
+        'boarding' => ['small' => 400.0, 'medium' => 800.0, 'large' => 1400.0],
+    ];
+    $dailyAddOnPrices = [
+        'behavior' => 300.0,
+        'playtime' => 200.0,
+        'photos' => 150.0,
+        'medication' => 200.0,
+        'special-diet' => 250.0,
+    ];
+    $type = strtolower(trim((string)($booking['hotel_boarding_type'] ?? '')));
+    $size = strtolower(trim((string)($booking['room_size'] ?? '')));
+    $rate = (float)($roomPrices[$type][$size] ?? 0);
+    $addOns = $booking['add_ons'] ?? [];
+    if (is_string($addOns)) {
+        $decoded = json_decode($addOns, true);
+        $addOns = is_array($decoded) ? $decoded : [];
+    }
+    foreach (is_array($addOns) ? $addOns : [] as $addOn) {
+        $addOnId = strtolower(trim((string)($addOn['id'] ?? '')));
+        $rate += (float)($dailyAddOnPrices[$addOnId] ?? 0);
+    }
+
+    return round(max(0.0, $rate), 2);
+}
+
+function boarding_calculate_overdue_days(?string $expectedOutDate, ?string $actualOutDate = null): int
+{
+    if (!$expectedOutDate) {
+        return 0;
+    }
+
+    try {
+        $expected = new DateTimeImmutable(substr($expectedOutDate, 0, 10));
+        $actual = new DateTimeImmutable(substr($actualOutDate ?: date('Y-m-d'), 0, 10));
+    } catch (Exception $exception) {
+        return 0;
+    }
+
+    if ($actual <= $expected) {
+        return 0;
+    }
+
+    return (int)$expected->diff($actual)->days;
 }
 
 function boarding_index_exists(PDO $pdo, string $tableName, string $indexName): bool
@@ -600,15 +655,23 @@ function assert_pets_no_overlapping_boarding_booking(PDO $pdo, array $petIds, st
 
 function assignment_response(PDO $pdo, int $bookingId): array
 {
+    $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
+        ? 'b.boarding_overstay_daily_rate'
+        : 'NULL AS boarding_overstay_daily_rate';
     $stmt = $pdo->prepare("
         SELECT
             ba.*,
             b.booking_number,
+            b.branch_id,
             b.pet_id,
             b.user_id AS owner_user_id,
             b.check_in_date,
             b.check_out_date,
             b.price,
+            b.hotel_boarding_type,
+            b.room_size,
+            b.add_ons,
+            {$overstayRateSelect},
             b.status AS booking_status,
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
             COALESCE(p.pet_species, b.petType, 'Pet') AS pet_species,
@@ -634,6 +697,7 @@ function assignment_response(PDO $pdo, int $bookingId): array
         'assignmentId' => (int)$row['assignment_id'],
         'bookingId' => (int)$row['booking_id'],
         'bookingNumber' => $row['booking_number'],
+        'branchId' => $row['branch_id'] !== null ? (int)$row['branch_id'] : null,
         'petId' => $row['pet_id'] !== null ? (int)$row['pet_id'] : null,
         'ownerUserId' => $row['owner_user_id'] !== null ? (int)$row['owner_user_id'] : null,
         'roomType' => $row['room_type'],
@@ -649,6 +713,7 @@ function assignment_response(PDO $pdo, int $bookingId): array
         'checkInDate' => $row['check_in_date'],
         'checkOutDate' => $row['check_out_date'],
         'price' => $row['price'],
+        'overstayDailyRate' => boarding_calculate_overstay_daily_rate($row),
         'petName' => $row['pet_name'],
         'petSpecies' => $row['pet_species'],
         'ownerName' => $row['owner_name'],
@@ -709,6 +774,7 @@ function assign_room_action(PDO $pdo): void
         boarding_error(400, 'Booking ID is required.');
     }
 
+    $roomLockName = null;
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
@@ -724,6 +790,11 @@ function assign_room_action(PDO $pdo): void
         $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
         assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
         assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
+
+        $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
+        if (!booking_slot_acquire($pdo, $roomLockName)) {
+            boarding_error(409, 'Room availability is being updated by another booking. Refresh the rooms and try again.');
+        }
 
         $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId, $branchId);
         $requestedRoom = isset($input['room_number']) && $input['room_number'] !== ''
@@ -741,6 +812,8 @@ function assign_room_action(PDO $pdo): void
         $stmt->execute([$bookingId]);
 
         $pdo->commit();
+        booking_slot_release($pdo, $roomLockName);
+        $roomLockName = null;
 
         try {
             notification_send_booking_event($pdo, $bookingId, 'confirmed');
@@ -752,10 +825,11 @@ function assign_room_action(PDO $pdo): void
             'message' => 'Booking approved and room reserved.',
             'assignment' => assignment_response($pdo, $bookingId),
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        booking_slot_release($pdo, $roomLockName);
         boarding_error(500, 'Failed to assign room: ' . $e->getMessage());
     }
 }
@@ -771,6 +845,7 @@ function check_in_action(PDO $pdo): void
         boarding_error(400, 'Booking ID is required.');
     }
 
+    $roomLockName = null;
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
@@ -786,6 +861,11 @@ function check_in_action(PDO $pdo): void
         $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
         assert_pets_not_in_active_boarding($pdo, $bookingPetIds, $bookingId);
         assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
+
+        $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
+        if (!booking_slot_acquire($pdo, $roomLockName)) {
+            boarding_error(409, 'Room availability is being updated by another check-in. Refresh the rooms and try again.');
+        }
 
         $assignment = fetch_active_assignment($pdo, $bookingId, true);
         if (!$assignment) {
@@ -821,6 +901,8 @@ function check_in_action(PDO $pdo): void
         $bookingStmt->execute([$bookingId]);
 
         $pdo->commit();
+        booking_slot_release($pdo, $roomLockName);
+        $roomLockName = null;
 
         try {
             notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
@@ -834,10 +916,11 @@ function check_in_action(PDO $pdo): void
             'message' => 'Pet checked in successfully.',
             'assignment' => assignment_response($pdo, $bookingId),
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        booking_slot_release($pdo, $roomLockName);
         boarding_error(500, 'Failed to check in pet: ' . $e->getMessage());
     }
 }
@@ -856,6 +939,7 @@ function desired_check_out_action(PDO $pdo): void
         boarding_error(400, 'Booking ID and check_out_date are required.');
     }
 
+    $roomLockName = null;
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
@@ -870,6 +954,11 @@ function desired_check_out_action(PDO $pdo): void
 
         if (strtotime((string)$newCheckOut) <= strtotime($startDate)) {
             boarding_error(400, 'Desired out date must be after check-in date.');
+        }
+
+        $roomLockName = 'ipawcus_room_' . md5((int)$booking['branch_id'] . '|' . (string)$assignment['room_type']);
+        if (!booking_slot_acquire($pdo, $roomLockName)) {
+            boarding_error(409, 'Room availability is being updated by another stay. Refresh the rooms and try again.');
         }
 
         $bookingPetIds = fetch_booking_pet_ids($pdo, $booking);
@@ -905,15 +994,18 @@ function desired_check_out_action(PDO $pdo): void
         $assignmentStmt->execute([$newCheckOut, (int)$assignment['assignment_id']]);
 
         $pdo->commit();
+        booking_slot_release($pdo, $roomLockName);
+        $roomLockName = null;
 
         echo json_encode([
             'message' => 'Desired out date updated.',
             'assignment' => assignment_response($pdo, $bookingId),
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        booking_slot_release($pdo, $roomLockName);
         boarding_error(500, 'Failed to update desired out date: ' . $e->getMessage());
     }
 }
@@ -996,11 +1088,19 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
         FROM visit_charges
         WHERE visit_id = ?
     ");
+    $refundPaymentSql = boarding_table_exists($pdo, 'visit_payment_refunds')
+        ? "- COALESCE((
+                SELECT SUM(refund.amount)
+                FROM visit_payment_refunds refund
+                WHERE refund.visit_id = ?
+                  AND refund.refund_status = 'processed'
+            ), 0)"
+        : '';
     $paymentStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount), 0)
+        SELECT GREATEST(COALESCE(SUM(amount), 0) {$refundPaymentSql}, 0)
         FROM visit_payments
         WHERE visit_id = ?
-          AND payment_status = 'verified'
+          AND payment_status IN ('verified', 'refunded')
     ");
 
     $totalCharges = 0.0;
@@ -1010,7 +1110,9 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
         $visitCharges = (float)$chargeStmt->fetchColumn();
         $totalCharges += $visitCharges;
 
-        $paymentStmt->execute([$visitId]);
+        $paymentStmt->execute(boarding_table_exists($pdo, 'visit_payment_refunds')
+            ? [$visitId, $visitId]
+            : [$visitId]);
         $visitPayments = (float)$paymentStmt->fetchColumn();
         if ($visitCharges > 0.0001 && $visitPayments + 0.0001 < $visitCharges) {
             $unpaidBalance += $visitCharges - $visitPayments;
@@ -1021,26 +1123,42 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
         boarding_error(409, 'The boarding invoice must contain a nonzero charge before checkout.');
     }
 
+    $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
+        ? 'b.boarding_overstay_daily_rate'
+        : 'NULL AS boarding_overstay_daily_rate';
     $minimumInvoiceStmt = $pdo->prepare("
         SELECT
-            GREATEST(COALESCE(b.price, 0), 0)
-            + COALESCE((
+            b.price,
+            b.check_out_date,
+            b.hotel_boarding_type,
+            b.room_size,
+            b.add_ons,
+            {$overstayRateSelect},
+            COALESCE((
                 SELECT SUM(ROUND(bmu.quantity * bmu.unit_price, 2))
                 FROM boarding_material_usages bmu
                 WHERE bmu.booking_id = b.booking_id
                   AND bmu.status = 'recorded'
-            ), 0)
+            ), 0) AS material_total
         FROM bookings b
         WHERE b.booking_id = ?
         LIMIT 1
         FOR UPDATE
     ");
     $minimumInvoiceStmt->execute([$bookingId]);
-    $minimumInvoice = (float)$minimumInvoiceStmt->fetchColumn();
+    $minimumBooking = $minimumInvoiceStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$minimumBooking) {
+        boarding_error(404, 'Boarding booking was not found.');
+    }
+    $overdueDays = boarding_calculate_overdue_days($minimumBooking['check_out_date'] ?? null);
+    $overstayRate = boarding_calculate_overstay_daily_rate($minimumBooking);
+    $minimumInvoice = max(0.0, (float)($minimumBooking['price'] ?? 0))
+        + max(0.0, (float)($minimumBooking['material_total'] ?? 0))
+        + ($overdueDays * $overstayRate);
     if ($totalCharges + 0.009 < $minimumInvoice) {
         boarding_error(
             409,
-            'The boarding invoice is below the captured stay price plus recorded materials. Restore the full invoice before checkout.'
+            'The boarding invoice is below the required stay, overstay, and recorded-material total. Restore the full invoice before checkout.'
         );
     }
 
@@ -1137,14 +1255,23 @@ function get_active_assignments_by_room(PDO $pdo, int $branchId): array
         ";
     }
 
+    $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
+        ? 'b.boarding_overstay_daily_rate'
+        : 'NULL AS boarding_overstay_daily_rate';
     $stmt = $pdo->prepare("
         SELECT
             ba.*,
             b.booking_number,
+            b.branch_id AS booking_branch_id,
             b.pet_id,
+            b.user_id AS owner_user_id,
             b.check_in_date,
             b.check_out_date,
             b.price,
+            b.hotel_boarding_type,
+            b.room_size,
+            b.add_ons,
+            {$overstayRateSelect},
             b.status AS booking_status,
             COALESCE({$multiPetExpression}, p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
             COALESCE(p.pet_species, b.petType, 'Pet') AS pet_species,
@@ -1247,8 +1374,10 @@ function rooms_action(PDO $pdo): void
                         'assignmentId' => (int)$assignment['assignment_id'],
                         'bookingId' => (int)$assignment['booking_id'],
                         'bookingNumber' => $assignment['booking_number'],
+                        'branchId' => $assignment['booking_branch_id'] !== null ? (int)$assignment['booking_branch_id'] : null,
                         'status' => $assignment['status'],
                         'petId' => $assignment['pet_id'] !== null ? (int)$assignment['pet_id'] : null,
+                        'ownerUserId' => $assignment['owner_user_id'] !== null ? (int)$assignment['owner_user_id'] : null,
                         'petName' => $assignment['pet_name'],
                         'petSpecies' => $assignment['pet_species'],
                         'petBreed' => $assignment['pet_breed'],
@@ -1259,6 +1388,7 @@ function rooms_action(PDO $pdo): void
                         'actualCheckInAt' => $assignment['actual_check_in_at'],
                         'actualCheckOutAt' => $assignment['actual_check_out_at'],
                         'price' => $assignment['price'],
+                        'overstayDailyRate' => boarding_calculate_overstay_daily_rate($assignment),
                         'bookingStatus' => $assignment['booking_status'],
                     ];
                 }
@@ -1499,6 +1629,7 @@ function direct_check_in_action(PDO $pdo): void
         boarding_error(409, 'This pet has no linked owner account. Link an owner before direct check-in.');
     }
 
+    $roomLockName = null;
     $pdo->beginTransaction();
     try {
         booking_daily_lock_subjects($pdo, [$petId], $ownerId);
@@ -1521,6 +1652,11 @@ function direct_check_in_action(PDO $pdo): void
 
         assert_pets_not_in_active_boarding($pdo, [$petId]);
         assert_pets_no_overlapping_boarding_booking($pdo, [$petId], $today, (string)$checkOut);
+
+        $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
+        if (!booking_slot_acquire($pdo, $roomLockName)) {
+            boarding_error(409, 'Room availability is being updated by another check-in. Refresh the rooms and try again.');
+        }
 
         $availableRooms = get_available_room_numbers($pdo, $roomType, $today, (string)$checkOut, 0, $branchId);
         $roomNumber = $requestedRoom ?: ($availableRooms[0] ?? 0);
@@ -1593,6 +1729,8 @@ function direct_check_in_action(PDO $pdo): void
         $assignmentStmt->execute([$bookingId, $branchId, $roomType, $roomNumber, $checkOut, $notes]);
 
         $pdo->commit();
+        booking_slot_release($pdo, $roomLockName);
+        $roomLockName = null;
 
         try {
             notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
@@ -1608,10 +1746,11 @@ function direct_check_in_action(PDO $pdo): void
             'bookingNumber' => $bookingNumber,
             'assignment' => assignment_response($pdo, $bookingId),
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+        booking_slot_release($pdo, $roomLockName);
         boarding_error(500, 'Failed to create direct check-in: ' . $e->getMessage());
     }
 }
@@ -2764,8 +2903,11 @@ function boarding_materials_action(PDO $pdo): void
         }
     }
 
+    $sellingPriceSelect = boarding_column_exists($pdo, 'inventory_items', 'selling_price')
+        ? 'selling_price'
+        : 'unit_cost AS selling_price';
     $itemStmt = $pdo->prepare("
-        SELECT item_id, item_name, category, unit, unit_cost, status
+        SELECT item_id, item_name, category, unit, unit_cost, {$sellingPriceSelect}, status
         FROM inventory_items
         WHERE item_id = ?
         LIMIT 1
@@ -2776,26 +2918,59 @@ function boarding_materials_action(PDO $pdo): void
         boarding_error(404, 'The selected active inventory item was not found.');
     }
 
+    $assignmentBranchId = (int)($assignment['branch_id'] ?? 0);
     if (boarding_table_exists($pdo, 'inventory_batches')) {
+        if ($assignmentBranchId <= 0) {
+            boarding_error(409, 'The boarding assignment has no valid branch for inventory deduction.');
+        }
+        $reservedQuantity = 0.0;
+        if (boarding_material_billing_trace_ready($pdo)) {
+            $reservedStmt = $pdo->prepare("
+                SELECT usage_record.quantity
+                FROM boarding_material_usages usage_record
+                JOIN bookings reserved_booking
+                  ON reserved_booking.booking_id = usage_record.booking_id
+                LEFT JOIN visit_charges billed_charge
+                  ON billed_charge.boarding_material_usage_id = usage_record.usage_id
+                WHERE usage_record.item_id = ?
+                  AND reserved_booking.branch_id = ?
+                  AND usage_record.status = 'recorded'
+                  AND billed_charge.charge_id IS NULL
+                ORDER BY usage_record.usage_id ASC
+                FOR UPDATE
+            ");
+            $reservedStmt->execute([$itemId, $assignmentBranchId]);
+            $reservedQuantity = array_sum(array_map(
+                'floatval',
+                $reservedStmt->fetchAll(PDO::FETCH_COLUMN)
+            ));
+        }
         $stockStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(quantity), 0)
-            FROM inventory_batches
-            WHERE item_id = ?
-              AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+            SELECT batch.quantity
+            FROM inventory_batches batch
+            JOIN inventory_locations location ON location.location_id = batch.location_id
+            WHERE batch.item_id = ?
+              AND location.branch_id = ?
+              AND location.status = 'active'
+              AND (batch.expiry_date IS NULL OR batch.expiry_date >= CURDATE())
+            ORDER BY batch.batch_id ASC
+            FOR UPDATE
         ");
-        $stockStmt->execute([$itemId]);
-        $availableQuantity = (float)$stockStmt->fetchColumn();
+        $stockStmt->execute([$itemId, $assignmentBranchId]);
+        $physicalAvailableQuantity = array_sum(array_map(
+            'floatval',
+            $stockStmt->fetchAll(PDO::FETCH_COLUMN)
+        ));
+        $availableQuantity = max(0.0, $physicalAvailableQuantity - $reservedQuantity);
         if ($quantity > $availableQuantity + 0.0001) {
             boarding_error(
                 409,
-                $item['item_name'] . ' has only ' . number_format($availableQuantity, 2) . ' ' . $item['unit'] . ' in stock.'
+                $item['item_name'] . ' has only ' . number_format($availableQuantity, 2) . ' ' . $item['unit'] . ' available at this branch after recorded boarding use.'
             );
         }
     }
 
-    $unitPrice = ($unitPriceInput === null || $unitPriceInput === '')
-        ? (float)$item['unit_cost']
-        : (float)$unitPriceInput;
+    $unitPrice = (float)($item['selling_price'] ?? $item['unit_cost'] ?? 0);
     if (!is_finite($unitPrice) || $unitPrice < 0) {
         boarding_error(400, 'Material unit price must be a valid non-negative number.');
     }

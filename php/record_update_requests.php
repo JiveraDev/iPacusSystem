@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/payment_method_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -179,7 +180,7 @@ function record_request_require_veterinarian(PDO $pdo, int $userId): void
     $profileIsActive = (int)($user['profile_is_active'] ?? 0) === 1;
     if (
         $role !== 'veterinarian'
-        || in_array($accountStatus, ['inactive', 'deactivated', 'disabled', 'suspended'], true)
+        || in_array($accountStatus, ['archived', 'inactive', 'deactivated', 'disabled', 'suspended'], true)
         || !$profileIsActive
     ) {
         record_request_error(422, 'The selected account is not an active veterinarian account.');
@@ -367,6 +368,7 @@ function record_request_row(array $row): array
         'id' => (int)$row['request_id'],
         'requestId' => (int)$row['request_id'],
         'requestNumber' => $row['request_number'],
+        'shortRequestNumber' => 'RUR-' . str_pad((string)$row['request_id'], 5, '0', STR_PAD_LEFT),
         'petId' => (int)$row['pet_id'],
         'petPublicId' => $row['pet_sharable_ID'] ?? '',
         'petName' => $row['pet_name'] ?? 'Pet',
@@ -475,8 +477,8 @@ function record_request_create(PDO $pdo, array $input): void
         record_request_error(400, 'Please describe what needs to be updated.');
     }
 
-    $paymentMethod = strtolower(trim((string)($input['paymentMethod'] ?? $input['payment_method'] ?? 'qrph')));
-    if (!in_array($paymentMethod, ['cash', 'qrph', 'maya', 'gcash', 'bank_transfer'], true)) {
+    $paymentMethod = ipawcus_payment_method_key($input['paymentMethod'] ?? $input['payment_method'] ?? 'qrph');
+    if (!ipawcus_payment_method_is_allowed($pdo, $paymentMethod)) {
         record_request_error(400, 'Invalid payment method.');
     }
     if ($currentRole === 'pet_owner' && !ipawcus_guard_pet_access($pdo, $petId, $currentUserId)) {
@@ -491,6 +493,42 @@ function record_request_create(PDO $pdo, array $input): void
         : record_request_nullable_int($input['ownerUserId'] ?? $input['owner_user_id'] ?? $input['userId'] ?? null);
 
     $pdo->beginTransaction();
+    // Lock the pet row so concurrent submissions for the same pet cannot both
+    // pass the active-request check.
+    $petLockStmt = $pdo->prepare('SELECT pet_id FROM pets_information WHERE pet_id = ? LIMIT 1 FOR UPDATE');
+    $petLockStmt->execute([$petId]);
+    if (!$petLockStmt->fetchColumn()) {
+        $pdo->rollBack();
+        record_request_error(404, 'Pet was not found.');
+    }
+
+    $activeRequestStmt = $pdo->prepare("
+        SELECT request_id, request_number, status
+        FROM pet_record_update_requests
+        WHERE pet_id = ?
+          AND owner_user_id <=> ?
+          AND status NOT IN ('completed', 'rejected', 'cancelled')
+        ORDER BY request_id DESC
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $activeRequestStmt->execute([$petId, $ownerUserId]);
+    $activeRequest = $activeRequestStmt->fetch(PDO::FETCH_ASSOC);
+    if ($activeRequest) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'message' => 'This pet already has an update request in progress. Wait for it to be completed before submitting another.',
+            'activeRequest' => [
+                'requestId' => (int)$activeRequest['request_id'],
+                'requestNumber' => $activeRequest['request_number'],
+                'shortRequestNumber' => 'RUR-' . str_pad((string)$activeRequest['request_id'], 5, '0', STR_PAD_LEFT),
+                'status' => $activeRequest['status'],
+            ],
+        ]);
+        exit;
+    }
     $stmt = $pdo->prepare("
         INSERT INTO pet_record_update_requests (
             request_number,

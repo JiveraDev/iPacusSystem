@@ -12,7 +12,7 @@ import {
   Loader2, Copy, Check, Camera, Edit2, Save, X, Plus, Trash2
 } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { resolveImageUrl } from "../../lib/image";
+import { openProtectedDocument } from "../../hooks/useConsentDocumentSource";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
 
@@ -318,7 +318,7 @@ export default function PetProfileEdit() {
               <BioField label="Sex / Gender" name="gender" value={formData.gender} isEdit={isEditMode} onChange={handleInputChange} isSelect options={['Male', 'Female', 'Neutered Male', 'Spayed Female']} onSelect={(v) => handleSelectChange('gender', v)} />
               <BioField label="Weight (kg)" name="weight" value={formData.weight} isEdit={isEditMode} onChange={handleInputChange} restriction="decimal" />
               <BioField label="Coloration" name="color" value={formData.color} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="alphanumeric" />
+              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="digits" maxLength={15} />
             </CardContent>
           </Card>
 
@@ -505,14 +505,16 @@ function PrescriptionDocumentsPanel({ documents }) {
         {documents.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {documents.map((document) => {
-              const url = resolveImageUrl(document.url || document.relativeUrl);
+              const documentPath = document.url || document.relativeUrl;
 
               return (
-                <a
+                <button
+                  type="button"
                   key={document.id || document.url}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => openProtectedDocument(documentPath).catch((error) => {
+                    console.error('Failed to open a prescription PDF:', error);
+                    toast.error('The prescription PDF could not be opened. Please try again.');
+                  })}
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50"
                 >
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc]">
@@ -524,7 +526,7 @@ function PrescriptionDocumentsPanel({ documents }) {
                       {formatDisplayDate(document.createdAt)}
                     </span>
                   </span>
-                </a>
+                </button>
               );
             })}
           </div>
@@ -581,7 +583,7 @@ function VaccinationCell({ label, value, strong = false, highlight = false }) {
   );
 }
 
-function BioField({ label, value, isEdit, name, onChange, type = "text", isSelect = false, options = [], onSelect, restriction }) {
+function BioField({ label, value, isEdit, name, onChange, type = "text", isSelect = false, options = [], onSelect, restriction, maxLength }) {
   return (
     <div className="flex flex-col gap-1.5 py-1">
       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
@@ -594,7 +596,7 @@ function BioField({ label, value, isEdit, name, onChange, type = "text", isSelec
             </SelectContent>
           </Select>
         ) : (
-          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} className="h-9" />
+          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} maxLength={maxLength} inputMode={restriction === 'digits' ? 'numeric' : undefined} className="h-9" />
         )
       ) : (
         <span className="min-w-0 break-words font-bold text-slate-900">

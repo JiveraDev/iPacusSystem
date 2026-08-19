@@ -1,3 +1,10 @@
+import {
+    DEFAULT_ERROR_MESSAGE,
+    getUserFacingErrorMessage,
+    logHiddenTechnicalError,
+    sanitizeErrorPayload
+} from '../lib/errorPresentation.js';
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export const SERVER_STATUS_EVENT = 'ipawcus:server-status-change';
 export const AUTH_MESSAGE_KEY = 'ipawcus-auth-message';
@@ -32,10 +39,30 @@ let isRedirectingToLogin = false;
 
 export class ApiError extends Error {
     constructor(message, details = {}) {
-        super(message);
+        const status = Number(details.status) || 0;
+        const fallbackMessage = details.fallbackMessage
+            || (details.data?.code === 'database_unavailable'
+                ? DATABASE_UNAVAILABLE_MESSAGE
+                : (status >= 500 ? SERVER_UNAVAILABLE_MESSAGE : DEFAULT_ERROR_MESSAGE));
+        const hideServerMessage = status >= 500;
+
+        if (hideServerMessage && message && message !== fallbackMessage) {
+            logHiddenTechnicalError(
+                'Server error details were hidden from the user interface.',
+                message
+            );
+        }
+
+        const safeMessage = hideServerMessage
+            ? fallbackMessage
+            : getUserFacingErrorMessage(message, fallbackMessage, {
+                context: 'API error details were hidden from the user interface.'
+            });
+
+        super(safeMessage);
         this.name = 'ApiError';
-        this.status = details.status || 0;
-        this.data = details.data || {};
+        this.status = status;
+        this.data = sanitizeErrorPayload(details.data, fallbackMessage);
     }
 }
 
@@ -110,10 +137,17 @@ function unavailablePresentation(code, status, incomingMessage = '') {
     }
 
     if (code === 'database_unavailable') {
+        if (incomingMessage && incomingMessage !== DATABASE_UNAVAILABLE_MESSAGE) {
+            logHiddenTechnicalError(
+                'Database failure details were hidden from the service-status screen.',
+                incomingMessage
+            );
+        }
+
         return {
             kind: 'maintenance',
             code,
-            message: incomingMessage || DATABASE_UNAVAILABLE_MESSAGE
+            message: DATABASE_UNAVAILABLE_MESSAGE
         };
     }
 
@@ -322,6 +356,7 @@ function isPublicRequestPath(path) {
         '/self-service/access',
         '/status-display',
         '/tv-status',
+        '/booking-availability',
         '/notifications/reminders/run'
     ].includes(normalizedPath) || normalizedPath.startsWith('/auth/');
 }
@@ -338,7 +373,10 @@ export function expireStoredAuthSession(message = AUTH_EXPIRED_MESSAGE, options 
         window.sessionStorage.setItem(AUTH_EMAIL_KEY, loginEmail);
     }
 
-    window.sessionStorage.setItem(AUTH_MESSAGE_KEY, message || AUTH_EXPIRED_MESSAGE);
+    const safeMessage = getUserFacingErrorMessage(message, AUTH_EXPIRED_MESSAGE, {
+        context: 'Authentication failure details were hidden from the login screen.'
+    });
+    window.sessionStorage.setItem(AUTH_MESSAGE_KEY, safeMessage);
 
     if (options.redirect === false) {
         return;
@@ -372,7 +410,11 @@ function handleAuthRequired(data = {}) {
         return;
     }
 
-    expireStoredAuthSession(data.message || AUTH_EXPIRED_MESSAGE);
+    expireStoredAuthSession(
+        getUserFacingErrorMessage(data.message, AUTH_EXPIRED_MESSAGE, {
+            context: 'Authentication response details were hidden from the login screen.'
+        })
+    );
 }
 
 export async function readJsonResponse(response, fallback = {}) {
@@ -570,9 +612,13 @@ async function performApiRequest(path, options = {}) {
             const data = await readJsonResponse(response);
 
             if (!response.ok) {
-                const error = new ApiError(data.message || data.error || `Request failed with status ${response.status}`, {
+                const fallbackMessage = response.status >= 500
+                    ? SERVER_UNAVAILABLE_MESSAGE
+                    : DEFAULT_ERROR_MESSAGE;
+                const error = new ApiError(data.message || data.error || fallbackMessage, {
                     status: response.status,
-                    data
+                    data,
+                    fallbackMessage
                 });
 
                 if (data.code === 'database_unavailable') {
@@ -648,9 +694,10 @@ export async function checkServerHealth(options = {}) {
     } catch (error) {
         const data = error?.data || {};
         const healthError = error instanceof ApiError
-            ? new ApiError(data.code === 'database_unavailable' ? (data.message || DATABASE_UNAVAILABLE_MESSAGE) : (error.message || SERVER_UNAVAILABLE_MESSAGE), {
+            ? new ApiError(data.code === 'database_unavailable' ? DATABASE_UNAVAILABLE_MESSAGE : (error.message || SERVER_UNAVAILABLE_MESSAGE), {
                 status: error.status,
-                data: { ...data, code: data.code || 'server_unavailable' }
+                data: { ...data, code: data.code || 'server_unavailable' },
+                fallbackMessage: SERVER_UNAVAILABLE_MESSAGE
             })
             : error;
 

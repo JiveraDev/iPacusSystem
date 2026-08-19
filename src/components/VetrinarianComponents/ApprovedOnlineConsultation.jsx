@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Calendar, Clock, Image as ImageIcon, Loader2, MessageSquare, RefreshCw, Search, User, Video } from 'lucide-react';
+import { Calendar, Clock, Image as ImageIcon, ListFilter, Loader2, MessageSquare, RefreshCw, Search, User, Video, X } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
@@ -58,20 +60,36 @@ function consultationDate(consultation) {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function isInCurrentWeek(consultation) {
+function consultationMatchesDateFilter(consultation, filter) {
     const date = consultationDate(consultation);
     if (!date) return false;
 
-    const now = new Date();
-    const start = new Date(now);
-    const mondayOffset = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - mondayOffset);
-    start.setHours(0, 0, 0, 0);
+    if (filter === 'all') return true;
 
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return date >= start && date < end;
+    if (filter === 'today') {
+        return date >= today && date < tomorrow;
+    }
+
+    if (filter === 'upcoming') {
+        return date >= today;
+    }
+
+    if (filter === 'next-7-days') {
+        const end = new Date(today);
+        end.setDate(end.getDate() + 7);
+        return date >= today && date < end;
+    }
+
+    if (filter === 'past') {
+        return date < today;
+    }
+
+    return true;
 }
 
 function consultationMatchesSearch(consultation, query) {
@@ -96,7 +114,8 @@ export default function ApprovedOnlineConsultation() {
     const [isLoading, setIsLoading] = useState(true);
     const [actionId, setActionId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [dateFilter, setDateFilter] = useState('week');
+    const [dateFilter, setDateFilter] = useState('upcoming');
+    const [statusFilter, setStatusFilter] = useState('active');
     const [viewerImage, setViewerImage] = useState(null);
 
     const loadConsultations = useCallback(async ({ isAutoRefresh = false } = {}) => {
@@ -129,16 +148,39 @@ export default function ApprovedOnlineConsultation() {
         const query = normalizeText(searchQuery);
 
         return consultations.filter((consultation) => {
-            if (dateFilter === 'week' && !isInCurrentWeek(consultation)) {
+            if (!consultationMatchesDateFilter(consultation, dateFilter)) {
+                return false;
+            }
+
+            const status = normalizeText(consultation.status);
+            if (statusFilter === 'active' && ['completed', 'cancelled'].includes(status)) {
+                return false;
+            }
+            if (statusFilter !== 'all' && statusFilter !== 'active' && status !== statusFilter) {
                 return false;
             }
 
             return consultationMatchesSearch(consultation, query);
+        }).sort((left, right) => {
+            const leftDate = consultationDate(left)?.getTime() || 0;
+            const rightDate = consultationDate(right)?.getTime() || 0;
+            const bothClosed = ['completed', 'cancelled'].includes(normalizeText(left.status))
+                && ['completed', 'cancelled'].includes(normalizeText(right.status));
+
+            return bothClosed ? rightDate - leftDate : leftDate - rightDate;
         });
-    }, [consultations, dateFilter, searchQuery]);
+    }, [consultations, dateFilter, searchQuery, statusFilter]);
 
     const scheduledConsultations = filteredConsultations.filter((consultation) => !['completed', 'cancelled'].includes(String(consultation.status || '').toLowerCase()));
     const completedConsultations = filteredConsultations.filter((consultation) => String(consultation.status || '').toLowerCase() === 'completed');
+    const cancelledConsultations = filteredConsultations.filter((consultation) => String(consultation.status || '').toLowerCase() === 'cancelled');
+    const filtersAreActive = Boolean(searchQuery || dateFilter !== 'upcoming' || statusFilter !== 'active');
+
+    const clearFilters = () => {
+        setSearchQuery('');
+        setDateFilter('upcoming');
+        setStatusFilter('active');
+    };
 
     const openDiagnosisPage = (consultationId) => {
         navigate(`/dashboard/vet/online-consultations/${consultationId}/diagnosis`);
@@ -277,37 +319,64 @@ export default function ApprovedOnlineConsultation() {
                 </Button>
             </div>
 
-            <Card className="border-slate-200">
-                <CardContent className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                    <Input
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search pet, owner, booking number"
-                        leftIcon={<Search className="size-4" />}
-                    />
-                    <div className="grid grid-cols-2 gap-2 sm:flex">
-                        <Button
-                            type="button"
-                            variant={dateFilter === 'week' ? 'default' : 'outline'}
-                            onClick={() => setDateFilter('week')}
-                            className={dateFilter === 'week' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
-                        >
-                            This Week
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={dateFilter === 'all' ? 'default' : 'outline'}
-                            onClick={() => setDateFilter('all')}
-                            className={dateFilter === 'all' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
-                        >
-                            All
-                        </Button>
+            <Card className="border-slate-200 shadow-none">
+                <CardContent className="grid gap-4 p-4 lg:grid-cols-[minmax(16rem,1fr)_14rem_14rem_auto] lg:items-end">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="online-consult-search" className="text-xs font-semibold text-slate-600">Search bookings</Label>
+                        <Input
+                            id="online-consult-search"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Pet, owner, or booking number"
+                            leftIcon={<Search className="size-4" />}
+                        />
                     </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600">Appointment date</Label>
+                        <Select value={dateFilter} onValueChange={setDateFilter}>
+                            <SelectTrigger className="w-full">
+                                <Calendar className="mr-2 size-4 text-slate-400" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="upcoming">All upcoming</SelectItem>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="next-7-days">Next 7 days</SelectItem>
+                                <SelectItem value="past">Past appointments</SelectItem>
+                                <SelectItem value="all">All dates</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600">Consultation status</Label>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-full">
+                                <ListFilter className="mr-2 size-4 text-slate-400" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="active">All active</SelectItem>
+                                <SelectItem value="scheduled">Scheduled</SelectItem>
+                                <SelectItem value="vet_ready">Vet ready</SelectItem>
+                                <SelectItem value="in_progress">In progress</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                <SelectItem value="all">Every status</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Button type="button" variant="outline" onClick={clearFilters} disabled={!filtersAreActive} className="gap-2">
+                        <X className="size-4" />
+                        Reset
+                    </Button>
                 </CardContent>
             </Card>
 
             <section className="space-y-3">
-                <h2 className="text-lg font-bold text-slate-900">Scheduled</h2>
+                <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-bold text-slate-900">Upcoming & active</h2>
+                    <span className="text-sm font-semibold text-slate-500">{scheduledConsultations.length}</span>
+                </div>
                 {isLoading ? (
                     <Card>
                         <CardContent className="flex items-center justify-center gap-3 p-8 text-slate-500">
@@ -319,13 +388,20 @@ export default function ApprovedOnlineConsultation() {
                     <div className="space-y-3">
                         {scheduledConsultations.map(renderConsultationCard)}
                     </div>
-                ) : (
+                ) : completedConsultations.length === 0 && cancelledConsultations.length === 0 ? (
                     <Card>
-                        <CardContent className="p-8 text-center text-slate-500">
-                            No approved online consultations match the current filters.
+                        <CardContent className="flex flex-col items-center p-8 text-center text-slate-500">
+                            <Video className="mb-3 size-8 text-slate-400" />
+                            <p className="font-semibold text-slate-700">No consultations match these filters</p>
+                            <p className="mt-1 text-sm">Try another date or status.</p>
+                            {filtersAreActive && (
+                                <Button type="button" variant="outline" size="sm" onClick={clearFilters} className="mt-4">
+                                    Clear filters
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
-                )}
+                ) : null}
             </section>
 
             {completedConsultations.length > 0 && (
@@ -333,6 +409,14 @@ export default function ApprovedOnlineConsultation() {
                     <h2 className="text-lg font-bold text-slate-900">Completed</h2>
                     <div className="space-y-3">
                         {completedConsultations.map(renderConsultationCard)}
+                    </div>
+                </section>
+            )}
+            {cancelledConsultations.length > 0 && (
+                <section className="space-y-3">
+                    <h2 className="text-lg font-bold text-slate-900">Cancelled</h2>
+                    <div className="space-y-3">
+                        {cancelledConsultations.map(renderConsultationCard)}
                     </div>
                 </section>
             )}

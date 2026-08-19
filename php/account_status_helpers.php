@@ -22,3 +22,17 @@ function ensureAdminAccountStatusColumn(PDO $pdo): bool
 {
     return accountColumnExists($pdo, 'admin_profiles', 'is_active');
 }
+
+function accountRevokeAccessTokens(PDO $pdo, int $userId): void
+{
+    if (
+        $userId <= 0
+        || !accountColumnExists($pdo, 'api_access_tokens', 'user_id')
+        || !accountColumnExists($pdo, 'api_access_tokens', 'revoked_at')
+    ) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('UPDATE api_access_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL');
+    $stmt->execute([$userId]);
+}

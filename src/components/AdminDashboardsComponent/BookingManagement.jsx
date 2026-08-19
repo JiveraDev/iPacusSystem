@@ -31,16 +31,22 @@ import {
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { useBookingPriceProjections } from '../../hooks/useBookingPriceProjections';
+import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import { includedItemsText, parseIncludedItems } from '../../lib/servicePriceProjections';
 import {
     createBooking,
+    fetchBookingBillingContext,
     fetchBookings as fetchBookingsService,
+    postBookingPaymentRefund,
     updateBookingSchedule,
     updateBookingStatus as updateBookingStatusService
 } from '../../services/bookingService';
 import { fetchQueuePets } from '../../services/queueService';
 import { fetchAccounts } from '../../services/accountService';
 import { fetchBranches, getBranchDisplayName, relocateBooking } from '../../services/branchService';
+import TablePagination from '../shared/TablePagination.jsx';
+import BookingTimeSlotField from '../shared/BookingTimeSlotField.jsx';
+import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -55,8 +61,8 @@ const REVIEW_SERVICE_TYPES = [
     { value: 'special services', label: 'Special Services' },
 ];
 
+const BOOKING_PAGE_SIZE = 20;
 const ADMIN_BOOKING_SERVICE_TYPES = [
-    { value: 'online-consultation', label: 'Online Consultation' },
     ...REVIEW_SERVICE_TYPES.filter(
         (type) => !['consultation', 'home-service', 'special services', 'boarding'].includes(type.value)
     )
@@ -101,17 +107,67 @@ function todayInputDate() {
     return new Date().toLocaleDateString('en-CA');
 }
 
-function currentInputTime() {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+function normalizeBookingFilterValue(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-');
+}
+
+function bookingAppointmentDate(booking) {
+    const value = booking?.date
+        || booking?.bookingDate
+        || booking?.booking_date
+        || booking?.scheduledStart
+        || booking?.scheduled_start;
+    const dateOnlyMatch = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (dateOnlyMatch) {
+        return new Date(
+            Number(dateOnlyMatch[1]),
+            Number(dateOnlyMatch[2]) - 1,
+            Number(dateOnlyMatch[3])
+        );
+    }
+
+    const parsed = new Date(String(value || '').replace(' ', 'T'));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function bookingMatchesAppointmentFilter(booking, filter) {
+    if (filter === 'all') return true;
+
+    const appointmentDate = bookingAppointmentDate(booking);
+    if (!appointmentDate) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (filter === 'today') {
+        return appointmentDate >= today && appointmentDate < tomorrow;
+    }
+
+    if (filter === 'next-7-days' || filter === 'next-30-days') {
+        const end = new Date(today);
+        end.setDate(end.getDate() + (filter === 'next-7-days' ? 7 : 30));
+        return appointmentDate >= today && appointmentDate < end;
+    }
+
+    if (filter === 'past') {
+        return appointmentDate < today;
+    }
+
+    return true;
 }
 
 function createEmptyAdminBookingForm() {
     return {
-        serviceType: 'online-consultation',
+        serviceType: 'General Check-up',
         veterinarianId: '',
         bookingDate: todayInputDate(),
-        bookingTime: currentInputTime(),
+        bookingTime: '',
         notes: '',
         paymentAction: 'pos'
     };
@@ -173,6 +229,32 @@ function bookingPOSCharges(booking) {
     }
 
     return charges;
+}
+
+function billingChargeToPOSPrefill(charge) {
+    const chargeType = String(charge?.chargeType || charge?.charge_type || 'service').toLowerCase();
+    const classificationId = chargeType === 'diagnostic'
+        ? 'diagnostics'
+        : (chargeType === 'medication'
+            ? 'medications'
+            : (chargeType === 'retail_product' ? 'products' : 'services'));
+
+    return {
+        catalogId: charge?.serviceId ? `service-${charge.serviceId}` : null,
+        classificationId,
+        receiptType: classificationId === 'products' ? 'PRODUCT' : 'SERVICE',
+        chargeType,
+        itemId: charge?.itemId || null,
+        boardingMaterialUsageId: charge?.boardingMaterialUsageId || null,
+        visitChargeId: charge?.chargeId || charge?.charge_id || null,
+        lockedExisting: true,
+        name: charge?.description || charge?.serviceName || charge?.itemName || 'Visit charge',
+        group: charge?.serviceName || charge?.itemName || 'Visit Billing',
+        quantity: Math.max(1, Number(charge?.quantity || 1)),
+        price: Math.max(0, Number(charge?.unitPrice || 0)),
+        includedMaterials: [],
+        extraMaterials: []
+    };
 }
 
 function vetId(vet) {
@@ -335,18 +417,37 @@ function bookingConsentForms(booking) {
 
 function BookingConsentCard({ form, booking, onPreview }) {
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
     const {
         source,
+        isPdf,
         isLoading,
         isReconstructed,
         isUnavailable
     } = useConsentDocumentSource(form, booking.legacyConsentSignaturePath);
+    const handleView = async () => {
+        if (!source || isOpening) return;
+        if (!isPdf) {
+            onPreview?.({ src: source, alt: `${form.title} complete signed document` });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(source);
+        } catch (error) {
+            console.error('Failed to open a signed consent PDF:', error);
+            toast.error('The signed consent PDF could not be opened. Please try again.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
     const handleDownload = async () => {
         if (!source || isDownloading) return;
 
         setIsDownloading(true);
         try {
-            await downloadConsentDocument(source, `${booking.bookingNumber || `booking-${booking.id}`}-${form.title}.png`);
+            await downloadConsentDocument(source, `${booking.bookingNumber || `booking-${booking.id}`}-${form.title}`);
         } catch (error) {
             toast.error(error.message || 'Could not download the complete consent form.');
         } finally {
@@ -363,12 +464,19 @@ function BookingConsentCard({ form, booking, onPreview }) {
             <div className="space-y-3 p-4">
                 {source ? (
                     <div className="h-[32rem] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                        <ProtectedImage
-                            src={source}
-                            alt={`${form.title} complete signed document`}
-                            className="h-full w-full object-contain"
-                            fallbackClassName="h-full w-full"
-                        />
+                        {isPdf ? (
+                            <button type="button" onClick={handleView} className="flex h-full w-full flex-col items-center justify-center gap-3 text-slate-500 hover:bg-slate-100">
+                                <FileText className="size-12 text-blue-600" />
+                                <span className="text-sm font-bold">Open signed consent PDF</span>
+                            </button>
+                        ) : (
+                            <ProtectedImage
+                                src={source}
+                                alt={`${form.title} complete signed document`}
+                                className="h-full w-full object-contain"
+                                fallbackClassName="h-full w-full"
+                            />
+                        )}
                     </div>
                 ) : isLoading ? (
                     <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500">
@@ -390,18 +498,18 @@ function BookingConsentCard({ form, booking, onPreview }) {
                         The legacy form could not be reconstructed from its retained files.
                     </p>
                 )}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className={`grid grid-cols-1 gap-2 ${isPdf ? '' : 'sm:grid-cols-2'}`}>
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => source && onPreview?.({ src: source, alt: `${form.title} complete signed document` })}
-                        disabled={!source}
+                        onClick={handleView}
+                        disabled={!source || isOpening}
                         className="gap-2"
                     >
-                        <Eye className="size-4" />
-                        View Complete Form
+                        {isOpening ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
+                        {isPdf ? 'Open PDF' : 'View Complete Form'}
                     </Button>
-                    <Button
+                    {!isPdf && <Button
                         type="button"
                         variant="outline"
                         onClick={handleDownload}
@@ -410,7 +518,7 @@ function BookingConsentCard({ form, booking, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                         Download
-                    </Button>
+                    </Button>}
                 </div>
             </div>
         </div>
@@ -445,6 +553,16 @@ function bookingDetailsTriggerId(bookingId) {
 
 export default function BookingsManagement() {
     const navigate = useNavigate();
+    const dashboardUser = useMemo(() => storedDashboardUser(), []);
+    const lockedBranchId = assignedBranchId(dashboardUser);
+    const branchFilterLocked = isBranchSelectionLocked(dashboardUser);
+    const { paymentMethods } = usePaymentMethods();
+    const refundMethods = useMemo(() => [
+        { value: 'cash', label: 'Cash' },
+        ...paymentMethods
+            .filter((method) => String(method.value || method.methodKey || '').toLowerCase() !== 'cash')
+            .map((method) => ({ value: method.value || method.methodKey, label: method.label }))
+    ], [paymentMethods]);
     const {
         config: bookingDisplayConfig,
         resetConfig: resetBookingDisplayConfig,
@@ -453,10 +571,11 @@ export default function BookingsManagement() {
     const canConfigureBookingDisplay = currentUserCanConfigureBookingDisplay();
     const [bookings, setBookings] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterType, setFilterType] = useState('Service Type');
-    const [filterStatus, setFilterStatus] = useState('Status');
-    const [filterBranch, setFilterBranch] = useState('all');
-    const [filterAge, setFilterAge] = useState('7d');
+    const [filterType, setFilterType] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterBranch, setFilterBranch] = useState(() => branchFilterLocked && lockedBranchId ? lockedBranchId : 'all');
+    const [filterDate, setFilterDate] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
     const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
     const [currentRescheduleBooking, setCurrentRescheduleBooking] = useState(null);
     const [newDate, setNewDate] = useState('');
@@ -475,6 +594,11 @@ export default function BookingsManagement() {
     const [isLoadingBookingPets, setIsLoadingBookingPets] = useState(false);
     const [isCreatingBooking, setIsCreatingBooking] = useState(false);
     const [confirmingBookingId, setConfirmingBookingId] = useState(null);
+    const [openingPaymentBookingId, setOpeningPaymentBookingId] = useState(null);
+    const [bookingRefundOpen, setBookingRefundOpen] = useState(false);
+    const [bookingRefundContext, setBookingRefundContext] = useState(null);
+    const [bookingRefundForm, setBookingRefundForm] = useState({ amount: '', method: 'cash', reference: '', reason: '' });
+    const [isSubmittingBookingRefund, setIsSubmittingBookingRefund] = useState(false);
     const [bookingPets, setBookingPets] = useState([]);
     const [veterinarians, setVeterinarians] = useState([]);
     const [branches, setBranches] = useState([]);
@@ -520,10 +644,17 @@ export default function BookingsManagement() {
     useAutoRefresh(fetchBookings);
 
     useEffect(() => {
-        fetchBranches()
-            .then((data) => setBranches(Array.isArray(data?.branches) ? data.branches : []))
+        fetchBranches({ assignedOnly: branchFilterLocked })
+            .then((data) => {
+                const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+                setBranches(nextBranches);
+                if (branchFilterLocked) {
+                    const assigned = nextBranches.find((branch) => String(branch.id) === lockedBranchId) || nextBranches[0];
+                    setFilterBranch(assigned ? String(assigned.id) : lockedBranchId || 'all');
+                }
+            })
             .catch((error) => console.error('Error loading branches:', error));
-    }, []);
+    }, [branchFilterLocked, lockedBranchId]);
 
     const handleBookingRelocation = async (booking, branchId) => {
         if (!branchId || String(branchId) === String(booking.branchId)) return;
@@ -685,36 +816,175 @@ export default function BookingsManagement() {
         setBookingPetSearch(`${pet.pet_name} - ${ownerNameForPet(pet)}`);
     };
 
-    const sendBookingPaymentToPOS = (booking) => {
+    const sendBookingPaymentToPOS = async (booking) => {
         if (isBoardingBooking(booking)) {
             toast.error('Boarding payment must be opened from Boarding so the stay and used materials remain complete.');
             navigate('/dashboard/boarding');
             return;
         }
 
-        const charges = bookingPOSCharges(booking);
-        const hasConfiguredServicePrice = Number(booking.price || 0) > 0;
-        localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
-            message: hasConfiguredServicePrice
-                ? 'Booked service charges loaded. Review the service and any transport fee before posting payment.'
-                : 'Booked service loaded with no configured price. Set the service price before posting payment.',
-            visit: {
-                id: booking.bookingNumber || `BOOKING-${booking.id}`,
-                bookingId: booking.id,
-                petId: booking.petId || null,
-                ownerUserId: booking.userId || null,
-                sourceType: 'booking',
-                petName: booking.petName || 'Booking Patient',
-                ownerName: booking.ownerName || 'Pet Owner',
-                species: booking.petSpecies || 'Pet',
-                visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : `${bookingChargeName(booking)} Payment`,
-                veterinarian: booking.veterinarian || 'Clinic Team',
-                complaint: booking.notes || `${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber || ''}`.trim(),
-                status: 'Ready for payment'
-            },
-            charges
-        }));
-        navigate('/dashboard/pos');
+        if (openingPaymentBookingId) return;
+
+        setOpeningPaymentBookingId(booking.id);
+        try {
+            const context = await fetchBookingBillingContext(booking.id);
+            const existingVisit = context?.recommendedVisit || null;
+            const billingStatus = String(existingVisit?.billingStatus || '').toLowerCase();
+            const paymentSubmission = context?.paymentSubmission || null;
+            const proofAwaitingReview = ['submitted', 'under_review', 'legacy_submitted'].includes(
+                String(paymentSubmission?.status || '').toLowerCase()
+            );
+            const verifiedBookingPayment = paymentSubmission?.status === 'verified'
+                && !paymentSubmission?.linkedVisitPaymentId
+                ? Math.max(0, Number(paymentSubmission.amount || 0) - Number(paymentSubmission.refundedAmount || 0))
+                : 0;
+
+            if (proofAwaitingReview) {
+                toast.info('This booking already has payment proof awaiting review. Confirm the booking to verify that proof before collecting another payment.');
+                return;
+            }
+
+            if (existingVisit && ['paid', 'refunded'].includes(billingStatus)) {
+                toast.info(
+                    billingStatus === 'paid'
+                        ? 'This booking invoice is already fully paid.'
+                        : 'This booking invoice is refunded and must be resolved before receiving another payment.'
+                );
+                return;
+            }
+
+            const hasExistingCharges = Boolean(existingVisit && (existingVisit.charges || []).length > 0);
+            const charges = hasExistingCharges
+                ? (existingVisit.charges || []).map(billingChargeToPOSPrefill)
+                : bookingPOSCharges(booking);
+            const hasConfiguredServicePrice = charges.some((charge) => Number(charge.price || 0) > 0);
+            const visitId = Number(existingVisit?.visitId || 0);
+            const totals = existingVisit?.totals || {};
+            const invoiceTotal = existingVisit
+                ? Number(totals.charges || 0)
+                : charges.reduce((sum, charge) => sum + (Number(charge.price || 0) * Number(charge.quantity || 1)), 0);
+            const paidAmount = (existingVisit ? Number(totals.paid || 0) : 0) + verifiedBookingPayment;
+            const balance = Math.max(0, invoiceTotal - paidAmount);
+
+            if (invoiceTotal > 0 && balance <= 0.0001 && verifiedBookingPayment > 0) {
+                toast.info('This booking prepayment is already verified. It will be linked to the visit invoice when the service is recorded.');
+                return;
+            }
+
+            localStorage.setItem('ipawcus-pos-prefill', JSON.stringify({
+                message: existingVisit
+                    ? (hasExistingCharges
+                        ? 'The existing clinical invoice was loaded from the database. Review it without replacing the veterinarian\'s recorded services.'
+                        : 'The existing visit has no invoice lines yet. Official booked-service charges were loaded so payment can be completed without creating another visit.')
+                    : (hasConfiguredServicePrice
+                        ? 'Booked service charges loaded. Review the service and any transport fee before posting payment.'
+                        : 'Booked service loaded with no configured price. Set the service price before posting payment.'),
+                visit: {
+                    id: visitId > 0 ? `visit-${visitId}` : (booking.bookingNumber || `BOOKING-${booking.id}`),
+                    visitId: visitId > 0 ? visitId : null,
+                    source: visitId > 0 ? 'database' : 'booking_prefill',
+                    bookingId: booking.id,
+                    bookingNumber: booking.bookingNumber || '',
+                    bookingStatus: context?.booking?.status || booking.status || '',
+                    branchId: existingVisit?.branchId || context?.booking?.branchId || booking.branchId || null,
+                    branchName: existingVisit?.branchName || context?.booking?.branchName || booking.branchName || '',
+                    petId: existingVisit?.petId || booking.petId || null,
+                    ownerUserId: existingVisit?.ownerUserId || booking.userId || null,
+                    sourceType: existingVisit?.sourceType || 'booking',
+                    petName: existingVisit?.petName || booking.petName || 'Booking Patient',
+                    ownerName: existingVisit?.ownerName || booking.ownerName || 'Pet Owner',
+                    species: existingVisit?.petSpecies || booking.petSpecies || 'Pet',
+                    visitType: booking.isOnlineConsultation ? 'Online Consultation Payment' : `${bookingChargeName(booking)} Payment`,
+                    veterinarian: existingVisit?.veterinarianName || booking.veterinarian || 'Clinic Team',
+                    complaint: existingVisit?.diagnosisSummary || booking.notes || `${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber || ''}`.trim(),
+                    billingStatus: existingVisit?.billingStatus || (paidAmount > 0 ? 'partial' : 'unbilled'),
+                    total: invoiceTotal,
+                    paid: paidAmount,
+                    balance,
+                    status: existingVisit ? 'Existing invoice' : 'Ready for payment'
+                },
+                charges
+            }));
+            navigate('/dashboard/pos');
+        } catch (error) {
+            toast.error(error.message || 'The booking invoice could not be opened.');
+        } finally {
+            setOpeningPaymentBookingId(null);
+        }
+    };
+
+    const openBookingPaymentRefund = async (booking) => {
+        if (openingPaymentBookingId) return;
+        setOpeningPaymentBookingId(booking.id);
+        try {
+            const context = await fetchBookingBillingContext(booking.id);
+            const submission = context?.paymentSubmission;
+            if (!submission || submission.status !== 'verified') {
+                toast.error('Only a verified, unrefunded booking payment can be refunded.');
+                return;
+            }
+            if (submission.linkedVisitPaymentId) {
+                toast.info('This payment is linked to a visit invoice. Use Record Refund in Point-Of-Sale.');
+                navigate('/dashboard/pos');
+                return;
+            }
+            const refundableAmount = Number(submission.refundableAmount || 0);
+            if (refundableAmount <= 0) {
+                toast.info('This booking payment has no refundable balance.');
+                return;
+            }
+            setBookingRefundContext({ booking, submission });
+            setBookingRefundForm({
+                amount: String(refundableAmount),
+                method: submission.paymentMethod || 'cash',
+                reference: '',
+                reason: 'Cancelled booking payment refund'
+            });
+            setBookingRefundOpen(true);
+        } catch (error) {
+            toast.error(error.message || 'The booking payment could not be prepared for refund.');
+        } finally {
+            setOpeningPaymentBookingId(null);
+        }
+    };
+
+    const submitBookingPaymentRefund = async () => {
+        const submission = bookingRefundContext?.submission;
+        const booking = bookingRefundContext?.booking;
+        const amount = Number(bookingRefundForm.amount);
+        const refundableAmount = Number(submission?.refundableAmount || 0);
+        if (!submission || !booking) return;
+        if (!Number.isFinite(amount) || amount <= 0 || amount - refundableAmount > 0.0001) {
+            toast.error(`Refund must be between PHP 0.01 and ${formatPhpCurrency(refundableAmount)}.`);
+            return;
+        }
+        if (!bookingRefundForm.reason.trim()) {
+            toast.error('Enter the reason for this refund.');
+            return;
+        }
+        if (bookingRefundForm.method !== 'cash' && !bookingRefundForm.reference.trim()) {
+            toast.error('Enter the non-cash refund transaction reference.');
+            return;
+        }
+
+        setIsSubmittingBookingRefund(true);
+        try {
+            await postBookingPaymentRefund(booking.id, {
+                submission_id: submission.submissionId,
+                amount,
+                refund_method: bookingRefundForm.method,
+                reference_number: bookingRefundForm.reference.trim() || null,
+                reason: bookingRefundForm.reason.trim()
+            });
+            setBookingRefundOpen(false);
+            setBookingRefundContext(null);
+            toast.success(`Refund of ${formatPhpCurrency(amount)} recorded for ${booking.bookingNumber}.`);
+            await fetchBookings();
+        } catch (error) {
+            toast.error(error.message || 'Failed to record booking payment refund.');
+        } finally {
+            setIsSubmittingBookingRefund(false);
+        }
     };
 
     const createAdminBooking = async () => {
@@ -744,6 +1014,9 @@ export default function BookingsManagement() {
 
         setIsCreatingBooking(true);
         try {
+            const selectedBookingBranchId = filterBranch !== 'all'
+                ? Number(filterBranch)
+                : (lockedBranchId ? Number(lockedBranchId) : null);
             const shouldOpenPOS = adminBookingForm.paymentAction === 'pos';
             const savedServiceType = isOnlineConsultation ? 'consultation' : adminBookingForm.serviceType;
             const serviceLabel = isOnlineConsultation ? 'Online Consultation' : getServiceDisplayName(savedServiceType);
@@ -759,6 +1032,7 @@ export default function BookingsManagement() {
                 pet_id: selectedBookingPet.pet_id,
                 pet_ids: [selectedBookingPet.pet_id],
                 service_type: savedServiceType,
+                branch_id: selectedBookingBranchId,
                 booking_date: adminBookingForm.bookingDate,
                 booking_time: adminBookingForm.bookingTime,
                 registered_status: 'Registered',
@@ -774,6 +1048,8 @@ export default function BookingsManagement() {
                 bookingNumber: result.booking_number,
                 userId: ownerUserId,
                 petId: selectedBookingPet.pet_id,
+                branchId: Number(result.branch_id || 0) || null,
+                branchName: result.branch_name || '',
                 petName: selectedBookingPet.pet_name,
                 petSpecies: selectedBookingPet.pet_species,
                 ownerName: ownerNameForPet(selectedBookingPet),
@@ -855,6 +1131,16 @@ export default function BookingsManagement() {
         setConfirmingBookingId(booking.id);
         try {
             const draft = getReviewDraft(booking);
+            if ((booking.isOnlineConsultation || booking.isHomeService) && !booking.paymentProof) {
+                toast.info('This booking requires payment before confirmation. Opening Point-Of-Sale now.');
+                await sendBookingPaymentToPOS({
+                    ...booking,
+                    type: draft.serviceType,
+                    service: getServiceDisplayName(draft.serviceType),
+                    notes: draft.notes
+                });
+                return;
+            }
             const reviewPayload = {
                 review_notes: draft.notes
             };
@@ -865,22 +1151,10 @@ export default function BookingsManagement() {
 
             if (updated) {
                 toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully.`);
-                if (booking.isOnlineConsultation && !booking.paymentProof) {
-                    sendOnlineBookingToPOS({
-                        ...booking,
-                        type: draft.serviceType,
-                        service: getServiceDisplayName(draft.serviceType),
-                        notes: draft.notes
-                    });
-                }
             }
         } finally {
             setConfirmingBookingId(null);
         }
-    };
-
-    const sendOnlineBookingToPOS = (booking) => {
-        sendBookingPaymentToPOS(booking);
     };
 
     const handleReschedule = (booking) => {
@@ -1131,42 +1405,36 @@ export default function BookingsManagement() {
             return false;
         }
 
-        // Fallback for names to prevent crashes
         const petName = booking.petName || `Unregistered ${booking.petSpecies || 'Pet'}`;
         const ownerName = booking.ownerName || 'Unknown Owner';
         const bookingNumber = booking.bookingNumber || '';
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+        const searchableText = [petName, ownerName, bookingNumber, getBookingServiceName(booking)]
+            .join(' ')
+            .toLowerCase();
 
-        const matchesSearch =
-            petName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            bookingNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        const normalizedBookingType = normalizeBookingFilterValue(booking.type || booking.service);
+        const bookingType = booking.isOnlineConsultation
+            ? 'online-consultation'
+            : booking.isHomeService
+                ? 'home-service'
+                : normalizedBookingType === 'general-checkup'
+                    ? 'general-check-up'
+                    : normalizedBookingType;
+        const matchesSearch = !normalizedQuery || searchableText.includes(normalizedQuery);
+        const matchesType = filterType === 'all' || bookingType === filterType;
+        const matchesDate = bookingMatchesAppointmentFilter(booking, filterDate);
 
-        const matchesType = filterType === 'all'
-            || filterType === 'Service Type'
-            || (filterType === 'online-consultation' ? booking.isOnlineConsultation : booking.type === filterType);
-        const createdDate = new Date(booking.createdAt || booking.date);
-        const today = new Date();
-        const ageLimitDays = {
-            '7d': 7,
-            '14d': 14,
-            '30d': 30
-        }[filterAge];
-        const ageInDays = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
-        const isToday = !Number.isNaN(createdDate.getTime()) && createdDate.toDateString() === today.toDateString();
-        const matchesAge = filterAge === 'today'
-            ? isToday
-            : filterAge === 'all' || booking.status === 'cancelled' || (!Number.isNaN(ageInDays) && ageInDays <= ageLimitDays);
-
-        return matchesSearch && matchesType && matchesAge;
+        return matchesSearch && matchesType && matchesDate;
     };
 
-    const summaryBookings = bookings.filter(bookingMatchesBaseFilters);
+    const summaryBookings = bookings.filter((booking) => (
+        bookingMatchesBaseFilters(booking)
+        && (filterBranch === 'all' || String(booking.branchId) === filterBranch)
+    ));
 
     const filteredBookings = summaryBookings.filter(booking => {
-        const matchesStatus = filterStatus === 'all' || filterStatus === 'Status' || booking.status === filterStatus;
-        const matchesBranch = filterBranch === 'all' || String(booking.branchId) === filterBranch;
-
-        return matchesStatus && matchesBranch;
+        return filterStatus === 'all' || normalizeBookingFilterValue(booking.status) === filterStatus;
     }).sort((a, b) => {
         const statusOrder = {
             'pending': 1,
@@ -1174,8 +1442,46 @@ export default function BookingsManagement() {
             'completed': 3,
             'cancelled': 4
         };
-        return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+        const statusDifference = (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+        if (statusDifference !== 0) return statusDifference;
+
+        const leftDate = bookingAppointmentDate(a)?.getTime() || 0;
+        const rightDate = bookingAppointmentDate(b)?.getTime() || 0;
+        return leftDate - rightDate;
     });
+
+    const filtersAreActive = Boolean(
+        searchQuery.trim()
+        || filterType !== 'all'
+        || filterStatus !== 'all'
+        || filterDate !== 'all'
+        || (!branchFilterLocked && filterBranch !== 'all')
+    );
+
+    const resetBookingFilters = () => {
+        setSearchQuery('');
+        setFilterType('all');
+        setFilterStatus('all');
+        setFilterDate('all');
+        if (!branchFilterLocked) {
+            setFilterBranch('all');
+        }
+    };
+
+    const totalPages = Math.max(1, Math.ceil(filteredBookings.length / BOOKING_PAGE_SIZE));
+    const activePage = Math.min(currentPage, totalPages);
+    const firstBookingIndex = (activePage - 1) * BOOKING_PAGE_SIZE;
+    const paginatedBookings = filteredBookings.slice(firstBookingIndex, firstBookingIndex + BOOKING_PAGE_SIZE);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterType, filterStatus, filterBranch, filterDate]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     return (
         <div className="w-full space-y-6">
@@ -1226,80 +1532,115 @@ export default function BookingsManagement() {
                 </div>
             </div>
 
-            <div className="mb-6 flex flex-col gap-4 min-[1100px]:flex-row min-[1100px]:items-center min-[1100px]:flex-nowrap">
-                <div className="w-full min-[1100px]:min-w-[260px] min-[1100px]:flex-1">
-                    <Input
-                        placeholder="Search by pet name, owner, or booking number..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        leftIcon={<Search className="size-4" />}
-                    />
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="space-y-1.5 sm:col-span-2 xl:col-span-1">
+                        <Label htmlFor="booking-search" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Search bookings
+                        </Label>
+                        <Input
+                            id="booking-search"
+                            placeholder="Pet, owner, booking, or service"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            leftIcon={<Search className="size-4" />}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Clinic location</Label>
+                        {branchFilterLocked ? (
+                            <div className="flex min-h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                {getBranchDisplayName(branches, filterBranch, 'Assigned clinic location')}
+                            </div>
+                        ) : (
+                            <Select value={filterBranch} onValueChange={setFilterBranch}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue
+                                        placeholder="Location"
+                                        displayValue={filterBranch === 'all'
+                                            ? 'All available locations'
+                                            : getBranchDisplayName(branches, filterBranch)}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All available locations</SelectItem>
+                                    {branches.map((branch) => (
+                                        <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Service type</Label>
+                        <Select value={filterType} onValueChange={setFilterType}>
+                            <SelectTrigger className="w-full">
+                                <Filter className="mr-2 size-4 text-slate-400" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All services</SelectItem>
+                                <SelectItem value="online-consultation">Online Consultation</SelectItem>
+                                <SelectItem value="vaccination">Vaccination</SelectItem>
+                                <SelectItem value="grooming">Grooming</SelectItem>
+                                <SelectItem value="dental">Dental</SelectItem>
+                                <SelectItem value="general-check-up">General Check-up</SelectItem>
+                                <SelectItem value="surgery">Surgery</SelectItem>
+                                <SelectItem value="lab-testing">Lab Testing</SelectItem>
+                                <SelectItem value="parasite-control">Parasite Control</SelectItem>
+                                <SelectItem value="home-service">Home Service</SelectItem>
+                                <SelectItem value="special-services">Special Services</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Booking status</Label>
+                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                            <SelectTrigger className="w-full">
+                                <Filter className="mr-2 size-4 text-slate-400" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All statuses</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Appointment date</Label>
+                        <Select value={filterDate} onValueChange={setFilterDate}>
+                            <SelectTrigger className="w-full">
+                                <CalendarClock className="mr-2 size-4 text-slate-400" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All appointment dates</SelectItem>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="next-7-days">Next 7 days</SelectItem>
+                                <SelectItem value="next-30-days">Next 30 days</SelectItem>
+                                <SelectItem value="past">Past appointments</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-
-                <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 min-[900px]:grid-cols-4 min-[1100px]:flex min-[1100px]:w-auto min-[1100px]:flex-none min-[1100px]:flex-nowrap min-[1100px]:items-center">
-                    <Select value={filterBranch} onValueChange={setFilterBranch}>
-                        <SelectTrigger className="w-full min-[1100px]:w-[210px]">
-                            <SelectValue
-                                placeholder="Location"
-                                displayValue={filterBranch === 'all'
-                                    ? 'All available locations'
-                                    : getBranchDisplayName(branches, filterBranch)}
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All available locations</SelectItem>
-                            {branches.map((branch) => (
-                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="w-full min-[1100px]:w-[180px]">
-                            <Filter className="size-4 mr-2" />
-                            <SelectValue placeholder="Service Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Service Type">Service Type</SelectItem>
-                            <SelectItem value="online-consultation">Online Consultation</SelectItem>
-                            <SelectItem value="vaccination">Vaccination</SelectItem>
-                            <SelectItem value="grooming">Grooming</SelectItem>
-                            <SelectItem value="dental">Dental</SelectItem>
-                            <SelectItem value="General Check-up">General Check-up</SelectItem>
-                            <SelectItem value="surgery">Surgery</SelectItem>
-                            <SelectItem value="lab-testing">Lab Testing</SelectItem>
-                            <SelectItem value="parasite-control">Parasite Control</SelectItem>
-                            <SelectItem value="home-service">Home Service</SelectItem>
-                            <SelectItem value="special services">Special Services</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="w-full min-[1100px]:w-[180px]">
-                            <Filter className="size-4 mr-2" />
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Status">Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={filterAge} onValueChange={setFilterAge}>
-                        <SelectTrigger className="w-full min-[1100px]:w-[160px]">
-                            <CalendarClock className="size-4 mr-2" />
-                            <SelectValue placeholder="Age" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Dates</SelectItem>
-                            <SelectItem value="today">Today</SelectItem>
-                            <SelectItem value="7 days">Last 7 Days</SelectItem>
-                            <SelectItem value="2 weeks">Last 2 Weeks</SelectItem>
-                            <SelectItem value="1 month">Last 1 Month</SelectItem>
-                        </SelectContent>
-                    </Select>
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
+                    <p className="text-slate-500 dark:text-slate-400">
+                        Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{filteredBookings.length}</span> matching bookings
+                    </p>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={resetBookingFilters}
+                        disabled={!filtersAreActive}
+                        className="w-full gap-2 sm:w-auto"
+                    >
+                        <X className="size-4" />
+                        Reset filters
+                    </Button>
                 </div>
             </div>
 
@@ -1318,7 +1659,7 @@ export default function BookingsManagement() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredBookings.map((booking) => (
+                        {paginatedBookings.map((booking) => (
                             <TableRow
                                 key={booking.id}
                                 role="button"
@@ -1763,28 +2104,52 @@ export default function BookingsManagement() {
                                                         Payment Proof
                                                     </p>
                                                     {booking.paymentProof ? (
-                                                        <BookingAttachmentCard
-                                                            path={booking.paymentProof}
-                                                            alt="Payment Proof"
-                                                            onPreview={setViewerImage}
-                                                        />
+                                                        <div className="space-y-3">
+                                                            <BookingAttachmentCard
+                                                                path={booking.paymentProof}
+                                                                alt="Payment Proof"
+                                                                onPreview={setViewerImage}
+                                                            />
+                                                            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                                                                {booking.status === 'pending'
+                                                                    ? 'Review this proof as part of booking approval. A separate POS payment action is hidden to prevent duplicate collection.'
+                                                                    : 'Payment proof is already on file. A separate POS payment action is hidden to prevent duplicate collection.'}
+                                                            </div>
+                                                        </div>
                                                     ) : (
                                                         <div className="bg-gray-50 border border-dashed border-gray-300 rounded-[14px] p-6 text-center">
                                                             <p className="text-[14px] text-gray-400">No Proof of Payment</p>
                                                         </div>
                                                     )}
+                                                    {booking.status === 'cancelled' && booking.paymentProof && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            className="mt-3 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                                                            onClick={() => openBookingPaymentRefund(booking)}
+                                                            disabled={openingPaymentBookingId === booking.id}
+                                                        >
+                                                            {openingPaymentBookingId === booking.id
+                                                                ? <Loader2 className="mr-2 size-4 animate-spin" />
+                                                                : <RotateCcw className="mr-2 size-4" />}
+                                                            Record Booking Refund
+                                                        </Button>
+                                                    )}
                                                 </div>
 
-                                                {booking.status !== 'cancelled' && (
+                                                {booking.status !== 'cancelled' && !booking.paymentProof && (
                                                     <div className="border-t pt-4">
                                                         <Button
                                                             type="button"
                                                             variant="outline"
                                                             onClick={() => sendBookingPaymentToPOS(booking)}
+                                                            disabled={openingPaymentBookingId === booking.id}
                                                             className="w-full border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff]"
                                                         >
-                                                            <CreditCard className="size-4 mr-2" />
-                                                            Open Point-Of-Sale Payment
+                                                            {openingPaymentBookingId === booking.id
+                                                                ? <Loader2 className="size-4 mr-2 animate-spin" />
+                                                                : <CreditCard className="size-4 mr-2" />}
+                                                            {openingPaymentBookingId === booking.id ? 'Opening Invoice...' : 'Open Point-Of-Sale Payment'}
                                                         </Button>
                                                         <p className="mt-2 text-[12px] text-[#4a5565]">
                                                             The booked service is carried into Point-Of-Sale automatically. Home-service transport is shown as a separate receipt line.
@@ -1922,9 +2287,23 @@ export default function BookingsManagement() {
                             </TableCell>
                         </TableRow>
                     ))}
+                    {paginatedBookings.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-32 text-center text-sm text-slate-500">
+                                No bookings match the selected filters.
+                            </TableCell>
+                        </TableRow>
+                    )}
                 </TableBody>
             </Table>
             </div>
+            <TablePagination
+                currentPage={activePage}
+                totalItems={filteredBookings.length}
+                pageSize={BOOKING_PAGE_SIZE}
+                onPageChange={setCurrentPage}
+                itemLabel="bookings"
+            />
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
 
             <Dialog open={displayConfigOpen} onOpenChange={setDisplayConfigOpen}>
@@ -2174,7 +2553,7 @@ export default function BookingsManagement() {
                             Add Booking
                         </DialogTitle>
                         <DialogDescription className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                            Create an admin booking for counter payment. After POS payment is posted, the invoice image becomes proof and the booking is auto-confirmed.
+                            Create a counter booking and open its official charges in POS. Online consultation, home service, and boarding remain in their owner-consent workflows.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2276,18 +2655,21 @@ export default function BookingsManagement() {
                                     type="date"
                                     value={adminBookingForm.bookingDate}
                                     onChange={(event) => setAdminBookingForm((current) => ({ ...current, bookingDate: event.target.value }))}
+                                    min={todayInputDate()}
                                     disabled={isCreatingBooking}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Time</Label>
-                                <Input
-                                    type="time"
-                                    value={adminBookingForm.bookingTime}
-                                    onChange={(event) => setAdminBookingForm((current) => ({ ...current, bookingTime: event.target.value }))}
-                                    disabled={isCreatingBooking}
-                                />
-                            </div>
+                            <BookingTimeSlotField
+                                id="admin-booking-time"
+                                service={adminBookingForm.serviceType}
+                                date={adminBookingForm.bookingDate}
+                                branchId={filterBranch !== 'all' ? filterBranch : lockedBranchId}
+                                veterinarianId={adminBookingForm.veterinarianId}
+                                value={adminBookingForm.bookingTime}
+                                onChange={(bookingTime) => setAdminBookingForm((current) => ({ ...current, bookingTime }))}
+                                label="Time"
+                                disabled={isCreatingBooking}
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -2482,6 +2864,84 @@ export default function BookingsManagement() {
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={bookingRefundOpen} onOpenChange={(open) => !isSubmittingBookingRefund && setBookingRefundOpen(open)}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Record Booking Payment Refund</DialogTitle>
+                        <DialogDescription>
+                            Use this only for a verified payment that was cancelled before it became a visit invoice.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                            <p className="font-bold text-slate-900">{bookingRefundContext?.booking?.bookingNumber}</p>
+                            <p className="text-slate-600">
+                                {bookingRefundContext?.booking?.petName} · Refundable {formatPhpCurrency(bookingRefundContext?.submission?.refundableAmount || 0)}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Refund Amount</Label>
+                                <Input
+                                    type="number"
+                                    min="0.01"
+                                    max={bookingRefundContext?.submission?.refundableAmount || undefined}
+                                    step="0.01"
+                                    restriction="decimal"
+                                    value={bookingRefundForm.amount}
+                                    onChange={(event) => setBookingRefundForm((current) => ({ ...current, amount: event.target.value }))}
+                                    disabled={isSubmittingBookingRefund}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Refund Method</Label>
+                                <Select
+                                    value={bookingRefundForm.method}
+                                    onValueChange={(value) => setBookingRefundForm((current) => ({ ...current, method: value, reference: '' }))}
+                                    disabled={isSubmittingBookingRefund}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {refundMethods.map((method) => (
+                                            <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        {bookingRefundForm.method !== 'cash' && (
+                            <div className="space-y-2">
+                                <Label>Refund Transaction Reference</Label>
+                                <Input
+                                    value={bookingRefundForm.reference}
+                                    onChange={(event) => setBookingRefundForm((current) => ({ ...current, reference: event.target.value }))}
+                                    restriction="alphanumeric"
+                                    placeholder="Bank or wallet refund reference"
+                                    disabled={isSubmittingBookingRefund}
+                                />
+                            </div>
+                        )}
+                        <div className="space-y-2">
+                            <Label>Reason</Label>
+                            <Textarea
+                                value={bookingRefundForm.reason}
+                                onChange={(event) => setBookingRefundForm((current) => ({ ...current, reason: event.target.value }))}
+                                rows={3}
+                                maxLength={500}
+                                disabled={isSubmittingBookingRefund}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setBookingRefundOpen(false)} disabled={isSubmittingBookingRefund}>Cancel</Button>
+                        <Button variant="destructive" onClick={submitBookingPaymentRefund} disabled={isSubmittingBookingRefund}>
+                            {isSubmittingBookingRefund && <Loader2 className="mr-2 size-4 animate-spin" />}
+                            {isSubmittingBookingRefund ? 'Recording...' : 'Record Refund'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Reschedule Dialog */}
             <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
                 <DialogContent className="max-w-xl">
@@ -2510,14 +2970,34 @@ export default function BookingsManagement() {
                                         type="date"
                                         value={newDate}
                                         onChange={(e) => setNewDate(e.target.value)}
+                                        min={todayInputDate()}
                                         className="w-full"
                                     />
-                                    <Input
-                                        type="time"
-                                        value={newTime}
-                                        onChange={(e) => setNewTime(e.target.value)}
-                                        className="w-full"
-                                    />
+                                    {isBoardingBooking(currentRescheduleBooking) ? (
+                                        <Input
+                                            type="time"
+                                            value={newTime}
+                                            onChange={(e) => setNewTime(e.target.value)}
+                                            className="w-full"
+                                        />
+                                    ) : (
+                                        <BookingTimeSlotField
+                                            id="reschedule-booking-time"
+                                            service={currentRescheduleBooking?.isOnlineConsultation
+                                                ? 'online-consultation'
+                                                : currentRescheduleBooking?.isHomeService
+                                                    ? 'home-service'
+                                                    : currentRescheduleBooking?.type}
+                                            date={newDate}
+                                            branchId={currentRescheduleBooking?.branchId}
+                                            veterinarianId={currentRescheduleBooking?.veterinarianId}
+                                            value={newTime}
+                                            onChange={setNewTime}
+                                            label="New time"
+                                            allowCurrentValue={newDate === currentRescheduleBooking?.date}
+                                            className="w-full"
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>

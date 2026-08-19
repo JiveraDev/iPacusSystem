@@ -46,6 +46,7 @@ function ipawcus_public_route(string $path): bool
         '/self-service/access',
         '/status-display',
         '/tv-status',
+        '/booking-availability',
         '/notifications/reminders/run',
     ], true) || preg_match('#^/auth/#', $path);
 }
@@ -121,6 +122,14 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if (preg_match('#^/bookings/\d+/status$#', $path)) {
         return ['roles' => ipawcus_roles('owner_or_admin')];
+    }
+
+    if (preg_match('#^/bookings/\d+/billing-context$#', $path)) {
+        return ['roles' => ipawcus_roles('admin')];
+    }
+
+    if (preg_match('#^/bookings/\d+/payment-refunds$#', $path)) {
+        return ['roles' => ipawcus_roles('admin')];
     }
 
     if (preg_match('#^/bookings/\d+/(schedule|receive)$#', $path)) {
@@ -289,6 +298,7 @@ function ipawcus_media_access_roles(string $relativePath): array
 
     return match ($directory) {
         'inventory_items', 'inventory_receipts' => ipawcus_roles('admin'),
+        'invoices' => ipawcus_roles('owner_or_clinic'),
         'boarding_documents' => ipawcus_roles('clinic'),
         'signatures' => ipawcus_roles('owner_or_clinic'),
         'payment_qr', 'pet_profile_images', 'uploads' => ipawcus_roles('all'),
@@ -461,6 +471,99 @@ function ipawcus_owner_can_view_media(PDO $pdo, int $ownerUserId, string $relati
         }
     }
 
+    if (
+        ipawcus_media_table_exists($pdo, 'visit_invoice_documents')
+        && ipawcus_media_table_exists($pdo, 'visits')
+    ) {
+        $pathParams = [];
+        $pathCondition = ipawcus_media_path_condition(
+            $pdo,
+            'invoice_document',
+            'visit_invoice_documents',
+            ['file_path'],
+            $relativePath,
+            $pathParams
+        );
+
+        if ($pathCondition !== '') {
+            $petOwnershipAccess = ipawcus_media_table_exists($pdo, 'pet_ownership')
+                ? " OR EXISTS (
+                        SELECT 1
+                        FROM pet_ownership po
+                        WHERE po.pet_id = invoice_document.pet_id
+                          AND po.user_id = ?
+                    )"
+                : '';
+            $accessParams = $petOwnershipAccess !== ''
+                ? [$ownerUserId, $ownerUserId]
+                : [$ownerUserId];
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM visit_invoice_documents invoice_document
+                JOIN visits visit_record ON visit_record.visit_id = invoice_document.visit_id
+                WHERE (
+                    visit_record.owner_user_id = ?
+                    {$petOwnershipAccess}
+                )
+                  AND {$pathCondition}
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge($accessParams, $pathParams));
+            if ((int)$stmt->fetchColumn() > 0) {
+                return true;
+            }
+        }
+    }
+
+    if (ipawcus_media_table_exists($pdo, 'vet_diagnoses')
+        && ipawcus_media_table_exists($pdo, 'pet_ownership')) {
+        $pathParams = [];
+        $pathCondition = ipawcus_media_path_condition($pdo, 'vd', 'vet_diagnoses', [
+            'attachments',
+            'source_uploads',
+        ], $relativePath, $pathParams);
+
+        if ($pathCondition !== '') {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM vet_diagnoses vd
+                JOIN pet_ownership po ON po.pet_id = vd.pet_id
+                WHERE po.user_id = ?
+                  AND {$pathCondition}
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge([$ownerUserId], $pathParams));
+            if ((int)$stmt->fetchColumn() > 0) {
+                return true;
+            }
+        }
+    }
+
+    if (ipawcus_media_table_exists($pdo, 'pet_medical_record_group_items')
+        && ipawcus_media_table_exists($pdo, 'pet_medical_record_groups')
+        && ipawcus_media_table_exists($pdo, 'pet_ownership')) {
+        $pathParams = [];
+        $pathCondition = ipawcus_media_path_condition($pdo, 'i', 'pet_medical_record_group_items', [
+            'source_snapshot',
+        ], $relativePath, $pathParams);
+
+        if ($pathCondition !== '') {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM pet_medical_record_group_items i
+                JOIN pet_medical_record_groups g ON g.group_id = i.group_id
+                JOIN pet_ownership po ON po.pet_id = g.pet_id
+                WHERE po.user_id = ?
+                  AND {$pathCondition}
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge([$ownerUserId], $pathParams));
+            if ((int)$stmt->fetchColumn() > 0) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 
@@ -475,7 +578,7 @@ function ipawcus_enforce_media_access(PDO $pdo, string $relativePath): array
     }
 
     $directory = explode('/', trim(str_replace('\\', '/', $relativePath), '/'), 2)[0] ?? '';
-    if ($role === 'pet_owner' && in_array($directory, ['concerns', 'payments', 'signatures'], true)) {
+    if ($role === 'pet_owner' && in_array($directory, ['concerns', 'diagnosis', 'invoices', 'payments', 'signatures'], true)) {
         if (!ipawcus_owner_can_view_media($pdo, (int)($user['user_id'] ?? 0), $relativePath)) {
             ipawcus_access_json(403, 'You can only view media attached to your own records.', 'media_owner_forbidden');
         }

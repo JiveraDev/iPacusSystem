@@ -141,12 +141,201 @@ function onlineConsultationWithReschedules(PDO $pdo, ?array $consultation): ?arr
 
 function getJitsiBaseUrl(): string
 {
+    $jaasAppId = getJaaSAppId();
+    if ($jaasAppId !== null) {
+        return 'https://8x8.vc/' . $jaasAppId;
+    }
+
     $baseUrl = trim((string)(getenv('JITSI_BASE_URL') ?: 'https://meet.jit.si'));
     if (strtolower($baseUrl) === 'public') {
         $baseUrl = 'https://meet.jit.si';
     }
 
     return rtrim($baseUrl, '/');
+}
+
+function getJaaSAppId(): ?string
+{
+    $appId = trim((string)(getenv('JAAS_APP_ID') ?: ''));
+
+    if ($appId === '') {
+        $configuredBaseUrl = trim((string)(getenv('JITSI_BASE_URL') ?: ''));
+        $path = parse_url($configuredBaseUrl, PHP_URL_PATH);
+        $host = strtolower((string)(parse_url($configuredBaseUrl, PHP_URL_HOST) ?: ''));
+
+        if ($host === '8x8.vc' && is_string($path)) {
+            $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+            $appId = trim((string)($segments[0] ?? ''));
+        }
+    }
+
+    if ($appId === '') {
+        return null;
+    }
+
+    if (!preg_match('/^vpaas-magic-cookie-[a-zA-Z0-9]+$/', $appId)) {
+        throw new RuntimeException('JAAS_APP_ID is invalid. Copy the complete AppID from the 8x8 JaaS console.');
+    }
+
+    return $appId;
+}
+
+function getJitsiMeetingProvider(): string
+{
+    // The existing database enum identifies both public Jitsi and JaaS as "jitsi".
+    return 'jitsi';
+}
+
+function resolveJitsiMeetingUrl(?string $meetingCode, ?string $storedUrl = null): ?string
+{
+    $roomName = trim((string)$meetingCode);
+    if ($roomName !== '') {
+        return getJitsiBaseUrl() . '/' . rawurlencode($roomName);
+    }
+
+    $url = trim((string)$storedUrl);
+    return $url !== '' ? $url : null;
+}
+
+function jaasBase64UrlEncode(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function getJaaSPrivateKeyMaterial(): ?string
+{
+    $inlineKey = trim((string)(getenv('JAAS_PRIVATE_KEY') ?: ''));
+    $privateKeyPath = trim((string)(getenv('JAAS_PRIVATE_KEY_PATH') ?: ''));
+
+    if ($inlineKey !== '') {
+        return str_replace('\\n', "\n", $inlineKey);
+    }
+
+    if ($privateKeyPath === '') {
+        return null;
+    }
+
+    if (!is_readable($privateKeyPath)) {
+        throw new RuntimeException('JAAS_PRIVATE_KEY_PATH is not readable by PHP.');
+    }
+
+    $privateKey = file_get_contents($privateKeyPath);
+    if ($privateKey === false || trim($privateKey) === '') {
+        throw new RuntimeException('The configured JaaS private key is empty.');
+    }
+
+    return $privateKey;
+}
+
+function getJaaSJwtConfiguration(): ?array
+{
+    $appId = getJaaSAppId();
+    if ($appId === null) {
+        return null;
+    }
+
+    $keyId = trim((string)(getenv('JAAS_KEY_ID') ?: ''));
+    $privateKey = getJaaSPrivateKeyMaterial();
+
+    if ($keyId === '' && $privateKey === null) {
+        return null;
+    }
+
+    if ($keyId === '' || $privateKey === null) {
+        throw new RuntimeException('JaaS JWT configuration is incomplete. Set both JAAS_KEY_ID and a private key.');
+    }
+
+    if (!str_contains($keyId, '/')) {
+        $keyId = $appId . '/' . $keyId;
+    }
+
+    if (!str_starts_with($keyId, $appId . '/')) {
+        throw new RuntimeException('JAAS_KEY_ID must belong to the configured JAAS_APP_ID.');
+    }
+
+    return [
+        'appId' => $appId,
+        'keyId' => $keyId,
+        'privateKey' => $privateKey,
+    ];
+}
+
+function createJaaSMeetingJwt(array $user, string $roomName): ?string
+{
+    $configuration = getJaaSJwtConfiguration();
+    if ($configuration === null) {
+        return null;
+    }
+
+    $normalizedRoomName = trim($roomName);
+    if ($normalizedRoomName === '' || str_contains($normalizedRoomName, '/')) {
+        throw new RuntimeException('A valid JaaS room name is required before a meeting token can be issued.');
+    }
+
+    $userId = (int)($user['user_id'] ?? $user['id'] ?? 0);
+    if ($userId <= 0) {
+        throw new RuntimeException('A signed-in user is required before a JaaS meeting token can be issued.');
+    }
+
+    $role = ipawcus_access_normalize_role($user['role'] ?? $user['normalized_role'] ?? '');
+    $isModerator = in_array($role, ['veterinarian', 'super_admin'], true);
+    $displayName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')));
+    $now = time();
+    $ttl = (int)(getenv('JAAS_JWT_TTL_SECONDS') ?: 7200);
+    $ttl = max(300, min($ttl, 14400));
+
+    $header = [
+        'alg' => 'RS256',
+        'kid' => $configuration['keyId'],
+        'typ' => 'JWT',
+    ];
+    $payload = [
+        'aud' => 'jitsi',
+        'iss' => 'chat',
+        'iat' => $now,
+        'nbf' => $now - 10,
+        'exp' => $now + $ttl,
+        'sub' => $configuration['appId'],
+        'room' => $normalizedRoomName,
+        'context' => [
+            'features' => [
+                'livestreaming' => false,
+                'recording' => false,
+                'transcription' => false,
+                'outbound-call' => false,
+                'sip-outbound-call' => false,
+                'file-upload' => false,
+                'list-visitors' => false,
+            ],
+            'room' => [
+                'regex' => false,
+            ],
+            'user' => [
+                'id' => (string)$userId,
+                'name' => $displayName !== '' ? $displayName : 'iPawcus User',
+                'email' => trim((string)($user['mail_Address'] ?? $user['email'] ?? '')),
+                'avatar' => '',
+                'moderator' => $isModerator,
+                'hidden-from-recorder' => false,
+            ],
+        ],
+    ];
+
+    $encodedHeader = jaasBase64UrlEncode((string)json_encode($header, JSON_UNESCAPED_SLASHES));
+    $encodedPayload = jaasBase64UrlEncode((string)json_encode($payload, JSON_UNESCAPED_SLASHES));
+    $signingInput = $encodedHeader . '.' . $encodedPayload;
+    $privateKey = openssl_pkey_get_private($configuration['privateKey']);
+
+    if ($privateKey === false) {
+        throw new RuntimeException('The configured JaaS private key is not a valid PEM private key.');
+    }
+
+    $signature = '';
+    if (!openssl_sign($signingInput, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+        throw new RuntimeException('PHP could not sign the JaaS meeting token.');
+    }
+
+    return $signingInput . '.' . jaasBase64UrlEncode($signature);
 }
 
 function createJitsiRoomForBooking(int $bookingId): array
@@ -158,6 +347,7 @@ function createJitsiRoomForBooking(int $bookingId): array
     return [
         'roomName' => $roomName,
         'meetingUrl' => $baseUrl . '/' . $roomName,
+        'meetingProvider' => getJitsiMeetingProvider(),
     ];
 }
 
@@ -205,7 +395,7 @@ function createOnlineConsultationForBooking(PDO $pdo, int $bookingId): ?array
             meeting_url,
             meeting_code,
             status
-        ) VALUES (?, ?, ?, ?, ?, 'jitsi', ?, ?, 'scheduled')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
     ");
     $insert->execute([
         $bookingId,
@@ -213,6 +403,7 @@ function createOnlineConsultationForBooking(PDO $pdo, int $bookingId): ?array
         $veterinarianId,
         $scheduledStart->format('Y-m-d H:i:s'),
         $scheduledEnd->format('Y-m-d H:i:s'),
+        $meeting['meetingProvider'],
         $meeting['meetingUrl'],
         $meeting['roomName'],
     ]);

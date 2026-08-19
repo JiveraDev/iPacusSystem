@@ -1,8 +1,11 @@
-import { apiFetch, readJsonResponse } from './apiClient';
+import { postJson } from './apiClient';
+import { getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
 export class LoginError extends Error {
     constructor(message, details = {}) {
-        super(message);
+        super(getUserFacingErrorMessage(message, 'Login failed. Please check your details and try again.', {
+            context: 'Login error details were hidden from the user interface.'
+        }));
         this.name = "LoginError";
         this.code = details.code || "";
         this.email = details.email || "";
@@ -11,22 +14,15 @@ export class LoginError extends Error {
 }
 
 export async function loginUser(payload) {
-    const response = await apiFetch('/login', {
-        apiPrefix: true,
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-    });
+    let data;
 
-    const data = await readJsonResponse(response);
-
-    if (!response.ok) {
-        throw new LoginError(data.message || `Login failed with status ${response.status}`, {
-            code: data.code,
-            email: data.email,
-            status: response.status,
+    try {
+        data = await postJson('/login', payload, { apiPrefix: true });
+    } catch (error) {
+        throw new LoginError(error.message, {
+            code: error?.data?.code,
+            email: error?.data?.email,
+            status: error?.status,
         });
     }
 

@@ -307,24 +307,36 @@ export default function VetDiagnosisHistory() {
             const data = clinicResult.value;
 
             if (data.schemaReady === false) {
-                errors.push(data.message || 'Diagnosis table is not ready.');
+                if (!isAutoRefresh) {
+                    console.error('Clinic diagnosis history is unavailable:', data.message || data);
+                }
+                errors.push('Clinic diagnosis history is temporarily unavailable.');
             } else {
                 nextRecords.push(...safeArray(data.records).map(mapClinicRecord));
             }
         } else {
-            errors.push(clinicResult.reason?.message || 'Failed to load clinic diagnosis histories.');
+            if (!isAutoRefresh) {
+                console.error('Failed to load clinic diagnosis history:', clinicResult.reason);
+            }
+            errors.push('Clinic diagnosis history could not be loaded.');
         }
 
         if (onlineResult.status === 'fulfilled') {
             nextRecords.push(...safeArray(onlineResult.value).filter(hasOnlineDiagnosis).map(mapOnlineRecord));
         } else {
-            errors.push(onlineResult.reason?.message || 'Failed to load online consultation histories.');
+            if (!isAutoRefresh) {
+                console.error('Failed to load online consultation history:', onlineResult.reason);
+            }
+            errors.push('Online consultation history could not be loaded.');
         }
 
         if (boardingResult.status === 'fulfilled') {
             nextRecords.push(...safeArray(boardingResult.value).filter(isCompletedBoarding).map(mapBoardingRecord));
         } else {
-            errors.push(boardingResult.reason?.message || 'Failed to load completed boarding histories.');
+            if (!isAutoRefresh) {
+                console.error('Failed to load completed boarding history:', boardingResult.reason);
+            }
+            errors.push('Completed boarding history could not be loaded.');
         }
 
         setRecords(nextRecords.sort(compareByDateDesc));
@@ -801,22 +813,42 @@ function ConsentDocumentList({ title, forms, booking, onPreview }) {
 
 function ConsentDocumentCard({ form, booking, onPreview }) {
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isOpening, setIsOpening] = useState(false);
     const {
         source,
+        isPdf,
         isLoading,
         isReconstructed,
         isUnavailable
     } = useConsentDocumentSource(form, booking?.legacyConsentSignaturePath);
     const title = form.title || form.name || 'Signed Consent Form';
+    const handleView = async () => {
+        if (!source || isOpening) return;
+        if (!isPdf) {
+            onPreview?.({ src: source, alt: `${title} complete signed document` });
+            return;
+        }
+
+        setIsOpening(true);
+        try {
+            await openProtectedDocument(source);
+        } catch (error) {
+            console.error('Failed to open a consent PDF from diagnosis history:', error);
+            toast.error('The consent PDF could not be opened. Please try again.');
+        } finally {
+            setIsOpening(false);
+        }
+    };
 
     const handleDownload = async () => {
         if (!source || isDownloading) return;
 
         setIsDownloading(true);
         try {
-            await downloadConsentDocument(source, `${booking?.bookingNumber || 'diagnosis'}-${title}.png`);
+            await downloadConsentDocument(source, `${booking?.bookingNumber || 'diagnosis'}-${title}`);
         } catch (error) {
-            toast.error(error.message || 'Could not download the complete consent form.');
+            console.error('Failed to download a consent form from diagnosis history:', error);
+            toast.error('The consent form could not be downloaded. Please try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -826,12 +858,19 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             <div className="flex h-56 items-center justify-center bg-white">
                 {source ? (
-                    <ProtectedImage
-                        src={source}
-                        alt={`${title} complete signed document`}
-                        className="h-full w-full object-contain"
-                        fallbackClassName="h-full w-full"
-                    />
+                    isPdf ? (
+                        <button type="button" onClick={handleView} className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-500 hover:bg-slate-50">
+                            <FileText className="size-9 text-blue-600" />
+                            <span className="text-xs font-bold">Open signed consent PDF</span>
+                        </button>
+                    ) : (
+                        <ProtectedImage
+                            src={source}
+                            alt={`${title} complete signed document`}
+                            className="h-full w-full object-contain"
+                            fallbackClassName="h-full w-full"
+                        />
+                    )
                 ) : isLoading ? (
                     <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
                         <Loader2 className="size-5 animate-spin" />
@@ -839,7 +878,7 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                     </div>
                 ) : (
                     <p className="px-4 text-center text-xs font-semibold leading-5 text-amber-700">
-                        Complete consent image unavailable
+                        Complete consent document unavailable
                     </p>
                 )}
             </div>
@@ -849,19 +888,19 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                     {isReconstructed && <p className="mt-1 text-xs font-semibold text-amber-700">Rebuilt legacy full form</p>}
                     {isUnavailable && <p className="mt-1 text-xs font-semibold text-slate-500">Signature-only display is disabled.</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => source && onPreview?.({ src: source, alt: `${title} complete signed document` })}
-                        disabled={!source}
+                        onClick={handleView}
+                        disabled={!source || isOpening}
                         className="h-8 gap-1 text-xs"
                     >
-                        <Eye className="size-3" />
-                        View
+                        {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
+                        {isPdf ? 'Open PDF' : 'View'}
                     </Button>
-                    <Button
+                    {!isPdf && <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -871,7 +910,7 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                         Download
-                    </Button>
+                    </Button>}
                 </div>
             </div>
         </div>
@@ -1050,6 +1089,8 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
     const source = attachment.preview || attachment.url || attachment.relativeUrl || '';
     const url = resolveFileUrl(source);
     const name = attachment.name || pathFileName(url);
+    const isPdf = String(attachment.mimeType || attachment.mime_type || '').toLowerCase() === 'application/pdf'
+        || source.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
     const canPreview = isImageFile({ ...attachment, url });
 
     const handleView = async () => {
@@ -1063,7 +1104,8 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
         try {
             await openProtectedDocument(source);
         } catch (error) {
-            toast.error(error.message || 'Could not open the attachment.');
+            console.error('Failed to open a diagnosis-history attachment:', error);
+            toast.error('The attachment could not be opened. Please try again.');
         } finally {
             setIsOpening(false);
         }
@@ -1076,7 +1118,8 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
         try {
             await downloadConsentDocument(source, name);
         } catch (error) {
-            toast.error(error.message || 'Could not download the attachment.');
+            console.error('Failed to download a diagnosis-history attachment:', error);
+            toast.error('The attachment could not be downloaded. Please try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -1098,7 +1141,7 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
             </div>
             <div className="space-y-2 p-3">
                 <p className="truncate text-xs font-semibold text-slate-600">{name}</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     <Button
                         type="button"
                         variant="outline"
@@ -1108,9 +1151,9 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
                         className="h-8 gap-1 text-xs"
                     >
                         {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                        View
+                        {isPdf ? 'Open PDF' : 'View'}
                     </Button>
-                    <Button
+                    {!isPdf && <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -1120,7 +1163,7 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                         Download
-                    </Button>
+                    </Button>}
                 </div>
             </div>
         </div>

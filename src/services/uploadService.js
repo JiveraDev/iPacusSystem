@@ -14,6 +14,20 @@ export async function uploadImageFile(file, type = 'booking_concern', options = 
     return data.relative_url || data.protected_url || data.url;
 }
 
+export async function uploadDocumentFile(file, type, options = {}) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+
+    const data = await apiRequest('/upload', {
+        method: 'POST',
+        body: formData,
+        ...options
+    });
+
+    return data.relative_url || data.protected_url || data.url || null;
+}
+
 export function dataUrlToFile(dataUrl, fileName) {
     const [header, base64Value = ''] = String(dataUrl || '').split(',');
     const mime = header.match(/:(.*?);/)?.[1] || 'image/png';

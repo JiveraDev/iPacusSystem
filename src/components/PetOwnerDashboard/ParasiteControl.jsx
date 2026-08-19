@@ -17,6 +17,8 @@ import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 export default function ParasiteControl() {
   const navigate = useNavigate();
@@ -27,18 +29,21 @@ export default function ParasiteControl() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => {
+    const prefill = readBookingAvailabilitySelection('parasite-control');
+    return ({
     petId: "",
     petName: "",
     newPetSpecies: "",
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
-    branchId: "",
-    date: "",
-    time: "",
+    branchId: prefill?.branchId ? String(prefill.branchId) : "",
+    date: prefill?.date || "",
+    time: prefill?.time || "",
     notes: "",
     files: [],
+    });
   });
 
   useEffect(() => {
@@ -68,6 +73,11 @@ export default function ParasiteControl() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) {
+      return;
+    }
+
+    if (!formData.branchId || !formData.date || !formData.time) {
+      toast.error("Select a clinic location and an available appointment date and time.");
       return;
     }
     
@@ -318,16 +328,15 @@ export default function ParasiteControl() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="time">Preferred Time *</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    required
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  />
-                </div>
+                <BookingTimeSlotField
+                  id="time"
+                  service="parasite-control"
+                  date={formData.date}
+                  branchId={formData.branchId}
+                  value={formData.time}
+                  onChange={(time) => setFormData((current) => ({ ...current, time }))}
+                  label="Preferred time"
+                />
               </div>
 
               <div className="space-y-2">

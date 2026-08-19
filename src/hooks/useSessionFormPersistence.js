@@ -19,6 +19,7 @@ const PET_OWNER_BOOKING_ROUTES = [
 ];
 
 const BLOCKED_FIELD_PATTERN = /(password|passcode|otp|one.?time|token|secret|signature|payment|card|cvv|cvc|proof|receipt|bank|gcash|maya|account.?number|access.?key|private.?key|upload|attachment|file)/i;
+const TRANSIENT_CONTROL_PATTERN = /(^|\b)(search|filter|sort|pagination|page.?size|date.?range)(\b|$)/i;
 const BLOCKED_INPUT_TYPES = new Set(['button', 'file', 'hidden', 'image', 'password', 'reset', 'submit']);
 
 function normalizeRole(role) {
@@ -80,6 +81,16 @@ function isPersistableField(field) {
         return false;
     }
 
+    const descriptor = fieldDescriptor(field);
+    if (
+        String(field.getAttribute('role') || '').toLowerCase() === 'searchbox'
+        || (field instanceof HTMLInputElement && String(field.type || '').toLowerCase() === 'search')
+        || TRANSIENT_CONTROL_PATTERN.test(descriptor)
+        || field.closest('[role="search"], [data-filter-bar]')
+    ) {
+        return false;
+    }
+
     const isSessionSelect = field instanceof HTMLInputElement && field.dataset.sessionPersist === 'select';
     if (
         field instanceof HTMLInputElement
@@ -89,7 +100,7 @@ function isPersistableField(field) {
         return false;
     }
 
-    return !BLOCKED_FIELD_PATTERN.test(fieldDescriptor(field));
+    return !BLOCKED_FIELD_PATTERN.test(descriptor);
 }
 
 function getFields(root) {

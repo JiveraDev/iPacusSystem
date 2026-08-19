@@ -95,12 +95,18 @@ export default function PetRegister() {
     };
 
     const handleStatusChange = async (petId, newStatus) => {
+        const currentPet = registeredPets.find((pet) => String(pet.id) === String(petId));
+        if (!currentPet || currentPet.status === newStatus) {
+            return;
+        }
         try {
-            await updatePetStatus(petId, { status: newStatus });
+            const response = await updatePetStatus(petId, { status: newStatus });
             setRegisteredPets(prev => prev.map(pet => 
                 pet.id === petId ? { ...pet, status: newStatus } : pet
             ));
-            toast.success(`Pet status updated to ${newStatus}`);
+            if (!response?.unchanged) {
+                toast.success(`Pet status updated to ${newStatus}.`);
+            }
         } catch (error) {
             console.error('Failed to update status:', error);
             toast.error("Error updating pet status");
@@ -435,9 +441,11 @@ export default function PetRegister() {
                                     </label>
                                     <Input
                                         value={formData.microchipNumber}
-                                        onChange={(e) => handleInputChange('microchipNumber', e.target.value)}
-                                        placeholder="Enter microchip number"
-                                        restriction="alphanumeric"
+                                        onChange={(e) => handleInputChange('microchipNumber', e.target.value.replace(/\D/g, '').slice(0, 15))}
+                                        placeholder="Up to 15 digits"
+                                        restriction="digits"
+                                        inputMode="numeric"
+                                        maxLength={15}
                                         className="h-[40px]"
                                     />
                                 </div>

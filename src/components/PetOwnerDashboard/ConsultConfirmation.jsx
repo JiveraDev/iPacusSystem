@@ -413,9 +413,9 @@ export default function ConsultConfirmation() {
                 </h3>
                 <p className="text-gray-700 mb-4">
                   {canJoin
-                    ? "Your veterinarian has started the consultation. Click below to join the Jitsi room."
+                    ? "Your veterinarian has started the consultation. Click below to join the 8x8 JaaS room."
                     : consultation.status !== "confirmed"
-                      ? "The Jitsi room will be created after admin approval."
+                      ? "The 8x8 JaaS room will be created after admin approval."
                       : !onlineConsultation?.meetingUrl
                         ? "The consultation room is not available yet."
                         : !vetHasStarted

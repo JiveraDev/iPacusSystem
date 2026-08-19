@@ -347,29 +347,17 @@ function reports_doughnut_chart(array $labels, array $values, string $label): ar
 
 function reports_revenue_breakdown_trend(PDO $pdo, array $range, array &$missing): array
 {
-    if (!reports_has_tables($pdo, ['visits', 'visit_charges'], $missing)) {
-        return reports_empty_chart('line');
-    }
-
-    $period = reports_period_expression('v.created_at', $range);
-    $rows = reports_fetch_all($pdo, "
-        SELECT
-            {$period['expression']} AS period_label,
-            COALESCE(SUM(CASE WHEN vc.charge_type IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS product_revenue,
-            COALESCE(SUM(CASE WHEN vc.charge_type NOT IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS service_revenue
-        FROM visits v
-        LEFT JOIN visit_charges vc ON vc.visit_id = v.visit_id
-        WHERE v.created_at BETWEEN ? AND ?
-        GROUP BY period_label
-        ORDER BY period_label ASC
-    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Revenue breakdown trend data could not be loaded.');
-
+    $period = reports_period_expression('created_at', $range);
+    $rows = reports_collection_rows($pdo, $range, [], $missing);
     $services = [];
     $products = [];
     foreach ($rows as $row) {
-        $periodLabel = (string)$row['period_label'];
-        $services[$periodLabel] = reports_money($row['service_revenue']);
-        $products[$periodLabel] = reports_money($row['product_revenue']);
+        $periodLabel = reports_period_label_for_datetime((string)($row['created_at'] ?? ''), $range);
+        if ($periodLabel === '') {
+            continue;
+        }
+        $services[$periodLabel] = ($services[$periodLabel] ?? 0) + (float)($row['service_sales'] ?? 0);
+        $products[$periodLabel] = ($products[$periodLabel] ?? 0) + (float)($row['product_sales'] ?? 0);
     }
 
     $merged = reports_merge_period_values([
@@ -418,6 +406,35 @@ function reports_period_expression(string $column, array $range): array
     ];
 }
 
+function reports_period_label_for_datetime(string $dateTime, array $range): string
+{
+    if (trim($dateTime) === '') {
+        return '';
+    }
+
+    try {
+        $value = new DateTimeImmutable($dateTime, new DateTimeZone(REPORTS_TIMEZONE));
+    } catch (Throwable $error) {
+        return '';
+    }
+
+    $start = new DateTimeImmutable($range['start_date'], new DateTimeZone(REPORTS_TIMEZONE));
+    $end = new DateTimeImmutable($range['end_date'], new DateTimeZone(REPORTS_TIMEZONE));
+    $days = $start->diff($end)->days + 1;
+
+    if ($range['range'] === 'today') {
+        return $value->format('Y-m-d H:00');
+    }
+    if ($range['range'] === 'this_year' || $days > 180) {
+        return $value->format('Y-m');
+    }
+    if ($range['range'] === 'this_quarter' || $days > 45) {
+        return $value->format('Y') . '-W' . $value->format('W');
+    }
+
+    return $value->format('Y-m-d');
+}
+
 function reports_merge_period_values(array $datasets): array
 {
     $labels = [];
@@ -445,19 +462,11 @@ function reports_revenue_diagnosis_trend(PDO $pdo, array $range, array &$missing
     $revenue = [];
     $diagnoses = [];
 
-    if (reports_has_tables($pdo, ['visits', 'visit_charges'], $missing)) {
-        $period = reports_period_expression('v.created_at', $range);
-        $rows = reports_fetch_all($pdo, "
-            SELECT {$period['expression']} AS period_label, COALESCE(SUM(vc.subtotal), 0) AS total_revenue
-            FROM visits v
-            LEFT JOIN visit_charges vc ON vc.visit_id = v.visit_id
-            WHERE v.created_at BETWEEN ? AND ?
-            GROUP BY period_label
-            ORDER BY period_label ASC
-        ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Revenue trend data could not be loaded.');
-
-        foreach ($rows as $row) {
-            $revenue[(string)$row['period_label']] = reports_money($row['total_revenue']);
+    $collectionRows = reports_collection_rows($pdo, $range, [], $missing);
+    foreach ($collectionRows as $row) {
+        $periodLabel = reports_period_label_for_datetime((string)($row['created_at'] ?? ''), $range);
+        if ($periodLabel !== '') {
+            $revenue[$periodLabel] = ($revenue[$periodLabel] ?? 0) + (float)($row['total_bill'] ?? 0);
         }
     }
 
@@ -799,22 +808,8 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         return [];
     }
 
-    $where = ["(
-        v.created_at BETWEEN ? AND ?
-        OR EXISTS (
-            SELECT 1
-            FROM visit_payments pm_range
-            WHERE pm_range.visit_id = v.visit_id
-              AND pm_range.payment_status NOT IN ('voided', 'failed')
-              AND pm_range.paid_at BETWEEN ? AND ?
-        )
-    )"];
-    $params = [
-        $range['start_datetime'],
-        $range['end_datetime'],
-        $range['start_datetime'],
-        $range['end_datetime'],
-    ];
+    $where = ['v.created_at BETWEEN ? AND ?'];
+    $params = [$range['start_datetime'], $range['end_datetime']];
 
     if (!empty($filters['payment_method'])) {
         $where[] = "EXISTS (
@@ -822,11 +817,20 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
             FROM visit_payments pm_filter
             WHERE pm_filter.visit_id = v.visit_id
               AND pm_filter.payment_method = ?
+              AND pm_filter.payment_status IN ('verified', 'refunded')
         )";
         $params[] = $filters['payment_method'];
     }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
+    $refundSelect = reports_table_exists($pdo, 'visit_payment_refunds')
+        ? "- COALESCE((
+                SELECT SUM(vpr.amount)
+                FROM visit_payment_refunds vpr
+                WHERE vpr.visit_id = v.visit_id
+                  AND vpr.refund_status = 'processed'
+            ), 0)"
+        : '';
     $sql = "
         SELECT
             v.visit_id,
@@ -843,7 +847,7 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
             COALESCE(SUM(CASE WHEN vc.charge_type IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS product_sales,
             COALESCE(SUM(CASE WHEN vc.charge_type NOT IN ('medication', 'retail_product', 'consumable') THEN vc.subtotal ELSE 0 END), 0) AS service_sales,
             GROUP_CONCAT(DISTINCT vc.description ORDER BY vc.description SEPARATOR ', ') AS charges_summary,
-            COALESCE(pay.paid_amount, 0) AS paid_amount,
+            GREATEST(COALESCE(pay.paid_amount, 0) {$refundSelect}, 0) AS paid_amount,
             COALESCE(pay.payment_methods, '') AS payment_methods,
             pay.last_paid_at
         FROM visits v
@@ -854,11 +858,11 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         LEFT JOIN (
             SELECT
                 visit_id,
-                SUM(CASE WHEN payment_status = 'verified' THEN amount ELSE 0 END) AS paid_amount,
+                SUM(CASE WHEN payment_status IN ('verified', 'refunded') THEN amount ELSE 0 END) AS paid_amount,
                 GROUP_CONCAT(DISTINCT payment_method ORDER BY payment_method SEPARATOR ', ') AS payment_methods,
                 MAX(paid_at) AS last_paid_at
             FROM visit_payments
-            WHERE payment_status NOT IN ('voided', 'failed')
+            WHERE payment_status IN ('verified', 'refunded')
             GROUP BY visit_id
         ) pay ON pay.visit_id = v.visit_id
         WHERE " . implode(' AND ', $where) . "
@@ -898,10 +902,90 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         $row['service_sales'] = reports_money($row['service_sales']);
         $row['product_sales'] = reports_money($row['product_sales']);
         $row['paid_amount'] = reports_money($row['paid_amount']);
-        $row['balance'] = reports_money(max(0, $row['total_bill'] - $row['paid_amount']));
+        $wasFullyRefunded = strtolower((string)($row['billing_status'] ?? '')) === 'refunded'
+            && (float)$row['paid_amount'] <= 0.0001;
+        $row['balance'] = $wasFullyRefunded
+            ? 0.0
+            : reports_money(max(0, $row['total_bill'] - $row['paid_amount']));
+        if ($wasFullyRefunded) {
+            $row['billing_status'] = 'refunded';
+        } elseif ((float)$row['balance'] <= 0.0001 && (float)$row['total_bill'] > 0) {
+            $row['billing_status'] = 'paid';
+        } elseif ((float)$row['paid_amount'] > 0) {
+            $row['billing_status'] = 'partial';
+        } else {
+            $row['billing_status'] = 'unpaid';
+        }
     }
 
-    return array_merge($rows, reports_record_update_payment_rows($pdo, $range, $filters, $missing));
+    return array_merge(
+        $rows,
+        reports_record_update_payment_rows($pdo, $range, $filters, $missing),
+        reports_unlinked_booking_billing_rows($pdo, $range, $filters, $missing)
+    );
+}
+
+function reports_unlinked_booking_billing_rows(PDO $pdo, array $range, array $filters, array &$missing): array
+{
+    if (!reports_has_tables($pdo, ['booking_payment_submissions', 'bookings', 'pets_information', 'users'], $missing)) {
+        return [];
+    }
+    $refundSelect = reports_table_exists($pdo, 'booking_payment_refunds')
+        ? "- COALESCE((
+                SELECT SUM(refund.amount)
+                FROM booking_payment_refunds refund
+                WHERE refund.booking_payment_submission_id = submission.submission_id
+                  AND refund.refund_status = 'processed'
+            ), 0)"
+        : '';
+    $where = [
+        "submission.submission_status IN ('verified', 'refunded')",
+        'submission.linked_visit_payment_id IS NULL',
+        'submission.submitted_at BETWEEN ? AND ?',
+    ];
+    $params = [$range['start_datetime'], $range['end_datetime']];
+    if (!empty($filters['payment_method'])) {
+        $where[] = 'submission.payment_method = ?';
+        $params[] = $filters['payment_method'];
+    }
+    reports_append_branch_filter($where, $params, $filters, 'booking.branch_id');
+    $rows = reports_fetch_all($pdo, "
+        SELECT
+            CONCAT('booking-payment-', submission.submission_id) AS visit_id,
+            'Verified booking payment' AS source_label,
+            DATE(submission.submitted_at) AS visit_date,
+            submission.submitted_at AS created_at,
+            'booking' AS source_type,
+            booking.status AS visit_status,
+            CASE WHEN submission.submission_status = 'refunded' THEN 'refunded' ELSE 'paid' END AS billing_status,
+            COALESCE(pet.pet_name, booking.unregistered_pet_name, 'Unknown Pet') AS pet_name,
+            COALESCE(pet.pet_species, booking.petType, '') AS pet_species,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+            'Unassigned' AS veterinarian_name,
+            GREATEST(submission.amount {$refundSelect}, 0) AS total_bill,
+            0 AS product_sales,
+            GREATEST(submission.amount {$refundSelect}, 0) AS service_sales,
+            CONCAT('Verified ', REPLACE(submission.purpose, '_', ' ')) AS charges_summary,
+            GREATEST(submission.amount {$refundSelect}, 0) AS paid_amount,
+            submission.payment_method AS payment_methods,
+            submission.submitted_at AS last_paid_at
+        FROM booking_payment_submissions submission
+        JOIN bookings booking ON booking.booking_id = submission.booking_id
+        LEFT JOIN pets_information pet ON pet.pet_id = booking.pet_id
+        LEFT JOIN users owner ON owner.user_id = booking.user_id
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY submission.submitted_at DESC
+    ", $params, $missing, 'Unlinked booking billing data could not be loaded.');
+    foreach ($rows as &$row) {
+        $row['total_bill'] = reports_money($row['total_bill']);
+        $row['service_sales'] = reports_money($row['service_sales']);
+        $row['product_sales'] = 0.0;
+        $row['paid_amount'] = reports_money($row['paid_amount']);
+        $row['balance'] = 0.0;
+    }
+    unset($row);
+
+    return $rows;
 }
 
 function reports_record_update_payment_rows(PDO $pdo, array $range, array $filters, array &$missing): array
@@ -960,6 +1044,211 @@ function reports_record_update_payment_rows(PDO $pdo, array $range, array $filte
     return $rows;
 }
 
+function reports_collection_rows(PDO $pdo, array $range, array $filters, array &$missing): array
+{
+    if (!reports_has_tables($pdo, ['visit_payments', 'visits', 'visit_charges', 'pets_information', 'users'], $missing)) {
+        return reports_record_update_payment_rows($pdo, $range, $filters, $missing);
+    }
+
+    $where = [
+        "vp.payment_status IN ('verified', 'refunded')",
+        'vp.paid_at BETWEEN ? AND ?',
+    ];
+    $params = [$range['start_datetime'], $range['end_datetime']];
+    if (!empty($filters['payment_method'])) {
+        $where[] = 'vp.payment_method = ?';
+        $params[] = $filters['payment_method'];
+    }
+    reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
+
+    $rows = reports_fetch_all($pdo, "
+        SELECT
+            CONCAT('payment-', vp.payment_id) AS visit_id,
+            DATE(vp.paid_at) AS visit_date,
+            vp.paid_at AS created_at,
+            v.source_type,
+            v.visit_status,
+            'paid' AS billing_status,
+            COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
+            COALESCE(p.pet_species, '') AS pet_species,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+            COALESCE(NULLIF(TRIM(CONCAT(COALESCE(vet.first_Name, ''), ' ', COALESCE(vet.last_Name, ''))), ''), vet.mail_Address, 'Unassigned') AS veterinarian_name,
+            COALESCE(charges.total_bill, 0) AS invoice_total,
+            COALESCE(charges.product_sales, 0) AS invoice_product_sales,
+            COALESCE(charges.service_sales, 0) AS invoice_service_sales,
+            vp.amount AS collection_amount,
+            vp.payment_method AS payment_methods,
+            vp.paid_at AS last_paid_at,
+            CONCAT('Verified payment ', COALESCE(vp.reference_number, CONCAT('#', vp.payment_id))) AS charges_summary,
+            'Verified visit payment' AS source_label
+        FROM visit_payments vp
+        JOIN visits v ON v.visit_id = vp.visit_id
+        LEFT JOIN pets_information p ON p.pet_id = v.pet_id
+        LEFT JOIN users owner ON owner.user_id = v.owner_user_id
+        LEFT JOIN users vet ON vet.user_id = v.veterinarian_user_id
+        LEFT JOIN (
+            SELECT
+                visit_id,
+                SUM(subtotal) AS total_bill,
+                SUM(CASE WHEN charge_type IN ('medication', 'retail_product', 'consumable') THEN subtotal ELSE 0 END) AS product_sales,
+                SUM(CASE WHEN charge_type NOT IN ('medication', 'retail_product', 'consumable') THEN subtotal ELSE 0 END) AS service_sales
+            FROM visit_charges
+            GROUP BY visit_id
+        ) charges ON charges.visit_id = v.visit_id
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY vp.paid_at DESC
+    ", $params, $missing, 'Verified payment collection data could not be loaded.');
+
+    if (reports_table_exists($pdo, 'visit_payment_refunds')) {
+        $refundWhere = [
+            "refund.refund_status = 'processed'",
+            'refund.processed_at BETWEEN ? AND ?',
+        ];
+        $refundParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $refundWhere[] = 'refund.refund_method = ?';
+            $refundParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
+        $refundRows = reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('refund-', refund.refund_id) AS visit_id,
+                DATE(refund.processed_at) AS visit_date,
+                refund.processed_at AS created_at,
+                v.source_type,
+                v.visit_status,
+                'refunded' AS billing_status,
+                COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(p.pet_species, '') AS pet_species,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(vet.first_Name, ''), ' ', COALESCE(vet.last_Name, ''))), ''), vet.mail_Address, 'Unassigned') AS veterinarian_name,
+                COALESCE(charges.total_bill, 0) AS invoice_total,
+                COALESCE(charges.product_sales, 0) AS invoice_product_sales,
+                COALESCE(charges.service_sales, 0) AS invoice_service_sales,
+                -refund.amount AS collection_amount,
+                refund.refund_method AS payment_methods,
+                refund.processed_at AS last_paid_at,
+                CONCAT('Refund: ', refund.reason) AS charges_summary,
+                'Processed refund' AS source_label
+            FROM visit_payment_refunds refund
+            JOIN visits v ON v.visit_id = refund.visit_id
+            LEFT JOIN pets_information p ON p.pet_id = v.pet_id
+            LEFT JOIN users owner ON owner.user_id = v.owner_user_id
+            LEFT JOIN users vet ON vet.user_id = v.veterinarian_user_id
+            LEFT JOIN (
+                SELECT
+                    visit_id,
+                    SUM(subtotal) AS total_bill,
+                    SUM(CASE WHEN charge_type IN ('medication', 'retail_product', 'consumable') THEN subtotal ELSE 0 END) AS product_sales,
+                    SUM(CASE WHEN charge_type NOT IN ('medication', 'retail_product', 'consumable') THEN subtotal ELSE 0 END) AS service_sales
+                FROM visit_charges
+                GROUP BY visit_id
+            ) charges ON charges.visit_id = v.visit_id
+            WHERE " . implode(' AND ', $refundWhere) . "
+            ORDER BY refund.processed_at DESC
+        ", $refundParams, $missing, 'Refund collection data could not be loaded.');
+        $rows = array_merge($rows, $refundRows);
+    }
+
+    if (reports_table_exists($pdo, 'booking_payment_submissions')) {
+        $bookingWhere = [
+            "submission.submission_status IN ('verified', 'refunded')",
+            'submission.linked_visit_payment_id IS NULL',
+            'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
+        ];
+        $bookingParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $bookingWhere[] = 'submission.payment_method = ?';
+            $bookingParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
+        $bookingRows = reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('booking-payment-', submission.submission_id) AS visit_id,
+                DATE(COALESCE(submission.reviewed_at, submission.submitted_at)) AS visit_date,
+                COALESCE(submission.reviewed_at, submission.submitted_at) AS created_at,
+                CASE WHEN submission.purpose = 'online_consultation' THEN 'online_consultation' ELSE 'booking' END AS source_type,
+                b.status AS visit_status,
+                'paid' AS billing_status,
+                COALESCE(p.pet_name, b.unregistered_pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(p.pet_species, b.petType, '') AS pet_species,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+                'Unassigned' AS veterinarian_name,
+                submission.amount AS invoice_total,
+                0 AS invoice_product_sales,
+                submission.amount AS invoice_service_sales,
+                submission.amount AS collection_amount,
+                submission.payment_method AS payment_methods,
+                COALESCE(submission.reviewed_at, submission.submitted_at) AS last_paid_at,
+                CONCAT('Verified ', REPLACE(submission.purpose, '_', ' '), ' ', COALESCE(submission.reference_number, CONCAT('#', submission.submission_id))) AS charges_summary,
+                'Verified booking payment' AS source_label
+            FROM booking_payment_submissions submission
+            JOIN bookings b ON b.booking_id = submission.booking_id
+            LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+            LEFT JOIN users owner ON owner.user_id = b.user_id
+            WHERE " . implode(' AND ', $bookingWhere) . "
+            ORDER BY COALESCE(submission.reviewed_at, submission.submitted_at) DESC
+        ", $bookingParams, $missing, 'Verified booking payment data could not be loaded.');
+        $rows = array_merge($rows, $bookingRows);
+    }
+
+    if (reports_table_exists($pdo, 'booking_payment_refunds')) {
+        $bookingRefundWhere = [
+            "refund.refund_status = 'processed'",
+            'refund.processed_at BETWEEN ? AND ?',
+        ];
+        $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $bookingRefundWhere[] = 'refund.refund_method = ?';
+            $bookingRefundParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
+        $bookingRefundRows = reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('booking-refund-', refund.refund_id) AS visit_id,
+                DATE(refund.processed_at) AS visit_date,
+                refund.processed_at AS created_at,
+                'booking' AS source_type,
+                booking.status AS visit_status,
+                'refunded' AS billing_status,
+                COALESCE(pet.pet_name, booking.unregistered_pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(pet.pet_species, booking.petType, '') AS pet_species,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS owner_name,
+                'Unassigned' AS veterinarian_name,
+                refund.amount AS invoice_total,
+                0 AS invoice_product_sales,
+                refund.amount AS invoice_service_sales,
+                -refund.amount AS collection_amount,
+                refund.refund_method AS payment_methods,
+                refund.processed_at AS last_paid_at,
+                CONCAT('Booking refund: ', refund.reason) AS charges_summary,
+                'Processed booking refund' AS source_label
+            FROM booking_payment_refunds refund
+            JOIN bookings booking ON booking.booking_id = refund.booking_id
+            LEFT JOIN pets_information pet ON pet.pet_id = booking.pet_id
+            LEFT JOIN users owner ON owner.user_id = booking.user_id
+            WHERE " . implode(' AND ', $bookingRefundWhere) . "
+            ORDER BY refund.processed_at DESC
+        ", $bookingRefundParams, $missing, 'Booking refund collection data could not be loaded.');
+        $rows = array_merge($rows, $bookingRefundRows);
+    }
+
+    foreach ($rows as &$row) {
+        $amount = (float)($row['collection_amount'] ?? 0);
+        $invoiceTotal = (float)($row['invoice_total'] ?? 0);
+        $invoiceProduct = (float)($row['invoice_product_sales'] ?? 0);
+        $productShare = $invoiceTotal > 0.0001 ? min(1, max(0, $invoiceProduct / $invoiceTotal)) : 0;
+        $row['product_sales'] = reports_money($amount * $productShare);
+        $row['service_sales'] = reports_money($amount - (float)$row['product_sales']);
+        $row['total_bill'] = reports_money($amount);
+        $row['paid_amount'] = reports_money($amount);
+        $row['balance'] = 0.0;
+    }
+    unset($row);
+
+    return array_merge($rows, reports_record_update_payment_rows($pdo, $range, $filters, $missing));
+}
+
 function reports_financial_totals(array $visitRows): array
 {
     $totals = [
@@ -992,7 +1281,7 @@ function reports_financial_totals(array $visitRows): array
 function reports_sales_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
-    $visitRows = reports_financial_visit_rows($pdo, $range, $filters, $missing);
+    $visitRows = reports_collection_rows($pdo, $range, $filters, $missing);
     $daily = [];
     $paymentCounts = [];
 
@@ -1046,11 +1335,11 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         'rows' => array_values($daily),
         'totals' => $totals + ['most_used_payment_method' => $topPaymentMethod],
         'summary' => [
-            'text' => "Total charges reached {$totals['total_sales']} with {$dominantCategory} contributing the larger share. The most used payment method is {$topPaymentMethod}.",
+            'text' => "Net verified collections reached {$totals['total_sales']} with {$dominantCategory} contributing the larger share. The most used payment method is {$topPaymentMethod}.",
             'bullets' => [
                 "Total sales: {$totals['total_sales']}",
                 "Paid amount: {$totals['paid_amount']}",
-                "Unpaid balance: {$totals['unpaid_balance']}",
+                'Refunds in the selected period are shown as negative collections.',
             ],
         ],
         'chart' => [
@@ -1105,7 +1394,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
         return reports_blank_report('invoice_receipt', $missing);
     }
 
-    $where = ['vp.paid_at BETWEEN ? AND ?'];
+    $where = ["vp.payment_status IN ('verified', 'refunded')", 'vp.paid_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
     if (!empty($filters['payment_method'])) {
         $where[] = 'vp.payment_method = ?';
@@ -1132,6 +1421,131 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
         WHERE " . implode(' AND ', $where) . "
         ORDER BY vp.paid_at DESC
     ", $params, $missing, 'Payment receipt data could not be loaded.');
+
+    if (reports_table_exists($pdo, 'visit_payment_refunds')) {
+        $refundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
+        $refundParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $refundWhere[] = 'refund.refund_method = ?';
+            $refundParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
+        $rows = array_merge($rows, reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('INV-', LPAD(v.visit_id, 6, '0')) AS invoice_number,
+                CONCAT('RF-', LPAD(refund.refund_id, 6, '0')) AS receipt_number,
+                DATE(refund.processed_at) AS payment_date,
+                COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
+                refund.refund_method AS payment_method,
+                'refunded' AS payment_status,
+                refund.reference_number,
+                -refund.amount AS amount_paid,
+                refund.processed_by_name AS processed_by
+            FROM visit_payment_refunds refund
+            JOIN visits v ON v.visit_id = refund.visit_id
+            LEFT JOIN pets_information p ON p.pet_id = v.pet_id
+            LEFT JOIN users owner ON owner.user_id = v.owner_user_id
+            WHERE " . implode(' AND ', $refundWhere) . "
+            ORDER BY refund.processed_at DESC
+        ", $refundParams, $missing, 'Refund receipt data could not be loaded.'));
+    }
+
+    if (reports_table_exists($pdo, 'booking_payment_submissions')) {
+        $bookingWhere = [
+            "submission.submission_status IN ('verified', 'refunded')",
+            'submission.linked_visit_payment_id IS NULL',
+            'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
+        ];
+        $bookingParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $bookingWhere[] = 'submission.payment_method = ?';
+            $bookingParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
+        $rows = array_merge($rows, reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('BOOK-', b.booking_number) AS invoice_number,
+                CONCAT('BP-', LPAD(submission.submission_id, 6, '0')) AS receipt_number,
+                DATE(COALESCE(submission.reviewed_at, submission.submitted_at)) AS payment_date,
+                COALESCE(p.pet_name, b.unregistered_pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
+                submission.payment_method,
+                submission.submission_status AS payment_status,
+                submission.reference_number,
+                submission.amount AS amount_paid,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(reviewer.first_Name, ''), ' ', COALESCE(reviewer.last_Name, ''))), ''), 'Booking payment review') AS processed_by
+            FROM booking_payment_submissions submission
+            JOIN bookings b ON b.booking_id = submission.booking_id
+            LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+            LEFT JOIN users owner ON owner.user_id = b.user_id
+            LEFT JOIN users reviewer ON reviewer.user_id = submission.reviewed_by_user_id
+            WHERE " . implode(' AND ', $bookingWhere) . "
+            ORDER BY COALESCE(submission.reviewed_at, submission.submitted_at) DESC
+        ", $bookingParams, $missing, 'Booking payment receipt data could not be loaded.'));
+    }
+
+    if (reports_table_exists($pdo, 'booking_payment_refunds')) {
+        $bookingRefundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
+        $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $bookingRefundWhere[] = 'refund.refund_method = ?';
+            $bookingRefundParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
+        $rows = array_merge($rows, reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('BOOK-', booking.booking_number) AS invoice_number,
+                CONCAT('BR-', LPAD(refund.refund_id, 6, '0')) AS receipt_number,
+                DATE(refund.processed_at) AS payment_date,
+                COALESCE(pet.pet_name, booking.unregistered_pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
+                refund.refund_method AS payment_method,
+                'refunded' AS payment_status,
+                refund.reference_number,
+                -refund.amount AS amount_paid,
+                refund.processed_by_name AS processed_by
+            FROM booking_payment_refunds refund
+            JOIN bookings booking ON booking.booking_id = refund.booking_id
+            LEFT JOIN pets_information pet ON pet.pet_id = booking.pet_id
+            LEFT JOIN users owner ON owner.user_id = booking.user_id
+            WHERE " . implode(' AND ', $bookingRefundWhere) . "
+            ORDER BY refund.processed_at DESC
+        ", $bookingRefundParams, $missing, 'Booking refund receipt data could not be loaded.'));
+    }
+
+    if (reports_table_exists($pdo, 'pet_record_update_requests')) {
+        $recordWhere = [
+            "request.payment_status = 'verified'",
+            'COALESCE(request.reviewed_at, request.updated_at, request.created_at) BETWEEN ? AND ?',
+        ];
+        $recordParams = [$range['start_datetime'], $range['end_datetime']];
+        if (!empty($filters['payment_method'])) {
+            $recordWhere[] = 'request.payment_method = ?';
+            $recordParams[] = $filters['payment_method'];
+        }
+        reports_append_branch_filter($recordWhere, $recordParams, $filters, 'request.branch_id');
+        $rows = array_merge($rows, reports_fetch_all($pdo, "
+            SELECT
+                CONCAT('REQ-', request.request_number) AS invoice_number,
+                CONCAT('RR-', LPAD(request.request_id, 6, '0')) AS receipt_number,
+                DATE(COALESCE(request.reviewed_at, request.updated_at, request.created_at)) AS payment_date,
+                COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
+                request.payment_method,
+                request.payment_status,
+                request.payment_reference AS reference_number,
+                request.payment_amount AS amount_paid,
+                'Record update review' AS processed_by
+            FROM pet_record_update_requests request
+            LEFT JOIN pets_information p ON p.pet_id = request.pet_id
+            LEFT JOIN users owner ON owner.user_id = request.owner_user_id
+            WHERE " . implode(' AND ', $recordWhere) . "
+            ORDER BY COALESCE(request.reviewed_at, request.updated_at, request.created_at) DESC
+        ", $recordParams, $missing, 'Record update receipt data could not be loaded.'));
+    }
+
+    usort($rows, static fn(array $left, array $right): int => strcmp((string)$right['payment_date'], (string)$left['payment_date']));
 
     $totalPaid = 0;
     foreach ($rows as &$row) {
@@ -1263,7 +1677,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
             ['key' => 'service_type', 'label' => 'Type'],
             ['key' => 'usage_count', 'label' => 'Times Used'],
             ['key' => 'total_quantity', 'label' => 'Quantity'],
-            ['key' => 'total_revenue', 'label' => 'Revenue'],
+            ['key' => 'total_revenue', 'label' => 'Billed Value'],
         ],
         'rows' => $rows,
         'totals' => [
@@ -1897,7 +2311,7 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
 function reports_medicine_product_sales_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
-    if (!reports_has_tables($pdo, ['visit_charges'], $missing)) {
+    if (!reports_has_tables($pdo, ['visit_charges', 'visits', 'visit_payments'], $missing)) {
         return reports_blank_report('medicine_product_sales', $missing);
     }
 
@@ -1923,23 +2337,59 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         $where[] = 'ii.category = ?';
         $params[] = $filters['inventory_category'];
     }
-    $visitJoin = $branchId > 0 ? 'JOIN visits report_visit ON report_visit.visit_id = vc.visit_id' : '';
+    $visitJoin = 'JOIN visits report_visit ON report_visit.visit_id = vc.visit_id';
     if ($branchId > 0) {
         $where[] = 'report_visit.branch_id = ?';
         $params[] = $branchId;
     }
+
+    $refundJoin = reports_table_exists($pdo, 'visit_payment_refunds')
+        ? "LEFT JOIN (
+               SELECT visit_id, SUM(amount) AS refunded_amount
+               FROM visit_payment_refunds
+               WHERE refund_status = 'processed'
+               GROUP BY visit_id
+           ) refund_totals ON refund_totals.visit_id = vc.visit_id"
+        : '';
+    $refundAmount = reports_table_exists($pdo, 'visit_payment_refunds')
+        ? 'COALESCE(refund_totals.refunded_amount, 0)'
+        : '0';
+    $collectionRatio = "CASE
+        WHEN COALESCE(invoice_totals.invoice_total, 0) <= 0 THEN 0
+        ELSE LEAST(
+            1,
+            GREATEST(
+                0,
+                (COALESCE(payment_totals.paid_amount, 0) - {$refundAmount})
+                    / invoice_totals.invoice_total
+            )
+        )
+    END";
 
     $rows = reports_fetch_all($pdo, "
         SELECT
             {$itemName} AS item_name,
             {$category} AS category,
             SUM(vc.quantity) AS quantity_sold,
-            SUM(vc.subtotal) AS total_sales,
+            SUM(vc.subtotal * ({$collectionRatio})) AS total_sales,
             {$stock} AS remaining_stock
         FROM visit_charges vc
         {$visitJoin}
         {$itemJoin}
         {$batchJoin}
+        LEFT JOIN (
+            SELECT visit_id, SUM(subtotal) AS invoice_total
+            FROM visit_charges
+            GROUP BY visit_id
+        ) invoice_totals ON invoice_totals.visit_id = vc.visit_id
+        LEFT JOIN (
+            SELECT
+                visit_id,
+                SUM(CASE WHEN payment_status IN ('verified', 'refunded') THEN amount ELSE 0 END) AS paid_amount
+            FROM visit_payments
+            GROUP BY visit_id
+        ) payment_totals ON payment_totals.visit_id = vc.visit_id
+        {$refundJoin}
         WHERE " . implode(' AND ', $where) . "
         GROUP BY {$itemName}, {$category}, {$stock}
         ORDER BY total_sales DESC, quantity_sold DESC
@@ -1955,7 +2405,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         $totalSales += (float)$row['total_sales'];
     }
 
-    $topItem = $rows[0]['item_name'] ?? 'No sold item';
+    $topItem = $rows[0]['item_name'] ?? 'No issued item';
 
     return [
         'type' => 'medicine_product_sales',
@@ -1963,8 +2413,8 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         'columns' => [
             ['key' => 'item_name', 'label' => 'Medicine/Product'],
             ['key' => 'category', 'label' => 'Category'],
-            ['key' => 'quantity_sold', 'label' => 'Quantity Sold'],
-            ['key' => 'total_sales', 'label' => 'Total Sales'],
+            ['key' => 'quantity_sold', 'label' => 'Quantity Issued'],
+            ['key' => 'total_sales', 'label' => 'Net Collected Value'],
             ['key' => 'remaining_stock', 'label' => 'Remaining Stock'],
         ],
         'rows' => $rows,
@@ -1974,10 +2424,10 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
             'total_product_revenue' => reports_money($totalSales),
         ],
         'summary' => [
-            'text' => "Top-selling item is {$topItem}. Total product/medicine revenue is " . reports_money($totalSales) . '.',
+            'text' => "Top collected item is {$topItem}. Net collected product/medicine value is " . reports_money($totalSales) . '; quantities remain based on issued inventory lines.',
             'bullets' => [],
         ],
-        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'item_name', 'total_sales', 'Sales'),
+        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'item_name', 'total_sales', 'Net Collected'),
         'missing_data' => $missing,
     ];
 }
@@ -2000,6 +2450,45 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
     $durationSelect = reports_table_exists($pdo, 'boarding_assignments')
         ? "DATEDIFF(COALESCE(DATE(ba.actual_check_out_at), b.check_out_date, b.check_in_date), COALESCE(DATE(ba.actual_check_in_at), b.check_in_date)) + 1"
         : "DATEDIFF(COALESCE(b.check_out_date, b.check_in_date, b.booking_date), COALESCE(b.check_in_date, b.booking_date)) + 1";
+    $billingJoin = '';
+    $billingSelect = 'b.price AS total_charge, 0 AS paid_amount, b.price AS balance,';
+    if (reports_has_tables($pdo, ['visits', 'visit_charges', 'visit_payments'], $missing)) {
+        $refundAggregate = reports_table_exists($pdo, 'visit_payment_refunds')
+            ? "LEFT JOIN (
+                    SELECT visit_id, SUM(amount) AS refund_total
+                    FROM visit_payment_refunds
+                    WHERE refund_status = 'processed'
+                    GROUP BY visit_id
+                ) refunds ON refunds.visit_id = visit.visit_id"
+            : '';
+        $refundExpression = reports_table_exists($pdo, 'visit_payment_refunds')
+            ? ' - COALESCE(refunds.refund_total, 0)'
+            : '';
+        $billingJoin = "LEFT JOIN (
+            SELECT
+                visit.booking_id,
+                SUM(COALESCE(charges.charge_total, 0)) AS invoice_total,
+                SUM(GREATEST(COALESCE(payments.payment_total, 0) {$refundExpression}, 0)) AS paid_total
+            FROM visits visit
+            LEFT JOIN (
+                SELECT visit_id, SUM(subtotal) AS charge_total
+                FROM visit_charges
+                GROUP BY visit_id
+            ) charges ON charges.visit_id = visit.visit_id
+            LEFT JOIN (
+                SELECT visit_id, SUM(amount) AS payment_total
+                FROM visit_payments
+                WHERE payment_status IN ('verified', 'refunded')
+                GROUP BY visit_id
+            ) payments ON payments.visit_id = visit.visit_id
+            {$refundAggregate}
+            WHERE visit.visit_status <> 'cancelled'
+            GROUP BY visit.booking_id
+        ) billing ON billing.booking_id = b.booking_id";
+        $billingSelect = "CASE WHEN COALESCE(billing.invoice_total, 0) > 0 THEN billing.invoice_total ELSE b.price END AS total_charge,
+            COALESCE(billing.paid_total, 0) AS paid_amount,
+            GREATEST((CASE WHEN COALESCE(billing.invoice_total, 0) > 0 THEN billing.invoice_total ELSE b.price END) - COALESCE(billing.paid_total, 0), 0) AS balance,";
+    }
 
     $boardingWhere = [
         "b.service_type = 'boarding'",
@@ -2015,11 +2504,12 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
             {$petSelect}
             {$assignmentSelect}
             {$durationSelect} AS duration_days,
-            b.price AS total_charge,
+            {$billingSelect}
             b.status AS booking_status
         FROM bookings b
         {$petJoin}
         {$assignmentJoin}
+        {$billingJoin}
         WHERE " . implode(' AND ', $boardingWhere) . "
         ORDER BY COALESCE(b.check_in_date, b.booking_date) DESC
     ", $boardingParams, $missing, 'Confinement and pet hotel data could not be loaded.');
@@ -2027,6 +2517,8 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
     foreach ($rows as &$row) {
         $row['duration_days'] = max(1, reports_int($row['duration_days']));
         $row['total_charge'] = reports_money($row['total_charge']);
+        $row['paid_amount'] = reports_money($row['paid_amount']);
+        $row['balance'] = reports_money($row['balance']);
     }
 
     return [
@@ -2042,12 +2534,16 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
             ['key' => 'duration_days', 'label' => 'Duration'],
             ['key' => 'room_type', 'label' => 'Room/Cage'],
             ['key' => 'total_charge', 'label' => 'Charge'],
+            ['key' => 'paid_amount', 'label' => 'Paid'],
+            ['key' => 'balance', 'label' => 'Balance'],
             ['key' => 'stay_status', 'label' => 'Status'],
         ],
         'rows' => $rows,
         'totals' => [
             'total_stays' => count($rows),
             'total_charge' => reports_money(array_sum(array_column($rows, 'total_charge'))),
+            'total_paid' => reports_money(array_sum(array_column($rows, 'paid_amount'))),
+            'total_balance' => reports_money(array_sum(array_column($rows, 'balance'))),
         ],
         'summary' => [
             'text' => count($rows) . ' confinement/pet hotel stays overlap with this date range.',
@@ -2672,7 +3168,7 @@ function reports_report_profile(string $type): array
             'metrics' => ['total_paid', 'total_records'],
         ],
         'service_utilization' => [
-            'purpose' => 'Shows which clinic services are most and least used and how much revenue each service contributes.',
+            'purpose' => 'Shows which clinic services are most and least used and the billed value recorded for each service.',
             'use' => 'Use this report for service planning, staffing alignment, and pricing or promotion review.',
             'metrics' => ['total_services', 'unique_services', 'most_used_service', 'least_used_service'],
         ],
@@ -2712,8 +3208,8 @@ function reports_report_profile(string $type): array
             'metrics' => ['total_movements', 'received_items', 'used_sold_adjusted_out'],
         ],
         'medicine_product_sales' => [
-            'purpose' => 'Summarizes medicine and retail product sales with quantity sold, revenue, and remaining stock reference.',
-            'use' => 'Use this report to connect product demand with replenishment and clinic revenue.',
+            'purpose' => 'Summarizes issued medicine and retail product quantities, their allocated net collections, and remaining stock reference.',
+            'use' => 'Use this report to connect product demand and stock reduction with payments and refunds.',
             'metrics' => ['total_product_revenue', 'total_quantity_sold', 'top_selling_item'],
         ],
         'confinement_pet_hotel' => [
@@ -2824,7 +3320,7 @@ function reports_metric_detail(string $type, string $key, $value, array $totals)
         'unpaid_or_partial_count' => 'Number of visits that are not fully settled.',
         'completion_rate' => 'Completed appointments compared with total scheduled appointments.',
         'average_waiting_minutes' => 'Average time from queue entry to veterinarian receive time when receive data is available.',
-        'total_product_revenue' => 'Revenue from medicine, retail products, and consumables.',
+        'total_product_revenue' => 'Net collected value allocated to medicine, retail products, and consumables after processed refunds.',
         'total_charge' => 'Total recorded charges for the stay records in this report.',
         'most_used_payment_method' => 'Payment method appearing most often in the selected report data.',
         'most_active_veterinarian' => 'Veterinarian with the highest completed case count in this report.',
@@ -2892,7 +3388,7 @@ function reports_management_actions(string $type, array $totals, array $rows, ar
     } elseif ($type === 'stock_movement') {
         $actions[] = 'Match stock movement references against POS, diagnosis, receipt, disposal, and manual adjustment records.';
     } elseif ($type === 'medicine_product_sales') {
-        $actions[] = 'Use the top-selling and remaining-stock data to plan replenishment and prevent service disruption.';
+        $actions[] = 'Compare issued quantity, net collected value, and remaining stock to reconcile POS activity and plan replenishment.';
     } elseif ($type === 'consent_form') {
         if ((int)($totals['pending'] ?? 0) > 0) {
             $actions[] = 'Follow up pending consent records before procedures, boarding, or service release.';

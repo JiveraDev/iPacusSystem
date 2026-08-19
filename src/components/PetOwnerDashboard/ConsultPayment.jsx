@@ -12,12 +12,12 @@ import SignatureCapture from "../SignatureCapture";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
-import { createConsentDocumentImage } from "../../services/consentDocumentImage";
-import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
+import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf";
+import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { isValidPhilippinePhone, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
-import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { paymentMethodInstruction, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import ProtectedImage from "../shared/ProtectedImage";
@@ -36,15 +36,17 @@ export default function ConsultPayment() {
     paymentMethod: "",
     referenceNumber: "",
     senderNumber: "",
-    amount: "",
+    amount: "500.00",
     receiptFile: null,
   });
-  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const { paymentMethods: configuredPaymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const paymentMethods = configuredPaymentMethods;
   const selectedMethod = paymentMethods.find((m) => m.value === formData.paymentMethod);
-  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
-  const senderRequiresPhilippineMobile = ["gcash", "maya"].includes(String(selectedMethod?.value || "").toLowerCase());
+  const senderRequiresPhilippineMobile = selectedMethod?.methodType === 'ewallet';
   const selectedQrUrl = selectedMethod?.qrImageUrl || "";
-  const isMobileWalletPaymentMethod = (value) => ["gcash", "maya"].includes(String(value || "").toLowerCase());
+  const isMobileWalletPaymentMethod = (value) => (
+    paymentMethods.find((method) => method.value === value)?.methodType === 'ewallet'
+  );
   const onlineConsentTemplate = useMemo(
     () => pickConsentForContext(consentTemplates, "online-consultation"),
     [consentTemplates]
@@ -139,7 +141,11 @@ export default function ConsultPayment() {
       toast.error("Please select a payment method");
       return;
     }
-    if (!formData.receiptFile && selectedMethodRequiresProof) {
+    if (!formData.referenceNumber.trim()) {
+      toast.error("Please enter the payment transaction reference");
+      return;
+    }
+    if (!formData.receiptFile) {
       toast.error("Please upload proof of payment");
       return;
     }
@@ -169,7 +175,7 @@ export default function ConsultPayment() {
         currentUser.lastName || currentUser.last_Name || currentUser.last_name
       ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
       const signedAt = new Date().toISOString();
-      const signedConsentImage = await createConsentDocumentImage({
+      const signedConsentDocumentUrl = await createAndUploadConsentDocumentPdf({
         title: onlineConsentTemplate.title,
         content: onlineConsentTemplate.content,
         signatureImage: signature,
@@ -186,12 +192,7 @@ export default function ConsultPayment() {
           serviceName: 'Online Consultation',
           branchName: 'Vetfocus Care Animal Clinic'
         }
-      });
-      const signedConsentDocumentUrl = await uploadDataUrlImage(
-        signedConsentImage,
-        "booking_signature",
-        "online_consultation_consent"
-      );
+      }, "online_consultation_consent");
       if (!signedConsentDocumentUrl) {
         throw new Error("The signed consent document could not be saved. Please try again.");
       }
@@ -236,6 +237,7 @@ export default function ConsultPayment() {
         payment_proof_url: receiptUrl,
         payment_method: formData.paymentMethod,
         payment_reference: formData.referenceNumber,
+        payment_amount: Number(formData.amount),
         price: formData.amount || "500",
         consent_forms: [{
           id: onlineConsentTemplate.id,
@@ -323,7 +325,7 @@ export default function ConsultPayment() {
               <ul className="space-y-1 ml-4">
                 <li>• Select your preferred payment method below</li>
                 <li>• Upload clear photo/screenshot of your payment receipt</li>
-                <li>• Include reference number if applicable</li>
+                <li>• Enter the transaction reference shown on the receipt</li>
                 <li>• Our team will verify your payment within 24 hours</li>
                 <li>• You will receive a confirmation email once verified</li>
               </ul>
@@ -440,16 +442,17 @@ export default function ConsultPayment() {
                 placeholder="Enter amount (e.g., 500.00)"
                 restriction="decimal"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                readOnly
               />
+              <p className="text-xs font-medium text-slate-500">Official online consultation prepayment.</p>
             </div>
 
             {/* Reference Number */}
             <div className="space-y-2">
-              <Label htmlFor="referenceNumber">Reference/Transaction Number</Label>
+              <Label htmlFor="referenceNumber">Reference/Transaction Number *</Label>
               <Input
                 id="referenceNumber"
-                placeholder="Enter reference number (if applicable)"
+                placeholder="Enter the receipt transaction reference"
                 restriction="alphanumeric"
                 value={formData.referenceNumber}
                 onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
@@ -483,7 +486,7 @@ export default function ConsultPayment() {
 
             {/* Receipt Upload */}
             <div className="space-y-2">
-              <Label htmlFor="receipt">Upload Payment Proof/Receipt {selectedMethodRequiresProof && "*"}</Label>
+              <Label htmlFor="receipt">Upload Payment Proof/Receipt *</Label>
               <FileUploadDropzone
                 id="receipt"
                 accept="image/*,.pdf"

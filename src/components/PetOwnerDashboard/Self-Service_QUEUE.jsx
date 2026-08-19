@@ -19,7 +19,7 @@ import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import ConsentDocument from "../shared/ConsentDocument.jsx";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
-import { createConsentDocumentImage } from "../../services/consentDocumentImage.js";
+import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf.js";
 import { resolveImageUrl } from "../../lib/image";
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { toast } from "../../reusecomponent/toast.jsx";
@@ -294,7 +294,7 @@ export default function QueueDashboard() {
 
             const signedAtDate = new Date();
             const signedAtIso = signedAtDate.toISOString();
-            const signedConsentImage = await createConsentDocumentImage({
+            const signaturePath = await createAndUploadConsentDocumentPdf({
                 title: selectedConsent.title,
                 content: selectedConsent.content,
                 signatureImage: signature,
@@ -312,8 +312,7 @@ export default function QueueDashboard() {
                     serviceName: selectedService,
                     branchName: selectedPetData.branch_name || ''
                 }
-            });
-            const signaturePath = await uploadDataUrlImage(signedConsentImage, "booking_signature", "queue_consent");
+            }, "queue_consent");
             if (!signaturePath) {
                 throw new Error("Signed consent document could not be uploaded.");
             }

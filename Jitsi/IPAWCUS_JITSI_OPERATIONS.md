@@ -1,6 +1,40 @@
-# iPawcus Jitsi Operations
+# iPawcus Video Consultation Operations
 
-This directory contains the self-hosted Jitsi deployment used by iPawcus online consultations.
+## Current deployment: 8x8 JaaS
+
+The application uses the clinic's 8x8 Jitsi as a Service (JaaS) tenant when `JAAS_APP_ID` is set:
+
+```dotenv
+JAAS_APP_ID=vpaas-magic-cookie-d85e8a95d306429d864bca4f9aed5ad8
+JITSI_BASE_URL=https://8x8.vc/vpaas-magic-cookie-d85e8a95d306429d864bca4f9aed5ad8
+```
+
+Each approved booking keeps its own high-entropy `meeting_code`. The PHP API combines that code with the configured AppID, and the React call shell loads the tenant-specific 8x8 IFrame API. Do not reuse the sample room name from the JaaS console for real consultations.
+
+The JaaS console currently permits unauthenticated participants, so ordinary guest meetings work without a JWT. For trusted veterinarian moderator identity, generate an RSA 4096-bit key pair, convert the public key to PEM, and upload only the public key in the JaaS console:
+
+```text
+ssh-keygen -t rsa -b 4096 -m PEM -f jaasauth.key
+openssl rsa -in jaasauth.key -pubout -outform PEM -out jaasauth.key.pub
+```
+
+Reference: [8x8 API key generation](https://developer.8x8.com/jaas/docs/api-keys-generate-add/) and [JaaS JWT claims](https://developer.8x8.com/jaas/docs/api-keys-jwt/).
+
+Copy the resulting Key ID from 8x8 and configure PHP with the private key stored outside the repository and public web root:
+
+```dotenv
+JAAS_KEY_ID=vpaas-magic-cookie-d85e8a95d306429d864bca4f9aed5ad8/KEY_ID_FROM_8X8
+JAAS_PRIVATE_KEY_PATH=/absolute/private/path/jaasauth.key
+JAAS_JWT_TTL_SECONDS=7200
+```
+
+`JAAS_KEY_ID` and `JAAS_PRIVATE_KEY_PATH` must either both be set or both be empty. Never put the private key or a generated JWT in React, a `VITE_` variable, `public/`, a meeting URL, or source control. The PHP API issues short-lived, room-specific RS256 tokens; veterinarian and super-admin participants receive moderator status, while recording, transcription, outbound calling, file upload, and other premium features remain disabled.
+
+After deployment, test one veterinarian and one pet-owner account on separate devices and networks. Confirm camera, microphone, prejoin, minimize/restore, leaving, and the consultation completion workflow.
+
+## Legacy self-hosted fallback
+
+This directory also contains the previous self-hosted Jitsi deployment. Keep it only as a documented fallback; it is not selected while `JAAS_APP_ID` is configured.
 
 ## Production flow
 

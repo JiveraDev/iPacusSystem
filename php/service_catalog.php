@@ -114,7 +114,9 @@ function service_catalog_format_material(array $row): array
         'materialName' => $materialName,
         'itemName' => $row['item_name'] ?? '',
         'sku' => $row['sku'] ?? '',
+        'category' => $row['category'] ?? '',
         'unit' => $row['unit'] ?? '',
+        'sellingPrice' => (float)($row['selling_price'] ?? $row['unit_cost'] ?? 0),
         'qtyUsed' => (float)$row['qty_used'],
         'billablePolicy' => $row['billable_policy'],
         'inventoryStatus' => $row['item_id'] !== null ? 'linked' : 'not_in_inventory',
@@ -165,12 +167,18 @@ function service_catalog_list(PDO $pdo): void
     }
 
     if (!empty($services)) {
+        $sellingPriceSelect = service_catalog_column_exists($pdo, 'inventory_items', 'selling_price')
+            ? 'ii.selling_price'
+            : 'ii.unit_cost AS selling_price';
         $materialStmt = $pdo->query("
             SELECT
                 sm.*,
                 ii.item_name,
                 ii.sku,
-                ii.unit
+                ii.category,
+                ii.unit,
+                ii.unit_cost,
+                {$sellingPriceSelect}
             FROM service_materials sm
             LEFT JOIN inventory_items ii ON ii.item_id = sm.item_id
             ORDER BY sm.service_id ASC, ii.item_name ASC

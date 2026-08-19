@@ -35,6 +35,18 @@ function branch_schema_ready(PDO $pdo): bool
         && branch_column_exists($pdo, 'queues', 'branch_id');
 }
 
+function branch_visible_codes(): array
+{
+    // Operational rollout scope. Other branch rows remain in the database and
+    // can be re-enabled later without data loss.
+    return ['MAIN', 'ENRIQUEZ'];
+}
+
+function branch_is_visible(array $branch): bool
+{
+    return in_array(strtoupper(trim((string)($branch['branch_code'] ?? ''))), branch_visible_codes(), true);
+}
+
 function branch_require_schema(PDO $pdo): void
 {
     if (branch_schema_ready($pdo)) {
@@ -109,7 +121,7 @@ function branch_fetch(PDO $pdo, int $branchId): ?array
     $stmt = $pdo->prepare("SELECT * FROM branches WHERE branch_id = ? AND status = 'active' LIMIT 1");
     $stmt->execute([$branchId]);
     $branch = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $branch ?: null;
+    return $branch && branch_is_visible($branch) ? $branch : null;
 }
 
 function branch_user_ids(PDO $pdo, int $userId): array
@@ -196,6 +208,12 @@ function branch_is_open(PDO $pdo, int $branchId, string $date, string $time): bo
 {
     $dateTime = strtotime(trim($date . ' ' . $time));
     if ($dateTime === false) {
+        return false;
+    }
+
+    // All VFC locations are closed every Sunday, even if an older database
+    // still contains a legacy Sunday operating-hours row marked as open.
+    if ((int)date('N', $dateTime) === 7) {
         return false;
     }
 
@@ -295,7 +313,7 @@ function branch_resolve_booking(
     }
 
     if (!branch_is_open($pdo, $branchId, $bookingDate, $bookingTime)) {
-        throw new InvalidArgumentException($branch['branch_name'] . ' accepts bookings from 8:00 AM to 6:00 PM and is closed on configured closure dates.');
+        throw new InvalidArgumentException($branch['branch_name'] . ' accepts bookings Monday to Saturday, from 8:00 AM to 6:00 PM. The clinic is closed on Sundays and configured closure dates.');
     }
 
     $visit = null;
@@ -330,7 +348,12 @@ function branch_fetch_catalog(PDO $pdo, ?string $serviceKey = null, ?string $dat
     $serviceFilter = '';
     if ($serviceKey !== null && trim($serviceKey) !== '') {
         $serviceFilter = ' AND bsa.service_key = ?';
-        $params[] = branch_service_key($serviceKey);
+        // `consultation` is the stored key for online consultations. Passing
+        // that already-canonical key back through branch_service_key() would
+        // otherwise reinterpret it as a General Check-up.
+        $params[] = strtolower(trim($serviceKey)) === 'consultation'
+            ? 'consultation'
+            : branch_service_key($serviceKey);
     }
 
     $stmt = $pdo->prepare("
@@ -354,7 +377,9 @@ function branch_fetch_catalog(PDO $pdo, ?string $serviceKey = null, ?string $dat
         LEFT JOIN branch_service_availability bsa
           ON bsa.branch_id = b.branch_id AND bsa.is_active = 1 AND bsa.booking_enabled = 1
         LEFT JOIN branch_operating_hours hours ON hours.branch_id = b.branch_id
-        WHERE b.status = 'active' {$serviceFilter}
+        WHERE b.status = 'active'
+          AND b.branch_code IN ('MAIN', 'ENRIQUEZ')
+          {$serviceFilter}
         ORDER BY b.is_main DESC, b.branch_name, bsa.service_label, hours.day_of_week
     ");
     $stmt->execute($params);

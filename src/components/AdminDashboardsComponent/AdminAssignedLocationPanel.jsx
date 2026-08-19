@@ -54,7 +54,7 @@ export default function AdminAssignedLocationPanel() {
                     {assignedBranch && (
                         <div className="mt-2 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-400 lg:flex-row lg:flex-wrap lg:gap-x-5">
                             <span className="flex items-start gap-1.5"><MapPin className="mt-0.5 size-4 shrink-0" />{assignedBranch.address}</span>
-                            <span className="flex items-center gap-1.5"><Clock3 className="size-4 shrink-0" />8:00 AM–6:00 PM</span>
+                            <span className="flex items-center gap-1.5"><Clock3 className="size-4 shrink-0" />Mon-Sat, 8:00 AM–6:00 PM</span>
                         </div>
                     )}
                     {error && <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">{error}</p>}

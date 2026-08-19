@@ -20,3 +20,7 @@ export function saveVisitCharges(visitId, payload) {
 export function postVisitPayment(visitId, payload) {
     return postJson(`/visits/${visitId}/payments`, payload);
 }
+
+export function postVisitRefund(visitId, payload) {
+    return postJson(`/visits/${visitId}/refunds`, payload);
+}

@@ -1,4 +1,5 @@
 import { apiRequest, deleteRequest, patchJson, postJson } from './apiClient';
+import { sanitizeErrorPayload } from '../lib/errorPresentation.js';
 
 export function fetchAccounts() {
     return apiRequest('/accounts', { apiPrefix: true });
@@ -42,9 +43,14 @@ export function deleteAccount(userId, payload) {
     });
 }
 
-export function fetchPetOwnerAccounts() {
+export async function fetchPetOwnerAccounts() {
     const query = new URLSearchParams({ role: currentUserRole() });
-    return apiRequest(`/pet-owner-accounts?${query.toString()}`, { apiPrefix: true });
+    const data = await apiRequest(`/pet-owner-accounts?${query.toString()}`, { apiPrefix: true });
+    return sanitizeErrorPayload(
+        data,
+        'Pet owner account information could not be loaded.',
+        { context: 'Legacy pet owner account diagnostics were removed from the API payload.' }
+    );
 }
 
 export function updatePetOwnerStatus(userId, payload) {

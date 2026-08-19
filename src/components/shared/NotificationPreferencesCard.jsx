@@ -4,6 +4,7 @@ import { Card, CardContent, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { toast } from '../../reusecomponent/toast.jsx';
+import { getUserFacingErrorMessage } from '../../lib/errorPresentation.js';
 import {
     fetchNotificationPreferences,
     saveNotificationPreferences
@@ -175,7 +176,11 @@ export default function NotificationPreferencesCard({ user }) {
         } catch (error) {
             console.error('[iPawcus push] Notification preferences API request failed.', error);
             if (isActive) {
-                setLoadError(error.message || 'Notification settings could not be loaded.');
+                setLoadError(getUserFacingErrorMessage(
+                    error,
+                    'Notification settings could not be loaded.',
+                    { log: false }
+                ));
             }
             } finally {
                 if (isActive) {
@@ -207,7 +212,11 @@ export default function NotificationPreferencesCard({ user }) {
                 if (isActive) {
                     setBrowserPushState({
                         ...DEFAULT_BROWSER_PUSH_STATE,
-                        error: error.message || 'Browser notification service could not be checked.'
+                        error: getUserFacingErrorMessage(
+                            error,
+                            'Browser notification service could not be checked.',
+                            { log: false }
+                        )
                     });
                 }
             }
@@ -238,7 +247,11 @@ export default function NotificationPreferencesCard({ user }) {
             toast.success('Notification settings saved.');
         } catch (error) {
             console.error('[iPawcus push] Notification preferences save failed.', error);
-            toast.error(error.message || 'Failed to save notification settings.');
+            toast.error(getUserFacingErrorMessage(
+                error,
+                'Failed to save notification settings.',
+                { log: false }
+            ));
         } finally {
             setIsSaving(false);
         }
@@ -265,14 +278,22 @@ export default function NotificationPreferencesCard({ user }) {
             toast.success('iPawcus Push notification is now activated.');
         } catch (error) {
             console.error('[iPawcus push] Browser push enable failed.', error);
-            toast.error(error.message || 'Browser notifications could not be turned on.');
+            toast.error(getUserFacingErrorMessage(
+                error,
+                'Browser notifications could not be turned on.',
+                { log: false }
+            ));
             try {
                 setBrowserPushState(await getBrowserPushState(userId));
             } catch (stateError) {
                 console.error('[iPawcus push] Browser push state refresh after enable failure also failed.', stateError);
                 setBrowserPushState({
                     ...DEFAULT_BROWSER_PUSH_STATE,
-                    error: stateError.message || 'Browser notification service could not be checked.'
+                    error: getUserFacingErrorMessage(
+                        stateError,
+                        'Browser notification service could not be checked.',
+                        { log: false }
+                    )
                 });
             }
         } finally {
@@ -301,10 +322,18 @@ export default function NotificationPreferencesCard({ user }) {
             toast.success('Browser notifications are off for this device.');
         } catch (error) {
             console.error('[iPawcus push] Browser push disable failed.', error);
-            toast.error(error.message || 'Browser notifications could not be turned off.');
+            toast.error(getUserFacingErrorMessage(
+                error,
+                'Browser notifications could not be turned off.',
+                { log: false }
+            ));
             setBrowserPushState({
                 ...browserPushState,
-                error: error.message || 'Browser notifications could not be turned off.'
+                error: getUserFacingErrorMessage(
+                    error,
+                    'Browser notifications could not be turned off.',
+                    { log: false }
+                )
             });
         } finally {
             setIsPushUpdating(false);

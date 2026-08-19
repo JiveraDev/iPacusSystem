@@ -48,6 +48,7 @@ const routePatterns = [
   { pattern: "/dashboard/consult/booking", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consult", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/services/general-checkup", allowedRoles: SERVICE_ROLES },
+  { pattern: "/dashboard/services/laboratory-testing", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/services/parasite-control", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/services/surgery", allowedRoles: SERVICE_ROLES },
   { pattern: "/dashboard/services/vaccination", allowedRoles: SERVICE_ROLES },

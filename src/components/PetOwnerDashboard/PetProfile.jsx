@@ -30,6 +30,7 @@ import { updateBookingStatus } from "../../services/bookingService";
 import { fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
 import { updateQueueStatus } from "../../services/queueService";
 import { uploadFormData } from "../../services/uploadService";
+import { fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 
 function uploadFileName(path) {
   const cleanPath = String(path || "").split("?")[0].replace(/\\/g, "/");
@@ -84,6 +85,7 @@ export default function PetProfile() {
   const [isEditingTempOwner, setIsEditingTempOwner] = useState(false);
   const [isSavingTempOwner, setIsSavingTempOwner] = useState(false);
   const [tempOwnerDraft, setTempOwnerDraft] = useState("");
+  const [activeRecordUpdateRequest, setActiveRecordUpdateRequest] = useState(null);
 
   const backTargetLabel = useMemo(() => {
     try {
@@ -117,6 +119,24 @@ export default function PetProfile() {
       return false;
     }
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!canRequestRecordUpdate || !petId) return undefined;
+
+    fetchRecordUpdateRequests({
+      petId,
+      status: "pending_admin_review,approved,assigned,in_progress",
+    })
+      .then((response) => {
+        if (isMounted) setActiveRecordUpdateRequest(response.requests?.[0] || null);
+      })
+      .catch(() => {
+        if (isMounted) setActiveRecordUpdateRequest(null);
+      });
+
+    return () => { isMounted = false; };
+  }, [canRequestRecordUpdate, petId]);
 
   useEffect(() => {
     async function fetchPet() {
@@ -889,20 +909,20 @@ export default function PetProfile() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card
               className={`group overflow-hidden rounded-2xl border-slate-200 bg-white transition-all ${
-                canRequestRecordUpdate
+                canRequestRecordUpdate && !activeRecordUpdateRequest
                   ? "cursor-pointer hover:border-green-200 hover:shadow-xl"
                   : "cursor-not-allowed opacity-60"
               }`}
-              aria-disabled={!canRequestRecordUpdate}
+              aria-disabled={!canRequestRecordUpdate || Boolean(activeRecordUpdateRequest)}
               onClick={() => {
-                if (canRequestRecordUpdate) {
+                if (canRequestRecordUpdate && !activeRecordUpdateRequest) {
                   navigate(`/dashboard/my-pets/${petId}/request-update`);
                 }
               }}
             >
               <CardContent className="p-6 flex items-center gap-5">
                 <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                  canRequestRecordUpdate
+                  canRequestRecordUpdate && !activeRecordUpdateRequest
                     ? "bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white"
                     : "bg-slate-100 text-slate-400"
                 }`}>
@@ -911,7 +931,11 @@ export default function PetProfile() {
                 <div>
                   <h4 className="font-black text-slate-900 text-lg tracking-tight">Update Record</h4>
                   <p className="text-sm text-slate-500 font-medium">
-                    {canRequestRecordUpdate ? "Submit data correction request" : "Available to pet owner accounts only"}
+                    {activeRecordUpdateRequest
+                      ? `${activeRecordUpdateRequest.shortRequestNumber || `RUR-${String(activeRecordUpdateRequest.requestId || 0).padStart(5, "0")}`} is in progress`
+                      : canRequestRecordUpdate
+                        ? "Submit data correction request"
+                        : "Available to pet owner accounts only"}
                   </p>
                 </div>
               </CardContent>
@@ -1142,7 +1166,7 @@ export default function PetProfile() {
       <PhotoViewer
         open={Boolean(consentViewer)}
         src={consentViewer?.src || consentViewer?.path || consentViewer?.url || ""}
-        alt={consentViewer?.alt || "Consent image"}
+        alt={consentViewer?.alt || "Consent document"}
         onOpenChange={(open) => !open && setConsentViewer(null)}
       />
     </div>
@@ -1426,7 +1450,7 @@ function ConsentImagesPanel({ records, onPreview }) {
         <CardHeader className="border-b border-blue-100 bg-blue-50/50">
           <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#155dfc]">
             <ShieldCheck className="h-4 w-4" />
-            Consent Images
+            Consent Documents
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 p-5">
@@ -1435,7 +1459,7 @@ function ConsentImagesPanel({ records, onPreview }) {
               <p className="text-2xl font-black text-slate-900">{records.length}</p>
               <p className="text-sm font-semibold text-slate-500">Complete signed consent documents</p>
             </div>
-            <Badge className="border-0 bg-slate-100 text-slate-700">View or download</Badge>
+            <Badge className="border-0 bg-slate-100 text-slate-700">Preview records</Badge>
           </div>
 
           <SheetTrigger asChild>
@@ -1447,7 +1471,7 @@ function ConsentImagesPanel({ records, onPreview }) {
 
           {records.length === 0 && (
             <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-400">
-              No signed consent image has been recorded for this pet yet.
+              No signed consent document has been recorded for this pet yet.
             </p>
           )}
         </CardContent>
@@ -1458,10 +1482,10 @@ function ConsentImagesPanel({ records, onPreview }) {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
               <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
-              Consent Image Holder
+              Consent Document Holder
             </SheetTitle>
             <SheetDescription>
-              Complete signed owner consent forms for this pet, available to view or download.
+              Complete signed owner consent forms for this pet. PDF records open in a protected browser tab.
             </SheetDescription>
           </SheetHeader>
 
@@ -1478,19 +1502,39 @@ function ConsentImagesPanel({ records, onPreview }) {
 
 function ConsentRecordCard({ record, onPreview }) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const {
     source,
+    isPdf,
     isLoading,
     isReconstructed,
     isUnavailable,
   } = useConsentDocumentSource(record, record.fallbackSignaturePath);
+
+  const handleView = async () => {
+    if (!source || isOpening) return;
+    if (!isPdf) {
+      onPreview({ ...record, path: source, url: source });
+      return;
+    }
+
+    setIsOpening(true);
+    try {
+      await openProtectedDocument(source);
+    } catch (error) {
+      console.error('Failed to open a consent PDF:', error);
+      toast.error('The consent PDF could not be opened. Please try again.');
+    } finally {
+      setIsOpening(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!source || isDownloading) return;
 
     setIsDownloading(true);
     try {
-      await downloadConsentDocument(source, `${record.consentId}.png`);
+      await downloadConsentDocument(source, record.consentId);
     } catch (error) {
       toast.error(error.message || "Could not download the complete consent form.");
     } finally {
@@ -1503,12 +1547,19 @@ function ConsentRecordCard({ record, onPreview }) {
       <div className="grid gap-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
         <div className="flex h-36 items-center justify-center overflow-hidden bg-slate-50 sm:h-full">
           {source ? (
-            <ProtectedImage
-              src={source}
-              alt={`${record.identifier} complete signed consent form`}
-              className="h-full w-full object-contain"
-              fallbackClassName="h-full w-full"
-            />
+            isPdf ? (
+              <button type="button" onClick={handleView} className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-500 hover:bg-slate-100">
+                <FileText className="size-8 text-blue-600" />
+                <span className="text-xs font-bold">Open PDF</span>
+              </button>
+            ) : (
+              <ProtectedImage
+                src={source}
+                alt={`${record.identifier} complete signed consent form`}
+                className="h-full w-full object-contain"
+                fallbackClassName="h-full w-full"
+              />
+            )
           ) : isLoading ? (
             <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -1516,7 +1567,7 @@ function ConsentRecordCard({ record, onPreview }) {
             </div>
           ) : (
             <div className="px-3 text-center text-xs font-semibold leading-5 text-amber-700">
-              Complete consent image unavailable
+              Complete consent document unavailable
             </div>
           )}
         </div>
@@ -1545,19 +1596,19 @@ function ConsentRecordCard({ record, onPreview }) {
               <p className="font-semibold text-slate-700">{record.dateLabel}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => source && onPreview({ ...record, path: source, url: source })}
-              disabled={!source}
+              onClick={handleView}
+              disabled={!source || isOpening}
               className="gap-2"
             >
-              <Eye className="h-4 w-4" />
-              View
+              {isOpening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              {isPdf ? 'Open PDF' : 'View'}
             </Button>
-            <Button
+            {!isPdf && <Button
               type="button"
               variant="outline"
               size="sm"
@@ -1567,7 +1618,7 @@ function ConsentRecordCard({ record, onPreview }) {
             >
               {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Download
-            </Button>
+            </Button>}
           </div>
         </div>
       </div>
@@ -1643,7 +1694,6 @@ function PrescriptionDocumentsPanel({ documents, onPreview }) {
 }
 
 function PetPrescriptionDocumentCard({ document, onPreview }) {
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const rawPath = document.url || document.relativeUrl || "";
   const title = document.name || "Prescription document";
@@ -1666,19 +1716,6 @@ function PetPrescriptionDocumentCard({ document, onPreview }) {
     }
   };
 
-  const handleDownload = async () => {
-    if (!rawPath || isDownloading) return;
-
-    setIsDownloading(true);
-    try {
-      await downloadConsentDocument(rawPath, title);
-    } catch (error) {
-      toast.error(error.message || "Could not download this prescription document.");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   return (
     <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -1692,28 +1729,17 @@ function PetPrescriptionDocumentCard({ document, onPreview }) {
           </span>
         </span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3">
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={handleView}
           disabled={!rawPath || isOpening}
-          className="h-8 gap-1 text-xs"
+          className="h-8 w-full gap-1 text-xs"
         >
           {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-          View
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleDownload}
-          disabled={!rawPath || isDownloading}
-          className="h-8 gap-1 text-xs"
-        >
-          {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
-          Download
+          {canPreview ? 'View image' : 'Open PDF'}
         </Button>
       </div>
     </div>

@@ -276,7 +276,7 @@ export default function ConsentFilesManagement() {
                     <div className="p-2 bg-blue-50 rounded-lg">
                         <Upload className="size-5 text-blue-600" />
                     </div>
-                    <div>
+                    <div className="flex flex-col">
                         <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] font-bold text-[#101828]">
                             New Consent Template Editor
                         </h3>
@@ -288,6 +288,7 @@ export default function ConsentFilesManagement() {
 
                 <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div>
+                        <p className="mb-2 text-[11px] font-semibold text-slate-500">Optional - uploading a TXT document loads its content into the editor.</p>
                         <FileUploadDropzone
                             id="consent-file-input"
                             accept=".txt"
@@ -298,7 +299,6 @@ export default function ConsentFilesManagement() {
                             label="Upload document"
                             helper=""
                         />
-                        <p className="mt-1 text-[11px] text-slate-500">Optional—uploading a TXT document loads its content into the editor.</p>
                     </div>
                     <div className="space-y-1">
                         <Label className="text-xs text-gray-500 block">Document Title</Label>

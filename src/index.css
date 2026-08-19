@@ -956,3 +956,87 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
+
+@keyframes ipawcus-toast-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(1.5rem, 0.75rem, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ipawcus-toast-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(1.25rem, 0.25rem, 0) scale(0.97);
+  }
+}
+
+@keyframes ipawcus-toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.ipawcus-toast-enter {
+  animation: ipawcus-toast-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ipawcus-toast-exit {
+  animation: ipawcus-toast-exit 260ms ease-in both;
+}
+
+.ipawcus-toast-progress {
+  transform-origin: left center;
+  animation-name: ipawcus-toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  opacity: 0.72;
+}
+
+.ipawcus-toast-viewport {
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+
+.ipawcus-toast-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .ipawcus-toast-viewport {
+    bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ipawcus-toast-enter,
+  .ipawcus-toast-exit {
+    animation: none;
+  }
+
+  .ipawcus-toast-progress {
+    animation: none;
+    opacity: 0.35;
+    transform: scaleX(1);
+  }
+}

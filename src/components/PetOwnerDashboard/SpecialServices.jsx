@@ -37,6 +37,8 @@ import {
     isSpecialSurgeryProjectionService,
 } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -225,7 +227,7 @@ function DateRestrictionFields({ disabled = false, form, idPrefix, onChange }) {
                 </Select>
                 {disabled && (
                     <p className="text-xs text-amber-700">
-                        Date restrictions need the database columns added first.
+                        Date restrictions are temporarily unavailable. You can save the service without a restriction.
                     </p>
                 )}
             </div>
@@ -274,6 +276,7 @@ function DateRestrictionFields({ disabled = false, form, idPrefix, onChange }) {
 
 export default function SpecialServices({ user }) {
     const navigate = useNavigate();
+    const availabilityPrefill = readBookingAvailabilitySelection('special-services');
     const { config: priceProjectionConfig } = useBookingPriceProjections();
     const currentUser = user || getCurrentUser();
     const currentUserId = currentUser.id || currentUser.user_id || currentUser.userId;
@@ -283,7 +286,8 @@ export default function SpecialServices({ user }) {
     const [services, setServices] = useState([]);
     const [selectedPetIds, setSelectedPetIds] = useState([]);
     const [selectedServiceIds, setSelectedServiceIds] = useState([]);
-    const [serviceDate, setServiceDate] = useState("");
+    const [serviceDate, setServiceDate] = useState(availabilityPrefill?.date || "");
+    const [serviceTime, setServiceTime] = useState(availabilityPrefill?.time || "");
     const [notes, setNotes] = useState("");
     const [isNewPet, setIsNewPet] = useState(false);
     const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -319,7 +323,7 @@ export default function SpecialServices({ user }) {
             return null;
         }
 
-        return Math.max(0, Number(selectedService.remainingSlots ?? selectedService.maxPets ?? 1));
+        return Math.max(1, Number(selectedService.maxPets ?? 1));
     }, [selectedService]);
 
     const todayDate = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -407,7 +411,7 @@ export default function SpecialServices({ user }) {
     useEffect(() => {
         setSelectedServiceIds((current) => current.filter((serviceId) => {
             const service = services.find((item) => String(item.id) === String(serviceId));
-            return service && service.isActive !== false && Number(service.remainingSlots ?? service.maxPets ?? 0) > 0;
+            return service && service.isActive !== false;
         }));
     }, [services]);
 
@@ -459,11 +463,7 @@ export default function SpecialServices({ user }) {
             return;
         }
 
-        const remainingSlots = Number(service.remainingSlots ?? service.maxPets ?? 0);
-        if (remainingSlots <= 0) {
-            toast.error("This special service is fully booked.");
-            return;
-        }
+        const perBookingLimit = Math.max(1, Number(service.maxPets ?? 1));
 
         setSelectedServiceIds((current) => {
             if (current.includes(serviceId)) {
@@ -471,9 +471,9 @@ export default function SpecialServices({ user }) {
             }
 
             const currentPetCount = isNewPet ? 1 : selectedPetIds.length;
-            const serviceLimit = Math.max(0, remainingSlots);
+            const serviceLimit = perBookingLimit;
             if (currentPetCount > serviceLimit) {
-                toast.error(`This service has only ${serviceLimit} remaining pet slot${serviceLimit === 1 ? "" : "s"}.`);
+                toast.error(`This service allows up to ${serviceLimit} pet${serviceLimit === 1 ? "" : "s"} per booking.`);
                 return current;
             }
 
@@ -505,7 +505,7 @@ export default function SpecialServices({ user }) {
             await loadServices();
         } catch (error) {
             console.error("Failed to save special service:", error);
-            toast.error(error.message || "Failed to save special service.");
+            toast.error("The special service could not be saved. Review the details and try again.");
         } finally {
             setIsSavingService(false);
         }
@@ -558,7 +558,7 @@ export default function SpecialServices({ user }) {
             await loadServices();
         } catch (error) {
             console.error("Failed to update special service:", error);
-            toast.error(error.message || "Failed to update special service.");
+            toast.error("The special service could not be updated. Review the details and try again.");
         } finally {
             setIsUpdatingService(false);
         }
@@ -585,7 +585,7 @@ export default function SpecialServices({ user }) {
             await loadServices();
         } catch (error) {
             console.error("Failed to update special service availability:", error);
-            toast.error(error.message || `Failed to ${actionLabel} special service.`);
+            toast.error(`The special service could not be ${actionLabel}d. Please try again.`);
         } finally {
             setIsUpdatingService(false);
             setAvailabilityDialogService(null);
@@ -605,6 +605,11 @@ export default function SpecialServices({ user }) {
 
         if (!serviceDate) {
             toast.error("Please select the announced service date.");
+            return;
+        }
+
+        if (!serviceTime) {
+            toast.error("Please select an available service time.");
             return;
         }
 
@@ -630,7 +635,7 @@ export default function SpecialServices({ user }) {
 
         const petCount = isNewPet ? 1 : selectedPetIds.length;
         if (selectedServiceLimit !== null && petCount > selectedServiceLimit) {
-            toast.error(`The selected service has only ${selectedServiceLimit} remaining pet slot${selectedServiceLimit === 1 ? "" : "s"}.`);
+            toast.error(`The selected service allows up to ${selectedServiceLimit} pet${selectedServiceLimit === 1 ? "" : "s"} per booking.`);
             return;
         }
 
@@ -642,7 +647,7 @@ export default function SpecialServices({ user }) {
                 pet_ids: isNewPet ? [] : selectedPetIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
                 service_type: "special services",
                 booking_date: serviceDate,
-                booking_time: "09:00:00",
+                booking_time: serviceTime,
                 notes: notes.trim(),
                 registered_status: isNewPet ? "Not Registered" : "Registered",
                 petType: isNewPet ? newPetSpecies : null,
@@ -657,7 +662,7 @@ export default function SpecialServices({ user }) {
             navigate("/dashboard/services");
         } catch (error) {
             console.error("Special services booking error:", error);
-            toast.error(error.message || "An error occurred while submitting the booking.");
+            toast.error("The booking could not be submitted. Review the details and try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -771,7 +776,7 @@ export default function SpecialServices({ user }) {
                                 <p className={`text-xs ${basePriceSupported ? "text-slate-500" : "text-amber-700"}`}>
                                     {basePriceSupported
                                         ? "Use one exact default amount. Leave blank for quoted or variable-price services."
-                                        : "Run DDL/20260727_01_special_service_billing_price.sql before setting an invoice price."}
+                                        : "Invoice pricing is temporarily unavailable. You can save the service without a default price."}
                                 </p>
                             </div>
                             <div className="space-y-2">
@@ -912,7 +917,7 @@ export default function SpecialServices({ user }) {
                             <p className={`text-xs ${basePriceSupported ? "text-slate-500" : "text-amber-700"}`}>
                                 {basePriceSupported
                                     ? "Use one exact default amount. Leave blank when staff must enter an approved quote."
-                                    : "Run DDL/20260727_01_special_service_billing_price.sql before setting an invoice price."}
+                                    : "Invoice pricing is temporarily unavailable. You can save the service without a default price."}
                             </p>
                         </div>
                         <div className="space-y-2">
@@ -1090,10 +1095,8 @@ export default function SpecialServices({ user }) {
                             {services.map((service) => {
                                 const Icon = getServiceIcon(service);
                                 const isSelected = selectedServiceIds.includes(String(service.id));
-                                const remainingSlots = Number(service.remainingSlots ?? service.maxPets ?? 0);
                                 const isInactive = service.isActive === false;
-                                const isFullyBooked = remainingSlots <= 0;
-                                const isDisabled = isInactive || isFullyBooked;
+                                const isDisabled = isInactive;
 
                                 return (
                                     <div
@@ -1130,17 +1133,12 @@ export default function SpecialServices({ user }) {
                                                     <div className="flex shrink-0 flex-col items-end gap-1">
                                                         {!isDisabled && (
                                                             <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
-                                                                {remainingSlots} left
+                                                                Up to {service.maxPets || 1} per booking
                                                             </span>
                                                         )}
                                                         {isInactive && (
                                                             <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
                                                                 Disabled
-                                                            </span>
-                                                        )}
-                                                        {!isInactive && isFullyBooked && (
-                                                            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
-                                                                Fully booked
                                                             </span>
                                                         )}
                                                     </div>
@@ -1153,7 +1151,7 @@ export default function SpecialServices({ user }) {
                                                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700 sm:grid-cols-2">
                                                     <p><span className="font-semibold">Price:</span> {getDisplayPriceLabel(service, priceProjectionConfig)}</p>
                                                     <p><span className="font-semibold">Duration:</span> {service.durationLabel || "To be announced"}</p>
-                                                    <p><span className="font-semibold">Capacity:</span> {service.bookedPets || 0}/{service.maxPets || 1} pet slots booked</p>
+                                                    <p><span className="font-semibold">Booking limit:</span> Up to {service.maxPets || 1} pet{Number(service.maxPets || 1) === 1 ? "" : "s"}</p>
                                                     <p><span className="font-semibold">Dates:</span> {getDateRestrictionLabel(service)}</p>
                                                 </div>
 
@@ -1169,8 +1167,6 @@ export default function SpecialServices({ user }) {
                                                             </span>
                                                         ) : isInactive ? (
                                                             <span className="text-slate-500">Not currently being served</span>
-                                                        ) : isFullyBooked ? (
-                                                            <span className="text-red-600">No pet slots remaining</span>
                                                         ) : (
                                                             <span className="text-slate-500">Click this card to select</span>
                                                         )}
@@ -1232,7 +1228,7 @@ export default function SpecialServices({ user }) {
                                         <p className="font-semibold text-gray-900">{service.serviceTitle}</p>
                                         <p className="text-sm text-gray-600">{service.serviceDescription}</p>
                                         <p className="mt-1 text-sm text-gray-600">
-                                            {service.remainingSlots ?? service.maxPets ?? 1} pet slot{Number(service.remainingSlots ?? service.maxPets ?? 1) === 1 ? "" : "s"} remaining
+                                            Up to {service.maxPets ?? 1} pet{Number(service.maxPets ?? 1) === 1 ? "" : "s"} per booking
                                         </p>
                                         <p className="text-sm text-gray-600">Price: {getDisplayPriceLabel(service, priceProjectionConfig)}</p>
                                         <p className="text-sm text-gray-600">{getDateRestrictionLabel(service)}</p>
@@ -1383,6 +1379,16 @@ export default function SpecialServices({ user }) {
                             </p>
                         </div>
 
+                        <BookingTimeSlotField
+                            id="special-service-time"
+                            service="special-services"
+                            date={serviceDate}
+                            value={serviceTime}
+                            onChange={setServiceTime}
+                            label="Service time"
+                            disabled={!selectedService}
+                        />
+
                         <div className="space-y-2">
                             <Label htmlFor="notes">Additional Notes</Label>
                             <Textarea
@@ -1399,7 +1405,7 @@ export default function SpecialServices({ user }) {
                                 <p className="font-semibold text-amber-900">Important Notice</p>
                                 <ul className="mt-2 space-y-1 text-sm text-amber-800">
                                     <li>- Special services require admin approval.</li>
-                                    <li>- The service list is managed from the database.</li>
+                                    <li>- Available services are maintained by the clinic administration team.</li>
                                     <li>- The clinic may contact you for preparation instructions.</li>
                                 </ul>
                             </CardContent>

@@ -16,10 +16,10 @@ import { formatDisplayDate, formatDisplayTime } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
 import { fetchConsentFiles } from "../../services/consentFileService";
-import { createConsentDocumentImage } from "../../services/consentDocumentImage";
-import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
+import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf";
+import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
-import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { paymentMethodInstruction, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
@@ -48,9 +48,9 @@ export default function HomeServiceConfirmation() {
     notes: "",
     receiptFile: null
   });
-  const { paymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const { paymentMethods: configuredPaymentMethods, isLoadingPaymentMethods } = usePaymentMethods();
+  const paymentMethods = configuredPaymentMethods;
   const selectedMethod = paymentMethods.find((m) => m.value === paymentFormData.paymentMethod);
-  const selectedMethodRequiresProof = paymentMethodRequiresProof(selectedMethod);
   const selectedQrUrl = selectedMethod?.qrImageUrl || "";
   const homeServiceConsentTemplate = useMemo(
     () => pickConsentForContext(consentTemplates, "home-service"),
@@ -134,7 +134,11 @@ export default function HomeServiceConfirmation() {
       toast.error("Please select a payment method.");
       return;
     }
-    if (!paymentFormData.receiptFile && selectedMethodRequiresProof) {
+    if (!paymentFormData.referenceNumber.trim()) {
+      toast.error("Please enter the payment transaction reference.");
+      return;
+    }
+    if (!paymentFormData.receiptFile) {
       toast.error("Please upload proof of payment.");
       return;
     }
@@ -152,7 +156,7 @@ export default function HomeServiceConfirmation() {
         currentUser.lastName || currentUser.last_Name || currentUser.last_name
       ].filter(Boolean).join(" ").trim() || currentUser.name || "Pet owner";
       const signedAt = new Date().toISOString();
-      const signedConsentImage = await createConsentDocumentImage({
+      const signedConsentDocumentUrl = await createAndUploadConsentDocumentPdf({
         title: homeServiceConsentTemplate.title,
         content: homeServiceConsentTemplate.content,
         signatureImage: signature,
@@ -168,12 +172,7 @@ export default function HomeServiceConfirmation() {
           serviceName: 'Home Service',
           branchName: 'Vetfocus Care Animal Clinic'
         }
-      });
-      const signedConsentDocumentUrl = await uploadDataUrlImage(
-        signedConsentImage,
-        "booking_signature",
-        "home_service_consent"
-      );
+      }, "home_service_consent");
       if (!signedConsentDocumentUrl) {
         throw new Error("The signed consent document could not be saved. Please try again.");
       }
@@ -200,6 +199,7 @@ export default function HomeServiceConfirmation() {
         payment_proof_url: receiptUrl,
         payment_method: paymentFormData.paymentMethod,
         payment_reference: paymentFormData.referenceNumber,
+        payment_amount: HOME_SERVICE_TRANSPORT_FEE,
         transport_fee: HOME_SERVICE_TRANSPORT_FEE,
         specific_location: booking.specific_location,
         Image_Booking_Concern_Path: uploadedConcernUrls.length > 0 ? uploadedConcernUrls.join(",") : null,
@@ -418,7 +418,7 @@ export default function HomeServiceConfirmation() {
                     )}
 
                     <div className="space-y-2">
-                      <Label>Reference Number</Label>
+                      <Label>Reference Number *</Label>
                       <Input
                         placeholder="Transaction ID"
                         restriction="alphanumeric"
@@ -431,7 +431,7 @@ export default function HomeServiceConfirmation() {
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Upload Receipt {selectedMethodRequiresProof && "*"}</Label>
+                      <Label>Upload Receipt *</Label>
                       <FileUploadDropzone
                         id="homeServiceReceipt"
                         accept="image/*,.pdf"

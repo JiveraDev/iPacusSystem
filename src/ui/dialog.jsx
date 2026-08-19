@@ -7,15 +7,79 @@ import { cn } from "./utils";
 const DialogContext = React.createContext(null);
 
 function Dialog({ open, onOpenChange, children }) {
-  return <DialogContext.Provider value={{ open, onOpenChange }}>{children}</DialogContext.Provider>;
+  const generatedId = React.useId().replace(/:/g, "");
+  return (
+    <DialogContext.Provider value={{
+      open,
+      onOpenChange,
+      titleId: `dialog-title-${generatedId}`,
+      descriptionId: `dialog-description-${generatedId}`,
+    }}>
+      {children}
+    </DialogContext.Provider>
+  );
 }
 
 function DialogContent({ className, children, showClose, ...props }) {
   const context = React.useContext(DialogContext);
+  const isOpen = context?.open;
+  const onOpenChange = context?.onOpenChange;
+  const contentRef = React.useRef(null);
+  const previousFocusRef = React.useRef(null);
   const hasCustomMaxWidth = typeof className === "string" && /(?:^|\s)(?:[\w-]+:)*max-w-/.test(className);
   const shouldShowClose = showClose ?? !hasCancelDismissAction(children);
 
-  if (!context?.open) {
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+
+    previousFocusRef.current = document.activeElement;
+    const focusTimer = window.requestAnimationFrame(() => {
+      const focusable = contentRef.current?.querySelector(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable || contentRef.current)?.focus();
+    });
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange?.(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || !contentRef.current) return;
+
+      const focusableElements = Array.from(contentRef.current.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => element.getClientRects().length > 0);
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        contentRef.current.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [isOpen, onOpenChange]);
+
+  if (!isOpen) {
     return null;
   }
 
@@ -29,9 +93,13 @@ function DialogContent({ className, children, showClose, ...props }) {
         aria-label="Close dialog"
       />
       <div
+        ref={contentRef}
         data-slot="dialog-content"
         role="dialog"
         aria-modal="true"
+        aria-labelledby={context.titleId}
+        aria-describedby={context.descriptionId}
+        tabIndex={-1}
         className={cn(
           "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:p-6 scrollbar-hide",
           !hasCustomMaxWidth && "max-w-lg",
@@ -61,7 +129,8 @@ function DialogHeader({ className, ...props }) {
 }
 
 function DialogTitle({ className, ...props }) {
-  return <h2 className={cn("text-lg font-semibold text-slate-900", className)} {...props} />;
+  const context = React.useContext(DialogContext);
+  return <h2 id={props.id || context?.titleId} className={cn("text-lg font-semibold text-slate-900", className)} {...props} />;
 }
 
 function DialogTrigger({ asChild = false, children, onClick, ...props }) {
@@ -91,7 +160,8 @@ function DialogTrigger({ asChild = false, children, onClick, ...props }) {
 }
 
 function DialogDescription({ className, ...props }) {
-  return <p className={cn("text-sm text-slate-600", className)} {...props} />;
+  const context = React.useContext(DialogContext);
+  return <p id={props.id || context?.descriptionId} className={cn("text-sm text-slate-600", className)} {...props} />;
 }
 
 function DialogFooter({ className, ...props }) {

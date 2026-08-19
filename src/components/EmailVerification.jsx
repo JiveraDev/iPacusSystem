@@ -45,7 +45,10 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
         setIsResending(true);
         try {
             await resendVerificationCode({ email });
-            toast.success("Verification code sent.");
+            toast.success({
+                title: 'Code successfully sent',
+                description: 'Your verification code was successfully sent via email.'
+            });
         } catch (error) {
             toast.error(error.message || "Failed to resend code.");
         } finally {
@@ -120,3 +123,9 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
         </div>
     );
 }
+
+EmailVerification.propTypes = {
+    initialEmail: PropTypes.string,
+    onBack: PropTypes.func.isRequired,
+    onVerified: PropTypes.func.isRequired,
+};

@@ -515,7 +515,7 @@ function pet_medical_fetch_visit_paid_totals(PDO $pdo, array $visitIds): array
         SELECT visit_id, COALESCE(SUM(amount), 0) AS total_paid
         FROM visit_payments
         WHERE visit_id IN ({$placeholders})
-          AND payment_status = 'verified'
+          AND payment_status IN ('verified', 'refunded')
         GROUP BY visit_id
     ");
     $stmt->execute($visitIds);
@@ -523,6 +523,21 @@ function pet_medical_fetch_visit_paid_totals(PDO $pdo, array $visitIds): array
     $totals = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $totals[(int)$row['visit_id']] = (float)$row['total_paid'];
+    }
+
+    if (pet_medical_table_exists($pdo, 'visit_payment_refunds')) {
+        $refundStmt = $pdo->prepare("
+            SELECT visit_id, COALESCE(SUM(amount), 0) AS total_refunded
+            FROM visit_payment_refunds
+            WHERE visit_id IN ({$placeholders})
+              AND refund_status = 'processed'
+            GROUP BY visit_id
+        ");
+        $refundStmt->execute($visitIds);
+        foreach ($refundStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $visitId = (int)$row['visit_id'];
+            $totals[$visitId] = max(0.0, (float)($totals[$visitId] ?? 0) - (float)$row['total_refunded']);
+        }
     }
 
     return $totals;
@@ -906,6 +921,7 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
                 'sourceId' => $visitId,
                 'visitId' => $visitId,
                 'diagnosisId' => $diagnosisId,
+                'onlineDiagnosisId' => !empty($visit['online_diagnosis_id']) ? (int)$visit['online_diagnosis_id'] : null,
                 'queueId' => $visit['queue_id'] !== null ? (int)$visit['queue_id'] : null,
                 'queueNumber' => $visit['queue_number'] !== null ? (int)$visit['queue_number'] : null,
                 'queueReference' => $visit['queue_number'] !== null ? ipawcus_format_queue_reference($visit['queue_number'], $visit['queue_timestamp'] ?? null) : '',
@@ -1452,7 +1468,7 @@ function pet_medical_send_email_copy(PDO $pdo, int $petId, ?array $recipient = n
 
             echo json_encode([
                 'success' => true,
-                'message' => 'Organized medical record copy was queued for email delivery.',
+                'message' => 'The medical record is on its way to ' . $email . '.',
                 'email' => $email,
                 'deliveryStatus' => 'queued',
                 'queueId' => (int)($queueResult['queueId'] ?? 0),
@@ -1466,13 +1482,13 @@ function pet_medical_send_email_copy(PDO $pdo, int $petId, ?array $recipient = n
 
         echo json_encode([
             'success' => true,
-            'message' => 'Organized medical record copy was emailed to the pet owner.',
+            'message' => 'The medical record was sent to ' . $email . '.',
             'email' => $email,
             'deliveryStatus' => 'sent',
         ]);
     } catch (Throwable $error) {
         error_log('Medical record email copy failed: ' . $error->getMessage());
-        pet_medical_error(409, 'Medical record copy could not be emailed right now. Please check mail queue or SMTP configuration.');
+        pet_medical_error(409, 'We could not send the medical record right now. Please try again later.');
     }
 }
 

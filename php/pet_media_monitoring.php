@@ -85,11 +85,25 @@ function pet_media_date_range(array $payload): array
 {
     $timezone = new DateTimeZone('Asia/Manila');
     $now = new DateTimeImmutable('now', $timezone);
-    $range = strtolower((string)($payload['range'] ?? 'this_month'));
+    $hasExplicitDates = !empty($payload['start_date']) || !empty($payload['end_date']);
+    $range = strtolower((string)($payload['range'] ?? ($hasExplicitDates ? 'custom' : 'all')));
     $start = null;
     $end = null;
 
-    if ($range === 'custom' || !empty($payload['start_date']) || !empty($payload['end_date'])) {
+    if ($range === 'all' && !$hasExplicitDates) {
+        return [
+            'range' => 'all',
+            'start_date' => null,
+            'end_date' => null,
+            'start_datetime' => null,
+            'end_datetime' => null,
+            'start_ts' => null,
+            'end_ts' => null,
+            'label' => 'All dates',
+        ];
+    }
+
+    if ($range === 'custom' || $hasExplicitDates) {
         $start = pet_media_date_or_null($payload['start_date'] ?? null);
         $end = pet_media_date_or_null($payload['end_date'] ?? null);
         if (!$start || !$end) {
@@ -157,7 +171,7 @@ function pet_media_file_name(string $path): string
     $cleanPath = str_replace('\\', '/', explode('?', $path)[0]);
     $parts = array_values(array_filter(explode('/', $cleanPath)));
 
-    return end($parts) ?: 'Image';
+    return end($parts) ?: 'File';
 }
 
 function pet_media_public_url(string $path): string
@@ -190,6 +204,29 @@ function pet_media_is_image(?string $path, ?string $mimeType = ''): bool
     }
 
     return (bool)preg_match('/\.(png|jpe?g|gif|webp|bmp|avif)(\?.*)?$/i', $path);
+}
+
+function pet_media_is_pdf(?string $path, ?string $mimeType = ''): bool
+{
+    $path = trim((string)$path);
+    $mimeType = strtolower(trim((string)$mimeType));
+
+    if ($path === '') {
+        return false;
+    }
+
+    return $mimeType === 'application/pdf'
+        || str_contains($mimeType, '+pdf')
+        || (bool)preg_match('/\.pdf(\?.*)?$/i', $path);
+}
+
+function pet_media_kind(?string $path, ?string $mimeType = ''): ?string
+{
+    if (pet_media_is_image($path, $mimeType)) {
+        return 'image';
+    }
+
+    return pet_media_is_pdf($path, $mimeType) ? 'pdf' : null;
 }
 
 function pet_media_split_paths($value): array
@@ -235,7 +272,6 @@ function pet_media_extract_uploads($value): array
     }
 
     $pathKeys = [
-        'url',
         'relativeUrl',
         'relative_url',
         'documentPath',
@@ -244,9 +280,12 @@ function pet_media_extract_uploads($value): array
         'signed_document_path',
         'physicalConsentPath',
         'physical_consent_path',
+        'url',
+        'preview',
+    ];
+    $fallbackPathKeys = [
         'signatureUrl',
         'signature_url',
-        'preview',
     ];
     $uploads = [];
     foreach ($pathKeys as $key) {
@@ -259,6 +298,25 @@ function pet_media_extract_uploads($value): array
                 'mimeType' => $value['mimeType'] ?? $value['mime_type'] ?? $value['type'] ?? null,
                 'createdAt' => $value['uploadedAt'] ?? $value['createdAt'] ?? $value['signedAt'] ?? null,
             ];
+            break;
+        }
+    }
+
+    if (empty($uploads)) {
+        foreach ($fallbackPathKeys as $key) {
+            if (empty($value[$key]) || !is_string($value[$key])) {
+                continue;
+            }
+
+            $uploads[] = [
+                'url' => $value[$key],
+                'name' => $value['name'] ?? $value['fileName'] ?? $value['file_name'] ?? $value['title'] ?? null,
+                'label' => $value['label'] ?? $value['title'] ?? $value['category'] ?? null,
+                'category' => $value['category'] ?? $value['attachmentCategory'] ?? $value['source'] ?? null,
+                'mimeType' => $value['mimeType'] ?? $value['mime_type'] ?? $value['type'] ?? null,
+                'createdAt' => $value['uploadedAt'] ?? $value['createdAt'] ?? $value['signedAt'] ?? null,
+            ];
+            break;
         }
     }
 
@@ -303,7 +361,8 @@ function pet_media_add(array &$rows, array &$seen, array $base, ?string $path, s
 {
     $path = trim((string)$path);
     $mimeType = $meta['mimeType'] ?? $meta['mime_type'] ?? '';
-    if (!pet_media_is_image($path, $mimeType)) {
+    $kind = pet_media_kind($path, $mimeType);
+    if ($kind === null) {
         return;
     }
 
@@ -321,7 +380,11 @@ function pet_media_add(array &$rows, array &$seen, array $base, ?string $path, s
         'name' => $meta['name'] ?? pet_media_file_name($path),
         'path' => $path,
         'url' => $url,
-        'mimeType' => $mimeType,
+        'mimeType' => $mimeType ?: ($kind === 'pdf' ? 'application/pdf' : ''),
+        'kind' => $kind,
+        'mediaType' => $kind,
+        'documentType' => $meta['documentType'] ?? $meta['document_type'] ?? '',
+        'paperWidth' => $meta['paperWidth'] ?? $meta['paper_width'] ?? '',
         'createdAt' => $meta['createdAt'] ?? $meta['created_at'] ?? '',
         'recordId' => $meta['recordId'] ?? null,
         'diagnosisId' => $meta['diagnosisId'] ?? null,
@@ -333,6 +396,10 @@ function pet_media_add(array &$rows, array &$seen, array $base, ?string $path, s
 
 function pet_media_is_within_range(array $item, array $range): bool
 {
+    if (($range['range'] ?? '') === 'all') {
+        return true;
+    }
+
     $createdAt = trim((string)($item['createdAt'] ?? ''));
     if ($createdAt === '') {
         return false;
@@ -343,7 +410,7 @@ function pet_media_is_within_range(array $item, array $range): bool
     return $timestamp !== false && $timestamp >= $range['start_ts'] && $timestamp <= $range['end_ts'];
 }
 
-function pet_media_fetch(PDO $pdo, array $range): array
+function pet_media_fetch(PDO $pdo, array $range, int $selectedPetId): array
 {
     $media = [];
     $seen = [];
@@ -406,7 +473,8 @@ function pet_media_fetch(PDO $pdo, array $range): array
         $bookingIdSelect = $hasBookingId ? "cfr.booking_id" : "NULL";
         $queueIdSelect = $hasQueueId ? "cfr.queue_id" : "NULL";
         $orderBy = $hasCreatedAt ? "cfr.created_at DESC" : ($recordIdSelect === '0' ? '1 DESC' : "{$recordIdSelect} DESC");
-        $stmt = $pdo->query("
+        $consentPetWhere = $hasPetId ? 'WHERE cfr.pet_id = :selected_pet_id' : 'WHERE 1 = 0';
+        $stmt = $pdo->prepare("
             SELECT
                 {$recordIdSelect} AS consent_record_id,
                 {$petIdSelect} AS pet_id,
@@ -431,15 +499,48 @@ function pet_media_fetch(PDO $pdo, array $range): array
             {$ownerJoin}
             {$bookingJoin}
             {$queueJoin}
+            {$consentPetWhere}
             ORDER BY {$orderBy}
         ");
+        $stmt->execute($hasPetId ? ['selected_pet_id' => $selectedPetId] : []);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            // Signed consent images are intentionally excluded from media monitoring.
+            $base = pet_media_base($row);
+            $consentType = trim((string)($row['consent_type'] ?? ''));
+            $consentLabel = $consentType !== ''
+                ? ucwords(str_replace(['_', '-'], ' ', $consentType)) . ' Consent'
+                : 'Signed Consent Form';
+            $createdAt = $row['signed_at'] ?? $row['created_at'] ?? '';
+            $commonMeta = [
+                'createdAt' => $createdAt,
+                'recordId' => (int)($row['consent_record_id'] ?? 0),
+                'status' => $row['status'] ?? '',
+                'uploadedBy' => $row['processed_by_name'] ?? '',
+                'documentType' => 'consent',
+            ];
+
+            pet_media_add(
+                $media,
+                $seen,
+                $base,
+                $row['signed_file_path'] ?? '',
+                'consent',
+                $consentLabel,
+                $commonMeta
+            );
+            pet_media_add(
+                $media,
+                $seen,
+                $base,
+                $row['physical_file_path'] ?? '',
+                'consent',
+                $consentLabel . ' (Scanned Copy)',
+                $commonMeta
+            );
         }
     }
 
     if (pet_media_table_exists($pdo, 'bookings')) {
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT
                 b.booking_id,
                 b.booking_number,
@@ -457,8 +558,10 @@ function pet_media_fetch(PDO $pdo, array $range): array
             LEFT JOIN booking_pets bp ON bp.booking_id = b.booking_id
             LEFT JOIN pets_information p ON p.pet_id = COALESCE(bp.pet_id, b.pet_id)
             LEFT JOIN users owner ON owner.user_id = b.user_id
+            WHERE COALESCE(bp.pet_id, b.pet_id) = :selected_pet_id
             ORDER BY b.created_at DESC
         ");
+        $stmt->execute(['selected_pet_id' => $selectedPetId]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $base = pet_media_base($row);
             foreach (pet_media_split_paths($row['Image_Booking_Concern_Path'] ?? '') as $path) {
@@ -467,11 +570,16 @@ function pet_media_fetch(PDO $pdo, array $range): array
                     'recordId' => (int)$row['booking_id'],
                 ]);
             }
+            pet_media_add($media, $seen, $base, $row['signature_path'] ?? '', 'consent', 'Signed Consent Form', [
+                'createdAt' => $row['created_at'] ?? '',
+                'recordId' => (int)$row['booking_id'],
+                'documentType' => 'consent',
+            ]);
         }
     }
 
     if (pet_media_table_exists($pdo, 'queues')) {
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT
                 q.queue_id,
                 q.queue_number,
@@ -488,19 +596,26 @@ function pet_media_fetch(PDO $pdo, array $range): array
             FROM queues q
             JOIN pets_information p ON p.pet_id = q.pet_id
             LEFT JOIN users owner ON owner.user_id = q.user_id
+            WHERE q.pet_id = :selected_pet_id
             ORDER BY q.timestamp DESC
         ");
+        $stmt->execute(['selected_pet_id' => $selectedPetId]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $base = pet_media_base($row);
             pet_media_add($media, $seen, $base, $row['image_path'] ?? '', 'queue', 'Queue Concern Image', [
                 'createdAt' => $row['created_at'] ?? '',
                 'recordId' => (int)$row['queue_id'],
             ]);
+            pet_media_add($media, $seen, $base, $row['signiture_self_service_path'] ?? '', 'consent', 'Signed Consent Form', [
+                'createdAt' => $row['created_at'] ?? '',
+                'recordId' => (int)$row['queue_id'],
+                'documentType' => 'consent',
+            ]);
         }
     }
 
     if (pet_media_table_exists($pdo, 'vet_diagnoses')) {
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT
                 vd.diagnosis_id,
                 vd.pet_id,
@@ -523,8 +638,10 @@ function pet_media_fetch(PDO $pdo, array $range): array
             LEFT JOIN queues q ON q.queue_id = vd.queue_id
             LEFT JOIN bookings b ON b.booking_id = vd.booking_id
             LEFT JOIN users owner ON owner.user_id = COALESCE(b.user_id, q.user_id)
+            WHERE vd.pet_id = :selected_pet_id
             ORDER BY COALESCE(vd.finalized_at, vd.created_at) DESC
         ");
+        $stmt->execute(['selected_pet_id' => $selectedPetId]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $base = pet_media_base($row);
             $base['veterinarianName'] = $row['veterinarian_name'] ?? '';
@@ -532,20 +649,25 @@ function pet_media_fetch(PDO $pdo, array $range): array
                 foreach (pet_media_extract_uploads($row[$column] ?? null) as $upload) {
                     $path = $upload['url'] ?? '';
                     $category = strtolower(trim((string)($upload['category'] ?? '')));
-                    if (in_array($category, ['additional_consent', 'consent', 'signed_consent', 'physical_consent'], true)) {
-                        continue;
-                    }
+                    $isConsent = in_array($category, ['additional_consent', 'consent', 'signed_consent', 'physical_consent'], true);
+                    $isPrescription = $category === 'prescription_document';
                     $label = $upload['label'] ?? $upload['name'] ?? 'Diagnosis Upload';
-                    if ($category !== '') {
+                    if ($isConsent) {
+                        $label = 'Signed Consent Form';
+                    } elseif ($isPrescription) {
+                        $label = 'Prescription';
+                    } elseif ($category !== '') {
                         $label = ucwords(str_replace(['_', '-'], ' ', $category));
                     }
-                    pet_media_add($media, $seen, $base, $path, 'diagnosis', $label, [
+                    $source = $isConsent ? 'consent' : ($isPrescription ? 'prescription' : 'diagnosis');
+                    pet_media_add($media, $seen, $base, $path, $source, $label, [
                         'name' => $upload['name'] ?? null,
                         'mimeType' => $upload['mimeType'] ?? '',
                         'createdAt' => $upload['createdAt'] ?? $row['created_at'] ?? '',
                         'diagnosisId' => (int)$row['diagnosis_id'],
                         'recordId' => (int)$row['diagnosis_id'],
                         'uploadedBy' => $row['veterinarian_name'] ?? '',
+                        'documentType' => $isConsent ? 'consent' : ($isPrescription ? 'prescription' : ''),
                     ]);
                 }
             }
@@ -553,7 +675,7 @@ function pet_media_fetch(PDO $pdo, array $range): array
     }
 
     if (pet_media_table_exists($pdo, 'boarding_documents')) {
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT
                 bd.*,
                 b.booking_number,
@@ -566,8 +688,10 @@ function pet_media_fetch(PDO $pdo, array $range): array
             JOIN bookings b ON b.booking_id = bd.booking_id
             LEFT JOIN pets_information p ON p.pet_id = bd.pet_id
             LEFT JOIN users owner ON owner.user_id = b.user_id
+            WHERE bd.pet_id = :selected_pet_id
             ORDER BY bd.created_at DESC
         ");
+        $stmt->execute(['selected_pet_id' => $selectedPetId]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $base = pet_media_base($row);
             pet_media_add($media, $seen, $base, $row['document_path'] ?? '', 'boarding', $row['title'] ?? 'Boarding Document', [
@@ -581,32 +705,100 @@ function pet_media_fetch(PDO $pdo, array $range): array
         }
     }
 
-    $media = array_values(array_filter($media, static fn($item) => pet_media_is_within_range($item, $range)));
+    if (pet_media_table_exists($pdo, 'visit_invoice_documents')) {
+        $hasVisits = pet_media_table_exists($pdo, 'visits');
+        $hasPets = pet_media_table_exists($pdo, 'pets_information');
+        $hasUsers = pet_media_table_exists($pdo, 'users');
+        $hasBookings = pet_media_table_exists($pdo, 'bookings');
+        $hasQueues = pet_media_table_exists($pdo, 'queues');
+        $hasDiagnoses = pet_media_table_exists($pdo, 'vet_diagnoses');
+        $hasVisitOwner = $hasVisits && pet_media_column_exists($pdo, 'visits', 'owner_user_id');
+        $hasVisitBooking = $hasVisits && pet_media_column_exists($pdo, 'visits', 'booking_id');
+        $hasVisitQueue = $hasVisits && pet_media_column_exists($pdo, 'visits', 'queue_id');
+        $hasVisitDiagnosis = $hasVisits && pet_media_column_exists($pdo, 'visits', 'diagnosis_id');
+        $visitJoin = $hasVisits ? 'LEFT JOIN visits v ON v.visit_id = vid.visit_id' : '';
+        $petJoin = $hasPets ? 'LEFT JOIN pets_information p ON p.pet_id = vid.pet_id' : '';
+        $ownerJoin = $hasVisitOwner && $hasUsers ? 'LEFT JOIN users owner ON owner.user_id = v.owner_user_id' : '';
+        $bookingJoin = $hasVisitBooking && $hasBookings ? 'LEFT JOIN bookings b ON b.booking_id = v.booking_id' : '';
+        $queueJoin = $hasVisitQueue && $hasQueues ? 'LEFT JOIN queues q ON q.queue_id = v.queue_id' : '';
+        $diagnosisJoin = $hasVisitDiagnosis && $hasDiagnoses ? 'LEFT JOIN vet_diagnoses vd ON vd.diagnosis_id = v.diagnosis_id' : '';
+        $petSelect = $hasPets
+            ? 'p.pet_name, p.pet_species, p.pet_breed'
+            : 'NULL AS pet_name, NULL AS pet_species, NULL AS pet_breed';
+        $ownerSelect = $hasVisitOwner && $hasUsers
+            ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner')"
+            : "'Unknown Owner'";
+        $serviceParts = [];
+        if ($hasVisitDiagnosis && $hasDiagnoses) $serviceParts[] = 'vd.service_name';
+        if ($hasVisitBooking && $hasBookings) $serviceParts[] = 'b.service_type';
+        if ($hasVisitQueue && $hasQueues) $serviceParts[] = 'q.service_name';
+        $serviceParts[] = "'Invoice'";
+        $serviceSelect = count($serviceParts) === 1
+            ? $serviceParts[0]
+            : 'COALESCE(' . implode(', ', $serviceParts) . ')';
+        $stmt = $pdo->prepare("
+            SELECT
+                vid.invoice_document_id,
+                vid.invoice_number,
+                vid.visit_id,
+                vid.payment_id,
+                vid.pet_id,
+                vid.file_path,
+                vid.file_name,
+                vid.mime_type,
+                vid.paper_width,
+                vid.created_by_name,
+                vid.created_at,
+                {$petSelect},
+                {$ownerSelect} AS owner_name,
+                {$serviceSelect} AS service_name,
+                NULL AS booking_id,
+                NULL AS booking_number,
+                NULL AS queue_id,
+                NULL AS queue_number
+            FROM visit_invoice_documents vid
+            {$visitJoin}
+            {$petJoin}
+            {$ownerJoin}
+            {$bookingJoin}
+            {$queueJoin}
+            {$diagnosisJoin}
+            WHERE vid.pet_id = :selected_pet_id
+            ORDER BY vid.created_at DESC, vid.invoice_document_id DESC
+        ");
+        $stmt->execute(['selected_pet_id' => $selectedPetId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $base = pet_media_base($row);
+            $invoiceNumber = trim((string)($row['invoice_number'] ?? ''));
+            pet_media_add($media, $seen, $base, $row['file_path'] ?? '', 'invoice', $invoiceNumber !== '' ? "Invoice {$invoiceNumber}" : 'Invoice', [
+                'name' => $row['file_name'] ?? null,
+                'mimeType' => $row['mime_type'] ?? 'application/pdf',
+                'createdAt' => $row['created_at'] ?? '',
+                'recordId' => (int)$row['invoice_document_id'],
+                'uploadedBy' => $row['created_by_name'] ?? '',
+                'documentType' => 'invoice',
+                'paperWidth' => $row['paper_width'] ?? '',
+            ]);
+        }
+    }
+
+    $media = array_values(array_filter($media, static function ($item) use ($range, $selectedPetId): bool {
+        return (int)($item['petId'] ?? 0) === $selectedPetId
+            && pet_media_is_within_range($item, $range);
+    }));
 
     usort($media, static function ($a, $b) {
         return strcmp((string)($b['createdAt'] ?? ''), (string)($a['createdAt'] ?? ''));
     });
 
-    $pets = [];
     $sourceCounts = [];
     foreach ($media as $item) {
-        $petKey = $item['petId'] !== null ? (string)$item['petId'] : 'unlinked';
-        if (!isset($pets[$petKey])) {
-            $pets[$petKey] = [
-                'petId' => $item['petId'],
-                'petName' => $item['petName'],
-                'petSpecies' => $item['petSpecies'],
-                'petBreed' => $item['petBreed'],
-                'ownerName' => $item['ownerName'],
-                'mediaCount' => 0,
-            ];
-        }
-        $pets[$petKey]['mediaCount'] += 1;
         $source = $item['source'] ?: 'other';
         $sourceCounts[$source] = ($sourceCounts[$source] ?? 0) + 1;
     }
 
-    uasort($pets, static fn($a, $b) => ($b['mediaCount'] <=> $a['mediaCount']) ?: strcmp($a['petName'], $b['petName']));
+    $imageCount = count(array_filter($media, static fn($item) => ($item['kind'] ?? '') === 'image'));
+    $documentCount = count(array_filter($media, static fn($item) => ($item['kind'] ?? '') === 'pdf'));
 
     return [
         'success' => true,
@@ -617,12 +809,17 @@ function pet_media_fetch(PDO $pdo, array $range): array
             'end_date' => $range['end_date'],
             'label' => $range['label'],
         ],
+        'selected_pet_id' => $selectedPetId,
         'media' => array_values($media),
-        'pets' => array_values($pets),
         'totals' => [
-            'images' => count($media),
-            'pets' => count($pets),
+            'files' => count($media),
+            'images' => $imageCount,
+            'documents' => $documentCount,
+            'pets' => 1,
             'diagnosis' => $sourceCounts['diagnosis'] ?? 0,
+            'consent' => $sourceCounts['consent'] ?? 0,
+            'prescription' => $sourceCounts['prescription'] ?? 0,
+            'invoice' => $sourceCounts['invoice'] ?? 0,
             'booking' => $sourceCounts['booking'] ?? 0,
             'queue' => $sourceCounts['queue'] ?? 0,
             'boarding' => $sourceCounts['boarding'] ?? 0,
@@ -635,11 +832,23 @@ function pet_media_fetch(PDO $pdo, array $range): array
 try {
     $payload = pet_media_payload();
     pet_media_require_media_access($payload);
+    $selectedPetId = filter_var(
+        $payload['pet_id'] ?? $payload['petId'] ?? null,
+        FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1]]
+    );
+    if ($selectedPetId === false || $selectedPetId === null) {
+        pet_media_json([
+            'success' => false,
+            'message' => 'Select a pet before loading its files and media.',
+        ], 422);
+    }
     $range = pet_media_date_range($payload);
-    pet_media_json(pet_media_fetch($pdo, $range));
+    pet_media_json(pet_media_fetch($pdo, $range, (int)$selectedPetId));
 } catch (Throwable $e) {
+    error_log('Pet media monitoring failed: ' . $e->getMessage());
     pet_media_json([
         'success' => false,
-        'message' => 'Pet media monitoring could not be loaded: ' . $e->getMessage(),
+        'message' => 'Pet files and media could not be loaded. Please try again.',
     ], 500);
 }

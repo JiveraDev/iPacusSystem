@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { sendMaintenanceProblemReport } from '../services/problemReportService.js';
+import { getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
 const FAILURE_CONTENT = {
     maintenance: {
@@ -58,7 +59,9 @@ function failureContent(serverStatus = {}) {
     return {
         ...content,
         kind,
-        message: serverStatus.message || content.message
+        message: getUserFacingErrorMessage(serverStatus.message, content.message, {
+            context: 'Service-status details were hidden from the user interface.'
+        })
     };
 }
 
@@ -98,7 +101,11 @@ export default function ServerDownPage({ isRetrying, onRetry, serverStatus }) {
             setReportState({
                 status: 'failed',
                 reportId: error.reportId || '',
-                message: error.message || 'The automatic problem report could not be sent.',
+                message: getUserFacingErrorMessage(
+                    error,
+                    'The automatic problem report could not be sent.',
+                    { context: 'Problem-report details were hidden from the status screen.' }
+                ),
                 fallbackEmailUrl: error.fallbackEmailUrl || '',
             });
         }

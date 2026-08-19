@@ -31,7 +31,16 @@ function normalizeServiceKey(value) {
     return aliases[normalized] || normalized;
 }
 
-export default function BranchBookingSelect({ service, date, value, onChange, required = true, assignedOnly = false }) {
+export default function BranchBookingSelect({
+    service,
+    date,
+    value,
+    onChange,
+    required = true,
+    assignedOnly = false,
+    locked = false,
+    lockedBranchId = '',
+}) {
     const [branches, setBranches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -50,10 +59,13 @@ export default function BranchBookingSelect({ service, date, value, onChange, re
                 setError('');
                 const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
                 setBranches(nextBranches);
-                const currentExists = nextBranches.some((branch) => String(branch.id) === String(value || ''));
+                const desiredValue = lockedBranchId || value;
+                const currentExists = nextBranches.some((branch) => String(branch.id) === String(desiredValue || ''));
                 if (!currentExists) {
                     const defaultBranch = nextBranches.find((branch) => branch.isMain) || nextBranches[0];
                     onChangeRef.current(defaultBranch ? String(defaultBranch.id) : '');
+                } else if (String(value || '') !== String(desiredValue || '')) {
+                    onChangeRef.current(String(desiredValue));
                 }
             })
             .catch((requestError) => {
@@ -66,7 +78,7 @@ export default function BranchBookingSelect({ service, date, value, onChange, re
         return () => {
             active = false;
         };
-    }, [serviceKey, date, value, assignedOnly]);
+    }, [serviceKey, date, value, assignedOnly, lockedBranchId]);
 
     const selectedBranch = useMemo(
         () => branches.find((branch) => String(branch.id) === String(value || '')),
@@ -83,21 +95,30 @@ export default function BranchBookingSelect({ service, date, value, onChange, re
                 <Building2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                 Clinic location {required ? '*' : ''}
             </Label>
-            <Select value={String(value || '')} onValueChange={onChange} disabled={isLoading || !branches.length}>
-                <SelectTrigger id={`branch-${serviceKey}`} aria-invalid={Boolean(error)}>
-                    <SelectValue
-                        placeholder={isLoading ? 'Loading locations...' : 'Select a clinic location'}
-                        displayValue={selectedBranch?.name}
-                    />
-                </SelectTrigger>
-                <SelectContent>
-                    {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={String(branch.id)}>
-                            {branch.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            {locked ? (
+                <div
+                    id={`branch-${serviceKey}`}
+                    className="flex min-h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                    {isLoading ? 'Loading assigned location...' : selectedBranch?.name || 'Assigned clinic location'}
+                </div>
+            ) : (
+                <Select value={String(value || '')} onValueChange={onChange} disabled={isLoading || !branches.length}>
+                    <SelectTrigger id={`branch-${serviceKey}`} aria-invalid={Boolean(error)}>
+                        <SelectValue
+                            placeholder={isLoading ? 'Loading locations...' : 'Select a clinic location'}
+                            displayValue={selectedBranch?.name}
+                        />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={String(branch.id)}>
+                                {branch.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            )}
             {isLoading ? (
                 <p className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

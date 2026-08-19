@@ -28,7 +28,7 @@ function delete_account_column_exists(PDO $pdo, string $table, string $column): 
 
 function delete_account_required_sql(): string
 {
-    return 'Run the approved account-status deployment SQL before removing accounts from active use.';
+    return 'Run the approved archive-status deployment SQL before archiving accounts.';
 }
 
 function delete_account_normalize_role(?string $role): string
@@ -62,12 +62,12 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
     }
 
     $accountName = delete_account_name($account);
-    $title = 'Account access removed';
-    $intro = "Hello {$accountName}, your iPawcus account access has been removed by clinic administration. If you believe this was a mistake, please contact the clinic.";
+    $title = 'Account archived';
+    $intro = "Hello {$accountName}, your iPawcus account has been archived by clinic administration. Your records remain protected and the account can be restored when appropriate. If you believe this was a mistake, please contact the clinic.";
     $rows = [
         'Account' => $accountName,
         'Role' => $account['role'] ?? '',
-        'Removed by' => $actorName,
+        'Archived by' => $actorName,
         'Reason' => $reason,
         'Recorded at' => date('F j, Y g:i A'),
     ];
@@ -78,12 +78,12 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
         'type' => 'account_removed',
         'category' => 'account_updates',
         'title' => $title,
-        'message' => 'Your account access has been removed by clinic administration.',
+        'message' => 'Your account has been archived by clinic administration.',
         'push_title' => $title,
-        'push_message' => 'Your account access has been removed by clinic administration.',
+        'push_message' => 'Your account has been archived by clinic administration.',
         'force_in_app' => true,
         'dedupe_key' => "account-removed-{$userId}",
-        'email_subject' => 'Your iPawcus account access was removed',
+        'email_subject' => 'Your iPawcus account was archived',
         'email_html' => $emailHtml,
         'email_text' => delete_account_email_text($title, $intro, $rows),
     ]);
@@ -92,13 +92,13 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
 function delete_account_notify_super_admins(PDO $pdo, array $account, string $reason, string $actorName): void
 {
     $accountName = delete_account_name($account);
-    $title = 'Account removed from directory';
-    $message = "{$accountName} was removed from active account use.";
+    $title = 'Account archived';
+    $message = "{$accountName} was archived from active account use.";
     $rows = [
         'Account' => $accountName,
         'Email' => $account['mail_Address'] ?? '',
         'Role' => $account['role'] ?? '',
-        'Removed by' => $actorName,
+        'Archived by' => $actorName,
         'Reason' => $reason,
     ];
     $emailHtml = notification_email_template($title, $message, $rows, null, "Account: {$accountName}");
@@ -113,7 +113,7 @@ function delete_account_notify_super_admins(PDO $pdo, array $account, string $re
         'redirect_path' => '/dashboard/accounts',
         'force_in_app' => true,
         'dedupe_key' => 'account-removed-audit-' . (int)($account['user_id'] ?? 0) . '-' . date('YmdHis'),
-        'email_subject' => "Account removed: {$accountName}",
+        'email_subject' => "Account archived: {$accountName}",
         'email_html' => $emailHtml,
         'email_text' => delete_account_email_text($title, $message, $rows),
     ]);
@@ -145,13 +145,13 @@ if ($masterKey === '' || !hash_equals($expectedMasterKey, $masterKey)) {
 if (!delete_account_column_exists($pdo, 'users', 'account_status')) {
     delete_account_json([
         'success' => false,
-        'message' => 'Database change required before account delete can be used.',
+        'message' => 'Database change required before account archiving can be used.',
         'required_sql' => delete_account_required_sql(),
     ], 409);
 }
 
 if ($actorUserId > 0 && $actorUserId === $userId) {
-    delete_account_json(['success' => false, 'message' => 'You cannot remove the account you are currently using.'], 422);
+    delete_account_json(['success' => false, 'message' => 'You cannot archive the account you are currently using.'], 422);
 }
 
 try {
@@ -170,7 +170,7 @@ try {
 
     $normalizedRole = delete_account_normalize_role($account['role'] ?? '');
     if (in_array($normalizedRole, ['super_admin', 'superadmin'], true)) {
-        delete_account_json(['success' => false, 'message' => 'Super Admin accounts cannot be removed from this action.'], 422);
+        delete_account_json(['success' => false, 'message' => 'Super Admin accounts cannot be archived from this action.'], 422);
     }
 
     $actorName = 'Super Admin';
@@ -188,12 +188,12 @@ try {
         }
     }
 
-    $deleteReason = $reason !== '' ? $reason : 'Removed by Super Admin';
+    $deleteReason = $reason !== '' ? $reason : 'Archived by Super Admin';
 
     $pdo->beginTransaction();
 
     $setParts = ['account_status = ?'];
-    $params = ['deactivated'];
+    $params = ['archived'];
 
     if (delete_account_column_exists($pdo, 'users', 'deactivated_at')) {
         $setParts[] = 'deactivated_at = NOW()';
@@ -219,6 +219,8 @@ try {
         $profileStmt->execute([$userId]);
     }
 
+    accountRevokeAccessTokens($pdo, $userId);
+
     $pdo->commit();
 
     try {
@@ -230,7 +232,7 @@ try {
 
     delete_account_json([
         'success' => true,
-        'message' => 'Account removed from active use.',
+        'message' => 'Account archived.',
         'user_id' => $userId,
     ]);
 } catch (Throwable $e) {
@@ -238,5 +240,5 @@ try {
         $pdo->rollBack();
     }
 
-    delete_account_json(['success' => false, 'message' => 'Failed to remove account: ' . $e->getMessage()], 500);
+    delete_account_json(['success' => false, 'message' => 'Failed to archive account: ' . $e->getMessage()], 500);
 }

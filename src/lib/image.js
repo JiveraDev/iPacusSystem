@@ -6,6 +6,7 @@ const RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'diagnosis',
   'inventory_items',
   'inventory_receipts',
+  'invoices',
   'payment_qr',
   'payments',
   'pet_profile_images',
@@ -19,6 +20,7 @@ const PROTECTED_RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'diagnosis',
   'inventory_items',
   'inventory_receipts',
+  'invoices',
   'payments',
   'signatures'
 ]);

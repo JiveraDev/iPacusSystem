@@ -10,8 +10,8 @@ import { ArrowLeft, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, isDeceasedPetStatus } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
-import { createConsentDocumentImage } from "../../services/consentDocumentImage";
-import { uploadDataUrlImage, uploadImageFile } from "../../services/uploadService";
+import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf";
+import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { PhotoViewer } from "../../ui/photo-viewer";
@@ -137,7 +137,7 @@ export default function PaymentSubmission() {
             throw new Error("The consent form content is missing. Please return to the booking form and try again.");
           }
 
-          const signedConsentImage = await createConsentDocumentImage({
+          documentPath = await createAndUploadConsentDocumentPdf({
             title: form.title || form.name || "Consent Form",
             content: form.content,
             signatureImage: sourceSignature,
@@ -153,12 +153,7 @@ export default function PaymentSubmission() {
               branchName: bookingData.branchName || bookingData.branch_name,
               bookingNumber: bookingData.bookingNumber || bookingData.booking_number
             }
-          });
-          documentPath = await uploadDataUrlImage(
-            signedConsentImage,
-            "booking_signature",
-            `booking_consent_${index + 1}`
-          );
+          }, `booking_consent_${index + 1}`);
           if (!documentPath) {
             throw new Error("The signed consent document could not be saved. Please try again.");
           }
@@ -203,6 +198,7 @@ export default function PaymentSubmission() {
         payment_proof_url: receiptUrl,
         payment_method: formData.paymentMethod,
         payment_reference: formData.referenceNumber,
+        payment_amount: Number(formData.amount),
         price: formData.amount,
         signature: signedConsentDocumentUrl || null,
         signature_path: signedConsentDocumentUrl || null,

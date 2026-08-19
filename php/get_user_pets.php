@@ -35,6 +35,7 @@ function fetchUserPetRows(PDO $pdo, $userId): array
             )
             WHERE o.user_id = ?
               AND COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
+              AND COALESCE(p.is_archived, 0) = 0
             ORDER BY p.pet_id DESC";
 
     $stmt = $pdo->prepare($sql);

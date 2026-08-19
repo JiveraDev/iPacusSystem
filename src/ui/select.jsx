@@ -45,12 +45,31 @@ function isSelectItem(child) {
     && (child.type === SelectItem || child.type?.displayName === "SelectItem");
 }
 
+function findSelectItemLabel(children, selectedValue) {
+  let match = "";
+
+  React.Children.forEach(children, (child) => {
+    if (match || !React.isValidElement(child)) return;
+
+    if (isSelectItem(child) && String(child.props.value) === String(selectedValue)) {
+      match = getNodeText(child.props.children).trim();
+      return;
+    }
+
+    if (child.props?.children) {
+      match = findSelectItemLabel(child.props.children, selectedValue);
+    }
+  });
+
+  return match;
+}
+
 function Select({
   value,
   onValueChange,
   children,
   disabled = false,
-  searchable = true,
+  searchable = "auto",
   searchPlaceholder = "Search options",
   emptyMessage = "No matching options.",
   allowCustom = false,
@@ -62,6 +81,14 @@ function Select({
   const [contentStyle, setContentStyle] = React.useState(null);
   const containerRef = React.useRef(null);
   const contentRef = React.useRef(null);
+  const triggerRef = React.useRef(null);
+  const generatedId = React.useId().replace(/:/g, "");
+  const triggerId = `select-trigger-${generatedId}`;
+  const listboxId = `select-listbox-${generatedId}`;
+  const selectedLabel = React.useMemo(
+    () => findSelectItemLabel(children, value),
+    [children, value]
+  );
 
   const updateContentPosition = React.useCallback(() => {
     const trigger = containerRef.current;
@@ -135,6 +162,7 @@ function Select({
     if (disabled) return;
     onValueChange?.(val);
     setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
   }, [disabled, onValueChange]);
 
   const handleCreateOption = React.useCallback((label) => {
@@ -142,7 +170,13 @@ function Select({
     onCreateOption?.(label);
     setSearchQuery("");
     setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
   }, [disabled, onCreateOption]);
+
+  const closeAndRestoreFocus = React.useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
 
   return (
     <SelectContext.Provider value={{
@@ -162,6 +196,11 @@ function Select({
       contentRef,
       contentStyle,
       updateContentPosition,
+      triggerRef,
+      triggerId,
+      listboxId,
+      selectedLabel,
+      closeAndRestoreFocus,
     }}>
       <div ref={containerRef} className="relative w-full min-w-0">
         <input
@@ -178,17 +217,35 @@ function Select({
 }
 
 function SelectTrigger({ className, children, ...props }) {
-  const { open, setOpen, disabled } = React.useContext(SelectContext);
+  const { open, setOpen, disabled, triggerRef, triggerId, listboxId, closeAndRestoreFocus } = React.useContext(SelectContext);
 
   return (
     <button
       type="button"
       {...props}
+      ref={triggerRef}
+      id={props.id || triggerId}
+      role="combobox"
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      aria-controls={listboxId}
       disabled={disabled}
       onClick={(event) => {
         props.onClick?.(event);
         if (!event.defaultPrevented) {
           setOpen(!open);
+        }
+      }}
+      onKeyDown={(event) => {
+        props.onKeyDown?.(event);
+        if (event.defaultPrevented) return;
+
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setOpen(true);
+        } else if (event.key === "Escape" && open) {
+          event.preventDefault();
+          closeAndRestoreFocus();
         }
       }}
       className={cn(
@@ -205,11 +262,11 @@ function SelectTrigger({ className, children, ...props }) {
 SelectTrigger.displayName = "SelectTrigger";
 
 function SelectValue({ placeholder, displayValue }) {
-  const { value } = React.useContext(SelectContext);
+  const { value, selectedLabel } = React.useContext(SelectContext);
 
   return (
     <span className="block min-w-0 flex-1 truncate">
-      {displayValue || value || <span className="text-slate-500">{placeholder}</span>}
+      {displayValue || selectedLabel || value || <span className="text-slate-500">{placeholder}</span>}
     </span>
   );
 }
@@ -230,7 +287,13 @@ function SelectContent({ children, className }) {
     contentRef,
     contentStyle,
     updateContentPosition,
+    listboxId,
+    closeAndRestoreFocus,
   } = React.useContext(SelectContext);
+
+  const childItems = flattenChildren(children);
+  const selectableItemCount = childItems.filter(isSelectItem).length;
+  const shouldSearch = searchable === true || (searchable !== false && selectableItemCount > 8);
 
   React.useLayoutEffect(() => {
     if (open) {
@@ -238,10 +301,7 @@ function SelectContent({ children, className }) {
     }
   }, [children, open, searchQuery, updateContentPosition]);
 
-  if (!open || typeof document === "undefined") return null;
-
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const childItems = flattenChildren(children);
   let matchedItemCount = 0;
   let exactMatch = false;
 
@@ -286,16 +346,38 @@ function SelectContent({ children, className }) {
     visibility: "hidden",
   };
 
+  React.useEffect(() => {
+    if (!open || shouldSearch) return undefined;
+
+    const focusTimer = window.requestAnimationFrame(() => {
+      const selectedOption = contentRef.current?.querySelector('[role="option"][aria-selected="true"]');
+      const firstOption = contentRef.current?.querySelector('[role="option"]:not([aria-disabled="true"])');
+      (selectedOption || firstOption)?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(focusTimer);
+  }, [contentRef, open, searchQuery, shouldSearch]);
+
+  if (!open || typeof document === "undefined") return null;
+
   return createPortal(
     <div
       ref={contentRef}
+      id={listboxId}
+      role="listbox"
       style={portalStyle}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeAndRestoreFocus();
+        }
+      }}
       className={cn(
         "fixed z-[1000] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl animate-in fade-in zoom-in-95",
         className
       )}
     >
-      {searchable && (
+      {shouldSearch && (
         <div className="sticky top-0 z-10 border-b border-slate-100 bg-white p-2">
           <div className="relative">
             <Input
@@ -303,6 +385,18 @@ function SelectContent({ children, className }) {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeAndRestoreFocus();
+                  return;
+                }
+
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  contentRef.current?.querySelector('[role="option"]:not([aria-disabled="true"])')?.focus();
+                  return;
+                }
+
                 if (event.key === "Enter" && canCreate) {
                   event.preventDefault();
                   onCreateOption(searchQuery.trim());
@@ -343,14 +437,48 @@ function SelectContent({ children, className }) {
 SelectContent.displayName = "SelectContent";
 
 function SelectItem({ value: itemValue, children, className, disabled = false }) {
-  const { value: selectedValue, onValueChange } = React.useContext(SelectContext);
+  const { value: selectedValue, onValueChange, closeAndRestoreFocus } = React.useContext(SelectContext);
   const isSelected = selectedValue === itemValue;
+
+  const focusSibling = (element, direction) => {
+    const options = Array.from(element.parentElement?.querySelectorAll('[role="option"]:not([aria-disabled="true"])') || []);
+    const currentIndex = options.indexOf(element);
+    const nextIndex = Math.min(Math.max(currentIndex + direction, 0), options.length - 1);
+    options[nextIndex]?.focus();
+  };
 
   return (
     <div
+      role="option"
+      tabIndex={disabled ? -1 : 0}
+      aria-selected={isSelected}
       onClick={() => {
         if (!disabled) {
           onValueChange(itemValue);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (disabled) return;
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onValueChange(itemValue);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          focusSibling(event.currentTarget, 1);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          focusSibling(event.currentTarget, -1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          event.currentTarget.parentElement?.querySelector('[role="option"]:not([aria-disabled="true"])')?.focus();
+        } else if (event.key === "End") {
+          event.preventDefault();
+          const options = event.currentTarget.parentElement?.querySelectorAll('[role="option"]:not([aria-disabled="true"])');
+          options?.[options.length - 1]?.focus();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          closeAndRestoreFocus();
         }
       }}
       aria-disabled={disabled}

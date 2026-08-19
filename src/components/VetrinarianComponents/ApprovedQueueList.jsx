@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
     AlertCircle,
+    Building2,
     CalendarClock,
     CheckCircle2,
     ChevronDown,
@@ -15,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
@@ -260,7 +260,16 @@ export default function VetQueueList() {
     useAutoRefresh(async () => {
         try {
             const data = await fetchBranches();
-            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+            const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+            setBranches(nextBranches);
+            setBranchFilter((current) => {
+                if (current !== 'all' && nextBranches.some((branch) => String(branch.id) === current)) return current;
+                const preferred = getPreferredBranchFilter(currentUser);
+                const selected = nextBranches.find((branch) => String(branch.id) === preferred)
+                    || nextBranches.find((branch) => branch.isMain)
+                    || nextBranches[0];
+                return selected ? String(selected.id) : 'all';
+            });
         } catch (error) {
             console.error('Failed to load approved-list branches:', error);
         }
@@ -669,22 +678,10 @@ export default function VetQueueList() {
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
-                    <Select value={branchFilter} onValueChange={setBranchFilter}>
-                        <SelectTrigger>
-                            <SelectValue
-                                placeholder="Filter by clinic location"
-                                displayValue={branchFilter === 'all'
-                                    ? 'All clinic locations'
-                                    : getBranchDisplayName(branches, branchFilter)}
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All clinic locations</SelectItem>
-                            {branches.map(branch => (
-                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <Building2 className="size-4 text-slate-500" />
+                        {getBranchDisplayName(branches, branchFilter, 'Active Home location')}
+                    </div>
                 </div>
             </div>
 
@@ -812,7 +809,7 @@ export default function VetQueueList() {
                 </Table>
             </div>
 
-            <div className="flex flex-col gap-6">
+            <div id="approved-booking-sections" className="scroll-mt-6 flex flex-col gap-6">
             <div className="order-2 overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-sky-100 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -991,6 +988,18 @@ export default function VetQueueList() {
                     </TableBody>
                 </Table>
             </div>
+            <Button
+                type="button"
+                onClick={() => document.getElementById('approved-booking-sections')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="fixed bottom-5 right-5 z-40 h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf] sm:bottom-7 sm:right-7"
+                aria-label="Jump to confirmed and rescheduled bookings"
+            >
+                <CalendarClock className="size-5" />
+                <span className="hidden sm:inline">Bookings</span>
+                <Badge className="border-0 bg-white/20 text-white">
+                    {filteredConfirmedBookings.length + filteredMissedBookings.length}
+                </Badge>
+            </Button>
             </div>
         </div>
     );

@@ -6,6 +6,8 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -33,6 +35,8 @@ if ($bookingId <= 0 || $bookingDate === '' || $bookingTime === '') {
     echo json_encode(['message' => 'Booking ID, date, and time are required.']);
     exit;
 }
+
+$slotLockName = null;
 
 try {
     $requestedDateTime = buildOnlineConsultationDateTime($bookingDate, $bookingTime);
@@ -70,7 +74,7 @@ try {
     );
 
     $stmt = $pdo->prepare("
-        SELECT booking_id, user_id, pet_id, unregistered_pet_name, veterinarian_id,
+        SELECT booking_id, user_id, pet_id, unregistered_pet_name, veterinarian_id, branch_id,
                is_online_consultation, status, booking_date, booking_time,
                service_type, check_in_date, created_at, notes
         FROM bookings
@@ -86,6 +90,14 @@ try {
     }
 
     if (
+        $currentApiRole === 'admin'
+        && strtolower(trim((string)($booking['status'] ?? ''))) !== 'pending'
+        && !branch_user_can_access($pdo, $currentApiUser, (int)($booking['branch_id'] ?? 0))
+    ) {
+        ipawcus_guard_error(403, 'This booking belongs to another branch.');
+    }
+
+    if (
         $currentApiRole === 'veterinarian'
         && (int)($booking['veterinarian_id'] ?? 0) !== $changedByUserId
     ) {
@@ -97,28 +109,39 @@ try {
         throw new DomainException("A {$bookingStatus} booking cannot be rescheduled.");
     }
 
-    if ((int)$booking['is_online_consultation'] === 1 && (int)($booking['veterinarian_id'] ?? 0) > 0) {
-        $conflictStmt = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM bookings
-            WHERE is_online_consultation = 1
-              AND veterinarian_id = ?
-              AND booking_date = ?
-              AND booking_time < ?
-              AND ADDTIME(booking_time, '01:00:00') > ?
-              AND status IN ('pending', 'confirmed')
-              AND booking_id <> ?
-        ");
-        $conflictStmt->execute([
-            (int)$booking['veterinarian_id'],
+    $serviceKey = booking_slot_service_key(
+        $booking['service_type'] ?? null,
+        $booking['is_home_service'] ?? 0,
+        $booking['is_online_consultation'] ?? 0
+    );
+    if ($serviceKey !== 'boarding') {
+        $bookingTime = booking_slot_assert_aligned($serviceKey, $bookingTime);
+    }
+
+    try {
+        $branchResolution = branch_resolve_booking(
+            $pdo,
+            $booking['branch_id'] ?? null,
+            $booking['service_type'] ?? null,
+            $booking['is_home_service'] ?? 0,
+            $booking['is_online_consultation'] ?? 0,
             $bookingDate,
-            (clone $requestedDateTime)->modify('+1 hour')->format('H:i:s'),
             $bookingTime,
-            $bookingId,
-        ]);
-        if ((int)$conflictStmt->fetchColumn() > 0) {
-            throw new DomainException('The assigned veterinarian already has an overlapping online consultation.');
-        }
+            is_numeric($booking['veterinarian_id'] ?? null) ? (int)$booking['veterinarian_id'] : null
+        );
+    } catch (InvalidArgumentException $e) {
+        throw new DomainException($e->getMessage());
+    }
+
+    $veterinarianId = is_numeric($booking['veterinarian_id'] ?? null)
+        ? (int)$booking['veterinarian_id']
+        : null;
+    if (!empty($branchResolution['veterinarian_user_id'])) {
+        $veterinarianId = (int)$branchResolution['veterinarian_user_id'];
+    }
+    if ($serviceKey === 'online-consultation'
+        && (!$veterinarianId || !booking_slot_online_vet_is_available($pdo, $veterinarianId, $bookingDate, $bookingTime))) {
+        throw new DomainException('That veterinarian has not made this online consultation time available. Select another date or time.');
     }
 
     $oldBookingDate = (string)($booking['booking_date'] ?? '');
@@ -166,6 +189,36 @@ try {
         ]);
     }
 
+    if ($serviceKey !== 'boarding') {
+        $specialServiceId = null;
+        $slotVeterinarianId = $serviceKey === 'online-consultation' ? $veterinarianId : null;
+        $slotLockName = booking_slot_lock_name(
+            (int)$booking['branch_id'],
+            $serviceKey,
+            $bookingDate,
+            $bookingTime,
+            $slotVeterinarianId,
+            $specialServiceId
+        );
+        if (!booking_slot_acquire($pdo, $slotLockName)) {
+            throw new DomainException('This time is being reserved by another booking. Refresh the available times and try again.');
+        }
+        $slotConflict = booking_slot_find_conflict(
+            $pdo,
+            (int)$booking['branch_id'],
+            $serviceKey,
+            $bookingDate,
+            $bookingTime,
+            $slotVeterinarianId,
+            $bookingId,
+            $specialServiceId,
+            true
+        );
+        if ($slotConflict) {
+            throw new DomainException(booking_slot_conflict_message($serviceKey, $bookingTime));
+        }
+    }
+
     $notes = bookingStripLifecycleNotes($booking['notes'] ?? '', false);
     $notes = maintenance_append_original_booking_note_if_missing(
         array_merge($booking, ['notes' => $notes]),
@@ -194,6 +247,8 @@ try {
     }
 
     $pdo->commit();
+    booking_slot_release($pdo, $slotLockName);
+    $slotLockName = null;
 
     if ((string)$oldBookingDate !== $bookingDate || (string)$oldBookingTime !== $bookingTime) {
         try {
@@ -215,6 +270,7 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    booking_slot_release($pdo, $slotLockName);
 
     $statusCode = match (true) {
         $e instanceof InvalidArgumentException => 422,

@@ -14,14 +14,19 @@ import {
   Upload, X, Image as ImageIcon, MapPin, Search, Loader2
 } from "lucide-react";
 import { searchAddresses } from "../../services/addressAutocomplete";
+import { useCurrentAddressLookup } from "../../hooks/useCurrentAddressLookup.js";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { fetchUserPets } from "../../services/petService";
 import { homeServicePriceById } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
+import AddressMapPreview from "../shared/AddressMapPreview.jsx";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
 export default function HomeServices() {
   const navigate = useNavigate();
+  const availabilityPrefill = readBookingAvailabilitySelection('home-service');
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { instructions } = priceProjectionConfig;
   const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
@@ -32,8 +37,8 @@ export default function HomeServices() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
   const [selectedServices, setSelectedServices] = useState([]);
-  const [preferredDate, setPreferredDate] = useState("");
-  const [preferredTime, setPreferredTime] = useState("");
+  const [preferredDate, setPreferredDate] = useState(availabilityPrefill?.date || "");
+  const [preferredTime, setPreferredTime] = useState(availabilityPrefill?.time || "");
   
   // Address State
   const [address, setAddress] = useState("");
@@ -41,6 +46,18 @@ export default function HomeServices() {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedAddressLocation, setSelectedAddressLocation] = useState(null);
+  const {
+    clearLocationFeedback,
+    isLocatingAddress,
+    locationFeedback,
+    useCurrentLocation,
+  } = useCurrentAddressLookup((result) => {
+    setAddress(result.fullAddress);
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+    setSelectedAddressLocation(result);
+  });
   
   const [notes, setNotes] = useState("");
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -132,11 +149,6 @@ export default function HomeServices() {
       icon: Stethoscope,
       color: "text-indigo-600"
     }
-  ];
-
-  const timeSlots = [
-    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
-    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
 
   useEffect(() => {
@@ -454,59 +466,100 @@ export default function HomeServices() {
                   <Label>Preferred Date *</Label>
                   <Input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
                 </div>
-                <div className="space-y-2">
-                  <Label>Preferred Time *</Label>
-                  <Select value={preferredTime} onValueChange={setPreferredTime}>
-                    <SelectTrigger><SelectValue placeholder="Select time slot" /></SelectTrigger>
-                    <SelectContent>
-                      {timeSlots.map(slot => <SelectItem key={slot} value={slot}>{slot}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <BookingTimeSlotField
+                  id="home-service-time"
+                  service="home-service"
+                  date={preferredDate}
+                  value={preferredTime}
+                  onChange={setPreferredTime}
+                  label="Preferred time"
+                />
               </div>
 
               {/* Address Autocomplete */}
               <div className="space-y-2 relative">
-                <Label>Service Address *</Label>
-                <Input
-                  placeholder="Search your address..."
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  leftIcon={<Search className="size-4" />}
-                  rightIcon={isSearchingAddress ? <Loader2 className="size-4 animate-spin text-blue-600" /> : null}
-                />
+                <Label htmlFor="home-service-address">Service Address *</Label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <div className="relative min-w-0 flex-1">
+                    <Input
+                      id="home-service-address"
+                      placeholder="Search or enter your address..."
+                      value={address}
+                      onChange={(e) => {
+                        setAddress(e.target.value);
+                        setShowSuggestions(true);
+                        setSelectedAddressLocation(null);
+                        clearLocationFeedback();
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      leftIcon={<Search className="size-4" />}
+                      rightIcon={isSearchingAddress ? <Loader2 className="size-4 animate-spin text-blue-600" /> : null}
+                      aria-describedby="home-service-address-feedback"
+                    />
 
-                {showSuggestions && addressSuggestions.length > 0 && (
-                  <div className="absolute z-50 w-full bg-white border rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">
-                    {addressSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.id}
-                        type="button"
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 flex items-start gap-3"
-                        onClick={() => {
-                          setAddress(suggestion.fullAddress);
-                          setShowSuggestions(false);
-                          setAddressSuggestions([]);
-                        }}
-                      >
-                        <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{suggestion.label}</p>
-                          <p className="text-xs text-gray-500">{suggestion.fullAddress}</p>
-                        </div>
-                      </button>
-                    ))}
+                    {showSuggestions && addressSuggestions.length > 0 && (
+                      <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-white shadow-xl">
+                        {addressSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            className="flex w-full items-start gap-3 border-b px-4 py-3 text-left last:border-0 hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-none"
+                            onClick={() => {
+                              setAddress(suggestion.fullAddress);
+                              setShowSuggestions(false);
+                              setAddressSuggestions([]);
+                              setSelectedAddressLocation(suggestion);
+                              clearLocationFeedback();
+                            }}
+                          >
+                            <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{suggestion.label}</p>
+                              <p className="text-xs text-gray-500">{suggestion.fullAddress}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={useCurrentLocation}
+                    disabled={isLocatingAddress}
+                    className="size-10 shrink-0 p-0"
+                    aria-label={isLocatingAddress ? "Finding your current location" : "Use current location"}
+                    title={isLocatingAddress ? "Finding your current location" : "Use current location"}
+                  >
+                    {isLocatingAddress ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <MapPin className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <div id="home-service-address-feedback" aria-live="polite">
+                  {locationFeedback.message ? (
+                    <p className={`text-xs ${
+                      locationFeedback.type === "success" ? "text-emerald-600" : "text-amber-600"
+                    }`}>
+                      {locationFeedback.message}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Choose a suggestion, use your location, or type the service address yourself.
+                    </p>
+                  )}
+                </div>
+                {selectedAddressLocation && address.trim() && (
+                  <AddressMapPreview location={selectedAddressLocation} />
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label>Specific Location Details (Optional)</Label>
+                <Label htmlFor="home-service-location-details">Specific Location Details (Optional)</Label>
                 <Input 
+                  id="home-service-location-details"
                   placeholder="e.g. Unit 402, Green Building, Near City Hall" 
                   value={specificLocation} 
                   onChange={(e) => setSpecificLocation(e.target.value)}

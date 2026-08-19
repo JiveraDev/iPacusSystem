@@ -236,7 +236,10 @@ function serializeSpecialService(array $service): array
 {
     $maxPets = max(1, (int)$service['max_pets']);
     $bookedPets = max(0, (int)($service['_booked_pets'] ?? 0));
-    $remainingSlots = max(0, $maxPets - $bookedPets);
+    // max_pets limits the number of pets in one appointment. Availability is
+    // now calculated per date/time slot instead of being consumed forever by
+    // historical bookings.
+    $remainingSlots = $maxPets;
 
     return [
         'id' => (int)$service['special_service_id'],
@@ -251,8 +254,8 @@ function serializeSpecialService(array $service): array
         'maxPets' => $maxPets,
         'bookedPets' => $bookedPets,
         'remainingSlots' => $remainingSlots,
-        'isFullyBooked' => $remainingSlots <= 0,
-        'isBookable' => (bool)$service['is_active'] && $remainingSlots > 0,
+        'isFullyBooked' => false,
+        'isBookable' => (bool)$service['is_active'],
         'sortOrder' => (int)$service['sort_order'],
         'isActive' => (bool)$service['is_active'],
         'dateRestrictionType' => $service['date_restriction_type'] ?? 'none',

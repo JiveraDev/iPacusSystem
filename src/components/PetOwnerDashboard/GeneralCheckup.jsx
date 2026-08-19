@@ -16,27 +16,47 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import BookingTimeSlotField from "../shared/BookingTimeSlotField";
+import BranchBookingSelect from "../shared/BranchBookingSelect";
+import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 
-export default function GeneralCheckup() {
+const DEFAULT_BOOKING_CONFIG = {
+  availabilityKey: 'general-checkup',
+  serviceType: 'General Check-up',
+  title: 'General Check-up',
+  description: 'Book a comprehensive health examination for your pet',
+  notesPlaceholder: 'Any specific concerns or symptoms?',
+  projectionKey: 'generalConsultation',
+  Icon: Stethoscope,
+  branchSelectable: false,
+};
+
+export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG }) {
   const navigate = useNavigate();
+  const config = { ...DEFAULT_BOOKING_CONFIG, ...bookingConfig };
+  const BookingIcon = config.Icon;
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
-  const serviceDetail = serviceDetails.generalConsultation;
+  const serviceDetail = config.projectionKey ? serviceDetails[config.projectionKey] : null;
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => {
+    const prefill = readBookingAvailabilitySelection(config.availabilityKey);
+    return ({
     petId: "",
     petName: "",
     newPetSpecies: "",
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
-    date: "",
-    time: "",
+    date: prefill?.date || "",
+    time: prefill?.time || "",
+    branchId: prefill?.branchId ? String(prefill.branchId) : "",
     notes: "",
     files: [],
+    });
   });
 
   useEffect(() => {
@@ -71,6 +91,13 @@ export default function GeneralCheckup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) {
+      return;
+    }
+
+    if ((config.branchSelectable && !formData.branchId) || !formData.date || !formData.time) {
+      toast.error(config.branchSelectable
+        ? "Select a clinic location and an available appointment date and time."
+        : "Select an available appointment date and time.");
       return;
     }
     
@@ -123,7 +150,8 @@ export default function GeneralCheckup() {
       const bookingPayload = {
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
-        service_type: 'General Check-up',
+        service_type: config.serviceType,
+        branch_id: config.branchSelectable && formData.branchId ? Number(formData.branchId) : null,
         booking_date: formData.date,
         booking_time: formData.time,
         notes: formData.notes,
@@ -193,8 +221,8 @@ export default function GeneralCheckup() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">General Check-up</h1>
-          <p className="text-gray-600 mt-1">Book a comprehensive health examination for your pet</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{config.title}</h1>
+          <p className="text-gray-600 mt-1">{config.description}</p>
         </div>
       </div>
 
@@ -302,6 +330,15 @@ export default function GeneralCheckup() {
                 </div>
               )}
 
+              {config.branchSelectable && (
+                <BranchBookingSelect
+                  service={config.availabilityKey}
+                  date={formData.date}
+                  value={formData.branchId}
+                  onChange={(branchId) => setFormData((current) => ({ ...current, branchId }))}
+                />
+              )}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="date">Preferred Date *</Label>
@@ -315,23 +352,22 @@ export default function GeneralCheckup() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="time">Preferred Time *</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    required
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  />
-                </div>
+                <BookingTimeSlotField
+                  id="time"
+                  service={config.availabilityKey}
+                  date={formData.date}
+                  branchId={formData.branchId}
+                  value={formData.time}
+                  onChange={(time) => setFormData((current) => ({ ...current, time }))}
+                  label="Preferred time"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Additional Notes</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Any specific concerns or symptoms?"
+                  placeholder={config.notesPlaceholder}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={4}
@@ -367,21 +403,27 @@ export default function GeneralCheckup() {
           <Card>
             <CardHeader>
               <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Stethoscope className="h-8 w-8" />
+                <BookingIcon className="h-8 w-8" />
               </div>
-              <CardTitle className="text-center">General Check-up</CardTitle>
+              <CardTitle className="text-center">{config.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ServiceProjectionDetails detail={serviceDetail}>
-                <p className="text-lg font-bold text-blue-600">{servicePrices.generalConsultation}</p>
-                {instructions.generalConsultation && (
-                  <p className="mt-1 text-xs text-gray-500">{instructions.generalConsultation}</p>
-                )}
-              </ServiceProjectionDetails>
+              {config.projectionKey ? (
+                <ServiceProjectionDetails detail={serviceDetail}>
+                  <p className="text-lg font-bold text-blue-600">{servicePrices[config.projectionKey]}</p>
+                  {instructions[config.projectionKey] && (
+                    <p className="mt-1 text-xs text-gray-500">{instructions[config.projectionKey]}</p>
+                  )}
+                </ServiceProjectionDetails>
+              ) : (
+                <p className="text-sm leading-6 text-slate-600">
+                  {config.infoText || 'The clinic will review the requested tests and confirm any preparation and fees.'}
+                </p>
+              )}
             </CardContent>
           </Card>
 
-          <ServiceProjectionNote detail={serviceDetail} />
+          {config.projectionKey && <ServiceProjectionNote detail={serviceDetail} />}
         </div>
       </div>
     </div>

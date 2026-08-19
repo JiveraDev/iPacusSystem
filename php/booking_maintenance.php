@@ -4,6 +4,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/booking_daily_guard.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 const MAINTENANCE_TIMEZONE = 'Asia/Manila';
 const MAINTENANCE_ORIGINAL_BOOKING_NOTE = '[Original Booking Date: %s]';
@@ -447,6 +448,31 @@ function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $t
 {
     $bookingId = (int)$booking['booking_id'];
     $previousDate = (string)$booking['booking_date'];
+    $serviceKey = booking_slot_service_key(
+        $booking['service_type'] ?? null,
+        $booking['is_home_service'] ?? 0,
+        $booking['is_online_consultation'] ?? 0
+    );
+    $branchId = (int)($booking['branch_id'] ?? 0);
+    $bookingTime = (string)($booking['booking_time'] ?? '');
+
+    if (
+        $branchId <= 0
+        || booking_slot_find_conflict(
+            $pdo,
+            $branchId,
+            $serviceKey,
+            $today,
+            $bookingTime,
+            is_numeric($booking['veterinarian_id'] ?? null) ? (int)$booking['veterinarian_id'] : null,
+            $bookingId,
+            null,
+            true
+        )
+    ) {
+        return false;
+    }
+
     $petIds = booking_daily_pet_ids_for_booking(
         $pdo,
         $bookingId,

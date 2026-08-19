@@ -102,6 +102,12 @@ if (!function_exists('createDatabaseConnection')) {
 
     function ipawcus_send_database_connection_error(PDOException $e): void
     {
+        if (function_exists('ipawcus_error_response_log_throwable')) {
+            ipawcus_error_response_log_throwable($e, 'Database connection failed');
+        } else {
+            error_log('Database connection failed: ' . $e->getMessage());
+        }
+
         ipawcus_json_error(503, ipawcus_database_unavailable_payload());
     }
 

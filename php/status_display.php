@@ -190,13 +190,19 @@ function status_display_billing_item(array $row): array
 try {
     runLifecycleMaintenance($pdo, null, false);
     $today = maintenance_today($pdo);
+    $availableBranches = branch_fetch_catalog($pdo);
     $requestedBranch = trim((string)($_GET['branch'] ?? $_GET['branch_id'] ?? ''));
     if ($requestedBranch !== '' && ctype_digit($requestedBranch)) {
         $branch = branch_fetch($pdo, (int)$requestedBranch);
     } elseif ($requestedBranch !== '') {
-        $branchStmt = $pdo->prepare('SELECT * FROM branches WHERE branch_code = ? AND status = \'active\' LIMIT 1');
-        $branchStmt->execute([strtoupper($requestedBranch)]);
-        $branch = $branchStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $requestedCode = strtoupper($requestedBranch);
+        $branch = null;
+        foreach ($availableBranches as $availableBranch) {
+            if (strtoupper((string)($availableBranch['code'] ?? '')) === $requestedCode) {
+                $branch = branch_fetch($pdo, (int)$availableBranch['id']);
+                break;
+            }
+        }
     } else {
         $branch = branch_fetch($pdo, branch_main_id($pdo));
     }
@@ -206,18 +212,12 @@ try {
         exit;
     }
     $branchId = (int)$branch['branch_id'];
-    $branchCatalogStmt = $pdo->query("
-        SELECT branch_id, branch_code, branch_name, address
-        FROM branches
-        WHERE status = 'active'
-        ORDER BY is_main DESC, branch_name ASC
-    ");
     $branchCatalog = array_map(static fn(array $catalogBranch): array => [
-        'id' => (int)$catalogBranch['branch_id'],
-        'code' => $catalogBranch['branch_code'],
-        'name' => $catalogBranch['branch_name'],
+        'id' => (int)$catalogBranch['id'],
+        'code' => $catalogBranch['code'],
+        'name' => $catalogBranch['name'],
         'address' => $catalogBranch['address'],
-    ], $branchCatalogStmt->fetchAll(PDO::FETCH_ASSOC));
+    ], $availableBranches);
     $sections = [
         'queue' => [],
         'bookings' => [],
@@ -336,6 +336,19 @@ try {
     }
 
     if (status_display_table_exists($pdo, 'visits')) {
+        $refundJoin = '';
+        $refundAdjustment = '';
+        if (status_display_table_exists($pdo, 'visit_payment_refunds')) {
+            $refundJoin = "
+                LEFT JOIN (
+                    SELECT visit_id, SUM(amount) AS total_refunded
+                    FROM visit_payment_refunds
+                    WHERE refund_status = 'processed'
+                    GROUP BY visit_id
+                ) refunds ON refunds.visit_id = payment_rows.visit_id
+            ";
+            $refundAdjustment = ' - COALESCE(MAX(refunds.total_refunded), 0)';
+        }
         $stmt = $pdo->prepare("
             SELECT
                 v.visit_id,
@@ -364,10 +377,16 @@ try {
                 GROUP BY visit_id
             ) charges ON charges.visit_id = v.visit_id
             LEFT JOIN (
-                SELECT visit_id, SUM(amount) AS paid_amount
-                FROM visit_payments
-                WHERE payment_status = 'verified'
-                GROUP BY visit_id
+                SELECT
+                    payment_rows.visit_id,
+                    GREATEST(
+                        SUM(CASE WHEN payment_rows.payment_status IN ('verified', 'refunded') THEN payment_rows.amount ELSE 0 END)
+                        {$refundAdjustment},
+                        0
+                    ) AS paid_amount
+                FROM visit_payments payment_rows
+                {$refundJoin}
+                GROUP BY payment_rows.visit_id
             ) payments ON payments.visit_id = v.visit_id
             WHERE v.visit_status <> 'cancelled'
               AND v.branch_id = ?

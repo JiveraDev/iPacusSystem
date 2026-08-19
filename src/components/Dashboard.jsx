@@ -29,6 +29,7 @@ import {
   Hotel,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   UserCog,
   UserRoundCheck,
   WalletCards,
@@ -37,7 +38,6 @@ import {
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { ToastViewport } from "../reusecomponent/toast.jsx";
 import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
 import ProtectedImage from "./shared/ProtectedImage.jsx";
@@ -53,6 +53,7 @@ const ConsultConfirmationScreen = lazy(() => import("./PetOwnerDashboard/Consult
 const VideoConsultationScreen = lazy(() => import("./PetOwnerDashboard/VideoConsultation.jsx"));
 const ServicesScreen = lazy(() => import("./PetOwnerDashboard/Services.jsx"));
 const GeneralCheckupScreen = lazy(() => import("./PetOwnerDashboard/GeneralCheckup.jsx"));
+const LaboratoryTestingScreen = lazy(() => import("./PetOwnerDashboard/LaboratoryTesting.jsx"));
 const ParasiteControlScreen = lazy(() => import("./PetOwnerDashboard/ParasiteControl.jsx"));
 const SurgeryScreen = lazy(() => import("./PetOwnerDashboard/Surgery.jsx"));
 const VaccinationScreen = lazy(() => import("./PetOwnerDashboard/Vaccination.jsx"));
@@ -222,6 +223,7 @@ const screenMap = {
   "/dashboard/consult/video/:consultationId": VideoConsultationScreen,
   "/dashboard/services": ServicesScreen,
   "/dashboard/services/general-checkup": GeneralCheckupScreen,
+  "/dashboard/services/laboratory-testing": LaboratoryTestingScreen,
   "/dashboard/services/parasite-control": ParasiteControlScreen,
   "/dashboard/services/surgery": SurgeryScreen,
   "/dashboard/services/vaccination": VaccinationScreen,
@@ -292,6 +294,7 @@ const dashboardRouteRoles = {
   "/dashboard/consult/video/:consultationId": PETOWNER_ROLES,
   "/dashboard/services": SERVICE_ROLES,
   "/dashboard/services/general-checkup": SERVICE_ROLES,
+  "/dashboard/services/laboratory-testing": SERVICE_ROLES,
   "/dashboard/services/parasite-control": SERVICE_ROLES,
   "/dashboard/services/surgery": SERVICE_ROLES,
   "/dashboard/services/vaccination": SERVICE_ROLES,
@@ -534,6 +537,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => window.innerWidth < 960);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [openSuperAdminNavGroup, setOpenSuperAdminNavGroup] = useState(() => {
+    const initialTab = getActiveTab(normalizePath(window.location.pathname));
+    return groupNavItemsForSuperAdmin(navItems)
+      .find((group) => group.items.some((item) => item.id === initialTab))?.id || 'superadmin';
+  });
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -558,6 +566,12 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
     }
 
     const nextPath = normalizePath(target);
+    const nextTab = getActiveTab(nextPath);
+    const nextGroup = groupNavItemsForSuperAdmin(navItems)
+      .find((group) => group.items.some((item) => item.id === nextTab));
+    if (nextGroup) {
+      setOpenSuperAdminNavGroup(nextGroup.id);
+    }
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, "", nextPath);
     }
@@ -732,18 +746,32 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-hide">
           <nav className={isSuperAdminRole(userRole) ? "space-y-4" : "space-y-2"}>
-            {groupedNavItems.map((group, groupIndex) => (
+            {groupedNavItems.map((group, groupIndex) => {
+              const isGroupOpen = openSuperAdminNavGroup === group.id;
+
+              return (
               <div key={group.id} className="space-y-2">
                 {isSuperAdminRole(userRole) && (
                   isCollapsed ? (
                     groupIndex > 0 ? <div className="mx-auto h-px w-8 bg-slate-200" aria-hidden="true" /> : null
                   ) : (
-                    <p className="px-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      {group.label}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setOpenSuperAdminNavGroup((current) => current === group.id ? '' : group.id)}
+                      className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
+                      aria-expanded={isGroupOpen}
+                      aria-controls={`superadmin-nav-group-${group.id}`}
+                    >
+                      <span>{group.label}</span>
+                      <ChevronDown
+                        className={`size-4 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`}
+                        aria-hidden="true"
+                      />
+                    </button>
                   )
                 )}
-                <div className="space-y-2">
+                {(isCollapsed || !isSuperAdminRole(userRole) || isGroupOpen) && (
+                <div id={`superadmin-nav-group-${group.id}`} className="space-y-2">
                   {group.items.map((item) => {
                     const Icon = getNavItemIcon(item, userRole);
                     const isActive = item.id === activeTab;
@@ -797,8 +825,10 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                     );
                   })}
                 </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </nav>
         </div>
 
@@ -882,7 +912,6 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
       <VideoCallProvider>
         <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
-          <ToastViewport />
           <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>

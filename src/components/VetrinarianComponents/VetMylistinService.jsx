@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
+    Building2,
     CheckCircle,
     Clock,
     FileText,
@@ -27,7 +28,7 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import SignatureCapture from '../SignatureCapture.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
-import { createConsentDocumentImage } from '../../services/consentDocumentImage.js';
+import { createAndUploadConsentDocumentPdf } from '../../services/consentDocumentPdf.js';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { saveConsentFormRecord } from '../../services/consentRecordService';
 import { fetchProfile } from '../../services/profileService';
@@ -237,7 +238,16 @@ export default function VetMyList() {
     useAutoRefresh(async () => {
         try {
             const data = await fetchBranches();
-            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+            const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+            setBranches(nextBranches);
+            setBranchFilter((current) => {
+                if (current !== 'all' && nextBranches.some((branch) => String(branch.id) === current)) return current;
+                const preferred = getPreferredBranchFilter(currentUser);
+                const selected = nextBranches.find((branch) => String(branch.id) === preferred)
+                    || nextBranches.find((branch) => branch.isMain)
+                    || nextBranches[0];
+                return selected ? String(selected.id) : 'all';
+            });
         } catch (error) {
             console.error('Failed to load My List branches:', error);
         }
@@ -475,7 +485,7 @@ export default function VetMyList() {
             const signedAtDate = new Date();
             const signedAt = signedAtDate.toLocaleString();
             const signedAtIso = signedAtDate.toISOString();
-            const signedDocumentImage = await createConsentDocumentImage({
+            const signedDocumentPath = await createAndUploadConsentDocumentPdf({
                 title: selectedConsent?.file_name || selectedConsent?.name || 'Consent Form',
                 content: selectedConsent?.content || '',
                 signatureImage,
@@ -492,8 +502,7 @@ export default function VetMyList() {
                     branchName: selectedPatient.branch_name,
                     queueNumber: selectedPatient.queue_number
                 }
-            });
-            const signedDocumentPath = await uploadDataUrlImage(signedDocumentImage, 'booking_signature', 'signed_consent');
+            }, 'signed_consent');
             let consentRecordId = null;
             let recordWarning = '';
 
@@ -542,7 +551,7 @@ export default function VetMyList() {
             setSelectedPatient(null);
             setSignatureImage(null);
             if (recordWarning) {
-                toast.error(`Signed consent image saved, but report tracking failed: ${recordWarning}`);
+                toast.error(`Signed consent PDF saved, but report tracking failed: ${recordWarning}`);
             } else {
                 toast.success('Signed consent document saved and tracked for reports.');
             }
@@ -757,22 +766,10 @@ export default function VetMyList() {
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
-                    <Select value={branchFilter} onValueChange={setBranchFilter}>
-                        <SelectTrigger>
-                            <SelectValue
-                                placeholder="Filter by clinic location"
-                                displayValue={branchFilter === 'all'
-                                    ? 'All clinic locations'
-                                    : getBranchDisplayName(branches, branchFilter)}
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All clinic locations</SelectItem>
-                            {branches.map(branch => (
-                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <Building2 className="size-4 text-slate-500" />
+                        {getBranchDisplayName(branches, branchFilter, 'Active Home location')}
+                    </div>
                 </div>
             </div>
 

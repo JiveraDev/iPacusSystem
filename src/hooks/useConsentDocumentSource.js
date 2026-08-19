@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchProtectedImageObjectUrl } from '../lib/image';
-import { createConsentDocumentImage } from '../services/consentDocumentImage';
+import { createConsentDocumentPdfBlob } from '../services/consentDocumentPdf';
 
 function firstValue(...values) {
     return values.find(value => String(value || '').trim()) || '';
@@ -66,7 +66,13 @@ export function canReconstructConsentDocument(value, fallbackSignaturePath = '')
     return Boolean(content && signaturePath);
 }
 
-export async function downloadConsentDocument(source, fileName = 'signed-consent-form.png') {
+export async function downloadConsentDocument(source, fileName = 'signed-consent-form') {
+    const normalizedSource = String(source || '').split(/[?#]/)[0].toLowerCase();
+    if (normalizedSource.endsWith('.pdf') || normalizedSource.startsWith('data:application/pdf')) {
+        await openProtectedDocument(source);
+        return;
+    }
+
     const downloadSource = await fetchProtectedImageObjectUrl(source);
     if (!downloadSource) {
         throw new Error('The complete consent document is unavailable.');
@@ -74,8 +80,13 @@ export async function downloadConsentDocument(source, fileName = 'signed-consent
 
     const link = document.createElement('a');
     link.href = downloadSource;
-    link.download = String(fileName || 'signed-consent-form.png')
+    const safeFileName = String(fileName || 'signed-consent-form')
         .replace(/[<>:"/\\|?*]/g, '-');
+    const sourceExtension = normalizedSource.match(/\.(png|jpe?g|gif|webp|bmp)$/)?.[1];
+    const hasImageExtension = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeFileName);
+    link.download = hasImageExtension
+        ? safeFileName
+        : `${safeFileName}.${sourceExtension || 'png'}`;
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
@@ -87,22 +98,37 @@ export async function downloadConsentDocument(source, fileName = 'signed-consent
 }
 
 export async function openProtectedDocument(source) {
-    const viewSource = await fetchProtectedImageObjectUrl(source);
-    if (!viewSource) {
-        throw new Error('The requested document is unavailable.');
+    const previewWindow = window.open('about:blank', '_blank');
+    if (previewWindow) {
+        previewWindow.opener = null;
+        previewWindow.document.title = 'Loading document...';
     }
 
-    const link = document.createElement('a');
-    link.href = viewSource;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    try {
+        const viewSource = await fetchProtectedImageObjectUrl(source);
+        if (!viewSource) {
+            throw new Error('The requested document is unavailable.');
+        }
 
-    if (viewSource.startsWith('blob:')) {
-        window.setTimeout(() => URL.revokeObjectURL(viewSource), 60000);
+        if (previewWindow && !previewWindow.closed) {
+            previewWindow.location.replace(viewSource);
+        } else {
+            const link = document.createElement('a');
+            link.href = viewSource;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        if (viewSource.startsWith('blob:')) {
+            window.setTimeout(() => URL.revokeObjectURL(viewSource), 60000);
+        }
+    } catch (error) {
+        if (previewWindow && !previewWindow.closed) previewWindow.close();
+        throw error;
     }
 }
 
@@ -161,12 +187,13 @@ export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
 
         let isActive = true;
         let temporarySignatureUrl = '';
+        let generatedDocumentUrl = '';
 
         async function reconstructDocument() {
             try {
                 const resolvedSignature = await fetchProtectedImageObjectUrl(signaturePath);
                 temporarySignatureUrl = resolvedSignature?.startsWith('blob:') ? resolvedSignature : '';
-                const source = await createConsentDocumentImage({
+                const blob = await createConsentDocumentPdfBlob({
                     title,
                     content,
                     signatureImage: resolvedSignature,
@@ -185,13 +212,17 @@ export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
                         queueNumber
                     }
                 });
+                generatedDocumentUrl = URL.createObjectURL(blob);
 
                 if (isActive) {
                     setGenerated({
                         key: generationKey,
-                        source,
+                        source: generatedDocumentUrl,
                         failed: false
                     });
+                } else {
+                    URL.revokeObjectURL(generatedDocumentUrl);
+                    generatedDocumentUrl = '';
                 }
             } catch {
                 if (isActive) {
@@ -212,6 +243,7 @@ export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
 
         return () => {
             isActive = false;
+            if (generatedDocumentUrl) URL.revokeObjectURL(generatedDocumentUrl);
         };
     }, [
         canReconstruct,
@@ -234,9 +266,18 @@ export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
 
     const generatedForCurrentRecord = generated.key === generationKey;
     const source = explicitPath || (generatedForCurrentRecord ? generated.source : '');
+    const explicitMimeType = firstValue(record.mimeType, record.mime_type, record.fileType, record.file_type).toLowerCase();
+    const normalizedExplicitPath = explicitPath.split(/[?#]/)[0].toLowerCase();
+    const isPdf = Boolean(
+        (!explicitPath && canReconstruct)
+        || explicitMimeType === 'application/pdf'
+        || normalizedExplicitPath.endsWith('.pdf')
+        || explicitPath.startsWith('data:application/pdf')
+    );
 
     return {
         source,
+        isPdf,
         isLoading: canReconstruct && !generatedForCurrentRecord,
         isReconstructed: Boolean(!explicitPath && source),
         isUnavailable: Boolean(!explicitPath && (!canReconstruct || (generatedForCurrentRecord && generated.failed)))

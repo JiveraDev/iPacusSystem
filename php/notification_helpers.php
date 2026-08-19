@@ -1649,6 +1649,16 @@ function notification_send_booking_event(PDO $pdo, int $bookingId, string $event
         $type = 'booking_cancelled';
         $dedupeKey = "booking-cancelled-{$bookingId}-" . time();
         $reason = 'This booking was cancelled.';
+    } elseif ($event === 'payment_refunded') {
+        $refundAmount = (float)($context['amount'] ?? 0);
+        $title = 'Booking payment refunded';
+        $message = "A refund of PHP " . number_format($refundAmount, 2) . " was recorded for {$bookingNumber}.";
+        $pushMessage = "Your {$serviceName} booking refund of PHP " . number_format($refundAmount, 2) . ' was recorded.';
+        $subject = "Your iPawcus booking payment refund - {$bookingNumber}";
+        $intro = "Hello " . notification_user_name($booking) . ", the clinic recorded a refund against your booking payment.";
+        $type = 'booking_payment_refunded';
+        $dedupeKey = "booking-payment-refunded-{$bookingId}-" . time();
+        $reason = !empty($context['reason']) ? (string)$context['reason'] : 'The clinic processed a booking payment refund.';
     } elseif ($event === 'rescheduled') {
         $oldSchedule = notification_format_datetime($context['old_date'] ?? null, $context['old_time'] ?? null);
         $title = 'Booking rescheduled';
@@ -2469,6 +2479,20 @@ function notification_send_online_consultation_event(PDO $pdo, int $onlineConsul
 
 function notification_fetch_visit_summary(PDO $pdo, int $visitId): ?array
 {
+    $refundJoin = '';
+    $refundAdjustment = '';
+    if (notification_table_exists($pdo, 'visit_payment_refunds')) {
+        $refundJoin = "
+            LEFT JOIN (
+                SELECT visit_id, SUM(amount) AS total_refunded
+                FROM visit_payment_refunds
+                WHERE refund_status = 'processed'
+                GROUP BY visit_id
+            ) refunds ON refunds.visit_id = payment_rows.visit_id
+        ";
+        $refundAdjustment = ' - COALESCE(MAX(refunds.total_refunded), 0)';
+    }
+
     $stmt = $pdo->prepare("
         SELECT
             v.*,
@@ -2493,10 +2517,16 @@ function notification_fetch_visit_summary(PDO $pdo, int $visitId): ?array
             GROUP BY visit_id
         ) charges ON charges.visit_id = v.visit_id
         LEFT JOIN (
-            SELECT visit_id, SUM(amount) AS total_paid
-            FROM visit_payments
-            WHERE payment_status = 'verified'
-            GROUP BY visit_id
+            SELECT
+                payment_rows.visit_id,
+                GREATEST(
+                    SUM(CASE WHEN payment_rows.payment_status IN ('verified', 'refunded') THEN payment_rows.amount ELSE 0 END)
+                    {$refundAdjustment},
+                    0
+                ) AS total_paid
+            FROM visit_payments payment_rows
+            {$refundJoin}
+            GROUP BY payment_rows.visit_id
         ) payments ON payments.visit_id = v.visit_id
         WHERE v.visit_id = ?
         LIMIT 1
@@ -2585,6 +2615,27 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
         ];
         $dedupeKey = !empty($context['payment_id']) ? 'visit-payment-' . (int)$context['payment_id'] : null;
         $type = 'payment_received';
+    } elseif ($event === 'payment_refunded') {
+        $amount = (float)($context['amount'] ?? 0);
+        $refundReference = trim((string)($context['reference_number'] ?? ''));
+        $refundMethod = trim((string)($context['refund_method'] ?? ''));
+        $reason = trim((string)($context['reason'] ?? '')) ?: 'Clinic staff processed a refund for this visit payment.';
+        $title = 'Payment refund recorded';
+        $message = notification_money($amount) . " was refunded for {$petName}.";
+        $subject = "Payment refund for {$petName}";
+        $intro = "Hello " . notification_user_name($visit) . ", the clinic recorded a refund for this visit payment.";
+        $rows = [
+            'Reason' => $reason,
+            'Pet' => $petName,
+            'Reference' => $reference,
+            'Refund Amount' => notification_money($amount),
+            'Refund Method' => $refundMethod !== '' ? strtoupper(str_replace('_', ' ', $refundMethod)) : '',
+            'Refund Reference' => $refundReference,
+            'Remaining Net Payment' => notification_money($paid),
+            'Open Balance' => notification_money($balance),
+        ];
+        $dedupeKey = !empty($context['refund_id']) ? 'visit-refund-' . (int)$context['refund_id'] : null;
+        $type = 'payment_refunded';
     } else {
         if ($total <= 0) {
             return;

@@ -115,6 +115,24 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
 
     ipawcus_access_ensure_schema($pdo);
 
+    $hasAccountStatus = false;
+    try {
+        $columnStmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'users'
+              AND column_name = 'account_status'
+        ");
+        $columnStmt->execute();
+        $hasAccountStatus = (int)$columnStmt->fetchColumn() > 0;
+    } catch (Throwable $error) {
+        $hasAccountStatus = false;
+    }
+    $activeAccountFilter = $hasAccountStatus
+        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') = 'active'"
+        : '';
+
     $stmt = $pdo->prepare("
         SELECT
             u.user_id,
@@ -128,6 +146,7 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
         WHERE t.token_hash = ?
           AND t.revoked_at IS NULL
           AND t.expires_at > NOW()
+          {$activeAccountFilter}
         LIMIT 1
     ");
     $stmt->execute([ipawcus_access_token_hash($token)]);

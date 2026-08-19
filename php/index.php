@@ -12,7 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // 3. Error Reporting
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+ini_set('log_errors', '1');
 
 // 4. Load Logic
 require_once __DIR__ . '/config.php';
@@ -110,6 +112,9 @@ switch ($path) {
         } else {
             require_once __DIR__ . '/get_bookings.php';
         }
+        break;
+    case '/booking-availability':
+        require_once __DIR__ . '/booking_availability.php';
         break;
     case '/online-consultations':
         require_once __DIR__ . '/online_consultations.php';
@@ -414,6 +419,15 @@ switch ($path) {
         } elseif (preg_match('/^\/bookings\/(\d+)\/status$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/update_booking_status.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/billing-context$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/booking_billing_context.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/payment-review$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/booking_payment_review.php';
+        } elseif (preg_match('/^\/bookings\/(\d+)\/payment-refunds$/', $path, $matches)) {
+            $_GET['bookingId'] = $matches[1];
+            require_once __DIR__ . '/booking_payment_refund.php';
         } elseif (preg_match('/^\/bookings\/(\d+)\/receive$/', $path, $matches)) {
             $_GET['bookingId'] = $matches[1];
             require_once __DIR__ . '/receive_booking.php';
@@ -465,6 +479,10 @@ switch ($path) {
         } elseif (preg_match('/^\/visits\/(\d+)\/payments$/', $path, $matches)) {
             $_GET['visitId'] = $matches[1];
             $_GET['action'] = 'payments';
+            require_once __DIR__ . '/visit_billing.php';
+        } elseif (preg_match('/^\/visits\/(\d+)\/refunds$/', $path, $matches)) {
+            $_GET['visitId'] = $matches[1];
+            $_GET['action'] = 'refunds';
             require_once __DIR__ . '/visit_billing.php';
         } elseif (preg_match('/^\/visits\/(\d+)$/', $path, $matches)) {
             $_GET['visitId'] = $matches[1];

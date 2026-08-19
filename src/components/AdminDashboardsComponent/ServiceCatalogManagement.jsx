@@ -122,7 +122,10 @@ export default function ServiceCatalogManagement() {
             const data = await fetchServiceCatalog({ includeInactive: true });
 
             if (data.schemaReady === false) {
-                setSchemaMessage(data.message || 'Service catalog migration is required.');
+                if (!isAutoRefresh) {
+                    console.error('Service catalog is unavailable:', data.message || data);
+                }
+                setSchemaMessage('Service catalog tools are temporarily unavailable. Try again later or contact support.');
                 setServices([]);
                 return [];
             }
@@ -147,7 +150,8 @@ export default function ServiceCatalogManagement() {
             return nextServices;
         } catch (error) {
             if (!isAutoRefresh) {
-                setSchemaMessage(error.message || 'Failed to load services.');
+                console.error('Failed to load the service catalog:', error);
+                setSchemaMessage('Services could not be loaded. Refresh the page or try again later.');
             }
             return [];
         } finally {
@@ -354,7 +358,8 @@ export default function ServiceCatalogManagement() {
             await loadCatalog();
             setIsServiceModalOpen(false);
         } catch (error) {
-            toast.error(error.message || 'Failed to save service catalog.');
+            console.error('Failed to save the service catalog:', error);
+            toast.error('The service could not be saved. Review the details and try again.');
         } finally {
             setIsSaving(false);
         }
@@ -377,7 +382,8 @@ export default function ServiceCatalogManagement() {
             setIsServiceModalOpen(false);
             loadCatalog();
         } catch (error) {
-            toast.error(error.message || 'Failed to deactivate service.');
+            console.error('Failed to deactivate the service:', error);
+            toast.error('The service could not be deactivated. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -400,7 +406,8 @@ export default function ServiceCatalogManagement() {
             setIsServiceModalOpen(false);
             loadCatalog();
         } catch (error) {
-            toast.error(error.message || 'Failed to delete service.');
+            console.error('Failed to delete the service:', error);
+            toast.error('The service could not be deleted. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -430,7 +437,8 @@ export default function ServiceCatalogManagement() {
             setServiceForm((current) => ({ ...current, isActive: true }));
             await loadCatalog();
         } catch (error) {
-            toast.error(error.message || 'Failed to activate service.');
+            console.error('Failed to activate the service:', error);
+            toast.error('The service could not be activated. Please try again.');
         } finally {
             setIsSaving(false);
         }

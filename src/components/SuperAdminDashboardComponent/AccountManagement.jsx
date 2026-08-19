@@ -7,7 +7,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Ban, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, ShieldCheck, Pencil, Save, X, Search, Trash2 } from 'lucide-react';
+import { UserCog, Mail, Award, Archive, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, RotateCcw, ShieldCheck, Pencil, Save, X, Search } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
@@ -123,9 +123,7 @@ export default function AccountManagement() {
         setCreateForm((currentForm) => ({
             ...currentForm,
             role,
-            position: role === 'Super Admin'
-                ? 'Super Admin'
-                : (currentForm.position === 'Super Admin' ? 'Nurse' : currentForm.position)
+            position: currentForm.position === 'Super Admin' ? 'Nurse' : currentForm.position
         }));
     };
 
@@ -148,7 +146,7 @@ export default function AccountManagement() {
         } catch (error) {
             console.error("Creation error:", error);
             clearCreatePasswordFields();
-            toast.error(error.message || "An error occurred during account creation");
+            toast.error("The account could not be created. Review the details and try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -349,18 +347,18 @@ export default function AccountManagement() {
         if (!pendingStatusAction) return;
 
         const { userId, currentStatus, type } = pendingStatusAction;
-        const action = currentStatus ? 'deactivate' : 'activate';
+        const action = currentStatus ? 'archived' : 'restored';
 
         setIsUpdatingStatus(true);
         try {
             await updateAccountStatus(userId, { is_active: currentStatus ? 0 : 1, type });
-            toast.success(`Account ${action}d successfully`);
+            toast.success(`Account ${action}.`);
             fetchAccounts();
             setPendingStatusAction(null);
             setShowDetails(false);
         } catch (error) {
             console.error("Status update error:", error);
-            toast.error(error.message || "An error occurred");
+            toast.error("The account status could not be updated. Please try again.");
         } finally {
             setIsUpdatingStatus(false);
         }
@@ -370,7 +368,7 @@ export default function AccountManagement() {
         if (!pendingDeleteAction) return;
 
         if (!deleteForm.masterKey.trim()) {
-            toast.error('Master key is required to remove an account.');
+            toast.error('Master key is required to archive an account.');
             return;
         }
 
@@ -381,7 +379,7 @@ export default function AccountManagement() {
                 masterKey: deleteForm.masterKey,
                 reason: deleteForm.reason
             });
-            toast.success('Account removed from active use.');
+            toast.success('Account archived.');
             setPendingDeleteAction(null);
             setDeleteForm({ masterKey: '', reason: '' });
             setShowDetails(false);
@@ -389,8 +387,7 @@ export default function AccountManagement() {
             fetchAccounts();
         } catch (error) {
             console.error('Account delete error:', error);
-            const requiredSql = error?.data?.required_sql ? ` ${error.data.required_sql}` : '';
-            toast.error(`${error.message || 'Failed to remove account.'}${requiredSql}`);
+            toast.error('The account could not be archived. Please try again or contact support.');
         } finally {
             setIsDeletingAccount(false);
         }
@@ -470,23 +467,26 @@ export default function AccountManagement() {
             fetchAccounts({ isAutoRefresh: true });
         } catch (error) {
             console.error('Personnel update error:', error);
-            toast.error(error.message || 'Failed to update personnel details.');
+            toast.error('Personnel details could not be updated. Please try again.');
         } finally {
             setIsSavingPersonnel(false);
         }
     };
 
-    const isAccountDeactivated = (account) => String(account?.account_status || '').toLowerCase() === 'deactivated';
+    const isAccountDeactivated = (account) => (
+        ['archived', 'deactivated'].includes(String(account?.account_status || '').toLowerCase())
+        || (account?.type !== 'superadmin' && !isAccountActive(account?.is_active))
+    );
 
     const getStatusBadge = (status, account) => {
         if (isAccountDeactivated(account)) {
-            return <Badge className="bg-red-100 text-red-700">Deactivated</Badge>;
+            return <Badge className="bg-slate-100 text-slate-700">Archived</Badge>;
         }
 
         if (isAccountActive(status)) {
             return <Badge className="bg-green-500 text-white">Active</Badge>;
         }
-        return <Badge className="bg-gray-500 text-white">Disabled</Badge>;
+        return <Badge className="bg-slate-100 text-slate-700">Archived</Badge>;
     };
 
     const getAccountCardTone = (type) => {
@@ -558,14 +558,14 @@ export default function AccountManagement() {
 
     const getAccountStatus = (account) => {
         if (isAccountDeactivated(account)) {
-            return 'deactivated';
+            return 'archived';
         }
 
         if (account.type === 'superadmin') {
             return 'privileged';
         }
 
-        return isAccountActive(account.is_active) ? 'active' : 'disabled';
+        return isAccountActive(account.is_active) ? 'active' : 'archived';
     };
 
     const allAccountRows = [
@@ -711,18 +711,15 @@ export default function AccountManagement() {
                                         ? 'All status'
                                         : statusFilter === 'active'
                                             ? 'Active'
-                                            : statusFilter === 'deactivated'
-                                                ? 'Deactivated'
-                                                : statusFilter === 'disabled'
-                                                    ? 'Disabled'
-                                                    : 'Privileged'
+                                            : statusFilter === 'archived'
+                                                ? 'Archived'
+                                                : 'Privileged'
                                 } />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All status</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="deactivated">Deactivated</SelectItem>
-                                <SelectItem value="disabled">Disabled</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
                                 <SelectItem value="privileged">Privileged</SelectItem>
                             </SelectContent>
                         </Select>
@@ -985,35 +982,25 @@ export default function AccountManagement() {
                                             )
                                         )}
                                         {selectedUser.type !== 'superadmin' && (
-                                            ((selectedUser.is_active === 1 || selectedUser.is_active === '1') && !isAccountDeactivated(selectedUser)) ? (
+                                            isAccountDeactivated(selectedUser) ? (
                                                 <Button
-                                                    variant="outline"
-                                                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                                                    className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
                                                     onClick={() => openStatusConfirmation(selectedUser)}
                                                     disabled={isSavingPersonnel || isDeletingAccount}
                                                 >
-                                                    <Ban className="size-4 mr-2" /> Deactivate Account
+                                                    <RotateCcw className="size-4 mr-2" /> Restore Account
                                                 </Button>
                                             ) : (
                                                 <Button
-                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                                                    onClick={() => openStatusConfirmation(selectedUser)}
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => openDeleteConfirmation(selectedUser)}
                                                     disabled={isSavingPersonnel || isDeletingAccount}
+                                                    className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50"
                                                 >
-                                                    <CheckCircle className="size-4 mr-2" /> Activate Account
+                                                    <Archive className="size-4 mr-2" /> Archive Account
                                                 </Button>
                                             )
-                                        )}
-                                        {selectedUser.type !== 'superadmin' && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => openDeleteConfirmation(selectedUser)}
-                                                disabled={isSavingPersonnel || isDeletingAccount}
-                                                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
-                                            >
-                                                <Trash2 className="size-4 mr-2" /> Delete Account
-                                            </Button>
                                         )}
                                         <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel || isDeletingAccount}>Close</Button>
                                     </div>
@@ -1031,7 +1018,7 @@ export default function AccountManagement() {
                         <>
                             <DialogHeader>
                                 <DialogTitle>
-                                    {pendingStatusAction.currentStatus ? 'Deactivate Account' : 'Activate Account'}
+                                    Restore Account
                                 </DialogTitle>
                                 <DialogDescription>
                                     Confirm this account status change before it is applied.
@@ -1048,9 +1035,7 @@ export default function AccountManagement() {
                             </div>
 
                             <p className="text-sm text-slate-700">
-                                {pendingStatusAction.currentStatus
-                                    ? 'This user will no longer be able to log in until the account is activated again.'
-                                    : 'This user will regain access and can log in again.'}
+                                This user will return to active account lists and regain login access.
                             </p>
 
                             <DialogFooter>
@@ -1061,17 +1046,15 @@ export default function AccountManagement() {
                                     type="button"
                                     disabled={isUpdatingStatus}
                                     onClick={handleToggleStatus}
-                                    className={pendingStatusAction.currentStatus ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}
+                                    className="bg-emerald-600 text-white hover:bg-emerald-700"
                                 >
                                     {isUpdatingStatus ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                             Updating...
                                         </>
-                                    ) : pendingStatusAction.currentStatus ? (
-                                        'Deactivate Account'
                                     ) : (
-                                        'Activate Account'
+                                        'Restore Account'
                                     )}
                                 </Button>
                             </DialogFooter>
@@ -1080,30 +1063,30 @@ export default function AccountManagement() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Account Confirmation Modal */}
+            {/* Archive Account Confirmation Modal */}
             <Dialog open={Boolean(pendingDeleteAction)} onOpenChange={(open) => !open && closeDeleteConfirmation()}>
                 <DialogContent className="max-w-lg">
                     {pendingDeleteAction && (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Delete Account</DialogTitle>
+                                <DialogTitle>Archive Account</DialogTitle>
                                 <DialogDescription>
-                                    Master key verification is required before this account is removed from active use.
+                                    Master key verification is required before this account is archived.
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div className="space-y-4">
-                                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                                    <p className="text-sm font-semibold text-red-700">Account to remove</p>
-                                    <p className="mt-1 font-bold text-red-950">{pendingDeleteAction.name}</p>
-                                    <p className="text-sm font-semibold text-red-800">{pendingDeleteAction.role}</p>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-sm font-semibold text-slate-600">Account to archive</p>
+                                    <p className="mt-1 font-bold text-slate-950">{pendingDeleteAction.name}</p>
+                                    <p className="text-sm font-semibold text-slate-700">{pendingDeleteAction.role}</p>
                                     {pendingDeleteAction.email ? (
-                                        <p className="mt-2 break-words text-sm font-semibold text-red-900">{pendingDeleteAction.email}</p>
+                                        <p className="mt-2 break-words text-sm font-semibold text-slate-800">{pendingDeleteAction.email}</p>
                                     ) : null}
                                 </div>
 
                                 <p className="text-sm font-semibold leading-6 text-slate-700">
-                                    This preserves existing records, blocks login access, removes the account from this directory, and sends the account owner an email/notification.
+                                    Existing records remain intact. The account is hidden from active lists and login access is blocked until a Super Admin restores it.
                                 </p>
 
                                 <div className="space-y-2">
@@ -1127,7 +1110,7 @@ export default function AccountManagement() {
                                         placeholder="Enter Super Admin Key"
                                         value={deleteForm.masterKey}
                                         onChange={(event) => setDeleteForm((current) => ({ ...current, masterKey: event.target.value }))}
-                                        inputClassName="border-red-200 bg-red-50"
+                                        inputClassName="border-slate-200 bg-slate-50"
                                         disabled={isDeletingAccount}
                                     />
                                 </div>
@@ -1141,17 +1124,17 @@ export default function AccountManagement() {
                                     type="button"
                                     disabled={isDeletingAccount}
                                     onClick={handleDeleteAccount}
-                                    className="bg-red-600 text-white hover:bg-red-700"
+                                    className="bg-slate-800 text-white hover:bg-slate-900"
                                 >
                                     {isDeletingAccount ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Deleting...
+                                            Archiving...
                                         </>
                                     ) : (
                                         <>
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete Account
+                                            <Archive className="mr-2 h-4 w-4" />
+                                            Archive Account
                                         </>
                                     )}
                                 </Button>
@@ -1178,20 +1161,18 @@ export default function AccountManagement() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Super Admin">Super Admin</SelectItem>
                                         <SelectItem value="Veterinarian">Veterinarian</SelectItem>
                                         <SelectItem value="Admin">Admin / Staff</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div>
-                                <Label className="text-gray-900 mb-2 block">{createForm.role === 'Super Admin' ? 'Access Start Date' : 'Hiring Date'}</Label>
+                                <Label className="text-gray-900 mb-2 block">Hiring Date</Label>
                                 <Input type="date" value={createForm.hireDate} onChange={(e) => setCreateForm({...createForm, hireDate: e.target.value})} className="bg-gray-100" />
                             </div>
                         </div>
 
-                        {createForm.role !== 'Super Admin' && (
-                            <div>
+                        <div>
                                 <Label className="mb-2 block text-gray-900">
                                     {createForm.role === 'Admin' ? 'Assigned Branch *' : 'Preferred Branch'}
                                 </Label>
@@ -1214,8 +1195,7 @@ export default function AccountManagement() {
                                 <p className="mt-1 text-xs font-semibold text-slate-500">
                                     Admin access is limited to this branch. Veterinarians may later change their preferred location.
                                 </p>
-                            </div>
-                        )}
+                        </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
@@ -1248,20 +1228,6 @@ export default function AccountManagement() {
                                 <div>
                                     <Label className="text-blue-900">Specialization</Label>
                                     <Input placeholder="e.g. Small Animal Surgery" value={createForm.specialization} onChange={(e) => setCreateForm({...createForm, specialization: e.target.value})} className="bg-white" />
-                                </div>
-                            </div>
-                        ) : createForm.role === 'Super Admin' ? (
-                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700">
-                                        <ShieldCheck className="size-5" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-emerald-950">Super Admin Account</p>
-                                        <p className="mt-1 text-sm font-semibold text-emerald-700">
-                                            This account will be created with the Super Admin role.
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
                         ) : (

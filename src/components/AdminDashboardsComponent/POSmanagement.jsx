@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
@@ -17,7 +17,6 @@ import {
   Stethoscope,
   Trash2,
   User,
-  X,
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -32,18 +31,22 @@ import {
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
+import { Textarea } from '../../ui/textarea';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { createInvoicePdfFile } from '../../lib/invoicePdf';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 import ipawcusLogo from '../../assets/logo-no-bg.png';
 import { fetchInventoryItems } from '../../services/inventoryApi';
 import { updateBookingStatus } from '../../services/bookingService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { uploadDataUrlImage } from '../../services/uploadService';
-import { createVisit, fetchVisits, postVisitPayment } from '../../services/visitBillingService';
+import { uploadDocumentFile } from '../../services/uploadService';
+import { createVisit, fetchVisits, postVisitPayment, postVisitRefund } from '../../services/visitBillingService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import { toast } from '../../reusecomponent/toast.jsx';
+import { assignedBranchId, isBranchSelectionLocked } from '../../lib/branchAccess.js';
 
 const INVOICE_DATE = new Date().toLocaleDateString(undefined, {
   month: 'long',
@@ -111,7 +114,9 @@ const WALK_IN_SALE_VISIT = {
   initialCharges: [],
 };
 
-const INITIAL_INVENTORY = [
+const POS_DEMO_CATALOG_ENABLED = import.meta.env.DEV && import.meta.env.VITE_ENABLE_POS_DEMO_CATALOG === 'true';
+
+const DEMO_INVENTORY = [
   { id: 'inv-rabies-vaccine', name: 'Rabies Vaccine Dose', category: 'MEDICATION', stock: 0, unit: 'dose', cost: 280, sellingPrice: 0, sellable: false },
   { id: 'inv-5in1-vaccine', name: '5-in-1 Vaccine Dose', category: 'MEDICATION', stock: 12, unit: 'dose', cost: 390, sellingPrice: 0, sellable: false },
   { id: 'inv-syringe-3ml', name: 'Syringe 3ml', category: 'CONSUMABLE', stock: 28, unit: 'pcs', cost: 8, sellingPrice: 0, sellable: false },
@@ -136,7 +141,7 @@ const INITIAL_INVENTORY = [
   { id: 'ret-treats', name: 'Training Treats', category: 'RETAIL', stock: 15, unit: 'packs', cost: 75, sellingPrice: 150, sellable: true },
 ];
 
-const SERVICE_PACKAGES = [
+const DEMO_SERVICE_PACKAGES = [
   {
     id: 'svc-consultation',
     classificationId: 'services',
@@ -228,7 +233,7 @@ const SERVICE_PACKAGES = [
   },
 ];
 
-const DIAGNOSTIC_PACKAGES = [
+const DEMO_DIAGNOSTIC_PACKAGES = [
   {
     id: 'lab-cbc',
     classificationId: 'diagnostics',
@@ -459,6 +464,22 @@ function serviceTypeLabel(value) {
 
 function normalizeServiceCatalogItem(service) {
   const classificationId = getCatalogClassification(service.serviceType);
+  const normalizeMaterial = (material) => {
+    const category = String(material.category || '').trim().toUpperCase();
+    const materialClassificationId = category === 'MEDICATION' ? 'medications' : 'products';
+    return {
+      inventoryId: material.itemId !== null && material.itemId !== undefined ? String(material.itemId) : '',
+      itemId: Number(material.itemId || 0),
+      name: material.itemName || material.materialName || 'Service material',
+      category,
+      quantity: Number(material.qtyUsed) || 1,
+      price: Number(material.sellingPrice) || 0,
+      classificationId: materialClassificationId,
+      billablePolicy: material.billablePolicy,
+      role: material.billablePolicy === 'separate' ? 'Separate material' : 'Included material',
+    };
+  };
+  const materials = (service.materials || []).map(normalizeMaterial).filter((material) => material.inventoryId);
 
   return {
     id: `service-${service.serviceId}`,
@@ -469,11 +490,8 @@ function normalizeServiceCatalogItem(service) {
     group: serviceTypeLabel(service.serviceType),
     price: Number(service.basePrice) || 0,
     description: service.description || '',
-    materials: (service.materials || []).map((material) => ({
-      inventoryId: material.itemId !== null && material.itemId !== undefined ? String(material.itemId) : '',
-      quantity: Number(material.qtyUsed) || 1,
-      role: material.billablePolicy === 'separate' ? 'Separate material' : 'Included material',
-    })).filter((material) => material.inventoryId),
+    materials: materials.filter((material) => material.billablePolicy === 'included'),
+    separateMaterials: materials.filter((material) => material.billablePolicy === 'separate'),
   };
 }
 
@@ -512,11 +530,12 @@ function normalizeInventoryItems(data) {
   }).filter((item) => item.id);
 }
 
-function buildCatalog(inventory, serviceCatalog = []) {
+function buildCatalog(inventory, serviceCatalog = [], allowDemoCatalog = false) {
   const activeCatalogItems = serviceCatalog
     .filter((service) => service.isActive !== false)
     .map(normalizeServiceCatalogItem);
   const catalogServices = activeCatalogItems.filter((item) => item.classificationId === 'services');
+  const catalogDiagnostics = activeCatalogItems.filter((item) => item.classificationId === 'diagnostics');
 
   const medicationItems = inventory
     .filter((item) => item.category === 'MEDICATION' && item.sellable)
@@ -563,8 +582,8 @@ function buildCatalog(inventory, serviceCatalog = []) {
     }));
 
   return {
-    services: catalogServices.length > 0 ? catalogServices : SERVICE_PACKAGES,
-    diagnostics: DIAGNOSTIC_PACKAGES,
+    services: catalogServices.length > 0 ? catalogServices : (allowDemoCatalog ? DEMO_SERVICE_PACKAGES : []),
+    diagnostics: catalogDiagnostics.length > 0 ? catalogDiagnostics : (allowDemoCatalog ? DEMO_DIAGNOSTIC_PACKAGES : []),
     medications: medicationItems,
     products: productItems,
   };
@@ -595,6 +614,42 @@ function createCharge(item, quantity = 1) {
   };
 }
 
+function createSeparateMaterialCharge(item, material, parentLineId, serviceQuantity = 1) {
+  const classificationId = material.classificationId || 'products';
+  const classification = CLASSIFICATION_BY_ID[classificationId] || CLASSIFICATION_BY_ID.products;
+  const perServiceQuantity = Number(material.quantity) || 1;
+
+  return {
+    lineId: nextLineId(`service-material-${material.itemId}`),
+    catalogId: `service-${item.serviceId}`,
+    classificationId,
+    receiptType: classification.receiptType,
+    name: material.name,
+    group: `${item.name} material`,
+    quantity: perServiceQuantity * serviceQuantity,
+    price: Number(material.price) || 0,
+    inventoryId: material.inventoryId,
+    itemId: material.itemId,
+    chargeType: material.category === 'CONSUMABLE'
+      ? 'consumable'
+      : (classificationId === 'medications' ? 'medication' : 'retail_product'),
+    parentLineId,
+    perServiceQuantity,
+    lockedToParent: true,
+    includedMaterials: [],
+    extraMaterials: [],
+  };
+}
+
+function createCatalogCharges(item, quantity = 1) {
+  const serviceCharge = createCharge(item, quantity);
+  const separateMaterialCharges = (item.separateMaterials || []).map((material) => (
+    createSeparateMaterialCharge(item, material, serviceCharge.lineId, quantity)
+  ));
+
+  return [serviceCharge, ...separateMaterialCharges];
+}
+
 function createPrefillCharge(charge, index = 0) {
   const classificationId = charge.classificationId || 'services';
   const classification = CLASSIFICATION_BY_ID[classificationId] || CLASSIFICATION_BY_ID.services;
@@ -610,10 +665,13 @@ function createPrefillCharge(charge, index = 0) {
     group: charge.group || 'Boarding',
     quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
     price: Number.isFinite(price) && price >= 0 ? price : 0,
+    subtotal: Number.isFinite(Number(charge.subtotal)) ? Number(charge.subtotal) : null,
     inventoryId: charge.inventoryId || null,
     itemId: charge.itemId || null,
     chargeType: charge.chargeType || null,
     boardingMaterialUsageId: charge.boardingMaterialUsageId || null,
+    visitChargeId: charge.visitChargeId || charge.chargeId || null,
+    lockedExisting: Boolean(charge.lockedExisting || charge.visitChargeId || charge.chargeId),
     includedMaterials: Array.isArray(charge.includedMaterials) ? charge.includedMaterials : [],
     extraMaterials: Array.isArray(charge.extraMaterials) ? charge.extraMaterials : [],
   };
@@ -709,7 +767,11 @@ function getShortageMessages(consumptionRows, usageByInventory, inventoryById) {
       const alreadyReserved = usageByInventory[row.inventoryId]?.quantity || 0;
       const available = Math.max(0, (item?.stock || 0) - alreadyReserved);
 
-      if (!item || available >= row.quantity) {
+      if (!item) {
+        return 'A required inventory item is unavailable at this branch. Refresh inventory or update the service materials before billing.';
+      }
+
+      if (available >= row.quantity) {
         return null;
       }
 
@@ -722,7 +784,12 @@ function getStockProblems(charges, inventoryById) {
   return Object.values(buildUsageByInventory(charges))
     .map((row) => {
       const item = inventoryById[row.inventoryId];
-      if (!item || row.quantity <= item.stock) {
+      if (!item) {
+        const sources = Array.from(row.sources || []).join(', ');
+        return `${sources || 'A required material'} cannot be verified in this branch inventory. Refresh inventory before posting payment.`;
+      }
+
+      if (row.quantity <= item.stock) {
         return null;
       }
 
@@ -732,6 +799,19 @@ function getStockProblems(charges, inventoryById) {
 }
 
 function getLineSubtotal(charge) {
+  const hasPersistedSubtotal = charge?.subtotal !== null
+    && charge?.subtotal !== undefined
+    && charge?.subtotal !== '';
+  const persistedSubtotal = Number(charge?.subtotal);
+  if (
+    charge?.lockedExisting
+    && hasPersistedSubtotal
+    && Number.isFinite(persistedSubtotal)
+    && persistedSubtotal >= 0
+  ) {
+    return persistedSubtotal;
+  }
+
   return charge.price * charge.quantity;
 }
 
@@ -749,97 +829,16 @@ function nextInvoiceNumber(invoiceNumber) {
   return invoiceNumber.replace(/\d+$/, nextNumber);
 }
 
-function createInvoiceProofImage({
-  invoiceNumber,
-  invoiceDate,
-  visit,
-  charges,
-  paymentAmount,
-  previouslyPaid = 0,
-  paymentMethod,
-  paymentReference,
-}) {
-  const width = 760;
-  const rowHeight = 34;
-  const height = Math.max(700, 650 + (charges.length * rowHeight));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  const invoiceTotal = getInvoiceTotal(charges);
-  const priorPaid = Math.max(0, Number(previouslyPaid) || 0);
-  const receivedNow = Math.max(0, Number(paymentAmount) || 0);
-  const totalPaid = Math.min(invoiceTotal, priorPaid + receivedNow);
-  const remainingBalance = Math.max(0, invoiceTotal - totalPaid);
+function createInvoiceNumber() {
+  const now = new Date();
+  const date = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0'))
+    .join('');
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('');
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = '#155dfc';
-  ctx.fillRect(0, 0, width, 88);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '700 30px Arial';
-  ctx.fillText('Vetfocus Animal Care Clinic', 36, 48);
-  ctx.font = '600 15px Arial';
-  ctx.fillText('Point-Of-Sale Invoice Proof', 36, 72);
-
-  ctx.fillStyle = '#0f172a';
-  ctx.font = '700 24px Arial';
-  ctx.fillText(invoiceNumber, 36, 132);
-  ctx.font = '500 14px Arial';
-  ctx.fillStyle = '#475569';
-  ctx.fillText(`Date: ${invoiceDate}`, 36, 158);
-  ctx.fillText(`Payment: ${String(paymentMethod || 'cash').replace(/_/g, ' ').toUpperCase()}`, 36, 182);
-  ctx.fillText(`Reference: ${paymentReference || 'Cash payment without transaction number'}`, 36, 206);
-
-  ctx.fillStyle = '#0f172a';
-  ctx.font = '700 18px Arial';
-  ctx.fillText('Patient', 36, 252);
-  ctx.font = '500 15px Arial';
-  ctx.fillStyle = '#334155';
-  ctx.fillText(`Pet: ${visit?.petName || 'Patient'}`, 36, 280);
-  ctx.fillText(`Owner: ${visit?.ownerName || 'Pet Owner'}`, 36, 304);
-  ctx.fillText(`Visit: ${visit?.visitType || 'Counter payment'}`, 36, 328);
-
-  let y = 374;
-  ctx.fillStyle = '#f1f5f9';
-  ctx.fillRect(36, y - 24, width - 72, 34);
-  ctx.fillStyle = '#0f172a';
-  ctx.font = '700 14px Arial';
-  ctx.fillText('Item', 52, y - 2);
-  ctx.fillText('Qty', 496, y - 2);
-  ctx.fillText('Amount', 590, y - 2);
-
-  ctx.font = '500 14px Arial';
-  charges.forEach((charge) => {
-    y += rowHeight;
-    const name = String(charge.name || charge.description || 'Charge').slice(0, 58);
-    ctx.fillStyle = '#334155';
-    ctx.fillText(name, 52, y);
-    ctx.fillText(String(charge.quantity || 1), 504, y);
-    ctx.fillText(formatPhpCurrency(Number(charge.price || 0) * Number(charge.quantity || 1)), 590, y);
-  });
-
-  y += 50;
-  ctx.fillStyle = '#334155';
-  ctx.font = '600 16px Arial';
-  ctx.fillText(`Invoice Total: ${formatPhpCurrency(invoiceTotal)}`, 36, y);
-  y += 28;
-  ctx.fillText(`Previously Paid: ${formatPhpCurrency(priorPaid)}`, 36, y);
-  y += 28;
-  ctx.fillText(`Payment Received: ${formatPhpCurrency(receivedNow)}`, 36, y);
-  y += 34;
-  ctx.fillStyle = '#155dfc';
-  ctx.font = '700 22px Arial';
-  ctx.fillText(`Total Paid: ${formatPhpCurrency(totalPaid)}`, 36, y);
-  y += 30;
-  ctx.fillStyle = remainingBalance > 0 ? '#b45309' : '#047857';
-  ctx.font = '700 18px Arial';
-  ctx.fillText(`Remaining Balance: ${formatPhpCurrency(remainingBalance)}`, 36, y);
-  ctx.font = '500 13px Arial';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Generated automatically by iPawcus POS. This image is stored as booking payment proof.', 36, height - 34);
-
-  return canvas.toDataURL('image/png');
+  return `INV-${date}-${time}`;
 }
 
 function readPosPrefill() {
@@ -861,13 +860,16 @@ function createPrefillVisit(prefill) {
   const bookingId = Number(visit.bookingId || visit.booking_id);
   const petId = Number(visit.petId || visit.pet_id);
   const ownerUserId = Number(visit.ownerUserId || visit.owner_user_id);
+  const visitId = Number(visit.visitId || visit.visit_id);
   const sourceType = visit.sourceType || visit.source_type || (Number.isFinite(bookingId) && bookingId > 0 ? 'booking' : 'manual');
 
   return {
     id: visit.id || `BOARD-${Date.now()}`,
-    source: visit.source || (sourceType === 'booking' ? 'booking_prefill' : 'prefill'),
+    source: visit.source || (Number.isFinite(visitId) && visitId > 0 ? 'database' : (sourceType === 'booking' ? 'booking_prefill' : 'prefill')),
+    visitId: Number.isFinite(visitId) && visitId > 0 ? visitId : null,
     sourceType,
     bookingId: Number.isFinite(bookingId) && bookingId > 0 ? bookingId : null,
+    bookingStatus: visit.bookingStatus || visit.booking_status || '',
     petId: Number.isFinite(petId) && petId > 0 ? petId : null,
     ownerUserId: Number.isFinite(ownerUserId) && ownerUserId > 0 ? ownerUserId : null,
     branchId: Number(visit.branchId || visit.branch_id) || null,
@@ -878,6 +880,10 @@ function createPrefillVisit(prefill) {
     veterinarian: visit.veterinarian || 'Boarding Team',
     complaint: visit.complaint || 'Pet hotel or boarding payment',
     status: visit.status || 'Ready for payment',
+    billingStatus: visit.billingStatus || visit.billing_status || 'unbilled',
+    total: Number(visit.total || 0),
+    paid: Number(visit.paid || 0),
+    balance: Number(visit.balance || 0),
     initialCharges: [],
   };
 }
@@ -888,6 +894,56 @@ function cloneCharge(charge) {
     includedMaterials: (charge.includedMaterials || []).map((material) => ({ ...material })),
     extraMaterials: (charge.extraMaterials || []).map((material) => ({ ...material })),
   };
+}
+
+function samePersistedCharge(existingCharge, incomingCharge) {
+  const existingId = Number(existingCharge.visitChargeId || 0);
+  const incomingId = Number(incomingCharge.visitChargeId || 0);
+  if (existingId > 0 && incomingId > 0) {
+    return existingId === incomingId;
+  }
+
+  const existingUsageId = Number(existingCharge.boardingMaterialUsageId || 0);
+  const incomingUsageId = Number(incomingCharge.boardingMaterialUsageId || 0);
+  if (existingUsageId > 0 || incomingUsageId > 0) {
+    return existingUsageId > 0 && existingUsageId === incomingUsageId;
+  }
+
+  return normalizeText(existingCharge.name) === normalizeText(incomingCharge.name)
+    && normalizeText(getVisitChargeType(existingCharge)) === normalizeText(getVisitChargeType(incomingCharge))
+    && Math.abs(Number(existingCharge.quantity || 0) - Number(incomingCharge.quantity || 0)) < 0.0001
+    && Math.abs(Number(existingCharge.price || 0) - Number(incomingCharge.price || 0)) < 0.009;
+}
+
+function mergePrefillChargesWithExisting(existingCharges, incomingCharges) {
+  const additions = [];
+  incomingCharges.forEach((incomingCharge) => {
+    if (existingCharges.some((existingCharge) => samePersistedCharge(existingCharge, incomingCharge))) {
+      return;
+    }
+
+    if (normalizeText(incomingCharge.name).startsWith('overdue boarding extension')) {
+      const billedQuantity = existingCharges
+        .filter((existingCharge) => (
+          normalizeText(existingCharge.name).startsWith('overdue boarding extension')
+          && Math.abs(Number(existingCharge.price || 0) - Number(incomingCharge.price || 0)) < 0.009
+        ))
+        .reduce((sum, existingCharge) => sum + Number(existingCharge.quantity || 0), 0);
+      const additionalQuantity = Math.max(0, Number(incomingCharge.quantity || 0) - billedQuantity);
+      if (additionalQuantity > 0.0001) {
+        additions.push({
+          ...incomingCharge,
+          quantity: additionalQuantity,
+          name: `Overdue boarding extension (${additionalQuantity} additional day${additionalQuantity === 1 ? '' : 's'})`,
+        });
+      }
+      return;
+    }
+
+    additions.push(incomingCharge);
+  });
+
+  return [...existingCharges, ...additions];
 }
 
 function getChargeClassification(chargeType) {
@@ -921,6 +977,7 @@ function createVisitCharge(charge, index = 0) {
     group: charge.serviceName || charge.itemName || 'Visit Billing',
     quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
     price: Number.isFinite(price) && price >= 0 ? price : 0,
+    subtotal: Number.isFinite(Number(charge.subtotal)) ? Number(charge.subtotal) : null,
     inventoryId: null,
     itemId: charge.itemId || null,
     chargeType: charge.chargeType || null,
@@ -928,6 +985,7 @@ function createVisitCharge(charge, index = 0) {
     includedMaterials: [],
     extraMaterials: [],
     visitChargeId: charge.chargeId || null,
+    lockedExisting: true,
   };
 }
 
@@ -965,6 +1023,7 @@ function serializeChargeForVisit(charge, inventoryById, currentUser) {
     && charge.boardingMaterialUsageId !== '';
 
   return {
+    chargeId: charge.visitChargeId || null,
     chargeType: getVisitChargeType(charge),
     serviceId: Number.isFinite(serviceId) && serviceId > 0 ? serviceId : null,
     itemId: inventoryItem?.itemId || charge.itemId || null,
@@ -1124,6 +1183,7 @@ function createDatabaseVisit(visit) {
     visitId: visit.visitId,
     bookingId: visit.bookingId || null,
     bookingNumber: visit.bookingNumber || '',
+    bookingStatus: visit.bookingStatus || '',
     queueReference: visit.queueReference || '',
     branchId: visit.branchId || null,
     branchName: visit.branchName || '',
@@ -1142,6 +1202,7 @@ function createDatabaseVisit(visit) {
     diagnosisSummary: visit.diagnosisSummary || visit.diagnosis || '',
     diagnosisNotes: visit.diagnosisNotes || '',
     prescriptions,
+    payments: Array.isArray(visit.payments) ? visit.payments : [],
     initialCharges: charges,
   };
 }
@@ -1189,27 +1250,46 @@ function StockBadge({ item, inventoryById, charges }) {
 
 export default function ServicePOS() {
   const currentUser = useDashboardUser();
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const lockedBranchId = assignedBranchId(currentUser);
+  const branchSelectionLocked = isBranchSelectionLocked(currentUser);
+  const [inventory, setInventory] = useState(() => (POS_DEMO_CATALOG_ENABLED ? DEMO_INVENTORY : []));
   const [serviceCatalog, setServiceCatalog] = useState([]);
   const [visitBills, setVisitBills] = useState([]);
+  const [hasLoadedVisitBills, setHasLoadedVisitBills] = useState(false);
   const [visitSchemaMessage, setVisitSchemaMessage] = useState('');
+  const [invoiceDocumentSchemaReady, setInvoiceDocumentSchemaReady] = useState(null);
   const [catalogSchemaMessage, setCatalogSchemaMessage] = useState('');
   const [isLoadingVisits, setIsLoadingVisits] = useState(false);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(true);
+  const [inventoryError, setInventoryError] = useState('');
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [isPostingPayment, setIsPostingPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentReference, setPaymentReference] = useState('');
   const [cashNoReference, setCashNoReference] = useState(true);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundVisitId, setRefundVisitId] = useState('');
+  const [refundPaymentId, setRefundPaymentId] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundMethod, setRefundMethod] = useState('cash');
+  const [refundReference, setRefundReference] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [isPostingRefund, setIsPostingRefund] = useState(false);
   const [posPrefill] = useState(() => readPosPrefill());
+  const prefillReconciledRef = useRef(false);
+  const emptyInventoryNoticeBranchesRef = useRef(new Set());
   const [branches, setBranches] = useState([]);
   const [branchError, setBranchError] = useState('');
   const [branchId, setBranchId] = useState(() => String(
-    posPrefill?.visit?.branchId
+    (branchSelectionLocked ? lockedBranchId : '')
+    || posPrefill?.visit?.branchId
     || posPrefill?.visit?.branch_id
-    || currentUser?.preferred_branch_id
-    || currentUser?.preferredBranchId
     || ''
   ));
-  const catalog = useMemo(() => buildCatalog(inventory, serviceCatalog), [inventory, serviceCatalog]);
+  const catalog = useMemo(
+    () => buildCatalog(inventory, serviceCatalog, POS_DEMO_CATALOG_ENABLED),
+    [inventory, serviceCatalog]
+  );
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
   const databaseVisitOptions = useMemo(() => (
@@ -1223,6 +1303,14 @@ export default function ServicePOS() {
   const payableDatabaseVisitOptions = useMemo(() => (
     databaseVisitOptions.filter((visit) => isPendingPaymentStatus(visit.billingStatus))
   ), [databaseVisitOptions]);
+  const refundableVisitOptions = useMemo(() => (
+    databaseVisitOptions.filter((visit) => (
+      visit.payments.some((payment) => Number(payment.refundableAmount) > 0.0001)
+    ))
+  ), [databaseVisitOptions]);
+  const selectedRefundVisit = refundableVisitOptions.find((visit) => String(visit.visitId) === String(refundVisitId)) || null;
+  const refundablePayments = selectedRefundVisit?.payments.filter((payment) => Number(payment.refundableAmount) > 0.0001) || [];
+  const selectedRefundPayment = refundablePayments.find((payment) => String(payment.paymentId) === String(refundPaymentId)) || null;
   const pendingPaymentCount = useMemo(() => (
     payableDatabaseVisitOptions.length
   ), [payableDatabaseVisitOptions]);
@@ -1245,14 +1333,33 @@ export default function ServicePOS() {
   const [activeTab, setActiveTab] = useState('services');
   const [searchQuery, setSearchQuery] = useState('');
   const [receiptPaperWidth, setReceiptPaperWidth] = useState('58mm');
-  const [invoicePanelOpen, setInvoicePanelOpen] = useState(false);
+  const [invoicePanelOpen, setInvoicePanelOpen] = useState(true);
   const [invoicePanelWidth, setInvoicePanelWidth] = useState(320);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0530-001');
-  const [notification, setNotification] = useState(() => (
-    posPrefill ? (posPrefill.message || 'Payment summary loaded. Review the invoice before posting payment.') : ''
-  ));
+  const [invoiceNumber, setInvoiceNumber] = useState(createInvoiceNumber);
   const [selectedChargeId, setSelectedChargeId] = useState(charges[0]?.lineId || '');
+  const showNotification = useCallback((message, type = 'warning') => {
+    if (!message) return;
+    if (type === 'error') toast.error(message);
+    else if (type === 'success') toast.success(message);
+    else if (type === 'info') toast.info(message);
+    else toast.warning(message);
+  }, []);
+
+  useEffect(() => {
+    if (isLoadingInventory || inventoryError || !branchId || inventory.length > 0) return;
+
+    const noticeKey = String(branchId);
+    if (emptyInventoryNoticeBranchesRef.current.has(noticeKey)) return;
+    emptyInventoryNoticeBranchesRef.current.add(noticeKey);
+    toast.warning('No sellable or consumable inventory is assigned to this branch. Service-only invoices are still available when they do not consume stock.');
+  }, [branchId, inventory.length, inventoryError, isLoadingInventory]);
+
+  useEffect(() => {
+    if (posPrefill) {
+      showNotification(posPrefill.message || 'Payment summary loaded. Review the invoice before posting payment.', 'info');
+    }
+  }, [posPrefill, showNotification]);
 
   useEffect(() => {
     let isActive = true;
@@ -1263,6 +1370,11 @@ export default function ServicePOS() {
         const nextBranches = Array.isArray(response?.branches) ? response.branches : [];
         setBranches(nextBranches);
         setBranchId((current) => {
+          if (branchSelectionLocked) {
+            const assigned = nextBranches.find((branch) => String(branch.id) === String(lockedBranchId))
+              || nextBranches[0];
+            return String(assigned?.id || '');
+          }
           if (nextBranches.some((branch) => String(branch.id) === String(current))) return String(current);
           const mainBranch = nextBranches.find((branch) => branch.isMain);
           return String(mainBranch?.id || nextBranches[0]?.id || '');
@@ -1270,13 +1382,14 @@ export default function ServicePOS() {
         setBranchError(nextBranches.length ? '' : 'No assigned Point-Of-Sale location is available.');
       })
       .catch((error) => {
-        if (isActive) setBranchError(error.message || 'Clinic locations could not be loaded.');
+        console.error('Failed to load Point-Of-Sale locations:', error);
+        if (isActive) setBranchError('Clinic locations could not be loaded. Refresh the page or try again later.');
       });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [branchSelectionLocked, lockedBranchId]);
 
   useEffect(() => {
     if (visitOptions.some((visit) => visit.id === selectedVisitId)) {
@@ -1302,16 +1415,24 @@ export default function ServicePOS() {
       }
 
       if (data.schemaReady === false) {
+        if (!isAutoRefresh) {
+          console.error('Visit payment records are unavailable:', data.message || data);
+        }
         setVisitBills([]);
-        setVisitSchemaMessage(data.message || 'Visit billing schema is not ready.');
+        setHasLoadedVisitBills(true);
+        setInvoiceDocumentSchemaReady(false);
+        setVisitSchemaMessage('Visit payments are temporarily unavailable. Try again later or contact support.');
         return;
       }
 
       setVisitBills(Array.isArray(data.visits) ? data.visits : []);
+      setHasLoadedVisitBills(true);
+      setInvoiceDocumentSchemaReady(data.invoiceDocumentSchemaReady !== false);
       setVisitSchemaMessage('');
     } catch (error) {
       if (!isAutoRefresh) {
-        setVisitSchemaMessage(error.message || 'Failed to load visit bills.');
+        console.error('Failed to load visit payments:', error);
+        setVisitSchemaMessage('Visit payments could not be loaded. Refresh the page or try again later.');
       }
     } finally {
       if (!isAutoRefresh) {
@@ -1321,6 +1442,11 @@ export default function ServicePOS() {
   }, [branchId]);
 
   const loadServiceCatalog = useCallback(async ({ isAutoRefresh = false } = {}) => {
+    if (!isAutoRefresh) {
+      setIsLoadingCatalog(true);
+      setCatalogSchemaMessage('');
+    }
+
     try {
       const data = await fetchServiceCatalog();
 
@@ -1329,8 +1455,11 @@ export default function ServicePOS() {
       }
 
       if (data.schemaReady === false) {
+        if (!isAutoRefresh) {
+          console.error('Point-Of-Sale service catalog is unavailable:', data.message || data);
+        }
         setServiceCatalog([]);
-        setCatalogSchemaMessage(data.message || 'Service catalog schema is not ready.');
+        setCatalogSchemaMessage('Service pricing is temporarily unavailable. Try again later or contact support.');
         return;
       }
 
@@ -1338,22 +1467,43 @@ export default function ServicePOS() {
       setCatalogSchemaMessage('');
     } catch (error) {
       if (!isAutoRefresh) {
-        setCatalogSchemaMessage(error.message || 'Failed to load service catalog.');
+        console.error('Failed to load the Point-Of-Sale service catalog:', error);
+      }
+      setCatalogSchemaMessage('Service pricing could not be loaded. Refresh the page or try again later.');
+      throw error;
+    } finally {
+      if (!isAutoRefresh) {
+        setIsLoadingCatalog(false);
       }
     }
   }, []);
 
-  const loadInventory = useCallback(async () => {
+  const loadInventory = useCallback(async ({ isAutoRefresh = false } = {}) => {
+    if (!isAutoRefresh) {
+      setIsLoadingInventory(true);
+      setInventoryError('');
+    }
+
     try {
       if (!branchId) return;
       const data = await fetchInventoryItems({ branchId });
 
       const items = normalizeInventoryItems(data);
-      if (items.length > 0) {
-        setInventory(items);
+      setInventory(items);
+      setInventoryError('');
+    } catch (error) {
+      if (!isAutoRefresh) {
+        console.error('Failed to load Point-Of-Sale inventory:', error);
       }
-    } catch {
-      // Keep local fallback inventory so Point-Of-Sale remains usable without the inventory module.
+      setInventoryError('Branch inventory could not be loaded. Refresh the page or try again later.');
+      if (!isAutoRefresh) {
+        setInventory(POS_DEMO_CATALOG_ENABLED ? DEMO_INVENTORY : []);
+      }
+      throw error;
+    } finally {
+      if (!isAutoRefresh) {
+        setIsLoadingInventory(false);
+      }
     }
   }, [branchId]);
 
@@ -1379,6 +1529,30 @@ export default function ServicePOS() {
   }, [posPrefill]);
 
   useEffect(() => {
+    if (prefillReconciledRef.current || !posPrefill?.visit || !hasLoadedVisitBills) {
+      return;
+    }
+
+    const prefillVisit = createPrefillVisit(posPrefill);
+    const matchingVisit = databaseVisitOptions.find((visit) => (
+      (prefillVisit.visitId && Number(visit.visitId) === Number(prefillVisit.visitId))
+      || (prefillVisit.bookingId && Number(visit.bookingId) === Number(prefillVisit.bookingId))
+    ));
+    prefillReconciledRef.current = true;
+    if (!matchingVisit) {
+      return;
+    }
+
+    const existingCharges = (matchingVisit.initialCharges || []).map(cloneCharge);
+    const incomingCharges = (Array.isArray(posPrefill.charges) ? posPrefill.charges : []).map(createPrefillCharge);
+    const reconciledCharges = mergePrefillChargesWithExisting(existingCharges, incomingCharges);
+    setSelectedVisitId(matchingVisit.id);
+    setCharges(reconciledCharges);
+    setSelectedChargeId(reconciledCharges[0]?.lineId || '');
+    showNotification('The existing invoice and prior payments were loaded. Only newly accrued lines will be appended.', 'info');
+  }, [databaseVisitOptions, hasLoadedVisitBills, posPrefill, showNotification]);
+
+  useEffect(() => {
     if (posPaymentMethods.length > 0 && !posPaymentMethods.some((method) => method.value === paymentMethod)) {
       setPaymentMethod(posPaymentMethods[0].value);
     }
@@ -1386,12 +1560,13 @@ export default function ServicePOS() {
 
   const invoiceTotal = getInvoiceTotal(charges);
   const stockProblems = getStockProblems(charges, inventoryById);
+  const hasInventoryUsage = Object.keys(buildUsageByInventory(charges)).length > 0;
   const paymentReferenceRequired = paymentMethod !== 'cash' || !cashNoReference;
   const effectivePaymentReference = paymentMethod === 'cash' && cashNoReference ? '' : paymentReference.trim();
   const hasPaymentReference = effectivePaymentReference !== '';
-  const visitBalance = selectedVisit?.source === 'database'
-    ? Math.max(0, invoiceTotal - Number(selectedVisit.paid || 0))
-    : invoiceTotal;
+  const previouslyPaid = Math.max(0, Number(selectedVisit?.paid || 0));
+  const visitBalance = Math.max(0, invoiceTotal - previouslyPaid);
+  const amountDue = visitBalance;
   const invoiceBlockReason = (() => {
     if (charges.length === 0) {
       return 'Add at least one billable item before creating an invoice.';
@@ -1401,12 +1576,20 @@ export default function ServicePOS() {
       return 'Invoice total must be greater than zero.';
     }
 
+    if (hasInventoryUsage && isLoadingInventory) {
+      return 'Wait for branch inventory to finish loading before reviewing this invoice.';
+    }
+
+    if (hasInventoryUsage && inventoryError) {
+      return 'Branch inventory could not be verified. Restore the inventory connection before posting this payment.';
+    }
+
     if (stockProblems.length > 0) {
       return stockProblems[0];
     }
 
-    if (selectedVisit?.source === 'database' && visitBalance <= 0) {
-      return 'This visit has no remaining balance to invoice.';
+    if (amountDue <= 0) {
+      return 'This invoice has no remaining balance to collect.';
     }
 
     return '';
@@ -1414,6 +1597,14 @@ export default function ServicePOS() {
   const paymentBlockReason = (() => {
     if (invoiceBlockReason) {
       return invoiceBlockReason;
+    }
+
+    if (invoiceDocumentSchemaReady === null) {
+      return 'Wait for invoice document storage to finish loading.';
+    }
+
+    if (invoiceDocumentSchemaReady === false) {
+      return 'Invoice PDF storage is temporarily unavailable. Contact the system administrator.';
     }
 
     if (!paymentMethod) {
@@ -1428,28 +1619,57 @@ export default function ServicePOS() {
   })();
   const canPreviewInvoice = !invoiceBlockReason && !isPostingPayment;
   const canPostPayment = !paymentBlockReason && !isPostingPayment;
-  const createAndUploadInvoiceProof = async (postedInvoiceNumber, amountPaid) => {
-    const proofImage = createInvoiceProofImage({
+  const createAndUploadInvoiceDocument = async (postedInvoiceNumber, amountPaid) => {
+    const invoicePdf = createInvoicePdfFile({
       invoiceNumber: postedInvoiceNumber,
-      invoiceDate: INVOICE_DATE,
-      visit: selectedVisit,
-      charges,
+      invoiceDate: new Date().toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+      paperWidth: receiptPaperWidth,
+      visitReference: getVisitDisplayReference(selectedVisit),
+      petName: selectedVisit?.petName,
+      petSpecies: selectedVisit?.species,
+      ownerName: selectedVisit?.ownerName,
+      veterinarianName: selectedVisit?.veterinarian,
+      visitType: selectedVisit?.visitType,
+      prescriptions: (selectedVisit?.prescriptions || []).map((prescription) => ({
+        summary: formatPrescriptionLine(prescription),
+        instructions: prescription.instructions || '',
+      })),
+      charges: charges.map((charge) => ({
+        ...charge,
+        subtotal: getLineSubtotal(charge),
+      })),
+      invoiceTotal,
       paymentAmount: amountPaid,
-      previouslyPaid: selectedVisit?.source === 'database' ? Number(selectedVisit.paid || 0) : 0,
+      previouslyPaid,
       paymentMethod,
       paymentReference: hasPaymentReference ? effectivePaymentReference : '',
     });
+    const filePath = await uploadDocumentFile(invoicePdf, 'invoice_document');
+    if (!filePath) {
+      throw new Error('Invoice PDF upload completed without a file path.');
+    }
 
-    return uploadDataUrlImage(proofImage, 'booking_payment', 'pos_invoice');
+    return {
+      invoice_number: postedInvoiceNumber,
+      file_path: filePath,
+      file_name: invoicePdf.name,
+      mime_type: invoicePdf.type,
+      paper_width: receiptPaperWidth,
+    };
   };
-  const confirmLinkedBookingPayment = async (proofUrl, postedInvoiceNumber) => {
-    if (!selectedVisit?.bookingId) {
+  const confirmLinkedBookingPayment = async (postedInvoiceNumber) => {
+    if (!selectedVisit?.bookingId || normalizeText(selectedVisit.bookingStatus) !== 'pending') {
       return false;
     }
 
     await updateBookingStatus(selectedVisit.bookingId, {
       status: 'confirmed',
-      payment_proof_url: proofUrl,
       payment_method: paymentMethod,
       payment_reference: hasPaymentReference ? effectivePaymentReference : postedInvoiceNumber,
     });
@@ -1477,33 +1697,38 @@ export default function ServicePOS() {
     setSelectedVisitId(visitId);
     setCharges(nextCharges);
     setSelectedChargeId(nextCharges[0]?.lineId || '');
-    setNotification('');
+    showNotification('', 'info');
   };
 
   const addCatalogItem = (item) => {
-    const existingCharge = charges.find((charge) => charge.catalogId === item.id);
+    const existingCharge = charges.find((charge) => charge.catalogId === item.id && !charge.lockedExisting);
+    const additions = existingCharge ? [] : createCatalogCharges(item, 1);
     const nextCharges = existingCharge
-      ? charges.map((charge) => (
-        charge.lineId === existingCharge.lineId
-          ? { ...charge, quantity: charge.quantity + 1 }
-          : charge
-      ))
-      : [...charges, createCharge(item, 1)];
+      ? charges.map((charge) => {
+        if (charge.lineId === existingCharge.lineId) {
+          return { ...charge, quantity: charge.quantity + 1 };
+        }
+        if (charge.parentLineId === existingCharge.lineId) {
+          return { ...charge, quantity: charge.quantity + (Number(charge.perServiceQuantity) || 1) };
+        }
+        return charge;
+      })
+      : [...charges, ...additions];
 
     const problems = getStockProblems(nextCharges, inventoryById);
     if (problems.length > 0) {
-      setNotification(problems[0]);
+      showNotification(problems[0], 'error');
       return;
     }
 
     setCharges(nextCharges);
-    setSelectedChargeId(existingCharge?.lineId || nextCharges[nextCharges.length - 1]?.lineId || '');
-    setNotification('');
+    setSelectedChargeId(existingCharge?.lineId || additions[0]?.lineId || '');
+    showNotification('', 'info');
   };
 
   const addPrescriptionToInvoice = (prescription, inventoryItem) => {
     if (!inventoryItem) {
-      setNotification('This prescription is not matched to clinic inventory.');
+      showNotification('This prescription is not matched to clinic inventory.', 'error');
       return;
     }
 
@@ -1533,29 +1758,43 @@ export default function ServicePOS() {
     const problems = getStockProblems(nextCharges, inventoryById);
 
     if (problems.length > 0) {
-      setNotification(problems[0]);
+      showNotification(problems[0], 'error');
       return;
     }
 
     setCharges(nextCharges);
     setSelectedChargeId(existingCharge?.lineId || prescriptionCharge.lineId);
-    setNotification(`${inventoryItem.name} added from prescription.`);
+    showNotification(`${inventoryItem.name} added from prescription.`, 'success');
   };
 
   const updateChargeQuantity = (lineId, delta) => {
     const targetCharge = charges.find((charge) => charge.lineId === lineId);
     if (!targetCharge) return;
+    if (targetCharge.lockedExisting) {
+      showNotification('Existing clinical invoice lines are protected from Point-Of-Sale edits.', 'info');
+      return;
+    }
+    if (targetCharge.lockedToParent) {
+      showNotification('This material quantity follows its service quantity.', 'info');
+      return;
+    }
 
     const nextQuantity = targetCharge.quantity + delta;
     const nextCharges = nextQuantity <= 0
-      ? charges.filter((charge) => charge.lineId !== lineId)
-      : charges.map((charge) => (
-        charge.lineId === lineId ? { ...charge, quantity: nextQuantity } : charge
-      ));
+      ? charges.filter((charge) => charge.lineId !== lineId && charge.parentLineId !== lineId)
+      : charges.map((charge) => {
+        if (charge.lineId === lineId) {
+          return { ...charge, quantity: nextQuantity };
+        }
+        if (charge.parentLineId === lineId) {
+          return { ...charge, quantity: (Number(charge.perServiceQuantity) || 1) * nextQuantity };
+        }
+        return charge;
+      });
 
     const problems = getStockProblems(nextCharges, inventoryById);
     if (problems.length > 0) {
-      setNotification(problems[0]);
+      showNotification(problems[0], 'error');
       return;
     }
 
@@ -1563,11 +1802,20 @@ export default function ServicePOS() {
     if (!nextCharges.some((charge) => charge.lineId === selectedChargeId)) {
       setSelectedChargeId(nextCharges[0]?.lineId || '');
     }
-    setNotification('');
+    showNotification('', 'info');
   };
 
   const removeCharge = (lineId) => {
-    const nextCharges = charges.filter((charge) => charge.lineId !== lineId);
+    const targetCharge = charges.find((charge) => charge.lineId === lineId);
+    if (targetCharge?.lockedExisting) {
+      showNotification('Existing clinical invoice lines cannot be removed in Point-Of-Sale.', 'info');
+      return;
+    }
+    if (targetCharge?.lockedToParent) {
+      showNotification('This separately billed material is required by its service.', 'info');
+      return;
+    }
+    const nextCharges = charges.filter((charge) => charge.lineId !== lineId && charge.parentLineId !== lineId);
     setCharges(nextCharges);
     if (selectedChargeId === lineId) {
       setSelectedChargeId(nextCharges[0]?.lineId || '');
@@ -1576,17 +1824,17 @@ export default function ServicePOS() {
 
   const openInvoice = () => {
     if (charges.length === 0) {
-      setNotification('Add at least one billable item before creating an invoice.');
+      showNotification('Add at least one billable item before creating an invoice.', 'error');
       return;
     }
 
     if (stockProblems.length > 0) {
-      setNotification(stockProblems[0]);
+      showNotification(stockProblems[0], 'error');
       return;
     }
 
-    if (selectedVisit?.source === 'database' && visitBalance <= 0) {
-      setNotification('This visit has no remaining balance to invoice.');
+    if (amountDue <= 0) {
+      showNotification('This invoice has no remaining balance to collect.', 'error');
       return;
     }
 
@@ -1610,7 +1858,7 @@ export default function ServicePOS() {
 
     const handlePointerMove = (moveEvent) => {
       const delta = moveEvent.clientX - startX;
-      setInvoicePanelWidth(clampInvoicePanelWidth(startWidth - delta));
+      setInvoicePanelWidth(clampInvoicePanelWidth(startWidth + delta));
     };
 
     const stopResize = () => {
@@ -1638,26 +1886,31 @@ export default function ServicePOS() {
   }, [clampInvoicePanelWidth, invoicePanelOpen]);
 
   const postPayment = async () => {
+    if (paymentBlockReason) {
+      showNotification(paymentBlockReason, 'error');
+      return;
+    }
+
     const problems = getStockProblems(charges, inventoryById);
     if (problems.length > 0) {
-      setNotification(problems[0]);
+      showNotification(problems[0], 'error');
       return;
     }
 
     if (paymentReferenceRequired && !hasPaymentReference) {
-      setNotification('Enter the transaction number, or check no transaction number for cash.');
+      showNotification('Enter the transaction number, or check no transaction number for cash.', 'error');
       return;
     }
 
     if (selectedVisit?.source === 'database') {
       if (!selectedVisit.visitId) {
-        setNotification('Visit payment endpoint is not available.');
+        showNotification('Visit payment endpoint is not available.', 'error');
         return;
       }
 
-      const amountToPost = visitBalance > 0 ? visitBalance : invoiceTotal;
+      const amountToPost = amountDue;
       if (amountToPost <= 0) {
-        setNotification('This visit has no remaining balance to post.');
+        showNotification('This visit has no remaining balance to post.', 'error');
         return;
       }
 
@@ -1665,15 +1918,15 @@ export default function ServicePOS() {
       setIsPostingPayment(true);
 
       try {
-        const invoiceProofUrl = await createAndUploadInvoiceProof(postedInvoiceNumber, amountToPost);
+        const invoiceDocument = await createAndUploadInvoiceDocument(postedInvoiceNumber, amountToPost);
         const data = await postVisitPayment(selectedVisit.visitId, {
           amount: amountToPost,
           payment_method: paymentMethod,
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
-          proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
           received_by_user_id: getUserIdentifier(currentUser),
           received_by_name: getUserDisplayName(currentUser),
+          invoice_document: invoiceDocument,
           charges: charges.map((charge) => serializeChargeForVisit(charge, inventoryById, currentUser)),
         });
 
@@ -1697,12 +1950,24 @@ export default function ServicePOS() {
         setPaymentReference('');
         setCashNoReference(paymentMethod === 'cash');
         setInvoiceNumber((current) => nextInvoiceNumber(current));
-        const bookingConfirmed = await confirmLinkedBookingPayment(invoiceProofUrl, postedInvoiceNumber);
-        setNotification(bookingConfirmed
-          ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and invoice proof was saved.`
-          : `${postedInvoiceNumber} posted. Visit billing status was updated.`);
+        let bookingConfirmed = false;
+        let bookingConfirmationFailed = false;
+        try {
+          bookingConfirmed = await confirmLinkedBookingPayment(postedInvoiceNumber);
+        } catch {
+          bookingConfirmationFailed = true;
+        }
+
+        if (bookingConfirmationFailed) {
+          showNotification(`${postedInvoiceNumber} was posted successfully, but the linked booking could not be auto-confirmed. Review it in Bookings; do not post the payment again.`, 'warning');
+        } else {
+          showNotification(bookingConfirmed
+            ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and the invoice PDF was saved.`
+            : `${postedInvoiceNumber} posted. Visit billing status and invoice PDF were saved.`, 'success');
+        }
       } catch (error) {
-        setNotification(error.message || 'Failed to post visit payment.');
+        console.error('Failed to post a visit payment:', error);
+        showNotification('The visit payment could not be posted. Verify the details and try again.', 'error');
       } finally {
         setIsPostingPayment(false);
       }
@@ -1710,18 +1975,18 @@ export default function ServicePOS() {
     }
 
     const postedInvoiceNumber = invoiceNumber;
-    const amountToPost = invoiceTotal;
+    const amountToPost = amountDue;
     const sourceType = selectedVisit?.sourceType || (selectedVisit?.source === 'walk_in' ? 'walk_in' : 'manual');
 
     if (sourceType !== 'walk_in' && !selectedVisit?.petId) {
-      setNotification('This Point-Of-Sale payment is missing the patient link. Open it again from the booking record.');
+      showNotification('This Point-Of-Sale payment is missing the patient link. Open it again from the booking record.', 'error');
       return;
     }
 
     setIsPostingPayment(true);
 
     try {
-      const invoiceProofUrl = await createAndUploadInvoiceProof(postedInvoiceNumber, amountToPost);
+      const invoiceDocument = await createAndUploadInvoiceDocument(postedInvoiceNumber, amountToPost);
       const visitPayload = {
         branch_id: Number(branchId),
         source_type: sourceType,
@@ -1731,10 +1996,10 @@ export default function ServicePOS() {
           amount: amountToPost,
           payment_method: paymentMethod,
           reference_number: hasPaymentReference ? effectivePaymentReference : null,
-          proof_url: invoiceProofUrl,
           notes: hasPaymentReference ? `Point-Of-Sale invoice ${postedInvoiceNumber}` : `Point-Of-Sale invoice ${postedInvoiceNumber}; cash payment without transaction number`,
           received_by_user_id: getUserIdentifier(currentUser),
           received_by_name: getUserDisplayName(currentUser),
+          invoice_document: invoiceDocument,
         },
       };
 
@@ -1779,16 +2044,105 @@ export default function ServicePOS() {
       setPaymentReference('');
       setCashNoReference(paymentMethod === 'cash');
       setInvoiceNumber((current) => nextInvoiceNumber(current));
-      const bookingConfirmed = await confirmLinkedBookingPayment(invoiceProofUrl, postedInvoiceNumber);
-      setNotification(bookingConfirmed
-        ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and invoice proof was saved.`
-        : `${postedInvoiceNumber} posted. Walk-in sale was added to patient visit count.`);
+      let bookingConfirmed = false;
+      let bookingConfirmationFailed = false;
+      try {
+        bookingConfirmed = await confirmLinkedBookingPayment(postedInvoiceNumber);
+      } catch {
+        bookingConfirmationFailed = true;
+      }
+
+      if (bookingConfirmationFailed) {
+        showNotification(`${postedInvoiceNumber} was posted successfully, but the linked booking could not be auto-confirmed. Review it in Bookings; do not post the payment again.`, 'warning');
+      } else {
+        showNotification(bookingConfirmed
+          ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and the invoice PDF was saved.`
+          : `${postedInvoiceNumber} posted. Walk-in sale and invoice PDF were saved.`, 'success');
+      }
     } catch (error) {
-      setNotification(error.message || 'Failed to post walk-in sale.');
+      console.error('Failed to post a walk-in sale:', error);
+      showNotification('The walk-in sale could not be posted. Verify the details and try again.', 'error');
     } finally {
       setIsPostingPayment(false);
     }
   };
+
+  const openRefundDialog = () => {
+    const visit = refundableVisitOptions[0];
+    const payment = visit?.payments.find((entry) => Number(entry.refundableAmount) > 0.0001);
+    if (!visit || !payment) {
+      showNotification('No refundable verified payment is available at this location.', 'info');
+      return;
+    }
+    setRefundVisitId(String(visit.visitId));
+    setRefundPaymentId(String(payment.paymentId));
+    setRefundAmount(String(payment.refundableAmount));
+    setRefundMethod(payment.paymentMethod || 'cash');
+    setRefundReference('');
+    setRefundReason('');
+    setRefundOpen(true);
+  };
+
+  const submitRefund = async () => {
+    const amount = Number(refundAmount);
+    const refundableAmount = Number(selectedRefundPayment?.refundableAmount || 0);
+    if (!selectedRefundVisit || !selectedRefundPayment) {
+      showNotification('Select a refundable visit payment.', 'error');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0 || amount - refundableAmount > 0.0001) {
+      showNotification(`Refund must be between PHP 0.01 and ${formatPhpCurrency(refundableAmount)}.`, 'error');
+      return;
+    }
+    if (!refundReason.trim()) {
+      showNotification('Enter the reason for this refund.', 'error');
+      return;
+    }
+    if (refundMethod !== 'cash' && !refundReference.trim()) {
+      showNotification('Enter the non-cash refund transaction reference.', 'error');
+      return;
+    }
+
+    setIsPostingRefund(true);
+    try {
+      await postVisitRefund(selectedRefundVisit.visitId, {
+        visit_id: selectedRefundVisit.visitId,
+        payment_id: selectedRefundPayment.paymentId,
+        amount,
+        refund_method: refundMethod,
+        reference_number: refundReference.trim() || null,
+        reason: refundReason.trim(),
+      });
+      await loadVisitBills({ isAutoRefresh: true });
+      setRefundOpen(false);
+      showNotification(`Refund of ${formatPhpCurrency(amount)} recorded for ${selectedRefundVisit.petName}.`, 'success');
+    } catch (error) {
+      console.error('Failed to record a Point-Of-Sale refund:', error);
+      showNotification('The refund could not be recorded. Verify the details and try again.', 'error');
+    } finally {
+      setIsPostingRefund(false);
+    }
+  };
+
+  const catalogEmptyMessage = (() => {
+    if (searchQuery.trim()) {
+      return 'No items match the current search.';
+    }
+
+    if ((activeTab === 'services' || activeTab === 'diagnostics') && isLoadingCatalog) {
+      return 'Loading the clinic service catalog...';
+    }
+
+    if ((activeTab === 'medications' || activeTab === 'products') && isLoadingInventory) {
+      return 'Loading this branch inventory...';
+    }
+
+    if (activeTab === 'services' || activeTab === 'diagnostics') {
+      return 'No active billable services are configured in this category.';
+    }
+
+    return 'No sellable inventory items are available in this category at the selected branch.';
+  })();
 
   return (
     <div className="space-y-5">
@@ -1881,45 +2235,53 @@ export default function ServicePOS() {
         </div>
         <div className="w-full sm:w-72">
           <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Sales location</p>
-          <Select
-            value={branchId}
-            onValueChange={(value) => {
-              setBranchId(value);
-              setSelectedVisitId(WALK_IN_SALE_ID);
-              setCharges([]);
-              setSelectedChargeId('');
-              setNotification('Location changed. Inventory and unpaid visits were refreshed for this branch.');
-            }}
-            disabled={!branches.length || isPostingPayment}
-          >
-            <SelectTrigger className="h-10 bg-white" aria-label="Point-Of-Sale location">
-              <Building2 className="mr-2 size-4 text-slate-500" />
-              <SelectValue
-                placeholder="Select sales location"
-                displayValue={getBranchDisplayName(branches, branchId)}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {branchSelectionLocked ? (
+            <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <Building2 className="size-4 text-slate-500" />
+              {getBranchDisplayName(branches, branchId, 'Assigned sales location')}
+            </div>
+          ) : (
+            <Select
+              value={branchId}
+              onValueChange={(value) => {
+                setBranchId(value);
+                setInventory([]);
+                setInventoryError('');
+                setIsLoadingInventory(true);
+                setSelectedVisitId(WALK_IN_SALE_ID);
+                setCharges([]);
+                setSelectedChargeId('');
+                showNotification('Location changed. Inventory and unpaid visits are being refreshed for this branch.', 'info');
+              }}
+              disabled={!branches.length || isPostingPayment}
+            >
+              <SelectTrigger className="h-10 bg-white" aria-label="Point-Of-Sale location">
+                <Building2 className="mr-2 size-4 text-slate-500" />
+                <SelectValue
+                  placeholder="Select sales location"
+                  displayValue={getBranchDisplayName(branches, branchId)}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {branchError && <p className="mt-1 text-xs font-semibold text-red-600">{branchError}</p>}
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 h-9 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            onClick={openRefundDialog}
+            disabled={refundableVisitOptions.length === 0 || isPostingPayment}
+          >
+            <Receipt className="mr-2 size-4" />
+            Record Refund
+          </Button>
         </div>
       </div>
-
-      {notification && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-          <span className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            {notification}
-          </span>
-          <button type="button" onClick={() => setNotification('')} className="rounded p-1 hover:bg-amber-100">
-            <X className="size-4" />
-          </button>
-        </div>
-      )}
 
       {(visitSchemaMessage || isLoadingVisits) && (
         <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-800">
@@ -1932,10 +2294,41 @@ export default function ServicePOS() {
         </div>
       )}
 
-      {catalogSchemaMessage && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+      {POS_DEMO_CATALOG_ENABLED && (
+        <div className="flex items-start gap-2 rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm font-semibold text-purple-800" role="status">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>{catalogSchemaMessage} Point-Of-Sale is using fallback prices until the catalog is available.</span>
+          Developer demo catalog is enabled. Disable VITE_ENABLE_POS_DEMO_CATALOG before production deployment.
+        </div>
+      )}
+
+      {isLoadingInventory && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-800" role="status">
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+          Loading inventory for {getBranchDisplayName(branches, branchId) || 'the selected branch'}...
+        </div>
+      )}
+
+      {inventoryError && (
+        <div className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800 sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <span className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {inventoryError} Inventory-linked charges cannot be posted until it reconnects.
+          </span>
+          <Button type="button" variant="outline" size="sm" onClick={() => loadInventory().catch(() => {})}>
+            Retry Inventory
+          </Button>
+        </div>
+      )}
+
+      {catalogSchemaMessage && (
+        <div className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800 sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <span className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {catalogSchemaMessage} No fallback prices are being used.
+          </span>
+          <Button type="button" variant="outline" size="sm" onClick={() => loadServiceCatalog().catch(() => {})}>
+            Retry Catalog
+          </Button>
         </div>
       )}
 
@@ -1954,10 +2347,10 @@ export default function ServicePOS() {
       />
 
       <div
-        className={`grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(0,1fr)_12px_minmax(260px,var(--invoice-panel-width))] xl:gap-0' : ''}`}
+        className={`grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(300px,var(--invoice-panel-width))_12px_minmax(0,1fr)] xl:gap-0' : ''}`}
         style={invoicePanelOpen ? { '--invoice-panel-width': `${invoicePanelWidth}px` } : undefined}
       >
-        <aside id="pos-products-panel" className="w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+        {invoicePanelOpen && <aside id="pos-products-panel" className="order-3 w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 p-4 text-center sm:text-left">
               <div className="flex items-center justify-center gap-2 sm:justify-start">
@@ -1996,7 +2389,7 @@ export default function ServicePOS() {
                     <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                       {visibleCatalog.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
-                          No matching items. Search can use item name, generic or variant name, brand, SKU, barcode, or batch number.
+                          {catalogEmptyMessage}
                         </div>
                       ) : (
                         visibleCatalog.map((item) => (
@@ -2015,7 +2408,7 @@ export default function ServicePOS() {
               </Tabs>
             </div>
           </section>
-        </aside>
+        </aside>}
 
         {invoicePanelOpen && (
           <div
@@ -2025,12 +2418,11 @@ export default function ServicePOS() {
             tabIndex={0}
             onPointerDown={startInvoicePanelResize}
             onKeyDown={handleInvoicePanelResizeKey}
-            className="hidden min-h-[320px] cursor-col-resize touch-none rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 xl:block"
+            className="order-2 hidden min-h-[320px] cursor-col-resize touch-none rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 xl:block"
           />
         )}
 
-        {invoicePanelOpen && (
-          <main className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:z-10 xl:self-start">
+        <main className="order-1 min-w-0 space-y-4 xl:sticky xl:top-24 xl:z-10 xl:self-start">
             <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="bg-[#155dfc] p-3 text-white">
                 <div className="flex items-center justify-between gap-3">
@@ -2093,20 +2485,136 @@ export default function ServicePOS() {
                   title={invoiceBlockReason || undefined}
                 >
                   <FileText className="mr-2 size-5" />
-                  {isPostingPayment ? 'Posting Payment...' : 'Pay Balance'}
+                  Review Invoice
                 </Button>
               </div>
             </section>
           </main>
-        )}
       </div>
+
+      <Dialog open={refundOpen} onOpenChange={(open) => !isPostingRefund && setRefundOpen(open)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Record Payment Refund</DialogTitle>
+            <DialogDescription>
+              Refunds are linked to the original verified payment and appear as negative collections in reports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Visit</p>
+              <Select
+                value={refundVisitId}
+                onValueChange={(value) => {
+                  const visit = refundableVisitOptions.find((entry) => String(entry.visitId) === value);
+                  const payment = visit?.payments.find((entry) => Number(entry.refundableAmount) > 0.0001);
+                  setRefundVisitId(value);
+                  setRefundPaymentId(payment ? String(payment.paymentId) : '');
+                  setRefundAmount(payment ? String(payment.refundableAmount) : '');
+                  setRefundMethod(payment?.paymentMethod || 'cash');
+                  setRefundReference('');
+                }}
+                disabled={isPostingRefund}
+              >
+                <SelectTrigger><SelectValue placeholder="Select paid visit" /></SelectTrigger>
+                <SelectContent>
+                  {refundableVisitOptions.map((visit) => (
+                    <SelectItem key={visit.visitId} value={String(visit.visitId)}>
+                      {visit.petName} - {getVisitDisplayReference(visit)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Original Payment</p>
+              <Select
+                value={refundPaymentId}
+                onValueChange={(value) => {
+                  const payment = refundablePayments.find((entry) => String(entry.paymentId) === value);
+                  setRefundPaymentId(value);
+                  setRefundAmount(payment ? String(payment.refundableAmount) : '');
+                  setRefundMethod(payment?.paymentMethod || 'cash');
+                  setRefundReference('');
+                }}
+                disabled={isPostingRefund}
+              >
+                <SelectTrigger><SelectValue placeholder="Select payment" /></SelectTrigger>
+                <SelectContent>
+                  {refundablePayments.map((payment) => (
+                    <SelectItem key={payment.paymentId} value={String(payment.paymentId)}>
+                      {formatPhpCurrency(payment.refundableAmount)} refundable - {String(payment.paymentMethod).replace(/_/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Amount</p>
+                <Input
+                  type="number"
+                  min="0.01"
+                  max={selectedRefundPayment?.refundableAmount || undefined}
+                  step="0.01"
+                  restriction="decimal"
+                  value={refundAmount}
+                  onChange={(event) => setRefundAmount(event.target.value)}
+                  disabled={isPostingRefund}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Method</p>
+                <Select value={refundMethod} onValueChange={setRefundMethod} disabled={isPostingRefund}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {posPaymentMethods.map((method) => (
+                      <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {refundMethod !== 'cash' && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Reference</p>
+                <Input
+                  value={refundReference}
+                  onChange={(event) => setRefundReference(event.target.value)}
+                  restriction="alphanumeric"
+                  placeholder="Transaction or bank reference"
+                  disabled={isPostingRefund}
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Reason</p>
+              <Textarea
+                value={refundReason}
+                onChange={(event) => setRefundReason(event.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Explain why this payment is being refunded."
+                disabled={isPostingRefund}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRefundOpen(false)} disabled={isPostingRefund}>Cancel</Button>
+            <Button type="button" variant="destructive" onClick={submitRefund} disabled={isPostingRefund || !selectedRefundPayment}>
+              {isPostingRefund && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {isPostingRefund ? 'Recording...' : 'Record Refund'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
         <DialogContent className="theme-static-light max-w-5xl">
           <DialogHeader className="thermal-print-hidden">
-            <DialogTitle>Invoice Receipt</DialogTitle>
+            <DialogTitle>Review Invoice and Record Payment</DialogTitle>
             <DialogDescription>
-              Customer receipt shows main classifications only. Use the portable receipt preview for thermal printers.
+              Verify the patient, billable items, total and payment details. The final action records the payment and deducts linked branch stock.
             </DialogDescription>
           </DialogHeader>
 
@@ -2180,7 +2688,7 @@ export default function ServicePOS() {
                     <span className="text-base font-black text-slate-900">Invoice Total</span>
                     <span className="text-2xl font-black text-[#155dfc]">{formatPhpCurrency(invoiceTotal)}</span>
                   </div>
-                  {selectedVisit?.source === 'database' && Number(selectedVisit.paid || 0) > 0 && (
+                  {Number(selectedVisit.paid || 0) > 0 && (
                     <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 text-sm font-bold">
                       <div className="flex items-center justify-between text-slate-500">
                         <span>Previously Paid</span>
@@ -2229,6 +2737,13 @@ export default function ServicePOS() {
           </div>
 
           <div className="thermal-print-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Amount to record</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">This is the full remaining balance for this invoice.</p>
+              </div>
+              <p className="text-xl font-black text-[#155dfc]">{formatPhpCurrency(amountDue)}</p>
+            </div>
             <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Payment Method</p>
             <Select
               value={paymentMethod}
@@ -2256,6 +2771,7 @@ export default function ServicePOS() {
             </Select>
             <div className="mt-3 space-y-2">
               <Input
+                aria-label="Payment transaction number"
                 value={paymentReference}
                 onChange={(event) => setPaymentReference(event.target.value)}
                 restriction="alphanumeric"
@@ -2295,7 +2811,8 @@ export default function ServicePOS() {
               type="button"
               onClick={postPayment}
               disabled={!canPostPayment}
-              className="bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+              variant="success"
+              className="disabled:cursor-not-allowed disabled:bg-slate-300"
               title={paymentBlockReason || undefined}
             >
               {isPostingPayment ? (
@@ -2303,7 +2820,7 @@ export default function ServicePOS() {
               ) : (
                 <CheckCircle2 className="mr-2 size-4" />
               )}
-              {isPostingPayment ? 'Posting...' : 'Post Payment'}
+              {isPostingPayment ? 'Posting Payment...' : `Confirm & Post ${formatPhpCurrency(amountDue)}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2374,10 +2891,11 @@ function PatientVisitBar({
             variant="outline"
             onClick={onToggleInvoice}
             aria-pressed={invoicePanelOpen}
+            aria-controls="pos-products-panel"
             className="h-10 w-full gap-2 sm:w-fit"
           >
-            <Receipt className="size-4" />
-            {invoicePanelOpen ? 'Hide Invoice' : 'Show Invoice'}
+            <ShoppingCart className="size-4" />
+            {invoicePanelOpen ? 'Hide Products' : 'Show Products'}
           </Button>
         </div>
       </div>
@@ -2477,15 +2995,19 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
 
 function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selected }) {
   const hiddenMaterialCount = charge.includedMaterials.length + charge.extraMaterials.length;
+  const controlsLocked = Boolean(charge.lockedExisting || charge.lockedToParent);
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={`block w-full p-2.5 text-left transition ${selected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          className="min-w-0 flex-1 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2"
+        >
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <Badge className="border-0 bg-slate-100 text-slate-700">{charge.receiptType}</Badge>
             {hiddenMaterialCount > 0 && (
@@ -2493,17 +3015,19 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
                 {hiddenMaterialCount} hidden materials
               </Badge>
             )}
+            {charge.lockedExisting && (
+              <Badge className="border-0 bg-blue-50 text-blue-700">Clinical line</Badge>
+            )}
           </div>
           <p className="line-clamp-2 text-xs font-black text-slate-900">{charge.name}</p>
           <p className="text-xs font-semibold text-slate-500">{formatPhpCurrency(charge.price)} each</p>
-        </div>
+        </button>
         <button
           type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+          onClick={onRemove}
+          disabled={controlsLocked}
+          aria-label={`Remove ${charge.name} from invoice`}
+          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
         >
           <Trash2 className="size-4" />
         </button>
@@ -2513,29 +3037,27 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
         <div className="flex items-center rounded-lg border border-slate-200 bg-white">
           <button
             type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDecrease();
-            }}
-            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100"
+            onClick={onDecrease}
+            disabled={controlsLocked}
+            aria-label={`Decrease quantity of ${charge.name}`}
+            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <Minus className="size-3.5" />
           </button>
           <span className="w-8 text-center text-xs font-black text-slate-900">{charge.quantity}</span>
           <button
             type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onIncrease();
-            }}
-            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100"
+            onClick={onIncrease}
+            disabled={controlsLocked}
+            aria-label={`Increase quantity of ${charge.name}`}
+            className="flex size-7 items-center justify-center text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <Plus className="size-3.5" />
           </button>
         </div>
         <span className="text-sm font-black text-[#155dfc]">{formatPhpCurrency(getLineSubtotal(charge))}</span>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -2551,7 +3073,7 @@ function ReceiptInfo({ label, value }) {
 function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, charges, total }) {
   const isNarrow = paperWidth === '58mm';
   const previewWidth = isNarrow ? '232px' : '302px';
-  const previouslyPaid = visit?.source === 'database' ? Math.max(0, Number(visit.paid || 0)) : 0;
+  const previouslyPaid = Math.max(0, Number(visit?.paid || 0));
   const amountDue = Math.max(0, Number(total || 0) - previouslyPaid);
 
   return (

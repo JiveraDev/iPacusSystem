@@ -13,6 +13,7 @@ $allowedDirectories = [
     'diagnosis',
     'inventory_items',
     'inventory_receipts',
+    'invoices',
     'payment_qr',
     'payments',
     'pet_profile_images',
@@ -53,6 +54,11 @@ if (!$targetPath || strpos($targetPath, $baseDirectory . DIRECTORY_SEPARATOR) !=
 $mimeType = mime_content_type($targetPath) ?: 'application/octet-stream';
 header_remove('Content-Type');
 header('Content-Type: ' . $mimeType);
+header('X-Content-Type-Options: nosniff');
+if ($mimeType === 'application/pdf') {
+    $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($targetPath));
+    header('Content-Disposition: inline; filename="' . $safeFileName . '"');
+}
 header('Content-Length: ' . filesize($targetPath));
 header('Cache-Control: private, max-age=86400');
 readfile($targetPath);

@@ -49,6 +49,12 @@ $role = createAccountNormalizeRole($input['role'] ?? null);
 $masterKey = (string)($input['masterKey'] ?? '');
 $branchId = isset($input['branchId']) && is_numeric($input['branchId']) ? (int)$input['branchId'] : null;
 
+if ($role === 'Super Admin') {
+    http_response_code(422);
+    echo json_encode(['message' => 'Creating additional Super Admin accounts is disabled.']);
+    exit;
+}
+
 $expectedMasterKey = trim((string)(getenv('MASTER_KEY') ?: getenv('VITE_MASTER_KEY') ?: ''));
 if ($expectedMasterKey === '') {
     http_response_code(500);

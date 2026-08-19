@@ -3,7 +3,19 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/account_status_helpers.php';
 require_once __DIR__ . '/auth_access_helpers.php';
 
-const DEACTIVATED_ACCOUNT_MESSAGE = 'Account is deactivated. Contact the Super Admin.';
+const DEACTIVATED_ACCOUNT_MESSAGE = 'Account is archived. Contact the Super Admin if access should be restored.';
+
+function isUserAccountArchived(PDO $pdo, array $user): bool
+{
+    $userId = (int)($user['user_id'] ?? 0);
+    if ($userId <= 0 || !loginColumnExists($pdo, 'users', 'account_status')) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('SELECT account_status FROM users WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    return in_array(strtolower((string)$stmt->fetchColumn()), ['archived', 'deactivated'], true);
+}
 
 function isStaffAccountDeactivated(PDO $pdo, array $user): bool
 {
@@ -54,7 +66,7 @@ function isPetOwnerAccountDeactivated(PDO $pdo, array $user): bool
     $stmt->execute([$userId]);
     $status = strtolower((string)$stmt->fetchColumn());
 
-    return $status === 'deactivated';
+    return in_array($status, ['deactivated', 'archived'], true);
 }
 
 function loginColumnExists(PDO $pdo, string $tableName, string $columnName): bool
@@ -132,7 +144,7 @@ try {
         exit;
     }
 
-    if (isStaffAccountDeactivated($pdo, $user)) {
+    if (isUserAccountArchived($pdo, $user) || isStaffAccountDeactivated($pdo, $user)) {
         http_response_code(403);
         echo json_encode(['message' => DEACTIVATED_ACCOUNT_MESSAGE]);
         exit;

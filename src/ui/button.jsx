@@ -6,11 +6,13 @@ const baseClasses =
   "inline-flex max-w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-lg text-center text-sm font-semibold leading-tight transition-colors sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 [&_svg]:size-4 [&_svg]:shrink-0";
 
 const variantClasses = {
-  default: "bg-slate-900 text-white hover:bg-slate-800",
+  default: "bg-[#155dfc] text-white hover:bg-[#0d4acf]",
   secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
   outline: "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
   ghost: "text-slate-900 hover:bg-slate-100",
   link: "text-slate-900 underline-offset-4 hover:underline",
+  destructive: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
+  success: "bg-emerald-700 text-white hover:bg-emerald-800 focus-visible:ring-emerald-700",
 };
 
 const sizeClasses = {

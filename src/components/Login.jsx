@@ -4,6 +4,7 @@ import imgImageVfcLogo from "../assets/circular_logo.png";
 import { AUTH_EMAIL_KEY, AUTH_EXPIRES_AT_KEY, AUTH_MESSAGE_KEY } from "../services/apiClient";
 import { LoginError, loginUser } from "../services/userLogin";
 import { toast } from "../reusecomponent/toast.jsx";
+import { getUserFacingErrorMessage } from "../lib/errorPresentation.js";
 
 export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyEmail, embedded = false }) {
     const [email, setEmail] = useState("");
@@ -24,8 +25,13 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
         }
 
         if (authMessage) {
-            setErrorMessage(authMessage);
-            toast.error(authMessage);
+            const safeAuthMessage = getUserFacingErrorMessage(
+                authMessage,
+                'Please log in again to continue.',
+                { context: 'Stored authentication details were hidden from the login screen.' }
+            );
+            setErrorMessage(safeAuthMessage);
+            toast.error(safeAuthMessage);
         }
     }, []);
 
@@ -46,7 +52,11 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
             toast.success(`Welcome back, ${user.firstName || "User"}!`);
             onLogin(user);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : "Login failed.";
+            const msg = getUserFacingErrorMessage(
+                error,
+                'Login failed. Please check your details and try again.',
+                { context: 'Login details were hidden from the user interface.' }
+            );
             setPassword("");
             setShowPassword(false);
             setErrorMessage(msg);

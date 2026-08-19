@@ -203,7 +203,12 @@ CREATE TABLE IF NOT EXISTS branch_operating_hours (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO branch_operating_hours (branch_id, day_of_week, opens_at, closes_at, is_closed)
-SELECT b.branch_id, days.day_of_week, '08:00:00', '18:00:00', 0
+SELECT
+    b.branch_id,
+    days.day_of_week,
+    CASE WHEN days.day_of_week = 7 THEN NULL ELSE '08:00:00' END,
+    CASE WHEN days.day_of_week = 7 THEN NULL ELSE '18:00:00' END,
+    CASE WHEN days.day_of_week = 7 THEN 1 ELSE 0 END
 FROM branches b
 CROSS JOIN (
     SELECT 1 AS day_of_week UNION ALL SELECT 2 UNION ALL SELECT 3

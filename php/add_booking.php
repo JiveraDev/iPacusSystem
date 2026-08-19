@@ -8,6 +8,8 @@ require_once __DIR__ . '/phone_number_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/booking_payment_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 header("Content-Type: application/json");
 
@@ -626,6 +628,35 @@ function bookingOfficialBoardingPrice(?string $hotelBoardingType, ?string $roomS
     return max(0.0, $total);
 }
 
+function bookingOfficialBoardingOverstayDailyRate(?string $hotelBoardingType, ?string $roomSize, $addOns): float
+{
+    $roomPrices = [
+        'hotel' => ['small' => 600.0, 'medium' => 1200.0, 'large' => 2000.0],
+        'boarding' => ['small' => 400.0, 'medium' => 800.0, 'large' => 1400.0],
+    ];
+    $dailyAddOnPrices = [
+        'behavior' => 300.0,
+        'playtime' => 200.0,
+        'photos' => 150.0,
+        'medication' => 200.0,
+        'special-diet' => 250.0,
+    ];
+    $type = strtolower(trim((string)$hotelBoardingType));
+    $size = strtolower(trim((string)$roomSize));
+    $rate = (float)($roomPrices[$type][$size] ?? 0);
+
+    if (is_string($addOns)) {
+        $decoded = json_decode($addOns, true);
+        $addOns = is_array($decoded) ? $decoded : [];
+    }
+    foreach (is_array($addOns) ? $addOns : [] as $addOn) {
+        $id = strtolower(trim((string)($addOn['id'] ?? '')));
+        $rate += (float)($dailyAddOnPrices[$id] ?? 0);
+    }
+
+    return round(max(0.0, $rate), 2);
+}
+
 function bookingOfficialPrice(PDO $pdo, string $serviceType, string $serviceKey, bool $isHotelBoarding, ?string $hotelBoardingType, ?string $roomSize, ?string $checkInDate, ?string $checkOutDate, $addOns): float
 {
     if ($serviceKey === 'online-consultation') {
@@ -774,14 +805,28 @@ if ($hasCompleteConsentDocument) {
 } else {
     $consentStatus = $consentStatus !== '' ? $consentStatus : null;
 }
-$paymentProofUrl = $input['payment_proof_url'] ?? null;
-$allowedPaymentMethods = ['qrph', 'maya', 'gcash', 'bank_transfer'];
-$paymentMethod = strtolower(trim((string)($input['payment_method'] ?? $input['paymentMethod'] ?? '')));
-if (!in_array($paymentMethod, $allowedPaymentMethods, true)) {
+$paymentProofUrl = trim((string)($input['payment_proof_url'] ?? $input['paymentProofUrl'] ?? ''));
+$paymentProofUrl = $paymentProofUrl !== '' ? $paymentProofUrl : null;
+$paymentMethod = ipawcus_payment_method_key($input['payment_method'] ?? $input['paymentMethod'] ?? '');
+if (!ipawcus_payment_method_is_allowed($pdo, $paymentMethod, false)) {
     $paymentMethod = null;
 }
+$submittedPaymentAmountValue = $input['payment_amount'] ?? $input['paymentAmount'] ?? null;
+$submittedPaymentAmount = is_numeric($submittedPaymentAmountValue)
+    ? round((float)$submittedPaymentAmountValue, 2)
+    : null;
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
+if ($paymentReference !== null && strlen($paymentReference) > 120) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Payment reference must be 120 characters or fewer.']);
+    exit;
+}
+if ($paymentProofUrl !== null && strlen($paymentProofUrl) > 500) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Payment proof path is too long. Upload the proof again.']);
+    exit;
+}
 $price = 0;
 $transportFee = 0;
 
@@ -852,15 +897,6 @@ if ((int)$isOnlineConsultation === 1 && (!$veterinarianId || !is_numeric($veteri
     exit;
 }
 
-if ((int)$isOnlineConsultation === 1 && is_numeric($veterinarianId)) {
-    $normalizedVetId = (int)$veterinarianId;
-    if (hasVetSlotConflict($pdo, $normalizedVetId, (string)$bookingDate, (string)$bookingTime)) {
-        http_response_code(409);
-        echo json_encode(['message' => 'The selected consultation date and time is already booked. Please choose another available slot.']);
-        exit;
-    }
-}
-
 if ($registeredStatus === 'Registered' && empty($petIds)) {
     http_response_code(400);
     echo json_encode(['message' => 'The selected pet could not be found. Please go back and choose the pet again.']);
@@ -894,7 +930,17 @@ if (!empty($deceasedPetNames)) {
     exit;
 }
 
-$serviceKey = bookingServiceKey((string)$serviceType, $isHomeService, $isOnlineConsultation);
+$serviceKey = booking_slot_service_key((string)$serviceType, $isHomeService, $isOnlineConsultation);
+
+if ($serviceKey !== 'boarding') {
+    try {
+        $bookingTime = booking_slot_assert_aligned($serviceKey, (string)$bookingTime);
+    } catch (InvalidArgumentException $e) {
+        http_response_code(422);
+        echo json_encode(['message' => $e->getMessage()]);
+        exit;
+    }
+}
 
 try {
     $branchResolution = branch_resolve_booking(
@@ -915,6 +961,26 @@ try {
     http_response_code(422);
     echo json_encode(['message' => $e->getMessage()]);
     exit;
+}
+
+if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, $branchId)) {
+    http_response_code(403);
+    echo json_encode(['message' => 'You can create bookings only for your assigned clinic branch.']);
+    exit;
+}
+
+if ($serviceKey === 'online-consultation') {
+    $normalizedVetId = is_numeric($veterinarianId) ? (int)$veterinarianId : 0;
+    if ($normalizedVetId <= 0) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Select a veterinarian for the online consultation.']);
+        exit;
+    }
+    if (!booking_slot_online_vet_is_available($pdo, $normalizedVetId, (string)$bookingDate, (string)$bookingTime)) {
+        http_response_code(409);
+        echo json_encode(['message' => 'That veterinarian has not made this online consultation time available. Select another date or time.']);
+        exit;
+    }
 }
 
 if (in_array($serviceKey, ['home-service', 'online-consultation'], true) && !$hasCompleteConsentDocument) {
@@ -942,22 +1008,6 @@ if ($serviceKey === 'home-service') {
         exit;
     }
 
-    $requestedPetCount = requestedBookingPetCount($petIds, $registeredStatus, $newPetName);
-
-    if (homeServiceActiveBookingCount($pdo, (string)$bookingDate) >= 2) {
-        http_response_code(409);
-        echo json_encode(['message' => 'Home service accepts only two active bookings per day. Please choose another date.']);
-        exit;
-    }
-
-    if ($bookingTime >= '12:00:00') {
-        $remainingAfternoonPets = max(0, 3 - homeServiceAfternoonPetCount($pdo, (string)$bookingDate));
-        if ($requestedPetCount > $remainingAfternoonPets) {
-            http_response_code(409);
-            echo json_encode(['message' => "Afternoon home service has only {$remainingAfternoonPets} pet slot" . ($remainingAfternoonPets === 1 ? '' : 's') . " remaining for this date."]);
-            exit;
-        }
-    }
 }
 
 if ($serviceType === 'special services') {
@@ -1026,23 +1076,6 @@ if ($serviceType === 'special services') {
         exit;
     }
 
-    foreach ($selectedSpecialServices as $selectedService) {
-        $capacity = max(1, (int)($selectedService['max_pets'] ?? 1));
-        $bookedPets = getSpecialServiceBookedPetCount($pdo, (int)$selectedService['special_service_id']);
-        $remainingSlots = max(0, $capacity - $bookedPets);
-
-        if ($remainingSlots <= 0) {
-            http_response_code(409);
-            echo json_encode(['message' => "{$selectedService['service_title']} is fully booked."]);
-            exit;
-        }
-
-        if ($bookingPetCount > $remainingSlots) {
-            http_response_code(409);
-            echo json_encode(['message' => "{$selectedService['service_title']} has only {$remainingSlots} remaining pet slot" . ($remainingSlots === 1 ? '' : 's') . "."]);
-            exit;
-        }
-    }
 }
 
 if ($isHotelBoarding) {
@@ -1149,6 +1182,46 @@ if ($serviceType === 'special services' && count($selectedSpecialServices) === 1
     $price = bookingSpecialServicePrice($selectedSpecialServices[0]);
 }
 
+$requiresBookingPrepayment = in_array($serviceKey, ['home-service', 'online-consultation'], true);
+$expectedBookingPayment = $serviceKey === 'home-service' ? $transportFee : $price;
+if ($paymentProofUrl !== null && $paymentMethod === null) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Select QR Ph, GCash, Maya, or bank transfer for an uploaded booking payment proof.']);
+    exit;
+}
+if ($paymentProofUrl !== null && $paymentReference === null) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Enter the transaction reference shown on the uploaded payment proof.']);
+    exit;
+}
+if ($requiresBookingPrepayment && ($paymentProofUrl === null || $paymentMethod === null)) {
+    http_response_code(422);
+    echo json_encode(['message' => $serviceKey === 'home-service'
+        ? 'The PHP 50 home-service transport payment proof is required before submitting this booking.'
+        : 'Online consultation payment proof is required before submitting this booking.']);
+    exit;
+}
+if ($paymentProofUrl !== null && $expectedBookingPayment <= 0) {
+    http_response_code(422);
+    echo json_encode(['message' => 'This service does not have a fixed prepayment amount. Complete payment through Point-Of-Sale after staff review.']);
+    exit;
+}
+if (
+    $paymentProofUrl !== null
+    && $submittedPaymentAmount !== null
+    && abs($submittedPaymentAmount - $expectedBookingPayment) > 0.009
+) {
+    http_response_code(422);
+    echo json_encode([
+        'message' => 'The submitted amount must match the official booking payment of PHP '
+            . number_format($expectedBookingPayment, 2, '.', ',') . '.',
+        'expectedPaymentAmount' => $expectedBookingPayment,
+    ]);
+    exit;
+}
+
+$slotLockName = null;
+
 try {
     $pdo->beginTransaction();
 
@@ -1176,12 +1249,21 @@ try {
 
     if ($isHotelBoarding) {
         $roomType = $hotelBoardingType . '-' . $roomSize;
+        $slotLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
+        if (!booking_slot_acquire($pdo, $slotLockName)) {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['message' => 'Room availability is being updated by another booking. Refresh the available rooms and try again.']);
+            exit;
+        }
+
         $capacityStmt = $pdo->prepare("
             SELECT GREATEST(
                 COALESCE(SUM(r.total_capacity), 0) - (
                     SELECT COUNT(*)
                     FROM room_unit_statuses rus
-                    WHERE rus.branch_id = ? AND rus.room_type = ? AND rus.status = 'retired'
+                    WHERE rus.branch_id = ? AND rus.room_type = ?
+                      AND rus.status IN ('maintenance', 'retired')
                 ),
                 0
             )
@@ -1193,6 +1275,8 @@ try {
 
         if ($totalCapacity <= 0) {
             $pdo->rollBack();
+            booking_slot_release($pdo, $slotLockName);
+            $slotLockName = null;
             http_response_code(409);
             echo json_encode(['message' => 'Selected room or kennel type is not configured.']);
             exit;
@@ -1214,8 +1298,49 @@ try {
 
         if ($bookedCount >= $totalCapacity) {
             $pdo->rollBack();
+            booking_slot_release($pdo, $slotLockName);
+            $slotLockName = null;
             http_response_code(409);
             echo json_encode(['message' => 'No rooms or kennels are available for the selected dates.']);
+            exit;
+        }
+    }
+
+    if ($serviceKey !== 'boarding') {
+        $slotVeterinarianId = $serviceKey === 'online-consultation' ? (int)$veterinarianId : null;
+        $slotSpecialServiceId = null;
+        $slotLockName = booking_slot_lock_name(
+            $branchId,
+            $serviceKey,
+            (string)$bookingDate,
+            (string)$bookingTime,
+            $slotVeterinarianId,
+            $slotSpecialServiceId
+        );
+        if (!booking_slot_acquire($pdo, $slotLockName)) {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['message' => 'This time is being reserved by another booking. Refresh the available times and try again.']);
+            exit;
+        }
+
+        $slotConflict = booking_slot_find_conflict(
+            $pdo,
+            $branchId,
+            $serviceKey,
+            (string)$bookingDate,
+            (string)$bookingTime,
+            $slotVeterinarianId,
+            0,
+            $slotSpecialServiceId,
+            true
+        );
+        if ($slotConflict) {
+            $pdo->rollBack();
+            booking_slot_release($pdo, $slotLockName);
+            $slotLockName = null;
+            http_response_code(409);
+            echo json_encode(['message' => booking_slot_conflict_message($serviceKey, (string)$bookingTime)]);
             exit;
         }
     }
@@ -1305,6 +1430,18 @@ try {
 
     $bookingId = (int)$pdo->lastInsertId();
 
+    if ($isHotelBoarding && columnExists($pdo, 'bookings', 'boarding_overstay_daily_rate')) {
+        $overstayRateStmt = $pdo->prepare("
+            UPDATE bookings
+            SET boarding_overstay_daily_rate = ?
+            WHERE booking_id = ?
+        ");
+        $overstayRateStmt->execute([
+            bookingOfficialBoardingOverstayDailyRate($hotelBoardingType, $roomSize, $addOns),
+            $bookingId,
+        ]);
+    }
+
     if (!empty($petIds) && tableExists($pdo, 'booking_pets')) {
         $petStmt = $pdo->prepare("
             INSERT IGNORE INTO booking_pets (booking_id, pet_id)
@@ -1358,7 +1495,22 @@ try {
         'notes' => 'Captured during booking creation.',
     ]);
 
+    booking_payment_record_submission($pdo, [
+        'booking_id' => $bookingId,
+        'service_type' => $serviceType,
+        'is_home_service' => $isHomeService,
+        'is_online_consultation' => $isOnlineConsultation,
+        'price' => $price,
+        'transport_fee' => $transportFee,
+        'payment_method' => $paymentMethod,
+        'payment_reference' => $paymentReference,
+        'payment_proof_url' => $paymentProofUrl,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+
     $pdo->commit();
+    booking_slot_release($pdo, $slotLockName);
+    $slotLockName = null;
 
     try {
         notification_send_booking_event($pdo, $bookingId, 'submitted');
@@ -1375,10 +1527,11 @@ try {
         'branch_id' => $branchId,
         'branch_name' => $branchResolution['branch']['branch_name'] ?? null,
     ]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    booking_slot_release($pdo, $slotLockName);
 
     http_response_code(500);
     echo json_encode(['message' => 'Failed to create booking: ' . $e->getMessage()]);

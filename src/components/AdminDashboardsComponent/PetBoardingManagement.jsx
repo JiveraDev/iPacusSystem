@@ -65,6 +65,7 @@ import { fetchAllPets } from '../../services/petService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadFormData } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import { assignedBranchId, isBranchSelectionLocked } from '../../lib/branchAccess.js';
 
 const FACILITY_LABELS = {
     boarding: 'Kennel Boarding',
@@ -376,6 +377,7 @@ function normalizeInventoryItemsResponse(response) {
         const itemId = Number(item.itemId || item.item_id || item.id || 0);
         const quantity = Number(item.quantity ?? item.stock ?? item.total_quantity ?? 0);
         const costPrice = Number(item.costPrice ?? item.cost_price ?? item.unitCost ?? item.unit_cost ?? item.sellingPrice ?? 0);
+        const sellingPrice = Number(item.sellingPrice ?? item.selling_price ?? item.unitPrice ?? item.unit_price ?? costPrice);
 
         return {
             id: String(item.id || itemId),
@@ -385,7 +387,8 @@ function normalizeInventoryItemsResponse(response) {
             category: String(item.category || '').toUpperCase(),
             unit: item.unit || 'pcs',
             quantity: Number.isFinite(quantity) ? quantity : 0,
-            costPrice: Number.isFinite(costPrice) ? costPrice : 0
+            costPrice: Number.isFinite(costPrice) ? costPrice : 0,
+            sellingPrice: Number.isFinite(sellingPrice) ? sellingPrice : 0
         };
     }).filter((item) => item.id && item.itemId > 0);
 }
@@ -467,18 +470,22 @@ function buildPaymentPrefill(unit, materialLines = []) {
     const overdueDays = countOverdueDays(checkOutDate);
     const totalPrice = Number(assignment.price || 0);
     const fallbackDailyRate = unit.hotelBoardingType === 'hotel' ? 1000 : 800;
-    const dailyRate = totalPrice > 0 && stayDays > 0 ? totalPrice / stayDays : fallbackDailyRate;
+    const dailyRate = Number(assignment.overstayDailyRate || 0) || fallbackDailyRate;
     const linePrice = totalPrice > 0 ? totalPrice : fallbackDailyRate * stayDays;
-    const materialCharges = materialLines.map((line) => ({
-        name: `Material: ${line.itemName}`,
-        group: 'Boarding',
-        quantity: Number(line.quantity) || 1,
-        price: Number(line.unitPrice) || 0,
-        inventoryId: line.inventoryId,
-        boardingMaterialUsageId: line.usageId || null,
-        receiptType: 'SERVICE',
-        classificationId: 'services'
-    }));
+    const materialCharges = materialLines.map((line) => {
+        const category = String(line.category || '').toUpperCase();
+        const isMedication = category.includes('MED') || category.includes('DRUG') || category.includes('VACCINE');
+        return {
+            name: `Material: ${line.itemName}`,
+            group: 'Boarding',
+            quantity: Number(line.quantity) || 1,
+            price: Number(line.unitPrice) || 0,
+            inventoryId: line.inventoryId,
+            boardingMaterialUsageId: line.usageId || null,
+            receiptType: isMedication ? 'MEDICINE' : 'PRODUCT',
+            classificationId: isMedication ? 'medications' : 'products'
+        };
+    });
     const charges = [
         {
             name: `${unit.roomLabel} stay`,
@@ -511,6 +518,7 @@ function buildPaymentPrefill(unit, materialLines = []) {
             bookingId: assignment.bookingId || null,
             petId: assignment.petId || null,
             ownerUserId: assignment.ownerUserId || null,
+            branchId: assignment.branchId || null,
             sourceType: 'boarding',
             petName: assignment.petName || 'Boarding Pet',
             ownerName: assignment.ownerName || 'Pet Owner',
@@ -661,6 +669,8 @@ function buildHistoryPrintHtml({ title, booking, assignment, tasks, observations
 export default function PetBoardingManagement() {
     const navigate = useNavigate();
     const dashboardUser = useDashboardUser();
+    const lockedBranchId = assignedBranchId(dashboardUser);
+    const branchSelectionLocked = isBranchSelectionLocked(dashboardUser);
     const documentFileInputRef = useRef(null);
     const materialMutationVersionRef = useRef(0);
     const currentUserName = getUserName(dashboardUser);
@@ -704,9 +714,7 @@ export default function PetBoardingManagement() {
     const [desiredOutDate, setDesiredOutDate] = useState('');
     const [actionLoading, setActionLoading] = useState('');
     const [branches, setBranches] = useState([]);
-    const [branchId, setBranchId] = useState(() => String(
-        dashboardUser?.preferred_branch_id || dashboardUser?.preferredBranchId || ''
-    ));
+    const [branchId, setBranchId] = useState(() => lockedBranchId);
 
     useAutoRefresh(async () => {
         try {
@@ -756,7 +764,8 @@ export default function PetBoardingManagement() {
                 setUnits(Array.isArray(roomsResult.value.units) ? roomsResult.value.units : []);
                 setSchemaMessage('');
             } else if (!isAutoRefresh) {
-                setSchemaMessage(roomsResult.reason.message || 'Failed to load boarding rooms.');
+                console.error('Failed to load boarding rooms:', roomsResult.reason);
+                setSchemaMessage('Boarding rooms could not be loaded. Refresh the page or try again later.');
             }
 
             if (monitoringResult.status === 'fulfilled') {
@@ -765,9 +774,12 @@ export default function PetBoardingManagement() {
                 setDocuments(Array.isArray(monitoringResult.value.documents) ? monitoringResult.value.documents : []);
                 setDocumentSchemaMessage(
                     monitoringResult.value.documentSchemaReady === false
-                        ? 'Run DDL/20260723_01_backend_integrity_schema.sql to enable boarding document uploads.'
+                        ? 'Document uploads are temporarily unavailable. You can continue managing this boarding stay without attachments.'
                         : ''
                 );
+                if (monitoringResult.value.documentSchemaReady === false && !isAutoRefresh) {
+                    console.error('Boarding document uploads are unavailable:', monitoringResult.value);
+                }
             }
 
             if (materialsResult.status === 'fulfilled') {
@@ -777,11 +789,11 @@ export default function PetBoardingManagement() {
                 setMaterialBillingTraceReady(billingTraceIsReady);
 
                 if (!materialSchemaIsReady) {
+                    if (!isAutoRefresh) {
+                        console.error('Boarding material storage is unavailable:', materialsResult.value);
+                    }
                     setMaterialBackendReady(false);
-                    setMaterialSyncMessage(
-                        materialsResult.value?.message
-                        || 'Boarding material persistence is waiting for the database migration.'
-                    );
+                    setMaterialSyncMessage('Boarding materials cannot be saved right now. Existing boarding tasks remain available.');
                 } else {
                     const localMaterialUsage = loadBoardingMaterialUsage();
                     const localMaterialLines = Object.values(localMaterialUsage)
@@ -827,23 +839,23 @@ export default function PetBoardingManagement() {
                     }
 
                     if (failedLines.length > 0) {
-                        const firstFailure = failedLines[0].result.status === 'rejected'
-                            ? failedLines[0].result.reason?.message
-                            : failedLines[0].result.value?.message;
+                        console.error('Failed to synchronize boarding material records:', failedLines);
                         setMaterialSyncMessage(
                             `${failedLines.length} locally staged material record${failedLines.length === 1 ? '' : 's'} could not be synchronized.`
-                            + (firstFailure ? ` ${firstFailure}` : '')
+                            + ' Review the entries and try again.'
                         );
                     } else if (!billingTraceIsReady) {
-                        setMaterialSyncMessage(
-                            'Boarding material billing trace is waiting for DDL/20260723_01_backend_integrity_schema.sql.'
-                        );
+                        if (!isAutoRefresh) {
+                            console.error('Boarding material charges are unavailable:', materialsResult.value);
+                        }
+                        setMaterialSyncMessage('Material charges are temporarily unavailable for payment. Try again later or contact support.');
                     } else {
                         setMaterialSyncMessage('');
                     }
                 }
             } else if (!isAutoRefresh) {
-                setMaterialSyncMessage(materialsResult.reason?.message || 'Failed to load boarding materials.');
+                console.error('Failed to load boarding materials:', materialsResult.reason);
+                setMaterialSyncMessage('Boarding materials could not be loaded. Refresh the page or try again later.');
             }
 
             if (petsResult.status === 'fulfilled') {
@@ -856,14 +868,18 @@ export default function PetBoardingManagement() {
 
             if (catalogResult.status === 'fulfilled') {
                 if (catalogResult.value?.schemaReady === false) {
+                    if (!isAutoRefresh) {
+                        console.error('Boarding service catalog is unavailable:', catalogResult.value?.message || catalogResult.value);
+                    }
                     setServiceCatalog([]);
-                    setCatalogSchemaMessage(catalogResult.value.message || 'Service catalog migration is required.');
+                    setCatalogSchemaMessage('Catalog pricing is temporarily unavailable. Try again later or contact support.');
                 } else {
                     setServiceCatalog(Array.isArray(catalogResult.value?.services) ? catalogResult.value.services : []);
                     setCatalogSchemaMessage('');
                 }
             } else if (!isAutoRefresh) {
-                setCatalogSchemaMessage(catalogResult.reason.message || 'Failed to load service catalog.');
+                console.error('Failed to load the boarding service catalog:', catalogResult.reason);
+                setCatalogSchemaMessage('Catalog pricing could not be loaded. Refresh the page or try again later.');
             }
 
             if (inventoryResult.status === 'fulfilled') {
@@ -871,7 +887,8 @@ export default function PetBoardingManagement() {
             }
         } catch (error) {
             if (!isAutoRefresh) {
-                setSchemaMessage(error.message || 'Failed to load boarding data.');
+                console.error('Failed to load boarding data:', error);
+                setSchemaMessage('Boarding information could not be loaded. Refresh the page or try again later.');
             }
         } finally {
             setIsLoading(false);
@@ -1165,7 +1182,8 @@ export default function PetBoardingManagement() {
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to update room status.');
+            console.error('Failed to update boarding room status:', error);
+            toast.error('The room status could not be updated. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1179,7 +1197,8 @@ export default function PetBoardingManagement() {
             toast.success(`${booking.bookingNumber} reserved.`);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to reserve room.');
+            console.error('Failed to reserve a boarding room:', error);
+            toast.error('The room could not be reserved. Review the details and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1209,7 +1228,8 @@ export default function PetBoardingManagement() {
             setAddRoomForm(emptyAddRoomForm);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to add room.');
+            console.error('Failed to add a boarding room:', error);
+            toast.error('The room could not be added. Review the details and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1263,7 +1283,8 @@ export default function PetBoardingManagement() {
             }
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to board pet.');
+            console.error('Failed to check in the pet for boarding:', error);
+            toast.error('The pet could not be checked in. Review the details and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1280,7 +1301,8 @@ export default function PetBoardingManagement() {
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to board reserved pet.');
+            console.error('Failed to check in the reserved pet:', error);
+            toast.error('The reserved pet could not be checked in. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1304,7 +1326,8 @@ export default function PetBoardingManagement() {
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to check out pet.');
+            console.error('Failed to check out the boarded pet:', error);
+            toast.error('The pet could not be checked out. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1325,7 +1348,8 @@ export default function PetBoardingManagement() {
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to update desired out date.');
+            console.error('Failed to update the desired boarding checkout date:', error);
+            toast.error('The desired checkout date could not be updated. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1421,7 +1445,8 @@ export default function PetBoardingManagement() {
             setIsMaterialOpen(false);
             setMaterialForm(emptyMaterialForm);
         } catch (error) {
-            toast.error(error.message || 'Failed to save boarding material.');
+            console.error('Failed to save a boarding material:', error);
+            toast.error('The material entry could not be saved. Review it and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1450,7 +1475,8 @@ export default function PetBoardingManagement() {
                 return next;
             });
         } catch (error) {
-            toast.error(error.message || 'Failed to remove boarding material.');
+            console.error('Failed to remove a boarding material:', error);
+            toast.error('The material entry could not be removed. Please try again.');
         }
     };
 
@@ -1473,7 +1499,8 @@ export default function PetBoardingManagement() {
             setObservationForm(emptyObservationForm);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to add observation.');
+            console.error('Failed to add a boarding observation:', error);
+            toast.error('The observation could not be added. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1500,7 +1527,8 @@ export default function PetBoardingManagement() {
             setTaskForm(emptyTaskForm);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to schedule task.');
+            console.error('Failed to schedule a boarding task:', error);
+            toast.error('The task could not be scheduled. Review the details and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1514,7 +1542,8 @@ export default function PetBoardingManagement() {
             toast.success('Task completed.');
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to complete task.');
+            console.error('Failed to complete a boarding task:', error);
+            toast.error('The task could not be completed. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1565,7 +1594,8 @@ export default function PetBoardingManagement() {
             setDocumentForm(emptyDocumentForm);
             fetchBoardingData();
         } catch (error) {
-            toast.error(error.message || 'Failed to save boarding document.');
+            console.error('Failed to save a boarding document:', error);
+            toast.error('The document could not be attached. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -1613,7 +1643,7 @@ export default function PetBoardingManagement() {
         const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : '';
         const materialLines = getAssignmentMaterialLines(materialUsage, assignmentId);
         if (materialBillingTraceReady !== true) {
-            toast.error('Install the boarding material billing trace migration before opening payment.');
+            toast.error('Material charges cannot be sent to payment right now. Try again later or contact support.');
             return;
         }
         if (!materialBackendReady && materialLines.some((line) => !line.usageId)) {
@@ -1959,20 +1989,27 @@ export default function PetBoardingManagement() {
                         </div>
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                             <div className="min-w-64">
-                                <Select value={branchId} onValueChange={setBranchId}>
-                                    <SelectTrigger aria-label="Boarding clinic location">
-                                        <Building2 className="mr-2 size-4 text-slate-500" />
-                                        <SelectValue
-                                            placeholder="Select clinic location"
-                                            displayValue={getBranchDisplayName(branches, branchId)}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {branches.map(branch => (
-                                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {branchSelectionLocked ? (
+                                    <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                        <Building2 className="size-4 text-slate-500" />
+                                        {getBranchDisplayName(branches, branchId, 'Assigned clinic location')}
+                                    </div>
+                                ) : (
+                                    <Select value={branchId} onValueChange={setBranchId}>
+                                        <SelectTrigger aria-label="Boarding clinic location">
+                                            <Building2 className="mr-2 size-4 text-slate-500" />
+                                            <SelectValue
+                                                placeholder="Select clinic location"
+                                                displayValue={getBranchDisplayName(branches, branchId)}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {branches.map(branch => (
+                                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             {renderFacilityToggle()}
                         </div>
@@ -1985,9 +2022,9 @@ export default function PetBoardingManagement() {
                     <div className="flex items-start gap-3">
                         <AlertCircle className="mt-0.5 size-5 shrink-0" />
                         <div>
-                            <p className="font-black">Boarding database migration required</p>
+                            <p className="font-black">Boarding tools are temporarily unavailable</p>
                             <p className="mt-1">{schemaMessage}</p>
-                            <p className="mt-1">Run DDL/20260723_01_backend_integrity_schema.sql, then refresh this screen.</p>
+                            <p className="mt-1">Refresh the page or contact support if the problem continues.</p>
                         </div>
                     </div>
                 </div>
@@ -3124,7 +3161,7 @@ export default function PetBoardingManagement() {
                                     setMaterialForm({
                                         ...materialForm,
                                         inventoryId: value,
-                                        unitPrice: item ? String(item.costPrice || 0) : materialForm.unitPrice
+                                         unitPrice: item ? String(item.sellingPrice || 0) : materialForm.unitPrice
                                     });
                                 }}
                             >
@@ -3157,14 +3194,14 @@ export default function PetBoardingManagement() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Checkout Price Each</Label>
+                                <Label>Selling Price Each</Label>
                                 <Input
                                     type="number"
                                     min="0"
                                     step="0.01"
                                     restriction="decimal"
                                     value={materialForm.unitPrice}
-                                    onChange={(event) => setMaterialForm({ ...materialForm, unitPrice: event.target.value })}
+                                    readOnly
                                 />
                             </div>
                         </div>

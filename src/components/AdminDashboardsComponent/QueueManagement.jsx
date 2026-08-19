@@ -22,14 +22,18 @@ import {
     fetchQueues as fetchQueuesService,
     updateQueueStatus
 } from '../../services/queueService';
+import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 
 export default function QueueManagement() {
+    const dashboardUser = useMemo(() => storedDashboardUser(), []);
+    const lockedBranchId = assignedBranchId(dashboardUser);
+    const branchFilterLocked = isBranchSelectionLocked(dashboardUser);
     const [queue, setQueue] = useState([]);
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
-    const [branchFilter, setBranchFilter] = useState('all');
+    const [branchFilter, setBranchFilter] = useState(() => branchFilterLocked && lockedBranchId ? lockedBranchId : 'all');
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
@@ -56,12 +60,17 @@ export default function QueueManagement() {
 
     useAutoRefresh(async () => {
         try {
-            const data = await fetchBranches();
-            setBranches(Array.isArray(data?.branches) ? data.branches : []);
+            const data = await fetchBranches({ assignedOnly: branchFilterLocked });
+            const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
+            setBranches(nextBranches);
+            if (branchFilterLocked) {
+                const assigned = nextBranches.find((branch) => String(branch.id) === lockedBranchId) || nextBranches[0];
+                setBranchFilter(assigned ? String(assigned.id) : lockedBranchId || 'all');
+            }
         } catch (error) {
             console.error('Failed to load branch filters:', error);
         }
-    }, { intervalMs: 30000, refreshKey: 'queue-branches' });
+    }, { intervalMs: 30000, refreshKey: `queue-branches-${branchFilterLocked}-${lockedBranchId}` });
 
     const fetchVeterinarians = async () => {
         try {
@@ -292,8 +301,8 @@ export default function QueueManagement() {
         const variants = {
             'waiting': { variant: 'outline', icon: Clock, text: 'Waiting' },
             'in-progress': { variant: 'default', icon: AlertCircle, text: 'In Progress' },
-            'completed': { variant: 'default', icon: CheckCircle2, text: 'Completed' },
-            'done': { variant: 'default', icon: CheckCircle2, text: 'Done' },
+            'completed': { variant: 'success', icon: CheckCircle2, text: 'Completed' },
+            'done': { variant: 'success', icon: CheckCircle2, text: 'Done' },
             'cancelled': { variant: 'destructive', icon: XCircle, text: 'Cancelled' }
         };
         const { variant, icon: Icon, text } = variants[status] || variants['waiting'];
@@ -372,22 +381,28 @@ export default function QueueManagement() {
                         {services.map(s => <SelectItem key={s} value={s}>{getServiceDisplayName(s)}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger>
-                        <SelectValue
-                            placeholder="Clinic location"
-                            displayValue={branchFilter === 'all'
-                                ? 'All assigned locations'
-                                : getBranchDisplayName(branches, branchFilter)}
-                        />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All assigned locations</SelectItem>
-                        {branches.map(branch => (
-                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                {branchFilterLocked ? (
+                    <div className="flex min-h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        {getBranchDisplayName(branches, branchFilter, 'Assigned clinic location')}
+                    </div>
+                ) : (
+                    <Select value={branchFilter} onValueChange={setBranchFilter}>
+                        <SelectTrigger>
+                            <SelectValue
+                                placeholder="Clinic location"
+                                displayValue={branchFilter === 'all'
+                                    ? 'All assigned locations'
+                                    : getBranchDisplayName(branches, branchFilter)}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All assigned locations</SelectItem>
+                            {branches.map(branch => (
+                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
             </div>
 
             {/* Active Table */}

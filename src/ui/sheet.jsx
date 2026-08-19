@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { hasCancelDismissAction } from './modalCloseVisibility';
 import { cn } from './utils';
 
@@ -42,6 +43,8 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
   const { open, setOpen } = React.useContext(SheetContext);
   const [shouldRender, setShouldRender] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const contentRef = React.useRef(null);
+  const previousFocusRef = React.useRef(null);
   const shouldShowClose = showClose ?? !hasCancelDismissAction(children);
 
   useEffect(() => {
@@ -66,6 +69,54 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !shouldRender) return undefined;
+
+    previousFocusRef.current = document.activeElement;
+    const focusTimer = window.requestAnimationFrame(() => {
+      const focusable = contentRef.current?.querySelector(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable || contentRef.current)?.focus();
+    });
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !contentRef.current) return;
+      const focusableElements = Array.from(contentRef.current.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => element.getClientRects().length > 0);
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        contentRef.current.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [open, setOpen, shouldRender]);
+
   if (!shouldRender) return null;
   
   const sideClasses = {
@@ -86,13 +137,14 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
   return (
     <>
       <div 
+        aria-hidden="true"
         className={cn(
           "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300",
           isVisible ? "opacity-100" : "opacity-0"
         )} 
         onClick={() => setOpen(false)} 
       />
-      <div data-slot="sheet-content" role="dialog" aria-modal="true" className={cn(
+      <div ref={contentRef} data-slot="sheet-content" role="dialog" aria-modal="true" tabIndex={-1} className={cn(
         "fixed z-50 max-w-full overflow-hidden bg-white p-0 shadow-2xl transition-transform duration-300 ease-in-out",
         side === "right" || side === "left" ? "inset-y-0 h-full w-full sm:max-w-md" : "inset-x-0 h-auto w-full",
         currentSide.base,
@@ -107,7 +159,7 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
               aria-label="Close panel"
               className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <X className="size-4" strokeWidth={2.5} />
             </button>
         </div>
         )}

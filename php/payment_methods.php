@@ -3,10 +3,9 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/role_access.php';
 require_once __DIR__ . '/auth_otp_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/payment_method_helpers.php';
 
 header('Content-Type: application/json');
-
-const PAYMENT_METHOD_KEYS = ['qrph', 'maya', 'gcash', 'bank_transfer'];
 
 function payment_methods_input(): array
 {
@@ -76,6 +75,8 @@ function payment_methods_ensure_schema(PDO $pdo): void
         'label',
         'account_name',
         'account_number',
+        'account_number_encrypted',
+        'method_type',
         'instructions',
         'qr_image_url',
         'is_active',
@@ -98,27 +99,114 @@ function payment_methods_ensure_schema(PDO $pdo): void
     }
 
     $defaults = [
-        ['qrph', 'QRPH', 'Vetfocus Animal Care Clinic', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
-        ['maya', 'Maya', 'Vetfocus Animal Care Clinic', '', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
-        ['gcash', 'GCash', 'Vetfocus Animal Care Clinic', '', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
-        ['bank_transfer', 'Bank Transfer', 'Vetfocus Animal Care Clinic', '', 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.', 40],
+        ['qrph', 'QRPH', 'ewallet', 'Vetfocus Animal Care Clinic', '', 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.', 10],
+        ['maya', 'Maya', 'ewallet', 'Vetfocus Animal Care Clinic', '', 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.', 20],
+        ['gcash', 'GCash', 'ewallet', 'Vetfocus Animal Care Clinic', '', 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.', 30],
+        ['bank_transfer', 'Bank Transfer', 'bank_transfer', 'Vetfocus Animal Care Clinic', '', 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.', 40],
     ];
 
     $stmt = $pdo->prepare("
         INSERT IGNORE INTO payment_methods (
             method_key,
             label,
+            method_type,
             account_name,
             account_number,
             instructions,
             is_active,
             requires_proof,
             sort_order
-        ) VALUES (?, ?, ?, ?, ?, 1, 1, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?)
     ");
 
     foreach ($defaults as $method) {
         $stmt->execute($method);
+    }
+}
+
+function payment_methods_encryption_key(): string
+{
+    $secret = trim((string)(getenv('PAYMENT_DETAILS_KEY') ?: ($_ENV['PAYMENT_DETAILS_KEY'] ?? '')));
+    if (strlen($secret) < 32) {
+        payment_methods_error(503, 'Payment detail encryption is not configured. Set PAYMENT_DETAILS_KEY to a private value of at least 32 characters.');
+    }
+
+    return hash('sha256', $secret, true);
+}
+
+function payment_methods_encrypt(?string $plainText): ?string
+{
+    $plainText = trim((string)$plainText);
+    if ($plainText === '') {
+        return null;
+    }
+
+    $iv = random_bytes(12);
+    $tag = '';
+    $cipherText = openssl_encrypt(
+        $plainText,
+        'aes-256-gcm',
+        payment_methods_encryption_key(),
+        OPENSSL_RAW_DATA,
+        $iv,
+        $tag,
+        'ipawcus-payment-details-v1',
+        16
+    );
+    if ($cipherText === false) {
+        throw new RuntimeException('Payment account number could not be encrypted.');
+    }
+
+    return 'v1:' . base64_encode($iv . $tag . $cipherText);
+}
+
+function payment_methods_decrypt(?string $payload, ?string $legacyPlainText = null): string
+{
+    $payload = trim((string)$payload);
+    if ($payload === '') {
+        return preg_replace('/\D+/', '', (string)$legacyPlainText);
+    }
+    if (!str_starts_with($payload, 'v1:')) {
+        return '';
+    }
+
+    $decoded = base64_decode(substr($payload, 3), true);
+    if ($decoded === false || strlen($decoded) < 29) {
+        return '';
+    }
+    $iv = substr($decoded, 0, 12);
+    $tag = substr($decoded, 12, 16);
+    $cipherText = substr($decoded, 28);
+    $plainText = openssl_decrypt(
+        $cipherText,
+        'aes-256-gcm',
+        payment_methods_encryption_key(),
+        OPENSSL_RAW_DATA,
+        $iv,
+        $tag,
+        'ipawcus-payment-details-v1'
+    );
+
+    return $plainText === false ? '' : preg_replace('/\D+/', '', $plainText);
+}
+
+function payment_methods_type($value): string
+{
+    $type = strtolower(trim((string)$value));
+    return $type === 'bank_transfer' ? 'bank_transfer' : 'ewallet';
+}
+
+function payment_methods_validate_account_number(string $type, string $accountNumber, string $label): void
+{
+    if ($accountNumber === '') {
+        return;
+    }
+
+    if ($type === 'ewallet' && !preg_match('/^09\d{9}$/', $accountNumber)) {
+        payment_methods_error(422, $label . ' must use an 11-digit Philippine mobile number beginning with 09.');
+    }
+    if ($type === 'bank_transfer' && (strlen($accountNumber) < 6 || strlen($accountNumber) > 17)) {
+        payment_methods_error(422, $label . ' bank account number must contain 6 to 17 digits.');
     }
 }
 
@@ -194,13 +282,26 @@ function payment_methods_user(PDO $pdo, array $input = []): array
 
 function payment_methods_row(array $row): array
 {
+    $accountNumber = payment_methods_decrypt(
+        $row['account_number_encrypted'] ?? null,
+        $row['account_number'] ?? null
+    );
+    $maskedAccountNumber = $accountNumber;
+    if (strlen($accountNumber) > 6) {
+        $maskedAccountNumber = substr($accountNumber, 0, 3)
+            . str_repeat('*', max(4, strlen($accountNumber) - 6))
+            . substr($accountNumber, -3);
+    }
+
     return [
         'key' => $row['method_key'],
         'methodKey' => $row['method_key'],
         'value' => $row['method_key'],
         'label' => $row['label'],
+        'methodType' => payment_methods_type($row['method_type'] ?? null),
         'accountName' => $row['account_name'] ?? '',
-        'accountNumber' => $row['account_number'] ?? '',
+        'accountNumber' => $accountNumber,
+        'maskedAccountNumber' => $maskedAccountNumber,
         'instructions' => $row['instructions'] ?? '',
         'qrImageUrl' => $row['qr_image_url'] ?? '',
         'isActive' => (int)$row['is_active'] === 1,
@@ -220,7 +321,7 @@ function payment_methods_fetch(PDO $pdo, bool $includeInactive = false): array
         SELECT *
         FROM payment_methods
         {$where}
-        ORDER BY sort_order ASC, FIELD(method_key, 'qrph', 'maya', 'gcash', 'bank_transfer')
+        ORDER BY sort_order ASC, label ASC, method_key ASC
     ");
 
     return array_map('payment_methods_row', $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -265,6 +366,7 @@ function payment_methods_request_otp(PDO $pdo, array $input): void
 
 function payment_methods_save(PDO $pdo, array $input): void
 {
+    payment_methods_encryption_key();
     $user = payment_methods_user($pdo, $input);
     $email = authOtpNormalizeEmail($input['email'] ?? $user['mail_Address'] ?? '');
     $code = trim((string)($input['code'] ?? $input['otp'] ?? ''));
@@ -294,35 +396,47 @@ function payment_methods_save(PDO $pdo, array $input): void
         payment_methods_error(400, 'Payment methods payload is invalid.');
     }
 
-    $byKey = [];
-    foreach ($methods as $method) {
+    $normalizedMethods = [];
+    $activeCount = 0;
+    foreach ($methods as $index => $method) {
         if (!is_array($method)) {
             continue;
         }
 
-        $key = $method['methodKey'] ?? $method['key'] ?? $method['value'] ?? '';
-        if (!in_array($key, PAYMENT_METHOD_KEYS, true)) {
-            continue;
-        }
-
-        $byKey[$key] = $method;
-    }
-
-    foreach (PAYMENT_METHOD_KEYS as $requiredKey) {
-        if (!isset($byKey[$requiredKey])) {
-            payment_methods_error(400, 'All payment methods must be included.');
-        }
-
-        $method = $byKey[$requiredKey];
         $label = trim((string)($method['label'] ?? ''));
-        if ($label === '') {
-            payment_methods_error(400, 'Payment method label is required.');
+        $key = ipawcus_payment_method_key($method['methodKey'] ?? $method['key'] ?? $method['value'] ?? $label);
+        if ($label === '' || strlen($label) > 100) {
+            payment_methods_error(422, 'Every payment method needs a display name of 100 characters or fewer.');
+        }
+        if ($key === '' || strlen($key) > 64) {
+            payment_methods_error(422, $label . ' needs a valid method key of 64 characters or fewer.');
+        }
+        if (isset($normalizedMethods[$key])) {
+            payment_methods_error(422, 'Payment method names must be unique.');
         }
 
+        $type = payment_methods_type($method['methodType'] ?? $method['method_type'] ?? null);
         $accountNumber = preg_replace('/\D+/', '', (string)($method['accountNumber'] ?? $method['account_number'] ?? ''));
+        payment_methods_validate_account_number($type, $accountNumber, $label);
+        $isActive = !array_key_exists('isActive', $method) || filter_var($method['isActive'], FILTER_VALIDATE_BOOL);
+        if ($isActive) {
+            $activeCount++;
+        }
 
-        $byKey[$requiredKey]['_normalizedLabel'] = $label;
-        $byKey[$requiredKey]['_normalizedAccountNumber'] = $accountNumber;
+        $normalizedMethods[$key] = [
+            'methodKey' => $key,
+            'label' => $label,
+            'methodType' => $type,
+            'accountName' => trim((string)($method['accountName'] ?? $method['account_name'] ?? '')),
+            'accountNumber' => $accountNumber,
+            'instructions' => trim((string)($method['instructions'] ?? '')),
+            'qrImageUrl' => trim((string)($method['qrImageUrl'] ?? $method['qr_image_url'] ?? '')),
+            'isActive' => $isActive,
+            'sortOrder' => ($index + 1) * 10,
+        ];
+    }
+    if (!$normalizedMethods || $activeCount === 0) {
+        payment_methods_error(422, 'Keep at least one payment method active.');
     }
 
     $previousMethodsByKey = [];
@@ -330,61 +444,58 @@ function payment_methods_save(PDO $pdo, array $input): void
         $previousMethodsByKey[$previousMethod['methodKey']] = $previousMethod;
     }
     $changedMethodLabels = [];
-    foreach (PAYMENT_METHOD_KEYS as $key) {
-        $method = $byKey[$key];
+    foreach ($normalizedMethods as $key => $method) {
         $previous = $previousMethodsByKey[$key] ?? [];
         $before = [
             'label' => trim((string)($previous['label'] ?? '')),
+            'methodType' => payment_methods_type($previous['methodType'] ?? null),
             'accountName' => trim((string)($previous['accountName'] ?? '')),
             'accountNumber' => preg_replace('/\D+/', '', (string)($previous['accountNumber'] ?? '')),
             'instructions' => trim((string)($previous['instructions'] ?? '')),
             'qrImageUrl' => trim((string)($previous['qrImageUrl'] ?? '')),
+            'isActive' => (bool)($previous['isActive'] ?? false),
         ];
-        $after = [
-            'label' => $method['_normalizedLabel'],
-            'accountName' => trim((string)($method['accountName'] ?? $method['account_name'] ?? '')),
-            'accountNumber' => $method['_normalizedAccountNumber'],
-            'instructions' => trim((string)($method['instructions'] ?? '')),
-            'qrImageUrl' => trim((string)($method['qrImageUrl'] ?? $method['qr_image_url'] ?? '')),
-        ];
+        $after = array_intersect_key($method, $before);
         if ($before !== $after) {
-            $changedMethodLabels[] = $after['label'];
+            $changedMethodLabels[] = $method['label'];
         }
     }
 
     $pdo->beginTransaction();
     try {
         $stmt = $pdo->prepare("
-            UPDATE payment_methods
-            SET label = ?,
-                account_name = ?,
-                account_number = ?,
-                instructions = ?,
-                qr_image_url = ?,
-                is_active = 1,
+            INSERT INTO payment_methods (
+                method_key, label, method_type, account_name, account_number,
+                account_number_encrypted, instructions, qr_image_url, is_active,
+                requires_proof, sort_order, updated_by_user_id
+            ) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, 1, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                label = VALUES(label),
+                method_type = VALUES(method_type),
+                account_name = VALUES(account_name),
+                account_number = NULL,
+                account_number_encrypted = VALUES(account_number_encrypted),
+                instructions = VALUES(instructions),
+                qr_image_url = VALUES(qr_image_url),
+                is_active = VALUES(is_active),
                 requires_proof = 1,
-                sort_order = ?,
-                updated_by_user_id = ?
-            WHERE method_key = ?
+                sort_order = VALUES(sort_order),
+                updated_by_user_id = VALUES(updated_by_user_id)
         ");
 
-        $sortOrder = 10;
-        foreach (PAYMENT_METHOD_KEYS as $key) {
-            $method = $byKey[$key];
-            $label = $method['_normalizedLabel'];
-            $accountNumber = $method['_normalizedAccountNumber'];
-
+        foreach ($normalizedMethods as $method) {
             $stmt->execute([
-                $label,
-                trim((string)($method['accountName'] ?? $method['account_name'] ?? '')) ?: null,
-                $accountNumber ?: null,
-                trim((string)($method['instructions'] ?? '')) ?: null,
-                trim((string)($method['qrImageUrl'] ?? $method['qr_image_url'] ?? '')) ?: null,
-                $sortOrder,
+                $method['methodKey'],
+                $method['label'],
+                $method['methodType'],
+                $method['accountName'] ?: null,
+                payment_methods_encrypt($method['accountNumber']),
+                $method['instructions'] ?: null,
+                $method['qrImageUrl'] ?: null,
+                $method['isActive'] ? 1 : 0,
+                $method['sortOrder'],
                 (int)$user['user_id'],
-                $key,
             ]);
-            $sortOrder += 10;
         }
 
         authOtpMarkUsed($pdo, (int)$otp['otp_id']);
@@ -426,6 +537,9 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $includeInactive = in_array(strtolower((string)($_GET['includeInactive'] ?? '')), ['1', 'true', 'yes'], true);
+        if ($includeInactive) {
+            payment_methods_user($pdo);
+        }
         echo json_encode([
             'success' => true,
             'methods' => payment_methods_fetch($pdo, $includeInactive),

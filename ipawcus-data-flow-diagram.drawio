@@ -1,0 +1,299 @@
+<mxfile host="app.diagrams.net" agent="Codex" pages="2">
+  <diagram id="ipawcus-level-0" name="Level 0 - Context">
+    <mxGraphModel dx="1484" dy="725" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="l0-0" />
+        <mxCell id="l0-1" parent="l0-0" />
+        <mxCell id="l0-title" parent="l0-1" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=#0f172a;" value="iPawcus Veterinary Clinic - Level 0 Data Flow Diagram" vertex="1">
+          <mxGeometry height="40" width="1500" x="40" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-subtitle" parent="l0-1" style="text;html=1;fontSize=13;align=left;verticalAlign=middle;fontColor=#64748b;" value="Right-to-left concept: external entities on the right, system in the center, operational data store on the left." vertex="1">
+          <mxGeometry height="30" width="1500" x="40" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-db" parent="l0-1" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=14;" value="D1 - iPawcus Operational Database&lt;br&gt;Users, pets, bookings, queues, medical records, boarding, inventory, billing and notifications" vertex="1">
+          <mxGeometry height="170" width="330" x="70" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-system" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" value="TITLE" vertex="1">
+          <mxGeometry height="250" width="390" x="600" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-client" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" value="Pet Owner / Client" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-staff" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" value="Admin / Receptionist" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-vet" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" value="Veterinarian" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-inventory" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" value="Branch / Inventory Staff" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-email" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;fontColor=#78350f;fontSize=14;" value="Email / Push Service" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-meeting" parent="l0-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;fontColor=#78350f;fontSize=14;" value="Online Meeting / Calendar Service" vertex="1">
+          <mxGeometry height="70" width="270" x="1210" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e1" edge="1" parent="l0-1" source="l0-client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.25;labelBackgroundColor=#ffffff;" target="l0-system" value="Account, pet, booking, consent and payment evidence">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e2" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-client" value="Booking status, queue updates, reminders and records">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e3" edge="1" parent="l0-1" source="l0-staff" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-system" value="Booking approval, queue, branch, inventory and payment actions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e4" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-staff" value="Dashboards, schedules, alerts and reports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e5" edge="1" parent="l0-1" source="l0-vet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.75;labelBackgroundColor=#ffffff;" target="l0-system" value="Availability, consultation, diagnosis and treatment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e6" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-vet" value="Patient history, queue and visit details">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e7" edge="1" parent="l0-1" source="l0-inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.9;labelBackgroundColor=#ffffff;" target="l0-system" value="Stock receipts, transfers and adjustments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e8" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.9;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-inventory" value="Stock levels and low-stock alerts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e9" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.55;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-db" value="Read and write operational data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e10" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.9;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-email" value="Notification messages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e11" edge="1" parent="l0-1" source="l0-email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.95;labelBackgroundColor=#ffffff;" target="l0-system" value="Delivery status">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e12" edge="1" parent="l0-1" source="l0-system" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.95;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" target="l0-meeting" value="Meeting or calendar request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l0-e13" edge="1" parent="l0-1" source="l0-meeting" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.95;labelBackgroundColor=#ffffff;" target="l0-system" value="Meeting link and session status">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="970" y="885" />
+              <mxPoint x="970" y="522.54" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="ipawcus-level-1" name="Level 1 - Detailed Flow">
+    <mxGraphModel dx="1800" dy="1900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1900" math="0" shadow="0">
+      <root>
+        <mxCell id="l1-0" />
+        <mxCell id="l1-1" parent="l1-0" />
+        <mxCell id="l1-title" value="iPawcus Veterinary Clinic - Level 1 Data Flow Diagram" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=#0f172a;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="25" width="1750" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-subtitle" value="Right-to-left layout: data stores on the left, business processes in the center, actors and external services on the right." style="text;html=1;fontSize=13;align=left;verticalAlign=middle;fontColor=#64748b;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="65" width="1750" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-stores-label" value="DATA STORES" style="text;html=1;fontSize=13;fontStyle=1;align=left;verticalAlign=middle;fontColor=#15803d;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="100" width="360" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-process-label" value="BUSINESS PROCESSES" style="text;html=1;fontSize=13;fontStyle=1;align=left;verticalAlign=middle;fontColor=#1d4ed8;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="100" width="360" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-external-label" value="EXTERNAL ENTITIES AND SERVICES" style="text;html=1;fontSize=13;fontStyle=1;align=left;verticalAlign=middle;fontColor=#475569;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="100" width="360" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d1" value="D1 Users and Access&lt;br&gt;users, profiles, tokens, OTP, branch assignments" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="135" width="390" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d2" value="D2 Pets and Ownership&lt;br&gt;pets, ownership, allergies, vaccinations, medical records" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="300" width="390" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d3" value="D3 Branches and Services&lt;br&gt;branches, operating hours, rooms, services, vet schedules" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="480" width="390" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d4" value="D4 Bookings and Consent&lt;br&gt;bookings, booking pets, transfers, consent, payment submissions" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="660" width="390" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d5" value="D5 Queues, Visits and Medical Data&lt;br&gt;queues, assignments, visits, diagnoses, online consultations" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="850" width="390" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d6" value="D6 Boarding Data&lt;br&gt;assignments, rooms, documents, tasks, observations, materials" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="1050" width="390" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d7" value="D7 Inventory Data&lt;br&gt;items, batches, locations, receipts, movements, transfers" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="1230" width="390" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d8" value="D8 Billing Data&lt;br&gt;charges, payments, refunds, payment methods" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="1410" width="390" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-d9" value="D9 Notification Data&lt;br&gt;in-app notifications, mail queue, push preferences" style="shape=cylinder;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=2;fontColor=#14532d;fontSize=13;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="1570" width="390" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p1" value="1. Account and Pet Management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="140" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p2" value="2. Booking and Scheduling" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="330" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p3" value="3. Queue and Visit Processing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="550" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p4" value="4. Consultation and Medical Records" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="770" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p5" value="5. Boarding Management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="980" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p6" value="6. Inventory and Billing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="1200" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p7" value="7. Notifications and Online Consultation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="1430" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-p8" value="8. Dashboard and Reporting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=15;" vertex="1" parent="l1-1">
+          <mxGeometry x="620" y="1650" width="390" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-client" value="Pet Owner / Client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="130" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-staff" value="Admin / Receptionist" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="330" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-vet" value="Veterinarian" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="530" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-inventory" value="Branch / Inventory Staff" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=1.5;fontColor=#0f172a;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="1170" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-email" value="Email / Push Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;fontColor=#78350f;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="1420" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-meeting" value="Online Meeting / Calendar Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;fontColor=#78350f;fontSize=14;" vertex="1" parent="l1-1">
+          <mxGeometry x="1280" y="1530" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e1" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p1" target="l1-d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e2" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.7;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p1" target="l1-d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e3" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.4;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p2" target="l1-d3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e4" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.7;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p2" target="l1-d4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e5" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.35;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p3" target="l1-d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e6" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.7;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p4" target="l1-d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e7" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p5" target="l1-d6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e8" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.4;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p6" target="l1-d7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e9" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.7;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p6" target="l1-d8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e10" value="online session data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.35;entryX=1;entryY=0.9;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p7" target="l1-d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e11" value="read/write" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16a34a;strokeWidth=1.5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=0;exitY=0.7;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p7" target="l1-d9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e12" value="identity and pet context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p1" target="l1-p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e13" value="confirmed booking and arrival data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p2" target="l1-p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e14" value="visit context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p3" target="l1-p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e15" value="boarding booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p2" target="l1-p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e16" value="charges and used materials" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p4" target="l1-p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e17" value="boarding material usage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p5" target="l1-p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e18" value="status events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.35;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p2" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e19" value="status events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.45;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p3" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e20" value="consultation updates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.55;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p4" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e21" value="boarding updates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.65;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p5" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e22" value="billing and inventory events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563eb;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.8;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p6" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e23" value="registration and pet details" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.35;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-client" target="l1-p1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e24" value="booking, consent and payment evidence" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-client" target="l1-p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e25" value="check-in and walk-in information" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.65;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-client" target="l1-p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e26" value="user, booking, queue and payment actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-staff" target="l1-p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e27" value="queue and boarding actions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-staff" target="l1-p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e28" value="dashboard and report request" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-staff" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e29" value="availability and clinical data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-vet" target="l1-p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e30" value="stock receipts, transfers and adjustments" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-inventory" target="l1-p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e31" value="email and push messages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p7" target="l1-email">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e32" value="delivery result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.9;entryX=1;entryY=0.75;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-email" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e33" value="meeting or calendar request" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.65;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-p7" target="l1-meeting">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e34" value="meeting link and session status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;endArrow=block;endFill=1;exitX=0;exitY=0.35;entryX=1;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-meeting" target="l1-p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e35" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d2" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e36" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d3" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e37" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d4" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e38" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d5" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e39" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d7" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-e40" value="operational data for reports" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#64748b;strokeWidth=1.2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;" edge="1" parent="l1-1" source="l1-d8" target="l1-p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-legend" value="Legend: gray = external entity, blue = process, green cylinder = data store, amber = external service, dashed = reporting read flow, double arrow = read/write." style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontColor=#64748b;" vertex="1" parent="l1-1">
+          <mxGeometry x="40" y="1810" width="1700" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

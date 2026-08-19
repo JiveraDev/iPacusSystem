@@ -19,7 +19,7 @@ export default function PwaInstallButton({ className, variant = 'outline', colla
       onClick={install}
       disabled={!canInstall || isPromptPending}
       className={cn(
-        'shrink-0',
+        'hidden shrink-0',
         collapsible && 'group w-10 overflow-hidden px-0 transition-[width,padding] duration-300 ease-out hover:w-[8.25rem] hover:px-3 focus-visible:w-[8.25rem] focus-visible:px-3 sm:px-0 sm:hover:px-3 sm:focus-visible:px-3',
         className
       )}

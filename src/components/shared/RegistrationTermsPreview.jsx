@@ -409,7 +409,7 @@ const DOCUMENT_BLOCKS = [
     },
     {
         "type":  "paragraph",
-        "text":  "Online consultations are conducted through the Clinic’s Jitsi Meet service at ipawcus.com. The Clinic must verify that this is the deployed provider and publish the applicable provider/privacy information before enabling the feature. Sessions will not be recorded unless the Clinic gives advance notice and obtains separate consent. Failed-call, rescheduling, cancellation, and refund rules must be displayed before payment. If Google Meet or another provider is used instead, this section and the Privacy Notice must be updated before use."
+        "text":  "Online consultations are conducted through the Clinic’s 8x8 Jitsi as a Service (JaaS) integration on 8x8.vc. Live meeting audio, video, and participant details are processed through that service. Sessions will not be recorded unless the Clinic gives advance notice and obtains separate consent. Failed-call, rescheduling, cancellation, and refund rules must be displayed before payment. If another provider is deployed, this section and the Privacy Notice must be updated before use."
     },
     {
         "type":  "section",
@@ -668,7 +668,7 @@ const DOCUMENT_BLOCKS = [
                       "a primary owner, approved co-owner, emergency contact, or payer;",
                       "Clinic veterinarians and staff;",
                       "records supplied by another clinic, laboratory, pharmacy, service provider, or authority with a lawful basis;",
-                      "the user’s device or browser during account, security, queue, upload, or notification functions; and",
+                      "the user’s device or browser during account, security, queue, upload, notification, or optional current-location address lookup functions; and",
                       "records generated while providing requested services."
                   ]
     },
@@ -802,13 +802,13 @@ const DOCUMENT_BLOCKS = [
                      ],
                      [
                          "Online consultation",
-                         "Clinic-controlled Jitsi Meet service at meet.ipawcus.com; replace this entry if Google Meet or another provider is deployed",
-                         "Meeting-room link and live audio/video; no recording unless separately disclosed and consented"
+                         "Clinic 8x8 Jitsi as a Service (JaaS) integration on 8x8.vc",
+                         "Meeting-room identifiers, participant details, and live audio/video; no recording unless separately disclosed and consented"
                      ],
                      [
-                         "Address autocomplete",
+                         "Address autocomplete and optional current-location lookup",
                          "Geoapify",
-                         "Address search query and returned address information"
+                         "Address search query, result coordinates used to render a selected map preview, or—only after the user selects the location option and grants browser permission—device coordinates used to return an address and preview. The address is saved when submitted; the coordinates used for lookup and preview are not stored by iPawcus."
                      ],
                      [
                          "Browser push",

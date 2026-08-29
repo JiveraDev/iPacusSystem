@@ -133,13 +133,22 @@ export async function createConsentDocumentPdfBlob({
     signedAt,
     veterinarianName,
     veterinarianLicense,
+    representativeLabel = 'Veterinarian name and license',
+    representativeDetail,
     templateContext = {}
 }) {
+    if (!String(signatureImage || '').trim()) {
+        throw new Error('A valid owner signature is required to generate the signed consent PDF.');
+    }
+
     const [{ jsPDF }, logoData, signatureData] = await Promise.all([
         import('jspdf'),
         imageDataUrl(logoImg),
         imageDataUrl(signatureImage)
     ]);
+    if (!signatureData) {
+        throw new Error('The owner signature could not be read. Please capture it again.');
+    }
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const contentWidth = pageWidth - (PAGE_MARGIN * 2);
@@ -223,25 +232,24 @@ export async function createConsentDocumentPdfBlob({
     const rightX = leftX + columnWidth + columnGap;
     const signatureLineY = y + 93;
 
-    if (signatureData) {
-        try {
-            const imageProperties = doc.getImageProperties(signatureData);
-            const ratio = Math.min(columnWidth / imageProperties.width, 62 / imageProperties.height);
-            const renderedWidth = imageProperties.width * ratio;
-            const renderedHeight = imageProperties.height * ratio;
-            doc.addImage(
-                signatureData,
-                imageProperties.fileType || 'PNG',
-                leftX + ((columnWidth - renderedWidth) / 2),
-                signatureLineY - renderedHeight - 4,
-                renderedWidth,
-                renderedHeight,
-                undefined,
-                'FAST'
-            );
-        } catch {
-            // Printed signer details remain in the PDF if an old signature image cannot be decoded.
-        }
+    try {
+        const imageProperties = doc.getImageProperties(signatureData);
+        const ratio = Math.min(columnWidth / imageProperties.width, 62 / imageProperties.height);
+        const renderedWidth = imageProperties.width * ratio;
+        const renderedHeight = imageProperties.height * ratio;
+        doc.addImage(
+            signatureData,
+            imageProperties.fileType || 'PNG',
+            leftX + ((columnWidth - renderedWidth) / 2),
+            signatureLineY - renderedHeight - 4,
+            renderedWidth,
+            renderedHeight,
+            undefined,
+            'FAST'
+        );
+    } catch (error) {
+        console.error('Failed to embed the owner signature in the consent PDF:', error);
+        throw new Error('The owner signature could not be embedded. Please capture it again.');
     }
 
     doc.setDrawColor(100, 116, 139);
@@ -257,8 +265,13 @@ export async function createConsentDocumentPdfBlob({
     doc.setTextColor(71, 85, 105);
     doc.text("Owner's electronic signature over printed name", leftX + (columnWidth / 2), signatureLineY + 32, { align: 'center' });
     doc.text(displayDate(signedAt) || 'Date recorded by the system', leftX + (columnWidth / 2), signatureLineY + 45, { align: 'center' });
-    doc.text('Veterinarian name and license', rightX + (columnWidth / 2), signatureLineY + 17, { align: 'center' });
-    doc.text(veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A', rightX + (columnWidth / 2), signatureLineY + 32, { align: 'center' });
+    doc.text(cleanText(representativeLabel, 'Veterinarian name and license'), rightX + (columnWidth / 2), signatureLineY + 17, { align: 'center' });
+    doc.text(
+        cleanText(representativeDetail, veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A'),
+        rightX + (columnWidth / 2),
+        signatureLineY + 32,
+        { align: 'center' }
+    );
 
     addFooters(doc);
     return doc.output('blob');

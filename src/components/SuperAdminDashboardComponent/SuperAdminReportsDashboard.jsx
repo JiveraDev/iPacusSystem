@@ -445,10 +445,18 @@ export default function SuperAdminReportsDashboard() {
                                 onChange={handleCustomEndChange}
                             />
                         </div>
-                        <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:flex lg:justify-end">
-                            <Button type="button" variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap px-3">
+                        <div className="flex shrink-0 items-end justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => loadDashboard()}
+                                disabled={isLoading}
+                                className="size-10 shrink-0"
+                                aria-label="Refresh reports dashboard"
+                                title="Refresh reports dashboard"
+                            >
                                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                                Refresh
                             </Button>
                             <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white hover:bg-[#0d4acf]">
                                 <FileText className="size-4" />

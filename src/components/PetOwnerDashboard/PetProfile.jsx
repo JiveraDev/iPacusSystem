@@ -757,15 +757,6 @@ export default function PetProfile() {
               </div>
             </div>
 
-            <div className="flex w-full flex-col gap-3 pb-2 sm:flex-row md:w-auto">
-              <Button 
-                onClick={() => navigate(`/dashboard/my-pets/${petId}/medical-records`)} 
-                className="flex-1 md:flex-none bg-[#155dfc] hover:bg-blue-700 h-12 px-8 rounded-xl font-bold shadow-lg transition-all"
-              >
-                <FileText className="h-5 w-5 mr-2" />
-                Medical Records
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>

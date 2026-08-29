@@ -128,6 +128,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('admin')];
     }
 
+    if (preg_match('#^/bookings/\d+/payment-review$#', $path)) {
+        return ['roles' => ipawcus_roles('admin')];
+    }
+
     if (preg_match('#^/bookings/\d+/payment-refunds$#', $path)) {
         return ['roles' => ipawcus_roles('admin')];
     }

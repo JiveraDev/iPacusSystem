@@ -1,5 +1,9 @@
 <?php
 
+class ConsentDocumentScopeException extends RuntimeException
+{
+}
+
 function consent_record_table_exists_raw(PDO $pdo): bool
 {
     $stmt = $pdo->prepare("
@@ -144,6 +148,106 @@ function consent_record_datetime_or_null($value): ?string
     return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
 }
 
+function consent_record_normalize_document_path($path): ?string
+{
+    $path = consent_record_nullable_text($path);
+    if ($path === null) return null;
+    $parsedPath = parse_url($path, PHP_URL_PATH);
+    $cleanPath = ltrim(str_replace('\\', '/', is_string($parsedPath) ? $parsedPath : $path), '/');
+    $cleanPath = preg_replace('#^(?:api/uploads/media/|public/)#i', '', $cleanPath);
+    if (
+        !is_string($cleanPath)
+        || $cleanPath === ''
+        || str_contains($cleanPath, '..')
+        || preg_match('/[\x00-\x1F]/', $cleanPath)
+    ) {
+        return null;
+    }
+    return $cleanPath;
+}
+
+function consent_record_acquire_document_lock(PDO $pdo, string $path): void
+{
+    $normalizedPath = consent_record_normalize_document_path($path);
+    if ($normalizedPath === null) throw new ConsentDocumentScopeException('The consent document path is invalid.');
+    $cacheKey = spl_object_id($pdo) . ':' . $normalizedPath;
+    if (!empty($GLOBALS['ipawcus_consent_document_locks'][$cacheKey])) return;
+
+    $lockName = 'ipawcus_consent_' . md5($normalizedPath);
+    $stmt = $pdo->prepare('SELECT GET_LOCK(?, 8)');
+    $stmt->execute([$lockName]);
+    if ((int)$stmt->fetchColumn() !== 1) {
+        throw new ConsentDocumentScopeException('This consent document is currently being processed. Please try again.');
+    }
+    if (!isset($GLOBALS['ipawcus_consent_document_locks']) || !is_array($GLOBALS['ipawcus_consent_document_locks'])) {
+        $GLOBALS['ipawcus_consent_document_locks'] = [];
+    }
+    $GLOBALS['ipawcus_consent_document_locks'][$cacheKey] = $lockName;
+}
+
+function consent_record_document_references(PDO $pdo, string $path): array
+{
+    $normalizedPath = consent_record_normalize_document_path($path);
+    if ($normalizedPath === null) return ['bookings' => [], 'records' => []];
+    $pattern = '%' . basename($normalizedPath) . '%';
+    $bookingStmt = $pdo->prepare("\n        SELECT booking_id, user_id, pet_id, signature_path, consent_forms\n        FROM bookings\n        WHERE signature_path LIKE ? OR consent_forms LIKE ?\n        FOR UPDATE\n    ");
+    $bookingStmt->execute([$pattern, $pattern]);
+    $bookings = [];
+    foreach ($bookingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $paths = [consent_record_normalize_document_path($row['signature_path'] ?? null)];
+        foreach (consent_record_forms_from_value($row['consent_forms'] ?? null) as $form) {
+            if (!is_array($form)) continue;
+            $paths[] = consent_record_normalize_document_path(consent_record_form_signed_document_path($form));
+            $paths[] = consent_record_normalize_document_path(consent_record_form_physical_document_path($form));
+        }
+        if (in_array($normalizedPath, array_filter($paths), true)) $bookings[] = $row;
+    }
+
+    $records = [];
+    if (consent_record_table_exists_raw($pdo)) {
+        $recordStmt = $pdo->prepare("\n            SELECT consent_record_id, owner_user_id, pet_id, booking_id, queue_id, visit_id,\n                   signed_file_path, physical_file_path\n            FROM consent_form_records\n            WHERE signed_file_path LIKE ? OR physical_file_path LIKE ?\n            FOR UPDATE\n        ");
+        $recordStmt->execute([$pattern, $pattern]);
+        foreach ($recordStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $signedPath = consent_record_normalize_document_path($row['signed_file_path'] ?? null);
+            $physicalPath = consent_record_normalize_document_path($row['physical_file_path'] ?? null);
+            if ($signedPath === $normalizedPath || $physicalPath === $normalizedPath) $records[] = $row;
+        }
+    }
+    return ['bookings' => $bookings, 'records' => $records];
+}
+
+function consent_record_assert_document_scope(PDO $pdo, string $path, array $data): void
+{
+    consent_record_acquire_document_lock($pdo, $path);
+    $references = consent_record_document_references($pdo, $path);
+    $recordId = consent_record_nullable_int($data['consent_record_id'] ?? $data['consentRecordId'] ?? null);
+    $bookingId = consent_record_nullable_int($data['booking_id'] ?? $data['bookingId'] ?? null);
+    $queueId = consent_record_nullable_int($data['queue_id'] ?? $data['queueId'] ?? null);
+    $visitId = consent_record_nullable_int($data['visit_id'] ?? $data['visitId'] ?? null);
+    $ownerId = consent_record_nullable_int($data['owner_user_id'] ?? $data['ownerUserId'] ?? null);
+
+    foreach ($references['bookings'] as $reference) {
+        if ($bookingId === null || (int)$reference['booking_id'] !== $bookingId) {
+            throw new ConsentDocumentScopeException('This consent document is already linked to another booking.');
+        }
+        if ($ownerId !== null && (int)($reference['user_id'] ?? 0) !== $ownerId) {
+            throw new ConsentDocumentScopeException('This consent document does not match the booking owner.');
+        }
+    }
+    foreach ($references['records'] as $reference) {
+        if ($recordId !== null && (int)$reference['consent_record_id'] === $recordId) continue;
+        $sameBooking = $bookingId !== null && (int)($reference['booking_id'] ?? 0) === $bookingId;
+        $sameQueue = $queueId !== null && (int)($reference['queue_id'] ?? 0) === $queueId;
+        $sameVisit = $visitId !== null && (int)($reference['visit_id'] ?? 0) === $visitId;
+        if (!$sameBooking && !$sameQueue && !$sameVisit) {
+            throw new ConsentDocumentScopeException('This consent document is already linked to another record.');
+        }
+        if ($ownerId !== null && (int)($reference['owner_user_id'] ?? 0) !== $ownerId) {
+            throw new ConsentDocumentScopeException('This consent document does not match the record owner.');
+        }
+    }
+}
+
 function consent_record_status($value, ?string $signedFilePath = null, ?string $physicalFilePath = null): string
 {
     $status = strtolower(trim((string)$value));
@@ -282,6 +386,10 @@ function consent_record_save(PDO $pdo, array $data, bool $requireTable = true): 
         'processed_by_name' => consent_record_nullable_text($data['processed_by_name'] ?? $data['processedByName'] ?? null),
         'notes' => consent_record_nullable_text($data['notes'] ?? null),
     ];
+
+    foreach (array_filter([$signedFilePath, $physicalFilePath]) as $documentPath) {
+        consent_record_assert_document_scope($pdo, $documentPath, array_merge($data, $payload));
+    }
 
     $existingId = consent_record_find_existing($pdo, $data);
     if ($existingId !== null) {
@@ -734,6 +842,8 @@ function consent_record_capture_booking(PDO $pdo, array $data): void
                     'signer_name' => $form['signerName'] ?? $form['signer_name'] ?? null,
                     'notes' => $data['notes'] ?? 'Captured during booking creation.',
                 ], false);
+            } catch (ConsentDocumentScopeException $e) {
+                throw $e;
             } catch (Throwable $e) {
                 error_log('Consent booking capture failed: ' . $e->getMessage());
             }

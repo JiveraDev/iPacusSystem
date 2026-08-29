@@ -1,4 +1,5 @@
-import { apiRequest, postJson } from './apiClient';
+import { apiRequest, getStoredApiUser, postJson } from './apiClient';
+import { assertPetOwnerActionAllowed } from '../lib/accountStatus.js';
 
 export function fetchQueues() {
     return apiRequest('/queues');
@@ -9,6 +10,7 @@ export function fetchQueuePets() {
 }
 
 export function addQueueItem(payload, options = {}) {
+    assertPetOwnerActionAllowed(getStoredApiUser(), 'join the self-service queue');
     return postJson('/queues', payload, options);
 }
 

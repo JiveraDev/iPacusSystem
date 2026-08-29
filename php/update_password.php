@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/password_policy_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 $input = json_decode(file_get_contents('php://input'), true);
@@ -25,9 +26,9 @@ if (!$currentPassword || !$newPassword) {
     exit;
 }
 
-if (strlen($newPassword) < 8) {
+if (!ipawcus_password_meets_policy((string)$newPassword)) {
     http_response_code(400);
-    echo json_encode(['message' => 'New password must be at least 8 characters.']);
+    echo json_encode(['message' => ipawcus_password_policy_error()]);
     exit;
 }
 

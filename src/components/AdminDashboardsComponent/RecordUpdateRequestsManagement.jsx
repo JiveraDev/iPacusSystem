@@ -166,15 +166,27 @@ export default function RecordUpdateRequestsManagement() {
     }, [requests, searchQuery, statusFilter]);
 
     const openReview = (request) => {
+        const assignedVetId = request.assignedVeterinarianUserId
+            ? String(request.assignedVeterinarianUserId)
+            : '';
+        const assignedVetIsAvailable = assignedVetId
+            && veterinarians.some(vet => vetId(vet) === assignedVetId);
+
         setSelectedRequest(request);
-        setSelectedVetId(request.assignedVeterinarianUserId ? String(request.assignedVeterinarianUserId) : '');
+        setSelectedVetId(assignedVetIsAvailable ? assignedVetId : '');
         setAdminNotes(request.adminNotes || '');
     };
 
     const updateRequest = async (action, extraPayload = {}) => {
         if (!selectedRequest) return;
-        if ((action === 'approve' || action === 'assign') && selectedVetId === 'none') {
+        const normalizedVetId = selectedVetId === 'none' ? '' : selectedVetId;
+        const selectedVetIsAvailable = normalizedVetId
+            && veterinarians.some(vet => vetId(vet) === normalizedVetId);
+
+        if ((action === 'approve' || action === 'assign') && normalizedVetId && !selectedVetIsAvailable) {
             setSelectedVetId('');
+            toast.error('That veterinarian is no longer available. Select another active veterinarian.');
+            return;
         }
 
         setActionLoading(action);
@@ -182,7 +194,7 @@ export default function RecordUpdateRequestsManagement() {
             const response = await updateRecordUpdateRequest(selectedRequest.requestId, {
                 action,
                 userId: currentUserId(currentUser),
-                assignedVeterinarianUserId: selectedVetId && selectedVetId !== 'none' ? Number(selectedVetId) : null,
+                assignedVeterinarianUserId: selectedVetIsAvailable ? Number(normalizedVetId) : null,
                 adminNotes,
                 ...extraPayload
             });
@@ -198,6 +210,36 @@ export default function RecordUpdateRequestsManagement() {
             setActionLoading('');
         }
     };
+
+    const activeRequestStatuses = ['pending_admin_review', 'approved', 'assigned', 'in_progress'];
+    const selectedRequestIsActive = activeRequestStatuses.includes(selectedRequest?.status);
+    const paymentIsCleared = ['verified', 'waived'].includes(selectedRequest?.paymentStatus);
+    const primaryAction = selectedRequest?.status === 'pending_admin_review'
+        ? 'approve'
+        : ['approved', 'assigned', 'in_progress'].includes(selectedRequest?.status)
+            ? 'assign'
+            : '';
+    const veterinarianIsSelected = Boolean(selectedVetId && selectedVetId !== 'none');
+    const selectedVetIsAvailable = veterinarianIsSelected
+        && veterinarians.some(vet => vetId(vet) === selectedVetId);
+    const isReassignment = ['assigned', 'in_progress'].includes(selectedRequest?.status);
+    const selectedVetIsCurrent = veterinarianIsSelected
+        && String(selectedRequest?.assignedVeterinarianUserId || '') === selectedVetId;
+    const primaryActionDisabled = Boolean(actionLoading)
+        || !paymentIsCleared
+        || (primaryAction === 'assign' && (!selectedVetIsAvailable || (isReassignment && selectedVetIsCurrent)));
+    const primaryActionLabel = selectedRequest?.status === 'pending_admin_review'
+        ? (veterinarianIsSelected ? 'Approve & Assign' : 'Approve')
+        : isReassignment
+            ? 'Reassign'
+            : 'Assign';
+    const assignmentHelper = !paymentIsCleared
+        ? 'Verify or waive payment before approving or assigning this request.'
+        : primaryAction === 'assign' && !selectedVetIsAvailable
+            ? 'Select an active veterinarian to continue.'
+            : isReassignment && selectedVetIsCurrent
+                ? 'Choose a different active veterinarian to reassign this request.'
+                : '';
 
     return (
         <div className="space-y-6">
@@ -379,6 +421,11 @@ export default function RecordUpdateRequestsManagement() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    {assignmentHelper && (
+                                        <p className="text-xs font-semibold text-amber-700" role="status">
+                                            {assignmentHelper}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">
@@ -392,7 +439,7 @@ export default function RecordUpdateRequestsManagement() {
                     <DialogFooter className="gap-2 sm:justify-between">
                         <Button variant="outline" onClick={() => setSelectedRequest(null)}>Close</Button>
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            {selectedRequest?.paymentStatus !== 'verified' && (
+                            {selectedRequestIsActive && !paymentIsCleared && (
                                 <Button
                                     variant="outline"
                                     onClick={() => updateRequest('verify_payment')}
@@ -403,23 +450,28 @@ export default function RecordUpdateRequestsManagement() {
                                     Verify Payment
                                 </Button>
                             )}
-                            <Button
-                                variant="outline"
-                                onClick={() => updateRequest('reject')}
-                                disabled={Boolean(actionLoading)}
-                                className="border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                                {actionLoading === 'reject' ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
-                                Reject
-                            </Button>
-                            <Button
-                                onClick={() => updateRequest('approve')}
-                                disabled={Boolean(actionLoading)}
-                                className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
-                            >
-                                {actionLoading === 'approve' ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-                                Approve
-                            </Button>
+                            {selectedRequestIsActive && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => updateRequest('reject')}
+                                    disabled={Boolean(actionLoading)}
+                                    className="border-red-200 text-red-600 hover:bg-red-50"
+                                >
+                                    {actionLoading === 'reject' ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
+                                    Reject
+                                </Button>
+                            )}
+                            {primaryAction && (
+                                <Button
+                                    onClick={() => updateRequest(primaryAction)}
+                                    disabled={primaryActionDisabled}
+                                    className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                                    title={assignmentHelper || primaryActionLabel}
+                                >
+                                    {actionLoading === primaryAction ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                                    {primaryActionLabel}
+                                </Button>
+                            )}
                         </div>
                     </DialogFooter>
                 </DialogContent>

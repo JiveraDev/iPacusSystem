@@ -38,6 +38,7 @@ import { formatDisplayDate } from '../../lib/date';
 import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
+import { fetchProfile } from '../../services/profileService';
 import {
     addPetMedicalRecordGroupItem,
     createPetMedicalRecordGroup,
@@ -45,6 +46,7 @@ import {
     fetchAllPets,
     fetchPetMedicalRecords,
     removePetMedicalRecordGroupItem,
+    savePetMedicalRecord,
     updatePetMedicalRecordGroup,
     updatePetMedicalRecordGroupItem
 } from '../../services/petService';
@@ -57,6 +59,22 @@ function asArray(value) {
 
 function userId(user) {
     return user?.user_id || user?.userId || user?.id || null;
+}
+
+function userDisplayName(user) {
+    const firstName = user?.first_Name || user?.firstName || user?.first_name || '';
+    const lastName = user?.last_Name || user?.lastName || user?.last_name || '';
+    const composedName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+    return composedName || user?.fullName || user?.full_name || user?.name || '';
+}
+
+function userLicenseNumber(user) {
+    return user?.prc_license_number
+        || user?.licenseNumber
+        || user?.license_number
+        || user?.prcLicenseNumber
+        || '';
 }
 
 function petLabel(pet) {
@@ -214,6 +232,7 @@ function itemDraftSignature(draft) {
 export default function VetPetsEMR() {
     const currentUser = useDashboardUser();
     const currentUserId = userId(currentUser);
+    const [veterinarianProfile, setVeterinarianProfile] = useState(null);
     const [pets, setPets] = useState([]);
     const [petSearch, setPetSearch] = useState('');
     const [selectedPetId, setSelectedPetId] = useState('');
@@ -240,6 +259,41 @@ export default function VetPetsEMR() {
     const itemAutosaveTimerRef = useRef(null);
     const groupSavedSignatureRef = useRef('');
     const itemSavedSignatureRef = useRef('');
+    const veterinarianIdentity = useMemo(() => ({
+        ...(currentUser || {}),
+        ...(veterinarianProfile || {})
+    }), [currentUser, veterinarianProfile]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        if (!currentUserId) {
+            setVeterinarianProfile(null);
+            return () => {
+                isMounted = false;
+            };
+        }
+
+        fetchProfile({
+            userId: currentUserId,
+            role: currentUser?.role || 'Veterinarian'
+        })
+            .then((profile) => {
+                if (isMounted) {
+                    setVeterinarianProfile(profile || null);
+                }
+            })
+            .catch((error) => {
+                if (isMounted) {
+                    setVeterinarianProfile(null);
+                    console.error('Failed to load veterinarian profile for vaccination attribution:', error);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [currentUser?.role, currentUserId]);
 
     const loadPets = useCallback(async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
@@ -365,7 +419,7 @@ export default function VetPetsEMR() {
             toast.success('Record update finished. Pet owner notified.');
         } catch (error) {
             console.error('Failed to finish the medical record update request:', error);
-            toast.error('The record update could not be completed. Please try again.');
+            toast.error(error.message || 'The record update could not be completed. Please try again.');
         } finally {
             setIsCompletingRequest(false);
         }
@@ -880,7 +934,15 @@ export default function VetPetsEMR() {
                 </div>
             )}
 
-            {selectedPetId && <VaccinationPanel vaccinations={vaccinations} />}
+            {selectedPetId && (
+                <VaccinationPanel
+                    key={selectedPetId}
+                    vaccinations={vaccinations}
+                    petId={selectedPetId}
+                    veterinarian={veterinarianIdentity}
+                    onSaved={() => loadRecords({ isAutoRefresh: true })}
+                />
+            )}
 
             {selectedPetId && (
             <section className={`grid min-h-[38rem] gap-5 ${isServiceRecordsOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
@@ -1207,65 +1269,186 @@ function RecordUpdateHighlight({ request, onFinish, isFinishing }) {
     );
 }
 
-function VaccinationPanel({ vaccinations }) {
+function VaccinationPanel({ vaccinations, petId, veterinarian, onSaved }) {
+    const veterinarianName = userDisplayName(veterinarian);
+    const veterinarianLicense = userLicenseNumber(veterinarian);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [draft, setDraft] = useState({
+        name: '',
+        date: '',
+        nextDue: '',
+        applicator: veterinarianName,
+        veterinarianLicense,
+        notes: ''
+    });
+
+    useEffect(() => {
+        setDraft(current => ({
+            ...current,
+            applicator: current.applicator || veterinarianName,
+            veterinarianLicense: current.veterinarianLicense || veterinarianLicense
+        }));
+    }, [veterinarianLicense, veterinarianName]);
+
+    const updateDraft = (field, value) => {
+        setDraft(current => ({ ...current, [field]: value }));
+    };
+
+    const resetDraft = () => {
+        setDraft({
+            name: '',
+            date: '',
+            nextDue: '',
+            applicator: veterinarianName,
+            veterinarianLicense,
+            notes: ''
+        });
+    };
+
+    const saveVaccination = async () => {
+        if (!draft.name.trim() || !draft.date || !draft.nextDue) {
+            toast.error('Vaccine name, date given, and next due date are required.');
+            return;
+        }
+        if (draft.nextDue < draft.date) {
+            toast.error('Next due date cannot be earlier than the date given.');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await savePetMedicalRecord(petId, {
+                type: 'vaccination',
+                action: 'add',
+                name: draft.name.trim(),
+                date: draft.date,
+                nextDue: draft.nextDue,
+                applicator: draft.applicator.trim() || veterinarianName,
+                veterinarianLicense: draft.veterinarianLicense.trim(),
+                notes: draft.notes.trim(),
+                status: 'completed'
+            });
+            await onSaved?.();
+            toast.success('Vaccination record added.');
+            setIsDialogOpen(false);
+            resetDraft();
+        } catch (error) {
+            console.error('Failed to add vaccination record:', error);
+            toast.error('The vaccination record could not be added. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                        <Syringe className="size-5 text-[#155dfc]" />
-                        <h3 className="text-lg font-black text-slate-950">Vaccination Records</h3>
+        <>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                            <Syringe className="size-5 text-[#155dfc]" />
+                            <h3 className="text-lg font-black text-slate-950">Vaccination Records</h3>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge className="w-fit border-0 bg-blue-50 text-[#155dfc]">
+                                {vaccinations.length} vaccine{vaccinations.length === 1 ? '' : 's'}
+                            </Badge>
+                            <Button type="button" size="sm" onClick={() => setIsDialogOpen(true)} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                                <Plus className="size-4" />
+                                Add Vaccination Record
+                            </Button>
+                        </div>
                     </div>
-                    <Badge className="w-fit border-0 bg-blue-50 text-[#155dfc]">
-                        {vaccinations.length} vaccine{vaccinations.length === 1 ? '' : 's'}
-                    </Badge>
-                </div>
-            </header>
+                </header>
 
-            {vaccinations.length === 0 ? (
-                <div className="p-5 text-sm font-semibold text-slate-400">No vaccination records saved for this pet.</div>
-            ) : (
-                <div className="divide-y divide-slate-100">
-                    {vaccinations.map((vaccine, index) => {
-                        const source = vaccinationSourceRecord(vaccine);
-                        const canDrag = Boolean(source.sourceId);
+                {vaccinations.length === 0 ? (
+                    <div className="p-5 text-sm font-semibold text-slate-400">No vaccination records saved for this pet.</div>
+                ) : (
+                    <div className="divide-y divide-slate-100">
+                        {vaccinations.map((vaccine, index) => {
+                            const source = vaccinationSourceRecord(vaccine);
+                            const canDrag = Boolean(source.sourceId);
 
-                        return (
-                            <div
-                                key={vaccine.id || index}
-                                draggable={canDrag}
-                                onDragStart={(event) => {
-                                    if (!canDrag) return;
-                                    event.dataTransfer.setData(MEDICAL_RECORD_DRAG_TYPE, dragPayload('vaccination', source));
-                                    event.dataTransfer.setData('application/json', JSON.stringify(source));
-                                    event.dataTransfer.setData('text/plain', source.title);
-                                    event.dataTransfer.effectAllowed = 'copy';
-                                }}
-                                className="grid cursor-grab gap-3 px-5 py-4 text-sm transition hover:bg-blue-50/30 active:cursor-grabbing md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.9fr] md:items-center"
-                            >
-                                <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
-                                <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
-                                <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
-                                <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
-                                <div className="flex flex-wrap items-center justify-between gap-2 md:justify-start">
-                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
-                                    <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                                        {vaccine.status || 'completed'}
-                                    </Badge>
-                                    {vaccine.isAddedToOrganizedRecord && (
-                                        <Badge className="gap-1 border-0 bg-blue-50 text-[#155dfc]">
-                                            <CheckCircle2 className="size-3" />
-                                            Copied
+                            return (
+                                <div
+                                    key={vaccine.id || index}
+                                    draggable={canDrag}
+                                    onDragStart={(event) => {
+                                        if (!canDrag) return;
+                                        event.dataTransfer.setData(MEDICAL_RECORD_DRAG_TYPE, dragPayload('vaccination', source));
+                                        event.dataTransfer.setData('application/json', JSON.stringify(source));
+                                        event.dataTransfer.setData('text/plain', source.title);
+                                        event.dataTransfer.effectAllowed = 'copy';
+                                    }}
+                                    className="grid cursor-grab gap-3 px-5 py-4 text-sm transition hover:bg-blue-50/30 active:cursor-grabbing md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.9fr] md:items-center"
+                                >
+                                    <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
+                                    <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
+                                    <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
+                                    <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
+                                    <div className="flex flex-wrap items-center justify-between gap-2 md:justify-start">
+                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
+                                        <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+                                            {vaccine.status || 'completed'}
                                         </Badge>
-                                    )}
-                                    <GripVertical className="hidden size-4 text-slate-300 md:block" />
+                                        {vaccine.isAddedToOrganizedRecord && (
+                                            <Badge className="gap-1 border-0 bg-blue-50 text-[#155dfc]">
+                                                <CheckCircle2 className="size-3" />
+                                                Copied
+                                            </Badge>
+                                        )}
+                                        <GripVertical className="hidden size-4 text-slate-300 md:block" />
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </section>
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
+
+            <Dialog open={isDialogOpen} onOpenChange={(open) => !isSaving && setIsDialogOpen(open)}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Add Vaccination Record</DialogTitle>
+                        <DialogDescription>Record a vaccine administered to this pet.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="vaccination-name">Vaccine name</Label>
+                            <Input id="vaccination-name" value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} placeholder="e.g. Anti-rabies" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="vaccination-date">Date given</Label>
+                            <Input id="vaccination-date" type="date" value={draft.date} onChange={(event) => updateDraft('date', event.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="vaccination-next-due">Next due date</Label>
+                            <Input id="vaccination-next-due" type="date" min={draft.date || undefined} value={draft.nextDue} onChange={(event) => updateDraft('nextDue', event.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="vaccination-vet">Veterinarian</Label>
+                            <Input id="vaccination-vet" value={draft.applicator} onChange={(event) => updateDraft('applicator', event.target.value)} placeholder="Veterinarian name" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="vaccination-license">License number</Label>
+                            <Input id="vaccination-license" value={draft.veterinarianLicense} onChange={(event) => updateDraft('veterinarianLicense', event.target.value)} placeholder="PRC license number" />
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="vaccination-notes">Notes</Label>
+                            <Textarea id="vaccination-notes" value={draft.notes} onChange={(event) => updateDraft('notes', event.target.value)} placeholder="Optional notes" rows={4} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+                        <Button type="button" onClick={saveVaccination} disabled={isSaving} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Syringe className="size-4" />}
+                            Save Vaccination
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 

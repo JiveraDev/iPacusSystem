@@ -15,17 +15,32 @@ export async function uploadImageFile(file, type = 'booking_concern', options = 
 }
 
 export async function uploadDocumentFile(file, type, options = {}) {
+    const { returnMetadata = false, formFields = {}, ...requestOptions } = options;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
+    Object.entries(formFields).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            formData.append(key, String(value));
+        }
+    });
 
     const data = await apiRequest('/upload', {
         method: 'POST',
         body: formData,
-        ...options
+        ...requestOptions
     });
 
-    return data.relative_url || data.protected_url || data.url || null;
+    const path = data.relative_url || data.protected_url || data.url || null;
+
+    if (returnMetadata) {
+        return {
+            path,
+            uploadReceipt: data.upload_receipt || null
+        };
+    }
+
+    return path;
 }
 
 export function dataUrlToFile(dataUrl, fileName) {

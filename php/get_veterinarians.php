@@ -7,7 +7,7 @@ header('Content-Type: application/json');
 try {
     $hasUserAccountStatus = accountColumnExists($pdo, 'users', 'account_status');
     $accountStatusWhere = $hasUserAccountStatus
-        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') NOT IN ('archived', 'deactivated', 'disabled', 'inactive')"
+        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') NOT IN ('archived', 'deactivated', 'disabled', 'inactive', 'suspended')"
         : '';
 
     $stmt = $pdo->query("
@@ -23,7 +23,7 @@ try {
             COALESCE(v.is_accepting_patients, 1) AS is_accepting_patients,
             v.consultation_rate
         FROM users u
-        LEFT JOIN veterinarian_profiles v ON u.user_id = v.user_id
+        JOIN veterinarian_profiles v ON u.user_id = v.user_id
         WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('veterinarian', 'vet')
           AND COALESCE(v.is_active, 1) = 1
           AND COALESCE(v.is_accepting_patients, 1) = 1

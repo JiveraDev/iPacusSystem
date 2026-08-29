@@ -7,6 +7,9 @@ require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 require_once __DIR__ . '/booking_slot_helpers.php';
+require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/consent_file_helpers.php';
+require_once __DIR__ . '/upload_receipt_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -225,11 +228,58 @@ function boarding_assert_booking_branch_access(PDO $pdo, array $booking): void
 
 function boarding_error(int $statusCode, string $message, array $details = []): void
 {
+    global $pdo;
+
     ipawcus_rollback_current_transaction();
+    if ($pdo instanceof PDO) {
+        boarding_release_all_named_locks($pdo);
+    }
 
     http_response_code($statusCode);
     echo json_encode(array_merge(['message' => $message], $details));
     exit;
+}
+
+function boarding_named_lock_acquire(PDO $pdo, string $lockName, int $timeoutSeconds = 8): bool
+{
+    if (!booking_slot_acquire($pdo, $lockName, $timeoutSeconds)) return false;
+    if (!isset($GLOBALS['ipawcus_boarding_named_locks']) || !is_array($GLOBALS['ipawcus_boarding_named_locks'])) {
+        $GLOBALS['ipawcus_boarding_named_locks'] = [];
+    }
+    $GLOBALS['ipawcus_boarding_named_locks'][$lockName] = true;
+    return true;
+}
+
+function boarding_named_lock_release(PDO $pdo, ?string $lockName): void
+{
+    if ($lockName === null || $lockName === '') return;
+    booking_slot_release($pdo, $lockName);
+    unset($GLOBALS['ipawcus_boarding_named_locks'][$lockName]);
+}
+
+function boarding_release_all_named_locks(PDO $pdo): void
+{
+    $lockNames = array_keys(
+        isset($GLOBALS['ipawcus_boarding_named_locks']) && is_array($GLOBALS['ipawcus_boarding_named_locks'])
+            ? $GLOBALS['ipawcus_boarding_named_locks']
+            : []
+    );
+    foreach ($lockNames as $lockName) booking_slot_release($pdo, $lockName);
+    $GLOBALS['ipawcus_boarding_named_locks'] = [];
+}
+
+function boarding_internal_failure(string $context, Throwable $exception, string $publicMessage): void
+{
+    $reference = bin2hex(random_bytes(6));
+    error_log(sprintf(
+        '[Boarding:%s] %s: %s in %s:%d',
+        $reference,
+        $context,
+        $exception->getMessage(),
+        $exception->getFile(),
+        $exception->getLine()
+    ));
+    boarding_error(500, $publicMessage, ['errorReference' => $reference]);
 }
 
 function require_boarding_tables(PDO $pdo, array $tableNames): void
@@ -237,17 +287,16 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
     $missingTables = array_values(array_filter($tableNames, fn($tableName) => !boarding_table_exists($pdo, $tableName)));
 
     if (!empty($missingTables)) {
-        boarding_error(
-            500,
-            'Boarding database schema is missing: ' . implode(', ', $missingTables) . '. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.'
-        );
+        error_log('Boarding database schema is missing: ' . implode(', ', $missingTables));
+        boarding_error(500, 'Boarding records are temporarily unavailable. Please contact the system administrator.');
     }
 }
 
 function ensure_boarding_rooms_schema(PDO $pdo): void
 {
     if (!boarding_table_exists($pdo, 'rooms')) {
-        boarding_error(500, 'Boarding rooms schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.');
+        error_log('Boarding rooms schema is missing.');
+        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
         return;
     }
 
@@ -259,10 +308,8 @@ function ensure_boarding_rooms_schema(PDO $pdo): void
     }
 
     if (!empty($missingColumns)) {
-        boarding_error(
-            500,
-            'Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns) . '. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.'
-        );
+        error_log('Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns));
+        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
     }
 }
 
@@ -761,6 +808,538 @@ function upsert_assignment(PDO $pdo, array $booking, string $roomType, int $room
     $stmt->execute([$bookingId, (int)$booking['branch_id'], $roomType, $roomNumber, $status, $desiredOut]);
 }
 
+function boarding_consent_candidate_path(?string $path): ?string
+{
+    if ($path === null) {
+        return null;
+    }
+
+    $parsedPath = parse_url(trim($path), PHP_URL_PATH);
+    $cleanPath = ltrim(str_replace('\\', '/', is_string($parsedPath) ? $parsedPath : $path), '/');
+    $cleanPath = preg_replace('#^(?:api/uploads/media/|public/)#i', '', $cleanPath);
+    if (!preg_match('#^signatures/([A-Za-z0-9._-]+\.pdf)$#i', $cleanPath, $matches)) {
+        return null;
+    }
+
+    return 'signatures/' . $matches[1];
+}
+
+function boarding_consent_pdf_path(?string $path): ?string
+{
+    $candidatePath = boarding_consent_candidate_path($path);
+    if ($candidatePath === null) return null;
+
+    $signatureRoot = realpath(__DIR__ . '/../public/signatures');
+    $realPath = realpath(__DIR__ . '/../public/' . $candidatePath);
+    if ($signatureRoot === false || $realPath === false || !is_file($realPath)) {
+        return null;
+    }
+
+    $rootPrefix = rtrim($signatureRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if (strpos($realPath, $rootPrefix) !== 0) {
+        return null;
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    if ($finfo->file($realPath) !== 'application/pdf') {
+        return null;
+    }
+
+    return 'signatures/' . basename($realPath);
+}
+
+function boarding_secure_database_now(PDO $pdo): string
+{
+    $timestamp = $pdo->query('SELECT NOW()')->fetchColumn();
+    return is_string($timestamp) && $timestamp !== '' ? $timestamp : date('Y-m-d H:i:s');
+}
+
+function boarding_secure_template_by_id(PDO $pdo, ?int $fileId, bool $requireCurrentContext): ?array
+{
+    consent_file_ensure_schema($pdo);
+    if ($fileId === null || $fileId <= 0) return null;
+
+    $stmt = $pdo->prepare('SELECT file_id, file_name, content, category, pet_owner_contexts FROM consent_files WHERE file_id = ? LIMIT 1');
+    $stmt->execute([$fileId]);
+    $template = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$template) return null;
+    if ($requireCurrentContext && !in_array('boarding', consent_file_context_array($template['pet_owner_contexts'] ?? null), true)) {
+        return null;
+    }
+    return $template;
+}
+
+function boarding_secure_selected_template(PDO $pdo, array $input): array
+{
+    $fileId = consent_record_file_id(
+        $input['consent_file_id']
+            ?? $input['consentFileId']
+            ?? ($input['consent_form']['id'] ?? null)
+            ?? ($input['consentForm']['id'] ?? null)
+    );
+    if ($fileId === null) {
+        boarding_error(422, 'Select the assigned boarding consent template.', ['code' => 'boarding_consent_template_required']);
+    }
+    $template = boarding_secure_template_by_id($pdo, $fileId, true);
+    if (!$template) {
+        boarding_error(422, 'The selected consent template is not assigned to Boarding.');
+    }
+    return $template;
+}
+
+function boarding_secure_consent_context(PDO $pdo, array $booking): array
+{
+    $bookingId = (int)($booking['booking_id'] ?? 0);
+    $ownerUserId = (int)($booking['user_id'] ?? $booking['owner_user_id'] ?? 0);
+    $petIds = fetch_booking_pet_ids($pdo, $booking);
+    if ($ownerUserId <= 0) {
+        boarding_error(409, 'The boarding booking must be linked to a pet owner before consent can be recorded.');
+    }
+    if (empty($petIds)) {
+        boarding_error(409, 'The boarding booking must include a registered pet before consent can be recorded.');
+    }
+
+    $ownerStmt = $pdo->prepare('SELECT first_Name, last_Name FROM users WHERE user_id = ? LIMIT 1');
+    $ownerStmt->execute([$ownerUserId]);
+    $owner = $ownerStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$owner) {
+        boarding_error(409, 'The pet owner linked to this boarding booking could not be verified.');
+    }
+
+    $ownershipStmt = $pdo->prepare('SELECT COUNT(*) FROM pet_ownership WHERE user_id = ? AND pet_id = ?');
+    foreach ($petIds as $petId) {
+        $ownershipStmt->execute([$ownerUserId, $petId]);
+        if ((int)$ownershipStmt->fetchColumn() <= 0) {
+            boarding_error(409, 'The boarding pet and owner linkage could not be verified.');
+        }
+    }
+
+    $ownerName = trim((string)($owner['first_Name'] ?? '') . ' ' . (string)($owner['last_Name'] ?? ''));
+    return [
+        'booking_id' => $bookingId,
+        'owner_user_id' => $ownerUserId,
+        'owner_name' => $ownerName !== '' ? $ownerName : 'Pet owner',
+        'pet_ids' => array_values(array_unique(array_map('intval', $petIds))),
+    ];
+}
+
+function boarding_secure_path_references(PDO $pdo, string $path): array
+{
+    $pattern = '%' . basename($path) . '%';
+    $bookingStmt = $pdo->prepare("\n        SELECT booking_id, user_id, pet_id, signature_path, consent_forms\n        FROM bookings\n        WHERE signature_path LIKE ? OR consent_forms LIKE ?\n        FOR UPDATE\n    ");
+    $bookingStmt->execute([$pattern, $pattern]);
+    $bookings = [];
+    foreach ($bookingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $paths = [boarding_consent_pdf_path(consent_record_nullable_text($row['signature_path'] ?? null))];
+        foreach (consent_record_forms_from_value($row['consent_forms'] ?? null) as $form) {
+            if (!is_array($form)) continue;
+            $paths[] = boarding_consent_pdf_path(consent_record_form_signed_document_path($form));
+            $paths[] = boarding_consent_pdf_path(consent_record_form_physical_document_path($form));
+        }
+        if (in_array($path, array_filter($paths), true)) $bookings[] = $row;
+    }
+
+    $records = [];
+    if (consent_record_table_exists($pdo)) {
+        $recordStmt = $pdo->prepare("\n            SELECT consent_record_id, consent_file_id, consent_type, owner_user_id, pet_id,\n                   booking_id, service_name, status, signed_at, signed_file_path, physical_file_path\n            FROM consent_form_records\n            WHERE signed_file_path LIKE ? OR physical_file_path LIKE ?\n            ORDER BY consent_record_id DESC\n            FOR UPDATE\n        ");
+        $recordStmt->execute([$pattern, $pattern]);
+        foreach ($recordStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $signedPath = boarding_consent_pdf_path(consent_record_nullable_text($row['signed_file_path'] ?? null));
+            $physicalPath = boarding_consent_pdf_path(consent_record_nullable_text($row['physical_file_path'] ?? null));
+            if ($signedPath === $path || $physicalPath === $path) $records[] = $row;
+        }
+    }
+    return ['bookings' => $bookings, 'records' => $records];
+}
+
+function boarding_secure_reference_scope_matches(array $references, array $context): bool
+{
+    $bookingId = (int)$context['booking_id'];
+    $ownerUserId = (int)$context['owner_user_id'];
+    $petIds = array_map('intval', $context['pet_ids']);
+    foreach ($references['bookings'] as $reference) {
+        if ($bookingId <= 0 || (int)($reference['booking_id'] ?? 0) !== $bookingId) {
+            return false;
+        }
+        if ((int)($reference['user_id'] ?? 0) !== $ownerUserId) {
+            return false;
+        }
+    }
+    foreach ($references['records'] as $reference) {
+        if ($bookingId <= 0 || (int)($reference['booking_id'] ?? 0) !== $bookingId) {
+            return false;
+        }
+        $recordPetId = (int)($reference['pet_id'] ?? 0);
+        if (
+            (int)($reference['owner_user_id'] ?? 0) !== $ownerUserId
+            || $recordPetId <= 0
+            || !in_array($recordPetId, $petIds, true)
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function boarding_secure_assert_reference_scope(array $references, array $context, bool $mustBeUnreferenced): void
+{
+    if ($mustBeUnreferenced && (!empty($references['bookings']) || !empty($references['records']))) {
+        boarding_error(409, 'This consent PDF is already linked and cannot be reused for another boarding record.');
+    }
+    if (!boarding_secure_reference_scope_matches($references, $context)) {
+        boarding_error(409, 'This consent PDF belongs to another booking, owner, or pet and cannot be reused.');
+    }
+}
+
+function boarding_secure_existing_template(PDO $pdo, array $form, array $records): ?array
+{
+    $fileId = consent_record_file_id($form['id'] ?? $form['file_id'] ?? $form['fileId'] ?? null);
+    $template = boarding_secure_template_by_id($pdo, $fileId, true);
+    $formDeclaresBoarding = in_array(
+        strtolower(trim((string)($form['serviceType'] ?? $form['service_type'] ?? $form['category'] ?? ''))),
+        ['boarding', 'pet boarding', 'pet hotel & boarding'],
+        true
+    );
+    $hasBoardingRecord = false;
+    foreach ($records as $record) {
+        if (strcasecmp(trim((string)($record['service_name'] ?? '')), 'Boarding') === 0) {
+            $hasBoardingRecord = true;
+            break;
+        }
+    }
+    if ($template && ($formDeclaresBoarding || $hasBoardingRecord)) return $template;
+
+    // Safe legacy policy: an unassigned/deleted historical template is only
+    // accepted when a durable record already binds this PDF to Boarding.
+    foreach ($records as $record) {
+        if (strcasecmp(trim((string)($record['service_name'] ?? '')), 'Boarding') !== 0) continue;
+        $recordFileId = consent_record_file_id($record['consent_file_id'] ?? null);
+        if ($fileId !== null && $recordFileId !== null && $fileId !== $recordFileId) continue;
+        return [
+            'file_id' => $recordFileId,
+            'file_name' => consent_record_nullable_text($record['consent_type'] ?? null) ?: 'Boarding Consent',
+            'content' => '',
+            'category' => 'boarding',
+        ];
+    }
+    return null;
+}
+
+function boarding_secure_existing_candidate(
+    PDO $pdo,
+    array $context,
+    array $forms,
+    array $form,
+    string $path,
+    bool $physical,
+    bool $needsProjectionSync = false
+): ?array {
+    $references = boarding_secure_path_references($pdo, $path);
+    if (!boarding_secure_reference_scope_matches($references, $context)) return null;
+    if (empty($references['bookings']) && empty($references['records'])) return null;
+
+    $template = boarding_secure_existing_template($pdo, $form, $references['records']);
+    if (!$template) return null;
+    $record = $references['records'][0] ?? [];
+    $serverRecordedAt = consent_record_datetime_or_null($record['signed_at'] ?? null) ?: boarding_secure_database_now($pdo);
+    $recordForm = [
+        'id' => consent_record_file_id($template['file_id'] ?? null),
+        'title' => $template['file_name'] ?? 'Boarding Consent',
+        'category' => $template['category'] ?? 'boarding',
+        'content' => $template['content'] ?? '',
+        'signerName' => $context['owner_name'],
+        'signedAt' => $serverRecordedAt,
+        'serviceType' => 'Boarding',
+    ];
+    if ($physical) $recordForm['physicalConsentPath'] = $path;
+    else $recordForm['documentPath'] = $path;
+    return [
+        'forms' => $forms,
+        'record_form' => $recordForm,
+        'signed_document_path' => $physical ? null : $path,
+        'physical_consent_path' => $physical ? $path : null,
+        'is_new' => false,
+        'needs_projection_sync' => $needsProjectionSync,
+        'context' => $context,
+        'lock_name' => null,
+    ];
+}
+
+function boarding_secure_existing_consent(PDO $pdo, array $booking, array $context): ?array
+{
+    $forms = consent_record_normalize_booking_forms(
+        $booking['consent_forms'] ?? null,
+        consent_record_nullable_text($booking['signature_path'] ?? null),
+        null
+    );
+    $bookingSignature = consent_record_nullable_text($booking['signature_path'] ?? null);
+    $bookingSignaturePath = boarding_consent_pdf_path($bookingSignature);
+    foreach ($forms as $formIndex => $form) {
+        if (!is_array($form)) continue;
+        $signedPath = boarding_consent_pdf_path(consent_record_form_signed_document_path($form));
+        $physicalPath = boarding_consent_pdf_path(consent_record_form_physical_document_path($form));
+        if ($signedPath !== null) {
+            $needsProjectionSync = $formIndex !== 0
+                || ($bookingSignature !== null && $bookingSignaturePath !== $signedPath);
+            $candidate = boarding_secure_existing_candidate(
+                $pdo,
+                $context,
+                $forms,
+                $form,
+                $signedPath,
+                false,
+                $needsProjectionSync
+            );
+            if ($candidate) return $candidate;
+        }
+        if ($physicalPath !== null) {
+            $needsProjectionSync = $formIndex !== 0 || $bookingSignature !== null;
+            $candidate = boarding_secure_existing_candidate(
+                $pdo,
+                $context,
+                $forms,
+                $form,
+                $physicalPath,
+                true,
+                $needsProjectionSync
+            );
+            if ($candidate) return $candidate;
+        }
+    }
+
+    if ((int)$context['booking_id'] <= 0 || !consent_record_table_exists($pdo)) return null;
+    $stmt = $pdo->prepare("\n        SELECT consent_record_id, consent_file_id, consent_type, owner_user_id, pet_id, booking_id,\n               service_name, status, signed_at, signed_file_path, physical_file_path\n        FROM consent_form_records\n        WHERE booking_id = ? AND status = 'signed'\n          AND LOWER(COALESCE(service_name, '')) = 'boarding'\n        ORDER BY consent_record_id DESC\n    ");
+    $stmt->execute([(int)$context['booking_id']]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $record) {
+        $form = ['id' => $record['consent_file_id'] ?? null, 'title' => $record['consent_type'] ?? 'Boarding Consent'];
+        $signedPath = boarding_consent_pdf_path(consent_record_nullable_text($record['signed_file_path'] ?? null));
+        $physicalPath = boarding_consent_pdf_path(consent_record_nullable_text($record['physical_file_path'] ?? null));
+        $path = $signedPath ?: $physicalPath;
+        if ($path === null) continue;
+        $candidate = boarding_secure_existing_candidate(
+            $pdo,
+            $context,
+            array_merge($forms, [$form]),
+            $form,
+            $path,
+            $signedPath === null,
+            true
+        );
+        if ($candidate) return $candidate;
+    }
+    return null;
+}
+
+function boarding_secure_input_receipt(array $input, bool $physical): string
+{
+    $keys = $physical
+        ? ['physical_consent_receipt', 'physicalConsentReceipt']
+        : ['signed_document_receipt', 'signedDocumentReceipt', 'consent_document_receipt', 'consentDocumentReceipt'];
+    $keys = array_merge($keys, ['upload_receipt', 'uploadReceipt']);
+    foreach ($keys as $key) {
+        $receipt = trim((string)($input[$key] ?? ''));
+        if ($receipt !== '') return $receipt;
+    }
+    return '';
+}
+
+function boarding_secure_consent_payload(PDO $pdo, array $input, array $booking, string $requiredMessage): array
+{
+    $context = boarding_secure_consent_context($pdo, $booking);
+    $existing = boarding_secure_existing_consent($pdo, $booking, $context);
+    if ($existing) return $existing;
+
+    $signedPath = boarding_consent_candidate_path(consent_record_nullable_text(
+        $input['signed_document_path'] ?? $input['signedDocumentPath'] ?? $input['consent_document_path'] ?? null
+    ));
+    $physicalPath = boarding_consent_candidate_path(consent_record_nullable_text(
+        $input['physical_consent_path'] ?? $input['physicalConsentPath'] ?? null
+    ));
+    if ($signedPath === null && $physicalPath === null) {
+        boarding_error(422, $requiredMessage, ['code' => 'boarding_consent_required']);
+    }
+    if ($signedPath !== null && $physicalPath !== null) {
+        boarding_error(422, 'Submit either a signed consent PDF or an uploaded completed consent PDF, not both.');
+    }
+
+    $template = boarding_secure_selected_template($pdo, $input);
+    $actor = boarding_current_actor($pdo);
+    $path = $signedPath ?: $physicalPath;
+    $physical = $signedPath === null;
+    $receipt = boarding_secure_input_receipt($input, $physical);
+    $receiptClaims = [
+        'consent_context' => 'boarding',
+        'consent_file_id' => (int)$template['file_id'],
+    ];
+    if ((int)$context['booking_id'] > 0) {
+        $receiptClaims['booking_id'] = (int)$context['booking_id'];
+    } else {
+        $receiptClaims['pet_id'] = (int)($context['pet_ids'][0] ?? 0);
+    }
+    if (!ipawcus_upload_receipt_verify(
+        $receipt,
+        $path,
+        (int)$actor['user_id'],
+        'consent_document',
+        null,
+        $receiptClaims
+    )) {
+        boarding_error(422, 'The consent upload authorization is missing or expired. Upload the PDF again.', [
+            'code' => 'boarding_consent_upload_receipt_required',
+        ]);
+    }
+
+    $lockName = 'ipawcus_consent_' . md5($path);
+    if (!boarding_named_lock_acquire($pdo, $lockName)) {
+        boarding_error(409, 'This consent PDF is currently being processed. Please try again.');
+    }
+
+    $verifiedPath = boarding_consent_pdf_path($path);
+    if ($verifiedPath === null || !hash_equals($path, $verifiedPath)) {
+        boarding_error(422, 'The uploaded consent PDF is no longer available. Upload it again.', [
+            'code' => 'boarding_consent_required',
+        ]);
+    }
+    if ($physical) $physicalPath = $verifiedPath;
+    else $signedPath = $verifiedPath;
+    boarding_secure_assert_reference_scope(boarding_secure_path_references($pdo, $path), $context, true);
+
+    $signedAt = boarding_secure_database_now($pdo);
+    $form = [
+        'id' => (int)$template['file_id'],
+        'title' => $template['file_name'],
+        'category' => $template['category'] ?? 'boarding',
+        'content' => $template['content'] ?? '',
+        'signerName' => $context['owner_name'],
+        'signedAt' => $signedAt,
+        'serviceType' => 'Boarding',
+        'processedByUserId' => (int)$actor['user_id'],
+        'processedByName' => $actor['name'],
+    ];
+    if ($physical) $form['physicalConsentPath'] = $physicalPath;
+    else $form['documentPath'] = $signedPath;
+    return [
+        'forms' => [$form],
+        'record_form' => $form,
+        'signed_document_path' => $signedPath,
+        'physical_consent_path' => $physicalPath,
+        'is_new' => true,
+        'needs_projection_sync' => false,
+        'context' => $context,
+        'actor' => $actor,
+        'lock_name' => $lockName,
+    ];
+}
+
+function boarding_secure_save_consent_records(PDO $pdo, array $booking, array $consent, string $notes): void
+{
+    if (!consent_record_table_exists($pdo)) throw new RuntimeException('Consent record storage is unavailable.');
+    $form = $consent['record_form'];
+    $context = $consent['context'] ?? boarding_secure_consent_context($pdo, $booking);
+    $actor = $consent['actor'] ?? boarding_current_actor($pdo);
+    $path = $consent['signed_document_path'] ?: $consent['physical_consent_path'];
+    $references = boarding_secure_path_references($pdo, $path);
+    boarding_secure_assert_reference_scope($references, $context, false);
+
+    foreach ($context['pet_ids'] as $petId) {
+        $alreadyLinked = false;
+        foreach ($references['records'] as $reference) {
+            if ((int)$reference['booking_id'] === (int)$context['booking_id'] && (int)$reference['pet_id'] === (int)$petId) {
+                $alreadyLinked = true;
+                break;
+            }
+        }
+        if ($alreadyLinked) continue;
+        $stmt = $pdo->prepare("\n            INSERT INTO consent_form_records (\n                consent_file_id, consent_type, owner_user_id, pet_id, booking_id, service_name,\n                status, source, requested_at, signed_at, signed_file_path, physical_file_path,\n                signer_name, processed_by_user_id, processed_by_name, notes\n            ) VALUES (?, ?, ?, ?, ?, 'Boarding', 'signed', 'booking', ?, ?, ?, ?, ?, ?, ?, ?)\n        ");
+        $stmt->execute([
+            consent_record_file_id($form['id'] ?? null),
+            $form['title'] ?? 'Boarding Consent',
+            (int)$context['owner_user_id'],
+            (int)$petId,
+            (int)$context['booking_id'],
+            $form['signedAt'],
+            $form['signedAt'],
+            $consent['signed_document_path'],
+            $consent['physical_consent_path'],
+            $context['owner_name'],
+            (int)$actor['user_id'],
+            $actor['name'],
+            $notes,
+        ]);
+        if ((int)$pdo->lastInsertId() <= 0) throw new RuntimeException('Boarding consent linkage failed.');
+    }
+}
+
+function boarding_secure_preserved_forms(array $booking, array $consent): array
+{
+    $forms = consent_record_forms_from_value($booking['consent_forms'] ?? null);
+    $legacyPath = consent_record_nullable_text($booking['signature_path'] ?? null);
+    $legacyCandidatePath = boarding_consent_candidate_path($legacyPath);
+    $newPath = $consent['signed_document_path'] ?: $consent['physical_consent_path'];
+    $historicalForms = [];
+    $legacyPathRepresented = false;
+    foreach ($forms as $form) {
+        if (!is_array($form)) continue;
+        $rawFormPaths = [
+            consent_record_form_signed_document_path($form),
+            consent_record_form_physical_document_path($form),
+            consent_record_form_legacy_signature_path($form),
+        ];
+        $formPaths = [
+            boarding_consent_candidate_path($rawFormPaths[0]),
+            boarding_consent_candidate_path($rawFormPaths[1]),
+            boarding_consent_candidate_path($rawFormPaths[2]),
+        ];
+        if (in_array($newPath, $formPaths, true)) continue;
+        if (
+            $legacyPath !== null
+            && (
+                in_array($legacyPath, $rawFormPaths, true)
+                || ($legacyCandidatePath !== null && in_array($legacyCandidatePath, $formPaths, true))
+            )
+        ) {
+            $legacyPathRepresented = true;
+        }
+        $historicalForms[] = $form;
+    }
+    if (
+        $legacyPath !== null
+        && $legacyCandidatePath !== $newPath
+        && !$legacyPathRepresented
+    ) {
+        $historicalForms[] = [
+            'title' => 'Previous boarding consent artifact',
+            'legacySignaturePath' => $legacyPath,
+        ];
+    }
+    return consent_record_demote_signature_only_paths(array_merge([$consent['record_form']], $historicalForms));
+}
+
+function boarding_secure_store_booking_consent(
+    PDO $pdo,
+    array $booking,
+    array $input,
+    string $requiredMessage,
+    string $notes
+): array {
+    $consent = boarding_secure_consent_payload($pdo, $input, $booking, $requiredMessage);
+    if ($consent['is_new'] || !empty($consent['needs_projection_sync'])) {
+        $forms = boarding_secure_preserved_forms($booking, $consent);
+        // signature_path is only the current digital projection. Physical
+        // replacements intentionally clear it; older artifacts remain in the
+        // immutable forms/record history instead of winning preview priority.
+        $signaturePath = $consent['signed_document_path'];
+        $stmt = $pdo->prepare("\n            UPDATE bookings\n            SET consent_forms = ?, consent_status = 'signed', signature_path = ?\n            WHERE booking_id = ?\n        ");
+        $stmt->execute([
+            json_encode($forms, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            $signaturePath,
+            (int)$booking['booking_id'],
+        ]);
+    }
+    boarding_secure_save_consent_records($pdo, $booking, $consent, $notes);
+    return $consent;
+}
+
 function assign_room_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -775,9 +1354,18 @@ function assign_room_action(PDO $pdo): void
     }
 
     $roomLockName = null;
+    $consentLockName = null;
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
+        $consent = boarding_secure_store_booking_consent(
+            $pdo,
+            $booking,
+            $input,
+            'A completed boarding consent PDF is required before assigning a room.',
+            'Captured and verified during boarding room assignment.'
+        );
+        $consentLockName = $consent['lock_name'] ?? null;
         $branchId = (int)$booking['branch_id'];
         $roomType = normalize_room_type($booking['hotel_boarding_type'] ?? null, $booking['room_size'] ?? null);
         $checkIn = (string)($booking['check_in_date'] ?? '');
@@ -792,7 +1380,7 @@ function assign_room_action(PDO $pdo): void
         assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
 
         $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
-        if (!booking_slot_acquire($pdo, $roomLockName)) {
+        if (!boarding_named_lock_acquire($pdo, $roomLockName)) {
             boarding_error(409, 'Room availability is being updated by another booking. Refresh the rooms and try again.');
         }
 
@@ -812,8 +1400,10 @@ function assign_room_action(PDO $pdo): void
         $stmt->execute([$bookingId]);
 
         $pdo->commit();
-        booking_slot_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $roomLockName);
         $roomLockName = null;
+        boarding_named_lock_release($pdo, $consentLockName);
+        $consentLockName = null;
 
         try {
             notification_send_booking_event($pdo, $bookingId, 'confirmed');
@@ -829,8 +1419,9 @@ function assign_room_action(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        booking_slot_release($pdo, $roomLockName);
-        boarding_error(500, 'Failed to assign room: ' . $e->getMessage());
+        boarding_named_lock_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $consentLockName);
+        boarding_internal_failure('assign room failed', $e, 'The room could not be assigned. Please try again.');
     }
 }
 
@@ -840,15 +1431,25 @@ function check_in_action(PDO $pdo): void
         boarding_error(405, 'Method not allowed.');
     }
 
+    $input = boarding_json_input();
     $bookingId = isset($_GET['bookingId']) ? (int)$_GET['bookingId'] : 0;
     if ($bookingId <= 0) {
         boarding_error(400, 'Booking ID is required.');
     }
 
     $roomLockName = null;
+    $consentLockName = null;
     $pdo->beginTransaction();
     try {
         $booking = fetch_boarding_booking($pdo, $bookingId, true);
+        $consent = boarding_secure_store_booking_consent(
+            $pdo,
+            $booking,
+            $input,
+            'A completed boarding consent PDF is required before check-in.',
+            'Verified during boarding check-in.'
+        );
+        $consentLockName = $consent['lock_name'] ?? null;
         boarding_assert_booking_branch_access($pdo, $booking);
         $branchId = (int)$booking['branch_id'];
         $roomType = normalize_room_type($booking['hotel_boarding_type'] ?? null, $booking['room_size'] ?? null);
@@ -863,7 +1464,7 @@ function check_in_action(PDO $pdo): void
         assert_pets_no_overlapping_boarding_booking($pdo, $bookingPetIds, $checkIn, $checkOut, $bookingId);
 
         $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
-        if (!booking_slot_acquire($pdo, $roomLockName)) {
+        if (!boarding_named_lock_acquire($pdo, $roomLockName)) {
             boarding_error(409, 'Room availability is being updated by another check-in. Refresh the rooms and try again.');
         }
 
@@ -901,8 +1502,10 @@ function check_in_action(PDO $pdo): void
         $bookingStmt->execute([$bookingId]);
 
         $pdo->commit();
-        booking_slot_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $roomLockName);
         $roomLockName = null;
+        boarding_named_lock_release($pdo, $consentLockName);
+        $consentLockName = null;
 
         try {
             notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
@@ -920,8 +1523,9 @@ function check_in_action(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        booking_slot_release($pdo, $roomLockName);
-        boarding_error(500, 'Failed to check in pet: ' . $e->getMessage());
+        boarding_named_lock_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $consentLockName);
+        boarding_internal_failure('reserved check-in failed', $e, 'The pet could not be checked in. Please try again.');
     }
 }
 
@@ -957,7 +1561,7 @@ function desired_check_out_action(PDO $pdo): void
         }
 
         $roomLockName = 'ipawcus_room_' . md5((int)$booking['branch_id'] . '|' . (string)$assignment['room_type']);
-        if (!booking_slot_acquire($pdo, $roomLockName)) {
+        if (!boarding_named_lock_acquire($pdo, $roomLockName)) {
             boarding_error(409, 'Room availability is being updated by another stay. Refresh the rooms and try again.');
         }
 
@@ -994,7 +1598,7 @@ function desired_check_out_action(PDO $pdo): void
         $assignmentStmt->execute([$newCheckOut, (int)$assignment['assignment_id']]);
 
         $pdo->commit();
-        booking_slot_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $roomLockName);
         $roomLockName = null;
 
         echo json_encode([
@@ -1005,8 +1609,8 @@ function desired_check_out_action(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        booking_slot_release($pdo, $roomLockName);
-        boarding_error(500, 'Failed to update desired out date: ' . $e->getMessage());
+        boarding_named_lock_release($pdo, $roomLockName);
+        boarding_internal_failure('desired check-out update failed', $e, 'The desired check-out date could not be updated. Please try again.');
     }
 }
 
@@ -1233,7 +1837,7 @@ function check_out_action(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        boarding_error(500, 'Failed to check out pet: ' . $e->getMessage());
+        boarding_internal_failure('check-out failed', $e, 'The pet could not be checked out. Please try again.');
     }
 }
 
@@ -1472,7 +2076,7 @@ function rooms_action(PDO $pdo): void
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            boarding_error(500, 'Failed to add room: ' . $e->getMessage());
+            boarding_internal_failure('room creation failed', $e, 'The room could not be added. Please try again.');
         }
         return;
     }
@@ -1630,8 +2234,22 @@ function direct_check_in_action(PDO $pdo): void
     }
 
     $roomLockName = null;
+    $consentLockName = null;
     $pdo->beginTransaction();
     try {
+        $consent = boarding_secure_consent_payload(
+            $pdo,
+            $input,
+            [
+                'booking_id' => 0,
+                'user_id' => $ownerId,
+                'pet_id' => $petId,
+                'consent_forms' => null,
+                'signature_path' => null,
+            ],
+            'A completed boarding consent PDF is required before check-in.'
+        );
+        $consentLockName = $consent['lock_name'] ?? null;
         booking_daily_lock_subjects($pdo, [$petId], $ownerId);
         $dailyBookingConflict = booking_daily_find_conflict(
             $pdo,
@@ -1654,7 +2272,7 @@ function direct_check_in_action(PDO $pdo): void
         assert_pets_no_overlapping_boarding_booking($pdo, [$petId], $today, (string)$checkOut);
 
         $roomLockName = 'ipawcus_room_' . md5($branchId . '|' . $roomType);
-        if (!booking_slot_acquire($pdo, $roomLockName)) {
+        if (!boarding_named_lock_acquire($pdo, $roomLockName)) {
             boarding_error(409, 'Room availability is being updated by another check-in. Refresh the rooms and try again.');
         }
 
@@ -1686,8 +2304,11 @@ function direct_check_in_action(PDO $pdo): void
                 room_size,
                 emergency_contact,
                 hotel_boarding_type,
+                signature_path,
+                consent_forms,
+                consent_status,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, 'boarding', ?, ?, ?, 'Registered', 'confirmed', ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, 'boarding', ?, ?, ?, 'Registered', 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, 'signed', NOW())
         ");
         $stmt->execute([
             $ownerId,
@@ -1704,14 +2325,23 @@ function direct_check_in_action(PDO $pdo): void
             $parts['room_size'],
             $emergencyContact,
             $parts['hotel_boarding_type'],
+            $consent['signed_document_path'],
+            json_encode($consent['forms'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
 
         $bookingId = (int)$pdo->lastInsertId();
+        $consent['context']['booking_id'] = $bookingId;
 
         if (boarding_table_exists($pdo, 'booking_pets')) {
             $petStmt = $pdo->prepare("INSERT IGNORE INTO booking_pets (booking_id, pet_id) VALUES (?, ?)");
             $petStmt->execute([$bookingId, $petId]);
         }
+
+        boarding_secure_save_consent_records($pdo, [
+            'booking_id' => $bookingId,
+            'user_id' => $ownerId,
+            'pet_id' => $petId,
+        ], $consent, 'Captured during direct boarding check-in.');
 
         $assignmentStmt = $pdo->prepare("
             INSERT INTO boarding_assignments (
@@ -1729,8 +2359,10 @@ function direct_check_in_action(PDO $pdo): void
         $assignmentStmt->execute([$bookingId, $branchId, $roomType, $roomNumber, $checkOut, $notes]);
 
         $pdo->commit();
-        booking_slot_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $roomLockName);
         $roomLockName = null;
+        boarding_named_lock_release($pdo, $consentLockName);
+        $consentLockName = null;
 
         try {
             notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
@@ -1750,8 +2382,9 @@ function direct_check_in_action(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        booking_slot_release($pdo, $roomLockName);
-        boarding_error(500, 'Failed to create direct check-in: ' . $e->getMessage());
+        boarding_named_lock_release($pdo, $roomLockName);
+        boarding_named_lock_release($pdo, $consentLockName);
+        boarding_internal_failure('direct check-in failed', $e, 'The pet could not be checked in. Please try again.');
     }
 }
 
@@ -3291,9 +3924,9 @@ try {
         default:
             boarding_error(404, 'Boarding action not found.');
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    boarding_error(500, 'Boarding management failed: ' . $e->getMessage());
+    boarding_internal_failure('request failed', $e, 'The boarding request could not be completed. Please try again.');
 }

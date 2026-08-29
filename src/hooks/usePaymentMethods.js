@@ -1,52 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchPaymentMethods } from '../services/paymentMethodService';
-
-export const PAYMENT_METHOD_FALLBACK = [
-    {
-        methodKey: 'qrph',
-        value: 'qrph',
-        label: 'QRPH',
-        methodType: 'ewallet',
-        accountName: 'Vetfocus Animal Care Clinic',
-        accountNumber: '',
-        instructions: 'Scan the QRPH code, then upload a clear screenshot of the successful transaction.',
-        qrImageUrl: '',
-        requiresProof: true
-    },
-    {
-        methodKey: 'maya',
-        value: 'maya',
-        label: 'Maya',
-        methodType: 'ewallet',
-        accountName: 'Vetfocus Animal Care Clinic',
-        accountNumber: '',
-        instructions: 'Send payment to the Maya account, then upload a clear screenshot of the successful transaction.',
-        qrImageUrl: '',
-        requiresProof: true
-    },
-    {
-        methodKey: 'gcash',
-        value: 'gcash',
-        label: 'GCash',
-        methodType: 'ewallet',
-        accountName: 'Vetfocus Animal Care Clinic',
-        accountNumber: '',
-        instructions: 'Send payment to the GCash account, then upload a clear screenshot of the successful transaction.',
-        qrImageUrl: '',
-        requiresProof: true
-    },
-    {
-        methodKey: 'bank_transfer',
-        value: 'bank_transfer',
-        label: 'Bank Transfer',
-        methodType: 'bank_transfer',
-        accountName: 'Vetfocus Animal Care Clinic',
-        accountNumber: '',
-        instructions: 'Transfer to the clinic bank account, then upload a clear screenshot or receipt.',
-        qrImageUrl: '',
-        requiresProof: true
-    }
-];
 
 function normalizeMethod(method) {
     const key = method.methodKey || method.key || method.value;
@@ -60,37 +13,53 @@ function normalizeMethod(method) {
 }
 
 export function usePaymentMethods() {
-    const [paymentMethods, setPaymentMethods] = useState(PAYMENT_METHOD_FALLBACK);
+    const [paymentMethods, setPaymentMethods] = useState([]);
     const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(true);
+    const [paymentMethodsError, setPaymentMethodsError] = useState('');
+    const [retryKey, setRetryKey] = useState(0);
+
+    const retryPaymentMethods = useCallback(() => {
+        setIsLoadingPaymentMethods(true);
+        setPaymentMethodsError('');
+        setRetryKey((current) => current + 1);
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
+        const controller = new AbortController();
 
-        fetchPaymentMethods()
+        fetchPaymentMethods({}, { signal: controller.signal })
             .then((data) => {
                 if (!isMounted) return;
                 const methods = Array.isArray(data.methods) && data.methods.length > 0
                     ? data.methods.map(normalizeMethod)
-                    : PAYMENT_METHOD_FALLBACK;
+                    : [];
                 setPaymentMethods(methods);
             })
-            .catch(() => {
-                if (isMounted) {
-                    setPaymentMethods(PAYMENT_METHOD_FALLBACK);
+            .catch((error) => {
+                if (isMounted && !controller.signal.aborted) {
+                    setPaymentMethods([]);
+                    setPaymentMethodsError(error.message || 'Payment methods are temporarily unavailable.');
                 }
             })
             .finally(() => {
-                if (isMounted) {
+                if (isMounted && !controller.signal.aborted) {
                     setIsLoadingPaymentMethods(false);
                 }
             });
 
         return () => {
             isMounted = false;
+            controller.abort();
         };
-    }, []);
+    }, [retryKey]);
 
-    return { paymentMethods, isLoadingPaymentMethods };
+    return {
+        paymentMethods,
+        isLoadingPaymentMethods,
+        paymentMethodsError,
+        retryPaymentMethods,
+    };
 }
 
 export function paymentMethodRequiresProof(method) {

@@ -22,6 +22,7 @@ import {
     Printer,
     Receipt,
     Search,
+    ShieldCheck,
     Table2,
     Trash2,
     Upload,
@@ -42,6 +43,8 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { fetchInventoryItems } from '../../services/inventoryApi';
+import SignatureCapture from '../SignatureCapture.jsx';
+import ConsentDocument from '../shared/ConsentDocument.jsx';
 import {
     assignBoardingRoom,
     checkInBoardingBooking,
@@ -63,9 +66,13 @@ import {
 import { fetchBookings } from '../../services/bookingService';
 import { fetchAllPets } from '../../services/petService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { uploadFormData } from '../../services/uploadService';
+import { deleteUpload, uploadDocumentFile, uploadFormData } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { assignedBranchId, isBranchSelectionLocked } from '../../lib/branchAccess.js';
+import { fetchConsentFiles } from '../../services/consentFileService.js';
+import { hasConsentContext, normalizeConsentTemplate } from '../../lib/consentAssignments.js';
+import { createAndUploadConsentDocumentPdf } from '../../services/consentDocumentPdf.js';
+import { consentDocumentPath, openProtectedDocument } from '../../hooks/useConsentDocumentSource.js';
 
 const FACILITY_LABELS = {
     boarding: 'Kennel Boarding',
@@ -565,6 +572,213 @@ function getBoardingDocumentUrl(document) {
     return resolveFileUrl(document?.documentPath || document?.url || '');
 }
 
+function boardingConsentPath(booking) {
+    const directPath = consentDocumentPath(booking);
+    const isPdfPath = (path) => {
+        const normalized = String(path || '').split(/[?#]/)[0].toLowerCase();
+        return normalized.endsWith('.pdf') || normalized.startsWith('data:application/pdf');
+    };
+    if (isPdfPath(directPath)) return directPath;
+
+    const forms = Array.isArray(booking?.consentForms) ? booking.consentForms : [];
+    return forms.map((form) => consentDocumentPath(form)).find(isPdfPath) || '';
+}
+
+function isBoardingConsentRequiredError(error) {
+    return error?.data?.code === 'boarding_consent_required'
+        || (error?.status === 422 && /boarding consent|consent pdf/i.test(String(error?.message || '')));
+}
+
+function boardingConsentUploadFromPayload(payload = {}) {
+    if (payload.signed_document_path) {
+        return {
+            path: payload.signed_document_path,
+            uploadReceipt: payload.signed_document_receipt || ''
+        };
+    }
+
+    if (payload.physical_consent_path) {
+        return {
+            path: payload.physical_consent_path,
+            uploadReceipt: payload.physical_consent_receipt || ''
+        };
+    }
+
+    return null;
+}
+
+function cleanupUnusedBoardingConsent(payload, requestError) {
+    const upload = boardingConsentUploadFromPayload(payload);
+    const status = Number(requestError?.status || 0);
+
+    // A timeout or server failure may happen after the booking transaction commits.
+    // Keep the PDF in that uncertain case so a legal consent record is never deleted.
+    if (!upload?.path || !upload.uploadReceipt || status < 400 || status >= 500) return;
+
+    deleteUpload({
+        path: upload.path,
+        upload_receipt: upload.uploadReceipt
+    }).catch((cleanupError) => {
+        if (cleanupError?.status !== 409) {
+            console.error('Failed to clean up an unused boarding consent PDF:', cleanupError);
+        }
+    });
+}
+
+function BoardingConsentCapture({
+    booking,
+    templates,
+    templateId,
+    onTemplateIdChange,
+    mode,
+    onModeChange,
+    signature,
+    onSignatureChange,
+    uploadFile,
+    onUploadFileChange,
+    disabled = false,
+    ignoreExisting = false,
+}) {
+    const existingPath = ignoreExisting ? '' : boardingConsentPath(booking);
+    const template = templates.find((item) => item.id === templateId) || templates[0] || null;
+
+    if (existingPath) {
+        return (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 size-5 shrink-0" />
+                        <div>
+                            <p className="font-black">Signed boarding consent recorded</p>
+                            <p className="mt-1 text-sm font-medium text-emerald-800">The existing PDF will remain linked to this booking and pet record.</p>
+                        </div>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openProtectedDocument(existingPath).catch(() => toast.error('The consent PDF could not be opened.'))}
+                        className="shrink-0 border-emerald-300 bg-white text-emerald-800"
+                    >
+                        <Eye className="size-4" />
+                        Preview PDF
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="space-y-2">
+                <Label>Boarding consent template *</Label>
+                <Select value={templateId} onValueChange={onTemplateIdChange} disabled={disabled || templates.length === 0}>
+                    <SelectTrigger><SelectValue placeholder="Select the assigned boarding consent" /></SelectTrigger>
+                    <SelectContent>
+                        {templates.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                {templates.length === 0 && (
+                    <p className="text-sm font-semibold text-amber-700">Assign a Boarding template in Consent Management before reserving a room.</p>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+                <button
+                    type="button"
+                    onClick={() => onModeChange('sign')}
+                    disabled={disabled}
+                    aria-pressed={mode === 'sign'}
+                    className={`min-h-10 rounded-md px-3 text-sm font-black transition ${mode === 'sign' ? 'bg-white text-[#155dfc] shadow-sm' : 'text-slate-600'}`}
+                >
+                    Sign now
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onModeChange('upload')}
+                    disabled={disabled}
+                    aria-pressed={mode === 'upload'}
+                    className={`min-h-10 rounded-md px-3 text-sm font-black transition ${mode === 'upload' ? 'bg-white text-[#155dfc] shadow-sm' : 'text-slate-600'}`}
+                >
+                    Upload completed PDF
+                </button>
+            </div>
+
+            {mode === 'sign' ? (
+                <>
+                    <div className="max-h-72 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-100 p-2" tabIndex={0} aria-label="Scrollable boarding consent preview">
+                        <ConsentDocument
+                            variant="compact"
+                            title={template?.title || 'Boarding Consent'}
+                            content={template?.content || 'Select the assigned boarding consent template.'}
+                            signatureImage={signature}
+                            signerName={booking?.ownerName || ''}
+                            veterinarianName="Vetfocus Boarding Team"
+                            representativeLabel="Clinic Representative"
+                            representativeDetail="Boarding consent verification"
+                            templateContext={{
+                                ownerName: booking?.ownerName || '',
+                                ownerAddress: booking?.ownerAddress || '',
+                                ownerPhone: booking?.ownerPhone || '',
+                                petName: booking?.petName || '',
+                                petSpecies: booking?.petSpecies || '',
+                                petBreed: booking?.petBreed || '',
+                                serviceName: 'Boarding',
+                                branchName: booking?.branchName || '',
+                                bookingNumber: booking?.bookingNumber || '',
+                            }}
+                        />
+                    </div>
+                    <SignatureCapture
+                        key={`${booking?.id || booking?.petId || booking?.pet_id || 'boarding'}-${templateId}`}
+                        signature={signature}
+                        onSignatureChange={onSignatureChange}
+                        disabled={disabled || !template}
+                    />
+                </>
+            ) : (
+                <div className="space-y-2">
+                    <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-[#155dfc]">
+                        <Upload className="size-7 text-[#155dfc]" />
+                        <span className="mt-2 text-sm font-black text-slate-800">{uploadFile?.name || 'Choose completed consent PDF'}</span>
+                        <span className="mt-1 text-xs font-semibold text-slate-500">PDF only</span>
+                        <input
+                            key={`${booking?.id || booking?.petId || booking?.pet_id || 'boarding'}-${templateId}`}
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="sr-only"
+                            disabled={disabled}
+                            onChange={(event) => onUploadFileChange(event.target.files?.[0] || null)}
+                        />
+                    </label>
+                    {uploadFile && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                                const previewUrl = URL.createObjectURL(uploadFile);
+                                const previewWindow = window.open('', '_blank');
+                                if (!previewWindow) {
+                                    URL.revokeObjectURL(previewUrl);
+                                    toast.error('Allow pop-ups to preview the selected PDF.');
+                                    return;
+                                }
+                                previewWindow.opener = null;
+                                previewWindow.location.href = previewUrl;
+                                window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
+                            }}
+                        >
+                            <Eye className="size-4" />
+                            Preview selected PDF
+                        </Button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function isImageBoardingDocument(document) {
     const mimeType = document?.mimeType || document?.mime_type || '';
     const url = document?.documentPath || document?.url || document?.fileName || document?.file_name || '';
@@ -705,6 +919,20 @@ export default function PetBoardingManagement() {
     const [isDocumentOpen, setIsDocumentOpen] = useState(false);
     const [isMaterialOpen, setIsMaterialOpen] = useState(false);
     const [isDesiredOutOpen, setIsDesiredOutOpen] = useState(false);
+    const [isReservationConsentOpen, setIsReservationConsentOpen] = useState(false);
+    const [reservationBooking, setReservationBooking] = useState(null);
+    const [reservationUnit, setReservationUnit] = useState(null);
+    const [reservationConsentPurpose, setReservationConsentPurpose] = useState('reserve');
+    const [reservationForceConsentCapture, setReservationForceConsentCapture] = useState(false);
+    const [consentTemplates, setConsentTemplates] = useState([]);
+    const [reservationConsentTemplateId, setReservationConsentTemplateId] = useState('');
+    const [reservationConsentMode, setReservationConsentMode] = useState('sign');
+    const [reservationConsentSignature, setReservationConsentSignature] = useState(null);
+    const [reservationConsentFile, setReservationConsentFile] = useState(null);
+    const [directConsentTemplateId, setDirectConsentTemplateId] = useState('');
+    const [directConsentMode, setDirectConsentMode] = useState('sign');
+    const [directConsentSignature, setDirectConsentSignature] = useState(null);
+    const [directConsentFile, setDirectConsentFile] = useState(null);
     const [addRoomForm, setAddRoomForm] = useState(emptyAddRoomForm);
     const [directCheckInForm, setDirectCheckInForm] = useState(emptyDirectCheckInForm);
     const [observationForm, setObservationForm] = useState(emptyObservationForm);
@@ -733,6 +961,35 @@ export default function PetBoardingManagement() {
             console.error('Failed to load boarding locations:', error);
         }
     }, { intervalMs: 30000, refreshKey: 'boarding-branches' });
+
+    useAutoRefresh(async () => {
+        try {
+            const data = await fetchConsentFiles();
+            const templates = (Array.isArray(data) ? data : [])
+                .map(normalizeConsentTemplate)
+                .filter((template) => hasConsentContext(template, 'boarding'));
+            setConsentTemplates(templates);
+            setReservationConsentTemplateId((current) => (
+                templates.some((template) => template.id === current) ? current : templates[0]?.id || ''
+            ));
+            setDirectConsentTemplateId((current) => (
+                templates.some((template) => template.id === current) ? current : templates[0]?.id || ''
+            ));
+        } catch (error) {
+            console.error('Failed to load boarding consent templates:', error);
+            setConsentTemplates([]);
+        }
+    }, { intervalMs: 30000, refreshKey: 'boarding-consent-templates' });
+
+    useEffect(() => {
+        setReservationConsentSignature(null);
+        setReservationConsentFile(null);
+    }, [reservationConsentTemplateId]);
+
+    useEffect(() => {
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
+    }, [directConsentTemplateId]);
 
     useEffect(() => {
         const pendingMaterialUsage = getPendingLocalMaterialUsage(materialUsage);
@@ -1143,6 +1400,10 @@ export default function PetBoardingManagement() {
     };
 
     const openWalkInCheckIn = (unit = null) => {
+        setDirectConsentMode('sign');
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
+        setDirectConsentTemplateId(consentTemplates[0]?.id || '');
         setDirectCheckInForm({
             ...emptyDirectCheckInForm,
             type: unit?.hotelBoardingType || facilityView,
@@ -1152,6 +1413,33 @@ export default function PetBoardingManagement() {
             checkOutDate: ''
         });
         setIsDirectCheckInOpen(true);
+    };
+
+    const handleDirectCheckInOpenChange = (open) => {
+        if (actionLoading === 'direct-check-in') return;
+
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
+        setIsDirectCheckInOpen(open);
+        if (!open) setDirectConsentMode('sign');
+    };
+
+    const handleDirectPetChange = (petId) => {
+        setDirectCheckInForm((current) => ({ ...current, petId }));
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
+    };
+
+    const handleDirectConsentTemplateChange = (templateId) => {
+        setDirectConsentTemplateId(templateId);
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
+    };
+
+    const handleDirectConsentModeChange = (mode) => {
+        setDirectConsentMode(mode);
+        setDirectConsentSignature(null);
+        setDirectConsentFile(null);
     };
 
     const openAddRoom = () => {
@@ -1189,16 +1477,197 @@ export default function PetBoardingManagement() {
         }
     };
 
-    const reserveBooking = async (booking) => {
-        setActionLoading(`reserve-${booking.id}`);
-        try {
-            await assignBoardingRoom(booking.id, {});
+    const prepareBoardingConsent = async ({
+        booking,
+        templateId,
+        mode,
+        signature,
+        uploadFile,
+        allowExisting = true,
+        scopeBookingId = 0,
+        scopePetId = 0,
+    }) => {
+        if (allowExisting && boardingConsentPath(booking)) return {};
 
-            toast.success(`${booking.bookingNumber} reserved.`);
+        const template = consentTemplates.find((item) => item.id === templateId);
+        if (!template) {
+            throw new Error('Select the assigned boarding consent template.');
+        }
+
+        const signerName = booking?.ownerName || getPetOwnerName(booking) || 'Pet owner';
+        const signedAt = new Date().toISOString();
+        let signedDocumentPath = '';
+        let signedDocumentReceipt = '';
+        let physicalConsentPath = '';
+        let physicalConsentReceipt = '';
+        const uploadScope = {
+            consent_context: 'boarding',
+            consent_file_id: Number(template.id) || 0,
+            booking_id: Number(scopeBookingId) || 0,
+            pet_id: Number(scopePetId) || 0,
+        };
+
+        if (mode === 'upload') {
+            if (!uploadFile || (uploadFile.type !== 'application/pdf' && !/\.pdf$/i.test(uploadFile.name || ''))) {
+                throw new Error('Upload the completed boarding consent as a PDF file.');
+            }
+            const upload = await uploadDocumentFile(uploadFile, 'consent_document', {
+                returnMetadata: true,
+                formFields: uploadScope,
+            });
+            physicalConsentPath = upload?.path || '';
+            physicalConsentReceipt = upload?.uploadReceipt || '';
+        } else {
+            if (!signature) {
+                throw new Error('Capture the pet owner signature before continuing.');
+            }
+            const upload = await createAndUploadConsentDocumentPdf({
+                title: template.title,
+                content: template.content,
+                signatureImage: signature,
+                signerName,
+                signedAt,
+                veterinarianName: 'Vetfocus Boarding Team',
+                representativeLabel: 'Clinic representative',
+                representativeDetail: 'Boarding consent verification',
+                templateContext: {
+                    ownerName: signerName,
+                    ownerAddress: booking?.ownerAddress || '',
+                    ownerPhone: booking?.ownerPhone || '',
+                    petName: booking?.petName || getPetName(booking),
+                    petSpecies: booking?.petSpecies || booking?.species || '',
+                    petBreed: booking?.petBreed || booking?.breed || '',
+                    serviceName: 'Boarding',
+                    branchName: booking?.branchName || getBranchDisplayName(branches, branchId) || '',
+                    bookingNumber: booking?.bookingNumber || '',
+                },
+            }, 'boarding-consent', {
+                returnMetadata: true,
+                formFields: uploadScope,
+            });
+            signedDocumentPath = upload?.path || '';
+            signedDocumentReceipt = upload?.uploadReceipt || '';
+        }
+
+        if (!signedDocumentPath && !physicalConsentPath) {
+            throw new Error('The completed boarding consent could not be saved.');
+        }
+        if (
+            (signedDocumentPath && !signedDocumentReceipt)
+            || (physicalConsentPath && !physicalConsentReceipt)
+        ) {
+            throw new Error('The secure consent upload could not be verified. Please try again.');
+        }
+
+        return {
+            consent_file_id: Number(template.id) || null,
+            consent_type: template.title,
+            signer_name: signerName,
+            signed_at: signedAt,
+            signed_document_path: signedDocumentPath || null,
+            signed_document_receipt: signedDocumentReceipt || null,
+            physical_consent_path: physicalConsentPath || null,
+            physical_consent_receipt: physicalConsentReceipt || null,
+            consent_form: {
+                id: Number(template.id) || template.id,
+                title: template.title,
+                category: template.category || 'boarding',
+                content: template.content,
+                signerName,
+                signedAt,
+                documentPath: signedDocumentPath || undefined,
+                physicalConsentPath: physicalConsentPath || undefined,
+                serviceType: 'Boarding',
+            },
+        };
+    };
+
+    const closeReservationConsent = () => {
+        setIsReservationConsentOpen(false);
+        setReservationBooking(null);
+        setReservationUnit(null);
+        setReservationConsentPurpose('reserve');
+        setReservationForceConsentCapture(false);
+        setReservationConsentMode('sign');
+        setReservationConsentSignature(null);
+        setReservationConsentFile(null);
+    };
+
+    const handleReservationConsentTemplateChange = (templateId) => {
+        setReservationConsentTemplateId(templateId);
+        setReservationConsentSignature(null);
+        setReservationConsentFile(null);
+    };
+
+    const handleReservationConsentModeChange = (mode) => {
+        setReservationConsentMode(mode);
+        setReservationConsentSignature(null);
+        setReservationConsentFile(null);
+    };
+
+    const openReservationConsent = (booking, {
+        purpose = 'reserve',
+        unit = null,
+        forceCapture = false,
+    } = {}) => {
+        setReservationBooking(booking);
+        setReservationUnit(unit);
+        setReservationConsentPurpose(purpose);
+        setReservationForceConsentCapture(forceCapture);
+        setReservationConsentTemplateId(consentTemplates[0]?.id || '');
+        setReservationConsentMode('sign');
+        setReservationConsentSignature(null);
+        setReservationConsentFile(null);
+        setIsReservationConsentOpen(true);
+    };
+
+    const submitReservationConsent = async () => {
+        const booking = reservationBooking;
+        if (!booking) return;
+
+        const isCheckIn = reservationConsentPurpose === 'check-in';
+        const unit = reservationUnit;
+        const actionKey = isCheckIn ? `check-in-${unit?.id || booking.id}` : `reserve-${booking.id}`;
+        setActionLoading(actionKey);
+        let consentPayload = {};
+        try {
+            consentPayload = await prepareBoardingConsent({
+                booking,
+                templateId: reservationConsentTemplateId,
+                mode: reservationConsentMode,
+                signature: reservationConsentSignature,
+                uploadFile: reservationConsentFile,
+                allowExisting: !reservationForceConsentCapture,
+                scopeBookingId: booking.id,
+            });
+
+            if (isCheckIn) {
+                await checkInBoardingBooking(booking.id, consentPayload);
+                toast.success('Pet boarded.');
+                setIsDetailOpen(false);
+            } else {
+                await assignBoardingRoom(booking.id, consentPayload);
+                toast.success(`${booking.bookingNumber} reserved.`);
+            }
+
+            closeReservationConsent();
             fetchBoardingData();
         } catch (error) {
-            console.error('Failed to reserve a boarding room:', error);
-            toast.error('The room could not be reserved. Review the details and try again.');
+            console.error(isCheckIn ? 'Failed to check in the reserved pet:' : 'Failed to reserve a boarding room:', error);
+            cleanupUnusedBoardingConsent(consentPayload, error);
+
+            if (isBoardingConsentRequiredError(error)) {
+                setReservationForceConsentCapture(true);
+                setReservationConsentSignature(null);
+                setReservationConsentFile(null);
+                toast.error('The previous consent PDF is unavailable. Capture a new signature or upload the completed PDF.');
+            } else {
+                toast.error(
+                    isCheckIn
+                        ? 'The reserved pet could not be checked in. Review the consent and try again.'
+                        : 'The room could not be reserved. Review the consent and try again.'
+                );
+            }
         } finally {
             setActionLoading('');
         }
@@ -1253,8 +1722,24 @@ export default function PetBoardingManagement() {
         }
 
         const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(directCheckInForm.emergencyContact, { optional: true });
+        const selectedPet = pets.find((pet) => getPetOptionValue(pet) === String(directCheckInForm.petId));
         setActionLoading('direct-check-in');
+        let consentPayload = {};
         try {
+            consentPayload = await prepareBoardingConsent({
+                booking: {
+                    ...selectedPet,
+                    petName: getPetName(selectedPet),
+                    ownerName: getPetOwnerName(selectedPet),
+                    branchName: getBranchDisplayName(branches, branchId) || '',
+                },
+                templateId: directConsentTemplateId,
+                mode: directConsentMode,
+                signature: directConsentSignature,
+                uploadFile: directConsentFile,
+                allowExisting: false,
+                scopePetId: Number(getPetOptionValue(selectedPet)) || 0,
+            });
             const result = await directBoardingCheckIn({
                 branch_id: Number(branchId),
                 pet_id: directCheckInForm.petId,
@@ -1266,12 +1751,15 @@ export default function PetBoardingManagement() {
                 service_catalog_id: directCheckInForm.serviceCatalogId,
                 service_catalog_name: getCatalogServiceName(selectedBoardingCatalogService),
                 price: directCheckInEstimatedTotal,
-                notes: directCheckInForm.notes
+                notes: directCheckInForm.notes,
+                ...consentPayload,
             });
 
             toast.success('Pet boarded. Opening Point-Of-Sale payment.');
             setIsDirectCheckInOpen(false);
             setDirectCheckInForm(emptyDirectCheckInForm);
+            setDirectConsentSignature(null);
+            setDirectConsentFile(null);
             if (result?.assignment) {
                 localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill({
                     roomLabel: result.assignment.roomLabel,
@@ -1284,7 +1772,8 @@ export default function PetBoardingManagement() {
             fetchBoardingData();
         } catch (error) {
             console.error('Failed to check in the pet for boarding:', error);
-            toast.error('The pet could not be checked in. Review the details and try again.');
+            cleanupUnusedBoardingConsent(consentPayload, error);
+            toast.error('The pet could not be checked in. Review the consent and details, then try again.');
         } finally {
             setActionLoading('');
         }
@@ -1293,16 +1782,43 @@ export default function PetBoardingManagement() {
     const checkInReservedPet = async (unit) => {
         if (!unit.assignment?.bookingId) return;
 
+        const booking = boardingBookings.find((item) => (
+            String(item.id) === String(unit.assignment.bookingId)
+        )) || {
+            ...unit.assignment,
+            id: unit.assignment.bookingId,
+        };
+
+        if (!boardingConsentPath(booking)) {
+            setIsDetailOpen(false);
+            openReservationConsent(booking, {
+                purpose: 'check-in',
+                unit,
+                forceCapture: true,
+            });
+            return;
+        }
+
         setActionLoading(`check-in-${unit.id}`);
         try {
-            await checkInBoardingBooking(unit.assignment.bookingId);
+            await checkInBoardingBooking(unit.assignment.bookingId, {});
 
             toast.success('Pet boarded.');
             setIsDetailOpen(false);
             fetchBoardingData();
         } catch (error) {
             console.error('Failed to check in the reserved pet:', error);
-            toast.error('The reserved pet could not be checked in. Please try again.');
+            if (isBoardingConsentRequiredError(error)) {
+                setIsDetailOpen(false);
+                openReservationConsent(booking, {
+                    purpose: 'check-in',
+                    unit,
+                    forceCapture: true,
+                });
+                toast.error('The previous consent PDF is unavailable. Capture a new signature or upload the completed PDF.');
+            } else {
+                toast.error('The reserved pet could not be checked in. Please try again.');
+            }
         } finally {
             setActionLoading('');
         }
@@ -2131,7 +2647,7 @@ export default function PetBoardingManagement() {
                                                     <Button
                                                         type="button"
                                                         size="sm"
-                                                        onClick={() => reserveBooking(booking)}
+                                                        onClick={() => openReservationConsent(booking)}
                                                         disabled={actionLoading === `reserve-${booking.id}`}
                                                         className="bg-[#155dfc] hover:bg-[#0d4acf]"
                                                     >
@@ -2904,8 +3420,74 @@ export default function PetBoardingManagement() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isDirectCheckInOpen} onOpenChange={setIsDirectCheckInOpen}>
-                <DialogContent className="max-w-2xl">
+            <Dialog
+                open={isReservationConsentOpen}
+                onOpenChange={(open) => {
+                    if (actionLoading.startsWith('reserve-') || actionLoading.startsWith('check-in-')) return;
+                    if (!open) closeReservationConsent();
+                }}
+            >
+                <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden p-0">
+                    <DialogHeader className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-6">
+                        <DialogTitle>
+                            {reservationConsentPurpose === 'check-in'
+                                ? 'Boarding Consent Required Before Check-in'
+                                : 'Boarding Consent and Room Reservation'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {reservationConsentPurpose === 'check-in'
+                                ? 'The previous consent PDF is missing or could not be verified. Capture a signature or upload the completed PDF before marking the pet boarded.'
+                                : 'Review the boarding consent, capture the owner signature or upload the completed PDF, then reserve the room.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" tabIndex={0} aria-label="Scrollable boarding consent form">
+                        <BoardingConsentCapture
+                            booking={reservationBooking}
+                            templates={consentTemplates}
+                            templateId={reservationConsentTemplateId}
+                            onTemplateIdChange={handleReservationConsentTemplateChange}
+                            mode={reservationConsentMode}
+                            onModeChange={handleReservationConsentModeChange}
+                            signature={reservationConsentSignature}
+                            onSignatureChange={setReservationConsentSignature}
+                            uploadFile={reservationConsentFile}
+                            onUploadFileChange={setReservationConsentFile}
+                            disabled={actionLoading.startsWith('reserve-') || actionLoading.startsWith('check-in-')}
+                            ignoreExisting={reservationForceConsentCapture}
+                        />
+                    </div>
+                    <DialogFooter className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+                        <Button
+                            variant="outline"
+                            onClick={closeReservationConsent}
+                            disabled={actionLoading.startsWith('reserve-') || actionLoading.startsWith('check-in-')}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={submitReservationConsent}
+                            disabled={
+                                !reservationBooking
+                                || actionLoading.startsWith('reserve-')
+                                || actionLoading.startsWith('check-in-')
+                                || ((reservationForceConsentCapture || !boardingConsentPath(reservationBooking)) && (
+                                    !reservationConsentTemplateId
+                                    || (reservationConsentMode === 'sign' ? !reservationConsentSignature : !reservationConsentFile)
+                                ))
+                            }
+                            className="bg-[#155dfc]"
+                        >
+                            {(actionLoading.startsWith('reserve-') || actionLoading.startsWith('check-in-'))
+                                ? <Loader2 className="size-4 animate-spin" />
+                                : (reservationConsentPurpose === 'check-in' ? <CheckCircle className="size-4" /> : <Hotel className="size-4" />)}
+                            {reservationConsentPurpose === 'check-in' ? 'Record consent and mark boarded' : 'Record consent and reserve'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDirectCheckInOpen} onOpenChange={handleDirectCheckInOpenChange}>
+                <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Check-in</DialogTitle>
                         <DialogDescription>Create a boarding stay for a pet already at the clinic.</DialogDescription>
@@ -2914,7 +3496,7 @@ export default function PetBoardingManagement() {
                         <SearchablePetField
                             value={directCheckInForm.petId}
                             pets={pets}
-                            onChange={(value) => setDirectCheckInForm({ ...directCheckInForm, petId: value })}
+                            onChange={handleDirectPetChange}
                         />
                         <FieldSelect
                             label="Facility"
@@ -3013,6 +3595,36 @@ export default function PetBoardingManagement() {
                                 </p>
                             )}
                         </section>
+                        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2">
+                            <div className="flex items-start gap-3">
+                                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#155dfc]" />
+                                <div>
+                                    <h4 className="font-black text-[#101828]">Required Boarding Consent</h4>
+                                    <p className="mt-1 text-sm font-semibold text-slate-500">A signed PDF or uploaded completed PDF is required before direct room assignment.</p>
+                                </div>
+                            </div>
+                            <BoardingConsentCapture
+                                booking={(() => {
+                                    const pet = pets.find((item) => getPetOptionValue(item) === String(directCheckInForm.petId));
+                                    return {
+                                        ...pet,
+                                        petName: getPetName(pet),
+                                        ownerName: getPetOwnerName(pet),
+                                        branchName: getBranchDisplayName(branches, branchId) || '',
+                                    };
+                                })()}
+                                templates={consentTemplates}
+                                templateId={directConsentTemplateId}
+                                onTemplateIdChange={handleDirectConsentTemplateChange}
+                                mode={directConsentMode}
+                                onModeChange={handleDirectConsentModeChange}
+                                signature={directConsentSignature}
+                                onSignatureChange={setDirectConsentSignature}
+                                uploadFile={directConsentFile}
+                                onUploadFileChange={setDirectConsentFile}
+                                disabled={actionLoading === 'direct-check-in' || !directCheckInForm.petId}
+                            />
+                        </section>
                         <div className="space-y-2">
                             <Label>Emergency Contact</Label>
                             <Input
@@ -3035,8 +3647,16 @@ export default function PetBoardingManagement() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDirectCheckInOpen(false)}>Cancel</Button>
-                        <Button onClick={directCheckIn} disabled={actionLoading === 'direct-check-in'} className="bg-[#155dfc]">
+                        <Button variant="outline" onClick={() => handleDirectCheckInOpenChange(false)}>Cancel</Button>
+                        <Button
+                            onClick={directCheckIn}
+                            disabled={
+                                actionLoading === 'direct-check-in'
+                                || !directConsentTemplateId
+                                || (directConsentMode === 'sign' ? !directConsentSignature : !directConsentFile)
+                            }
+                            className="bg-[#155dfc]"
+                        >
                             {actionLoading === 'direct-check-in' ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
                             Check In
                         </Button>

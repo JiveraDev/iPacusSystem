@@ -6,6 +6,14 @@ $pdo = ipawcus_get_pdo();
 
 $relativePath = trim((string)($_GET['path'] ?? ''), "/\\");
 $relativePath = str_replace('\\', '/', $relativePath);
+$pathSegments = explode('/', $relativePath);
+$hasInvalidSegment = false;
+foreach ($pathSegments as $pathSegment) {
+    if ($pathSegment === '' || $pathSegment === '.' || $pathSegment === '..') {
+        $hasInvalidSegment = true;
+        break;
+    }
+}
 
 $allowedDirectories = [
     'boarding_documents',
@@ -21,7 +29,12 @@ $allowedDirectories = [
     'uploads',
 ];
 
-if ($relativePath === '' || strpos($relativePath, '..') !== false || !preg_match('/^[A-Za-z0-9._\/-]+$/', $relativePath)) {
+if (
+    $relativePath === ''
+    || strlen($relativePath) > 1024
+    || $hasInvalidSegment
+    || preg_match('/[\x00-\x1F\x7F]/', $relativePath)
+) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid media path.']);
     exit;

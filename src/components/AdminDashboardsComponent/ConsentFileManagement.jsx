@@ -540,8 +540,8 @@ export default function ConsentFilesManagement() {
 
             {/* View Modal */}
             <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden bg-slate-50 border-none shadow-2xl">
-                    <div className="overflow-y-auto p-4 sm:p-8">
+                <DialogContent className="flex h-[90vh] max-h-[90vh] max-w-3xl flex-col overflow-hidden border-none bg-slate-50 p-0 shadow-2xl">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-8" tabIndex={0} aria-label="Scrollable consent document preview">
                         {selectedFile && (
                             <ConsentDocument title={selectedFile.file_name} content={selectedFile.content} />
                         )}

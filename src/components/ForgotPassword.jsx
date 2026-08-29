@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import PasswordInput from "./shared/PasswordInput.jsx";
+import PasswordRequirements from "./shared/PasswordRequirements.jsx";
+import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import { requestPasswordReset, resetPasswordWithOtp, verifyPasswordResetCode } from "../services/authEmail";
 import { toast } from "../reusecomponent/toast.jsx";
 
@@ -93,7 +95,7 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
             setRemainingSeconds(expiresInSeconds);
             setCodeRequested(true);
             toast.success({
-                title: 'Code successfully sent',
+                title: 'Check your email',
                 description: data.message || 'If this email exists, a password reset code was sent via email.'
             });
         } catch (error) {
@@ -134,8 +136,8 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
             return;
         }
 
-        if (newPassword.length < 8) {
-            toast.error("New password must be at least 8 characters.");
+        if (!isPasswordStrong(newPassword)) {
+            toast.error(PASSWORD_POLICY_MESSAGE);
             return;
         }
 
@@ -242,6 +244,7 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
                                         disabled={!isCodeVerified || isResetting}
                                         required
                                     />
+                                    <PasswordRequirements password={newPassword} confirmPassword={confirmPassword} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="confirmNewPassword">Confirm password</Label>

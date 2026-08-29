@@ -304,8 +304,8 @@ export default function PetOwnerAccountsManagement() {
                 </Card>
             ) : null}
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="min-w-0 flex-1">
+            <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_11rem] xl:grid-cols-[minmax(0,1fr)_11rem_auto] xl:items-center">
+                <div className="min-w-0">
                     <Input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -315,14 +315,14 @@ export default function PetOwnerAccountsManagement() {
                     />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 w-full bg-white lg:w-44"><SelectValue placeholder="Account status" /></SelectTrigger>
+                    <SelectTrigger className="h-11 w-full bg-white"><SelectValue placeholder="Account status" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="active">Active owners</SelectItem>
                         <SelectItem value="archived">Archived owners</SelectItem>
                         <SelectItem value="all">All owners</SelectItem>
                     </SelectContent>
                 </Select>
-                <div className="flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                <div className="flex w-full rounded-xl border border-slate-200 bg-white p-1 shadow-sm md:col-span-2 xl:col-span-1 xl:w-fit">
                     <Button
                         type="button"
                         variant={viewMode === 'cards' ? 'default' : 'ghost'}
@@ -619,8 +619,8 @@ export default function PetOwnerAccountsManagement() {
                                 <DialogTitle>{isArchived(pendingStatusOwner) ? 'Restore pet owner?' : 'Archive pet owner?'}</DialogTitle>
                                 <DialogDescription>
                                     {isArchived(pendingStatusOwner)
-                                        ? 'The owner will be allowed to log in again.'
-                                        : 'The owner will be hidden from active lists and blocked from logging in.'}
+                                        ? 'The owner will regain booking and self-service queue access.'
+                                        : 'The owner can still sign in and review records, but booking and self-service queue access will be paused.'}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">

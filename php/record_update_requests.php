@@ -163,11 +163,17 @@ function record_request_require_veterinarian(PDO $pdo, int $userId): void
 
     $hasAccountStatus = ipawcus_guard_column_exists($pdo, 'users', 'account_status');
     $hasVeterinarianProfiles = record_request_table_exists($pdo, 'veterinarian_profiles');
+    $hasProfileIsActive = $hasVeterinarianProfiles
+        && ipawcus_guard_column_exists($pdo, 'veterinarian_profiles', 'is_active');
+    $hasProfileIsAcceptingPatients = $hasVeterinarianProfiles
+        && ipawcus_guard_column_exists($pdo, 'veterinarian_profiles', 'is_accepting_patients');
     $stmt = $pdo->prepare("
         SELECT
             u.role,
             " . ($hasAccountStatus ? 'u.account_status' : "'active' AS account_status") . ",
-            " . ($hasVeterinarianProfiles ? 'vp.is_active' : '1 AS profile_is_active') . "
+            " . ($hasVeterinarianProfiles ? 'vp.user_id AS profile_user_id' : 'u.user_id AS profile_user_id') . ",
+            " . ($hasProfileIsActive ? 'COALESCE(vp.is_active, 1)' : '1') . " AS profile_is_active,
+            " . ($hasProfileIsAcceptingPatients ? 'COALESCE(vp.is_accepting_patients, 1)' : '1') . " AS profile_is_accepting_patients
         FROM users u
         " . ($hasVeterinarianProfiles ? 'LEFT JOIN veterinarian_profiles vp ON vp.user_id = u.user_id' : '') . "
         WHERE u.user_id = ?
@@ -177,13 +183,17 @@ function record_request_require_veterinarian(PDO $pdo, int $userId): void
     $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     $role = ipawcus_access_normalize_role((string)($user['role'] ?? ''));
     $accountStatus = strtolower(trim((string)($user['account_status'] ?? 'active')));
+    $profileExists = !$hasVeterinarianProfiles || (int)($user['profile_user_id'] ?? 0) === $userId;
     $profileIsActive = (int)($user['profile_is_active'] ?? 0) === 1;
+    $profileIsAcceptingPatients = (int)($user['profile_is_accepting_patients'] ?? 0) === 1;
     if (
         $role !== 'veterinarian'
         || in_array($accountStatus, ['archived', 'inactive', 'deactivated', 'disabled', 'suspended'], true)
+        || !$profileExists
         || !$profileIsActive
+        || !$profileIsAcceptingPatients
     ) {
-        record_request_error(422, 'The selected account is not an active veterinarian account.');
+        record_request_error(422, 'Select an active veterinarian who is accepting assignments.');
     }
 }
 
@@ -672,7 +682,15 @@ function record_request_update(PDO $pdo, array $input): void
         }
         record_request_require_action_status($locked, 'assigned', ['approved', 'assigned', 'in_progress']);
         record_request_require_cleared_payment($locked, 'assigned');
-        record_request_require_veterinarian($pdo, $assignedVetId);
+        $lockedStatus = strtolower(trim((string)($locked['status'] ?? '')));
+        $lockedAssignedVetId = (int)($locked['assigned_veterinarian_user_id'] ?? 0);
+        $vetIsContinuingOwnRequest = $currentRole === 'veterinarian'
+            && $assignedVetId === $actorUserId
+            && $lockedAssignedVetId === $actorUserId
+            && in_array($lockedStatus, ['assigned', 'in_progress'], true);
+        if (!$vetIsContinuingOwnRequest) {
+            record_request_require_veterinarian($pdo, $assignedVetId);
+        }
 
         if ($currentRole === 'veterinarian') {
             if ($assignedVetId !== $actorUserId) {
@@ -704,10 +722,10 @@ function record_request_update(PDO $pdo, array $input): void
             record_request_error(403, 'You are not allowed to assign record update requests.');
         }
 
-        if ($stmt->rowCount() === 0) {
+        if ($stmt->rowCount() === 0 && !$vetIsContinuingOwnRequest) {
             record_request_error(409, 'This record update request is already assigned or is not assignable.');
         }
-        $notifyAssigned = true;
+        $notifyAssigned = !$vetIsContinuingOwnRequest;
     } elseif ($action === 'start') {
         if ($currentRole !== 'veterinarian') {
             record_request_error(403, 'Only the assigned veterinarian can start this record update request.');
@@ -724,10 +742,12 @@ function record_request_update(PDO $pdo, array $input): void
               AND assigned_veterinarian_user_id = ?
         ");
         $stmt->execute([$vetNotes, $requestId, $actorUserId]);
-        if ($stmt->rowCount() === 0) {
+        $alreadyInProgressForActor = strtolower(trim((string)($locked['status'] ?? ''))) === 'in_progress'
+            && (int)($locked['assigned_veterinarian_user_id'] ?? 0) === $actorUserId;
+        if ($stmt->rowCount() === 0 && !$alreadyInProgressForActor) {
             record_request_error(409, 'This request must be assigned to you before it can be started.');
         }
-        $notifyStarted = true;
+        $notifyStarted = !$alreadyInProgressForActor;
     } elseif ($action === 'complete') {
         if ($currentRole !== 'veterinarian') {
             record_request_error(403, 'Only the assigned veterinarian can complete this record update request.');

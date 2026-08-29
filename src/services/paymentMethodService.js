@@ -12,8 +12,8 @@ function queryString(params = {}) {
     return value ? `?${value}` : '';
 }
 
-export function fetchPaymentMethods(params = {}) {
-    return apiRequest(`/payment-methods${queryString(params)}`, { apiPrefix: true });
+export function fetchPaymentMethods(params = {}, options = {}) {
+    return apiRequest(`/payment-methods${queryString(params)}`, { apiPrefix: true, ...options });
 }
 
 export function requestPaymentMethodsOtp(payload) {

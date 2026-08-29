@@ -48,6 +48,8 @@ const SERVICES = [
     'Special Services',
 ];
 
+const QUEUE_REGISTRATION_HANDOFF_KEY = 'ipawcus-queue-registration-handoff';
+
 export default function AddQueueDialog({ onAddToQueue }) {
     const dashboardUser = useMemo(() => storedDashboardUser(), []);
     const lockedBranchId = assignedBranchId(dashboardUser);
@@ -68,7 +70,31 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
     useEffect(() => {
         fetchQueuePets()
-            .then((data) => setAllPets(Array.isArray(data) ? data : []))
+            .then((data) => {
+                const pets = Array.isArray(data) ? data : [];
+                setAllPets(pets);
+
+                const rawHandoff = sessionStorage.getItem(QUEUE_REGISTRATION_HANDOFF_KEY);
+                if (!rawHandoff) return;
+
+                sessionStorage.removeItem(QUEUE_REGISTRATION_HANDOFF_KEY);
+                try {
+                    const handoff = JSON.parse(rawHandoff);
+                    const handoffPet = pets.find((pet) => String(pet.pet_id) === String(handoff?.petId));
+                    if (!handoffPet) {
+                        toast.error('The newly registered pet is not available for queueing.');
+                        return;
+                    }
+
+                    setSelectedPet(handoffPet);
+                    setSearchTerm(handoffPet.pet_name || handoff.petName || '');
+                    setComplaint(String(handoff.complaint || ''));
+                    setIsOpen(true);
+                } catch (error) {
+                    console.error('Invalid queue registration handoff:', error);
+                    toast.error('The newly registered pet could not be prepared for queueing.');
+                }
+            })
             .catch((error) => {
                 console.error('Error loading pets:', error);
                 setAllPets([]);
@@ -113,6 +139,12 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
     const submitQueue = async ({ cancelActiveBookings = false, confirmedBookingIds = [] } = {}) => {
         if (isSubmitting || !selectedPet || !service || !branchId || !verified) return;
+
+        const selectedPetStatus = String(selectedPet.pet_status || selectedPet.status || '').trim().toLowerCase();
+        if (['deceased', 'dead', 'closed', 'done', 'completed'].includes(selectedPetStatus)) {
+            toast.error('Closed, completed, or deceased pet records cannot be added to the queue.');
+            return;
+        }
 
         setIsSubmitting(true);
         try {

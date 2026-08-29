@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/password_policy_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -13,9 +14,9 @@ $email = authOtpNormalizeEmail($input['email'] ?? '');
 $code = trim((string)($input['code'] ?? ''));
 $newPassword = (string)($input['newPassword'] ?? '');
 
-if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $code) || strlen($newPassword) < 8) {
+if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $code) || !ipawcus_password_meets_policy($newPassword)) {
     http_response_code(400);
-    echo json_encode(['message' => 'Email, 6-digit code, and a new password of at least 8 characters are required.']);
+    echo json_encode(['message' => 'Email and a valid 6-digit code are required. ' . ipawcus_password_policy_error()]);
     exit;
 }
 

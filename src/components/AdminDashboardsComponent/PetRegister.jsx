@@ -13,7 +13,6 @@ import {
     ListTodo,
     Camera,
     Loader2,
-    CircleAlert,
     Link2,
 } from 'lucide-react';
 import {
@@ -30,8 +29,9 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchAllPets, updatePetStatus } from '../../services/petService';
-import { addQueueItem } from '../../services/queueService';
 import { uploadImageFile } from '../../services/uploadService';
+
+const QUEUE_REGISTRATION_HANDOFF_KEY = 'ipawcus-queue-registration-handoff';
 
 const emptyPetProfile = {
     id: '',
@@ -69,7 +69,7 @@ export default function PetRegister() {
     const [generatedPetId, setGeneratedPetId] = useState('');
     const [copiedPetId, setCopiedPetId] = useState(false);
     const [registeredPetName, setRegisteredPetName] = useState('');
-    const [registrationQueueStatus, setRegistrationQueueStatus] = useState('added');
+    const [registeredPetQueueHandoff, setRegisteredPetQueueHandoff] = useState(null);
 
     const fetchPets = useCallback(async () => {
         try {
@@ -179,33 +179,16 @@ export default function PetRegister() {
 
             const result = await addPetService(petPayload);
             const registeredPetId = Number(result?.id);
-            let nextQueueStatus = 'failed';
-
-            // Post newly registered pet into queue as Consultation source=register.
-            // If this secondary step fails, keep the successful pet registration intact.
-            if (Number.isFinite(registeredPetId) && registeredPetId > 0) {
-                try {
-                    await addQueueItem({
-                        pet_id: registeredPetId,
-                        user_id: null,
-                        service_name: 'Consultation',
-                        priority: 'normal',
-                        complaint: complaintFromMedicalInfo,
-                        queue_source: 'register'
-                    });
-                    nextQueueStatus = 'added';
-                } catch (queueError) {
-                    console.error('Failed to auto-add registered pet to queue:', queueError);
-                    toast.error('Pet registered, but failed to add to queue automatically.');
-                }
-            } else {
-                toast.error('Pet registered, but missing pet ID for queue auto-add.');
-            }
             
             toast.success("Pet registered successfully!");
             setRegisteredPetName(formData.petName);
             setGeneratedPetId(result.sharableId);
-            setRegistrationQueueStatus(nextQueueStatus);
+            setRegisteredPetQueueHandoff({
+                petId: Number.isFinite(registeredPetId) && registeredPetId > 0 ? registeredPetId : null,
+                petName: formData.petName,
+                petStatus: formData.status,
+                complaint: complaintFromMedicalInfo,
+            });
             setFormData({ ...emptyPetProfile });
             setShowSuccessDialog(true);
             fetchPets(); 
@@ -239,6 +222,28 @@ export default function PetRegister() {
             // Fallback: show toast with the ID
             toast.success(`Pet ID: ${generatedPetId}`);
         }
+    };
+
+    const handleAddRegisteredPetToQueue = () => {
+        const petId = Number(registeredPetQueueHandoff?.petId);
+        const petStatus = String(registeredPetQueueHandoff?.petStatus || '').trim().toLowerCase();
+        if (!Number.isFinite(petId) || petId <= 0) {
+            toast.error('The registered pet could not be prepared for Queue Management.');
+            return;
+        }
+        if (['deceased', 'dead', 'closed', 'done', 'completed'].includes(petStatus)) {
+            toast.error('Closed, completed, or deceased pet records cannot be added to the queue.');
+            return;
+        }
+
+        sessionStorage.setItem(QUEUE_REGISTRATION_HANDOFF_KEY, JSON.stringify({
+            petId,
+            petName: registeredPetQueueHandoff.petName || registeredPetName,
+            complaint: registeredPetQueueHandoff.complaint || '',
+        }));
+        setShowSuccessDialog(false);
+        setCopiedPetId(false);
+        navigate('/dashboard/queue');
     };
 
     const filteredRegisteredPets = registeredPets.filter(pet => {
@@ -844,24 +849,14 @@ export default function PetRegister() {
                             </span>
                         </div>
 
-                        <div className={`flex items-start gap-3 rounded-xl border p-3.5 ${
-                            registrationQueueStatus === 'added'
-                                ? 'border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30'
-                                : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
-                        }`}>
-                            {registrationQueueStatus === 'added' ? (
-                                <ListTodo className="mt-0.5 size-5 shrink-0 text-[#155dfc] dark:text-blue-300" />
-                            ) : (
-                                <CircleAlert className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
-                            )}
+                        <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 dark:border-blue-900 dark:bg-blue-950/30">
+                            <ListTodo className="mt-0.5 size-5 shrink-0 text-[#155dfc] dark:text-blue-300" />
                             <div>
                                 <p className="text-sm font-black text-slate-950 dark:text-white">
-                                    {registrationQueueStatus === 'added' ? 'Added to the consultation queue' : 'Queue entry needs attention'}
+                                    Not added to the queue yet
                                 </p>
                                 <p className="mt-0.5 text-xs leading-5 text-slate-600 dark:text-slate-300">
-                                    {registrationQueueStatus === 'added'
-                                        ? 'The new patient is ready for the normal queue workflow.'
-                                        : 'The profile was saved, but the automatic queue step failed. Add the patient manually from Queue Management.'}
+                                    Choose Add to queue below to open Queue Management, select the service, and review the visit details. Choosing Done only closes this message.
                                 </p>
                             </div>
                         </div>
@@ -925,6 +920,21 @@ export default function PetRegister() {
                     </div>
 
                     <DialogFooter className="m-0 border-t border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/50 sm:px-6">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleAddRegisteredPetToQueue}
+                            disabled={
+                                !registeredPetQueueHandoff?.petId
+                                || ['deceased', 'dead', 'closed', 'done', 'completed'].includes(
+                                    String(registeredPetQueueHandoff?.petStatus || '').trim().toLowerCase()
+                                )
+                            }
+                            className="w-full gap-2 border-[#155dfc] text-[#155dfc] hover:bg-blue-50 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950/50 sm:w-auto"
+                        >
+                            <ListTodo className="size-4" />
+                            Add to queue
+                        </Button>
                         <Button
                             type="button"
                             onClick={() => {

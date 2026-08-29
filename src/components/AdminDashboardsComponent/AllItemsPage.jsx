@@ -262,7 +262,7 @@ export default function AllItemsPage() {
     || locationFilter !== 'Select Location'
     || statusFilter !== 'Select Status'
   );
-  const filteredItems = hasInventoryQuery ? inventoryItems.filter(item => {
+  const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (item.genericName && item.genericName.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -272,7 +272,7 @@ export default function AllItemsPage() {
       || (item.batches || []).some((batch) => String(batch.locationId) === String(locationFilter));
     const matchesStatus = statusFilter === 'Select Status' || item.status === statusFilter;
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
-  }) : [];
+  });
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
   const firstItemIndex = (activePage - 1) * INVENTORY_PAGE_SIZE;
@@ -694,12 +694,12 @@ export default function AllItemsPage() {
         <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-12 text-[#4a5565] mx-auto mb-4" />
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-2">
-            {hasInventoryQuery ? 'No items found' : 'Search or filter inventory'}
+            {hasInventoryQuery ? 'No items found' : 'No inventory items available'}
           </h3>
           <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
             {hasInventoryQuery
               ? 'Try adjusting your search or filter criteria.'
-              : 'Enter a product name, SKU, or generic name, or choose a filter to display inventory records.'}
+              : 'Inventory records will appear here when items are available.'}
           </p>
         </div>
       )}

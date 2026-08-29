@@ -4,11 +4,26 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Card, CardContent } from '../../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import { User, Mail, Phone, MapPin, Award, Calendar, Save, Video, Camera, Loader2 } from 'lucide-react';
+import {
+    Award,
+    Calendar,
+    Camera,
+    Check,
+    Clock3,
+    Loader2,
+    Mail,
+    MapPin,
+    Pencil,
+    Phone,
+    Save,
+    User,
+    Video
+} from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
@@ -35,12 +50,12 @@ const TIME_SLOTS = [
     '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
 ];
 const DAYS = [
-    { key: 'monday', label: 'Monday' },
-    { key: 'tuesday', label: 'Tuesday' },
-    { key: 'wednesday', label: 'Wednesday' },
-    { key: 'thursday', label: 'Thursday' },
-    { key: 'friday', label: 'Friday' },
-    { key: 'saturday', label: 'Saturday' }
+    { key: 'monday', label: 'Monday', shortLabel: 'Mon' },
+    { key: 'tuesday', label: 'Tuesday', shortLabel: 'Tue' },
+    { key: 'wednesday', label: 'Wednesday', shortLabel: 'Wed' },
+    { key: 'thursday', label: 'Thursday', shortLabel: 'Thu' },
+    { key: 'friday', label: 'Friday', shortLabel: 'Fri' },
+    { key: 'saturday', label: 'Saturday', shortLabel: 'Sat' }
 ];
 
 const emptyProfile = {
@@ -75,6 +90,24 @@ function createEmptyAvailability() {
     }), {});
 }
 
+function cloneAvailability(source) {
+    return DAYS.reduce((nextAvailability, day) => ({
+        ...nextAvailability,
+        [day.key]: [...(source[day.key] || [])]
+    }), {});
+}
+
+function getAvailabilityChanges(nextAvailability, previousAvailability) {
+    return DAYS.flatMap(day => TIME_SLOTS.flatMap(time => {
+        const isAvailable = (nextAvailability[day.key] || []).includes(time);
+        const wasAvailable = (previousAvailability[day.key] || []).includes(time);
+
+        return isAvailable === wasAvailable
+            ? []
+            : [{ day: day.key, time, isAvailable }];
+    }));
+}
+
 function buildAvailabilityByDay(schedules) {
     const nextAvailability = createEmptyAvailability();
 
@@ -105,6 +138,10 @@ export default function VetProfile({ onForgotPassword }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [availability, setAvailability] = useState(() => createEmptyAvailability());
+    const [savedAvailability, setSavedAvailability] = useState(() => createEmptyAvailability());
+    const [activeAvailabilityDay, setActiveAvailabilityDay] = useState(DAYS[0].key);
+    const [isEditingAvailability, setIsEditingAvailability] = useState(false);
+    const [isSavingAvailability, setIsSavingAvailability] = useState(false);
     const [profileData, setProfileData] = useState(emptyProfile);
     const [savedProfile, setSavedProfile] = useState(emptyProfile);
     const [imageFile, setImageFile] = useState(null);
@@ -151,52 +188,86 @@ export default function VetProfile({ onForgotPassword }) {
         loadProfile();
     }, [userId, role]);
 
-    useEffect(() => {
-        const fetchSchedules = async () => {
-            try {
-                if (!userId) return;
+    useAutoRefresh(async () => {
+        if (!userId) return;
 
-                const data = await fetchVetSchedules(userId);
-                if (Array.isArray(data)) {
-                    setAvailability(buildAvailabilityByDay(data));
-                }
-            } catch (error) {
-                console.error('Failed to fetch schedules:', error);
-            }
-        };
-        fetchSchedules();
-    }, [userId]);
+        const data = await fetchVetSchedules(userId);
+        if (Array.isArray(data)) {
+            const nextAvailability = buildAvailabilityByDay(data);
+            setAvailability(nextAvailability);
+            setSavedAvailability(cloneAvailability(nextAvailability));
+        }
+    }, {
+        enabled: Boolean(userId) && activeTab === 'profile' && !isEditingAvailability && !isSavingAvailability,
+        refreshKey: `vet-profile-availability-${userId || 'none'}`
+    });
 
-    const toggleTimeSlot = async (day, time) => {
-        const daySlots = availability[day] || [];
-        const isCurrentlyAvailable = daySlots.includes(time);
-        const newStatus = !isCurrentlyAvailable;
-
+    const toggleTimeSlot = (day, time) => {
         setAvailability(prev => ({
             ...prev,
-            [day]: newStatus
+            [day]: !(prev[day] || []).includes(time)
                 ? sortTimeSlots([...(prev[day] || []), time])
                 : (prev[day] || []).filter(slot => slot !== time)
         }));
+    };
+
+    const setDayAvailability = (day, slots) => {
+        setAvailability(prev => ({
+            ...prev,
+            [day]: sortTimeSlots(slots)
+        }));
+    };
+
+    const handleCancelAvailability = () => {
+        setAvailability(cloneAvailability(savedAvailability));
+        setIsEditingAvailability(false);
+    };
+
+    const handleSaveAvailability = async () => {
+        if (!userId) {
+            toast.error('Session error. Please log in again.');
+            return false;
+        }
+
+        const changes = getAvailabilityChanges(availability, savedAvailability);
+
+        if (changes.length === 0) {
+            setIsEditingAvailability(false);
+            return true;
+        }
+
+        setIsSavingAvailability(true);
 
         try {
-            await updateVetSchedules({
+            await Promise.all(changes.map(change => updateVetSchedules({
                 user_id: userId,
-                day,
-                time,
-                is_available: newStatus ? 1 : 0
-            });
+                day: change.day,
+                time: change.time,
+                is_available: change.isAvailable ? 1 : 0
+            })));
 
-            toast.success('Availability updated');
+            setSavedAvailability(cloneAvailability(availability));
+            setIsEditingAvailability(false);
+            toast.success('Online consultation availability updated');
+            return true;
         } catch (error) {
             console.error('Failed to update schedule:', error);
-            toast.error('Failed to update availability');
-            setAvailability(prev => ({
-                ...prev,
-                [day]: isCurrentlyAvailable
-                    ? sortTimeSlots([...(prev[day] || []), time])
-                    : (prev[day] || []).filter(slot => slot !== time)
-            }));
+            toast.error('Some availability changes could not be saved. Your schedule has been refreshed.');
+
+            try {
+                const data = await fetchVetSchedules(userId);
+                if (Array.isArray(data)) {
+                    const refreshedAvailability = buildAvailabilityByDay(data);
+                    setAvailability(refreshedAvailability);
+                    setSavedAvailability(cloneAvailability(refreshedAvailability));
+                }
+            } catch (refreshError) {
+                console.error('Failed to refresh schedule:', refreshError);
+            }
+
+            return false;
+        } finally {
+            setIsSavingAvailability(false);
         }
     };
 
@@ -299,7 +370,7 @@ export default function VetProfile({ onForgotPassword }) {
     const handleProfileTabChange = (nextTab) => {
         if (nextTab === activeTab) return;
 
-        if (activeTab === 'profile' && isEditing) {
+        if (activeTab === 'profile' && (isEditing || isEditingAvailability)) {
             setPendingProfileTab(nextTab);
             setIsProfileLeaveDialogOpen(true);
             return;
@@ -315,7 +386,9 @@ export default function VetProfile({ onForgotPassword }) {
     };
 
     const handleSaveAndLeaveProfile = async () => {
-        const saved = await handleSave();
+        const saved = isEditingAvailability
+            ? await handleSaveAvailability()
+            : await handleSave();
         if (!saved) return;
 
         setIsProfileLeaveDialogOpen(false);
@@ -341,7 +414,11 @@ export default function VetProfile({ onForgotPassword }) {
                     <p className="mt-1 text-[16px] text-[#4a5565]">Manage your professional information</p>
                 </div>
                 {activeTab === 'profile' && !isEditing && (
-                    <Button onClick={() => setIsEditing(true)} className="bg-[#155dfc] hover:bg-[#0d4acf]">
+                    <Button
+                        onClick={() => setIsEditing(true)}
+                        disabled={isEditingAvailability || isSavingAvailability}
+                        className="bg-[#155dfc] hover:bg-[#0d4acf]"
+                    >
                         Edit Profile
                     </Button>
                 )}
@@ -488,49 +565,19 @@ export default function VetProfile({ onForgotPassword }) {
                                 />
                             </section>
 
-                            <section className="border-t border-slate-100 pt-8">
-                                <div className="mb-4 flex items-center gap-3">
-                                    <div className="flex size-10 items-center justify-center rounded-[10px] bg-[rgba(21,93,252,0.1)]">
-                                        <Video className="size-5 text-[#155dfc]" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-[18px] font-bold text-[#101828]">Online Consultation Availability</h3>
-                                        <p className="text-[14px] text-[#4a5565]">Set your available time slots by day for online consultations</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-4 rounded-[10px] border border-slate-200 bg-[#f9fafb] p-4 sm:p-6">
-                                    {DAYS.map(day => (
-                                        <div key={day.key} className="rounded-[10px] border border-slate-200 bg-white p-4">
-                                            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                                <h4 className="font-bold text-[#101828]">{day.label}</h4>
-                                                <span className="text-[13px] text-[#4a5565]">
-                                                    {(availability[day.key] || []).length} slot{(availability[day.key] || []).length === 1 ? '' : 's'} selected
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                                                {TIME_SLOTS.map(time => {
-                                                    const isSelected = (availability[day.key] || []).includes(time);
-                                                    return (
-                                                        <button
-                                                            key={`${day.key}-${time}`}
-                                                            type="button"
-                                                            onClick={() => isEditing && toggleTimeSlot(day.key, time)}
-                                                            disabled={!isEditing}
-                                                            className={`rounded-[8px] px-3 py-3 text-[14px] transition-colors ${
-                                                                isSelected
-                                                                    ? 'bg-[#155dfc] text-white'
-                                                                    : 'border border-slate-200 bg-white text-[#4a5565] hover:border-[#155dfc]'
-                                                            } ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
-                                                        >
-                                                            {time}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    </div>
-                            </section>
+                            <AvailabilityEditor
+                                availability={availability}
+                                activeDay={activeAvailabilityDay}
+                                isEditing={isEditingAvailability}
+                                isSaving={isSavingAvailability}
+                                profileIsEditing={isEditing}
+                                onActiveDayChange={setActiveAvailabilityDay}
+                                onEdit={() => setIsEditingAvailability(true)}
+                                onCancel={handleCancelAvailability}
+                                onSave={handleSaveAvailability}
+                                onTimeToggle={toggleTimeSlot}
+                                onDaySlotsChange={setDayAvailability}
+                            />
 
                             {isEditing && (
                                 <div className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
@@ -571,9 +618,250 @@ export default function VetProfile({ onForgotPassword }) {
                 open={isProfileLeaveDialogOpen}
                 onStay={handleStayOnProfile}
                 onSave={handleSaveAndLeaveProfile}
-                isSaving={isSaving}
+                isSaving={isSaving || isSavingAvailability}
+                title={isEditingAvailability ? 'Save availability first' : undefined}
+                description={isEditingAvailability ? 'Save your online consultation schedule before opening another tab.' : undefined}
+                saveLabel={isEditingAvailability ? 'Save availability' : undefined}
             />
         </div>
+    );
+}
+
+function AvailabilityEditor({
+    availability,
+    activeDay,
+    isEditing,
+    isSaving,
+    profileIsEditing,
+    onActiveDayChange,
+    onEdit,
+    onCancel,
+    onSave,
+    onTimeToggle,
+    onDaySlotsChange
+}) {
+    const activeDayDetails = DAYS.find(day => day.key === activeDay) || DAYS[0];
+    const activeSlots = availability[activeDayDetails.key] || [];
+    const morningSlots = TIME_SLOTS.filter(time => time.endsWith('AM'));
+    const afternoonSlots = TIME_SLOTS.filter(time => time.endsWith('PM'));
+    const weeklySlotCount = DAYS.reduce(
+        (total, day) => total + (availability[day.key] || []).length,
+        0
+    );
+
+    const renderTimeButton = time => {
+        const isSelected = activeSlots.includes(time);
+
+        return (
+            <button
+                key={`${activeDayDetails.key}-${time}`}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onTimeToggle(activeDayDetails.key, time)}
+                disabled={isSaving}
+                className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${
+                    isSelected
+                        ? 'border-[#155dfc] bg-[#155dfc] text-white hover:bg-[#0d4acf]'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#155dfc] hover:bg-blue-50 hover:text-[#155dfc]'
+                }`}
+            >
+                {isSelected && <Check className="size-3.5 shrink-0" />}
+                {time}
+            </button>
+        );
+    };
+
+    return (
+        <section className="border-t border-slate-100 pt-8">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <Video className="size-5 text-[#155dfc]" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-[#101828]">Online Consultation Availability</h3>
+                        <p className="mt-0.5 text-sm text-[#4a5565]">
+                            Choose a day, then set the times pet owners can book.
+                        </p>
+                    </div>
+                </div>
+
+                {!isEditing && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onEdit}
+                        disabled={profileIsEditing || isSaving}
+                        title={profileIsEditing ? 'Save or cancel your profile changes first' : undefined}
+                        className="w-full shrink-0 sm:w-auto"
+                    >
+                        <Pencil className="size-4" />
+                        Edit availability
+                    </Button>
+                )}
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 bg-slate-50 px-3 py-3 sm:px-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Weekly schedule</p>
+                        <p className="text-xs font-medium text-slate-500">
+                            {weeklySlotCount} slot{weeklySlotCount === 1 ? '' : 's'} total
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="tablist" aria-label="Consultation availability days">
+                        {DAYS.map(day => {
+                            const daySlotCount = (availability[day.key] || []).length;
+                            const isActive = day.key === activeDayDetails.key;
+
+                            return (
+                                <button
+                                    key={day.key}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    aria-controls="availability-day-panel"
+                                    onClick={() => onActiveDayChange(day.key)}
+                                    className={`min-w-0 rounded-lg border px-2 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 ${
+                                        isActive
+                                            ? 'border-[#155dfc] bg-blue-50 text-[#155dfc] shadow-sm'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <span className="block text-sm font-bold">{day.shortLabel}</span>
+                                    <span className={`mt-0.5 block text-[11px] font-medium ${isActive ? 'text-blue-700' : 'text-slate-500'}`}>
+                                        {daySlotCount === 0 ? 'Not set' : `${daySlotCount} slot${daySlotCount === 1 ? '' : 's'}`}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div
+                    id="availability-day-panel"
+                    role="tabpanel"
+                    className="p-4 sm:p-5"
+                >
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h4 className="font-bold text-slate-950">{activeDayDetails.label}</h4>
+                            <p className="mt-0.5 text-sm text-slate-500">
+                                {isEditing
+                                    ? `${activeSlots.length} of ${TIME_SLOTS.length} half-hour slots selected`
+                                    : `${activeSlots.length} available slot${activeSlots.length === 1 ? '' : 's'}`}
+                            </p>
+                        </div>
+
+                        {isEditing && (
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onDaySlotsChange(activeDayDetails.key, [])}
+                                    disabled={activeSlots.length === 0 || isSaving}
+                                    className="flex-1 text-slate-600 sm:flex-none"
+                                >
+                                    Clear day
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => onDaySlotsChange(activeDayDetails.key, TIME_SLOTS)}
+                                    disabled={activeSlots.length === TIME_SLOTS.length || isSaving}
+                                    className="flex-1 sm:flex-none"
+                                >
+                                    Select all
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    {isEditing ? (
+                        <div className="space-y-5">
+                            <div>
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    <Clock3 className="size-3.5" />
+                                    Morning
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                                    {morningSlots.map(renderTimeButton)}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    <Clock3 className="size-3.5" />
+                                    Afternoon
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                                    {afternoonSlots.map(renderTimeButton)}
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSlots.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                            {activeSlots.map(time => (
+                                <div
+                                    key={`${activeDayDetails.key}-summary-${time}`}
+                                    className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-sm font-semibold text-slate-700"
+                                >
+                                    <Clock3 className="size-3.5 text-slate-400" />
+                                    {time}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center">
+                            <Clock3 className="mb-2 size-5 text-slate-400" />
+                            <p className="text-sm font-semibold text-slate-700">No times set for {activeDayDetails.label}</p>
+                            <p className="mt-1 text-xs text-slate-500">Use Edit availability to add bookable times.</p>
+                        </div>
+                    )}
+                </div>
+
+                {isEditing && (
+                    <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-slate-500">Changes apply to your recurring weekly schedule.</p>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={onCancel}
+                                disabled={isSaving}
+                                className="flex-1 sm:flex-none"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={onSave}
+                                disabled={isSaving}
+                                className="flex-1 bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:flex-none"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="size-4" />
+                                        Save availability
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </section>
     );
 }
 

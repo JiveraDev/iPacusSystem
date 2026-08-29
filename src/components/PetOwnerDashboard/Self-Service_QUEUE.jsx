@@ -5,6 +5,7 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { PhotoViewer } from "../../ui/photo-viewer";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import {
     ClipboardList,
     CheckCircle,
@@ -13,14 +14,14 @@ import {
     Bird,
     Upload,
     X,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Loader2
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import ConsentDocument from "../shared/ConsentDocument.jsx";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf.js";
-import { resolveImageUrl } from "../../lib/image";
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
@@ -28,8 +29,17 @@ import { addQueueItem, updateQueueStatus } from "../../services/queueService";
 import { checkSelfServiceAccess, fetchPublicWanIp } from "../../services/selfServiceService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchConsentFiles } from "../../services/consentFileService";
-import { uploadDataUrlImage } from "../../services/uploadService";
+import { uploadImageFile } from "../../services/uploadService";
 import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
+import ProtectedImage from "../shared/ProtectedImage.jsx";
+
+const MAX_CONCERN_IMAGE_BYTES = 8 * 1024 * 1024;
+const SUPPORTED_CONCERN_IMAGE_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp"
+]);
 
 const SERVICES = [
     "General Check-up",
@@ -113,6 +123,8 @@ export default function QueueDashboard() {
     const [uploadedImages, setUploadedImages] = useState([]);
     const [viewingImage, setViewingImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [queueToCancel, setQueueToCancel] = useState(null);
+    const [cancellingQueueId, setCancellingQueueId] = useState(null);
     const [consentTemplates, setConsentTemplates] = useState([]);
     const [isLoadingConsentTemplates, setIsLoadingConsentTemplates] = useState(false);
 
@@ -209,55 +221,64 @@ export default function QueueDashboard() {
         refreshKey: "self-service-queue-consent-templates"
     });
 
-    const handleCancelQueue = async (queueId, petName) => {
-        if (!window.confirm(`Are you sure you want to cancel the queue for ${petName}?`)) {
-            return;
-        }
+    const handleCancelQueue = async () => {
+        if (!queueToCancel || cancellingQueueId) return;
 
+        const queueId = Number(queueToCancel.queueId);
+        setCancellingQueueId(queueId);
         try {
             const data = await updateQueueStatus({
                 queue_id: queueId,
-                status: "cancelled"
+                status: "cancelled",
+                reason: "Cancelled by the pet owner from the self-service queue."
             });
 
             if (data.success !== false) {
-                toast.success(`Queue for ${petName} has been cancelled.`);
-                // Refresh pets list
-                setSubmitted(prev => !prev);
-                loadPets();
+                setPets((current) => current.map((pet) => (
+                    Number(pet.activeQueue?.queue_id) === queueId
+                        ? { ...pet, activeQueue: null }
+                        : pet
+                )));
+                toast.success(`Queue for ${queueToCancel.petName} has been cancelled.`);
+                setQueueToCancel(null);
+                await loadPets();
             } else {
-                toast.error("Failed to cancel queue.");
+                toast.error(data.message || "Failed to cancel queue.");
             }
         } catch (error) {
             console.error("Error cancelling queue:", error);
-            toast.error("An error occurred while cancelling the queue.");
+            toast.error(error.message || "An error occurred while cancelling the queue.");
+        } finally {
+            setCancellingQueueId(null);
         }
     };
 
     const handleImageUpload = (e) => {
-        const files = e.target.files;
-        if (!files) return;
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
 
-        const fileArray = Array.from(files);
-        fileArray.forEach((file) => {
-            if (!file.type.startsWith("image/")) {
-                toast.error(`${file.name} is not a supported image.`);
+        if (!SUPPORTED_CONCERN_IMAGE_TYPES.has(file.type)) {
+            toast.error("Upload a JPG, PNG, WEBP, or GIF image.");
+            return;
+        }
+        if (file.size <= 0 || file.size > MAX_CONCERN_IMAGE_BYTES) {
+            toast.error("The image must be smaller than 8 MB.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const previewUrl = String(event.target?.result || "");
+            if (!previewUrl.startsWith("data:image")) {
+                toast.error(`${file.name} could not be prepared for preview.`);
                 return;
             }
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (String(event.target?.result || "").startsWith("data:image")) {
-                    setUploadedImages((prev) => [...prev, event.target.result]);
-                } else {
-                    toast.error(`${file.name} could not be prepared for preview.`);
-                }
-            };
-            reader.onerror = () => toast.error(`${file.name} could not be read. Please choose another image.`);
-            reader.onabort = () => toast.error(`${file.name} preview was cancelled.`);
-            reader.readAsDataURL(file);
-        });
-        e.target.value = "";
+            setUploadedImages([{ file, previewUrl }]);
+        };
+        reader.onerror = () => toast.error(`${file.name} could not be read. Please choose another image.`);
+        reader.onabort = () => toast.error(`${file.name} preview was cancelled.`);
+        reader.readAsDataURL(file);
     };
 
     const handleRemoveImage = (index) => {
@@ -318,8 +339,8 @@ export default function QueueDashboard() {
             }
 
             let imagePath = null;
-            if (uploadedImages.length > 0 && uploadedImages[0]?.startsWith("data:image")) {
-                imagePath = await uploadDataUrlImage(uploadedImages[0], "booking_concern", "queue_concern");
+            if (uploadedImages[0]?.file) {
+                imagePath = await uploadImageFile(uploadedImages[0].file, "booking_concern");
             }
 
             const queueData = await addQueueItem({
@@ -461,11 +482,10 @@ export default function QueueDashboard() {
                                                 )}
                                                 {pets.map((pet) => {
                                                     const Icon = getPetIcon(pet.species);
-                                                    const petImage = resolveImageUrl(pet.profileImage);
                                                     return (
                                                         <Card
                                                             key={pet.id}
-                                                            className={`relative overflow-hidden transition-all hover:shadow-md ${
+                                                            className={`relative min-w-0 overflow-hidden transition-all hover:shadow-md ${
                                                                 selectedPet === pet.id
                                                                     ? "ring-2 ring-blue-600 bg-blue-50"
                                                                     : "hover:border-blue-300"
@@ -475,17 +495,27 @@ export default function QueueDashboard() {
                                                                 setSelectedPet(pet.id);
                                                                 setSignature(null);
                                                             }}
+                                                            role={pet.activeQueue ? undefined : "button"}
+                                                            tabIndex={pet.activeQueue ? -1 : 0}
+                                                            onKeyDown={(event) => {
+                                                                if (!pet.activeQueue && (event.key === "Enter" || event.key === " ")) {
+                                                                    event.preventDefault();
+                                                                    setSelectedPet(pet.id);
+                                                                    setSignature(null);
+                                                                }
+                                                            }}
                                                         >
                                                             <CardContent className="pt-4">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center overflow-hidden ${
                                                                         selectedPet === pet.id ? "bg-blue-600" : "bg-gray-200"
                                                                     }`}>
-                                                                        {petImage ? (
-                                                                            <img
-                                                                                src={petImage}
+                                                                        {pet.profileImage ? (
+                                                                            <ProtectedImage
+                                                                                src={pet.profileImage}
                                                                                 alt={`${pet.name} profile`}
                                                                                 className="h-full w-full object-cover"
+                                                                                fallbackClassName="h-full w-full"
                                                                             />
                                                                         ) : (
                                                                             <Icon className={`h-6 w-6 ${
@@ -493,28 +523,34 @@ export default function QueueDashboard() {
                                                                             }`} />
                                                                         )}
                                                                     </div>
-                                                                    <div className="flex-1">
-                                                                        <div className="flex justify-between items-start">
-                                                                            <div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex min-w-0 items-start justify-between gap-2">
+                                                                            <div className="min-w-0">
                                                                                 <p className="font-semibold text-gray-900">{pet.name}</p>
-                                                                                <p className="text-sm text-gray-600">{pet.breed}</p>
+                                                                                <p className="truncate text-sm text-gray-600">{pet.breed}</p>
                                                                             </div>
                                                                             {pet.activeQueue && (
-                                                                                <div className="text-right">
-                                                                                    <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full mb-1">
+                                                                                <div className="flex shrink-0 items-center gap-1.5">
+                                                                                    <span className="whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700">
                                                                                         IN QUEUE {formatQueueReference(pet.activeQueue)}
                                                                                     </span>
-                                                                                    <Button 
-                                                                                        size="sm" 
-                                                                                        variant="destructive" 
-                                                                                        className="h-7 px-2 text-xs flex items-center gap-1"
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        size="icon"
+                                                                                        variant="ghost"
+                                                                                        className="size-7 shrink-0 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
                                                                                         onClick={(e) => {
                                                                                             e.stopPropagation();
-                                                                                            handleCancelQueue(pet.activeQueue.queue_id, pet.name);
+                                                                                            setQueueToCancel({
+                                                                                                queueId: pet.activeQueue.queue_id,
+                                                                                                queueReference: formatQueueReference(pet.activeQueue),
+                                                                                                petName: pet.name
+                                                                                            });
                                                                                         }}
+                                                                                        aria-label={`Cancel queue for ${pet.name}`}
+                                                                                        title="Cancel queue"
                                                                                     >
-                                                                                        <X className="h-3 w-3" />
-                                                                                        Cancel
+                                                                                        <X className="size-3.5" />
                                                                                     </Button>
                                                                                 </div>
                                                                             )}
@@ -620,13 +656,12 @@ export default function QueueDashboard() {
                                         {/* Image Upload */}
                                         {selectedService && (
                                             <div className="space-y-3">
-                                                <Label>Upload Images (Optional)</Label>
+                                                <Label>Upload an Image (Optional)</Label>
                                                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                                                     <input
                                                         type="file"
                                                         id="imageUpload"
-                                                        accept="image/*"
-                                                        multiple
+                                                        accept=".jpg,.jpeg,.png,.gif,.webp"
                                                         onChange={handleImageUpload}
                                                         className="hidden"
                                                         disabled={isSubmitting}
@@ -634,10 +669,10 @@ export default function QueueDashboard() {
                                                     <label htmlFor="imageUpload" className="cursor-pointer">
                                                         <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                                                         <p className="text-sm text-gray-600 mb-1">
-                                                            Click to upload images or drag and drop
+                                                            Click to choose an image
                                                         </p>
                                                         <p className="text-xs text-gray-500">
-                                                            PNG, JPG, GIF up to 10MB
+                                                            PNG, JPG, WEBP, or GIF up to 8 MB
                                                         </p>
                                                     </label>
                                                 </div>
@@ -651,7 +686,7 @@ export default function QueueDashboard() {
                                                                 className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200"
                                                             >
                                                                 <UploadImagePreview
-                                                                    src={image}
+                                                                    src={image.previewUrl}
                                                                     alt={`Uploaded ${index + 1}`}
                                                                     onPreview={setViewingImage}
                                                                 />
@@ -696,10 +731,10 @@ export default function QueueDashboard() {
                                             slowLabel="Still adding queue entry..."
                                         />
 
-                                        <div className="flex gap-3">
+                                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                                             <Button
                                                 type="submit"
-                                                className="flex-1"
+                                                className="w-full sm:w-auto sm:min-w-36"
                                                 disabled={!canSubmit}
                                             >
                                                 {isSubmitting ? "Adding to Queue..." : "Add to Queue"}
@@ -711,6 +746,7 @@ export default function QueueDashboard() {
                                                 onClick={() => {
                                                     setSelectedPet(null);
                                                     setSelectedService("");
+                                                    setSelectedBranchId("");
                                                     setSignature(null);
                                                     setConcernStatement("");
                                                     setUploadedImages([]);
@@ -738,13 +774,13 @@ export default function QueueDashboard() {
                                                 <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                                                     {(() => {
                                                         const Icon = getPetIcon(selectedPetData.species);
-                                                        const petImage = resolveImageUrl(selectedPetData.profileImage);
-                                                        if (petImage) {
+                                                        if (selectedPetData.profileImage) {
                                                             return (
-                                                                <img
-                                                                    src={petImage}
+                                                                <ProtectedImage
+                                                                    src={selectedPetData.profileImage}
                                                                     alt={`${selectedPetData.name} profile`}
                                                                     className="h-8 w-8 rounded-full object-cover"
+                                                                    fallbackClassName="h-8 w-8 rounded-full"
                                                                 />
                                                             );
                                                         }
@@ -793,18 +829,18 @@ export default function QueueDashboard() {
 
                                         {uploadedImages.length > 0 ? (
                                             <div>
-                                                <p className="text-sm text-gray-600 mb-1">Uploaded Images</p>
+                                                <p className="text-sm text-gray-600 mb-1">Uploaded Image</p>
                                                 <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
                                                     <ImageIcon className="h-5 w-5 text-orange-600" />
                                                     <p className="text-sm font-semibold text-orange-700">
-                                                        {uploadedImages.length} {uploadedImages.length === 1 ? 'Image' : 'Images'}
+                                                        Ready to upload
                                                     </p>
                                                 </div>
                                             </div>
                                         ) : (
                                             <div>
-                                                <p className="text-sm text-gray-600 mb-1">Uploaded Images</p>
-                                                <p className="text-sm text-gray-400 italic">No images uploaded</p>
+                                                <p className="text-sm text-gray-600 mb-1">Uploaded Image</p>
+                                                <p className="text-sm text-gray-400 italic">No image uploaded</p>
                                             </div>
                                         )}
 
@@ -842,6 +878,44 @@ export default function QueueDashboard() {
                 alt="Self-service concern preview"
                 onOpenChange={(open) => !open && setViewingImage(null)}
             />
+
+            <Dialog
+                open={Boolean(queueToCancel)}
+                onOpenChange={(open) => {
+                    if (!open && !cancellingQueueId) setQueueToCancel(null);
+                }}
+            >
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Cancel queue entry?</DialogTitle>
+                        <DialogDescription>
+                            {queueToCancel
+                                ? `${queueToCancel.queueReference} for ${queueToCancel.petName} will be removed from the active queue.`
+                                : "This queue entry will be cancelled."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setQueueToCancel(null)}
+                            disabled={Boolean(cancellingQueueId)}
+                        >
+                            Keep Queue
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleCancelQueue}
+                            disabled={Boolean(cancellingQueueId)}
+                            className="sm:min-w-32"
+                        >
+                            {cancellingQueueId ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                            {cancellingQueueId ? "Cancelling..." : "Cancel Queue"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

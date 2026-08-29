@@ -26,8 +26,13 @@ function DialogContent({ className, children, showClose, ...props }) {
   const onOpenChange = context?.onOpenChange;
   const contentRef = React.useRef(null);
   const previousFocusRef = React.useRef(null);
+  const onOpenChangeRef = React.useRef(onOpenChange);
   const hasCustomMaxWidth = typeof className === "string" && /(?:^|\s)(?:[\w-]+:)*max-w-/.test(className);
   const shouldShowClose = showClose ?? !hasCancelDismissAction(children);
+
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   React.useEffect(() => {
     if (!isOpen) return undefined;
@@ -43,7 +48,7 @@ function DialogContent({ className, children, showClose, ...props }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onOpenChange?.(false);
+        onOpenChangeRef.current?.(false);
         return;
       }
 
@@ -77,7 +82,7 @@ function DialogContent({ className, children, showClose, ...props }) {
       document.removeEventListener("keydown", handleKeyDown);
       previousFocusRef.current?.focus?.();
     };
-  }, [isOpen, onOpenChange]);
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;

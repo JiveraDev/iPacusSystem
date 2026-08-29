@@ -3,6 +3,18 @@ function pad(value) {
   return String(value).padStart(2, "0");
 }
 
+function clinicTodayDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function ensureDate(value) {
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number);
@@ -251,4 +263,4 @@ function calculateAge(birthDate) {
   return totalDays > 0 ? plural(totalDays, "day") : "Newborn";
 }
 
-export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, formatDisplayTime, formatReportDateLabel, formatReportDateRange, isSameDay, parseISO, calculateAge };
+export { addDays, differenceInDays, format, formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime, formatDisplayTime, formatReportDateLabel, formatReportDateRange, isSameDay, parseISO, calculateAge, clinicTodayDate };

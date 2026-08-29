@@ -15,13 +15,15 @@ const ConsentDocument = forwardRef(function ConsentDocument({
     signedAt,
     veterinarianName,
     veterinarianLicense,
+    representativeLabel = 'Veterinarian Name and License',
+    representativeDetail,
     templateContext = {},
     variant = 'default',
     className = ''
 }, ref) {
     const isCompact = variant === 'compact';
     const vetNameText = resolveText(veterinarianName, 'Veterinarian');
-    const vetLicenseText = veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A';
+    const vetLicenseText = representativeDetail || (veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A');
     const resolvedContext = {
         ...templateContext,
         signerName,
@@ -77,7 +79,7 @@ const ConsentDocument = forwardRef(function ConsentDocument({
                         <span className="text-xs font-semibold text-gray-700">{vetNameText}</span>
                         <span className="text-[11px] font-semibold text-gray-500">{vetLicenseText}</span>
                     </div>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide">Veterinarian Name and License</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-wide">{representativeLabel}</p>
                 </div>
             </div>
 

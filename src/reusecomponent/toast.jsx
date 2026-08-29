@@ -296,7 +296,7 @@ function ToastViewport() {
 
   return (
     <div
-      className="ipawcus-toast-viewport pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[28rem]"
+      className="ipawcus-toast-viewport pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-[28rem]"
       aria-label="Notifications"
     >
       {toasts.map((toastItem) => <ToastCard key={toastItem.id} toastItem={toastItem} />)}

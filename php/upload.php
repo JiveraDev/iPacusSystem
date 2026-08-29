@@ -4,6 +4,7 @@ header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/upload_receipt_helpers.php';
 
 $pdo = ipawcus_get_pdo();
 $currentUser = ipawcus_guard_current_user($pdo);
@@ -38,7 +39,7 @@ if (!in_array($type, $allowedUploadTypes, true)) {
 }
 
 $originalName = (string)($file['name'] ?? 'upload');
-$extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+$originalExtension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 $maxBytes = 8 * 1024 * 1024;
 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 $documentExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
@@ -56,7 +57,7 @@ if (($file['size'] ?? 0) <= 0 || ($file['size'] ?? 0) > $maxBytes) {
     exit;
 }
 
-if (in_array($extension, $blockedExtensions, true)) {
+if (in_array($originalExtension, $blockedExtensions, true)) {
     http_response_code(422);
     echo json_encode(['message' => 'Executable uploads are not allowed.']);
     exit;
@@ -111,26 +112,28 @@ $pdfOnlyUploadTypes = ['consent_document', 'prescription_document', 'invoice_doc
 $allowedExtensions = in_array($type, $pdfOnlyUploadTypes, true)
     ? ['pdf']
     : (in_array($type, $mixedDocumentUploadTypes, true) ? $documentExtensions : $imageExtensions);
-if (!in_array($extension, $allowedExtensions, true)) {
-    http_response_code(422);
-    echo json_encode(['message' => 'Unsupported file extension for this upload type.']);
-    exit;
-}
 
 $finfo = new finfo(FILEINFO_MIME_TYPE);
 $mimeType = $finfo->file($file['tmp_name']) ?: 'application/octet-stream';
-$allowedMimes = [
-    'jpg' => ['image/jpeg'],
-    'jpeg' => ['image/jpeg'],
-    'png' => ['image/png'],
-    'gif' => ['image/gif'],
-    'webp' => ['image/webp'],
-    'pdf' => ['application/pdf'],
+$canonicalExtensionByMime = [
+    'image/jpeg' => 'jpg',
+    'image/pjpeg' => 'jpg',
+    'image/png' => 'png',
+    'image/x-png' => 'png',
+    'image/gif' => 'gif',
+    'image/webp' => 'webp',
+    'application/pdf' => 'pdf',
+    'application/x-pdf' => 'pdf',
 ];
+$extension = $canonicalExtensionByMime[$mimeType] ?? null;
+$normalizedAllowedExtensions = array_map(
+    static fn(string $allowedExtension): string => $allowedExtension === 'jpeg' ? 'jpg' : $allowedExtension,
+    $allowedExtensions
+);
 
-if (!in_array($mimeType, $allowedMimes[$extension] ?? [], true)) {
+if ($extension === null || !in_array($extension, $normalizedAllowedExtensions, true)) {
     http_response_code(422);
-    echo json_encode(['message' => 'Uploaded file content does not match its extension.']);
+    echo json_encode(['message' => 'Unsupported file content. Upload a PNG, JPG, WEBP, GIF, or PDF allowed for this field.']);
     exit;
 }
 
@@ -147,6 +150,29 @@ if ($targetRoot === false) {
 
 $fileName = date('YmdHis') . '_' . bin2hex(random_bytes(12)) . '.' . $extension;
 $targetFile = $targetDir . $fileName;
+$uploadReceipt = null;
+
+if ($type === 'consent_document') {
+    try {
+        $uploadReceipt = ipawcus_upload_receipt_issue(
+            $urlPath . $fileName,
+            ipawcus_guard_user_id($currentUser),
+            $type,
+            null,
+            [
+                'consent_context' => $_POST['consent_context'] ?? $_POST['consentContext'] ?? null,
+                'consent_file_id' => $_POST['consent_file_id'] ?? $_POST['consentFileId'] ?? null,
+                'booking_id' => $_POST['booking_id'] ?? $_POST['bookingId'] ?? null,
+                'pet_id' => $_POST['pet_id'] ?? $_POST['petId'] ?? null,
+            ]
+        );
+    } catch (Throwable $exception) {
+        error_log('Consent upload receipt creation failed: ' . $exception->getMessage());
+        http_response_code(503);
+        echo json_encode(['message' => 'Consent uploads are temporarily unavailable. Please try again later.']);
+        exit;
+    }
+}
 
 if (move_uploaded_file($file['tmp_name'], $targetFile)) {
     // Return the URL to the uploaded image
@@ -157,13 +183,19 @@ if (move_uploaded_file($file['tmp_name'], $targetFile)) {
     $relativeUrl = $urlPath . $fileName;
     $protectedUrl = "/api/uploads/media/" . $relativeUrl;
     
-    echo json_encode([
+    $response = [
         'message' => 'File uploaded successfully.',
         'url' => $protectedUrl,
         'relative_url' => $relativeUrl,
         'protected_url' => $protectedUrl,
         'full_url' => $protocol . "://" . $host . $protectedUrl
-    ]);
+    ];
+    if (is_array($uploadReceipt)) {
+        $response['upload_receipt'] = $uploadReceipt['receipt'];
+        $response['upload_receipt_expires_at'] = date(DATE_ATOM, (int)$uploadReceipt['expires_at']);
+    }
+
+    echo json_encode($response);
 } else {
     http_response_code(500);
     echo json_encode(['message' => 'Failed to move uploaded file.']);

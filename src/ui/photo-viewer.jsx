@@ -84,8 +84,8 @@ export function PhotoViewer({ src, alt, open, onOpenChange }) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="theme-static-light flex h-[80vh] w-[90vw] max-w-4xl flex-col items-center justify-center gap-3 border-none bg-transparent p-0 shadow-none">
-                <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+            <DialogContent className="theme-static-light flex h-[80vh] w-[90vw] max-w-4xl flex-col gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 pt-14 shadow-2xl sm:p-5 sm:pt-14">
+                <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg bg-slate-100 p-2">
                     {displaySrc && !hasImageError ? (
                         <img
                             src={displaySrc}

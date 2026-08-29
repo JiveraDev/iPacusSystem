@@ -4,9 +4,11 @@ header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/upload_receipt_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 $pdo = ipawcus_get_pdo();
-ipawcus_guard_current_user($pdo);
+$currentUser = ipawcus_guard_current_user($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DELETE') {
     http_response_code(405);
@@ -48,7 +50,7 @@ if (!in_array($segments[0] ?? '', $allowedRootDirs, true)) {
     exit;
 }
 
-$allowedExtensions = ['gif', 'jpeg', 'jpg', 'png', 'webp'];
+$allowedExtensions = ['gif', 'jpeg', 'jpg', 'png', 'webp', 'pdf'];
 $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 if (!in_array($extension, $allowedExtensions, true)) {
     http_response_code(400);
@@ -78,9 +80,66 @@ if (strpos($realTargetPath, $publicRootWithSeparator) !== 0) {
     exit;
 }
 
+if ($extension === 'pdf') {
+    $uploadReceipt = trim((string)($input['upload_receipt'] ?? $input['uploadReceipt'] ?? ''));
+    if (!ipawcus_upload_receipt_verify(
+        $uploadReceipt,
+        $path,
+        ipawcus_guard_user_id($currentUser),
+        'consent_document'
+    )) {
+        http_response_code(403);
+        echo json_encode(['message' => 'This upload cannot be deleted by the current account.']);
+        exit;
+    }
+
+    $consentLockName = 'ipawcus_consent_' . md5($path);
+    if (!booking_slot_acquire($pdo, $consentLockName)) {
+        http_response_code(409);
+        echo json_encode(['message' => 'This consent PDF is currently being processed. Please try again.']);
+        exit;
+    }
+
+    try {
+        $fileToken = basename($realTargetPath);
+        $referencePattern = '%' . $fileToken . '%';
+        $bookingReference = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE signature_path LIKE ? OR consent_forms LIKE ?");
+        $bookingReference->execute([$referencePattern, $referencePattern]);
+        $consentReferenceCount = 0;
+        if (ipawcus_guard_table_exists($pdo, 'consent_form_records')) {
+            $consentReference = $pdo->prepare("SELECT COUNT(*) FROM consent_form_records WHERE signed_file_path LIKE ? OR physical_file_path LIKE ?");
+            $consentReference->execute([$referencePattern, $referencePattern]);
+            $consentReferenceCount = (int)$consentReference->fetchColumn();
+        }
+        if ((int)$bookingReference->fetchColumn() > 0 || $consentReferenceCount > 0) {
+            booking_slot_release($pdo, $consentLockName);
+            http_response_code(409);
+            echo json_encode(['message' => 'This PDF is linked to a consent record and cannot be deleted.']);
+            exit;
+        }
+
+        if (!unlink($realTargetPath)) {
+            booking_slot_release($pdo, $consentLockName);
+            http_response_code(500);
+            echo json_encode(['message' => 'The upload could not be deleted. Please try again.']);
+            exit;
+        }
+    } catch (Throwable $exception) {
+        booking_slot_release($pdo, $consentLockName);
+        error_log('Consent upload deletion failed: ' . $exception->getMessage());
+        http_response_code(500);
+        echo json_encode(['message' => 'The upload could not be deleted. Please try again.']);
+        exit;
+    }
+
+    booking_slot_release($pdo, $consentLockName);
+    echo json_encode(['success' => true, 'deleted' => true, 'message' => 'Upload file deleted.']);
+    exit;
+}
+
 if (!unlink($realTargetPath)) {
     http_response_code(500);
-    echo json_encode(['message' => 'Failed to delete upload file.']);
+    echo json_encode(['message' => 'The upload could not be deleted. Please try again.']);
     exit;
 }
 

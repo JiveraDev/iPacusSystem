@@ -17,7 +17,7 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { toast } from '../../reusecomponent/toast.jsx';
-import { calculateAge, formatDisplayDateTime } from '../../lib/date';
+import { calculateAge, clinicTodayDate, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -29,6 +29,7 @@ import {
 } from '../../services/bookingService';
 import { fetchQueues, receiveQueue as receiveQueueService } from '../../services/queueService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
 const BOOKING_QUEUE_SOURCE = 'booking_management';
 
 function normalize(value) {
@@ -275,7 +276,7 @@ export default function VetQueueList() {
         }
     }, { intervalMs: 30000, refreshKey: 'approved-list-branches' });
 
-    const todayKey = toLocalDateKey(new Date());
+    const todayKey = clinicTodayDate();
 
     const todayQueue = useMemo(() => {
         return queue.filter(item => isScheduledForDate(item, todayKey));
@@ -514,9 +515,26 @@ export default function VetQueueList() {
         setUpdatingBookingId(actionKey);
 
         try {
+            const availability = await fetchBookingAvailability({
+                service: booking.type || booking.service,
+                date: todayKey,
+                month: todayKey.slice(0, 7),
+                detailsOnly: true,
+                branchId: booking.branchId || booking.branch_id || undefined
+            });
+            const availableSlots = Array.isArray(availability?.details?.slots)
+                ? availability.details.slots.filter((slot) => slot.available)
+                : [];
+            const originalTime = String(booking.time || '').slice(0, 5);
+            const selectedSlot = availableSlots.find((slot) => String(slot.time || '').slice(0, 5) === originalTime)
+                || availableSlots[0];
+            if (!selectedSlot?.time) {
+                throw new Error('No future appointment slots remain today. Reschedule this booking from Booking Management to another date.');
+            }
+
             const data = await updateBookingSchedule(booking.id, {
                 booking_date: todayKey,
-                booking_time: booking.time,
+                booking_time: selectedSlot.time,
                 reason: 'Vet approved queue reschedule today',
                 changed_by_user_id: veterinarianUserId || null
             });
@@ -524,11 +542,11 @@ export default function VetQueueList() {
             setBookings(currentBookings =>
                 currentBookings.map(item =>
                     item.id === booking.id
-                        ? { ...item, date: todayKey, onlineConsultation: data.onlineConsultation || item.onlineConsultation }
+                        ? { ...item, date: todayKey, time: selectedSlot.time, onlineConsultation: data.onlineConsultation || item.onlineConsultation }
                         : item
                 )
             );
-            toast.success(`${booking.bookingNumber} rescheduled to today.`);
+            toast.success(`${booking.bookingNumber} rescheduled to today's ${selectedSlot.label || selectedSlot.time} slot.`);
         } catch (error) {
             toast.error(error.message || 'Failed to reschedule booking for today.');
         } finally {

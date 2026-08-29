@@ -38,8 +38,7 @@ try {
         exit;
     }
 
-    $otp = authOtpCreate($pdo, (int)$user['user_id'], $accountEmail, AUTH_OTP_EMAIL_VERIFICATION);
-    authOtpSendCodeEmail($accountEmail, $otp['code'], AUTH_OTP_EMAIL_VERIFICATION, $user, $otp['expiresMinutes']);
+    authOtpIssueAndSend($pdo, (int)$user['user_id'], $accountEmail, AUTH_OTP_EMAIL_VERIFICATION, $user);
 
     echo json_encode(['success' => true, 'message' => 'Verification code sent.']);
 } catch (Throwable $e) {

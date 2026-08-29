@@ -15,6 +15,9 @@ export default function UnsavedProfileChangesDialog({
     onStay,
     onSave,
     isSaving = false,
+    title = 'Save profile first',
+    description = 'Save your Profile Details before opening another tab.',
+    saveLabel = 'Save Changes',
 }) {
     return (
         <Dialog open={open} onOpenChange={(nextOpen) => {
@@ -27,9 +30,9 @@ export default function UnsavedProfileChangesDialog({
                     <div className="mb-2 flex size-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
                         <AlertTriangle className="size-5" />
                     </div>
-                    <DialogTitle>Save profile first</DialogTitle>
+                    <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>
-                        Save your Profile Details before opening another tab.
+                        {description}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -46,7 +49,7 @@ export default function UnsavedProfileChangesDialog({
                         ) : (
                             <>
                                 <Save className="size-4" />
-                                Save Changes
+                                {saveLabel}
                             </>
                         )}
                     </Button>

@@ -305,8 +305,8 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                     <a href="#top" className="flex min-w-0 items-center gap-3" aria-label={`${clinicDetails.name} home`} onClick={(event) => handleHashNavigation(event, '#top')}>
                         <img src={logoImage} alt={`${clinicDetails.name} logo`} className="h-11 w-11 shrink-0 object-contain" />
                         <div className="min-w-0">
-                            <div className="text-base font-bold leading-tight text-slate-950 sm:text-lg">{clinicDetails.product}</div>
-                            <div className="hidden text-xs font-medium text-slate-500 sm:block">{clinicDetails.name}</div>
+                            <div className="text-[13px] font-bold leading-tight text-slate-950 sm:text-base lg:text-lg">{clinicDetails.name}</div>
+                            <div className="mt-0.5 text-[10px] font-medium text-slate-500 sm:text-xs">Powered by {clinicDetails.product}</div>
                         </div>
                     </a>
 

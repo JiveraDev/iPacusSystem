@@ -316,10 +316,9 @@ function App() {
       localStorage.setItem('pendingVerificationEmail', verificationEmail);
       setPendingVerificationEmail(verificationEmail);
       toast.success({
-        title: result.emailSent === false ? 'Registration complete' : 'Code successfully sent',
-        description: result.emailSent === false
-          ? result.message || 'Your account was created. Request a new verification code to continue.'
-          : 'Your account was created and its verification code was successfully sent via email.'
+        title: 'Continue email verification',
+        description: result.message
+          || 'Check your inbox for your latest verification code or request a new code from the verification screen.'
       });
       resetRegistrationFlow();
       navigateTo(routes.verifyEmail);

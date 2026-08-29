@@ -56,7 +56,7 @@ function booking_slot_duration_minutes(string $serviceKey): int
         return 0;
     }
 
-    return $serviceKey === 'home-service' ? 60 : 30;
+    return in_array($serviceKey, ['home-service', 'online-consultation'], true) ? 60 : 30;
 }
 
 function booking_slot_normalize_time(?string $value): ?string
@@ -89,8 +89,8 @@ function booking_slot_assert_aligned(string $serviceKey, string $bookingTime): s
     }
 
     [$hour, $minute, $second] = array_map('intval', explode(':', $normalized));
-    $interval = booking_slot_duration_minutes($serviceKey);
-    if ($second !== 0 || ($interval === 60 ? $minute !== 0 : !in_array($minute, [0, 30], true))) {
+    $requiresHourlyStart = $serviceKey === 'home-service';
+    if ($second !== 0 || ($requiresHourlyStart ? $minute !== 0 : !in_array($minute, [0, 30], true))) {
         throw new InvalidArgumentException(
             $serviceKey === 'home-service'
                 ? 'Home service must start on an available one-hour time slot.'
@@ -303,11 +303,14 @@ function booking_slot_lock_name(
     ?int $veterinarianId = null,
     ?int $specialServiceId = null
 ): string {
+    $timeScope = $serviceKey === 'online-consultation'
+        ? 'all-veterinarian-times'
+        : (booking_slot_normalize_time($bookingTime) ?? $bookingTime);
     $scope = implode('|', [
         $branchId,
         $serviceKey,
         $bookingDate,
-        booking_slot_normalize_time($bookingTime) ?? $bookingTime,
+        $timeScope,
         $serviceKey === 'online-consultation' ? (int)$veterinarianId : 0,
         $serviceKey === 'special-services' ? (int)$specialServiceId : 0,
     ]);
@@ -343,7 +346,9 @@ function booking_slot_conflict_message(string $serviceKey, string $bookingTime):
         ? date('g:i A', strtotime('1970-01-01 ' . $normalized))
         : $bookingTime;
 
-    return $serviceKey === 'home-service'
-        ? "The {$label} home-service time is already reserved. Select another one-hour slot."
-        : "The {$label} time is already reserved for this service. Select another 30-minute slot.";
+    return match ($serviceKey) {
+        'home-service' => "The {$label} home-service time is already reserved. Select another one-hour slot.",
+        'online-consultation' => "The {$label} online-consultation time overlaps another one-hour consultation for this veterinarian.",
+        default => "The {$label} time is already reserved for this service. Select another 30-minute slot.",
+    };
 }

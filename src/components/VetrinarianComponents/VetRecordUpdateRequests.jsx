@@ -50,6 +50,19 @@ function statusClass(status) {
     return classes[status] || 'bg-slate-100 text-slate-700';
 }
 
+function updateAction(request) {
+    if (request?.status === 'approved') return 'assign';
+    if (request?.status === 'assigned') return 'start';
+    return '';
+}
+
+function updateActionLabel(request) {
+    if (request?.status === 'approved') return 'Accept & Update';
+    if (request?.status === 'assigned') return 'Start Update';
+    if (request?.status === 'in_progress') return 'Continue Update';
+    return 'Update';
+}
+
 export default function VetRecordUpdateRequests() {
     const navigate = useNavigate();
     const currentUser = useDashboardUser();
@@ -116,15 +129,22 @@ export default function VetRecordUpdateRequests() {
         setSelectedRequest(request);
     };
 
-    const assignRequestAndOpenEditor = async (request) => {
+    const prepareRequestAndOpenEditor = async (request) => {
         if (!request) return;
 
-        setActionLoading(`assign-${request.requestId}`);
+        const action = updateAction(request);
+        if (!action) {
+            setAssignmentRequest(null);
+            openMedicalEditor(request);
+            return;
+        }
+
+        setActionLoading(`${action}-${request.requestId}`);
         try {
             const response = await updateRecordUpdateRequest(request.requestId, {
-                action: 'assign',
+                action,
                 userId: veterinarianUserId,
-                assignedVeterinarianUserId: veterinarianUserId
+                ...(action === 'assign' ? { assignedVeterinarianUserId: veterinarianUserId } : {})
             });
 
             setRequests(current => current.map(item => (
@@ -136,7 +156,9 @@ export default function VetRecordUpdateRequests() {
             if (assignmentRequest?.requestId === response.request?.requestId) {
                 setAssignmentRequest(null);
             }
-            toast.success('Request assigned. Opening medical records.');
+            toast.success(action === 'assign'
+                ? 'Request accepted. Opening medical records.'
+                : 'Record update started. Opening medical records.');
             openMedicalEditor(response.request || request);
         } catch (error) {
             toast.error(error.message || 'Failed to update request.');
@@ -146,6 +168,10 @@ export default function VetRecordUpdateRequests() {
     };
 
     const openAssignmentConfirm = (request) => {
+        if (request?.status === 'in_progress') {
+            openMedicalEditor(request);
+            return;
+        }
         setAssignmentRequest(request);
     };
 
@@ -254,8 +280,8 @@ export default function VetRecordUpdateRequests() {
                                                     disabled={Boolean(actionLoading)}
                                                     className="bg-green-600 text-white hover:bg-green-700"
                                                 >
-                                                    {isRequestActionLoading('assign', request) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
-                                                    Update
+                                                    {isRequestActionLoading(updateAction(request), request) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
+                                                    {updateActionLabel(request)}
                                                 </Button>
                                             )}
                                         </div>
@@ -306,7 +332,9 @@ export default function VetRecordUpdateRequests() {
                     <DialogHeader>
                         <DialogTitle>Confirm Record Update</DialogTitle>
                         <DialogDescription>
-                            This will change the request status to assigned and open the pet medical record editor for this patient.
+                            {assignmentRequest?.status === 'approved'
+                                ? 'Accept this approved request and open the pet medical record editor.'
+                                : 'Start this assigned request and open the pet medical record editor.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -326,12 +354,12 @@ export default function VetRecordUpdateRequests() {
                             Cancel
                         </Button>
                         <Button
-                            onClick={() => assignRequestAndOpenEditor(assignmentRequest)}
+                            onClick={() => prepareRequestAndOpenEditor(assignmentRequest)}
                             disabled={Boolean(actionLoading)}
                             className="bg-green-600 text-white hover:bg-green-700"
                         >
-                            {isRequestActionLoading('assign', assignmentRequest) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
-                            Update
+                            {isRequestActionLoading(updateAction(assignmentRequest), assignmentRequest) ? <Loader2 className="size-4 animate-spin" /> : <Stethoscope className="size-4" />}
+                            {updateActionLabel(assignmentRequest)}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

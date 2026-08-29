@@ -7,7 +7,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Archive, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, RotateCcw, ShieldCheck, Pencil, Save, X, Search } from 'lucide-react';
+import { UserCog, Mail, Award, Archive, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, RotateCcw, ShieldCheck, Pencil, Save, X, Search, RefreshCw } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
@@ -16,6 +16,8 @@ import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, up
 import { resolveImageUrl } from '../../lib/image';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import PasswordRequirements from '../shared/PasswordRequirements.jsx';
+import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../../lib/passwordPolicy.js';
 
 const PERSONNEL_POSITION_OPTIONS = [
     { value: 'Nurse', label: 'Senior Nurse' },
@@ -129,6 +131,11 @@ export default function AccountManagement() {
 
     const handleCreateAccount = async (e) => {
         e.preventDefault();
+
+        if (!isPasswordStrong(createForm.password)) {
+            toast.error(PASSWORD_POLICY_MESSAGE);
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -601,12 +608,6 @@ export default function AccountManagement() {
         ].join(' ').toLowerCase().includes(accountSearchQuery);
     });
 
-    const resetAccountFilters = () => {
-        setSearchQuery('');
-        setRoleFilter('all');
-        setStatusFilter('all');
-    };
-
     const ProfileAvatar = ({ account, type, size = 'card' }) => {
         const [failedSrc, setFailedSrc] = useState('');
         const imageSrc = getAccountImage(account);
@@ -723,8 +724,17 @@ export default function AccountManagement() {
                                 <SelectItem value="privileged">Privileged</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button type="button" variant="outline" onClick={resetAccountFilters} className="w-full lg:w-auto">
-                            Clear
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={isLoading}
+                            onClick={() => fetchAccounts()}
+                            className="size-10 justify-self-start lg:justify-self-end"
+                            aria-label="Refresh accounts"
+                            title="Refresh accounts"
+                        >
+                            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
                         </Button>
                     </div>
                 </CardContent>
@@ -1216,6 +1226,7 @@ export default function AccountManagement() {
                             <div>
                                 <Label className="text-gray-900 mb-2 block">Password</Label>
                                 <PasswordInput required placeholder="Password" value={createForm.password} onChange={(e) => setCreateForm({...createForm, password: e.target.value})} inputClassName="bg-gray-100" />
+                                <PasswordRequirements password={createForm.password} className="mt-2 sm:grid-cols-1" />
                             </div>
                         </div>
 

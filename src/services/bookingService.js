@@ -1,4 +1,5 @@
-import { apiRequest, patchJson, postJson } from './apiClient';
+import { apiRequest, getStoredApiUser, patchJson, postJson } from './apiClient';
+import { assertPetOwnerActionAllowed } from '../lib/accountStatus.js';
 
 function assertBookableDate(payload = {}) {
     const value = payload.booking_date || payload.bookingDate || payload.date || payload.new_date || payload.newDate;
@@ -36,6 +37,7 @@ export function fetchUserBookings(userId, options = {}) {
 }
 
 export function createBooking(payload, options = {}) {
+    assertPetOwnerActionAllowed(getStoredApiUser(), 'create a booking');
     assertBookableDate(payload);
     return postJson('/bookings', payload, options);
 }

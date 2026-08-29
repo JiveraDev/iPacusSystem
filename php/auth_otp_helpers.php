@@ -252,6 +252,22 @@ function authOtpMarkUsed(PDO $pdo, int $otpId): void
     $stmt->execute([$otpId]);
 }
 
+function authOtpIssueAndSend(PDO $pdo, ?int $userId, string $email, string $purpose, ?array $user = null): array
+{
+    $otp = authOtpCreate($pdo, $userId, $email, $purpose);
+
+    try {
+        authOtpSendCodeEmail($email, $otp['code'], $purpose, $user, $otp['expiresMinutes']);
+    } catch (Throwable $error) {
+        // A failed delivery must not leave an active token that blocks the next
+        // genuine send attempt during the resend cooldown.
+        authOtpMarkUsed($pdo, (int)$otp['otpId']);
+        throw $error;
+    }
+
+    return $otp;
+}
+
 function authOtpSendCodeEmail(string $email, string $code, string $purpose, ?array $user = null, int $expiresMinutes = 10): void
 {
     $name = htmlspecialchars(authOtpDisplayName($user), ENT_QUOTES, 'UTF-8');

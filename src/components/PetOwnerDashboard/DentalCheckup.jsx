@@ -18,6 +18,7 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { clinicTodayDate } from "../../lib/date";
 
 export default function DentalCheckup() {
   const navigate = useNavigate();
@@ -314,7 +315,7 @@ export default function DentalCheckup() {
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={clinicTodayDate()}
                   />
                 </div>
 

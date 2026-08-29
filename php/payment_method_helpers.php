@@ -18,12 +18,14 @@ function ipawcus_payment_method_is_allowed(PDO $pdo, $value, bool $allowCash = t
     }
 
     try {
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM payment_methods WHERE method_key = ? AND is_active = 1');
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM payment_methods WHERE method_key = ? AND is_active = 1'
+        );
         $stmt->execute([$key]);
         return (int)$stmt->fetchColumn() > 0;
     } catch (Throwable $error) {
-        // Compatibility while the configurable-payment migration is being deployed.
-        return in_array($key, ['qrph', 'gcash', 'maya', 'bank_transfer'], true);
+        error_log('Payment method availability check failed: ' . $error->getMessage());
+        return false;
     }
 }
 

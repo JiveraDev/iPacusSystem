@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Clock,
   ExternalLink,
+  Info,
   FileText,
   Hotel,
   ListTodo,
@@ -42,6 +43,7 @@ import {
   bookingRouteForAvailabilityService,
   saveBookingAvailabilitySelection,
 } from "../../lib/bookingAvailabilityNavigation.js";
+import { isArchivedPetOwner } from "../../lib/accountStatus.js";
 
 const CLINIC_DETAILS = {
   hours: "8:00 AM - 6:00 PM",
@@ -513,8 +515,10 @@ export default function Home({ user }) {
   const dashboardFocus = getActionsForRole(roleKey, priceProjectionConfig.servicePrices);
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
+  const isArchivedOwner = isArchivedPetOwner(user);
 
   const openAvailabilityBooking = (selection) => {
+    if (isArchivedOwner) return;
     saveBookingAvailabilitySelection(selection);
     navigate(bookingRouteForAvailabilityService(selection.service));
   };
@@ -569,6 +573,17 @@ export default function Home({ user }) {
     <div className="space-y-6">
       {roleKey === "veterinarian" && <VetActiveLocationPanel />}
       {roleKey === "admin" && <AdminAssignedLocationPanel />}
+      {isArchivedOwner && (
+        <section className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
+          <Info className="mt-0.5 size-5 shrink-0 text-amber-700" aria-hidden="true" />
+          <div>
+            <h2 className="font-black">Booking and self-service queue access is paused</h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-amber-900/80">
+              Your archived account remains available for viewing pet records. Contact the clinic to restore booking access, or ask clinic staff to place your pet in the queue.
+            </p>
+          </div>
+        </section>
+      )}
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
@@ -582,7 +597,7 @@ export default function Home({ user }) {
               {roleSummary.description}
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button type="button" onClick={() => navigate(dashboardFocus.actions[0].path)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+              <Button type="button" onClick={() => navigate(dashboardFocus.actions[0].path)} disabled={isArchivedOwner} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                 <Plus className="mr-2 h-4 w-4" />
                 Start Main Task
               </Button>
@@ -615,13 +630,15 @@ export default function Home({ user }) {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {dashboardFocus.actions.map((action) => {
             const Icon = action.icon;
+            const requiresActiveOwner = roleKey === "petowner" && action.path !== "/dashboard/my-pets";
 
             return (
               <button
                 key={action.title}
                 type="button"
                 onClick={() => navigate(action.path)}
-                className="group rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                disabled={isArchivedOwner && requiresActiveOwner}
+                className="group rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:border-blue-200 enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
               >
                 <span className={`flex h-11 w-11 items-center justify-center rounded-lg ${action.tone}`}>
                   <Icon className="h-5 w-5" />
@@ -635,13 +652,20 @@ export default function Home({ user }) {
       </section>
 
       <section>
-        {roleKey === "petowner" ? (
+        {roleKey === "petowner" && !isArchivedOwner ? (
           <ClinicAvailabilityCalendar
             title="Book an available time"
             description="Check clinic schedules before opening a booking form. Select an available time to continue."
             onSelectSlot={openAvailabilityBooking}
             onSelectRoom={openAvailabilityBooking}
           />
+        ) : roleKey === "petowner" ? (
+          <Card className="border-amber-200 bg-amber-50 shadow-sm">
+            <CardContent className="flex items-start gap-3 p-5 text-sm font-semibold leading-6 text-amber-900">
+              <Info className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+              Available booking times will return after clinic staff restores your account access.
+            </CardContent>
+          </Card>
         ) : (
           <Card className="border-slate-200 shadow-sm">
             <CardHeader>
@@ -756,6 +780,8 @@ Home.propTypes = {
     last_name: PropTypes.string,
     name: PropTypes.string,
     email: PropTypes.string,
+    accountStatus: PropTypes.string,
+    account_status: PropTypes.string,
   }),
 };
 

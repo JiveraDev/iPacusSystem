@@ -129,8 +129,17 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
     } catch (Throwable $error) {
         $hasAccountStatus = false;
     }
+    $accountStatusSelect = $hasAccountStatus
+        ? "COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') AS account_status,"
+        : "'active' AS account_status,";
     $activeAccountFilter = $hasAccountStatus
-        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') = 'active'"
+        ? "AND (
+                COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') = 'active'
+                OR (
+                    COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') IN ('archived', 'deactivated')
+                    AND LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
+                )
+            )"
         : '';
 
     $stmt = $pdo->prepare("
@@ -140,6 +149,7 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
             u.first_Name,
             u.last_Name,
             u.mail_Address,
+            {$accountStatusSelect}
             t.token_id
         FROM api_access_tokens t
         JOIN users u ON u.user_id = t.user_id

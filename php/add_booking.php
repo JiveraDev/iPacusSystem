@@ -842,6 +842,14 @@ $emergencyContact = $input['emergency_contact'] ?? null;
 $isHotelBoarding = $serviceType === 'boarding' && in_array($hotelBoardingType, ['hotel', 'boarding'], true);
 
 if ($currentApiRole === 'pet_owner') {
+    if (in_array(strtolower(trim((string)($currentApiUser['account_status'] ?? 'active'))), ['archived', 'deactivated'], true)) {
+        http_response_code(403);
+        echo json_encode([
+            'code' => 'ARCHIVED_OWNER_BOOKING_RESTRICTED',
+            'message' => 'Your account is archived. You can review existing records, but clinic staff must restore booking access or place your pet in the queue.',
+        ]);
+        exit;
+    }
     if ($submittedUserId !== null && $submittedUserId !== '' && (int)$submittedUserId !== $currentApiUserId) {
         http_response_code(403);
         echo json_encode(['message' => 'You cannot submit a booking for another user account.']);
@@ -869,6 +877,12 @@ if (count($exclusiveModes) > 1) {
 
 $isHomeService = $homeServiceRequested ? 1 : 0;
 $isOnlineConsultation = $onlineConsultRequested ? 1 : 0;
+
+if ($isOnlineConsultation === 1 && ($paymentReference === null || !preg_match('/^\d{1,18}$/', $paymentReference))) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Online consultation payment reference must contain no more than 18 digits.']);
+    exit;
+}
 
 if ($isHotelBoarding) {
     $bookingDate = $bookingDate ?: $checkInDate;

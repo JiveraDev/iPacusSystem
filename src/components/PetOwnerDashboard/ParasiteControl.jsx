@@ -19,6 +19,7 @@ import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjec
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { clinicTodayDate } from "../../lib/date";
 
 export default function ParasiteControl() {
   const navigate = useNavigate();
@@ -324,7 +325,7 @@ export default function ParasiteControl() {
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={clinicTodayDate()}
                   />
                 </div>
 

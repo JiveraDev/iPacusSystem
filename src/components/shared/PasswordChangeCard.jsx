@@ -13,8 +13,10 @@ import { Label } from '../../ui/label';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { KeyRound, Loader2, LogOut } from 'lucide-react';
 import PasswordInput from './PasswordInput.jsx';
+import PasswordRequirements from './PasswordRequirements.jsx';
 import { updateUserPassword } from '../../services/userService';
 import { clearStoredAuthSession } from '../../services/apiClient';
+import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../../lib/passwordPolicy.js';
 
 export default function PasswordChangeCard({ userId, onForgotPassword }) {
     const [form, setForm] = useState({
@@ -42,8 +44,8 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
             return;
         }
 
-        if (form.newPassword.length < 8) {
-            toast.error('New password must be at least 8 characters.');
+        if (!isPasswordStrong(form.newPassword)) {
+            toast.error(PASSWORD_POLICY_MESSAGE);
             clearPasswordFields();
             return;
         }
@@ -122,6 +124,7 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
                                 minLength={8}
                                 inputClassName="h-12 rounded-xl"
                             />
+                            <PasswordRequirements password={form.newPassword} confirmPassword={form.confirmPassword} className="mt-2 md:grid-cols-1" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="confirmPassword" className="text-sm font-bold text-slate-700">Confirm Password</Label>

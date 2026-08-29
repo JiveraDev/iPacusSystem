@@ -23,6 +23,7 @@ import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import AddressMapPreview from "../shared/AddressMapPreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { clinicTodayDate } from "../../lib/date";
 
 export default function HomeServices() {
   const navigate = useNavigate();
@@ -464,7 +465,7 @@ export default function HomeServices() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Preferred Date *</Label>
-                  <Input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                  <Input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
                 </div>
                 <BookingTimeSlotField
                   id="home-service-time"

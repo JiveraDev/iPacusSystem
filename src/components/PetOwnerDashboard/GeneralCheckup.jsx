@@ -19,6 +19,7 @@ import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjec
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { clinicTodayDate } from "../../lib/date";
 
 const DEFAULT_BOOKING_CONFIG = {
   availabilityKey: 'general-checkup',
@@ -348,7 +349,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={clinicTodayDate()}
                   />
                 </div>
 

@@ -4,6 +4,7 @@ require_once __DIR__ . '/account_status_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/password_policy_helpers.php';
 
 function createAccountUserColumnExists(PDO $pdo, string $columnName): bool
 {
@@ -82,6 +83,12 @@ $employmentStatus = $input['employmentStatus'] ?? 'full-time';
 if (!$firstName || !$lastName || !$email || !$password || !$role) {
     http_response_code(400);
     echo json_encode(['message' => 'Missing required fields for account creation.']);
+    exit;
+}
+
+if (!ipawcus_password_meets_policy((string)$password)) {
+    http_response_code(422);
+    echo json_encode(['message' => ipawcus_password_policy_error()]);
     exit;
 }
 

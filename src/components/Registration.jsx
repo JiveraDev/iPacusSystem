@@ -6,6 +6,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import PasswordInput from './shared/PasswordInput.jsx';
+import PasswordRequirements from './shared/PasswordRequirements.jsx';
+import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 
 export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = false, initialValues }) {
     const [email, setEmail] = useState(initialValues?.email ?? '');
@@ -26,8 +28,8 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
 
         if (!password) {
             newErrors.password = 'Password is required';
-        } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+        } else if (!isPasswordStrong(password)) {
+            newErrors.password = PASSWORD_POLICY_MESSAGE;
         }
 
         if (password !== confirmPassword) {
@@ -88,11 +90,12 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                         </Label>
                         <PasswordInput
                             id="password"
-                            placeholder="At least 6 characters"
+                            placeholder="Create a strong password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             inputClassName={`bg-gray-100 border-gray-300 ${errors.password ? 'border-red-500' : ''}`}
                         />
+                        <PasswordRequirements password={password} confirmPassword={confirmPassword} className="mt-2" />
                         {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                     </div>
 

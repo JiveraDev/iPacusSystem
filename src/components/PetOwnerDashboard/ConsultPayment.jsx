@@ -145,6 +145,10 @@ export default function ConsultPayment() {
       toast.error("Please enter the payment transaction reference");
       return;
     }
+    if (!/^\d{1,18}$/.test(formData.referenceNumber.trim())) {
+      toast.error("The payment reference must contain no more than 18 digits");
+      return;
+    }
     if (!formData.receiptFile) {
       toast.error("Please upload proof of payment");
       return;
@@ -452,13 +456,18 @@ export default function ConsultPayment() {
               <Label htmlFor="referenceNumber">Reference/Transaction Number *</Label>
               <Input
                 id="referenceNumber"
-                placeholder="Enter the receipt transaction reference"
-                restriction="alphanumeric"
+                placeholder="Enter up to 18 digits"
+                restriction="digits"
+                inputMode="numeric"
+                maxLength={18}
                 value={formData.referenceNumber}
-                onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  referenceNumber: e.target.value.replace(/\D/g, '').slice(0, 18)
+                })}
               />
               <p className="text-xs text-gray-500">
-                For QRPH, Maya, GCash, and Bank Transfer, please include the transaction reference number
+                Enter the numeric transaction reference from the receipt (maximum 18 digits).
               </p>
             </div>
 

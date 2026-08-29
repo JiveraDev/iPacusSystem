@@ -1,1 +1,11 @@
-import PropTypes from "prop-types";import LandingPageContent from "../reusecomponent/landingpagecontent.jsx";export function LandingPage({ onLogin, onRegister }) {    return <LandingPageContent onLogin={onLogin} onRegister={onRegister} />;}LandingPage.propTypes = {    onLogin: PropTypes.func,    onRegister: PropTypes.func,};
+import PropTypes from 'prop-types';
+import LandingPageContent from '../reusecomponent/landingpagecontent.jsx';
+
+export function LandingPage({ onLogin, onRegister }) {
+    return <LandingPageContent onLogin={onLogin} onRegister={onRegister} />;
+}
+
+LandingPage.propTypes = {
+    onLogin: PropTypes.func,
+    onRegister: PropTypes.func,
+};

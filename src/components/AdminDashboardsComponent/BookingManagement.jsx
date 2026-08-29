@@ -16,7 +16,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { addPetService } from '../../services/addPet';
 import { Label } from '../../ui/label';
 import { resolveImageUrl } from '../../lib/image';
-import { formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
+import { clinicTodayDate, formatDisplayDate, formatDisplayDateRange, formatDisplayTime } from '../../lib/date';
 import { formatPhpCurrency, normalizeCurrencyLabel } from '../../lib/currency';
 import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from '../../lib/philippinePhone';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -104,7 +104,7 @@ const SERVICE_DETAIL_FIELDS = [
 ];
 
 function todayInputDate() {
-    return new Date().toLocaleDateString('en-CA');
+    return clinicTodayDate();
 }
 
 function normalizeBookingFilterValue(value) {
@@ -183,6 +183,11 @@ function ownerNameForPet(pet) {
 function isBoardingBooking(booking) {
     const serviceType = String(booking?.type || '').trim().toLowerCase();
     return serviceType === 'boarding' || Boolean(booking?.hotelBoardingType);
+}
+
+function canRescheduleBooking(booking) {
+    const status = String(booking?.status || '').trim().toLowerCase();
+    return ['pending', 'confirmed'].includes(status) && !isBoardingBooking(booking);
 }
 
 function bookingChargeName(booking) {
@@ -580,6 +585,7 @@ export default function BookingsManagement() {
     const [currentRescheduleBooking, setCurrentRescheduleBooking] = useState(null);
     const [newDate, setNewDate] = useState('');
     const [newTime, setNewTime] = useState('');
+    const [isRescheduling, setIsRescheduling] = useState(false);
     const [viewerImage, setViewerImage] = useState(null);
     const [infoModal, setInfoModal] = useState(null);
     const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
@@ -1158,6 +1164,12 @@ export default function BookingsManagement() {
     };
 
     const handleReschedule = (booking) => {
+        if (!canRescheduleBooking(booking)) {
+            toast.error(isBoardingBooking(booking)
+                ? 'Boarding stay dates must be managed together with room availability in Pet Boarding Management.'
+                : 'Only pending or confirmed bookings can be rescheduled.');
+            return;
+        }
         setCurrentRescheduleBooking(booking);
         setNewDate(booking.date);
         setNewTime(booking.time);
@@ -1226,32 +1238,41 @@ export default function BookingsManagement() {
     };
 
     const confirmReschedule = async () => {
-        if (currentRescheduleBooking && newDate && newTime) {
-            try {
-                const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                const result = await updateBookingSchedule(currentRescheduleBooking.id, {
-                    booking_date: newDate,
-                    booking_time: newTime,
-                    changed_by_user_id: storedUser.id || storedUser.user_id || null,
-                    reason: 'Admin reschedule'
-                });
+        if (!currentRescheduleBooking) return;
+        if (!newDate || !newTime) {
+            toast.error('Select an available future date and time.');
+            return;
+        }
+        if (newDate === currentRescheduleBooking.date && String(newTime).slice(0, 5) === String(currentRescheduleBooking.time).slice(0, 5)) {
+            toast.info('Select a different date or time to reschedule this booking.');
+            return;
+        }
 
-                setBookings(bookings =>
-                    bookings.map(booking =>
-                        booking.id === currentRescheduleBooking.id
-                            ? { ...booking, date: newDate, time: newTime, onlineConsultation: result.onlineConsultation || booking.onlineConsultation }
-                            : booking
-                    )
-                );
-                setRescheduleDialogOpen(false);
-                toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${formatDisplayDate(newDate)} at ${newTime}`);
-                setCurrentRescheduleBooking(null);
-                setNewDate('');
-                setNewTime('');
-            } catch (error) {
-                console.error('Error rescheduling booking:', error);
-                toast.error(error.message || 'Failed to reschedule booking.');
-            }
+        setIsRescheduling(true);
+        try {
+            const result = await updateBookingSchedule(currentRescheduleBooking.id, {
+                booking_date: newDate,
+                booking_time: newTime,
+                reason: 'Admin reschedule'
+            });
+
+            setBookings(bookings =>
+                bookings.map(booking =>
+                    booking.id === currentRescheduleBooking.id
+                        ? { ...booking, date: newDate, time: newTime, onlineConsultation: result.onlineConsultation || booking.onlineConsultation }
+                        : booking
+                )
+            );
+            setRescheduleDialogOpen(false);
+            toast.success(`Booking ${currentRescheduleBooking.bookingNumber} rescheduled to ${formatDisplayDate(newDate)} at ${formatDisplayTime(newTime)}`);
+            setCurrentRescheduleBooking(null);
+            setNewDate('');
+            setNewTime('');
+        } catch (error) {
+            console.error('Error rescheduling booking:', error);
+            toast.error(error.message || 'Failed to reschedule booking.');
+        } finally {
+            setIsRescheduling(false);
         }
     };
 
@@ -1401,10 +1422,6 @@ export default function BookingsManagement() {
     };
 
     const bookingMatchesBaseFilters = (booking) => {
-        if (booking.type === 'boarding' && booking.hotelBoardingType) {
-            return false;
-        }
-
         const petName = booking.petName || `Unregistered ${booking.petSpecies || 'Pet'}`;
         const ownerName = booking.ownerName || 'Unknown Owner';
         const bookingNumber = booking.bookingNumber || '';
@@ -1533,7 +1550,7 @@ export default function BookingsManagement() {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                <div className={`grid gap-4 sm:grid-cols-2 ${branchFilterLocked ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
                     <div className="space-y-1.5 sm:col-span-2 xl:col-span-1">
                         <Label htmlFor="booking-search" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                             Search bookings
@@ -1546,40 +1563,36 @@ export default function BookingsManagement() {
                             leftIcon={<Search className="size-4" />}
                         />
                     </div>
-                    <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Clinic location</Label>
-                        {branchFilterLocked ? (
-                            <div className="flex min-h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                                {getBranchDisplayName(branches, filterBranch, 'Assigned clinic location')}
-                            </div>
-                        ) : (
+                    {!branchFilterLocked && (
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Clinic location</Label>
                             <Select value={filterBranch} onValueChange={setFilterBranch}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue
                                         placeholder="Location"
                                         displayValue={filterBranch === 'all'
-                                            ? 'All available locations'
+                                            ? 'All Locations'
                                             : getBranchDisplayName(branches, filterBranch)}
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All available locations</SelectItem>
+                                    <SelectItem value="all">All Locations</SelectItem>
                                     {branches.map((branch) => (
                                         <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                        )}
-                    </div>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Service type</Label>
                         <Select value={filterType} onValueChange={setFilterType}>
                             <SelectTrigger className="w-full">
                                 <Filter className="mr-2 size-4 text-slate-400" />
-                                <SelectValue />
+                                <SelectValue displayValue={filterType === 'all' ? 'All Service Type' : undefined} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All services</SelectItem>
+                                <SelectItem value="all">All Service Type</SelectItem>
                                 <SelectItem value="online-consultation">Online Consultation</SelectItem>
                                 <SelectItem value="vaccination">Vaccination</SelectItem>
                                 <SelectItem value="grooming">Grooming</SelectItem>
@@ -1598,10 +1611,10 @@ export default function BookingsManagement() {
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
                             <SelectTrigger className="w-full">
                                 <Filter className="mr-2 size-4 text-slate-400" />
-                                <SelectValue />
+                                <SelectValue displayValue={filterStatus === 'all' ? 'All Status' : undefined} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All statuses</SelectItem>
+                                <SelectItem value="all">All Status</SelectItem>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="confirmed">Confirmed</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
@@ -1614,10 +1627,10 @@ export default function BookingsManagement() {
                         <Select value={filterDate} onValueChange={setFilterDate}>
                             <SelectTrigger className="w-full">
                                 <CalendarClock className="mr-2 size-4 text-slate-400" />
-                                <SelectValue />
+                                <SelectValue displayValue={filterDate === 'all' ? 'All Dates' : undefined} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All appointment dates</SelectItem>
+                                <SelectItem value="all">All Dates</SelectItem>
                                 <SelectItem value="today">Today</SelectItem>
                                 <SelectItem value="next-7-days">Next 7 days</SelectItem>
                                 <SelectItem value="next-30-days">Next 30 days</SelectItem>
@@ -1679,7 +1692,6 @@ export default function BookingsManagement() {
                                             )}
                                         </p>
                                         <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">{booking.ownerName}</p>
-                                        <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{booking.branchName || 'Main Clinic'}</p>
                                     </div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">
@@ -2254,13 +2266,10 @@ export default function BookingsManagement() {
                                                                 </Button>
                                                             )}
 
-                                                            {booking.status !== 'cancelled' && (
+                                                            {canRescheduleBooking(booking) && (
                                                             <Button
                                                                 variant="outline"
-                                                                onClick={() => {
-                                                                    handleReschedule(booking);
-                                                                    toast.success(`Rescheduling booking ${booking.bookingNumber}...`);
-                                                                }}
+                                                                onClick={() => handleReschedule(booking)}
                                                                 className="border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff] w-full"
                                                             >
                                                                 <CalendarClock className="size-4 mr-2" />
@@ -2973,31 +2982,22 @@ export default function BookingsManagement() {
                                         min={todayInputDate()}
                                         className="w-full"
                                     />
-                                    {isBoardingBooking(currentRescheduleBooking) ? (
-                                        <Input
-                                            type="time"
-                                            value={newTime}
-                                            onChange={(e) => setNewTime(e.target.value)}
-                                            className="w-full"
-                                        />
-                                    ) : (
-                                        <BookingTimeSlotField
-                                            id="reschedule-booking-time"
-                                            service={currentRescheduleBooking?.isOnlineConsultation
-                                                ? 'online-consultation'
-                                                : currentRescheduleBooking?.isHomeService
-                                                    ? 'home-service'
-                                                    : currentRescheduleBooking?.type}
-                                            date={newDate}
-                                            branchId={currentRescheduleBooking?.branchId}
-                                            veterinarianId={currentRescheduleBooking?.veterinarianId}
-                                            value={newTime}
-                                            onChange={setNewTime}
-                                            label="New time"
-                                            allowCurrentValue={newDate === currentRescheduleBooking?.date}
-                                            className="w-full"
-                                        />
-                                    )}
+                                    <BookingTimeSlotField
+                                        id="reschedule-booking-time"
+                                        service={currentRescheduleBooking?.isOnlineConsultation
+                                            ? 'online-consultation'
+                                            : currentRescheduleBooking?.isHomeService
+                                                ? 'home-service'
+                                                : currentRescheduleBooking?.type}
+                                        date={newDate}
+                                        branchId={currentRescheduleBooking?.branchId}
+                                        veterinarianId={currentRescheduleBooking?.veterinarianId}
+                                        value={newTime}
+                                        onChange={setNewTime}
+                                        label="New time"
+                                        disabled={isRescheduling}
+                                        className="w-full"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -3008,12 +3008,15 @@ export default function BookingsManagement() {
                             onClick={() => {
                                 confirmReschedule();
                             }}
+                            disabled={isRescheduling || !newDate || !newTime}
                         >
-                            Confirm Reschedule
+                            {isRescheduling && <Loader2 className="mr-2 size-4 animate-spin" />}
+                            {isRescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
                         </Button>
                         <Button
                             variant="outline"
                             onClick={() => setRescheduleDialogOpen(false)}
+                            disabled={isRescheduling}
                         >
                             Cancel
                         </Button>

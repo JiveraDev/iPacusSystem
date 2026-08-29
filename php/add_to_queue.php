@@ -189,6 +189,18 @@ $currentApiRole = ipawcus_guard_role($currentApiUser);
 $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
 $queue_source = $data['queue_source'] ?? ($currentApiRole === 'pet_owner' ? 'self_service' : 'admin');
 
+if (
+    $currentApiRole === 'pet_owner'
+    && in_array(strtolower(trim((string)($currentApiUser['account_status'] ?? 'active'))), ['archived', 'deactivated'], true)
+) {
+    http_response_code(403);
+    echo json_encode([
+        'code' => 'ARCHIVED_OWNER_QUEUE_RESTRICTED',
+        'message' => 'Your account is archived. Clinic staff must restore self-service access or place your pet in the queue.',
+    ]);
+    exit;
+}
+
 if (!is_string($queue_source) || trim($queue_source) === '') {
     http_response_code(422);
     echo json_encode(['message' => 'Queue source is required.']);

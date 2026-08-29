@@ -114,6 +114,9 @@ try {
         $booking['is_home_service'] ?? 0,
         $booking['is_online_consultation'] ?? 0
     );
+    if ($serviceKey === 'boarding') {
+        throw new DomainException('Boarding stay dates cannot be changed from the general booking scheduler because check-in, check-out, and room availability must be updated together.');
+    }
     if ($serviceKey !== 'boarding') {
         $bookingTime = booking_slot_assert_aligned($serviceKey, $bookingTime);
     }

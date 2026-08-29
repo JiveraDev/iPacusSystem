@@ -7,6 +7,10 @@ require_once __DIR__ . '/booking_slot_helpers.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
+// All clinic schedules are stored and displayed in Philippine time. Keep the
+// strtotime()/date() calls in this endpoint aligned with booking validation.
+date_default_timezone_set('Asia/Manila');
+
 function booking_availability_services(): array
 {
     return [
@@ -196,14 +200,15 @@ function booking_availability_slots_for_date(
 
     $serviceKey = $service['key'];
     $intervalMinutes = (int)($service['intervalMinutes'] ?? booking_slot_duration_minutes($serviceKey));
+    $durationMinutes = booking_slot_duration_minutes($serviceKey);
     if ($serviceKey === 'online-consultation') {
         $times = $veterinarianId ? booking_slot_vet_times_for_date($pdo, $veterinarianId, $date) : [];
         $opens = strtotime('1970-01-01 ' . $hours['opensAt']);
         $closes = strtotime('1970-01-01 ' . $hours['closesAt']);
-        $times = array_values(array_filter($times, static function (string $time) use ($opens, $closes, $intervalMinutes): bool {
+        $times = array_values(array_filter($times, static function (string $time) use ($opens, $closes, $durationMinutes): bool {
             $slot = strtotime('1970-01-01 ' . $time);
             return $slot !== false && $opens !== false && $closes !== false
-                && $slot >= $opens && $slot + ($intervalMinutes * 60) <= $closes;
+                && $slot >= $opens && $slot + ($durationMinutes * 60) <= $closes;
         }));
     } else {
         $times = booking_availability_base_times($hours, $intervalMinutes);

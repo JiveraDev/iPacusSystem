@@ -1,6 +1,18 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/online_consultation_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/clinical_record_helpers.php';
+require_once __DIR__ . '/booking_queue_helpers.php';
+
+if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
+    define('VISIT_BILLING_HELPERS_ONLY', true);
+}
+if (!defined('VISIT_BILLING_THROW_ERRORS')) {
+    define('VISIT_BILLING_THROW_ERRORS', true);
+}
+require_once __DIR__ . '/visit_billing.php';
 
 header("Content-Type: application/json");
 
@@ -9,13 +21,77 @@ function getJsonInput(): array
     return json_decode(file_get_contents('php://input'), true) ?: [];
 }
 
+function onlineConsultationNullableText($value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $text = trim((string)$value);
+    return $text !== '' ? $text : null;
+}
+
+function onlineConsultationCleanJsonValue($value)
+{
+    if ($value === null) {
+        return null;
+    }
+
+    if (is_string($value)) {
+        $value = trim($value);
+        return $value !== '' ? $value : null;
+    }
+
+    if (!is_array($value)) {
+        return $value;
+    }
+
+    $clean = [];
+    foreach ($value as $key => $item) {
+        $cleanItem = onlineConsultationCleanJsonValue($item);
+        if ($cleanItem !== null) {
+            $clean[$key] = $cleanItem;
+        }
+    }
+
+    return $clean !== [] ? $clean : null;
+}
+
 function normalizeNullableJson($value): ?string
+{
+    $cleanValue = onlineConsultationCleanJsonValue($value);
+    if ($cleanValue === null) {
+        return null;
+    }
+
+    $encoded = json_encode($cleanValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if ($encoded === false) {
+        throw new RuntimeException('Invalid online consultation JSON payload.');
+    }
+
+    return $encoded;
+}
+
+function onlineConsultationDecodeJson($value)
 {
     if ($value === null || $value === '') {
         return null;
     }
 
-    return json_encode($value);
+    $decoded = json_decode((string)$value, true);
+    return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+}
+
+function onlineConsultationImagePaths($value): array
+{
+    if ($value === null || trim((string)$value) === '') {
+        return [];
+    }
+
+    return array_values(array_filter(
+        array_map('trim', explode(',', (string)$value)),
+        static fn(string $path): bool => $path !== ''
+    ));
 }
 
 function ensureMissingConfirmedOnlineConsultations(PDO $pdo, ?int $bookingId = null, ?int $vetId = null, ?int $ownerId = null): void
@@ -69,6 +145,15 @@ function formatOnlineConsultation(array $row): array
     if ($vetName !== '') {
         $vetName = 'Dr. ' . $vetName;
     }
+    $bookingDetails = bookingOnlineConsultationNoteDetails($row['notes'] ?? '');
+
+    $clinicalFields = clinical_record_sanitize_repeated_fields([
+        'diagnosis' => onlineConsultationNullableText($row['diagnosis'] ?? null),
+        'recommendations' => onlineConsultationNullableText($row['recommendations'] ?? null),
+        'treatment' => onlineConsultationNullableText($row['treatment'] ?? null),
+        'medications' => onlineConsultationNullableText($row['medications'] ?? null),
+        'diagnosis_notes' => onlineConsultationNullableText($row['diagnosis_notes'] ?? null),
+    ]);
 
     return [
         'id' => (int)$row['online_consultation_id'],
@@ -82,6 +167,7 @@ function formatOnlineConsultation(array $row): array
         'ownerPhone' => $row['owner_phone'] ?? null,
         'veterinarianUserId' => (int)$row['veterinarian_user_id'],
         'veterinarianName' => $vetName !== '' ? $vetName : 'Assigned Veterinarian',
+        'veterinarianEmail' => $row['vet_email'] ?? null,
         'petName' => $petName,
         'petSpecies' => $petSpecies,
         'petBreed' => $petBreed,
@@ -89,22 +175,52 @@ function formatOnlineConsultation(array $row): array
         'time' => $row['booking_time'] ?? null,
         'scheduledStart' => $row['scheduled_start'],
         'scheduledEnd' => $row['scheduled_end'],
-        'meetingProvider' => $row['meeting_provider'],
-        'meetingUrl' => $row['meeting_url'],
+        'meetingProvider' => getJaaSAppId() !== null ? 'jaas' : $row['meeting_provider'],
+        'meetingUrl' => resolveJitsiMeetingUrl($row['meeting_code'] ?? null, $row['meeting_url'] ?? null),
         'meetingCode' => $row['meeting_code'],
         'status' => $row['status'],
         'vetStartedAt' => $row['vet_started_at'],
         'ownerJoinedAt' => $row['owner_joined_at'],
         'endedAt' => $row['ended_at'],
-        'notes' => $row['notes'] ?? null,
-        'diagnosis' => $row['diagnosis'] ?? null,
-        'recommendations' => $row['recommendations'] ?? null,
-        'treatment' => $row['treatment'] ?? null,
-        'medications' => $row['medications'] ?? null,
-        'diagnosisNotes' => $row['diagnosis_notes'] ?? null,
+        'notes' => $bookingDetails['additionalNotes'],
+        'discussionTopic' => $bookingDetails['discussionTopic'],
+        'discussionTopics' => $bookingDetails['discussionTopics'],
+        'concernImages' => onlineConsultationImagePaths($row['booking_concern_images'] ?? null),
+        'diagnosis' => $clinicalFields['diagnosis'],
+        'recommendations' => $clinicalFields['recommendations'],
+        'treatment' => $clinicalFields['treatment'],
+        'medications' => $clinicalFields['medications'],
+        'diagnosisNotes' => $clinicalFields['diagnosis_notes'],
+        'vitalSigns' => onlineConsultationDecodeJson($row['vital_signs'] ?? null),
+        'symptoms' => onlineConsultationDecodeJson($row['diagnosis_symptoms'] ?? null),
+        'labTests' => onlineConsultationDecodeJson($row['lab_tests'] ?? null),
         'createdAt' => $row['created_at'],
         'updatedAt' => $row['updated_at'],
     ];
+}
+
+function attachOnlineConsultationMeetingAccess(?array $consultation, array $currentUser): ?array
+{
+    if ($consultation === null) {
+        return null;
+    }
+
+    $meetingCode = trim((string)($consultation['meetingCode'] ?? ''));
+    $meetingJwt = $meetingCode !== '' ? createJaaSMeetingJwt($currentUser, $meetingCode) : null;
+
+    if ($meetingJwt !== null) {
+        $consultation['meetingJwt'] = $meetingJwt;
+    }
+
+    return $consultation;
+}
+
+function fetchOnlineConsultationResponse(PDO $pdo, int $id, array $currentUser): ?array
+{
+    return attachOnlineConsultationMeetingAccess(
+        fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null,
+        $currentUser
+    );
 }
 
 function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
@@ -134,8 +250,10 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
         ? "LEFT JOIN online_consultation_diagnoses d ON d.online_consultation_id = oc.online_consultation_id"
         : "";
     $diagnosisSelect = onlineConsultationTableExists($pdo, 'online_consultation_diagnoses')
-        ? "d.diagnosis, d.recommendations, d.treatment, d.medications, d.notes AS diagnosis_notes,"
-        : "NULL AS diagnosis, NULL AS recommendations, NULL AS treatment, NULL AS medications, NULL AS diagnosis_notes,";
+        ? "d.diagnosis, d.recommendations, d.treatment, d.medications, d.notes AS diagnosis_notes,
+            d.vital_signs, d.symptoms AS diagnosis_symptoms, d.lab_tests,"
+        : "NULL AS diagnosis, NULL AS recommendations, NULL AS treatment, NULL AS medications, NULL AS diagnosis_notes,
+            NULL AS vital_signs, NULL AS diagnosis_symptoms, NULL AS lab_tests,";
 
     $stmt = $pdo->prepare("
         SELECT
@@ -145,6 +263,7 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
             b.booking_time,
             b.status AS booking_status,
             b.notes,
+            b.Image_Booking_Concern_Path AS booking_concern_images,
             b.registered_status,
             b.petType,
             b.unregistered_pet_name,
@@ -158,6 +277,7 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
             owner.phoneNumber AS owner_phone,
             vet.first_Name AS vet_first_name,
             vet.last_Name AS vet_last_name,
+            vet.mail_Address AS vet_email,
             {$diagnosisSelect}
             1 AS select_marker
         FROM online_consultations oc
@@ -170,8 +290,91 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
         ORDER BY oc.scheduled_start ASC, oc.created_at DESC
     ");
     $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $historyByConsultation = fetchOnlineConsultationRescheduleHistoryMap(
+        $pdo,
+        array_column($rows, 'online_consultation_id')
+    );
 
-    return array_map('formatOnlineConsultation', $stmt->fetchAll(PDO::FETCH_ASSOC));
+    return array_map(function (array $row) use ($historyByConsultation): array {
+        $consultation = formatOnlineConsultation($row);
+        $consultation['reschedules'] = $historyByConsultation[(int)$row['online_consultation_id']] ?? [];
+
+        return $consultation;
+    }, $rows);
+}
+
+function fetchOnlineConsultationActionRow(PDO $pdo, int $id, bool $lock = false): ?array
+{
+    $stmt = $pdo->prepare("
+        SELECT oc.*, b.status AS booking_status
+        FROM online_consultations oc
+        JOIN bookings b ON b.booking_id = oc.booking_id
+        WHERE oc.online_consultation_id = ?
+        LIMIT 1
+        " . ($lock ? "FOR UPDATE" : "") . "
+    ");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function onlineConsultationEnsureVetActor(array $consultation, string $role, int $userId): void
+{
+    if ($role === 'veterinarian' && (int)$consultation['veterinarian_user_id'] !== $userId) {
+        ipawcus_guard_error(403, 'You are not assigned to this online consultation.');
+    }
+
+    if (!in_array($role, ['veterinarian', 'super_admin'], true)) {
+        ipawcus_guard_error(403, 'Only the assigned veterinarian can perform this action.');
+    }
+}
+
+function onlineConsultationEnsureOwnerOrVetActor(array $consultation, string $role, int $userId): void
+{
+    if ($role === 'pet_owner' && (int)$consultation['owner_user_id'] !== $userId) {
+        ipawcus_guard_error(403, 'You are not allowed to join this online consultation.');
+    }
+
+    if ($role === 'veterinarian' && (int)$consultation['veterinarian_user_id'] !== $userId) {
+        ipawcus_guard_error(403, 'You are not assigned to this online consultation.');
+    }
+}
+
+function onlineConsultationRejectClosed(array $consultation): void
+{
+    $status = strtolower((string)($consultation['status'] ?? ''));
+    $bookingStatus = strtolower((string)($consultation['booking_status'] ?? ''));
+    if (
+        in_array($status, ['completed', 'cancelled', 'no_show'], true)
+        || in_array($bookingStatus, ['completed', 'cancelled', 'no_show'], true)
+    ) {
+        ipawcus_guard_error(409, 'This online consultation is already closed.');
+    }
+}
+
+function onlineConsultationEnsureOwnerJoinWindow(array $consultation, string $role): void
+{
+    if ($role !== 'pet_owner') {
+        return;
+    }
+
+    if (strtolower((string)($consultation['booking_status'] ?? '')) !== 'confirmed') {
+        ipawcus_guard_error(409, 'This consultation must be confirmed before joining.');
+    }
+
+    if (trim((string)($consultation['meeting_url'] ?? '')) === '') {
+        ipawcus_guard_error(409, 'The consultation room is not available yet.');
+    }
+
+    $status = strtolower((string)($consultation['status'] ?? ''));
+    if (!in_array($status, ['vet_ready', 'in_progress'], true)) {
+        ipawcus_guard_error(409, 'Please wait for the veterinarian to start the consultation.');
+    }
+
+    // Owners can join as soon as the veterinarian marks the room ready. The
+    // scheduled time is informational and must not block a live consultation.
 }
 
 try {
@@ -184,19 +387,38 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
     $action = $_GET['action'] ?? null;
     $id = isset($_GET['onlineConsultationId']) ? (int)$_GET['onlineConsultationId'] : null;
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
 
     if ($method === 'GET') {
         $bookingId = isset($_GET['bookingId']) ? (int)$_GET['bookingId'] : null;
         $vetId = isset($_GET['vetId']) ? (int)$_GET['vetId'] : null;
         $ownerId = isset($_GET['ownerId']) ? (int)$_GET['ownerId'] : null;
 
+        if ($currentApiRole === 'pet_owner') {
+            if ($ownerId && $ownerId !== $currentApiUserId) {
+                ipawcus_guard_error(403, 'You can only view your own online consultations.');
+            }
+            $ownerId = $currentApiUserId;
+        } elseif ($currentApiRole === 'veterinarian') {
+            if ($vetId && $vetId !== $currentApiUserId) {
+                ipawcus_guard_error(403, 'You can only view online consultations assigned to you.');
+            }
+            $vetId = $currentApiUserId;
+        }
+
         ensureMissingConfirmedOnlineConsultations($pdo, $bookingId, $vetId, $ownerId);
-        echo json_encode(fetchOnlineConsultations($pdo, [
+        $consultations = fetchOnlineConsultations($pdo, [
             'id' => $id,
             'bookingId' => $bookingId,
             'vetId' => $vetId,
             'ownerId' => $ownerId,
-        ]));
+        ]);
+        if ($id && isset($consultations[0])) {
+            $consultations[0] = attachOnlineConsultationMeetingAccess($consultations[0], $currentApiUser);
+        }
+        echo json_encode($consultations);
         exit;
     }
 
@@ -207,6 +429,13 @@ try {
     }
 
     if ($method === 'POST' && $action === 'start') {
+        $consultation = fetchOnlineConsultationActionRow($pdo, $id);
+        if (!$consultation) {
+            ipawcus_guard_error(404, 'Online consultation not found.');
+        }
+        onlineConsultationEnsureVetActor($consultation, $currentApiRole, $currentApiUserId);
+        onlineConsultationRejectClosed($consultation);
+
         $stmt = $pdo->prepare("
             UPDATE online_consultations
             SET status = CASE WHEN status = 'in_progress' THEN 'in_progress' ELSE 'vet_ready' END,
@@ -215,43 +444,65 @@ try {
               AND status IN ('scheduled', 'vet_ready', 'in_progress')
         ");
         $stmt->execute([$id]);
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+
+        try {
+            notification_send_online_consultation_event($pdo, $id, 'vet_ready');
+        } catch (Throwable $notificationError) {
+            error_log('Online consultation ready notification failed: ' . $notificationError->getMessage());
+        }
+
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
     if ($method === 'POST' && $action === 'join') {
+        $consultation = fetchOnlineConsultationActionRow($pdo, $id);
+        if (!$consultation) {
+            ipawcus_guard_error(404, 'Online consultation not found.');
+        }
+        onlineConsultationEnsureOwnerOrVetActor($consultation, $currentApiRole, $currentApiUserId);
+        onlineConsultationRejectClosed($consultation);
+        onlineConsultationEnsureOwnerJoinWindow($consultation, $currentApiRole);
+
         $stmt = $pdo->prepare("
             UPDATE online_consultations
             SET status = CASE WHEN status = 'vet_ready' THEN 'in_progress' ELSE status END,
                 owner_joined_at = COALESCE(owner_joined_at, NOW())
             WHERE online_consultation_id = ?
-              AND status IN ('scheduled', 'vet_ready', 'in_progress')
+              AND status IN ('vet_ready', 'in_progress')
         ");
         $stmt->execute([$id]);
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+
+        if ($currentApiRole === 'pet_owner') {
+            try {
+                notification_send_online_consultation_event($pdo, $id, 'owner_joined');
+            } catch (Throwable $notificationError) {
+                error_log('Online consultation join notification failed: ' . $notificationError->getMessage());
+            }
+        }
+
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
     if ($method === 'POST' && $action === 'end') {
         $pdo->beginTransaction();
-        $consultation = fetchOnlineConsultationRow($pdo, $id);
+        $consultation = fetchOnlineConsultationActionRow($pdo, $id, true);
         if (!$consultation) {
             throw new RuntimeException('Online consultation not found.');
         }
+        onlineConsultationEnsureVetActor($consultation, $currentApiRole, $currentApiUserId);
+        onlineConsultationRejectClosed($consultation);
 
         $stmt = $pdo->prepare("
             UPDATE online_consultations
-            SET status = 'completed',
-                ended_at = COALESCE(ended_at, NOW())
+            SET ended_at = COALESCE(ended_at, NOW())
             WHERE online_consultation_id = ?
         ");
         $stmt->execute([$id]);
-
-        $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?");
-        $bookingStmt->execute([(int)$consultation['booking_id']]);
         $pdo->commit();
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
@@ -261,19 +512,66 @@ try {
         }
 
         $input = getJsonInput();
-        $diagnosis = trim((string)($input['diagnosis'] ?? ''));
-        if ($diagnosis === '') {
+        $clinicalInput = clinical_record_sanitize_repeated_fields([
+            'diagnosis' => onlineConsultationNullableText($input['diagnosis'] ?? null),
+            'recommendations' => onlineConsultationNullableText($input['recommendations'] ?? null),
+            'treatment' => onlineConsultationNullableText($input['treatment'] ?? null),
+            'medications' => onlineConsultationNullableText($input['medications'] ?? null),
+            'diagnosis_notes' => onlineConsultationNullableText($input['notes'] ?? null),
+        ]);
+        $diagnosis = $clinicalInput['diagnosis'];
+        if ($diagnosis === null) {
             http_response_code(400);
             echo json_encode(['message' => 'Diagnosis is required.']);
             exit;
         }
 
-        $consultation = fetchOnlineConsultationRow($pdo, $id);
+        $pdo->beginTransaction();
+        $consultation = fetchOnlineConsultationActionRow($pdo, $id, true);
         if (!$consultation) {
             throw new RuntimeException('Online consultation not found.');
         }
+        onlineConsultationEnsureVetActor($consultation, $currentApiRole, $currentApiUserId);
 
-        $pdo->beginTransaction();
+        $existingDiagnosisStmt = $pdo->prepare("
+            SELECT diagnosis_id
+            FROM online_consultation_diagnoses
+            WHERE online_consultation_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $existingDiagnosisStmt->execute([$id]);
+        $existingDiagnosisId = (int)($existingDiagnosisStmt->fetchColumn() ?: 0);
+
+        if (strtolower((string)$consultation['status']) === 'completed' && $existingDiagnosisId > 0) {
+            $visitBilling = visit_billing_ensure_online_consultation_visit(
+                $pdo,
+                $id,
+                $currentApiUserId
+            );
+            $pdo->commit();
+            try {
+                notification_send_online_consultation_event($pdo, $id, 'completed');
+            } catch (Throwable $notificationError) {
+                error_log('Online consultation completion notification retry failed: ' . $notificationError->getMessage());
+            }
+            try {
+                if (!empty($visitBilling['chargeCreated']) && !empty($visitBilling['visitId'])) {
+                    notification_send_visit_event($pdo, (int)$visitBilling['visitId'], 'invoice_ready');
+                }
+            } catch (Throwable $notificationError) {
+                error_log('Online consultation invoice notification retry failed: ' . $notificationError->getMessage());
+            }
+            echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
+            exit;
+        }
+
+        if (strtolower((string)$consultation['booking_status']) === 'completed' && $existingDiagnosisId <= 0) {
+            ipawcus_guard_error(409, 'This booking is already completed without an online diagnosis record.');
+        }
+
+        onlineConsultationRejectClosed($consultation);
+
         $stmt = $pdo->prepare("
             INSERT INTO online_consultation_diagnoses (
                 online_consultation_id,
@@ -305,10 +603,10 @@ try {
             (int)$consultation['booking_id'],
             (int)$consultation['veterinarian_user_id'],
             $diagnosis,
-            $input['recommendations'] ?? null,
-            $input['treatment'] ?? null,
-            $input['medications'] ?? null,
-            $input['notes'] ?? null,
+            $clinicalInput['recommendations'],
+            $clinicalInput['treatment'],
+            $clinicalInput['medications'],
+            $clinicalInput['diagnosis_notes'],
             normalizeNullableJson($input['vitalSigns'] ?? null),
             normalizeNullableJson($input['symptoms'] ?? null),
             normalizeNullableJson($input['labTests'] ?? null),
@@ -322,11 +620,33 @@ try {
         ");
         $updateConsultation->execute([$id]);
 
-        $updateBooking = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?");
+        $updateBooking = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status = 'confirmed'");
         $updateBooking->execute([(int)$consultation['booking_id']]);
+        if ($updateBooking->rowCount() === 0 && strtolower((string)$consultation['booking_status']) !== 'completed') {
+            throw new RuntimeException('Online consultation booking is not in a confirmable state.');
+        }
+
+        $visitBilling = visit_billing_ensure_online_consultation_visit(
+            $pdo,
+            $id,
+            $currentApiUserId
+        );
         $pdo->commit();
 
-        echo json_encode(fetchOnlineConsultations($pdo, ['id' => $id])[0] ?? null);
+        try {
+            notification_send_online_consultation_event($pdo, $id, 'completed');
+        } catch (Throwable $notificationError) {
+            error_log('Online consultation completion notification failed: ' . $notificationError->getMessage());
+        }
+        try {
+            if (!empty($visitBilling['chargeCreated']) && !empty($visitBilling['visitId'])) {
+                notification_send_visit_event($pdo, (int)$visitBilling['visitId'], 'invoice_ready');
+            }
+        } catch (Throwable $notificationError) {
+            error_log('Online consultation invoice notification failed: ' . $notificationError->getMessage());
+        }
+
+        echo json_encode(fetchOnlineConsultationResponse($pdo, $id, $currentApiUser));
         exit;
     }
 
@@ -337,6 +657,7 @@ try {
         $pdo->rollBack();
     }
 
-    http_response_code(500);
+    $statusCode = http_response_code();
+    http_response_code($statusCode >= 400 ? $statusCode : 500);
     echo json_encode(['message' => 'Online consultation error: ' . $e->getMessage()]);
 }

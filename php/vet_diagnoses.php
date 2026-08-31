@@ -2,6 +2,18 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/clinical_record_helpers.php';
+
+if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
+    define('VISIT_BILLING_HELPERS_ONLY', true);
+}
+if (!defined('VISIT_BILLING_THROW_ERRORS')) {
+    define('VISIT_BILLING_THROW_ERRORS', true);
+}
+require_once __DIR__ . '/visit_billing.php';
 
 header('Content-Type: application/json');
 
@@ -28,7 +40,7 @@ function vetDiagnosisColumnExists(PDO $pdo, string $tableName, string $columnNam
 
 function vetDiagnosisMigrationMessage(): string
 {
-    return 'Missing vet_diagnoses table. Please run DDL/vet_diagnosis_migration_20260531.sql before saving diagnoses.';
+    return 'The vet diagnosis schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.';
 }
 
 function vetDiagnosisNullableText($value): ?string
@@ -66,19 +78,58 @@ function vetDiagnosisDate($value): ?string
     return $parsed && !$hasErrors ? $parsed->format('Y-m-d') : null;
 }
 
-function vetDiagnosisJsonValue($value): ?string
+function vetDiagnosisCleanJsonValue($value)
 {
     if ($value === null) {
         return null;
     }
 
-    $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($value)) {
+        $value = trim($value);
+        return $value !== '' ? $value : null;
+    }
+
+    if (!is_array($value)) {
+        return $value;
+    }
+
+    $clean = [];
+    foreach ($value as $key => $item) {
+        $cleanItem = vetDiagnosisCleanJsonValue($item);
+        if ($cleanItem !== null) {
+            $clean[$key] = $cleanItem;
+        }
+    }
+
+    return $clean !== [] ? $clean : null;
+}
+
+function vetDiagnosisJsonValue($value): ?string
+{
+    $cleanValue = vetDiagnosisCleanJsonValue($value);
+    if ($cleanValue === null) {
+        return null;
+    }
+
+    $encoded = json_encode($cleanValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
     if ($encoded === false) {
         throw new RuntimeException('Invalid JSON payload.');
     }
 
     return $encoded;
+}
+
+function vetDiagnosisChargesFromInput(array $input): array
+{
+    $charges = $input['visit_charges'] ?? $input['visitCharges'] ?? $input['charges'] ?? [];
+
+    if (!is_array($charges)) {
+        http_response_code(400);
+        throw new RuntimeException('visit_charges must be an array.');
+    }
+
+    return $charges;
 }
 
 function vetDiagnosisDecodeJson($value)
@@ -90,6 +141,44 @@ function vetDiagnosisDecodeJson($value)
     $decoded = json_decode((string)$value, true);
 
     return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+}
+
+function vetDiagnosisWeightValue($value): ?float
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $text = trim(str_replace(',', '.', (string)$value));
+    if ($text === '') {
+        return null;
+    }
+
+    if (!is_numeric($text) && preg_match('/-?\d+(?:\.\d+)?/', $text, $matches)) {
+        $text = $matches[0];
+    }
+
+    if (!is_numeric($text)) {
+        return null;
+    }
+
+    $weight = (float)$text;
+    return $weight > 0 ? round($weight, 2) : null;
+}
+
+function vetDiagnosisUpdatePetWeight(PDO $pdo, int $petId, $vitalSigns): void
+{
+    if (!is_array($vitalSigns)) {
+        return;
+    }
+
+    $weight = vetDiagnosisWeightValue($vitalSigns['weight'] ?? $vitalSigns['petWeight'] ?? null);
+    if ($weight === null) {
+        return;
+    }
+
+    $stmt = $pdo->prepare("UPDATE pets_information SET pet_weight = ? WHERE pet_id = ?");
+    $stmt->execute([$weight, $petId]);
 }
 
 function vetDiagnosisVaccinationSelect(PDO $pdo): string
@@ -167,11 +256,23 @@ function vetDiagnosisFormatRow(array $row): array
         $row[$column] = vetDiagnosisDecodeJson($row[$column] ?? null);
     }
 
+    $clinicalFields = clinical_record_sanitize_repeated_fields([
+        'chief_complaint' => $row['chief_complaint'] ?? null,
+        'major_symptoms' => $row['major_symptoms'] ?? null,
+        'symptoms' => $row['symptoms'] ?? null,
+        'physical_exam' => $row['physical_exam'] ?? null,
+        'diagnosis' => $row['diagnosis'] ?? null,
+        'treatment' => $row['treatment'] ?? null,
+        'lab_results' => $row['lab_results'] ?? null,
+        'notes' => $row['notes'] ?? null,
+    ]);
+
     return [
         'id' => (int)$row['diagnosis_id'],
         'diagnosisId' => (int)$row['diagnosis_id'],
         'queueId' => $row['queue_id'] !== null ? (int)$row['queue_id'] : null,
         'queueNumber' => $row['queue_number'] !== null ? (int)$row['queue_number'] : null,
+        'queueReference' => $row['queue_number'] !== null ? ipawcus_format_queue_reference($row['queue_number'], $row['queue_timestamp'] ?? null) : '',
         'bookingId' => $row['booking_id'] !== null ? (int)$row['booking_id'] : null,
         'bookingNumber' => $row['booking_number'] ?? null,
         'assignmentId' => $row['assignment_id'] !== null ? (int)$row['assignment_id'] : null,
@@ -184,15 +285,15 @@ function vetDiagnosisFormatRow(array $row): array
         'veterinarianName' => $row['veterinarian_name'] ?? null,
         'diagnosisType' => $row['diagnosis_type'],
         'serviceName' => $row['service_name'] ?? null,
-        'chiefComplaint' => $row['chief_complaint'] ?? '',
-        'majorSymptoms' => $row['major_symptoms'] ?? '',
-        'symptoms' => $row['symptoms'] ?? '',
-        'physicalExam' => $row['physical_exam'] ?? '',
-        'diagnosis' => $row['diagnosis'] ?? '',
-        'treatment' => $row['treatment'] ?? '',
-        'labResults' => $row['lab_results'] ?? '',
+        'chiefComplaint' => $clinicalFields['chief_complaint'] ?? '',
+        'majorSymptoms' => $clinicalFields['major_symptoms'] ?? '',
+        'symptoms' => $clinicalFields['symptoms'] ?? '',
+        'physicalExam' => $clinicalFields['physical_exam'] ?? '',
+        'diagnosis' => $clinicalFields['diagnosis'] ?? '',
+        'treatment' => $clinicalFields['treatment'] ?? '',
+        'labResults' => $clinicalFields['lab_results'] ?? '',
         'followUp' => $row['follow_up_date'] ?? '',
-        'notes' => $row['notes'] ?? '',
+        'notes' => $clinicalFields['notes'] ?? '',
         'vitalSigns' => $row['vital_signs'] ?: [],
         'prescriptions' => $row['prescriptions'] ?: [],
         'customSections' => $row['custom_sections'] ?: [],
@@ -387,8 +488,39 @@ function vetDiagnosisCompleteBooking(PDO $pdo, ?int $bookingId): void
         return;
     }
 
-    $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status <> 'cancelled'");
+    $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ? AND status = 'confirmed'");
     $bookingStmt->execute([$bookingId]);
+}
+
+function vetDiagnosisFetchFormattedById(PDO $pdo, int $diagnosisId): ?array
+{
+    $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
+    $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
+    $recordStmt = $pdo->prepare("
+        SELECT
+            vd.*,
+            q.queue_number,
+            q.timestamp AS queue_timestamp,
+            b.booking_number,
+            p.pet_name,
+            p.pet_species,
+            p.pet_breed,
+            owner.first_Name AS owner_first_name,
+            owner.last_Name AS owner_last_name,
+            {$vaccinationSelect}
+        FROM vet_diagnoses vd
+        LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
+        LEFT JOIN queues q ON q.queue_id = vd.queue_id
+        LEFT JOIN bookings b ON b.booking_id = vd.booking_id
+        LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
+        {$vaccinationJoin}
+        WHERE vd.diagnosis_id = ?
+        LIMIT 1
+    ");
+    $recordStmt->execute([$diagnosisId]);
+    $record = $recordStmt->fetch(PDO::FETCH_ASSOC);
+
+    return $record ? vetDiagnosisFormatRow($record) : null;
 }
 
 function vetDiagnosisSaveVaccinationRecord(PDO $pdo, int $diagnosisId, int $petId, int $veterinarianUserId, string $veterinarianName, array $input): void
@@ -583,6 +715,7 @@ try {
             SELECT
                 vd.*,
                 q.queue_number,
+                q.timestamp AS queue_timestamp,
                 b.booking_number,
                 p.pet_name,
                 p.pet_species,
@@ -624,6 +757,18 @@ try {
     $petId = vetDiagnosisNullableInt($input['pet_id'] ?? $input['petId'] ?? null);
     $veterinarianUserId = vetDiagnosisNullableInt($input['veterinarian_user_id'] ?? $input['veterinarianUserId'] ?? null);
     $diagnosisType = vetDiagnosisNullableText($input['diagnosis_type'] ?? $input['diagnosisType'] ?? 'general') ?: 'general';
+    $currentApiUser = ipawcus_guard_current_user($pdo);
+    $currentApiRole = ipawcus_guard_role($currentApiUser);
+    $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+    if ($currentApiRole === 'veterinarian') {
+        if ($veterinarianUserId !== null && $veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Veterinarians can only finalize diagnoses under their own account.']);
+            exit;
+        }
+        $veterinarianUserId = $currentApiUserId;
+    }
 
     if (!in_array($diagnosisType, ['general', 'custom'], true)) {
         $diagnosisType = 'general';
@@ -676,7 +821,19 @@ try {
         exit;
     }
 
-    $diagnosisText = vetDiagnosisNullableText($input['diagnosis'] ?? null);
+    $clinicalInput = clinical_record_sanitize_repeated_fields([
+        'chief_complaint' => vetDiagnosisNullableText($input['chief_complaint'] ?? $input['chiefComplaint'] ?? null),
+        'major_symptoms' => vetDiagnosisNullableText($input['major_symptoms'] ?? $input['majorSymptoms'] ?? null),
+        'symptoms' => vetDiagnosisNullableText($input['symptoms'] ?? null),
+        'physical_exam' => vetDiagnosisNullableText($input['physical_exam'] ?? $input['physicalExam'] ?? null),
+        'diagnosis' => vetDiagnosisNullableText($input['diagnosis'] ?? null),
+        'treatment' => vetDiagnosisNullableText($input['treatment'] ?? null),
+        'lab_results' => vetDiagnosisNullableText($input['lab_results'] ?? $input['labResults'] ?? null),
+        'notes' => vetDiagnosisNullableText($input['notes'] ?? null),
+    ]);
+    $diagnosisText = $clinicalInput['diagnosis'];
+    $vitalSigns = $input['vital_signs'] ?? $input['vitalSigns'] ?? [];
+    $vitalSigns = is_array($vitalSigns) ? $vitalSigns : [];
     $customSections = $input['custom_sections'] ?? $input['customSections'] ?? [];
     $customSections = is_array($customSections) ? $customSections : [];
     $prescriptions = $input['prescriptions'] ?? [];
@@ -736,16 +893,16 @@ try {
         'veterinarian_name' => vetDiagnosisNullableText($input['veterinarian_name'] ?? $input['veterinarianName'] ?? null),
         'diagnosis_type' => $diagnosisType,
         'service_name' => vetDiagnosisNullableText($input['service_name'] ?? $input['serviceName'] ?? null),
-        'chief_complaint' => vetDiagnosisNullableText($input['chief_complaint'] ?? $input['chiefComplaint'] ?? null),
-        'major_symptoms' => vetDiagnosisNullableText($input['major_symptoms'] ?? $input['majorSymptoms'] ?? null),
-        'symptoms' => vetDiagnosisNullableText($input['symptoms'] ?? null),
-        'physical_exam' => vetDiagnosisNullableText($input['physical_exam'] ?? $input['physicalExam'] ?? null),
+        'chief_complaint' => $clinicalInput['chief_complaint'],
+        'major_symptoms' => $clinicalInput['major_symptoms'],
+        'symptoms' => $clinicalInput['symptoms'],
+        'physical_exam' => $clinicalInput['physical_exam'],
         'diagnosis' => $diagnosisText,
-        'treatment' => vetDiagnosisNullableText($input['treatment'] ?? null),
-        'lab_results' => vetDiagnosisNullableText($input['lab_results'] ?? $input['labResults'] ?? null),
+        'treatment' => $clinicalInput['treatment'],
+        'lab_results' => $clinicalInput['lab_results'],
         'follow_up_date' => vetDiagnosisDate($input['follow_up_date'] ?? $input['followUp'] ?? null),
-        'notes' => vetDiagnosisNullableText($input['notes'] ?? null),
-        'vital_signs' => vetDiagnosisJsonValue($input['vital_signs'] ?? $input['vitalSigns'] ?? []),
+        'notes' => $clinicalInput['notes'],
+        'vital_signs' => vetDiagnosisJsonValue($vitalSigns),
         'prescriptions' => vetDiagnosisJsonValue($prescriptions),
         'custom_sections' => vetDiagnosisJsonValue($customSections),
         'attachments' => vetDiagnosisJsonValue($attachments),
@@ -753,6 +910,38 @@ try {
     ];
 
     $pdo->beginTransaction();
+
+    $isReopenedDiagnosis = false;
+    if ($queueId !== null && $queueId > 0) {
+        $existingDiagnosisStmt = $pdo->prepare("
+            SELECT diagnosis_id, finalized_at
+            FROM vet_diagnoses
+            WHERE queue_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $existingDiagnosisStmt->execute([$queueId]);
+        $existingDiagnosis = $existingDiagnosisStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingDiagnosis && !empty($existingDiagnosis['finalized_at'])) {
+            $queueWasReopened = strtolower(trim((string)($queue['status'] ?? ''))) === 'in-progress';
+            $assignmentWasReopened = !$assignment
+                || strtolower(trim((string)($assignment['status'] ?? ''))) === 'received';
+
+            if (!$queueWasReopened || !$assignmentWasReopened) {
+                $pdo->commit();
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Diagnosis was already finalized. Existing result returned.',
+                    'diagnosis' => vetDiagnosisFetchFormattedById($pdo, (int)$existingDiagnosis['diagnosis_id']),
+                    'alreadyFinalized' => true,
+                ]);
+                exit;
+            }
+
+            $isReopenedDiagnosis = true;
+        }
+    }
 
     $stmt = $pdo->prepare("
         INSERT INTO vet_diagnoses (
@@ -832,6 +1021,7 @@ try {
     $stmt->execute($payload);
     $diagnosisId = (int)$pdo->lastInsertId();
 
+    vetDiagnosisUpdatePetWeight($pdo, $petId, $vitalSigns);
     vetDiagnosisSaveVaccinationRecord(
         $pdo,
         $diagnosisId,
@@ -840,40 +1030,54 @@ try {
         $payload['veterinarian_name'] ?: 'Veterinarian',
         $input
     );
+
+    $visitBilling = visit_billing_save_visit_payload($pdo, [
+        'pet_id' => $petId,
+        'owner_user_id' => vetDiagnosisNullableInt($input['owner_user_id'] ?? $input['ownerUserId'] ?? null),
+        'veterinarian_user_id' => $veterinarianUserId,
+        'queue_id' => $queueId,
+        'booking_id' => $bookingId,
+        'diagnosis_id' => $diagnosisId,
+        'source_type' => $queueId ? 'queue' : ($bookingId ? 'booking' : 'manual'),
+        'visit_status' => 'treatment_done',
+        'charges' => vetDiagnosisChargesFromInput($input),
+    ]);
+
     vetDiagnosisCompleteQueue($pdo, $queueId, $assignmentId);
     vetDiagnosisCompleteBooking($pdo, $bookingId);
 
     $pdo->commit();
 
-    $vaccinationSelect = vetDiagnosisVaccinationSelect($pdo);
-    $vaccinationJoin = vetDiagnosisVaccinationJoin($pdo);
-    $recordStmt = $pdo->prepare("
-        SELECT
-            vd.*,
-            q.queue_number,
-            b.booking_number,
-            p.pet_name,
-            p.pet_species,
-            p.pet_breed,
-            owner.first_Name AS owner_first_name,
-            owner.last_Name AS owner_last_name,
-            {$vaccinationSelect}
-        FROM vet_diagnoses vd
-        LEFT JOIN pets_information p ON p.pet_id = vd.pet_id
-        LEFT JOIN queues q ON q.queue_id = vd.queue_id
-        LEFT JOIN bookings b ON b.booking_id = vd.booking_id
-        LEFT JOIN users owner ON owner.user_id = COALESCE(q.user_id, b.user_id)
-        {$vaccinationJoin}
-        WHERE vd.diagnosis_id = ?
-        LIMIT 1
-    ");
-    $recordStmt->execute([$diagnosisId]);
-    $record = $recordStmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        notification_send_diagnosis_event($pdo, $diagnosisId);
+    } catch (Throwable $notificationError) {
+        error_log('Diagnosis notification failed: ' . $notificationError->getMessage());
+    }
+
+    try {
+        if ($queueId !== null && $queueId > 0) {
+            notification_send_queue_event($pdo, $queueId, 'completed');
+        }
+    } catch (Throwable $notificationError) {
+        error_log('Queue completion notification failed: ' . $notificationError->getMessage());
+    }
+
+    try {
+        if (!empty($visitBilling['hasCharges']) && !empty($visitBilling['visitId'])) {
+            notification_send_visit_event($pdo, (int)$visitBilling['visitId'], 'invoice_ready');
+        }
+    } catch (Throwable $notificationError) {
+        error_log('Visit invoice notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'success' => true,
-        'message' => 'Diagnosis saved.',
-        'diagnosis' => $record ? vetDiagnosisFormatRow($record) : null
+        'message' => $isReopenedDiagnosis
+            ? 'Reopened diagnosis updated and visit billing preserved.'
+            : 'Diagnosis saved and visit billing prepared.',
+        'diagnosis' => vetDiagnosisFetchFormattedById($pdo, $diagnosisId),
+        'visit' => $visitBilling['visit'] ?? null,
+        'reopened' => $isReopenedDiagnosis,
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

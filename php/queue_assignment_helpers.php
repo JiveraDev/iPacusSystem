@@ -10,7 +10,7 @@ function vetQueueAssignmentsTableExists(PDO $pdo): bool
 function requireVetQueueAssignmentsTable(PDO $pdo): void
 {
     if (!vetQueueAssignmentsTableExists($pdo)) {
-        throw new RuntimeException('Missing vet_queue_assignments table. Run vet_queue_assignments_migration.sql before using veterinarian receive/return.');
+        throw new RuntimeException('The veterinarian queue-assignment schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.');
     }
 }
 

@@ -1,0 +1,1 @@
+var e=`/assets/logo-no-bg-D8jBv-rP.png`;export{e as t};

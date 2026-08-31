@@ -1,0 +1,1 @@
+function e(e,t=`Name unavailable`){let n=String(e||``).trim().replace(/\s+/g,` `);if(!n)return t;let r=n.match(/^dr\.?\s+/i),i=r?`Dr. `:``,a=r?n.slice(r[0].length):n;return`${i}${a===a.toUpperCase()||a===a.toLowerCase()?a.toLowerCase().replace(/\b\p{L}/gu,e=>e.toUpperCase()):a}`}export{e as t};

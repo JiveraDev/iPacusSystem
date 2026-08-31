@@ -93,10 +93,6 @@ if (empty($allowedIps)) {
 }
 $allowed = isIpAllowedForSelfService($clientIp, $allowedIps);
 
-if (!$allowed) {
-    http_response_code(403);
-}
-
 echo json_encode([
     'allowed' => $allowed,
     'client_ip' => $clientIp,

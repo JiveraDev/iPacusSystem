@@ -1,0 +1,1 @@
+import{Y as e,rt as t}from"./index-Bd2NGqJP.js";function n(t={}){let n=new URLSearchParams;Object.entries(t).forEach(([e,t])=>{t!=null&&t!==``&&n.set(e,t)});let r=n.toString();return e(`/visits${r?`?${r}`:``}`)}function r(e){return t(`/visits`,e)}function i(e,n){return t(`/visits/${e}/payments`,n)}function a(e,n){return t(`/visits/${e}/refunds`,n)}export{a as i,n,i as r,r as t};

@@ -2,6 +2,11 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/reference_number_helpers.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -16,6 +21,18 @@ $bookingId = isset($_GET['bookingId']) ? (int)$_GET['bookingId'] : 0;
 $veterinarianUserId = isset($input['veterinarian_user_id']) ? (int)$input['veterinarian_user_id'] : 0;
 $providedVetName = trim((string)($input['veterinarian_name'] ?? ''));
 $providedServiceName = trim((string)($input['service_name'] ?? ''));
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+if ($currentApiRole === 'veterinarian') {
+    if ($veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
+        http_response_code(403);
+        echo json_encode(['message' => 'Veterinarians can only receive bookings under their own account.']);
+        exit;
+    }
+    $veterinarianUserId = $currentApiUserId;
+}
 
 if ($bookingId <= 0 || $veterinarianUserId <= 0) {
     http_response_code(400);
@@ -25,23 +42,32 @@ if ($bookingId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
-    $todayDate = (string)$pdo->query("SELECT CURDATE()")->fetchColumn();
+    $todayDate = maintenance_today($pdo);
 
     $bookingStmt = $pdo->prepare("
         SELECT
-            booking_id,
-            user_id,
-            pet_id,
-            booking_number,
-            service_type,
-            booking_date,
-            booking_time,
-            status,
-            notes
-        FROM bookings
-        WHERE booking_id = ?
+            b.booking_id,
+            b.user_id,
+            b.pet_id,
+            b.booking_number,
+            b.branch_id,
+            b.service_type,
+            b.booking_date,
+            b.booking_time,
+            b.status,
+            b.notes,
+            b.is_home_service,
+            b.is_online_consultation,
+            b.check_in_date,
+            b.hotel_boarding_type,
+            b.created_at,
+            p.pet_status
+        FROM bookings b
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        WHERE b.booking_id = ?
         LIMIT 1
         FOR UPDATE
     ");
@@ -57,14 +83,29 @@ try {
         throw new RuntimeException('Only confirmed bookings can be received.');
     }
 
+    if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, (int)$booking['branch_id'])) {
+        ipawcus_guard_error(403, 'This confirmed booking belongs to another branch.');
+    }
+
     if ((int)($booking['pet_id'] ?? 0) <= 0) {
         http_response_code(409);
         throw new RuntimeException('Register this booking pet before receiving it for diagnosis.');
     }
 
+    if (strtolower(trim((string)($booking['pet_status'] ?? ''))) === 'deceased') {
+        http_response_code(409);
+        throw new RuntimeException('Cannot receive a booking for a deceased pet.');
+    }
+
     if ((string)$booking['booking_date'] !== $todayDate) {
         http_response_code(409);
         throw new RuntimeException('This booking must be scheduled for today before it can be received.');
+    }
+
+    $originalBookingDate = maintenance_booking_original_date($booking);
+    if ($originalBookingDate !== null && maintenance_is_after($todayDate, maintenance_date_add($originalBookingDate, 7))) {
+        http_response_code(409);
+        throw new RuntimeException('This booking is outside the 7-day valid booking lifespan and must be reviewed or cancelled.');
     }
 
     $vetStmt = $pdo->prepare("SELECT first_Name, last_Name FROM users WHERE user_id = ? LIMIT 1");
@@ -81,6 +122,7 @@ try {
     $hasQueueSourceColumn = in_array('queue_source', $queueColumns, true);
     $hasVerifiedByAdminColumn = in_array('verified_by_admin', $queueColumns, true);
     $marker = bookingQueueMarker((string)$booking['booking_number']);
+    $cleanComplaint = buildBookingQueueComplaint($booking);
     $queue = null;
 
     if ($hasBookingIdColumn) {
@@ -112,7 +154,7 @@ try {
     }
 
     $activeQueueStmt = $pdo->prepare("
-        SELECT queue_id, queue_number, status
+        SELECT queue_id, queue_number, status, timestamp
         FROM queues
         WHERE pet_id = ?
           AND status IN ('waiting', 'in-progress')
@@ -126,17 +168,27 @@ try {
 
     if ($activeQueue && (!$queue || (int)$activeQueue['queue_id'] !== (int)$queue['queue_id'])) {
         http_response_code(409);
-        throw new RuntimeException("This pet already has an active queue entry today (#{$activeQueue['queue_number']}).");
+        throw new RuntimeException("This pet already has an active queue entry today (" . ipawcus_format_queue_reference($activeQueue['queue_number'], $activeQueue['timestamp'] ?? null) . ").");
     }
 
-    $cancelOldStmt = $pdo->prepare("
-        UPDATE queues
-        SET status = 'cancelled'
-        WHERE pet_id = ?
-          AND status IN ('waiting', 'in-progress')
-          AND DATE(timestamp) < CURDATE()
+    $activeServiceStmt = $pdo->prepare("
+        SELECT q.queue_id, q.queue_number, q.timestamp
+        FROM queues q
+        JOIN vet_queue_assignments vqa ON vqa.queue_id = q.queue_id
+        WHERE q.pet_id = ?
+          AND q.status = 'in-progress'
+          AND vqa.status = 'received'
+        ORDER BY q.timestamp DESC
+        LIMIT 1
+        FOR UPDATE
     ");
-    $cancelOldStmt->execute([(int)$booking['pet_id']]);
+    $activeServiceStmt->execute([(int)$booking['pet_id']]);
+    $activeServiceQueue = $activeServiceStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($activeServiceQueue && (!$queue || (int)$activeServiceQueue['queue_id'] !== (int)$queue['queue_id'])) {
+        http_response_code(409);
+        throw new RuntimeException("This pet is still in service on queue " . ipawcus_format_queue_reference($activeServiceQueue['queue_number'], $activeServiceQueue['timestamp'] ?? null) . ".");
+    }
 
     if ($queue && $hasBookingIdColumn && empty($queue['booking_id'])) {
         $linkQueue = $pdo->prepare("UPDATE queues SET booking_id = ? WHERE queue_id = ?");
@@ -145,8 +197,18 @@ try {
     }
 
     if (!$queue) {
-        $maxStmt = $pdo->query("SELECT MAX(queue_number) AS max_num FROM queues WHERE DATE(timestamp) = CURDATE()");
-        $newQueueNumber = ((int)($maxStmt->fetch(PDO::FETCH_ASSOC)['max_num'] ?? 0)) + 1;
+        $maxStmt = $pdo->prepare("
+            SELECT queue_number
+            FROM queues
+            WHERE branch_id = ?
+              AND timestamp >= CURDATE()
+              AND timestamp < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+            ORDER BY queue_number DESC
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $maxStmt->execute([(int)$booking['branch_id']]);
+        $newQueueNumber = ((int)($maxStmt->fetch(PDO::FETCH_ASSOC)['queue_number'] ?? 0)) + 1;
         $insertColumns = ['pet_id', 'user_id', 'service_name', 'queue_number', 'status', 'priority', 'complaint', 'timestamp'];
         $insertValues = [
             (int)$booking['pet_id'],
@@ -155,9 +217,16 @@ try {
             $newQueueNumber,
             'in-progress',
             'normal',
-            buildBookingQueueComplaint($booking)
+            $cleanComplaint
         ];
         $placeholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
+
+        $insertColumns[] = 'branch_id';
+        $insertValues[] = (int)$booking['branch_id'];
+        $placeholders[] = '?';
+        $insertColumns[] = 'queue_date';
+        $insertValues[] = $todayDate;
+        $placeholders[] = '?';
 
         if ($hasQueueSourceColumn) {
             $insertColumns[] = 'queue_source';
@@ -188,10 +257,16 @@ try {
         $queueStmt->execute([(int)$pdo->lastInsertId()]);
         $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($queue['status'] !== 'in-progress') {
-        $updateQueue = $pdo->prepare("UPDATE queues SET status = 'in-progress', timestamp = NOW() WHERE queue_id = ?");
-        $updateQueue->execute([(int)$queue['queue_id']]);
+        $updateQueue = $pdo->prepare("UPDATE queues SET branch_id = ?, queue_date = CURDATE(), status = 'in-progress', timestamp = NOW() WHERE queue_id = ?");
+        $updateQueue->execute([(int)$booking['branch_id'], (int)$queue['queue_id']]);
         $queue['status'] = 'in-progress';
         $queue['timestamp'] = date('Y-m-d H:i:s');
+    }
+
+    if ($queue && trim((string)($queue['complaint'] ?? '')) !== trim($cleanComplaint)) {
+        $updateComplaint = $pdo->prepare("UPDATE queues SET complaint = ? WHERE queue_id = ?");
+        $updateComplaint->execute([$cleanComplaint, (int)$queue['queue_id']]);
+        $queue['complaint'] = $cleanComplaint;
     }
 
     $activeAssignmentStmt = $pdo->prepare("
@@ -229,6 +304,18 @@ try {
 
     $pdo->commit();
 
+    try {
+        notification_send_queue_event($pdo, (int)$queue['queue_id'], 'in_progress', [
+            'reason' => 'The veterinarian received this confirmed booking for service.',
+        ]);
+        notification_send_queue_event($pdo, (int)$queue['queue_id'], 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+        notification_send_queue_assignment_to_vet($pdo, (int)$queue['queue_id'], $veterinarianUserId, $veterinarianName);
+    } catch (Throwable $notificationError) {
+        error_log('Booking receive notification failed: ' . $notificationError->getMessage());
+    }
+
     $responseQueue = $queue;
     $responseQueue['queue_source'] = $queue['queue_source'] ?? 'booking_management';
     $responseQueue['assignment_id'] = $assignment['assignment_id'] ?? null;
@@ -237,6 +324,7 @@ try {
     $responseQueue['assignment_status'] = $assignment['status'] ?? null;
     $responseQueue['received_at'] = $assignment['received_at'] ?? null;
     $responseQueue['has_active_assignment'] = $assignment ? 1 : 0;
+    $responseQueue['queue_reference'] = ipawcus_format_queue_reference($responseQueue['queue_number'] ?? 0, $responseQueue['timestamp'] ?? null);
 
     echo json_encode([
         'success' => true,

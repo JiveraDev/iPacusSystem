@@ -1,9 +1,65 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
+
+$inventoryCurrentUser = ipawcus_guard_current_user($pdo);
+
+function inventoryRequestedBranchId(PDO $pdo): int
+{
+    global $inventoryCurrentUser;
+    $requested = $_GET['branchId'] ?? $_GET['branch_id'] ?? null;
+    $branchId = is_numeric($requested)
+        ? (int)$requested
+        : branch_user_primary_id($pdo, ipawcus_guard_user_id($inventoryCurrentUser));
+    if (!branch_fetch($pdo, $branchId)) {
+        throw new InvalidArgumentException('Select an active inventory branch.');
+    }
+    if (!branch_user_can_access($pdo, $inventoryCurrentUser, $branchId)) {
+        ipawcus_guard_error(403, 'You cannot access inventory from another branch.');
+    }
+    return $branchId;
+}
+
+function inventoryAssertLocationAccess(PDO $pdo, int $locationId): int
+{
+    global $inventoryCurrentUser;
+    $stmt = $pdo->prepare('SELECT branch_id FROM inventory_locations WHERE location_id = ? AND status = \'active\' LIMIT 1');
+    $stmt->execute([$locationId]);
+    $branchId = (int)$stmt->fetchColumn();
+    if ($branchId <= 0) {
+        throw new InvalidArgumentException('Inventory location was not found.');
+    }
+    if (!branch_user_can_access($pdo, $inventoryCurrentUser, $branchId)) {
+        ipawcus_guard_error(403, 'You cannot change inventory at another branch.');
+    }
+    return $branchId;
+}
 
 function inventoryInput(): array
 {
     return json_decode(file_get_contents('php://input'), true) ?? [];
+}
+
+function inventoryColumnExists(PDO $pdo, string $tableName, string $columnName): bool
+{
+    static $cache = [];
+    $cacheKey = spl_object_id($pdo) . ':' . $tableName . ':' . $columnName;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND column_name = ?
+    ");
+    $stmt->execute([$tableName, $columnName]);
+    $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
+
+    return $cache[$cacheKey];
 }
 
 function inventoryUser(PDO $pdo, $userId): array
@@ -128,6 +184,7 @@ function inventoryResolveLocationId(PDO $pdo, array $input): int
         $stmt->execute([$locationId]);
         $existingId = $stmt->fetchColumn();
         if ($existingId) {
+            inventoryAssertLocationAccess($pdo, (int)$existingId);
             return (int)$existingId;
         }
 
@@ -135,28 +192,33 @@ function inventoryResolveLocationId(PDO $pdo, array $input): int
     }
 
     $locationName = inventoryOptionalText($input['location_name'] ?? null);
+    $storageArea = inventoryOptionalText($input['storage_area'] ?? $input['storageArea'] ?? null) ?: 'General Storage';
     if (!$locationName) {
         throw new Exception('Inventory location is required.');
     }
 
+    $branchId = inventoryRequestedBranchId($pdo);
     $lookup = $pdo->prepare("
         SELECT location_id
         FROM inventory_locations
         WHERE LOWER(location_name) = LOWER(?)
+          AND branch_id = ?
+          AND LOWER(COALESCE(storage_area, 'General Storage')) = LOWER(?)
         LIMIT 1
     ");
-    $lookup->execute([$locationName]);
+    $lookup->execute([$locationName, $branchId, $storageArea]);
     $existingId = $lookup->fetchColumn();
     if ($existingId) {
+        inventoryAssertLocationAccess($pdo, (int)$existingId);
         return (int)$existingId;
     }
 
     try {
-        $insert = $pdo->prepare("INSERT INTO inventory_locations (location_name) VALUES (?)");
-        $insert->execute([$locationName]);
+        $insert = $pdo->prepare("INSERT INTO inventory_locations (branch_id, location_name, storage_area) VALUES (?, ?, ?)");
+        $insert->execute([$branchId, $locationName, $storageArea]);
         return (int)$pdo->lastInsertId();
     } catch (PDOException $e) {
-        $lookup->execute([$locationName]);
+        $lookup->execute([$locationName, $branchId, $storageArea]);
         $existingId = $lookup->fetchColumn();
         if ($existingId) {
             return (int)$existingId;
@@ -165,21 +227,85 @@ function inventoryResolveLocationId(PDO $pdo, array $input): int
     }
 }
 
+function inventoryResolveSupplierId(PDO $pdo, array $input): int
+{
+    $supplierId = (int)($input['supplier_id'] ?? 0);
+    if ($supplierId > 0) {
+        $stmt = $pdo->prepare("
+            SELECT supplier_id
+            FROM inventory_suppliers
+            WHERE supplier_id = ? AND status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$supplierId]);
+        $existingId = $stmt->fetchColumn();
+        if ($existingId) {
+            return (int)$existingId;
+        }
+
+        throw new Exception('Supplier was not found.');
+    }
+
+    $supplierName = inventoryOptionalText($input['supplier_name'] ?? null);
+    if (!$supplierName) {
+        throw new Exception('Supplier is required for each stock-in item.');
+    }
+
+    if (strlen($supplierName) > 150) {
+        throw new Exception('Supplier name must be 150 characters or fewer.');
+    }
+
+    $lookup = $pdo->prepare("
+        SELECT supplier_id, status
+        FROM inventory_suppliers
+        WHERE LOWER(supplier_name) = LOWER(?)
+        LIMIT 1
+    ");
+    $lookup->execute([$supplierName]);
+    $existing = $lookup->fetch(PDO::FETCH_ASSOC);
+    if ($existing) {
+        if ((string)($existing['status'] ?? '') !== 'active') {
+            $activate = $pdo->prepare("UPDATE inventory_suppliers SET status = 'active' WHERE supplier_id = ?");
+            $activate->execute([(int)$existing['supplier_id']]);
+        }
+
+        return (int)$existing['supplier_id'];
+    }
+
+    try {
+        $insert = $pdo->prepare("INSERT INTO inventory_suppliers (supplier_name) VALUES (?)");
+        $insert->execute([$supplierName]);
+        return (int)$pdo->lastInsertId();
+    } catch (PDOException $e) {
+        $lookup->execute([$supplierName]);
+        $existing = $lookup->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            return (int)$existing['supplier_id'];
+        }
+        throw $e;
+    }
+}
+
 function getInventoryItems(PDO $pdo): void
 {
-    $stmt = $pdo->query("
+    $branchId = inventoryRequestedBranchId($pdo);
+    $stmt = $pdo->prepare("
         SELECT
             i.*,
-            l.location_name,
+            branch.branch_name,
+            item_location.location_name AS item_location_name,
+            item_location.storage_area AS item_storage_area,
             (
                 SELECT COALESCE(SUM(b.quantity), 0)
                 FROM inventory_batches b
-                WHERE b.item_id = i.item_id
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ?
             ) AS total_quantity,
             (
                 SELECT MIN(b.expiry_date)
                 FROM inventory_batches b
-                WHERE b.item_id = i.item_id AND b.expiry_date IS NOT NULL
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ? AND b.expiry_date IS NOT NULL
             ) AS nearest_expiry,
             (
                 SELECT s.supplier_name
@@ -190,18 +316,22 @@ function getInventoryItems(PDO $pdo): void
                 LIMIT 1
             ) AS last_supplier
         FROM inventory_items i
-        JOIN inventory_locations l ON l.location_id = i.location_id
+        JOIN branches branch ON branch.branch_id = ?
+        LEFT JOIN inventory_locations item_location ON item_location.location_id = i.location_id
         WHERE i.status = 'active'
         ORDER BY i.item_name ASC
     ");
+    $stmt->execute([$branchId, $branchId, $branchId]);
     $items = $stmt->fetchAll();
 
-    $batchStmt = $pdo->query("
-        SELECT b.*, l.location_name
+    $batchStmt = $pdo->prepare("
+        SELECT b.*, l.location_name, l.storage_area, l.branch_id
         FROM inventory_batches b
         JOIN inventory_locations l ON l.location_id = b.location_id
+        WHERE l.branch_id = ?
         ORDER BY b.expiry_date IS NULL, b.expiry_date ASC, b.batch_number ASC
     ");
+    $batchStmt->execute([$branchId]);
     $batchesByItem = [];
     foreach ($batchStmt->fetchAll() as $batch) {
         $itemId = (int)$batch['item_id'];
@@ -213,13 +343,16 @@ function getInventoryItems(PDO $pdo): void
             'manufacturingDate' => $batch['manufacturing_date'],
             'expiryDate' => $batch['expiry_date'] ?: 'No expiry',
             'locationId' => (int)$batch['location_id'],
-            'location' => $batch['location_name'],
+            'location' => trim((string)$batch['location_name']) . ' / ' . trim((string)($batch['storage_area'] ?: 'General Storage')),
+            'locationName' => $batch['location_name'],
+            'storageArea' => $batch['storage_area'] ?: 'General Storage',
             'unitCost' => (float)$batch['unit_cost'],
             'createdAt' => $batch['created_at']
         ];
     }
 
-    $result = array_map(function ($item) use ($batchesByItem) {
+    $hasSellingPrice = inventoryColumnExists($pdo, 'inventory_items', 'selling_price');
+    $result = array_map(function ($item) use ($batchesByItem, $branchId, $hasSellingPrice) {
         $itemId = (int)$item['item_id'];
         $quantity = (int)$item['total_quantity'];
         $reorderLevel = (int)$item['reorder_level'];
@@ -240,10 +373,14 @@ function getInventoryItems(PDO $pdo): void
             'supplier' => $item['last_supplier'] ?: 'No stock receipt yet',
             'supplierContact' => '',
             'locationId' => (int)$item['location_id'],
-            'location' => $item['location_name'],
+            'location' => ($batchesByItem[$itemId][0]['location'] ?? trim((string)($item['item_location_name'] ?: $item['branch_name'])) . ' / ' . trim((string)($item['item_storage_area'] ?: 'General Storage'))),
+            'storageArea' => $batchesByItem[$itemId][0]['storageArea'] ?? ($item['item_storage_area'] ?: 'General Storage'),
+            'branchId' => $branchId,
+            'branchName' => $item['branch_name'],
             'quantity' => $quantity,
             'unit' => $item['unit'],
             'costPrice' => (float)$item['unit_cost'],
+            'sellingPrice' => (float)($hasSellingPrice ? ($item['selling_price'] ?? $item['unit_cost']) : $item['unit_cost']),
             'expiryDate' => $nearestExpiry,
             'batches' => $batchesByItem[$itemId] ?? [],
             'status' => inventoryStatus($quantity, $reorderLevel, $nearestExpiry, $warningDays),
@@ -259,6 +396,7 @@ function getInventoryItems(PDO $pdo): void
 
 function getInventoryMeta(PDO $pdo): void
 {
+    $branchId = inventoryRequestedBranchId($pdo);
     $suppliers = $pdo->query("
         SELECT supplier_id AS id, supplier_name AS name
         FROM inventory_suppliers
@@ -266,12 +404,21 @@ function getInventoryMeta(PDO $pdo): void
         ORDER BY supplier_name
     ")->fetchAll();
 
-    $locations = $pdo->query("
-        SELECT location_id AS id, location_name AS name, location_type AS type
-        FROM inventory_locations
-        WHERE status = 'active'
-        ORDER BY location_name
-    ")->fetchAll();
+    $locationsStmt = $pdo->prepare("
+        SELECT
+            location.location_id AS id,
+            location.location_name AS name,
+            location.location_type AS type,
+            location.storage_area AS storageArea,
+            branch.branch_name AS branchName,
+            CONCAT(branch.branch_name, ' - ', location.location_name, ' / ', COALESCE(NULLIF(location.storage_area, ''), 'General Storage')) AS displayName
+        FROM inventory_locations location
+        JOIN branches branch ON branch.branch_id = location.branch_id
+        WHERE location.status = 'active' AND location.branch_id = ?
+        ORDER BY location.location_name, location.storage_area
+    ");
+    $locationsStmt->execute([$branchId]);
+    $locations = $locationsStmt->fetchAll();
 
     $brands = $pdo->query("
         SELECT DISTINCT brand AS name
@@ -291,7 +438,8 @@ function getInventoryMeta(PDO $pdo): void
         'suppliers' => $suppliers,
         'locations' => $locations,
         'brands' => $brands,
-        'units' => $units
+        'units' => $units,
+        'branchId' => $branchId
     ]);
 }
 
@@ -327,14 +475,11 @@ function createInventoryItem(PDO $pdo): void
             $sku = inventoryGenerateSku($pdo, $itemName, $category, $brand);
         }
 
-        $stmt = $pdo->prepare("
-            INSERT INTO inventory_items (
-                item_name, generic_name, sku, barcode, description, category, brand, unit,
-                location_id, reorder_level, unit_cost, expiry_warning_days, profile_image_path,
-                created_by_user_id, created_by_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
+        $itemColumns = [
+            'item_name', 'generic_name', 'sku', 'barcode', 'description', 'category', 'brand', 'unit',
+            'location_id', 'reorder_level', 'unit_cost',
+        ];
+        $itemValues = [
             $itemName,
             inventoryOptionalText($input['generic_name'] ?? null),
             $sku,
@@ -346,11 +491,29 @@ function createInventoryItem(PDO $pdo): void
             $locationId,
             (int)($input['reorder_level'] ?? 0),
             (float)($input['unit_cost'] ?? 0),
+        ];
+        if (inventoryColumnExists($pdo, 'inventory_items', 'selling_price')) {
+            $sellingPrice = (float)($input['selling_price'] ?? $input['unit_cost'] ?? 0);
+            if ($sellingPrice < 0) {
+                throw new InvalidArgumentException('Selling price cannot be negative.');
+            }
+            $itemColumns[] = 'selling_price';
+            $itemValues[] = $sellingPrice;
+        }
+        $itemColumns = array_merge($itemColumns, [
+            'expiry_warning_days', 'profile_image_path', 'created_by_user_id', 'created_by_name',
+        ]);
+        $itemValues = array_merge($itemValues, [
             (int)($input['expiry_warning_days'] ?? 90),
             inventoryOptionalText($input['profile_image_path'] ?? null),
             (int)$user['user_id'],
-            $user['full_name']
+            $user['full_name'],
         ]);
+        $placeholders = implode(', ', array_fill(0, count($itemColumns), '?'));
+        $stmt = $pdo->prepare(
+            'INSERT INTO inventory_items (' . implode(', ', $itemColumns) . ') VALUES (' . $placeholders . ')'
+        );
+        $stmt->execute($itemValues);
 
         $itemId = (int)$pdo->lastInsertId();
         $quantity = (int)($input['quantity'] ?? 0);
@@ -384,13 +547,14 @@ function createInventoryItem(PDO $pdo): void
 
         $movementStmt = $pdo->prepare("
             INSERT INTO inventory_stock_movements (
-                item_id, batch_id, movement_type, quantity_change, quantity_before, quantity_after,
+                item_id, batch_id, location_id, movement_type, quantity_change, quantity_before, quantity_after,
                 reference_type, reference_id, remarks, performed_by_user_id, performed_by_name
-            ) VALUES (?, ?, 'add_item', ?, 0, ?, 'inventory_items', ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, 'add_item', ?, 0, ?, 'inventory_items', ?, ?, ?, ?)
         ");
         $movementStmt->execute([
             $itemId,
             $batchId,
+            $locationId,
             $quantity,
             $quantity,
             $itemId,
@@ -429,13 +593,23 @@ function createStockIn(PDO $pdo): void
 
     $pdo->beginTransaction();
     try {
+        $receiptBranchId = null;
+        foreach ($items as $line) {
+            $lineLocationId = (int)($line['location_id'] ?? 0);
+            $lineBranchId = inventoryAssertLocationAccess($pdo, $lineLocationId);
+            if ($receiptBranchId !== null && $receiptBranchId !== $lineBranchId) {
+                throw new InvalidArgumentException('A stock-in receipt must contain items for one branch only.');
+            }
+            $receiptBranchId = $lineBranchId;
+        }
         $receiptStmt = $pdo->prepare("
             INSERT INTO inventory_stock_receipts (
-                receiving_date, delivery_note_number, proof_image_path, notes,
+                branch_id, receiving_date, delivery_note_number, proof_image_path, notes,
                 received_by_user_id, received_by_name
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
         $receiptStmt->execute([
+            $receiptBranchId,
             $input['receiving_date'] ?? date('Y-m-d'),
             inventoryOptionalText($input['delivery_note_number'] ?? null),
             inventoryOptionalText($input['proof_image_path'] ?? null),
@@ -446,13 +620,14 @@ function createStockIn(PDO $pdo): void
         $receiptId = (int)$pdo->lastInsertId();
 
         foreach ($items as $line) {
-            foreach (['item_id', 'supplier_id', 'location_id', 'batch_number', 'quantity_received'] as $field) {
+            foreach (['item_id', 'location_id', 'batch_number', 'quantity_received'] as $field) {
                 if (empty($line[$field])) {
                     throw new Exception("$field is required for each stock-in item.");
                 }
             }
 
             $itemId = (int)$line['item_id'];
+            $supplierId = inventoryResolveSupplierId($pdo, $line);
             $locationId = (int)$line['location_id'];
             $batchNumber = inventoryText($line['batch_number']);
             $quantity = (int)$line['quantity_received'];
@@ -463,10 +638,10 @@ function createStockIn(PDO $pdo): void
             $batchLookup = $pdo->prepare("
                 SELECT batch_id, quantity, location_id
                 FROM inventory_batches
-                WHERE item_id = ? AND batch_number = ?
+                WHERE item_id = ? AND batch_number = ? AND location_id = ?
                 LIMIT 1
             ");
-            $batchLookup->execute([$itemId, $batchNumber]);
+            $batchLookup->execute([$itemId, $batchNumber, $locationId]);
             $batch = $batchLookup->fetch();
 
             if ($batch) {
@@ -516,7 +691,7 @@ function createStockIn(PDO $pdo): void
             $receiptItemStmt->execute([
                 $receiptId,
                 $itemId,
-                (int)$line['supplier_id'],
+                $supplierId,
                 $locationId,
                 $batchId,
                 $batchNumber,
@@ -527,13 +702,14 @@ function createStockIn(PDO $pdo): void
 
             $movementStmt = $pdo->prepare("
                 INSERT INTO inventory_stock_movements (
-                    item_id, batch_id, movement_type, quantity_change, quantity_before, quantity_after,
+                    item_id, batch_id, location_id, movement_type, quantity_change, quantity_before, quantity_after,
                     reference_type, reference_id, remarks, performed_by_user_id, performed_by_name
-                ) VALUES (?, ?, 'stock_in', ?, ?, ?, 'inventory_stock_receipts', ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, 'stock_in', ?, ?, ?, 'inventory_stock_receipts', ?, ?, ?, ?)
             ");
             $movementStmt->execute([
                 $itemId,
                 $batchId,
+                $locationId,
                 $quantity,
                 $before,
                 $after,
@@ -574,13 +750,20 @@ function createStockOut(PDO $pdo): void
 
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("SELECT quantity FROM inventory_batches WHERE batch_id = ? AND item_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("
+            SELECT batch.quantity, batch.location_id
+            FROM inventory_batches batch
+            WHERE batch.batch_id = ? AND batch.item_id = ?
+            LIMIT 1
+        ");
         $stmt->execute([(int)$input['batch_id'], (int)$input['item_id']]);
         $batch = $stmt->fetch();
 
         if (!$batch) {
             throw new Exception('Batch was not found.');
         }
+        $locationId = (int)$batch['location_id'];
+        inventoryAssertLocationAccess($pdo, $locationId);
 
         $before = (int)$batch['quantity'];
         if ($quantity > $before) {
@@ -593,13 +776,14 @@ function createStockOut(PDO $pdo): void
 
         $movement = $pdo->prepare("
             INSERT INTO inventory_stock_movements (
-                item_id, batch_id, movement_type, quantity_change, quantity_before, quantity_after,
+                item_id, batch_id, location_id, movement_type, quantity_change, quantity_before, quantity_after,
                 reference_type, reference_id, remarks, performed_by_user_id, performed_by_name
-            ) VALUES (?, ?, 'stock_out', ?, ?, ?, 'inventory_batches', ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, 'stock_out', ?, ?, ?, 'inventory_batches', ?, ?, ?, ?)
         ");
         $movement->execute([
             (int)$input['item_id'],
             (int)$input['batch_id'],
+            $locationId,
             -$quantity,
             $before,
             $after,
@@ -645,6 +829,22 @@ function updateInventoryItem(PDO $pdo): void
         $values[] = $unitCost;
     }
 
+    if (array_key_exists('selling_price', $input)) {
+        if (!inventoryColumnExists($pdo, 'inventory_items', 'selling_price')) {
+            http_response_code(409);
+            echo json_encode(['message' => 'Run DDL/20260808_01_payment_integrity.sql before setting selling prices.']);
+            return;
+        }
+        $sellingPrice = (float)$input['selling_price'];
+        if ($sellingPrice < 0) {
+            http_response_code(400);
+            echo json_encode(['message' => 'Selling price cannot be negative.']);
+            return;
+        }
+        $fields[] = 'selling_price = ?';
+        $values[] = $sellingPrice;
+    }
+
     if (array_key_exists('location_id', $input)) {
         $locationId = (int)$input['location_id'];
         if ($locationId <= 0) {
@@ -665,6 +865,7 @@ function updateInventoryItem(PDO $pdo): void
             echo json_encode(['message' => 'Inventory location was not found.']);
             return;
         }
+        inventoryAssertLocationAccess($pdo, $locationId);
 
         $fields[] = 'location_id = ?';
         $values[] = $locationId;

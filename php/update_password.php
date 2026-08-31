@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth_otp_helpers.php';
+require_once __DIR__ . '/password_policy_helpers.php';
 
 $userId = $_GET['userId'] ?? null;
 $input = json_decode(file_get_contents('php://input'), true);
@@ -25,14 +26,14 @@ if (!$currentPassword || !$newPassword) {
     exit;
 }
 
-if (strlen($newPassword) < 8) {
+if (!ipawcus_password_meets_policy((string)$newPassword)) {
     http_response_code(400);
-    echo json_encode(['message' => 'New password must be at least 8 characters.']);
+    echo json_encode(['message' => ipawcus_password_policy_error()]);
     exit;
 }
 
 try {
-    $stmt = $pdo->prepare('SELECT user_password FROM users WHERE user_id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT user_id, mail_Address, first_Name, last_Name, user_password FROM users WHERE user_id = ? LIMIT 1');
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -43,8 +44,17 @@ try {
     }
 
     $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare('UPDATE users SET user_password = ? WHERE user_id = ?');
+    $passwordSql = authOtpColumnExists($pdo, 'users', 'password_changed_at')
+        ? 'UPDATE users SET user_password = ?, password_changed_at = NOW() WHERE user_id = ?'
+        : 'UPDATE users SET user_password = ? WHERE user_id = ?';
+    $stmt = $pdo->prepare($passwordSql);
     $stmt->execute([$hashedPassword, $userId]);
+
+    try {
+        authOtpSendPasswordChangedEmail($user['mail_Address'], $user);
+    } catch (Throwable $mailError) {
+        // Password was changed. Do not fail the response because notification email failed.
+    }
 
     echo json_encode(['message' => 'Password changed successfully.']);
 } catch (Exception $e) {

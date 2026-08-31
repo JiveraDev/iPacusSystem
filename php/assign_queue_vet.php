@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/branch_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -15,6 +19,14 @@ $queueId = isset($input['queue_id']) ? (int)$input['queue_id'] : 0;
 $veterinarianUserId = isset($input['veterinarian_user_id']) ? (int)$input['veterinarian_user_id'] : 0;
 $providedVetName = trim((string)($input['veterinarian_name'] ?? ''));
 $reason = trim((string)($input['reason'] ?? 'Assigned by admin from queue management'));
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+
+if (!ipawcus_guard_is_admin_role($currentApiRole)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Only authorized admin users can assign queue veterinarians.']);
+    exit;
+}
 
 if ($queueId <= 0 || $veterinarianUserId <= 0) {
     http_response_code(400);
@@ -24,10 +36,11 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
 
-    $queueStmt = $pdo->prepare("SELECT queue_id, status FROM queues WHERE queue_id = ? FOR UPDATE");
+    $queueStmt = $pdo->prepare("SELECT queue_id, branch_id, status FROM queues WHERE queue_id = ? FOR UPDATE");
     $queueStmt->execute([$queueId]);
     $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -35,6 +48,14 @@ try {
         $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
+
+
+    if ($currentApiRole === 'admin' && !branch_user_can_access($pdo, $currentApiUser, (int)($queue['branch_id'] ?? 0))) {
+        $pdo->rollBack();
+        http_response_code(403);
+        echo json_encode(['error' => 'This queue belongs to another branch.']);
         exit;
     }
 
@@ -70,10 +91,22 @@ try {
     $activeStmt->execute([$queueId]);
     $activeAssignment = $activeStmt->fetch(PDO::FETCH_ASSOC);
 
+    $previousQueueStatus = (string)$queue['status'];
+
     if ($activeAssignment && (int)$activeAssignment['veterinarian_user_id'] === $veterinarianUserId) {
         $queueUpdate = $pdo->prepare("UPDATE queues SET status = 'in-progress' WHERE queue_id = ?");
         $queueUpdate->execute([$queueId]);
         $pdo->commit();
+
+        if ($previousQueueStatus !== 'in-progress') {
+            try {
+                notification_send_queue_event($pdo, $queueId, 'in_progress', [
+                    'reason' => $reason !== '' ? $reason : 'Assigned by admin from queue management',
+                ]);
+            } catch (Throwable $notificationError) {
+                error_log('Queue assignment approval notification failed: ' . $notificationError->getMessage());
+            }
+        }
 
         echo json_encode([
             'success' => true,
@@ -113,6 +146,21 @@ try {
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
     $pdo->commit();
+
+    try {
+        if ($previousQueueStatus !== 'in-progress') {
+            notification_send_queue_event($pdo, $queueId, 'in_progress', [
+                'reason' => $reason !== '' ? $reason : 'Assigned by admin from queue management',
+            ]);
+        }
+
+        notification_send_queue_event($pdo, $queueId, 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+        notification_send_queue_assignment_to_vet($pdo, $queueId, $veterinarianUserId, $veterinarianName);
+    } catch (Throwable $notificationError) {
+        error_log('Queue assignment notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'success' => true,

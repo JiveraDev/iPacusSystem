@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/queue_assignment_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
+require_once __DIR__ . '/booking_maintenance.php';
+require_once __DIR__ . '/workflow_guard_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -14,6 +17,18 @@ $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $queueId = isset($input['queue_id']) ? (int)$input['queue_id'] : 0;
 $veterinarianUserId = isset($input['veterinarian_user_id']) ? (int)$input['veterinarian_user_id'] : 0;
 $providedVetName = trim((string)($input['veterinarian_name'] ?? ''));
+$currentApiUser = ipawcus_guard_current_user($pdo);
+$currentApiRole = ipawcus_guard_role($currentApiUser);
+$currentApiUserId = ipawcus_guard_user_id($currentApiUser);
+
+if ($currentApiRole === 'veterinarian') {
+    if ($veterinarianUserId > 0 && $veterinarianUserId !== $currentApiUserId) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Veterinarians can only receive queues under their own account.']);
+        exit;
+    }
+    $veterinarianUserId = $currentApiUserId;
+}
 
 if ($queueId <= 0 || $veterinarianUserId <= 0) {
     http_response_code(400);
@@ -23,6 +38,7 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
 
 try {
     requireVetQueueAssignmentsTable($pdo);
+    runLifecycleMaintenance($pdo);
 
     $pdo->beginTransaction();
 
@@ -94,6 +110,15 @@ try {
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
     $pdo->commit();
+
+    try {
+        notification_send_queue_event($pdo, $queueId, 'received', [
+            'veterinarian_name' => $veterinarianName,
+        ]);
+        notification_send_queue_assignment_to_vet($pdo, $queueId, $veterinarianUserId, $veterinarianName);
+    } catch (Throwable $notificationError) {
+        error_log('Queue receive notification failed: ' . $notificationError->getMessage());
+    }
 
     echo json_encode([
         'success' => true,

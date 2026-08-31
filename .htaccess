@@ -1,0 +1,24 @@
+<Files ".env">
+      Require all denied
+  </Files>
+
+  <IfModule mod_mime.c>
+      AddType application/manifest+json .webmanifest
+  </IfModule>
+
+  <IfModule mod_rewrite.c>
+      RewriteEngine On
+
+      RewriteRule ^php/ - [L]
+      RewriteRule ^api/?(.*)$ php/index.php/api/$1 [QSA,L]
+
+      RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+      RewriteRule ^(pwa/.+|ipawcus-push-sw\.js|favicon\.svg|icons\.svg)$ public/$1 [L]
+
+      RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+      RewriteRule ^(uploads|pet_profile_images|signatures|payments|payment_qr|concerns|diagnosis|boarding_documents|inventory_items|inventory_receipts)/(.+)$ public/$1/$2 [L]
+
+      RewriteCond %{REQUEST_FILENAME} !-f
+      RewriteCond %{REQUEST_FILENAME} !-d
+      RewriteRule . /index.html [L]
+  </IfModule>

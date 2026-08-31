@@ -1,0 +1,1 @@
+var e=`/assets/circular_logo-DSjVoWSF.png`;export{e as t};

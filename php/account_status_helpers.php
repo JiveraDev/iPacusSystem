@@ -20,15 +20,19 @@ function accountColumnExists(PDO $pdo, string $table, string $column): bool
 
 function ensureAdminAccountStatusColumn(PDO $pdo): bool
 {
-    if (accountColumnExists($pdo, 'admin_profiles', 'is_active')) {
-        return true;
+    return accountColumnExists($pdo, 'admin_profiles', 'is_active');
+}
+
+function accountRevokeAccessTokens(PDO $pdo, int $userId): void
+{
+    if (
+        $userId <= 0
+        || !accountColumnExists($pdo, 'api_access_tokens', 'user_id')
+        || !accountColumnExists($pdo, 'api_access_tokens', 'revoked_at')
+    ) {
+        return;
     }
 
-    try {
-        $pdo->exec("ALTER TABLE admin_profiles ADD COLUMN is_active TINYINT(1) DEFAULT 1 NULL AFTER postionn");
-    } catch (Exception $e) {
-        return accountColumnExists($pdo, 'admin_profiles', 'is_active');
-    }
-
-    return true;
+    $stmt = $pdo->prepare('UPDATE api_access_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL');
+    $stmt->execute([$userId]);
 }

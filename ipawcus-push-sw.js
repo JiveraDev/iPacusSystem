@@ -83,8 +83,8 @@ async function showIpaWcusNotification() {
 
     await self.registration.showNotification(title, {
         body,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg',
+        icon: '/pwa/icons/icon-192.png',
+        badge: '/pwa/icons/icon-192.png',
         tag: notification?.notificationId ? `ipawcus-${notification.notificationId}` : `ipawcus-${Date.now()}`,
         data: {
             apiBase: settings.apiBase || '',

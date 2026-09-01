@@ -227,6 +227,14 @@ switch ($path) {
         $_GET['action'] = 'stock-out';
         require_once __DIR__ . '/inventory.php';
         break;
+    case '/inventory/transfer':
+        $_GET['action'] = 'transfer';
+        require_once __DIR__ . '/inventory.php';
+        break;
+    case '/inventory/archive':
+        $_GET['action'] = 'archive-item';
+        require_once __DIR__ . '/inventory.php';
+        break;
     case '/accounts':
         require_once __DIR__ . '/get_accounts.php';
         break;

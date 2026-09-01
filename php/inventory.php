@@ -64,28 +64,84 @@ function inventoryColumnExists(PDO $pdo, string $tableName, string $columnName):
 
 function inventoryUser(PDO $pdo, $userId): array
 {
-    if (!$userId) {
-        http_response_code(400);
-        echo json_encode(['message' => 'Logged-in user is required.']);
-        exit;
+    global $inventoryCurrentUser;
+    $authenticatedUserId = ipawcus_guard_user_id($inventoryCurrentUser);
+    if ($authenticatedUserId <= 0) {
+        ipawcus_guard_error(401, 'A valid logged-in inventory user is required.');
+    }
+    if ($userId && (int)$userId !== $authenticatedUserId) {
+        ipawcus_guard_error(403, 'Inventory changes can only be confirmed by the logged-in account.');
     }
 
+    return [
+        'user_id' => $authenticatedUserId,
+        'full_name' => trim((string)($inventoryCurrentUser['first_Name'] ?? '') . ' ' . (string)($inventoryCurrentUser['last_Name'] ?? '')) ?: 'Inventory user',
+    ];
+}
+
+function inventoryConfirmResponsibility(PDO $pdo, array $input, string $actionType, bool $reasonRequired = false): array
+{
+    $user = inventoryUser($pdo, $input['user_id'] ?? null);
+    $acknowledged = filter_var($input['responsibility_acknowledged'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $password = (string)($input['confirmation_password'] ?? '');
+    $reason = inventoryOptionalText($input['reason'] ?? $input['remarks'] ?? null);
+
+    if (!$acknowledged) {
+        ipawcus_guard_error(422, 'Confirm that you accept responsibility for this inventory change.');
+    }
+    if ($password === '') {
+        ipawcus_guard_error(422, 'Your account password is required to confirm this inventory change.');
+    }
+    if ($reasonRequired && !$reason) {
+        ipawcus_guard_error(422, 'A reason is required for this inventory change.');
+    }
+    if (!ipawcus_guard_table_exists($pdo, 'inventory_action_audit')) {
+        ipawcus_guard_error(409, 'Run DDL/20260901_02_inventory_responsibility_safeguards.sql before changing inventory.');
+    }
+
+    $passwordStmt = $pdo->prepare('SELECT user_password FROM users WHERE user_id = ? LIMIT 1');
+    $passwordStmt->execute([(int)$user['user_id']]);
+    $passwordHash = (string)$passwordStmt->fetchColumn();
+    if ($passwordHash === '' || !password_verify($password, $passwordHash)) {
+        ipawcus_guard_error(403, 'The password entered does not match the logged-in account.');
+    }
+
+    return array_merge($user, [
+        'action_type' => $actionType,
+        'reason' => $reason,
+    ]);
+}
+
+function inventoryWriteAudit(
+    PDO $pdo,
+    array $confirmation,
+    ?int $itemId,
+    ?int $batchId,
+    ?int $locationId,
+    $beforeState,
+    $afterState
+): void {
+    $encode = static fn($value): ?string => $value === null
+        ? null
+        : json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare("
-        SELECT user_id, TRIM(CONCAT(COALESCE(first_Name, ''), ' ', last_Name)) AS full_name
-        FROM users
-        WHERE user_id = ?
-        LIMIT 1
+        INSERT INTO inventory_action_audit (
+            action_type, item_id, batch_id, location_id, reason,
+            before_state_json, after_state_json,
+            performed_by_user_id, performed_by_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$userId]);
-    $user = $stmt->fetch();
-
-    if (!$user) {
-        http_response_code(404);
-        echo json_encode(['message' => 'Logged-in user was not found.']);
-        exit;
-    }
-
-    return $user;
+    $stmt->execute([
+        $confirmation['action_type'],
+        $itemId,
+        $batchId,
+        $locationId,
+        $confirmation['reason'],
+        $encode($beforeState),
+        $encode($afterState),
+        (int)$confirmation['user_id'],
+        $confirmation['full_name'],
+    ]);
 }
 
 function inventoryStatus(int $quantity, int $reorderLevel, ?string $expiryDate, int $warningDays): string
@@ -386,6 +442,7 @@ function getInventoryItems(PDO $pdo): void
             'status' => inventoryStatus($quantity, $reorderLevel, $nearestExpiry, $warningDays),
             'lastUpdated' => $item['updated_at'],
             'reorderLevel' => $reorderLevel,
+            'expiryWarningDays' => $warningDays,
             'storageInstructions' => '',
             'createdBy' => $item['created_by_name']
         ];
@@ -446,7 +503,8 @@ function getInventoryMeta(PDO $pdo): void
 function createInventoryItem(PDO $pdo): void
 {
     $input = inventoryInput();
-    $user = inventoryUser($pdo, $input['user_id'] ?? null);
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'create_item');
+    $user = $confirmation;
 
     $required = ['item_name', 'category', 'unit'];
     foreach ($required as $field) {
@@ -563,6 +621,27 @@ function createInventoryItem(PDO $pdo): void
             $user['full_name']
         ]);
 
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            $itemId,
+            $batchId,
+            $locationId,
+            null,
+            [
+                'item_name' => $itemName,
+                'sku' => $sku,
+                'category' => $category,
+                'brand' => $brand,
+                'unit' => $unit,
+                'location_id' => $locationId,
+                'quantity' => $quantity,
+                'batch_number' => $batchNumber,
+                'unit_cost' => (float)($input['unit_cost'] ?? 0),
+                'selling_price' => (float)($input['selling_price'] ?? $input['unit_cost'] ?? 0),
+            ]
+        );
+
         $pdo->commit();
         http_response_code(201);
         echo json_encode([
@@ -582,7 +661,8 @@ function createInventoryItem(PDO $pdo): void
 function createStockIn(PDO $pdo): void
 {
     $input = inventoryInput();
-    $user = inventoryUser($pdo, $input['user_id'] ?? null);
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'stock_in');
+    $user = $confirmation;
     $items = $input['items'] ?? [];
 
     if (empty($items)) {
@@ -640,6 +720,7 @@ function createStockIn(PDO $pdo): void
                 FROM inventory_batches
                 WHERE item_id = ? AND batch_number = ? AND location_id = ?
                 LIMIT 1
+                FOR UPDATE
             ");
             $batchLookup->execute([$itemId, $batchNumber, $locationId]);
             $batch = $batchLookup->fetch();
@@ -720,6 +801,27 @@ function createStockIn(PDO $pdo): void
             ]);
         }
 
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            null,
+            null,
+            (int)($items[0]['location_id'] ?? 0) ?: null,
+            null,
+            [
+                'receipt_id' => $receiptId,
+                'receiving_date' => $input['receiving_date'] ?? date('Y-m-d'),
+                'delivery_note_number' => inventoryOptionalText($input['delivery_note_number'] ?? null),
+                'item_count' => count($items),
+                'items' => array_map(static fn(array $line): array => [
+                    'item_id' => (int)($line['item_id'] ?? 0),
+                    'location_id' => (int)($line['location_id'] ?? 0),
+                    'batch_number' => inventoryText($line['batch_number'] ?? null),
+                    'quantity_received' => (int)($line['quantity_received'] ?? 0),
+                ], $items),
+            ]
+        );
+
         $pdo->commit();
         http_response_code(201);
         echo json_encode(['message' => 'Stock in recorded.', 'receipt_id' => $receiptId]);
@@ -733,7 +835,8 @@ function createStockIn(PDO $pdo): void
 function createStockOut(PDO $pdo): void
 {
     $input = inventoryInput();
-    $user = inventoryUser($pdo, $input['user_id'] ?? null);
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'stock_out', true);
+    $user = $confirmation;
 
     if (empty($input['item_id']) || empty($input['batch_id']) || empty($input['quantity'])) {
         http_response_code(400);
@@ -755,6 +858,7 @@ function createStockOut(PDO $pdo): void
             FROM inventory_batches batch
             WHERE batch.batch_id = ? AND batch.item_id = ?
             LIMIT 1
+            FOR UPDATE
         ");
         $stmt->execute([(int)$input['batch_id'], (int)$input['item_id']]);
         $batch = $stmt->fetch();
@@ -788,10 +892,20 @@ function createStockOut(PDO $pdo): void
             $before,
             $after,
             (int)$input['batch_id'],
-            $input['remarks'] ?? 'Stock out recorded',
+            $confirmation['reason'],
             (int)$user['user_id'],
             $user['full_name']
         ]);
+
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            (int)$input['item_id'],
+            (int)$input['batch_id'],
+            $locationId,
+            ['quantity' => $before],
+            ['quantity' => $after, 'quantity_removed' => $quantity]
+        );
 
         $pdo->commit();
         echo json_encode(['message' => 'Stock out recorded.']);
@@ -805,7 +919,7 @@ function createStockOut(PDO $pdo): void
 function updateInventoryItem(PDO $pdo): void
 {
     $input = inventoryInput();
-    inventoryUser($pdo, $input['user_id'] ?? null);
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'update_item');
 
     $itemId = (int)($input['item_id'] ?? 0);
     if ($itemId <= 0) {
@@ -816,6 +930,42 @@ function updateInventoryItem(PDO $pdo): void
 
     $fields = [];
     $values = [];
+
+    $textFields = [
+        'item_name' => ['column' => 'item_name', 'required' => true, 'max' => 180],
+        'generic_name' => ['column' => 'generic_name', 'required' => false, 'max' => 150],
+        'barcode' => ['column' => 'barcode', 'required' => false, 'max' => 80],
+        'description' => ['column' => 'description', 'required' => false, 'max' => 2000],
+        'category' => ['column' => 'category', 'required' => true, 'max' => 100],
+        'brand' => ['column' => 'brand', 'required' => false, 'max' => 120],
+        'unit' => ['column' => 'unit', 'required' => true, 'max' => 50],
+    ];
+    foreach ($textFields as $inputKey => $config) {
+        if (!array_key_exists($inputKey, $input)) continue;
+        $value = inventoryOptionalText($input[$inputKey]);
+        if ($config['required'] && $value === null) {
+            ipawcus_guard_error(422, ucwords(str_replace('_', ' ', $inputKey)) . ' is required.');
+        }
+        if ($value !== null && strlen($value) > $config['max']) {
+            ipawcus_guard_error(422, ucwords(str_replace('_', ' ', $inputKey)) . " must be {$config['max']} characters or fewer.");
+        }
+        $fields[] = $config['column'] . ' = ?';
+        $values[] = $value;
+    }
+
+    if (array_key_exists('reorder_level', $input)) {
+        $reorderLevel = (int)$input['reorder_level'];
+        if ($reorderLevel < 0) ipawcus_guard_error(422, 'Reorder level cannot be negative.');
+        $fields[] = 'reorder_level = ?';
+        $values[] = $reorderLevel;
+    }
+
+    if (array_key_exists('expiry_warning_days', $input)) {
+        $warningDays = (int)$input['expiry_warning_days'];
+        if ($warningDays < 1) ipawcus_guard_error(422, 'Expiry warning days must be at least 1.');
+        $fields[] = 'expiry_warning_days = ?';
+        $values[] = $warningDays;
+    }
 
     if (array_key_exists('unit_cost', $input)) {
         $unitCost = (float)$input['unit_cost'];
@@ -877,19 +1027,267 @@ function updateInventoryItem(PDO $pdo): void
         return;
     }
 
-    $existsStmt = $pdo->prepare("SELECT item_id FROM inventory_items WHERE item_id = ? LIMIT 1");
+    $pdo->beginTransaction();
+    $existsStmt = $pdo->prepare("
+        SELECT item_id, item_name, generic_name, barcode, description, category, brand, unit,
+               reorder_level, expiry_warning_days, unit_cost, selling_price, location_id, status
+        FROM inventory_items
+        WHERE item_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
     $existsStmt->execute([$itemId]);
-    if (!$existsStmt->fetchColumn()) {
-        http_response_code(404);
-        echo json_encode(['message' => 'Inventory item was not found.']);
-        return;
+    $before = $existsStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$before) {
+        $pdo->rollBack();
+        ipawcus_guard_error(404, 'Inventory item was not found.');
     }
 
-    $values[] = $itemId;
-    $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $fields) . " WHERE item_id = ?");
-    $stmt->execute($values);
+    try {
+        $values[] = $itemId;
+        $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $fields) . " WHERE item_id = ?");
+        $stmt->execute($values);
 
-    echo json_encode(['message' => 'Inventory item updated.']);
+        $afterStmt = $pdo->prepare("
+            SELECT item_id, item_name, generic_name, barcode, description, category, brand, unit,
+                   reorder_level, expiry_warning_days, unit_cost, selling_price, location_id, status
+            FROM inventory_items
+            WHERE item_id = ?
+            LIMIT 1
+        ");
+        $afterStmt->execute([$itemId]);
+        $after = $afterStmt->fetch(PDO::FETCH_ASSOC);
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            $itemId,
+            null,
+            (int)($after['location_id'] ?? $before['location_id']),
+            $before,
+            $after
+        );
+        $pdo->commit();
+        echo json_encode(['message' => 'Inventory item updated.']);
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['message' => $error->getMessage()]);
+    }
+}
+
+function archiveInventoryItem(PDO $pdo): void
+{
+    $input = inventoryInput();
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'archive_item', true);
+    $itemId = (int)($input['item_id'] ?? 0);
+    if ($itemId <= 0) {
+        ipawcus_guard_error(422, 'Select an inventory item to archive.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $itemStmt = $pdo->prepare("
+            SELECT item_id, item_name, sku, status, location_id
+            FROM inventory_items
+            WHERE item_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $itemStmt->execute([$itemId]);
+        $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$item) {
+            throw new InvalidArgumentException('Inventory item was not found.');
+        }
+        inventoryAssertLocationAccess($pdo, (int)$item['location_id']);
+        if (strtolower((string)$item['status']) === 'inactive') {
+            throw new InvalidArgumentException('This inventory item is already archived.');
+        }
+
+        $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
+        $quantityStmt->execute([$itemId]);
+        $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
+        if ($quantity > 0) {
+            throw new InvalidArgumentException('Stock must be reduced or transferred to zero before this product can be archived.');
+        }
+
+        $update = $pdo->prepare("UPDATE inventory_items SET status = 'inactive' WHERE item_id = ?");
+        $update->execute([$itemId]);
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            $itemId,
+            null,
+            (int)$item['location_id'],
+            $item,
+            array_merge($item, ['status' => 'inactive', 'quantity' => 0])
+        );
+        $pdo->commit();
+        echo json_encode(['message' => 'Inventory item archived.']);
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $status = $error instanceof InvalidArgumentException ? 409 : 500;
+        http_response_code($status);
+        echo json_encode(['message' => $error->getMessage()]);
+    }
+}
+
+function transferInventoryStock(PDO $pdo): void
+{
+    $input = inventoryInput();
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'transfer_stock', true);
+    $itemId = (int)($input['item_id'] ?? 0);
+    $sourceBatchId = (int)($input['batch_id'] ?? $input['source_batch_id'] ?? 0);
+    $destinationLocationId = (int)($input['destination_location_id'] ?? 0);
+    $quantity = (int)($input['quantity'] ?? 0);
+    if ($itemId <= 0 || $sourceBatchId <= 0 || $destinationLocationId <= 0 || $quantity <= 0) {
+        ipawcus_guard_error(422, 'Item, source batch, destination location, and a positive quantity are required.');
+    }
+    if (!ipawcus_guard_table_exists($pdo, 'inventory_transfers') || !ipawcus_guard_table_exists($pdo, 'inventory_transfer_items')) {
+        ipawcus_guard_error(409, 'Run the multi-branch inventory transfer migration before transferring stock.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $sourceStmt = $pdo->prepare("
+            SELECT batch.batch_id, batch.item_id, batch.location_id, batch.batch_number,
+                   batch.quantity, batch.expiry_date, batch.manufacturing_date, batch.unit_cost,
+                   item.item_name
+            FROM inventory_batches batch
+            JOIN inventory_items item ON item.item_id = batch.item_id
+            WHERE batch.batch_id = ? AND batch.item_id = ? AND item.status = 'active'
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $sourceStmt->execute([$sourceBatchId, $itemId]);
+        $source = $sourceStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$source) {
+            throw new InvalidArgumentException('The selected active inventory batch was not found.');
+        }
+
+        $sourceLocationId = (int)$source['location_id'];
+        $sourceBranchId = inventoryAssertLocationAccess($pdo, $sourceLocationId);
+        $destinationBranchId = inventoryAssertLocationAccess($pdo, $destinationLocationId);
+        if ($sourceLocationId === $destinationLocationId) {
+            throw new InvalidArgumentException('Choose a different destination location.');
+        }
+        if ($sourceBranchId !== $destinationBranchId) {
+            throw new InvalidArgumentException('This immediate transfer is limited to locations in the same clinic branch.');
+        }
+        $sourceBefore = (int)$source['quantity'];
+        if ($quantity > $sourceBefore) {
+            throw new InvalidArgumentException('Transfer quantity cannot exceed the available source batch quantity.');
+        }
+
+        $destinationStmt = $pdo->prepare("
+            SELECT batch_id, quantity
+            FROM inventory_batches
+            WHERE item_id = ? AND batch_number = ? AND location_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $destinationStmt->execute([$itemId, $source['batch_number'], $destinationLocationId]);
+        $destination = $destinationStmt->fetch(PDO::FETCH_ASSOC);
+        $destinationBefore = (int)($destination['quantity'] ?? 0);
+
+        $sourceAfter = $sourceBefore - $quantity;
+        $sourceUpdate = $pdo->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
+        $sourceUpdate->execute([$sourceAfter, $sourceBatchId]);
+
+        if ($destination) {
+            $destinationBatchId = (int)$destination['batch_id'];
+            $destinationAfter = $destinationBefore + $quantity;
+            $destinationUpdate = $pdo->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
+            $destinationUpdate->execute([$destinationAfter, $destinationBatchId]);
+        } else {
+            $destinationAfter = $quantity;
+            $destinationInsert = $pdo->prepare("
+                INSERT INTO inventory_batches (
+                    item_id, location_id, batch_number, quantity, manufacturing_date, expiry_date, unit_cost
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $destinationInsert->execute([
+                $itemId,
+                $destinationLocationId,
+                $source['batch_number'],
+                $quantity,
+                $source['manufacturing_date'],
+                $source['expiry_date'],
+                $source['unit_cost'],
+            ]);
+            $destinationBatchId = (int)$pdo->lastInsertId();
+        }
+
+        $transferNumber = 'TRF-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
+        $transferStmt = $pdo->prepare("
+            INSERT INTO inventory_transfers (
+                transfer_number, from_location_id, to_location_id, status, notes,
+                created_by_user_id, received_by_user_id, received_at
+            ) VALUES (?, ?, ?, 'received', ?, ?, ?, NOW())
+        ");
+        $transferStmt->execute([
+            $transferNumber,
+            $sourceLocationId,
+            $destinationLocationId,
+            $confirmation['reason'],
+            (int)$confirmation['user_id'],
+            (int)$confirmation['user_id'],
+        ]);
+        $transferId = (int)$pdo->lastInsertId();
+        $transferItemStmt = $pdo->prepare("
+            INSERT INTO inventory_transfer_items (
+                inventory_transfer_id, item_id, source_batch_id, quantity
+            ) VALUES (?, ?, ?, ?)
+        ");
+        $transferItemStmt->execute([$transferId, $itemId, $sourceBatchId, $quantity]);
+
+        $movementStmt = $pdo->prepare("
+            INSERT INTO inventory_stock_movements (
+                item_id, batch_id, location_id, movement_type, quantity_change,
+                quantity_before, quantity_after, reference_type, reference_id,
+                remarks, performed_by_user_id, performed_by_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'inventory_transfers', ?, ?, ?, ?)
+        ");
+        $movementStmt->execute([
+            $itemId, $sourceBatchId, $sourceLocationId, 'transfer_out', -$quantity,
+            $sourceBefore, $sourceAfter, $transferId, $confirmation['reason'],
+            (int)$confirmation['user_id'], $confirmation['full_name'],
+        ]);
+        $movementStmt->execute([
+            $itemId, $destinationBatchId, $destinationLocationId, 'transfer_in', $quantity,
+            $destinationBefore, $destinationAfter, $transferId, $confirmation['reason'],
+            (int)$confirmation['user_id'], $confirmation['full_name'],
+        ]);
+
+        inventoryWriteAudit(
+            $pdo,
+            $confirmation,
+            $itemId,
+            $sourceBatchId,
+            $sourceLocationId,
+            [
+                'source_location_id' => $sourceLocationId,
+                'source_batch_id' => $sourceBatchId,
+                'source_quantity' => $sourceBefore,
+                'destination_location_id' => $destinationLocationId,
+                'destination_quantity' => $destinationBefore,
+            ],
+            [
+                'transfer_id' => $transferId,
+                'transfer_number' => $transferNumber,
+                'quantity_transferred' => $quantity,
+                'source_quantity' => $sourceAfter,
+                'destination_batch_id' => $destinationBatchId,
+                'destination_quantity' => $destinationAfter,
+            ]
+        );
+        $pdo->commit();
+        echo json_encode(['message' => 'Inventory stock transferred.', 'transfer_number' => $transferNumber]);
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $status = $error instanceof InvalidArgumentException ? 409 : 500;
+        http_response_code($status);
+        echo json_encode(['message' => $error->getMessage()]);
+    }
 }
 
 $action = $_GET['action'] ?? 'list';
@@ -907,6 +1305,10 @@ if ($method === 'GET' && $action === 'meta') {
     createStockIn($pdo);
 } elseif ($method === 'POST' && $action === 'stock-out') {
     createStockOut($pdo);
+} elseif ($method === 'POST' && $action === 'transfer') {
+    transferInventoryStock($pdo);
+} elseif ($method === 'POST' && $action === 'archive-item') {
+    archiveInventoryItem($pdo);
 } else {
     http_response_code(405);
     echo json_encode(['message' => 'Method not allowed.']);

@@ -226,6 +226,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
+    if ($path === '/service-display-settings') {
+        return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('admin')];
+    }
+
     if ($path === '/service-catalog' || preg_match('#^/service-catalog/\d+(/materials)?$#', $path)) {
         return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('admin')];
     }

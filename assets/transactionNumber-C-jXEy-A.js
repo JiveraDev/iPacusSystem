@@ -1,0 +1,1 @@
+var e=`Transaction number must contain exactly 18 digits.`;function t(e){return String(e||``).replace(/\D/g,``).slice(0,18)}function n(e){return RegExp(`^\\d{18}$`).test(String(e||``).trim())}export{n,t as r,e as t};

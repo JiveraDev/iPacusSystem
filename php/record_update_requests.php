@@ -500,8 +500,8 @@ function record_request_create(PDO $pdo, array $input): void
     if ($paymentMethod !== 'cash' && $paymentReference === null) {
         record_request_error(400, 'Please enter the payment transaction number.');
     }
-    if ($paymentReference !== null && strlen($paymentReference) > 120) {
-        record_request_error(400, 'The payment transaction number must not exceed 120 characters.');
+    if ($paymentReference !== null && !preg_match('/^\d{18}$/', $paymentReference)) {
+        record_request_error(400, 'The payment transaction number must contain exactly 18 digits.');
     }
     $paymentAmount = 200.0;
     $paymentStatus = ($paymentProofUrl && $paymentMethod !== 'cash') ? 'submitted' : 'pending';

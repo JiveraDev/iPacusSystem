@@ -817,9 +817,9 @@ $submittedPaymentAmount = is_numeric($submittedPaymentAmountValue)
     : null;
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
-if ($paymentReference !== null && strlen($paymentReference) > 120) {
+if ($paymentReference !== null && !preg_match('/^\d{18}$/', $paymentReference)) {
     http_response_code(422);
-    echo json_encode(['message' => 'Payment reference must be 120 characters or fewer.']);
+    echo json_encode(['message' => 'Payment transaction number must contain exactly 18 digits.']);
     exit;
 }
 if ($paymentProofUrl !== null && strlen($paymentProofUrl) > 500) {
@@ -870,9 +870,9 @@ if (count($exclusiveModes) > 1) {
 $isHomeService = $homeServiceRequested ? 1 : 0;
 $isOnlineConsultation = $onlineConsultRequested ? 1 : 0;
 
-if ($isOnlineConsultation === 1 && ($paymentReference === null || !preg_match('/^\d{1,18}$/', $paymentReference))) {
+if ($isOnlineConsultation === 1 && $paymentReference === null) {
     http_response_code(422);
-    echo json_encode(['message' => 'Online consultation payment reference must contain no more than 18 digits.']);
+    echo json_encode(['message' => 'Online consultation payment transaction number is required.']);
     exit;
 }
 

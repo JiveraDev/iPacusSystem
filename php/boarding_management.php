@@ -295,22 +295,33 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
 
 function ensure_boarding_rooms_schema(PDO $pdo): void
 {
-    if (!boarding_table_exists($pdo, 'rooms')) {
+    if (!boarding_table_exists($pdo, 'rooms') || !boarding_table_exists($pdo, 'room_unit_statuses')) {
         error_log('Boarding rooms schema is missing.');
-        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
+        boarding_error(500, 'Boarding room storage is incomplete. Run the branch-room migration before managing rooms.');
         return;
     }
 
-    $missingColumns = [];
-    foreach (['room_id', 'room_type', 'total_capacity', 'description'] as $columnName) {
+    $missingRoomColumns = [];
+    foreach (['room_id', 'branch_id', 'room_type', 'total_capacity', 'description'] as $columnName) {
         if (!boarding_column_exists($pdo, 'rooms', $columnName)) {
-            $missingColumns[] = $columnName;
+            $missingRoomColumns[] = $columnName;
         }
     }
 
-    if (!empty($missingColumns)) {
-        error_log('Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns));
-        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
+    $missingStatusColumns = [];
+    foreach (['branch_id', 'room_type', 'room_number', 'status', 'notes'] as $columnName) {
+        if (!boarding_column_exists($pdo, 'room_unit_statuses', $columnName)) {
+            $missingStatusColumns[] = $columnName;
+        }
+    }
+
+    if (!empty($missingRoomColumns) || !empty($missingStatusColumns)) {
+        error_log(sprintf(
+            'Boarding branch-room schema is incomplete. rooms=[%s], room_unit_statuses=[%s]',
+            implode(', ', $missingRoomColumns),
+            implode(', ', $missingStatusColumns)
+        ));
+        boarding_error(500, 'Boarding location support is incomplete. Run DDL/20260902_01_boarding_room_branch_fix.sql.');
     }
 }
 
@@ -2022,6 +2033,9 @@ function rooms_action(PDO $pdo): void
         if ($quantity <= 0) {
             boarding_error(400, 'Enter a valid room quantity.');
         }
+        if ($quantity > 100) {
+            boarding_error(422, 'Add no more than 100 rooms in one update.');
+        }
 
         $pdo->beginTransaction();
         try {
@@ -2033,7 +2047,7 @@ function rooms_action(PDO $pdo): void
             $stmt = $pdo->prepare($selectSql);
             $stmt->execute([$branchId, $roomType]);
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
-            $oldCapacity = (int)($room['total_capacity'] ?? 0);
+            $oldCapacity = get_room_capacity($pdo, $roomType, $branchId);
 
             if ($room) {
                 $whereColumn = $hasRoomIdColumn ? 'room_id' : 'room_type';
@@ -2071,6 +2085,8 @@ function rooms_action(PDO $pdo): void
                 'message' => $quantity === 1 ? 'Room added.' : 'Rooms added.',
                 'roomType' => $roomType,
                 'branchId' => $branchId,
+                'addedQuantity' => $quantity,
+                'createdRoomNumbers' => range($oldCapacity + 1, $oldCapacity + $quantity),
                 'totalCapacity' => get_room_capacity($pdo, $roomType, $branchId),
             ]);
         } catch (Exception $e) {

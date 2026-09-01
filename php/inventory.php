@@ -345,6 +345,18 @@ function inventoryResolveSupplierId(PDO $pdo, array $input): int
 function getInventoryItems(PDO $pdo): void
 {
     $branchId = inventoryRequestedBranchId($pdo);
+    $stockedOnly = filter_var($_GET['stockedOnly'] ?? $_GET['stocked_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $stockedOnlyCondition = $stockedOnly
+        ? " AND EXISTS (
+                SELECT 1
+                FROM inventory_batches available_batch
+                JOIN inventory_locations available_location
+                  ON available_location.location_id = available_batch.location_id
+                WHERE available_batch.item_id = i.item_id
+                  AND available_location.branch_id = ?
+                  AND available_batch.quantity > 0
+            )"
+        : '';
     $stmt = $pdo->prepare("
         SELECT
             i.*,
@@ -374,10 +386,12 @@ function getInventoryItems(PDO $pdo): void
         FROM inventory_items i
         JOIN branches branch ON branch.branch_id = ?
         LEFT JOIN inventory_locations item_location ON item_location.location_id = i.location_id
-        WHERE i.status = 'active'
+        WHERE i.status = 'active'{$stockedOnlyCondition}
         ORDER BY i.item_name ASC
     ");
-    $stmt->execute([$branchId, $branchId, $branchId]);
+    $params = [$branchId, $branchId, $branchId];
+    if ($stockedOnly) $params[] = $branchId;
+    $stmt->execute($params);
     $items = $stmt->fetchAll();
 
     $batchStmt = $pdo->prepare("

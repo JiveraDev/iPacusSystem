@@ -35,6 +35,90 @@ function ipawcus_roles(string $group): array
     return $groups[$group] ?? $groups['all'];
 }
 
+function ipawcus_admin_feature_keys(): array
+{
+    return [
+        'pets',
+        'pet_register',
+        'bookings',
+        'record_requests',
+        'boarding',
+        'queue',
+        'pos',
+        'inventory',
+        'services',
+        'service_catalog',
+        'consent',
+    ];
+}
+
+function ipawcus_admin_feature_permissions_table_exists(PDO $pdo): bool
+{
+    static $exists = null;
+    if ($exists !== null) {
+        return $exists;
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+              AND table_name = 'admin_feature_permissions'
+        ");
+        $stmt->execute();
+        $exists = (int)$stmt->fetchColumn() > 0;
+    } catch (Throwable $error) {
+        $exists = false;
+    }
+
+    return $exists;
+}
+
+function ipawcus_admin_feature_permissions(PDO $pdo, int $userId): array
+{
+    $permissions = array_fill_keys(ipawcus_admin_feature_keys(), true);
+    if ($userId <= 0 || !ipawcus_admin_feature_permissions_table_exists($pdo)) {
+        return $permissions;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT feature_key, is_allowed
+        FROM admin_feature_permissions
+        WHERE user_id = ?
+    ");
+    $stmt->execute([$userId]);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $key = (string)($row['feature_key'] ?? '');
+        if (array_key_exists($key, $permissions)) {
+            $permissions[$key] = (int)($row['is_allowed'] ?? 0) === 1;
+        }
+    }
+
+    return $permissions;
+}
+
+function ipawcus_admin_feature_for_mutation(string $path, string $method): ?string
+{
+    $method = strtoupper($method);
+    if (!in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+        return null;
+    }
+
+    if ($path === '/service-display-settings' || preg_match('#^/special_services(/|$)#', $path)) return 'services';
+    if (preg_match('#^/service-catalog(/|$)#', $path)) return 'service_catalog';
+    if (preg_match('#^/record-update-requests(/|$)#', $path)) return 'record_requests';
+    if (preg_match('#^/boarding(/|$)#', $path)) return 'boarding';
+    if (preg_match('#^/queues(/|$)#', $path)) return 'queue';
+    if (preg_match('#^/visits(/|$)#', $path)) return 'pos';
+    if (preg_match('#^/inventory(/|$)#', $path)) return 'inventory';
+    if (preg_match('#^/(consent_files|consent-form-records|consent_form_records)(/|$)#', $path)) return 'consent';
+    if ($path === '/pet_information' || preg_match('#^/pet_information/[^/]+(/status)?$#', $path)) return 'pet_register';
+    if (preg_match('#^/bookings(/|$)#', $path)) return 'bookings';
+
+    return null;
+}
+
 function ipawcus_public_route(string $path): bool
 {
     return in_array($path, [
@@ -86,6 +170,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if ($path === '/profile') {
         return ['roles' => ipawcus_roles('all')];
+    }
+
+    if ($path === '/admin-feature-access') {
+        return ['roles' => $method === 'GET' ? ipawcus_roles('admin') : ipawcus_roles('superadmin')];
     }
 
     if ($path === '/veterinarians') {
@@ -290,6 +378,20 @@ function ipawcus_enforce_route_access(PDO $pdo, string $path, string $method): ?
 
     if (!in_array($role, $allowedRoles, true)) {
         ipawcus_access_json(403, 'Your user role is not allowed to access this resource.', 'api_role_forbidden');
+    }
+
+    if ($role === 'admin') {
+        $featureKey = ipawcus_admin_feature_for_mutation($path, $method);
+        if ($featureKey !== null) {
+            $permissions = ipawcus_admin_feature_permissions($pdo, (int)$user['user_id']);
+            if (($permissions[$featureKey] ?? true) !== true) {
+                ipawcus_access_json(
+                    403,
+                    'Your Super Admin has disabled access to this feature.',
+                    'admin_feature_forbidden'
+                );
+            }
+        }
     }
 
     $resourceUserId = (int)($policy['resource_user_id'] ?? 0);

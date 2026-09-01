@@ -311,6 +311,9 @@ switch ($path) {
             require_once __DIR__ . '/get_user_profile.php';
         }
         break;
+    case '/admin-feature-access':
+        require_once __DIR__ . '/admin_feature_access.php';
+        break;
     case '/system/problem-report':
         require_once __DIR__ . '/system_problem_report.php';
         break;

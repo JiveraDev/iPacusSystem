@@ -1,0 +1,1 @@
+import{Z as e}from"./index-DCUyE-44.js";async function t(t){try{if(!localStorage.getItem(`authToken`))throw Error(`Authentication token not found.`);return await e(`/pet_information/${t}`,{apiPrefix:!0})}catch(e){throw console.error(`Error in findPetService:`,e),e}}export{t};

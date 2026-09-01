@@ -1,0 +1,1 @@
+import{Z as e,at as t}from"./index-DQoahPus.js";function n(t={}){let n=new URLSearchParams;Object.entries(t).forEach(([e,t])=>{t!=null&&t!==``&&n.set(e,t)});let r=n.toString();return e(`/visits${r?`?${r}`:``}`)}function r(e){return t(`/visits`,e)}function i(e,n){return t(`/visits/${e}/payments`,n)}export{n,i as r,r as t};

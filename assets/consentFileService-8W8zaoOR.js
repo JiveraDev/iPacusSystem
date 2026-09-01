@@ -1,0 +1,1 @@
+import{$ as e,Z as t,it as n}from"./index-DQoahPus.js";function r(){return t(`/consent_files`)}function i(e){return t(`/consent_files`,{method:`POST`,body:e})}function a(e,t){return n(`/consent_files/${e}`,t)}function o(t){return e(`/consent_files/${t}`)}export{a as i,o as n,r,i as t};

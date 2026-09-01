@@ -1,0 +1,1 @@
+var e=[{value:`normal`,label:`Normal`},{value:`urgent`,label:`Urgent`},{value:`low-test`,label:`Low-test`}],t=[`normal`,`urgent`,`low-test`];function n(e){let n=String(e||``).trim().toLowerCase();return t.includes(n)?n:`normal`}function r(e){let t=n(e);return t===`low-test`?`Low-test`:t===`urgent`?`Urgent`:`Normal`}export{r as n,n as r,e as t};

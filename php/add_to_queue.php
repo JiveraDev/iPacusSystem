@@ -167,7 +167,16 @@ $user_id = $data['user_id'] ?? null;
 $service_name = $data['service_name'] ?? null;
 $requestedBranchId = $data['branch_id'] ?? $data['branchId'] ?? null;
 $sourceBookingId = isset($data['booking_id']) && is_numeric($data['booking_id']) ? (int)$data['booking_id'] : null;
-$priority = $data['priority'] ?? 'normal';
+$priority = strtolower(trim((string)($data['priority'] ?? 'normal')));
+$allowedPriorities = ['normal', 'urgent', 'low-test'];
+if (!in_array($priority, $allowedPriorities, true)) {
+    http_response_code(422);
+    echo json_encode([
+        'message' => 'Invalid queue priority.',
+        'allowedPriorities' => $allowedPriorities,
+    ]);
+    exit;
+}
 $complaint = $data['complaint'] ?? '';
 $image_path = $data['image_path'] ?? null;
 $signiture_self_service_path = $data['signiture_self_service_path'] ?? null;

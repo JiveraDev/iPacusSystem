@@ -19,25 +19,19 @@ ini_set('log_errors', '1');
 // 4. Load Logic
 require_once __DIR__ . '/config.php';
 
-// Simple path extraction
-$requestUri = $_SERVER['REQUEST_URI'];
-$scriptName = $_SERVER['SCRIPT_NAME'];
+// Resolve the route independently of Hostinger's public_html -> set rewrite.
+// REQUEST_URI keeps the browser-facing path, while SCRIPT_NAME may contain /set.
+$requestUri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+$requestPath = (string)(parse_url($requestUri, PHP_URL_PATH) ?: '/');
+$pathInfo = (string)($_SERVER['PATH_INFO'] ?? '');
+$path = $pathInfo !== '' ? $pathInfo : $requestPath;
 
-// Remove script name from URI if present (e.g., /php/index.php/api/login -> /api/login)
-$path = str_replace($scriptName, '', $requestUri);
-
-// Also handle cases where it's rewritten (e.g., /api/login)
-if ($path === $requestUri) {
-    // If we're here, maybe it's /php/api/login. Let's try to find 'php/'
-    $path = preg_replace('/^.*\/php\//', '/', $path);
-}
-
-// Strip query string
-$path = parse_url($path, PHP_URL_PATH);
-
-// Remove /api prefix if present
-$path = preg_replace('/^\/api/', '', $path);
-$path = rtrim($path, '/');
+// Support every production URL form used by the frontend and root router:
+// /php/index.php/health, /set/php/index.php/health, and /api/health.
+$path = preg_replace('#^/(?:set/)?php/index\.php(?:/|$)#i', '/', $path);
+$path = preg_replace('#^/(?:set/)?api(?:/|$)#i', '/', $path);
+$path = '/' . ltrim((string)$path, '/');
+$path = $path === '/' ? '' : rtrim($path, '/');
 
 header('Content-Type: application/json');
 

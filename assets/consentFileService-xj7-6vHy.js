@@ -1,0 +1,1 @@
+import{Y as e,Z as t,nt as n}from"./index-BuKfubu_.js";function r(){return e(`/consent_files`)}function i(t){return e(`/consent_files`,{method:`POST`,body:t})}function a(e,t){return n(`/consent_files/${e}`,t)}function o(e){return t(`/consent_files/${e}`)}export{a as i,o as n,r,i as t};

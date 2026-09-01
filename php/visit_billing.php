@@ -3449,6 +3449,9 @@ function visit_billing_insert_payment_payload(
     $paymentStatus = 'verified';
     $referenceNumber = visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null);
     $proofUrl = visit_billing_nullable_text($input['proof_url'] ?? $input['proofUrl'] ?? null);
+    if ($referenceNumber !== null && !preg_match('/^\d{18}$/', $referenceNumber)) {
+        visit_billing_error(400, 'Payment transaction number must contain exactly 18 digits.');
+    }
 
     visit_billing_assert_boarding_invoice_complete($pdo, $visitId);
 
@@ -3705,6 +3708,9 @@ function visit_billing_add_refund(PDO $pdo, int $visitId): void
         $referenceNumber = visit_billing_nullable_text($input['reference_number'] ?? $input['referenceNumber'] ?? null);
         if ($refundMethod !== 'cash' && $referenceNumber === null) {
             visit_billing_error(400, 'A refund reference number is required for non-cash refunds.');
+        }
+        if ($referenceNumber !== null && !preg_match('/^\d{18}$/', $referenceNumber)) {
+            visit_billing_error(400, 'Refund transaction number must contain exactly 18 digits.');
         }
         $actor = visit_billing_require_actor($pdo);
         $insertStmt = $pdo->prepare("

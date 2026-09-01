@@ -1,1 +1,0 @@
-import{Y as e,rt as t}from"./index-CiMJmlH6.js";function n(t){return e(`/vet_schedules?${new URLSearchParams({userId:t}).toString()}`,{apiPrefix:!0})}function r(e){return t(`/vet_schedules`,e,{apiPrefix:!0})}export{r as n,n as t};

@@ -35,6 +35,9 @@ $referenceNumber = booking_payment_nullable_text($input['reference_number'] ?? $
 if ($refundMethod !== 'cash' && $referenceNumber === null) {
     ipawcus_guard_error(400, 'A refund reference number is required for non-cash refunds.');
 }
+if ($referenceNumber !== null && !preg_match('/^\d{18}$/', $referenceNumber)) {
+    ipawcus_guard_error(400, 'Refund transaction number must contain exactly 18 digits.');
+}
 
 $pdo->beginTransaction();
 try {

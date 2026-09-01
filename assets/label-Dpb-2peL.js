@@ -1,0 +1,1 @@
+import"./rolldown-runtime-aKtaBQYM.js";import{n as e,t}from"./jsx-runtime-BBGNhj8U.js";import{n}from"./button-wpVgpqAI.js";e();var r=t();function i({className:e,...t}){return(0,r.jsx)(`label`,{"data-slot":`label`,className:n(`flex items-center gap-2 text-sm leading-none font-medium select-none`,e),...t})}export{i as t};

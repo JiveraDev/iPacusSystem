@@ -1,0 +1,1 @@
+import{Y as e,nt as t}from"./index-BuKfubu_.js";function n({userId:t,role:n}){return e(`/profile?${new URLSearchParams({userId:t,role:n||``}).toString()}`,{apiPrefix:!0})}function r({userId:e,role:n,payload:r}){return t(`/profile?${new URLSearchParams({userId:e,role:n||``}).toString()}`,r,{apiPrefix:!0})}export{r as n,n as t};

@@ -1190,6 +1190,11 @@ if ($serviceType === 'special services' && count($selectedSpecialServices) === 1
 
 $requiresBookingPrepayment = in_array($serviceKey, ['home-service', 'online-consultation'], true);
 $expectedBookingPayment = $serviceKey === 'home-service' ? $transportFee : $price;
+if ($serviceKey === 'special-services' && $paymentMethod === null) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Select a payment method before submitting this Special Services booking.']);
+    exit;
+}
 if ($paymentProofUrl !== null && $paymentMethod === null) {
     http_response_code(422);
     echo json_encode(['message' => 'Select QR Ph, GCash, Maya, or bank transfer for an uploaded booking payment proof.']);

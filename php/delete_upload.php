@@ -6,6 +6,7 @@ require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/upload_receipt_helpers.php';
 require_once __DIR__ . '/booking_slot_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 $pdo = ipawcus_get_pdo();
 $currentUser = ipawcus_guard_current_user($pdo);
@@ -58,7 +59,7 @@ if (!in_array($extension, $allowedExtensions, true)) {
     exit;
 }
 
-$publicRoot = realpath(__DIR__ . '/../public');
+$publicRoot = realpath(ipawcus_runtime_media_root());
 if ($publicRoot === false) {
     http_response_code(500);
     echo json_encode(['message' => 'Public upload root was not found.']);

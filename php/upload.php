@@ -5,6 +5,7 @@ header("Content-Type: application/json");
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/upload_receipt_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 $pdo = ipawcus_get_pdo();
 $currentUser = ipawcus_guard_current_user($pdo);
@@ -67,44 +68,53 @@ if (in_array($originalExtension, $blockedExtensions, true)) {
 // We store them in the public folder, but for the URL, 
 // we exclude 'public/' because Vite serves public content at the root.
 if ($type === 'pet') {
-    $targetDir = __DIR__ . '/../public/pet_profile_images/';
+    $targetDirectoryName = 'pet_profile_images';
     $urlPath = "pet_profile_images/";
 } elseif ($type === 'booking_signature') {
-    $targetDir = __DIR__ . '/../public/signatures/';
+    $targetDirectoryName = 'signatures';
     $urlPath = "signatures/";
 } elseif ($type === 'booking_payment') {
-    $targetDir = __DIR__ . '/../public/payments/';
+    $targetDirectoryName = 'payments';
     $urlPath = "payments/";
 } elseif ($type === 'payment_qr') {
-    $targetDir = __DIR__ . '/../public/payment_qr/';
+    $targetDirectoryName = 'payment_qr';
     $urlPath = "payment_qr/";
 } elseif ($type === 'booking_concern') {
-    $targetDir = __DIR__ . '/../public/concerns/';
+    $targetDirectoryName = 'concerns';
     $urlPath = "concerns/";
 } elseif ($type === 'diagnosis') {
-    $targetDir = __DIR__ . '/../public/diagnosis/';
+    $targetDirectoryName = 'diagnosis';
     $urlPath = "diagnosis/";
 } elseif ($type === 'consent_document') {
-    $targetDir = __DIR__ . '/../public/signatures/';
+    $targetDirectoryName = 'signatures';
     $urlPath = "signatures/";
 } elseif ($type === 'prescription_document') {
-    $targetDir = __DIR__ . '/../public/diagnosis/';
+    $targetDirectoryName = 'diagnosis';
     $urlPath = "diagnosis/";
 } elseif ($type === 'invoice_document') {
-    $targetDir = __DIR__ . '/../public/invoices/';
+    $targetDirectoryName = 'invoices';
     $urlPath = "invoices/";
 } elseif ($type === 'boarding_document') {
-    $targetDir = __DIR__ . '/../public/boarding_documents/';
+    $targetDirectoryName = 'boarding_documents';
     $urlPath = "boarding_documents/";
 } elseif ($type === 'inventory_item') {
-    $targetDir = __DIR__ . '/../public/inventory_items/';
+    $targetDirectoryName = 'inventory_items';
     $urlPath = "inventory_items/";
 } elseif ($type === 'inventory_receipt') {
-    $targetDir = __DIR__ . '/../public/inventory_receipts/';
+    $targetDirectoryName = 'inventory_receipts';
     $urlPath = "inventory_receipts/";
 } else {
-    $targetDir = __DIR__ . '/../public/uploads/';
+    $targetDirectoryName = 'uploads';
     $urlPath = "uploads/";
+}
+
+try {
+    $targetDir = ipawcus_runtime_media_directory($targetDirectoryName, true) . DIRECTORY_SEPARATOR;
+} catch (Throwable $exception) {
+    error_log('Runtime media storage is unavailable: ' . $exception->getMessage());
+    http_response_code(503);
+    echo json_encode(['message' => 'File storage is temporarily unavailable. Contact the system administrator.']);
+    exit;
 }
 
 $mixedDocumentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern'];
@@ -135,10 +145,6 @@ if ($extension === null || !in_array($extension, $normalizedAllowedExtensions, t
     http_response_code(422);
     echo json_encode(['message' => 'Unsupported file content. Upload a PNG, JPG, WEBP, GIF, or PDF allowed for this field.']);
     exit;
-}
-
-if (!is_dir($targetDir)) {
-    mkdir($targetDir, 0755, true);
 }
 
 $targetRoot = realpath($targetDir);

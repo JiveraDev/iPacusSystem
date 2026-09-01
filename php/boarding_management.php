@@ -10,6 +10,7 @@ require_once __DIR__ . '/booking_slot_helpers.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/consent_file_helpers.php';
 require_once __DIR__ . '/upload_receipt_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 header('Content-Type: application/json');
 
@@ -829,8 +830,8 @@ function boarding_consent_pdf_path(?string $path): ?string
     $candidatePath = boarding_consent_candidate_path($path);
     if ($candidatePath === null) return null;
 
-    $signatureRoot = realpath(__DIR__ . '/../public/signatures');
-    $realPath = realpath(__DIR__ . '/../public/' . $candidatePath);
+    $signatureRoot = realpath(ipawcus_runtime_media_directory('signatures'));
+    $realPath = realpath(ipawcus_runtime_media_path($candidatePath));
     if ($signatureRoot === false || $realPath === false || !is_file($realPath)) {
         return null;
     }
@@ -2559,7 +2560,7 @@ function boarding_document_file_metadata(string $documentPath, array $input): ar
 {
     $fileName = boarding_document_nullable_text($input['file_name'] ?? $input['fileName'] ?? null);
     $mimeType = boarding_document_nullable_text($input['mime_type'] ?? $input['mimeType'] ?? null);
-    $absolutePath = __DIR__ . '/../public/' . $documentPath;
+    $absolutePath = ipawcus_runtime_media_path($documentPath);
 
     if (is_file($absolutePath)) {
         $fileName = $fileName ?: basename($documentPath);
@@ -2593,8 +2594,8 @@ function boarding_cleanup_unstored_document(PDO $pdo, string $documentPath): voi
         return;
     }
 
-    $documentRoot = realpath(__DIR__ . '/../public/boarding_documents');
-    $absolutePath = realpath(__DIR__ . '/../public/' . $documentPath);
+    $documentRoot = realpath(ipawcus_runtime_media_directory('boarding_documents'));
+    $absolutePath = realpath(ipawcus_runtime_media_path($documentPath));
     if ($documentRoot === false || $absolutePath === false) {
         return;
     }

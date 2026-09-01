@@ -3,6 +3,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 require_once __DIR__ . '/booking_payment_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 header('Content-Type: application/json');
 
@@ -327,8 +328,8 @@ function visit_billing_invoice_relative_path($value): string
 
 function visit_billing_assert_invoice_pdf_file(string $relativePath): void
 {
-    $invoiceDirectory = realpath(__DIR__ . '/../public/invoices');
-    $absolutePath = realpath(__DIR__ . '/../public/' . $relativePath);
+    $invoiceDirectory = realpath(ipawcus_runtime_media_directory('invoices'));
+    $absolutePath = realpath(ipawcus_runtime_media_path($relativePath));
     if (
         $invoiceDirectory === false
         || $absolutePath === false

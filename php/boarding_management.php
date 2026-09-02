@@ -2176,6 +2176,84 @@ function resolve_boarding_pet_id(PDO $pdo, $petId): ?int
     return $resolved !== false ? (int)$resolved : null;
 }
 
+function boarding_direct_check_in_owner(PDO $pdo, int $petId): array
+{
+    $primaryOrder = boarding_column_exists($pdo, 'pet_ownership', 'is_primary')
+        ? 'COALESCE(po.is_primary, 0) DESC,'
+        : '';
+    $ownerStmt = $pdo->prepare("
+        SELECT po.user_id
+        FROM pet_ownership po
+        JOIN users owner ON owner.user_id = po.user_id
+        WHERE po.pet_id = ?
+          AND LOWER(REPLACE(REPLACE(TRIM(owner.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
+        ORDER BY {$primaryOrder} po.link_id ASC
+        LIMIT 1
+    ");
+    $ownerStmt->execute([$petId]);
+    $ownerId = (int)($ownerStmt->fetchColumn() ?: 0);
+    if ($ownerId > 0) {
+        return ['user_id' => $ownerId, 'repair_link' => false];
+    }
+
+    // Older imported pets may have lost their pet_ownership row while their
+    // completed booking history still identifies one unambiguous owner.
+    $bookingPetCondition = boarding_table_exists($pdo, 'booking_pets')
+        ? ' OR EXISTS (SELECT 1 FROM booking_pets bp WHERE bp.booking_id = b.booking_id AND bp.pet_id = ?)'
+        : '';
+    $params = $bookingPetCondition === '' ? [$petId] : [$petId, $petId];
+    $legacyStmt = $pdo->prepare("
+        SELECT b.user_id, MAX(b.booking_id) AS latest_booking_id
+        FROM bookings b
+        JOIN users owner ON owner.user_id = b.user_id
+        WHERE (b.pet_id = ? {$bookingPetCondition})
+          AND LOWER(REPLACE(REPLACE(TRIM(owner.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
+        GROUP BY b.user_id
+        ORDER BY latest_booking_id DESC
+        LIMIT 2
+    ");
+    $legacyStmt->execute($params);
+    $legacyOwners = array_values(array_unique(array_map(
+        'intval',
+        array_column($legacyStmt->fetchAll(PDO::FETCH_ASSOC), 'user_id')
+    )));
+
+    if (count($legacyOwners) === 1 && $legacyOwners[0] > 0) {
+        return ['user_id' => $legacyOwners[0], 'repair_link' => true];
+    }
+
+    return ['user_id' => 0, 'repair_link' => false];
+}
+
+function boarding_repair_direct_check_in_owner_link(PDO $pdo, int $petId, int $ownerId): void
+{
+    $columns = ['user_id', 'pet_id'];
+    $values = ['?', '?'];
+    $params = [$ownerId, $petId];
+    if (boarding_column_exists($pdo, 'pet_ownership', 'relationship')) {
+        $columns[] = 'relationship';
+        $values[] = "'primary'";
+    }
+    if (boarding_column_exists($pdo, 'pet_ownership', 'is_primary')) {
+        $columns[] = 'is_primary';
+        $values[] = '1';
+    }
+    $params[] = $petId;
+
+    $insert = $pdo->prepare(
+        'INSERT INTO pet_ownership (' . implode(', ', $columns) . ') '
+        . 'SELECT ' . implode(', ', $values) . ' '
+        . 'WHERE NOT EXISTS (SELECT 1 FROM pet_ownership WHERE pet_id = ?)'
+    );
+    $insert->execute($params);
+
+    $verify = $pdo->prepare('SELECT user_id FROM pet_ownership WHERE pet_id = ? ORDER BY link_id ASC LIMIT 1');
+    $verify->execute([$petId]);
+    if ((int)($verify->fetchColumn() ?: 0) !== $ownerId) {
+        boarding_error(409, 'The pet owner link changed during check-in. Refresh the pet list and try again.');
+    }
+}
+
 function direct_check_in_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -2240,12 +2318,8 @@ function direct_check_in_action(PDO $pdo): void
         $notes = trim($notes . "\n" . $catalogNote);
     }
 
-    $ownerStmt = $pdo->prepare("SELECT user_id FROM pet_ownership WHERE pet_id = ? ORDER BY link_id DESC LIMIT 1");
-    $ownerStmt->execute([$petId]);
-    $ownerId = (int)($ownerStmt->fetchColumn() ?: 0);
-    if ($ownerId <= 0 && isset($input['user_id'])) {
-        $ownerId = (int)$input['user_id'];
-    }
+    $ownerResolution = boarding_direct_check_in_owner($pdo, $petId);
+    $ownerId = (int)$ownerResolution['user_id'];
     if ($ownerId <= 0) {
         boarding_error(409, 'This pet has no linked owner account. Link an owner before direct check-in.');
     }
@@ -2254,6 +2328,10 @@ function direct_check_in_action(PDO $pdo): void
     $consentLockName = null;
     $pdo->beginTransaction();
     try {
+        if (!empty($ownerResolution['repair_link'])) {
+            boarding_repair_direct_check_in_owner_link($pdo, $petId, $ownerId);
+        }
+
         $consent = boarding_secure_consent_payload(
             $pdo,
             $input,

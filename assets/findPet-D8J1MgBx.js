@@ -1,1 +1,0 @@
-import{Z as e}from"./index-BBdoU2PB.js";async function t(t){try{if(!localStorage.getItem(`authToken`))throw Error(`Authentication token not found.`);return await e(`/pet_information/${t}`,{apiPrefix:!0})}catch(e){throw console.error(`Error in findPetService:`,e),e}}export{t};

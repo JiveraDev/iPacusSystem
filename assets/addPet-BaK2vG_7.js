@@ -1,1 +1,0 @@
-import{at as e}from"./index-BBdoU2PB.js";async function t(t){try{return await e(`/pet_information`,t,{apiPrefix:!0})}catch(e){throw console.error(`Error in addPetService:`,e),e}}export{t};

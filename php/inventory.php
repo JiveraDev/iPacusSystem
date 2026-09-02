@@ -346,6 +346,10 @@ function getInventoryItems(PDO $pdo): void
 {
     $branchId = inventoryRequestedBranchId($pdo);
     $stockedOnly = filter_var($_GET['stockedOnly'] ?? $_GET['stocked_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $includeArchived = filter_var($_GET['includeArchived'] ?? $_GET['include_archived'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $itemStatusCondition = $includeArchived
+        ? "i.status IN ('active', 'inactive')"
+        : "i.status = 'active'";
     $stockedOnlyCondition = $stockedOnly
         ? " AND EXISTS (
                 SELECT 1
@@ -386,7 +390,7 @@ function getInventoryItems(PDO $pdo): void
         FROM inventory_items i
         JOIN branches branch ON branch.branch_id = ?
         LEFT JOIN inventory_locations item_location ON item_location.location_id = i.location_id
-        WHERE i.status = 'active'{$stockedOnlyCondition}
+        WHERE {$itemStatusCondition}{$stockedOnlyCondition}
         ORDER BY i.item_name ASC
     ");
     $params = [$branchId, $branchId, $branchId];
@@ -432,6 +436,8 @@ function getInventoryItems(PDO $pdo): void
         return [
             'id' => (string)$itemId,
             'itemId' => $itemId,
+            'recordStatus' => $item['status'],
+            'isArchived' => strtolower((string)$item['status']) === 'inactive',
             'image' => $item['profile_image_path'] ? '/' . ltrim($item['profile_image_path'], '/') : '',
             'name' => $item['item_name'],
             'genericName' => $item['generic_name'],

@@ -2634,6 +2634,7 @@ function boarding_fetch_document_subject(PDO $pdo, array $input): array
                 ba.booking_id,
                 ba.status,
                 b.pet_id,
+                b.branch_id,
                 b.service_type,
                 b.status AS booking_status
             FROM boarding_assignments ba

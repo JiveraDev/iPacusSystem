@@ -535,6 +535,11 @@ function createInventoryItem(PDO $pdo): void
         return;
     }
 
+    $barcode = inventoryOptionalText($input['barcode'] ?? null);
+    if ($barcode !== null && strlen($barcode) > 80) {
+        ipawcus_guard_error(422, 'Barcode must be 80 characters or fewer.');
+    }
+
     $pdo->beginTransaction();
     try {
         $itemName = inventoryText($input['item_name']);
@@ -555,7 +560,7 @@ function createInventoryItem(PDO $pdo): void
             $itemName,
             inventoryOptionalText($input['generic_name'] ?? null),
             $sku,
-            inventoryOptionalText($input['barcode'] ?? null),
+            $barcode,
             inventoryOptionalText($input['description'] ?? null),
             $category,
             $brand,
@@ -1120,9 +1125,6 @@ function archiveInventoryItem(PDO $pdo): void
         $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
         $quantityStmt->execute([$itemId]);
         $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
-        if ($quantity > 0) {
-            throw new InvalidArgumentException('Stock must be reduced or transferred to zero before this product can be archived.');
-        }
 
         $update = $pdo->prepare("UPDATE inventory_items SET status = 'inactive' WHERE item_id = ?");
         $update->execute([$itemId]);
@@ -1132,8 +1134,8 @@ function archiveInventoryItem(PDO $pdo): void
             $itemId,
             null,
             (int)$item['location_id'],
-            $item,
-            array_merge($item, ['status' => 'inactive', 'quantity' => 0])
+            array_merge($item, ['quantity' => $quantity]),
+            array_merge($item, ['status' => 'inactive', 'quantity' => $quantity])
         );
         $pdo->commit();
         echo json_encode(['message' => 'Inventory item archived.']);

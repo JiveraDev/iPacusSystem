@@ -134,6 +134,29 @@ function boarding_index_exists(PDO $pdo, string $tableName, string $indexName): 
     return $cache[$cacheKey];
 }
 
+function boarding_unique_index_matches(PDO $pdo, string $tableName, string $indexName, array $expectedColumns): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT column_name, non_unique
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND index_name = ?
+        ORDER BY seq_in_index ASC
+    ");
+    $stmt->execute([$tableName, $indexName]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($rows) || (int)$rows[0]['non_unique'] !== 0) {
+        return false;
+    }
+
+    return array_map(
+        static fn(array $row): string => strtolower((string)$row['column_name']),
+        $rows
+    ) === array_map('strtolower', $expectedColumns);
+}
+
 function boarding_constraint_exists(PDO $pdo, string $tableName, string $constraintName): bool
 {
     static $cache = [];
@@ -293,11 +316,13 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
     }
 }
 
-function ensure_boarding_rooms_schema(PDO $pdo): void
+function ensure_boarding_rooms_schema(PDO $pdo, bool $requireWritableIndexes = false): void
 {
     if (!boarding_table_exists($pdo, 'rooms') || !boarding_table_exists($pdo, 'room_unit_statuses')) {
         error_log('Boarding rooms schema is missing.');
-        boarding_error(500, 'Boarding room storage is incomplete. Run the branch-room migration before managing rooms.');
+        boarding_error(409, 'Boarding room storage is not ready. Run DDL/20260902_01_boarding_room_branch_fix.sql in the Hostinger database.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
         return;
     }
 
@@ -321,7 +346,19 @@ function ensure_boarding_rooms_schema(PDO $pdo): void
             implode(', ', $missingRoomColumns),
             implode(', ', $missingStatusColumns)
         ));
-        boarding_error(500, 'Boarding location support is incomplete. Run DDL/20260902_01_boarding_room_branch_fix.sql.');
+        boarding_error(409, 'Boarding location support is not ready. Run DDL/20260902_01_boarding_room_branch_fix.sql in the Hostinger database.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
+    }
+
+    if ($requireWritableIndexes && (
+        !boarding_unique_index_matches($pdo, 'rooms', 'rooms_branch_type_unique', ['branch_id', 'room_type'])
+        || !boarding_unique_index_matches($pdo, 'room_unit_statuses', 'room_unit_status_branch_unique', ['branch_id', 'room_type', 'room_number'])
+    )) {
+        error_log('Boarding branch-room unique indexes are missing or incorrect.');
+        boarding_error(409, 'Room creation needs the latest branch-room database update. Run DDL/20260902_01_boarding_room_branch_fix.sql in Hostinger phpMyAdmin, then try again.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
     }
 }
 
@@ -3968,7 +4005,7 @@ try {
     $requiredTables = ['rooms', 'room_unit_statuses', 'boarding_assignments', 'boarding_observations', 'boarding_tasks'];
 
     if ($action === 'rooms') {
-        ensure_boarding_rooms_schema($pdo);
+        ensure_boarding_rooms_schema($pdo, $method !== 'GET');
     }
 
     if ($action === 'rooms' && $method === 'POST') {

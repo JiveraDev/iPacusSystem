@@ -88,12 +88,11 @@ try {
         ipawcus_guard_error(403, 'You are not allowed to view pet records.');
     }
 
-    // Check if it's a sharable ID or numeric ID
-    $sql = "SELECT p.*, po.user_id AS owner_user_id, CONCAT(u.first_Name, ' ', u.last_Name) as owner_name
+    // Fetch the pet independently from ownership rows. A direct ownership join
+    // becomes nondeterministic as soon as an approved co-parent is present.
+    $sql = "SELECT p.*
             FROM pets_information p
-            LEFT JOIN pet_ownership po ON p.pet_id = po.pet_id
-            LEFT JOIN users u ON po.user_id = u.user_id
-            WHERE " . (strpos($petId, 'PET-') === 0 ? "p.pet_sharable_ID" : "p.pet_id") . " = ? 
+            WHERE " . (strpos($petId, 'PET-') === 0 ? "p.pet_sharable_ID" : "p.pet_id") . " = ?
             LIMIT 1";
 
     $stmt = $pdo->prepare($sql);
@@ -111,6 +110,71 @@ try {
         && !ipawcus_guard_pet_access($pdo, (int)$pet['pet_id'], $currentApiUserId)
     ) {
         ipawcus_guard_error(403, 'You are not allowed to view this pet record.');
+    }
+
+    $hasOwnershipRelationship = getPetColumnExists($pdo, 'pet_ownership', 'relationship');
+    $hasPrimaryOwnership = getPetColumnExists($pdo, 'pet_ownership', 'is_primary');
+    $relationshipSelect = $hasOwnershipRelationship
+        ? 'po.relationship'
+        : "'primary' AS relationship";
+    $primarySelect = $hasPrimaryOwnership
+        ? 'po.is_primary'
+        : 'CASE WHEN po.link_id IS NOT NULL THEN 1 ELSE 0 END AS is_primary';
+    $primaryOrder = $hasPrimaryOwnership
+        ? 'CASE WHEN po.is_primary = 1 THEN 0 ELSE 1 END,'
+        : '';
+    $relationshipOrder = $hasOwnershipRelationship
+        ? "CASE WHEN po.relationship = 'primary' THEN 0 ELSE 1 END,"
+        : '';
+    $ownershipStmt = $pdo->prepare("
+        SELECT
+            po.link_id,
+            po.user_id,
+            {$relationshipSelect},
+            {$primarySelect},
+            u.first_Name,
+            u.last_Name,
+            u.mail_Address
+        FROM pet_ownership po
+        JOIN users u ON u.user_id = po.user_id
+        WHERE po.pet_id = ?
+        ORDER BY
+            {$primaryOrder}
+            {$relationshipOrder}
+            po.link_id ASC
+    ");
+    $ownershipStmt->execute([(int)$pet['pet_id']]);
+    $ownerships = [];
+
+    foreach ($ownershipStmt->fetchAll(PDO::FETCH_ASSOC) as $index => $ownership) {
+        $relationship = strtolower(trim((string)($ownership['relationship'] ?? '')));
+        $isPrimary = (int)($ownership['is_primary'] ?? 0) === 1 || $relationship === 'primary';
+        if ($index === 0 && !$isPrimary) {
+            // Keep legacy rows usable until the approved metadata migration is applied.
+            $isPrimary = true;
+        }
+
+        $name = trim((string)($ownership['first_Name'] ?? '') . ' ' . (string)($ownership['last_Name'] ?? ''));
+        $ownerships[] = [
+            'userId' => (int)$ownership['user_id'],
+            'name' => $name !== '' ? $name : ((string)($ownership['mail_Address'] ?? '') ?: 'Pet owner'),
+            'email' => $ownership['mail_Address'] ?? '',
+            'relationship' => $isPrimary ? 'primary' : 'co_parent',
+            'isPrimary' => $isPrimary,
+        ];
+    }
+
+    $primaryOwner = null;
+    $coParents = [];
+    foreach ($ownerships as $ownership) {
+        if ($ownership['isPrimary'] && $primaryOwner === null) {
+            $primaryOwner = $ownership;
+        } else {
+            $coParents[] = array_merge($ownership, [
+                'relationship' => 'co_parent',
+                'isPrimary' => false,
+            ]);
+        }
     }
 
     $vaccinations = [];
@@ -160,9 +224,12 @@ try {
         'weight' => $pet['pet_weight'],
         'color' => $pet['pet_color_marking'],
         'microchipId' => $pet['pet_microchip'],
-        'ownerName' => $pet['owner_name'] ?: null,
-        'ownerUserId' => $pet['owner_user_id'] !== null ? (int)$pet['owner_user_id'] : null,
-        'hasOwnership' => $pet['owner_user_id'] !== null,
+        'ownerName' => $primaryOwner['name'] ?? null,
+        'ownerUserId' => isset($primaryOwner['userId']) ? (int)$primaryOwner['userId'] : null,
+        'hasOwnership' => !empty($ownerships),
+        'primaryOwner' => $primaryOwner,
+        'coParents' => $coParents,
+        'ownerships' => $ownerships,
         'tempOwnerName' => $pet['pet_Temp_owner'] ?: null,
         'profileImage' => $pet['setpetImage_url'],
         'allergies_raw' => $effectiveAllergyText,

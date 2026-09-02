@@ -3393,12 +3393,16 @@ function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookin
     $visitLockStmt->execute([$bookingId]);
     $visitLockStmt->fetchAll(PDO::FETCH_COLUMN);
 
+    // A verified payment settles only the invoice lines that existed when it
+    // was recorded. An active booked stay may still incur new material usage;
+    // POS appends that usage as a new immutable charge and collects only the
+    // resulting outstanding balance. Refunded billing remains locked.
     $paymentStmt = $pdo->prepare("
         SELECT vp.payment_status
         FROM visit_payments vp
         JOIN visits v ON v.visit_id = vp.visit_id
         WHERE v.booking_id = ?
-          AND vp.payment_status IN ('verified', 'refunded')
+          AND vp.payment_status = 'refunded'
         ORDER BY vp.payment_id ASC
         LIMIT 1
     ");
@@ -3407,9 +3411,7 @@ function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookin
     if ($lockedPaymentStatus !== '') {
         boarding_error(
             409,
-            'Boarding materials are locked because this stay has a '
-            . $lockedPaymentStatus
-            . ' payment. Resolve billing through the payment record instead of changing the recorded stay.'
+            'Boarding materials cannot be changed because this stay has a refunded payment. Resolve the refunded billing record first.'
         );
     }
 }
@@ -3508,7 +3510,7 @@ function boarding_fetch_material_usages(PDO $pdo, array $filters = []): array
                 FROM visits payment_visit
                 JOIN visit_payments vp ON vp.visit_id = payment_visit.visit_id
                 WHERE payment_visit.booking_id = bmu.booking_id
-                  AND vp.payment_status IN ('verified', 'refunded')
+                  AND vp.payment_status = 'refunded'
             ) AS has_locked_payment
         ";
     }

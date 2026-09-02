@@ -61,13 +61,14 @@ function ipawcus_admin_feature_permissions_table_exists(PDO $pdo): bool
 
     try {
         $stmt = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM information_schema.tables
+            SELECT COUNT(DISTINCT column_name)
+            FROM information_schema.columns
             WHERE table_schema = DATABASE()
               AND table_name = 'admin_feature_permissions'
+              AND column_name IN ('user_id', 'feature_key', 'is_allowed')
         ");
         $stmt->execute();
-        $exists = (int)$stmt->fetchColumn() > 0;
+        $exists = (int)$stmt->fetchColumn() === 3;
     } catch (Throwable $error) {
         $exists = false;
     }
@@ -82,17 +83,24 @@ function ipawcus_admin_feature_permissions(PDO $pdo, int $userId): array
         return $permissions;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT feature_key, is_allowed
-        FROM admin_feature_permissions
-        WHERE user_id = ?
-    ");
-    $stmt->execute([$userId]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $key = (string)($row['feature_key'] ?? '');
-        if (array_key_exists($key, $permissions)) {
-            $permissions[$key] = (int)($row['is_allowed'] ?? 0) === 1;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT feature_key, is_allowed
+            FROM admin_feature_permissions
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $key = (string)($row['feature_key'] ?? '');
+            if (array_key_exists($key, $permissions)) {
+                $permissions[$key] = (int)($row['is_allowed'] ?? 0) === 1;
+            }
         }
+    } catch (Throwable $error) {
+        // RBAC is additive. A missing/partial optional table must preserve the
+        // original Admin permissions instead of breaking every mutation with
+        // a server error. The management endpoint still reports the migration.
+        error_log('Admin feature permission lookup failed: ' . $error->getMessage());
     }
 
     return $permissions;

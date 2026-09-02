@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Maximize2, Minimize2, Video, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { formatDisplayDateTime } from '../lib/date';
@@ -71,6 +71,7 @@ function isSameCall(currentCall, nextCall) {
 
 export function VideoCallProvider({ children }) {
     const [callState, setCallState] = useState(readStoredCallState);
+    const meetingRef = useRef(null);
 
     useEffect(() => {
         try {
@@ -124,19 +125,27 @@ export function VideoCallProvider({ children }) {
         setCallState({ activeCall: null, isMinimized: false });
     }, []);
 
+    const captureRemoteParticipant = useCallback(() => {
+        if (!meetingRef.current?.captureRemoteParticipant) {
+            return Promise.reject(new Error('The meeting is not ready for capture yet.'));
+        }
+        return meetingRef.current.captureRemoteParticipant();
+    }, []);
+
     const value = useMemo(() => ({
         activeCall: callState.activeCall,
         isMinimized: callState.isMinimized,
         startCall,
         minimizeCall,
         maximizeCall,
-        endCall
-    }), [callState.activeCall, callState.isMinimized, endCall, maximizeCall, minimizeCall, startCall]);
+        endCall,
+        captureRemoteParticipant
+    }), [callState.activeCall, callState.isMinimized, captureRemoteParticipant, endCall, maximizeCall, minimizeCall, startCall]);
 
     return (
         <VideoCallContext.Provider value={value}>
             {children}
-            <FloatingVideoCall />
+            <FloatingVideoCall meetingRef={meetingRef} />
         </VideoCallContext.Provider>
     );
 }
@@ -152,7 +161,7 @@ export function useVideoCall() {
     return context;
 }
 
-function FloatingVideoCall() {
+function FloatingVideoCall({ meetingRef }) {
     const navigate = useNavigate();
     const { activeCall, isMinimized, minimizeCall, maximizeCall, endCall } = useVideoCall();
     const [dockRect, setDockRect] = useState(null);
@@ -341,6 +350,7 @@ function FloatingVideoCall() {
 
                 <div className="min-h-0 flex-1 bg-black">
                     <JaaSMeeting
+                        ref={meetingRef}
                         key={activeCall.meetingUrl}
                         title="8x8 JaaS online consultation"
                         meetingUrl={activeCall.meetingUrl}

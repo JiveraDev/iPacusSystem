@@ -10,18 +10,18 @@ export const PROFILE_TAB_TRIGGER_CLASS = [
     'sm:px-5 sm:text-sm'
 ].join(' ');
 
-export const PROFILE_LABEL_CLASS = 'flex items-center gap-2 text-sm font-semibold text-slate-500';
+export const PROFILE_LABEL_CLASS = 'flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400';
 
 export const PROFILE_INPUT_CLASS = [
-    'h-11 rounded-lg border-slate-200 bg-white text-base font-semibold text-slate-950',
+    'h-11 rounded-lg border-slate-200 bg-white text-base font-semibold text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100',
     'placeholder:text-slate-400',
-    'disabled:cursor-default disabled:border-slate-200 disabled:bg-white disabled:text-slate-950 disabled:opacity-100',
+    'disabled:cursor-default disabled:border-slate-200 disabled:bg-white disabled:text-slate-950 disabled:opacity-100 dark:disabled:border-slate-700 dark:disabled:bg-slate-950 dark:disabled:text-slate-100',
     'md:text-sm'
 ].join(' ');
 
 export const PROFILE_DISPLAY_VALUE_CLASS = [
-    'flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 py-2',
-    'text-[15px] font-semibold text-slate-950'
+    'flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950',
+    'text-[15px] font-semibold text-slate-950 dark:text-slate-100'
 ].join(' ');
 
 export function profileInputClass(...classes) {

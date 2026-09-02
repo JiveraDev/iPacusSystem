@@ -6,9 +6,7 @@ header('Content-Type: application/json');
 
 try {
     $hasUserAccountStatus = accountColumnExists($pdo, 'users', 'account_status');
-    $accountStatusWhere = $hasUserAccountStatus
-        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') NOT IN ('archived', 'deactivated', 'disabled', 'inactive', 'suspended')"
-        : '';
+    $accountStatusWhere = '';
 
     $stmt = $pdo->query("
         SELECT

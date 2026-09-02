@@ -11,7 +11,7 @@ export function isArchivedPetOwner(user) {
 }
 
 export function assertPetOwnerActionAllowed(user, actionLabel = 'request this service') {
-    if (!isArchivedPetOwner(user)) return;
-
-    throw new Error(`Your archived account cannot ${actionLabel}. Contact the clinic to restore access, or ask clinic staff for assistance.`);
+    // Archive is an administrative marker and does not restrict normal actions.
+    void user;
+    void actionLabel;
 }

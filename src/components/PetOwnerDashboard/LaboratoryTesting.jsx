@@ -8,7 +8,7 @@ const LABORATORY_BOOKING_CONFIG = {
     title: 'Laboratory Testing',
     description: 'Request laboratory testing during an available clinic or veterinarian-visit schedule',
     notesPlaceholder: 'List the requested test, symptoms, previous results, or veterinarian instructions.',
-    projectionKey: '',
+    projectionKey: 'laboratoryTesting',
     Icon: FlaskConical,
     branchSelectable: true,
     infoText: 'The clinic will confirm the appropriate test, sample requirements, preparation, and final laboratory fee after review.',

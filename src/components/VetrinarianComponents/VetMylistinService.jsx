@@ -23,6 +23,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import { normalizeQueuePriority } from '../../lib/queuePriority';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import SignatureCapture from '../SignatureCapture.jsx';
@@ -39,6 +40,7 @@ import {
 } from '../../services/queueService';
 import { uploadDataUrlImage } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -729,27 +731,29 @@ export default function VetMyList() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)]">
-                    <h2 className="text-2xl font-bold text-[#101828]">My List</h2>
-                    <p className="text-sm font-medium text-slate-500">
-                        Received queue patients assigned to veterinarian handling.
-                    </p>
-                </div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                        loadQueue();
-                        loadConsentForms();
-                    }}
-                    disabled={isLoading}
-                    className="w-full gap-2 sm:w-auto"
-                >
-                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
+            <DashboardPageHeader
+                icon={Stethoscope}
+                title="My List"
+                description="Received queue patients assigned to veterinarian handling."
+                layout="stacked"
+                toolbar={(
+                    <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                loadQueue();
+                                loadConsentForms();
+                            }}
+                            disabled={isLoading}
+                            className="gap-2"
+                        >
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            <span>Refresh</span>
+                        </Button>
+                    </div>
+                )}
+            />
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <StatCard icon={Clock} label="In Progress" value={receivedItems.length} tone="blue" />
@@ -762,7 +766,7 @@ export default function VetMyList() {
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search pet, owner, queue ID, service, or complaint"
+                        placeholder="Search queue or pet"
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
@@ -1290,14 +1294,17 @@ function Detail({ label, value, className = '' }) {
 }
 
 function getPriorityBadge(priority) {
-    return normalize(priority) === 'urgent' ? (
+    const normalizedPriority = normalizeQueuePriority(priority);
+    if (normalizedPriority === 'urgent') return (
         <Badge className="border-0 bg-red-600 text-white">
             <AlertTriangle className="mr-1 size-3" />
             Urgent
         </Badge>
-    ) : (
-        <Badge className="border-0 bg-slate-100 text-slate-700">Normal</Badge>
     );
+    if (normalizedPriority === 'low-test') return (
+        <Badge className="border border-blue-200 bg-blue-50 text-blue-700">Low-test</Badge>
+    );
+    return <Badge className="border-0 bg-slate-100 text-slate-700">Normal</Badge>;
 }
 
 function getConsentBadge(record) {

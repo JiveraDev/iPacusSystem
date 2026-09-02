@@ -325,6 +325,18 @@ $paymentReference = $paymentReference !== '' ? $paymentReference : null;
 $hasPaymentUpdate = $hasPaymentProof || $hasPaymentMethod || $hasPaymentReference;
 $hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
 
+if ($transactionNumber !== '' && !preg_match('/^\d{18}$/', $transactionNumber)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Transaction number must contain exactly 18 digits.']);
+    exit;
+}
+
+if ($paymentReference !== null && !preg_match('/^\d{18}$/', $paymentReference)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Payment transaction number must contain exactly 18 digits.']);
+    exit;
+}
+
 if (!$bookingId || !$status) {
     http_response_code(400);
     echo json_encode(['message' => 'Booking ID and Status are required.']);

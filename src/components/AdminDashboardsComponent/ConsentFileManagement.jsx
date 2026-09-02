@@ -23,6 +23,7 @@ import {
     fetchConsentFiles as fetchConsentFilesService,
     updateConsentFile
 } from '../../services/consentFileService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState([]);
@@ -255,20 +256,12 @@ export default function ConsentFilesManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-                <div>
-                    <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-                        Consent Template Management
-                    </h2>
-                    <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                        Create reusable consent letters with automatic owner, patient, service, and date fields
-                    </p>
-                </div>
-                <div className="bg-[#eff6ff] border border-[#bedbff] rounded-lg px-4 py-2 text-center">
-                    <p className="text-[10px] uppercase font-bold text-[#4a5565] tracking-wider mb-1">Active Forms</p>
-                    <p className="text-2xl font-bold text-[#155dfc]">{files.length}</p>
-                </div>
-            </div>
+            <DashboardPageHeader
+                icon={FileText}
+                title="Consent Template Management"
+                description="Create reusable consent letters with automatic owner, patient, service, and date fields."
+                meta={<Badge className="border-blue-200 bg-blue-50 text-blue-700">{files.length} active forms</Badge>}
+            />
 
             {/* Template editor */}
             <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 shadow-sm sm:p-6">
@@ -441,23 +434,41 @@ export default function ConsentFilesManagement() {
             </div>
 
             {/* Files Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {isLoading ? (
                     Array(3).fill(0).map((_, i) => (
                         <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />
                     ))
                 ) : files.map((file) => (
-                    <Card key={file.file_id} className="group hover:border-blue-300 transition-all duration-300 hover:shadow-md border-gray-200 overflow-hidden">
-                        <CardContent className="p-5">
-                            <div className="mb-4 flex items-start justify-between gap-3">
-                                <div className="shrink-0 rounded-xl bg-[#eff6ff] p-3 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                                    <FileText className="size-7" />
+                    <Card
+                        key={file.file_id}
+                        petHover={false}
+                        className="group overflow-hidden border-slate-200 transition-colors hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900"
+                    >
+                        <CardContent className="flex h-full flex-col p-0">
+                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white dark:bg-blue-950/60 dark:text-blue-300">
+                                        <FileText className="size-5" aria-hidden="true" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h4 className="line-clamp-2 break-words text-sm font-black leading-5 text-slate-950 dark:text-white">
+                                            {file.file_name}
+                                        </h4>
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                            <span>{categoryLabels[file.category] || file.category}</span>
+                                            <span aria-hidden="true">•</span>
+                                            <span>{file.file_size}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex shrink-0 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="size-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        className="size-8 text-slate-500 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-400 dark:hover:bg-blue-950/60 dark:hover:text-blue-300"
+                                        aria-label={`Edit ${file.file_name}`}
+                                        title="Edit template"
                                         onClick={() => {
                                             setSelectedFile(file);
                                             setEditTitle(file.file_name || '');
@@ -474,7 +485,9 @@ export default function ConsentFilesManagement() {
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="size-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                        className="size-8 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/60 dark:hover:text-red-300"
+                                        aria-label={`Delete ${file.file_name}`}
+                                        title="Delete template"
                                         onClick={() => {
                                             setFileToDelete(file);
                                             setDeleteDialogOpen(true);
@@ -485,45 +498,36 @@ export default function ConsentFilesManagement() {
                                 </div>
                             </div>
 
-                            <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-1 line-clamp-1">
-                                {file.file_name}
-                            </h4>
-                            <div className="flex items-center gap-2 mb-4">
-                                <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-2 bg-slate-100 text-slate-600">
-                                    {categoryLabels[file.category] || file.category}
-                                </Badge>
-                                <span className="text-[11px] text-gray-400">
-                                    {file.file_size}
-                                </span>
-                            </div>
-                            <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                                    Pet-owner flows
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-1 flex-col gap-4 p-4">
+                                <div>
+                                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Used in pet-owner flow</p>
+                                    <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5">
                                     {parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).length > 0 ? (
                                         parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).map((context) => (
-                                            <Badge key={context} className="border-0 bg-blue-100 text-[10px] font-bold text-blue-700">
+                                            <Badge key={context} className="border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
                                                 {PET_OWNER_CONSENT_CONTEXTS.find((item) => item.value === context)?.label || context}
                                             </Badge>
                                         ))
                                     ) : (
-                                        <span className="text-xs font-medium text-slate-400">Not used</span>
+                                        <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                                            Not assigned
+                                        </Badge>
                                     )}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <Button 
-                                variant="outline" 
-                                className="w-full border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-blue-500 hover:border-blue-600 transition-all font-bold text-xs gap-2"
-                                onClick={() => {
-                                    setSelectedFile(file);
-                                    setViewModalOpen(true);
-                                }}
-                            >
-                                <Eye className="size-4" />
-                                VIEW DOCUMENT
-                            </Button>
+                                <Button
+                                    variant="outline"
+                                    className="mt-auto w-full gap-2 border-slate-200 font-bold text-blue-700 hover:border-blue-600 hover:bg-blue-600 hover:text-white dark:border-slate-700 dark:text-blue-300 dark:hover:border-blue-500 dark:hover:bg-blue-600 dark:hover:text-white"
+                                    onClick={() => {
+                                        setSelectedFile(file);
+                                        setViewModalOpen(true);
+                                    }}
+                                >
+                                    <Eye className="size-4" aria-hidden="true" />
+                                    View document
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 ))}

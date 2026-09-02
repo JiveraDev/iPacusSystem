@@ -22,7 +22,10 @@ import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import ProtectedImage from "../shared/ProtectedImage";
 import { saveOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
-import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
+import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import ConsentTemplateText from "../shared/ConsentTemplateText.jsx";
 
 export default function ConsultPayment() {
   const navigate = useNavigate();
@@ -133,35 +136,29 @@ export default function ConsultPayment() {
       toast.error("No online consultation consent form is assigned. Please contact the clinic.");
       return;
     }
-    if (!signature) {
-      toast.error("Please provide your digital signature");
-      return;
-    }
-    if (!formData.paymentMethod) {
-      toast.error("Please select a payment method");
-      return;
-    }
-    if (!formData.referenceNumber.trim()) {
-      toast.error("Please enter the payment transaction reference");
-      return;
-    }
-    if (!/^\d{1,18}$/.test(formData.referenceNumber.trim())) {
-      toast.error("The payment reference must contain no more than 18 digits");
-      return;
-    }
-    if (!formData.receiptFile) {
-      toast.error("Please upload proof of payment");
-      return;
-    }
-
     const rawSenderNumber = formData.senderNumber;
     const senderNumber = senderRequiresPhilippineMobile
       ? normalizePhilippinePhoneInput(rawSenderNumber)
       : formData.senderNumber.trim();
-    if (senderRequiresPhilippineMobile && !isValidPhilippinePhone(rawSenderNumber)) {
-      toast.error("Sender number must be complete after +639.");
-      return;
+    const validationErrors = [];
+    if (!signature) validationErrors.push({ fieldId: 'consult-signature', label: 'Digital signature', type: 'missing', message: 'Provide your digital signature.' });
+    if (!formData.paymentMethod) validationErrors.push({ fieldId: 'paymentMethod', label: 'Payment method', type: 'selection', message: 'Select a payment method.' });
+    if (!formData.referenceNumber.trim()) {
+      validationErrors.push({ fieldId: 'referenceNumber', label: 'Transaction number', type: 'missing', message: 'Enter the 18-digit payment transaction number.' });
+    } else if (!isValidTransactionNumber(formData.referenceNumber)) {
+      validationErrors.push({ fieldId: 'referenceNumber', label: 'Transaction number', type: 'invalid', message: TRANSACTION_NUMBER_MESSAGE });
     }
+    if (!formData.receiptFile) {
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Upload the payment receipt or screenshot.' });
+    } else if (Number(formData.receiptFile.size || 0) > 8 * 1024 * 1024) {
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be 8 MB or smaller.' });
+    } else if (!(String(formData.receiptFile.type || '').startsWith('image/') || formData.receiptFile.type === 'application/pdf')) {
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be an image or PDF file.' });
+    }
+    if (senderRequiresPhilippineMobile && !isValidPhilippinePhone(rawSenderNumber)) {
+      validationErrors.push({ fieldId: 'senderNumber', label: 'Sender number', type: 'invalid', message: 'Sender number must be complete after +639.' });
+    }
+    if (reportBookingFormErrors(validationErrors)) return;
     
     setIsProcessing(true);
 
@@ -185,6 +182,8 @@ export default function ConsultPayment() {
         signatureImage: signature,
         signerName: ownerName,
         signedAt,
+        veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+        veterinarianLicense: bookingData.veterinarianLicense || bookingData.licenseNumber || '',
         templateContext: {
           ownerName,
           ownerAddress: currentUser.personal_Address || currentUser.address || '',
@@ -193,6 +192,7 @@ export default function ConsultPayment() {
           petSpecies: bookingData.petSpecies,
           petBreed: bookingData.petBreed,
           veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+          veterinarianLicense: bookingData.veterinarianLicense || bookingData.licenseNumber || '',
           serviceName: 'Online Consultation',
           branchName: 'Vetfocus Care Animal Clinic'
         }
@@ -274,7 +274,10 @@ export default function ConsultPayment() {
       navigate(`/dashboard/consult/confirmation/${createdBookingId || "success"}`);
     } catch (error) {
       console.error("Submission error:", error);
-      toast.error(error.message || "An error occurred during submission");
+      reportBookingSubmissionError(error, {
+        transaction: 'referenceNumber',
+        upload: 'receipt',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -293,31 +296,31 @@ export default function ConsultPayment() {
     previewUser.firstName || previewUser.first_Name || previewUser.first_name,
     previewUser.lastName || previewUser.last_Name || previewUser.last_name
   ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
-  const consentPreviewContent = onlineConsentTemplate
-    ? resolveConsentTemplate(onlineConsentTemplate.content, {
-        ownerName: previewOwnerName,
-        ownerAddress: previewUser.personal_Address || previewUser.address || '',
-        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
-        petName: bookingData.petName,
-        petSpecies: bookingData.petSpecies,
-        petBreed: bookingData.petBreed,
-        veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
-        serviceName: 'Online Consultation',
-        branchName: 'Vetfocus Care Animal Clinic'
-      }, { preview: true })
-    : '';
+  const consentPreviewContext = {
+    ownerName: previewOwnerName,
+    ownerAddress: previewUser.personal_Address || previewUser.address || '',
+    ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+    petName: bookingData.petName,
+    petSpecies: bookingData.petSpecies,
+    petBreed: bookingData.petBreed,
+    veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
+    veterinarianLicense: bookingData.veterinarianLicense || bookingData.licenseNumber || '',
+    serviceName: 'Online Consultation',
+    branchName: 'Vetfocus Care Animal Clinic'
+  };
 
   return (
     <div className="space-y-8 max-w-4xl">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/consult/booking")} className="self-start">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Complete Payment</h1>
-        </div>
-      </div>
+      <DashboardPageHeader
+        icon={ShieldCheck}
+        title="Complete Payment"
+        description="Review the consultation details and submit the required payment reference."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/consult/booking")} className="-ml-2 gap-2">
+            <ArrowLeft className="size-4" /> Back to Booking
+          </Button>
+        )}
+      />
 
       {/* Information Banner */}
       <Card className="bg-blue-50 border-blue-200">
@@ -360,12 +363,15 @@ export default function ConsultPayment() {
                 </span>
               )}
             </div>
-            <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
-              {consentPreviewContent || "An admin must assign an online consultation consent form in Consent Management before this booking can be submitted."}
-            </p>
+            <ConsentTemplateText
+              content={onlineConsentTemplate?.content}
+              context={consentPreviewContext}
+              fallback="An admin must assign an online consultation consent form in Consent Management before this booking can be submitted."
+              className="max-h-52 overflow-y-auto text-sm leading-6 text-gray-700"
+            />
           </div>
 
-          <div className="space-y-3">
+          <div id="consult-signature" tabIndex={-1} className="space-y-3 rounded-xl">
             <Label className="font-semibold text-gray-900">Digital Signature *</Label>
             <SignatureCapture
               signature={signature}
@@ -383,7 +389,7 @@ export default function ConsultPayment() {
           <CardDescription>Fill in your payment information below</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             {/* Payment Method Selection */}
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -456,18 +462,18 @@ export default function ConsultPayment() {
               <Label htmlFor="referenceNumber">Reference/Transaction Number *</Label>
               <Input
                 id="referenceNumber"
-                placeholder="Enter up to 18 digits"
+                placeholder="Enter exactly 18 digits"
                 restriction="digits"
                 inputMode="numeric"
                 maxLength={18}
                 value={formData.referenceNumber}
                 onChange={(e) => setFormData({
                   ...formData,
-                  referenceNumber: e.target.value.replace(/\D/g, '').slice(0, 18)
+                  referenceNumber: normalizeTransactionNumber(e.target.value)
                 })}
               />
               <p className="text-xs text-gray-500">
-                Enter the numeric transaction reference from the receipt (maximum 18 digits).
+                Enter the complete 18-digit transaction number shown on the receipt.
               </p>
             </div>
 
@@ -476,7 +482,7 @@ export default function ConsultPayment() {
               <Label htmlFor="senderNumber">Sender Number / Account Details</Label>
               <Textarea
                 id="senderNumber"
-                placeholder={senderRequiresPhilippineMobile ? "+639" : "Enter the sender's number or account name used for payment"}
+                placeholder={senderRequiresPhilippineMobile ? "+639" : "Sender number or account name"}
                 value={senderRequiresPhilippineMobile ? normalizePhilippinePhoneInput(formData.senderNumber) : formData.senderNumber}
                 onChange={(e) => setFormData({
                   ...formData,

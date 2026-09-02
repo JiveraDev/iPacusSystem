@@ -3,8 +3,8 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Card, CardContent } from '../../ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import { User, Save, Mail, Phone, MapPin, Briefcase, Calendar, BadgeCheck, Camera, Loader2, IdCard } from 'lucide-react';
+import { Tabs, TabsContent } from '../../ui/tabs';
+import { User, Save, Mail, Phone, MapPin, Briefcase, Calendar, BadgeCheck, Loader2, IdCard, Pencil } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import { cleanProfileHistory, parseProfileHistory } from '../../lib/profileHistory';
@@ -14,12 +14,10 @@ import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
 import NotificationPreferencesCard from '../shared/NotificationPreferencesCard.jsx';
-import ProtectedImage from '../shared/ProtectedImage.jsx';
+import ProfileWorkspaceHeader from '../shared/ProfileWorkspaceHeader.jsx';
 import UnsavedProfileChangesDialog from '../shared/UnsavedProfileChangesDialog.jsx';
 import {
     PROFILE_DISPLAY_VALUE_CLASS,
-    PROFILE_TAB_TRIGGER_CLASS,
-    PROFILE_TABS_LIST_CLASS,
     profileInputClass,
     profileLabelClass
 } from '../shared/profileUiStyles.js';
@@ -251,63 +249,36 @@ export default function ProfileManagement({ onForgotPassword }) {
     const profileImageSrc = imageError ? null : profile.profileImage;
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="mb-1 font-bold text-[24px] text-[#101828]">Profile Management</h2>
-                    <p className="text-[16px] text-[#4a5565]">Manage your professional information and credentials</p>
-                </div>
-                {activeTab === 'profile' && !isEditing && (
-                    <Button onClick={() => setIsEditing(true)} className="bg-[#155dfc] hover:bg-[#1447e6]">
-                        Edit Profile
-                    </Button>
-                )}
-            </div>
+        <div className="mx-auto max-w-6xl">
+            <Tabs
+                value={activeTab}
+                onValueChange={handleProfileTabChange}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+                <ProfileWorkspaceHeader
+                    activeTab={activeTab}
+                    accountLabel={String(role).toLowerCase().includes('super') ? 'Super Admin Account' : 'Admin Account'}
+                    displayName={getFullName(profile)}
+                    secondaryLabel={`Employee ID: ${profile.employeeId || 'Not set'}`}
+                    imageSrc={profileImageSrc || ''}
+                    imageUnavailable={imageError && Boolean(profile.profileImage)}
+                    isEditing={isEditing}
+                    onImageChange={handleImageChange}
+                    onImageError={setImageError}
+                    action={activeTab === 'profile' && !isEditing ? (
+                        <Button
+                            onClick={() => setIsEditing(true)}
+                            className="h-11 w-full bg-white px-5 font-black text-blue-800 shadow-sm hover:bg-blue-50 sm:w-auto"
+                        >
+                            <Pencil />
+                            Edit Profile
+                        </Button>
+                    ) : null}
+                />
 
-            <Tabs value={activeTab} onValueChange={handleProfileTabChange} className="w-full">
-                <TabsList className={PROFILE_TABS_LIST_CLASS}>
-                    <TabsTrigger value="profile" className={PROFILE_TAB_TRIGGER_CLASS}>Profile Details</TabsTrigger>
-                    <TabsTrigger value="security" className={PROFILE_TAB_TRIGGER_CLASS}>Security</TabsTrigger>
-                    <TabsTrigger value="notifications" className={PROFILE_TAB_TRIGGER_CLASS}>Notifications</TabsTrigger>
-                    <TabsTrigger value="appearance" className={PROFILE_TAB_TRIGGER_CLASS}>Appearance</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="profile" className="space-y-6">
-                    <Card className="overflow-hidden border-slate-200 shadow-xl rounded-2xl bg-white">
-                        <div className="bg-gradient-to-r from-[#155dfc] to-[#0f766e] px-4 py-8 sm:px-8">
-                            <div className="flex flex-col items-center gap-6 sm:flex-row">
-                                <div className="relative">
-                                    <div className="size-32 overflow-hidden rounded-full border-4 border-white bg-white/20 shadow-xl">
-                                        {profileImageSrc ? (
-                                            <ProtectedImage
-                                                src={profileImageSrc}
-                                                alt={getFullName(profile)}
-                                                className="size-full object-cover"
-                                                fallbackClassName="size-full"
-                                                onLoadError={() => setImageError(true)}
-                                            />
-                                        ) : (
-                                            <div className="flex size-full items-center justify-center bg-white">
-                                                <User className="size-16 text-[#155dfc]" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    {isEditing && (
-                                        <label className="absolute bottom-1 right-1 flex size-11 cursor-pointer items-center justify-center rounded-full border-4 border-white bg-[#155dfc] text-white shadow-lg hover:bg-blue-700">
-                                            <Camera className="size-5" />
-                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                                        </label>
-                                    )}
-                                </div>
-                                <div className="min-w-0 text-center text-white sm:text-left">
-                                    <h3 className="break-words text-[28px] font-bold">{getFullName(profile)}</h3>
-                                    <p className="mt-1 text-[18px] text-white/90">{profile.position || 'Admin'}</p>
-                                    <p className="mt-1 text-[16px] text-white/80">Employee ID: {profile.employeeId || 'Not set'}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <CardContent className="space-y-8 p-4 sm:p-8">
+                <TabsContent value="profile" className="m-0">
+                    <Card className="overflow-hidden rounded-none border-0 bg-white shadow-none dark:bg-slate-900">
+                        <CardContent className="space-y-8 p-4 sm:p-6 lg:p-8">
                             <section>
                                 <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Personal Information</h3>
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -392,7 +363,7 @@ export default function ProfileManagement({ onForgotPassword }) {
                                     onChange={(items) => setProfile({ ...profile, educationHistory: items })}
                                     isEditing={isEditing && !isSaving}
                                     titlePlaceholder="School or degree title"
-                                    descriptionPlaceholder="Major, certification, administration training, or description"
+                                    descriptionPlaceholder="Major or certification"
                                     yearsPlaceholder="e.g., 2018 - 2022"
                                     emptyText="No education entries yet."
                                 />
@@ -403,7 +374,7 @@ export default function ProfileManagement({ onForgotPassword }) {
                                     onChange={(items) => setProfile({ ...profile, experienceHistory: items })}
                                     isEditing={isEditing && !isSaving}
                                     titlePlaceholder="Role title or workplace"
-                                    descriptionPlaceholder="Responsibilities, department, or description"
+                                    descriptionPlaceholder="Role or department"
                                     yearsPlaceholder="e.g., 2022 - Present"
                                     emptyText="No experience entries yet."
                                 />
@@ -433,15 +404,15 @@ export default function ProfileManagement({ onForgotPassword }) {
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="security">
+                <TabsContent value="security" className="m-0 bg-slate-50/70 p-4 dark:bg-slate-950/40 sm:p-6">
                     <PasswordChangeCard userId={userId} onForgotPassword={onForgotPassword} />
                 </TabsContent>
 
-                <TabsContent value="notifications">
+                <TabsContent value="notifications" className="m-0 bg-slate-50/70 p-4 dark:bg-slate-950/40 sm:p-6">
                     <NotificationPreferencesCard user={currentUser} />
                 </TabsContent>
 
-                <TabsContent value="appearance">
+                <TabsContent value="appearance" className="m-0 bg-slate-50/70 p-4 dark:bg-slate-950/40 sm:p-6">
                     <ThemeToggle />
                 </TabsContent>
             </Tabs>

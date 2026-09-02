@@ -30,6 +30,7 @@ function Tabs({ defaultValue, value, onValueChange, className, children, ...prop
 function TabsList({ className, ...props }) {
   return (
     <div
+      data-slot="tabs-list"
       className={cn("max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 text-slate-600 scrollbar-hide", className)}
       {...props}
     />
@@ -43,9 +44,10 @@ function TabsTrigger({ value, className, ...props }) {
   return (
     <button
       type="button"
+      data-slot="tabs-trigger"
       className={cn(
         "inline-flex min-w-0 shrink-0 items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition",
-        isActive ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+        isActive ? "bg-white text-blue-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-900",
         className,
       )}
       onClick={() => context?.onValueChange(value)}
@@ -61,7 +63,7 @@ function TabsContent({ value, className, ...props }) {
     return null;
   }
 
-  return <div className={cn("outline-none", className)} {...props} />;
+  return <div data-slot="tabs-content" className={cn("outline-none", className)} {...props} />;
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };

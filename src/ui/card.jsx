@@ -1,17 +1,111 @@
 import * as React from "react";
 
 import { cn } from "./utils";
+import ServicePetPeek from "../components/shared/ServicePetPeek.jsx";
 
-function Card({ className, ...props }) {
+const PET_KINDS = ["dog", "cat", "bunny", "parrot"];
+const PET_ACCENTS = ["blue", "coral", "sun", "mint"];
+const PET_EXCLUDED_ANCESTORS = [
+  '[data-slot="dialog-content"]',
+  '[data-slot="sheet-content"]',
+  '[data-slot="dashboard-navigation"]',
+  'nav',
+  '[role="dialog"]',
+].join(',');
+const PET_DENSE_CONTENT = [
+  'form',
+  'table',
+  '[data-slot="table"]',
+  'canvas',
+  'video',
+  'iframe',
+  'img',
+  'picture',
+  '[contenteditable="true"]',
+  '[data-slot="card"] [data-slot="card"]',
+].join(',');
+
+function petVariant(seed) {
+  const hash = Array.from(seed).reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  return {
+    kind: PET_KINDS[hash % PET_KINDS.length],
+    accent: PET_ACCENTS[Math.floor(hash / PET_KINDS.length) % PET_ACCENTS.length],
+  };
+}
+
+function cardCanShowPet(element, force = false) {
+  if (!element || element.closest(PET_EXCLUDED_ANCESTORS)) return false;
+  if (force) return true;
+
+  const bounds = element.getBoundingClientRect();
+  const textLength = String(element.innerText || '').replace(/\s+/g, ' ').trim().length;
+  const interactiveCount = element.querySelectorAll('button, a, input, select, textarea, [role="button"]').length;
+
+  return bounds.width >= 280
+    && bounds.height >= 140
+    && bounds.height <= 320
+    && textLength <= 240
+    && interactiveCount <= 2
+    && !element.querySelector(PET_DENSE_CONTENT);
+}
+
+function Card({ className, children, petHover = true, petKind, petAccent, petPosition = "bottom-right", ...props }) {
+  const cardRef = React.useRef(null);
+  const petSeed = React.useId();
+  const [isPetEligible, setIsPetEligible] = React.useState(false);
+  const automaticVariant = React.useMemo(() => petVariant(petSeed), [petSeed]);
+
+  React.useEffect(() => {
+    const card = cardRef.current;
+    if (!card || !petHover) {
+      setIsPetEligible(false);
+      return undefined;
+    }
+
+    let animationFrame = null;
+    const updateEligibility = () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      animationFrame = window.requestAnimationFrame(() => {
+        const nextEligibility = cardCanShowPet(card, petHover === 'always');
+        setIsPetEligible((current) => current === nextEligibility ? current : nextEligibility);
+      });
+    };
+
+    updateEligibility();
+    const resizeObserver = new ResizeObserver(updateEligibility);
+    resizeObserver.observe(card);
+
+    return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      resizeObserver.disconnect();
+    };
+  }, [children, petHover]);
+
   return (
     <div
+      ref={cardRef}
       data-slot="card"
+      data-pet-hover={isPetEligible ? "eligible" : "disabled"}
+      data-pet-position={petPosition}
       className={cn(
-        "flex min-w-0 flex-col gap-4 rounded-lg border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50",
+        "app-pet-hover-card relative isolate flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200/90 bg-white text-slate-950 shadow-sm shadow-slate-950/[0.04] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50 dark:shadow-black/10",
         className,
       )}
       {...props}
-    />
+    >
+      {isPetEligible ? (
+        <ServicePetPeek
+          kind={petKind || automaticVariant.kind}
+          accent={petAccent || automaticVariant.accent}
+        />
+      ) : null}
+      {children}
+    </div>
   );
 }
 

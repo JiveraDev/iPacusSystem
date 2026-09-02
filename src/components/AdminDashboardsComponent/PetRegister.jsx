@@ -28,6 +28,7 @@ import { calculateAge } from '../../lib/date';
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import { fetchAllPets, updatePetStatus } from '../../services/petService';
 import { uploadImageFile } from '../../services/uploadService';
 
@@ -258,15 +259,14 @@ export default function PetRegister() {
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
-            <div>
-                <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-                    Register New Pet
-                </h2>
-                <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                    Complete pet profiling and registration
-                </p>
-            </div>
+            <DashboardPageHeader
+                icon={PawPrint}
+                title="Register New Pet"
+                description="Complete pet profiling and registration."
+                petHover
+                petKind="bunny"
+                petAccent="sun"
+            />
 
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -473,25 +473,25 @@ export default function PetRegister() {
                             </div>
                         </div>
 
-                        {/* Temporary Owner Section */}
+                        {/* Owner Section */}
                         <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <PawPrint className="size-5 text-[#155dfc]" />
                                 <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#0a0a0a]">
-                                    Temporary Owner
+                                    Owner
                                 </h3>
                             </div>
 
                             <div className="space-y-4">
                                 <div>
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
-                                        Temporary Owner Name
+                                        Owner Name
                                     </label>
                                     <Input
                                         value={formData.tempOwnerName}
                                         onChange={(e) => handleInputChange('tempOwnerName', e.target.value)}
                                         restriction="name"
-                                        placeholder="Enter temporary owner name"
+                                        placeholder="Enter owner name"
                                         className="h-[40px]"
                                     />
                                     <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565] mt-2">
@@ -533,7 +533,7 @@ export default function PetRegister() {
                                     <Textarea
                                         value={formData.medications}
                                         onChange={(e) => handleInputChange('medications', e.target.value)}
-                                        placeholder="List current medications and dosages"
+                                        placeholder="Current medications"
                                         className="min-h-[80px]"
                                     />
                                 </div>
@@ -545,7 +545,7 @@ export default function PetRegister() {
                                     <Textarea
                                         value={formData.medicalHistory}
                                         onChange={(e) => handleInputChange('medicalHistory', e.target.value)}
-                                        placeholder="Previous illnesses, surgeries, or medical conditions"
+                                        placeholder="Medical history"
                                         className="min-h-[100px]"
                                     />
                                 </div>
@@ -574,7 +574,7 @@ export default function PetRegister() {
                                     <Textarea
                                         value={formData.vetNotes}
                                         onChange={(e) => handleInputChange('vetNotes', e.target.value)}
-                                        placeholder="Additional notes or special instructions"
+                                        placeholder="Additional notes"
                                         className="min-h-[100px]"
                                     />
                                 </div>

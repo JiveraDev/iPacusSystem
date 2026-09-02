@@ -54,7 +54,7 @@ const CATEGORY_META = {
     },
     report_updates: {
         label: 'Reports',
-        tone: 'bg-teal-50 text-teal-700'
+        tone: 'bg-blue-50 text-blue-700'
     }
 };
 

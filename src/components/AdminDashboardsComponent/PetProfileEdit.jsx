@@ -130,6 +130,10 @@ export default function PetProfileEdit() {
       toast.error("Please fill in all required fields");
       return;
     }
+    if (newVax.nextDue < newVax.date) {
+      toast.error("Booster due date cannot be earlier than the administered date");
+      return;
+    }
     try {
       const data = await savePetMedicalRecord(petId, { type: 'vaccination', action: 'add', ...newVax });
       if (data.success) {
@@ -219,7 +223,13 @@ export default function PetProfileEdit() {
       </div>
 
       {/* Main Profile Header */}
-      <Card className="overflow-hidden border-none shadow-xl rounded-2xl bg-white">
+      <Card
+        petHover="always"
+        petKind={String(pet.species || '').toLowerCase().includes('cat') ? 'cat' : 'dog'}
+        petAccent="blue"
+        petPosition="top-right"
+        className="overflow-hidden border-none shadow-xl rounded-2xl bg-white"
+      >
         <div className="h-40 bg-gradient-to-r from-[#155dfc] via-blue-600 to-indigo-700 relative">
             <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
         </div>
@@ -378,14 +388,14 @@ export default function PetProfileEdit() {
               <Label>Vaccine Name *</Label>
               <Input value={newVax.name} onChange={e => setNewVax({...newVax, name: e.target.value})} placeholder="e.g. 5-in-1, Anti-Rabies" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Date Administered *</Label>
-                <Input type="date" value={newVax.date} onChange={e => setNewVax({...newVax, date: e.target.value})} />
+                <Label htmlFor="pet-vaccination-date">Date Administered *</Label>
+                <Input id="pet-vaccination-date" type="date" value={newVax.date} onChange={e => setNewVax({...newVax, date: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Booster Due Date *</Label>
-                <Input type="date" value={newVax.nextDue} onChange={e => setNewVax({...newVax, nextDue: e.target.value})} />
+                <Label htmlFor="pet-vaccination-next-due">Booster Due Date *</Label>
+                <Input id="pet-vaccination-next-due" type="date" min={newVax.date || undefined} value={newVax.nextDue} onChange={e => setNewVax({...newVax, nextDue: e.target.value})} />
               </div>
             </div>
             <div className="space-y-2">
@@ -398,7 +408,7 @@ export default function PetProfileEdit() {
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Input value={newVax.notes} onChange={e => setNewVax({...newVax, notes: e.target.value})} placeholder="Reaction notes, batch details, or reminders" />
+              <Input value={newVax.notes} onChange={e => setNewVax({...newVax, notes: e.target.value})} placeholder="Reaction or batch notes" />
             </div>
           </div>
           <DialogFooter>

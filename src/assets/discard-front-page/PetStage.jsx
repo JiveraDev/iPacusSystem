@@ -1,132 +1,255 @@
-// Archived with the discarded modern landing page for possible future reuse.
 import { useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const PETS = [
-    { file: 'animal-dog.glb', position: [-1.55, -0.75, 0], scale: 1.2, rotation: 0.18 },
-    { file: 'animal-cat.glb', position: [-0.45, -0.75, 0.18], scale: 1, rotation: 0.05 },
-    { file: 'animal-parrot.glb', position: [0.72, -0.68, 0.12], scale: 0.88, rotation: -0.14 },
-    { file: 'animal-bunny.glb', position: [1.62, -0.78, -0.04], scale: 0.92, rotation: -0.22 },
-];
+gsap.registerPlugin(useGSAP);
 
-const MODEL_ROOT = '/landing-media/models';
+const PUBLIC_BASE_URL = import.meta.env.BASE_URL || '/';
+const MODEL_URL = `${PUBLIC_BASE_URL}landing-media/models/featured-pet.glb`;
+const DRACO_DECODER_PATH = `${PUBLIC_BASE_URL}landing-media/draco/`;
+const PET_FALLBACK_URL = `${PUBLIC_BASE_URL}landing-media/pet-ensemble.png`;
+const FLOOR_TOP = -1.02;
+const PET_ACCENTS = {
+    dog: 0x93c5fd,
+    cat: 0xf08a73,
+    parrot: 0x60a5fa,
+    bunny: 0xf6c85f,
+};
 
-export default function PetStage() {
+function addMesh(parent, name, geometry, material, position, scale = [1, 1, 1], rotation = [0, 0, 0]) {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(...position);
+    mesh.scale.set(...scale);
+    mesh.rotation.set(...rotation);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+}
+
+function prepareImportedModel(model, renderer, enableShadows) {
+    model.traverse((object) => {
+        if (!object.isMesh) return;
+
+        object.castShadow = enableShadows;
+        object.receiveShadow = true;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+
+        materials.filter(Boolean).forEach((material) => {
+            material.envMapIntensity = Math.max(material.envMapIntensity || 0, 0.9);
+            Object.values(material).forEach((value) => {
+                if (!value?.isTexture) return;
+                value.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+                value.needsUpdate = true;
+            });
+        });
+    });
+}
+
+function fitImportedModel(model) {
+    model.updateMatrixWorld(true);
+    const initialBox = new THREE.Box3().setFromObject(model);
+    const initialSize = initialBox.getSize(new THREE.Vector3());
+    const targetHeight = 2.3;
+    const uniformScale = targetHeight / Math.max(initialSize.y, 0.001);
+
+    model.scale.multiplyScalar(uniformScale);
+    model.updateMatrixWorld(true);
+
+    const fittedBox = new THREE.Box3().setFromObject(model);
+    const fittedCenter = fittedBox.getCenter(new THREE.Vector3());
+    model.position.x -= fittedCenter.x;
+    model.position.y += FLOOR_TOP - fittedBox.min.y;
+    model.position.z -= fittedCenter.z;
+    model.updateMatrixWorld(true);
+}
+
+function disposeObject(root) {
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+
+    root?.traverse?.((object) => {
+        if (object.geometry) geometries.add(object.geometry);
+        const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
+        objectMaterials.filter(Boolean).forEach((material) => {
+            materials.add(material);
+            Object.values(material).forEach((value) => {
+                if (value?.isTexture) textures.add(value);
+            });
+        });
+    });
+
+    textures.forEach((texture) => texture.dispose());
+    materials.forEach((material) => material.dispose());
+    geometries.forEach((geometry) => geometry.dispose());
+}
+
+export default function PetStage({ activePet = 'dog' }) {
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
+    const activePetRef = useRef(activePet);
     const [isReady, setIsReady] = useState(false);
+    const [loadProgress, setLoadProgress] = useState(0);
 
     useEffect(() => {
+        activePetRef.current = activePet;
+    }, [activePet]);
+
+    useGSAP((context, contextSafe) => {
+        void context;
         const container = containerRef.current;
         const canvas = canvasRef.current;
+        if (!container || !canvas) return undefined;
 
-        if (!container || !canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return undefined;
-        }
-
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const highPerformanceDevice = (navigator.hardwareConcurrency || 8) > 4;
+        const enableShadows = highPerformanceDevice;
         let renderer;
-        let animationFrame;
+        let animationFrame = 0;
         let isDisposed = false;
-        const mixers = [];
-        const modelRoots = [];
+        let isVisible = true;
+        let environmentTexture;
+        let roomEnvironment;
+        let entrance;
+        let lastReportedProgress = 0;
         const pointer = { x: 0, y: 0 };
+        const targetColor = new THREE.Color(PET_ACCENTS[activePetRef.current]);
         const timer = new THREE.Timer();
         timer.connect(document);
 
         try {
-            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            renderer = new THREE.WebGLRenderer({
+                canvas,
+                alpha: true,
+                antialias: highPerformanceDevice,
+                powerPreference: 'high-performance',
+            });
         } catch {
+            setIsReady(false);
             return undefined;
         }
 
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
+        const pixelRatioCap = highPerformanceDevice ? 1.65 : 1.2;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        renderer.shadowMap.enabled = enableShadows;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
-        camera.position.set(0, 1.1, 7.4);
-        camera.lookAt(0, 0.15, 0);
+        const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 50);
+        camera.position.set(0, 0.18, 5.35);
+        camera.lookAt(0, 0.02, 0);
+
+        const environmentGenerator = new THREE.PMREMGenerator(renderer);
+        roomEnvironment = new RoomEnvironment();
+        environmentTexture = environmentGenerator.fromScene(roomEnvironment, 0.035).texture;
+        scene.environment = environmentTexture;
+        environmentGenerator.dispose();
 
         const stage = new THREE.Group();
+        const entranceRig = new THREE.Group();
+        const motionRig = new THREE.Group();
+        entranceRig.add(motionRig);
+        stage.add(entranceRig);
         scene.add(stage);
 
-        const ambient = new THREE.HemisphereLight(0xf0fffb, 0x173a45, 2.3);
-        scene.add(ambient);
+        const hemisphereLight = new THREE.HemisphereLight(0xeaf3ff, 0x102a56, 1.8);
+        scene.add(hemisphereLight);
 
-        const keyLight = new THREE.DirectionalLight(0xfff0d6, 5);
-        keyLight.position.set(-3, 5, 4);
-        keyLight.castShadow = true;
+        const keyLight = new THREE.DirectionalLight(0xfff1df, 5.1);
+        keyLight.position.set(-3.4, 5.2, 4.8);
+        keyLight.castShadow = enableShadows;
+        keyLight.shadow.mapSize.set(highPerformanceDevice ? 1024 : 512, highPerformanceDevice ? 1024 : 512);
+        keyLight.shadow.bias = -0.00035;
+        keyLight.shadow.normalBias = 0.025;
+        keyLight.shadow.camera.left = -3;
+        keyLight.shadow.camera.right = 3;
+        keyLight.shadow.camera.top = 3;
+        keyLight.shadow.camera.bottom = -3;
         scene.add(keyLight);
 
-        const rimLight = new THREE.PointLight(0x5eead4, 16, 10);
-        rimLight.position.set(3, 1.5, 3);
-        scene.add(rimLight);
+        const fillLight = new THREE.PointLight(0x93c5fd, 9.2, 9, 1.7);
+        fillLight.position.set(3.2, 1.3, 3.5);
+        scene.add(fillLight);
 
-        const floor = new THREE.Mesh(
-            new THREE.CircleGeometry(3.25, 64),
-            new THREE.MeshStandardMaterial({ color: 0x0c3240, transparent: true, opacity: 0.32, roughness: 0.9 }),
+        const rimLight = new THREE.SpotLight(0x60a5fa, 18, 10, Math.PI / 5, 0.65, 1.5);
+        rimLight.position.set(2.5, 3.2, -1.8);
+        rimLight.target.position.set(0, 0.4, 0);
+        scene.add(rimLight, rimLight.target);
+
+        const floor = addMesh(
+            stage,
+            'studio-plinth',
+            new THREE.CylinderGeometry(2.45, 2.68, 0.18, highPerformanceDevice ? 96 : 64),
+            new THREE.MeshPhysicalMaterial({
+                color: 0x12356b,
+                roughness: 0.48,
+                metalness: 0.03,
+                clearcoat: 0.42,
+                clearcoatRoughness: 0.32,
+            }),
+            [0, -1.11, 0],
         );
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.84;
         floor.receiveShadow = true;
-        stage.add(floor);
 
-        const loader = new GLTFLoader();
+        const contactShadow = addMesh(
+            stage,
+            'contact-shadow',
+            new THREE.CircleGeometry(1.35, highPerformanceDevice ? 72 : 48),
+            new THREE.MeshBasicMaterial({
+                color: 0x071225,
+                transparent: true,
+                opacity: 0.3,
+                depthWrite: false,
+            }),
+            [0, -1.008, 0.14],
+            [1.3, 0.64, 1],
+            [-Math.PI / 2, 0, 0],
+        );
+        contactShadow.castShadow = false;
 
-        Promise.all(PETS.map((pet) => loader.loadAsync(`${MODEL_ROOT}/${pet.file}`)))
-            .then((models) => {
-                if (isDisposed) {
-                    return;
-                }
+        const haloMaterial = new THREE.MeshBasicMaterial({
+            color: PET_ACCENTS[activePetRef.current],
+            transparent: true,
+            opacity: 0.34,
+        });
+        const halo = addMesh(
+            stage,
+            'pet-halo',
+            new THREE.TorusGeometry(1.88, 0.012, 8, highPerformanceDevice ? 160 : 96),
+            haloMaterial,
+            [0, 0.05, -0.62],
+        );
+        halo.castShadow = false;
 
-                models.forEach((gltf, index) => {
-                    const pet = PETS[index];
-                    const root = gltf.scene;
-                    const box = new THREE.Box3().setFromObject(root);
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDimension = Math.max(size.x, size.y, size.z) || 1;
-                    const normalizedScale = (1.45 / maxDimension) * pet.scale;
-
-                    root.scale.setScalar(normalizedScale);
-                    root.position.set(...pet.position);
-                    root.rotation.y = pet.rotation;
-                    root.traverse((object) => {
-                        if (object.isMesh) {
-                            object.castShadow = true;
-                            object.receiveShadow = true;
-                        }
-                    });
-                    stage.add(root);
-                    modelRoots.push({ root, baseY: pet.position[1], phase: index * 1.4 });
-
-                    if (gltf.animations.length) {
-                        const mixer = new THREE.AnimationMixer(root);
-                        mixer.clipAction(gltf.animations[0]).play();
-                        mixers.push(mixer);
-                    }
-                });
-
-                setIsReady(true);
-            })
-            .catch(() => {
-                setIsReady(false);
-            });
+        const renderScene = () => {
+            if (!isDisposed) renderer.render(scene, camera);
+        };
 
         const resize = () => {
             const width = Math.max(container.clientWidth, 1);
             const height = Math.max(container.clientHeight, 1);
             renderer.setSize(width, height, false);
             camera.aspect = width / height;
+            camera.position.z = camera.aspect < 0.86 ? 6.15 : 5.35;
             camera.updateProjectionMatrix();
+            camera.lookAt(0, 0.02, 0);
+            if (reduceMotion) renderScene();
         };
 
         const handlePointerMove = (event) => {
             const bounds = container.getBoundingClientRect();
-            pointer.x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
-            pointer.y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
+            pointer.x = THREE.MathUtils.clamp(((event.clientX - bounds.left) / bounds.width - 0.5) * 2, -1, 1);
+            pointer.y = THREE.MathUtils.clamp(((event.clientY - bounds.top) / bounds.height - 0.5) * 2, -1, 1);
         };
 
         const handlePointerLeave = () => {
@@ -134,51 +257,160 @@ export default function PetStage() {
             pointer.y = 0;
         };
 
-        const resizeObserver = new ResizeObserver(resize);
-        resizeObserver.observe(container);
-        container.addEventListener('pointermove', handlePointerMove);
-        container.addEventListener('pointerleave', handlePointerLeave);
-        resize();
-
         const render = (timestamp) => {
+            animationFrame = 0;
+            if (isDisposed || !isVisible || document.hidden) return;
+
             timer.update(timestamp);
-            const delta = Math.min(timer.getDelta(), 0.05);
             const elapsed = timer.getElapsed();
-            mixers.forEach((mixer) => mixer.update(delta));
-            stage.rotation.y += (pointer.x * 0.12 - stage.rotation.y) * 0.045;
-            stage.rotation.x += (-pointer.y * 0.045 - stage.rotation.x) * 0.045;
-            modelRoots.forEach(({ root, baseY, phase }) => {
-                root.position.y = baseY + Math.sin(elapsed * 1.35 + phase) * 0.035;
-            });
-            renderer.render(scene, camera);
+            targetColor.setHex(PET_ACCENTS[activePetRef.current] || PET_ACCENTS.dog);
+            haloMaterial.color.lerp(targetColor, 0.07);
+
+            motionRig.rotation.y += (pointer.x * 0.16 - motionRig.rotation.y) * 0.055;
+            motionRig.rotation.x += (-pointer.y * 0.035 - motionRig.rotation.x) * 0.055;
+            motionRig.position.y = Math.sin(elapsed * 1.3) * 0.018;
+            halo.rotation.z = elapsed * 0.035;
+
+            renderScene();
             animationFrame = window.requestAnimationFrame(render);
         };
 
-        render();
+        const startRendering = () => {
+            if (!reduceMotion && !animationFrame && !document.hidden && isVisible) {
+                animationFrame = window.requestAnimationFrame(render);
+            }
+        };
+
+        const handleModelLoaded = contextSafe((gltf) => {
+            if (isDisposed) {
+                disposeObject(gltf.scene);
+                return;
+            }
+
+            const importedModel = gltf.scene;
+            importedModel.name = 'featured-pet-model';
+            prepareImportedModel(importedModel, renderer, enableShadows);
+            fitImportedModel(importedModel);
+            motionRig.add(importedModel);
+
+            entranceRig.position.y = -0.12;
+            entranceRig.rotation.y = -0.18;
+            entranceRig.scale.setScalar(0.86);
+
+            entrance = gsap.timeline({ defaults: { ease: 'power3.out' } });
+            entrance
+                .to(entranceRig.scale, {
+                    x: 1,
+                    y: 1,
+                    z: 1,
+                    duration: reduceMotion ? 0 : 0.68,
+                }, 0)
+                .to(entranceRig.position, {
+                    y: 0,
+                    duration: reduceMotion ? 0 : 0.62,
+                }, 0)
+                .to(entranceRig.rotation, {
+                    y: 0,
+                    duration: reduceMotion ? 0 : 0.72,
+                }, 0)
+                .fromTo(floor.scale, {
+                    x: 0.84,
+                    z: 0.84,
+                }, {
+                    x: 1,
+                    z: 1,
+                    duration: reduceMotion ? 0 : 0.52,
+                }, reduceMotion ? 0 : 0.08)
+                .fromTo(haloMaterial, {
+                    opacity: 0,
+                }, {
+                    opacity: 0.34,
+                    duration: reduceMotion ? 0 : 0.46,
+                }, reduceMotion ? 0 : 0.18);
+
+            setLoadProgress(100);
+            setIsReady(true);
+            renderScene();
+            startRendering();
+        });
+
+        const handleModelError = contextSafe(() => {
+            if (isDisposed) return;
+            setIsReady(false);
+            setLoadProgress(0);
+        });
+
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath(DRACO_DECODER_PATH);
+        dracoLoader.setWorkerLimit(2);
+
+        const modelLoader = new GLTFLoader();
+        modelLoader.setDRACOLoader(dracoLoader);
+        modelLoader.load(
+            MODEL_URL,
+            handleModelLoaded,
+            (event) => {
+                if (isDisposed || !event.total) return;
+                const nextProgress = Math.min(99, Math.round((event.loaded / event.total) * 100));
+                if (nextProgress < lastReportedProgress + 5) return;
+                lastReportedProgress = nextProgress;
+                setLoadProgress(nextProgress);
+            },
+            handleModelError,
+        );
+
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(container);
+
+        const visibilityObserver = new IntersectionObserver(([entry]) => {
+            isVisible = entry.isIntersecting;
+            if (isVisible) startRendering();
+            else if (animationFrame) {
+                window.cancelAnimationFrame(animationFrame);
+                animationFrame = 0;
+            }
+        }, { threshold: 0.04 });
+        visibilityObserver.observe(container);
+
+        const handleVisibilityChange = () => {
+            if (document.hidden && animationFrame) {
+                window.cancelAnimationFrame(animationFrame);
+                animationFrame = 0;
+            } else {
+                startRendering();
+            }
+        };
+
+        if (!reduceMotion) {
+            container.addEventListener('pointermove', handlePointerMove);
+            container.addEventListener('pointerleave', handlePointerLeave);
+        }
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        resize();
+        renderScene();
 
         return () => {
             isDisposed = true;
-            window.cancelAnimationFrame(animationFrame);
+            entrance?.kill();
+            if (animationFrame) window.cancelAnimationFrame(animationFrame);
             resizeObserver.disconnect();
+            visibilityObserver.disconnect();
             container.removeEventListener('pointermove', handlePointerMove);
             container.removeEventListener('pointerleave', handlePointerLeave);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             timer.dispose();
-            scene.traverse((object) => {
-                object.geometry?.dispose?.();
-                if (Array.isArray(object.material)) {
-                    object.material.forEach((material) => material.dispose?.());
-                } else {
-                    object.material?.dispose?.();
-                }
-            });
+            dracoLoader.dispose();
+            disposeObject(scene);
+            environmentTexture?.dispose();
+            roomEnvironment?.dispose?.();
             renderer.dispose();
         };
-    }, []);
+    }, { scope: containerRef });
 
     return (
-        <div ref={containerRef} className="landing-pet-stage" aria-label="Interactive 3D dog, cat, parrot, and rabbit">
+        <div ref={containerRef} className="landing-pet-stage" aria-label="Interactive high-detail 3D veterinary pet">
             <img
-                src="/landing-media/pet-ensemble.png"
+                src={PET_FALLBACK_URL}
                 alt="Dogs, a cat, a parrot, and a rabbit"
                 className={`landing-pet-fallback ${isReady ? 'landing-pet-fallback--hidden' : ''}`}
             />
@@ -189,8 +421,12 @@ export default function PetStage() {
             />
             <div className="landing-pet-hint" aria-hidden="true">
                 <span className="landing-pet-hint__dot" />
-                Move to meet the crew
+                {isReady ? 'Move to greet our 3D patient' : `Preparing 3D patient${loadProgress ? ` · ${loadProgress}%` : ''}`}
             </div>
         </div>
     );
 }
+
+PetStage.propTypes = {
+    activePet: PropTypes.oneOf(['dog', 'cat', 'parrot', 'bunny']),
+};

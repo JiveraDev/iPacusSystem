@@ -23,6 +23,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { fetchInventoryItems } from '../../services/inventoryApi';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import {
     deactivateServiceCatalogItem,
     deleteServiceCatalogItem,
@@ -462,21 +463,18 @@ export default function ServiceCatalogManagement() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-start gap-3">
-                        <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
-                            <ClipboardList className="size-6" />
-                        </span>
-                        <div>
-                            <h2 className="text-2xl font-bold text-[#101828]">Service Catalog</h2>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                <Badge className="bg-blue-50 text-blue-700">{services.filter((service) => service.isActive).length} active</Badge>
-                                <Badge className="bg-slate-100 text-slate-700">{services.length} total</Badge>
-                            </div>
-                        </div>
+            <DashboardPageHeader
+                icon={ClipboardList}
+                title="Service Catalog"
+                meta={(
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300" aria-label="Service totals">
+                        <span><span className="text-[#155dfc]">{services.filter((service) => service.isActive).length}</span> active</span>
+                        <span className="text-slate-300 dark:text-slate-600" aria-hidden="true">/</span>
+                        <span>{services.length} total</span>
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                )}
+                actions={(
+                    <>
                         <Button type="button" variant="outline" onClick={() => loadCatalog()} disabled={isLoading}>
                             {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                             Refresh
@@ -485,9 +483,9 @@ export default function ServiceCatalogManagement() {
                             <Plus className="size-4" />
                             Add Service
                         </Button>
-                    </div>
-                </div>
-            </section>
+                    </>
+                )}
+            />
 
             {schemaMessage && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">

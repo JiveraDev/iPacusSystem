@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardTitle, CardDescription } from "../../ui/card";
+import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+import { Tabs, TabsContent } from "../../ui/tabs";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { User, Mail, Phone, MapPin, Calendar, Camera, Loader2, Clock, Pencil, Save, X } from "lucide-react";
+import { User, Mail, Phone, MapPin, Calendar, Loader2, Pencil, Save, X } from "lucide-react";
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
 import NotificationPreferencesCard from "../shared/NotificationPreferencesCard.jsx";
-import ProtectedImage from "../shared/ProtectedImage.jsx";
+import ProfileWorkspaceHeader from "../shared/ProfileWorkspaceHeader.jsx";
 import UnsavedProfileChangesDialog from "../shared/UnsavedProfileChangesDialog.jsx";
 import {
   PROFILE_DISPLAY_VALUE_CLASS,
-  PROFILE_TAB_TRIGGER_CLASS,
-  PROFILE_TABS_LIST_CLASS,
   profileInputClass,
   profileLabelClass
 } from "../shared/profileUiStyles.js";
@@ -264,105 +262,44 @@ export default function PetOwnerProfile({ onForgotPassword }) {
   const inputClass = profileInputClass("px-4 shadow-sm focus:border-blue-500 focus:ring-blue-500/20");
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-0">
-      <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-blue-700">Pet Owner Account</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">Profile Settings</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            Keep the owner details used for appointment records, queue updates, and clinic contact.
-          </p>
-        </div>
-        {activeTab === "profile" && !isEditingProfile && (
-          <Button
-            onClick={() => setIsEditingProfile(true)}
-            className="h-11 w-full rounded-lg bg-[#155dfc] px-5 text-sm font-semibold shadow-sm hover:bg-blue-700 sm:w-auto"
-          >
-            <Pencil className="h-4 w-4" />
-            Edit Profile
-          </Button>
-        )}
-      </div>
+    <div className="mx-auto max-w-6xl px-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleProfileTabChange}
+        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      >
+        <ProfileWorkspaceHeader
+          activeTab={activeTab}
+          accountLabel="Pet Owner Account"
+          displayName={displayName}
+          secondaryLabel={profileData.email || "Contact email not set"}
+          imageSrc={profileImageSrc}
+          imageUnavailable={imageError && Boolean(profileData.profileImage)}
+          isEditing={isEditingProfile}
+          onImageChange={handleImageChange}
+          onImageError={setImageError}
+          action={activeTab === "profile" && !isEditingProfile ? (
+            <Button
+              onClick={() => setIsEditingProfile(true)}
+              className="h-11 w-full bg-white px-5 text-sm font-black text-blue-800 shadow-sm hover:bg-blue-50 sm:w-auto"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          ) : null}
+        />
 
-      <Tabs value={activeTab} onValueChange={handleProfileTabChange} className="w-full">
-        <TabsList className={PROFILE_TABS_LIST_CLASS}>
-          <TabsTrigger value="profile" className={PROFILE_TAB_TRIGGER_CLASS}>
-            Profile Details
-          </TabsTrigger>
-          <TabsTrigger value="security" className={PROFILE_TAB_TRIGGER_CLASS}>
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className={PROFILE_TAB_TRIGGER_CLASS}>
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className={PROFILE_TAB_TRIGGER_CLASS}>
-            Appearance
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile" className="outline-none">
-          <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
-            <div className="h-16 bg-slate-950" />
-            <CardContent className="space-y-6 px-5 py-6 sm:px-6">
-              <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 md:flex-row md:items-end md:justify-between">
-                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end">
-                  <div className="relative shrink-0">
-                    <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-md ring-1 ring-slate-200">
-                      {profileImageSrc && !imageError ? (
-                        <ProtectedImage
-                          src={profileImageSrc}
-                          alt="Profile"
-                          className="h-full w-full object-cover"
-                          fallbackClassName="h-full w-full"
-                          onLoad={() => setImageError(false)}
-                          onLoadError={() => setImageError(true)}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-slate-100">
-                          <User className="h-12 w-12 text-slate-400" />
-                        </div>
-                      )}
-                    </div>
-                    {isEditingProfile && (
-                      <label
-                        className="absolute bottom-1 right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#155dfc] text-white shadow-sm transition hover:bg-blue-700"
-                        title="Upload profile photo"
-                      >
-                        <Camera className="h-4 w-4" />
-                        <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
-                      </label>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 sm:pb-1">
-                    <h2 className="max-w-full break-words text-xl font-bold text-slate-950">{displayName}</h2>
-                    <p className="mt-1 inline-flex rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
-                      Pet Owner
-                    </p>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                      {isEditingProfile
-                        ? "Update the owner contact record that clinic staff can use during service visits."
-                        : "Owner information is synced from the database and used by clinic staff for service coordination."}
-                    </p>
-                  </div>
-                </div>
-
-                {imageError && profileData.profileImage && !isEditingProfile && (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 md:max-w-sm">
-                    <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>Image path might be broken. Try re-uploading your photo.</span>
-                  </div>
-                )}
-              </div>
-
+        <TabsContent value="profile" className="m-0 outline-none">
+          <Card className="overflow-hidden rounded-none border-0 bg-white shadow-none dark:bg-slate-900">
+            <CardContent className="space-y-6 px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className="space-y-6">
-                <div>
-                  <CardTitle className="text-xl font-bold text-slate-950">Profile Details</CardTitle>
-                  <CardDescription className="mt-1 text-sm text-slate-600">
-                    {isEditingProfile
-                      ? "Edit the fields below, then save the profile."
-                      : "Owner information is synced from the database and used by clinic staff for service coordination."}
-                  </CardDescription>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-black text-slate-950 dark:text-white">Owner information</h3>
+                  {isEditingProfile ? (
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                      Editing profile
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -439,7 +376,7 @@ export default function PetOwnerProfile({ onForgotPassword }) {
                       onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                       disabled={!isEditingProfile || isSaving}
                       className={inputClass}
-                      placeholder="Street Number, Barangay, City, Province"
+                            placeholder="Street and city"
                     />
                   </ProfileField>
                 </div>
@@ -485,15 +422,15 @@ export default function PetOwnerProfile({ onForgotPassword }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="outline-none">
+        <TabsContent value="security" className="m-0 bg-slate-50/70 p-4 outline-none dark:bg-slate-950/40 sm:p-6">
           <PasswordChangeCard userId={passwordUserId} onForgotPassword={onForgotPassword} />
         </TabsContent>
 
-        <TabsContent value="notifications" className="outline-none">
+        <TabsContent value="notifications" className="m-0 bg-slate-50/70 p-4 outline-none dark:bg-slate-950/40 sm:p-6">
           <NotificationPreferencesCard user={passwordUser} />
         </TabsContent>
 
-        <TabsContent value="appearance" className="outline-none">
+        <TabsContent value="appearance" className="m-0 bg-slate-50/70 p-4 outline-none dark:bg-slate-950/40 sm:p-6">
           <ThemeToggle />
         </TabsContent>
       </Tabs>

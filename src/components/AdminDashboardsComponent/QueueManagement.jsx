@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
-import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2, ListChecks } from 'lucide-react';
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -13,6 +13,11 @@ import { formatDisplayDateTime } from '../../lib/date';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import {
+    getQueuePriorityLabel,
+    normalizeQueuePriority,
+    QUEUE_PRIORITY_OPTIONS
+} from '../../lib/queuePriority';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchAccounts } from '../../services/accountService';
@@ -23,6 +28,7 @@ import {
     updateQueueStatus
 } from '../../services/queueService';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 export default function QueueManagement() {
     const dashboardUser = useMemo(() => storedDashboardUser(), []);
@@ -291,11 +297,9 @@ export default function QueueManagement() {
         return [...new Set(queue.map(item => item.service_name))].filter(Boolean);
     }, [queue]);
     const priorityFilterLabel = {
-        all: 'Select Priority',
-        normal: 'Normal',
-        urgent: 'Urgent'
-    }[priorityFilter] || 'Select Priority';
-    const serviceFilterLabel = serviceFilter === 'all' ? 'Select Service' : getServiceDisplayName(serviceFilter);
+        all: 'All Priorities',
+    }[priorityFilter] || getQueuePriorityLabel(priorityFilter);
+    const serviceFilterLabel = serviceFilter === 'all' ? 'All Services' : getServiceDisplayName(serviceFilter);
 
     const getStatusBadge = (status) => {
         const variants = {
@@ -315,11 +319,16 @@ export default function QueueManagement() {
     };
 
     const getPriorityBadge = (priority) => {
-        return priority === 'urgent' ? (
+        const normalizedPriority = normalizeQueuePriority(priority);
+        if (normalizedPriority === 'urgent') return (
             <Badge variant="destructive">Urgent</Badge>
-        ) : (
-            <Badge variant="secondary">Normal</Badge>
         );
+        // if (normalizedPriority === 'low-test') return (
+        //     <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+        //         Low-test
+        //     </Badge>
+        // );
+        return <Badge variant="secondary">Normal</Badge>;
     };
 
     const getSourceBadge = (sourceValue) => {
@@ -334,30 +343,21 @@ export default function QueueManagement() {
 
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
-            {/* Page Header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-[#101828]">Current Queue</h2>
-                    <p className="text-slate-500">Manage and track all patients in the queue</p>
-                </div>
-                <AddQueueDialog onAddToQueue={fetchQueues} />
-            </div>
-
-            {/* Stats */}
-            <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-                    <span>Active: {activeCount}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-                    <span>Completed: {completedCount}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-                    <span>Cancelled: {cancelledCount}</span>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5 bg-white p-4 rounded-xl border border-slate-200">
+            <DashboardPageHeader
+                icon={ListChecks}
+                title="Current Queue"
+                description="Manage and track all patients in the queue."
+                layout="stacked"
+                meta={(
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        <span><span className="text-blue-700 dark:text-blue-300">{activeCount}</span> active</span>
+                        <span><span className="text-emerald-700 dark:text-emerald-300">{completedCount}</span> completed</span>
+                        <span><span className="text-rose-700 dark:text-rose-300">{cancelledCount}</span> cancelled</span>
+                    </div>
+                )}
+                actions={<AddQueueDialog onAddToQueue={fetchQueues} />}
+                toolbar={(
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 md:grid-cols-2 xl:grid-cols-5">
                 <div className="md:col-span-2 xl:col-span-2">
                     <Input 
                         placeholder="Search pet or queue ID..." 
@@ -367,17 +367,20 @@ export default function QueueManagement() {
                     />
                 </div>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger><SelectValue placeholder="Select Priority" displayValue={priorityFilterLabel} /></SelectTrigger>
+                    <SelectTrigger><SelectValue displayValue={priorityFilterLabel} /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Select Priority</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
+                        <SelectItem value="all">All Priorities</SelectItem>
+                        {QUEUE_PRIORITY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                    <SelectTrigger><SelectValue placeholder="Select Service" displayValue={serviceFilterLabel} /></SelectTrigger>
+                    <SelectTrigger><SelectValue displayValue={serviceFilterLabel} /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Select Service</SelectItem>
+                        <SelectItem value="all">All Services</SelectItem>
                         {services.map(s => <SelectItem key={s} value={s}>{getServiceDisplayName(s)}</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -404,6 +407,8 @@ export default function QueueManagement() {
                     </Select>
                 )}
             </div>
+                )}
+            />
 
             {/* Active Table */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">

@@ -7,6 +7,8 @@ import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { CheckCircle, Calendar, Clock, Video, AlertCircle, XCircle, Loader2, Image as ImageIcon } from "lucide-react";
 import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
+import { formatPhpCurrency } from "../../lib/currency";
+import { formatDisplayPersonName } from "../../lib/personName";
 import { isValidPhilippinePhone, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
@@ -16,6 +18,73 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import ProtectedImage from "../shared/ProtectedImage.jsx";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import { readOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+
+function normalizeConsultationStatus(value) {
+  return String(value || "pending").trim().toLowerCase().replace(/[_-]+/g, " ");
+}
+
+function consultationStatusPresentation(status) {
+  if (status === "completed") {
+    return {
+      title: "Consultation completed",
+      label: "Completed",
+      icon: CheckCircle,
+      ring: "bg-emerald-100 dark:bg-emerald-950/50",
+      iconColor: "text-emerald-600 dark:text-emerald-300",
+      badge: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+    };
+  }
+  if (status === "confirmed") {
+    return {
+      title: "Consultation confirmed",
+      label: "Confirmed",
+      icon: CheckCircle,
+      ring: "bg-blue-100 dark:bg-blue-950/50",
+      iconColor: "text-blue-600 dark:text-blue-300",
+      badge: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
+    };
+  }
+  if (status === "cancelled" || status === "rejected") {
+    return {
+      title: status === "rejected" ? "Consultation rejected" : "Consultation cancelled",
+      label: status === "rejected" ? "Rejected" : "Cancelled",
+      icon: XCircle,
+      ring: "bg-red-100 dark:bg-red-950/50",
+      iconColor: "text-red-600 dark:text-red-300",
+      badge: "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+    };
+  }
+
+  return {
+    title: "Consultation pending review",
+    label: "Pending review",
+    icon: AlertCircle,
+    ring: "bg-amber-100 dark:bg-amber-950/50",
+    iconColor: "text-amber-600 dark:text-amber-300",
+    badge: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+  };
+}
+
+function formatClinicalValue(value) {
+  if (value === null || value === undefined || value === "") return "";
+  if (Array.isArray(value)) {
+    return value.map(formatClinicalValue).filter(Boolean).join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const label = key.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+        const detail = formatClinicalValue(item);
+        return detail ? `${label}: ${detail}` : "";
+      })
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  return String(value).trim();
+}
 
 export default function ConsultConfirmation() {
   const navigate = useNavigate();
@@ -66,22 +135,12 @@ export default function ConsultConfirmation() {
         const online = Array.isArray(onlineData) ? onlineData[0] : null;
         setOnlineConsultation(online || null);
 
-        const scheduledStart = online?.scheduledStart
-          ? new Date(String(online.scheduledStart).replace(" ", "T"))
-          : new Date(`${consult.date} ${consult.time}`);
-        const scheduledEnd = online?.scheduledEnd
-          ? new Date(String(online.scheduledEnd).replace(" ", "T"))
-          : new Date(scheduledStart.getTime() + 60 * 60000);
-        const tenMinutesBefore = new Date(scheduledStart.getTime() - 10 * 60000);
-        const now = new Date();
         const vetHasStarted = ["vet_ready", "in_progress"].includes(String(online?.status || ""));
-        const withinScheduledJoinWindow = now >= tenMinutesBefore && now <= scheduledEnd;
 
         setCanJoin(
-          consult.status === "confirmed" &&
+          normalizeConsultationStatus(consult.status) === "confirmed" &&
           Boolean(online?.meetingUrl) &&
-          vetHasStarted &&
-          withinScheduledJoinWindow
+          vetHasStarted
         );
       } else {
         setConsultation(null);
@@ -138,6 +197,10 @@ export default function ConsultConfirmation() {
       toast.error("Wallet number must be complete after +639.");
       return;
     }
+    if (cancellationData.transactionNumber.trim() && !isValidTransactionNumber(cancellationData.transactionNumber)) {
+      toast.error(TRANSACTION_NUMBER_MESSAGE);
+      return;
+    }
 
     setIsCancelling(true);
     try {
@@ -174,7 +237,7 @@ export default function ConsultConfirmation() {
     if (submissionReceipt) {
       return (
         <div className="mx-auto max-w-3xl space-y-6">
-          <Card className="border-emerald-200 bg-emerald-50/50">
+          <Card petHover="always" petKind="dog" petAccent="mint" petPosition="top-right" className="border-emerald-200 bg-emerald-50/50">
             <CardContent className="py-10 text-center sm:py-12">
               <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                 <CheckCircle className="size-9" aria-hidden="true" />
@@ -226,7 +289,7 @@ export default function ConsultConfirmation() {
 
     return (
       <div className="space-y-6 max-w-3xl mx-auto">
-        <Card>
+        <Card petHover="always" petKind="cat" petAccent="coral" petPosition="top-right">
           <CardContent className="py-12 text-center">
             <h1 className="text-2xl font-bold text-gray-900">Consultation Not Found</h1>
             <p className="mt-2 text-gray-600">The consultation booking could not be loaded.</p>
@@ -245,36 +308,50 @@ export default function ConsultConfirmation() {
   const consultEndDateTime = onlineConsultation?.scheduledEnd
     ? new Date(String(onlineConsultation.scheduledEnd).replace(" ", "T"))
     : new Date(consultDateTime.getTime() + 60 * 60000);
-  const isPast = consultation.status === "completed" || new Date() > consultEndDateTime;
-  const vetHasStarted = ["vet_ready", "in_progress"].includes(String(onlineConsultation?.status || ""));
-  const statusTitle =
-    consultation.status === 'confirmed'
-      ? 'Consultation Confirmed!'
-      : consultation.status === 'cancelled'
-        ? 'Consultation Cancelled'
-        : 'Consultation Pending Review';
-  const statusMeta =
-    consultation.status === 'confirmed'
-      ? {
-          icon: CheckCircle,
-          ring: 'bg-green-100',
-          iconColor: 'text-green-600',
-          titleColor: 'text-gray-900'
-        }
-      : consultation.status === 'cancelled'
-        ? {
-            icon: XCircle,
-            ring: 'bg-red-100',
-            iconColor: 'text-red-600',
-            titleColor: 'text-gray-900'
-          }
-        : {
-            icon: AlertCircle,
-            ring: 'bg-amber-100',
-            iconColor: 'text-amber-600',
-            titleColor: 'text-gray-900'
-          };
+  const bookingStatus = normalizeConsultationStatus(consultation.status);
+  const onlineStatus = normalizeConsultationStatus(onlineConsultation?.status || "");
+  const resolvedStatus = bookingStatus === "completed" || onlineStatus === "completed"
+    ? "completed"
+    : bookingStatus;
+  const isCompleted = resolvedStatus === "completed";
+  const isCancelled = resolvedStatus === "cancelled" || resolvedStatus === "rejected";
+  const isScheduledTimePast = new Date() > consultEndDateTime;
+  const vetHasStarted = ["vet ready", "in progress"].includes(onlineStatus);
+  const showJoinCard = !isCompleted && !isCancelled && (!isScheduledTimePast || vetHasStarted);
+  const statusMeta = consultationStatusPresentation(resolvedStatus);
   const StatusIcon = statusMeta.icon;
+  const discussionTopic = onlineConsultation?.discussionTopic
+    || consultation.discussionTopic
+    || consultation.service
+    || "Not specified";
+  const additionalNotes = onlineConsultation?.notes || consultation.notes || "";
+  const veterinarianName = formatDisplayPersonName(
+    onlineConsultation?.veterinarianName || consultation.veterinarian,
+    "Veterinarian not assigned"
+  );
+  const paymentAmount = Number(consultation.price || 0) > 0
+    ? formatPhpCurrency(consultation.price)
+    : servicePrices.onlineConsultation;
+  const hasPaymentProof = Boolean(consultation.paymentProof);
+  const paymentStatus = isCompleted || resolvedStatus === "confirmed"
+    ? "Verified"
+    : isCancelled && hasPaymentProof
+      ? "Cancellation or refund review"
+      : hasPaymentProof
+        ? "Submitted for review"
+        : "No payment recorded";
+  const clinicalDetails = [
+    ["Diagnosis", onlineConsultation?.diagnosis],
+    ["Recommendations", onlineConsultation?.recommendations],
+    ["Treatment", onlineConsultation?.treatment],
+    ["Medications", onlineConsultation?.medications],
+    ["Veterinarian notes", onlineConsultation?.diagnosisNotes],
+    ["Vital signs", onlineConsultation?.vitalSigns],
+    ["Symptoms", onlineConsultation?.symptoms],
+    ["Laboratory tests", onlineConsultation?.labTests]
+  ]
+    .map(([label, value]) => [label, formatClinicalValue(value)])
+    .filter(([, value]) => Boolean(value));
   const concernImages = Array.isArray(onlineConsultation?.concernImages)
     ? onlineConsultation.concernImages
     : String(consultation.image_Booking_Concern_Path || '')
@@ -284,12 +361,11 @@ export default function ConsultConfirmation() {
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
-      <div className="text-center">
-        <div className={`inline-flex items-center justify-center w-16 h-16 ${statusMeta.ring} rounded-full mb-4`}>
-          <StatusIcon className={`h-10 w-10 ${statusMeta.iconColor}`} />
-        </div>
-        <h1 className={`text-3xl font-bold ${statusMeta.titleColor}`}>{statusTitle}</h1>
-      </div>
+      <DashboardPageHeader
+        icon={StatusIcon}
+        title={statusMeta.title}
+        description="Review the latest appointment, payment, and consultation status."
+      />
 
       <Card>
         <CardHeader>
@@ -302,13 +378,9 @@ export default function ConsultConfirmation() {
               <p className="font-semibold">{consultation.bookingNumber || `Booking #${consultation.id}`}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Status</p>
-              <span className={`inline-block px-3 py-1 text-sm rounded-full ${
-                consultation.status === 'confirmed' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {consultation.status.toUpperCase()}
+              <p className="text-sm text-gray-600 dark:text-slate-300">Status</p>
+              <span className={`mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-bold ${statusMeta.badge}`}>
+                {statusMeta.label}
               </span>
             </div>
           </div>
@@ -320,13 +392,13 @@ export default function ConsultConfirmation() {
                 <p className="font-semibold text-lg">{consultation.petName}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Discussion Topics</p>
-                <p className="font-semibold">{consultation.discussionTopic || consultation.service || 'Not specified'}</p>
+                <p className="text-sm text-gray-600 dark:text-slate-300">Discussion topics</p>
+                <p className="font-semibold text-slate-950 dark:text-white">{discussionTopic}</p>
               </div>
-              {consultation.notes && (
+              {additionalNotes && (
                 <div>
-                  <p className="text-sm text-gray-600">Additional Notes</p>
-                  <p className="text-sm whitespace-pre-wrap">{consultation.notes}</p>
+                  <p className="text-sm text-gray-600 dark:text-slate-300">Additional notes</p>
+                  <p className="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{additionalNotes}</p>
                 </div>
               )}
               {concernImages.length > 0 && (
@@ -370,7 +442,7 @@ export default function ConsultConfirmation() {
                 <Clock className="h-5 w-5 text-blue-600 mt-1" />
                 <div>
                   <p className="text-sm text-gray-600">Time</p>
-                  <p className="font-semibold">{formatDisplayTime(consultation.time)}</p>
+                  <p className="font-semibold">{formatDisplayTime(onlineConsultation?.scheduledStart || consultation.time)}</p>
                 </div>
               </div>
             </div>
@@ -379,26 +451,61 @@ export default function ConsultConfirmation() {
           <div className="border-t pt-4">
             <div>
               <p className="text-sm text-gray-600">Veterinarian</p>
-              <p className="font-semibold text-lg">{consultation.veterinarian}</p>
+              <p className="font-semibold text-lg">{veterinarianName}</p>
             </div>
           </div>
 
           <div className="border-t pt-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Payment Status</span>
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                PAID
+              <span className={`rounded-full border px-3 py-1 text-sm font-bold ${
+                paymentStatus === "Verified"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              }`}>
+                {paymentStatus}
               </span>
             </div>
             <div className="flex justify-between items-center mt-2">
-              <span className="text-gray-600">Amount Paid</span>
-              <span className="font-semibold text-lg">{servicePrices.onlineConsultation}</span>
+              <span className="text-gray-600">Booking amount</span>
+              <span className="font-semibold text-lg">{paymentAmount}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {!isPast && consultation.status !== "cancelled" && (
+      {isCompleted && (
+        <Card className="border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-slate-900">
+          <CardHeader>
+            <CardTitle>Consultation outcome</CardTitle>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Clinical details recorded by {veterinarianName}
+              {onlineConsultation?.endedAt ? ` on ${formatDisplayDateTime(onlineConsultation.endedAt)}` : ""}.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {clinicalDetails.length > 0 ? (
+              <dl className="divide-y divide-slate-100 border-y border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                {clinicalDetails.map(([label, value]) => (
+                  <div key={label} className="grid gap-1 py-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-5">
+                    <dt className="text-sm font-bold text-slate-500 dark:text-slate-400">{label}</dt>
+                    <dd className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-900 dark:text-slate-100">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-950/50">
+                <p className="font-bold text-slate-900 dark:text-white">No clinical summary was recorded</p>
+                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Contact the clinic if you expected diagnosis or treatment notes for this consultation.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {showJoinCard && (
         <Card className={canJoin ? "border-green-300 bg-green-50" : "border-blue-300 bg-blue-50"}>
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -414,13 +521,11 @@ export default function ConsultConfirmation() {
                 <p className="text-gray-700 mb-4">
                   {canJoin
                     ? "Your veterinarian has started the consultation. Click below to join the 8x8 JaaS room."
-                    : consultation.status !== "confirmed"
+                    : resolvedStatus !== "confirmed"
                       ? "The 8x8 JaaS room will be created after admin approval."
                       : !onlineConsultation?.meetingUrl
                         ? "The consultation room is not available yet."
-                        : !vetHasStarted
-                          ? "Waiting for the veterinarian to start the consultation."
-                          : "The join button will become active 10 minutes before your scheduled time."}
+                        : "Waiting for the veterinarian to start the consultation. You can join as soon as the room is ready."}
                 </p>
                 <Button 
                   onClick={handleJoinConsultation}
@@ -431,11 +536,9 @@ export default function ConsultConfirmation() {
                   <Video className="h-5 w-5" />
                   {canJoin ? "Join Consultation Now" : "Join Consultation"}
                 </Button>
-                {!canJoin && consultation.status === "confirmed" && onlineConsultation?.meetingUrl && (
+                {!canJoin && resolvedStatus === "confirmed" && onlineConsultation?.meetingUrl && (
                   <p className="text-sm text-gray-600 mt-2">
-                    {vetHasStarted
-                      ? `Available from: ${formatDisplayDateTime(new Date(consultDateTime.getTime() - 10 * 60000))}`
-                      : "The vet must start the session before you can join."}
+                    The vet must start the session before you can join. This page refreshes automatically.
                   </p>
                 )}
               </div>
@@ -444,7 +547,7 @@ export default function ConsultConfirmation() {
         </Card>
       )}
 
-      {consultation.status !== "cancelled" && (
+      {!isCompleted && !isCancelled && !isScheduledTimePast && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -463,41 +566,38 @@ export default function ConsultConfirmation() {
         </Card>
       )}
 
-      {isPast && (
+      {isScheduledTimePast && !isCompleted && !isCancelled && !vetHasStarted && (
         <Card className="border-gray-300 bg-gray-50">
           <CardContent className="pt-6 text-center">
             <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <h3 className="font-semibold text-lg mb-2">Consultation Completed</h3>
-            <p className="text-gray-600">This consultation has already taken place.</p>
+            <h3 className="font-semibold text-lg mb-2">Scheduled time has passed</h3>
+            <p className="text-gray-600">Contact the clinic if this consultation still needs an updated status.</p>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>What to Prepare</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-gray-700">
-            <li className="flex gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Ensure you have a stable internet connection</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Have your pet nearby during the consultation</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Prepare any medical records or documents you want to discuss</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Be in a quiet, well-lit area for the video call</span>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      {!isCompleted && !isCancelled && !isScheduledTimePast && (
+        <Card>
+          <CardHeader>
+            <CardTitle>What to Prepare</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-gray-700">
+              {[
+                "Ensure you have a stable internet connection",
+                "Have your pet nearby during the consultation",
+                "Prepare any medical records or documents you want to discuss",
+                "Be in a quiet, well-lit area for the video call"
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-2 size-1.5 shrink-0 rounded-full bg-blue-600" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-4">
         <Button variant="outline" onClick={() => navigate("/dashboard/consult")} className="flex-1">
@@ -536,7 +636,7 @@ export default function ConsultConfirmation() {
               <Textarea
                 value={cancellationData.message}
                 onChange={(event) => setCancellationData({ ...cancellationData, message: event.target.value })}
-                placeholder="Explain why you want to cancel this consultation."
+                placeholder="Cancellation reason"
                 rows={4}
               />
             </div>
@@ -557,9 +657,11 @@ export default function ConsultConfirmation() {
                 <label className="text-sm font-medium text-gray-900">Transaction Number</label>
                 <Input
                   value={cancellationData.transactionNumber}
-                  onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: event.target.value })}
-                  restriction="alphanumeric"
-                  placeholder="Transaction reference"
+                  onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: normalizeTransactionNumber(event.target.value) })}
+                  restriction="digits"
+                  inputMode="numeric"
+                  maxLength={TRANSACTION_NUMBER_LENGTH}
+                  placeholder="Enter exactly 18 digits"
                 />
               </div>
             </div>

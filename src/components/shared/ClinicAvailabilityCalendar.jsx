@@ -71,14 +71,30 @@ function longDate(value) {
     }).format(new Date(year, month - 1, day));
 }
 
-function dayStatusClasses(day) {
+function dayStatusMeta(day) {
     if (!day?.isOpen || day.status === 'closed') {
-        return 'bg-slate-200 dark:bg-slate-700';
+        return {
+            label: 'Closed',
+            disabled: true,
+            buttonClassName: 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-500',
+            labelClassName: 'text-slate-500 dark:text-slate-500',
+        };
     }
     if (day.status === 'available') {
-        return 'bg-emerald-500';
+        return {
+            label: 'Available',
+            disabled: false,
+            buttonClassName: 'border-emerald-200 bg-emerald-50/70 text-slate-800 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-slate-100',
+            labelClassName: 'text-emerald-700 dark:text-emerald-300',
+        };
     }
-    return 'bg-amber-500';
+
+    return {
+        label: 'Full',
+        disabled: true,
+        buttonClassName: 'border-amber-200 bg-amber-50/70 text-slate-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-slate-300',
+        labelClassName: 'text-amber-700 dark:text-amber-300',
+    };
 }
 
 export default function ClinicAvailabilityCalendar({
@@ -155,6 +171,8 @@ export default function ClinicAvailabilityCalendar({
     const selectedBranch = branches.find((branch) => String(branch.id) === String(lockedBranchId || branchId));
     const selectedVet = veterinarians.find((vet) => String(vet.id) === veterinarianId);
     const selectedVeterinarianName = selectedVet?.name || availability?.selected?.veterinarianName || '';
+    const selectedDay = days.find((day) => day.date === selectedDate);
+    const selectedDayStatus = dayStatusMeta(selectedDay);
     const firstWeekday = parseMonth(month).getDay();
     const calendarCells = [...Array(firstWeekday).fill(null), ...days];
 
@@ -191,7 +209,7 @@ export default function ClinicAvailabilityCalendar({
                                 searchable={false}
                             >
                                 <SelectTrigger aria-label="Availability service">
-                                    <Stethoscope className="text-slate-400" />
+                                    <Stethoscope className="text-blue-600 dark:text-blue-300" />
                                     <SelectValue placeholder="Select service" displayValue={selectedService?.label} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -208,7 +226,7 @@ export default function ClinicAvailabilityCalendar({
                             <Label className="mb-1.5">Location</Label>
                             <Select value={branchId} onValueChange={setBranchId} searchable={false}>
                                 <SelectTrigger aria-label="Availability location">
-                                    <Building2 className="text-slate-400" />
+                                    <Building2 className="text-blue-600 dark:text-blue-300" />
                                     <SelectValue placeholder="Select location" displayValue={selectedBranch?.name} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -229,7 +247,7 @@ export default function ClinicAvailabilityCalendar({
                                 searchable={veterinarians.length > 8}
                             >
                                 <SelectTrigger aria-label="Availability veterinarian">
-                                    <Stethoscope className="text-slate-400" />
+                                    <Stethoscope className="text-blue-600 dark:text-blue-300" />
                                     <SelectValue
                                         placeholder="Select veterinarian"
                                         displayValue={selectedVet?.name || (!isOnlineConsultation ? 'All visiting veterinarians' : undefined)}
@@ -253,8 +271,8 @@ export default function ClinicAvailabilityCalendar({
                         {errorMessage}
                     </div>
                 ) : (
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.75fr)]">
-                        <div className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                    <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.75fr)]">
+                        <div className="h-full min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                             <div className="mb-3 flex items-center justify-between gap-2">
                                 <Button type="button" variant="ghost" size="icon" onClick={() => handleMonthChange(-1)} aria-label="Previous month">
                                     <ChevronLeft />
@@ -272,32 +290,43 @@ export default function ClinicAvailabilityCalendar({
                                         {weekday}
                                     </div>
                                 ))}
-                                {calendarCells.map((day, index) => day ? (
-                                    <button
-                                        key={day.date}
-                                        type="button"
-                                        onClick={() => setSelectedDate(day.date)}
-                                        aria-label={`${longDate(day.date)}: ${day.status}`}
-                                        aria-pressed={selectedDate === day.date}
-                                        className={`relative flex min-h-11 flex-col items-center justify-center rounded-md border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] ${selectedDate === day.date
-                                            ? 'border-[#155dfc] bg-blue-50 text-[#155dfc] dark:bg-blue-950/40 dark:text-blue-300'
-                                            : 'border-transparent text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'}`}
-                                    >
-                                        <span>{Number(day.date.slice(-2))}</span>
-                                        <span className={`mt-1 size-1.5 rounded-full ${dayStatusClasses(day)}`} aria-hidden="true" />
-                                    </button>
-                                ) : <span key={`blank-${index}`} aria-hidden="true" />)}
+                                {calendarCells.map((day, index) => {
+                                    if (!day) return <span key={`blank-${index}`} aria-hidden="true" />;
+
+                                    const status = dayStatusMeta(day);
+                                    const isSelected = selectedDate === day.date;
+
+                                    return (
+                                        <button
+                                            key={day.date}
+                                            type="button"
+                                            disabled={status.disabled}
+                                            onClick={() => setSelectedDate(day.date)}
+                                            aria-label={`${longDate(day.date)}: ${status.label}`}
+                                            aria-pressed={isSelected}
+                                            className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center rounded-md border px-0.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed ${isSelected
+                                                ? 'border-[#155dfc] bg-blue-50 text-[#155dfc] ring-1 ring-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900'
+                                                : status.buttonClassName}`}
+                                        >
+                                            <span>{Number(day.date.slice(-2))}</span>
+                                            <span className={`mt-0.5 max-w-full truncate text-[8px] font-black leading-3 tracking-tight sm:text-[9px] ${status.labelClassName}`}>
+                                                {status.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                                 <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" />Available</span>
-                                <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-500" />Booked/full</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-500" />Full</span>
                                 <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-slate-300 dark:bg-slate-700" />Closed</span>
                             </div>
                         </div>
 
-                        <div className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                            <div className="mb-3 flex items-start justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-                                <div>
+                        <div className="relative min-h-96 min-w-0 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="absolute inset-0 flex min-h-0 flex-col p-3">
+                            <div className="mb-3 flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                                <div className="min-w-0">
                                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{longDate(selectedDate)}</p>
                                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                         {isBoarding
@@ -305,13 +334,23 @@ export default function ClinicAvailabilityCalendar({
                                             : isOnlineConsultation && selectedVeterinarianName
                                                 ? `Online consultation times with ${selectedVeterinarianName}`
                                                 : 'Appointment times'}
-                                    </p>
+                                        </p>
+                                    {selectedDay && (
+                                        <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-black ${selectedDayStatus.labelClassName} ${selectedDayStatus.label === 'Available'
+                                            ? 'bg-emerald-50 dark:bg-emerald-950/40'
+                                            : selectedDayStatus.label === 'Full'
+                                                ? 'bg-amber-50 dark:bg-amber-950/40'
+                                                : 'bg-slate-100 dark:bg-slate-800'}`}
+                                        >
+                                            {selectedDayStatus.label}
+                                        </span>
+                                    )}
                                 </div>
                                 {isLoading && <Loader2 className="size-4 animate-spin text-slate-400" aria-label="Loading availability" />}
                             </div>
 
                             {isBoarding ? (
-                                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                                     {(details.rooms || []).length ? details.rooms.map((room) => (
                                         <button
                                             key={room.roomType}
@@ -321,7 +360,7 @@ export default function ClinicAvailabilityCalendar({
                                             className="flex w-full items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-left transition-colors enabled:hover:bg-slate-100 enabled:focus-visible:outline-none enabled:focus-visible:ring-2 enabled:focus-visible:ring-[#155dfc] disabled:cursor-default dark:bg-slate-800/70 dark:enabled:hover:bg-slate-800"
                                         >
                                             <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                                <DoorOpen className="size-4 shrink-0 text-slate-400" />
+                                                <DoorOpen className="size-4 shrink-0 text-blue-600 dark:text-blue-300" />
                                                 <span className="truncate">{room.label}</span>
                                             </span>
                                             <span className={`shrink-0 text-xs font-bold ${room.available > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
@@ -333,7 +372,7 @@ export default function ClinicAvailabilityCalendar({
                                     )}
                                 </div>
                             ) : (
-                                <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
                                     {(details.slots || []).length ? details.slots.map((slot) => {
                                         const slotVeterinarianName = slot.veterinarianName
                                             || (isOnlineConsultation ? selectedVeterinarianName : '');
@@ -354,7 +393,7 @@ export default function ClinicAvailabilityCalendar({
                                             >
                                                 <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                                     <span className={`size-2 shrink-0 rounded-full ${slot.available ? 'bg-emerald-500' : slot.status === 'booked' ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`} />
-                                                    <Clock3 className="size-4 shrink-0 text-slate-400" />
+                                                    <Clock3 className="size-4 shrink-0 text-blue-600 dark:text-blue-300" />
                                                     <span className="min-w-0">
                                                         <span className="block">{slot.label}</span>
                                                         {slotVeterinarianName && (
@@ -378,6 +417,7 @@ export default function ClinicAvailabilityCalendar({
                                     )}
                                 </div>
                             )}
+                            </div>
                         </div>
                     </div>
                 )}

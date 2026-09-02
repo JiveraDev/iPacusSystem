@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { hasCancelDismissAction } from "./modalCloseVisibility";
@@ -88,8 +89,8 @@ function DialogContent({ className, children, showClose, ...props }) {
     return null;
   }
 
-  return (
-    <div className="fixed inset-0 z-50 grid min-h-dvh w-screen place-items-center overflow-y-auto bg-slate-900/50 scrollbar-hide">
+  return createPortal(
+    <div data-slot="dialog-overlay" className="fixed inset-0 z-[2000] grid min-h-dvh w-screen place-items-center overflow-y-auto bg-slate-900/50 p-3 scrollbar-hide sm:p-4">
       <button
         type="button"
         tabIndex={-1}
@@ -106,7 +107,7 @@ function DialogContent({ className, children, showClose, ...props }) {
         aria-describedby={context.descriptionId}
         tabIndex={-1}
         className={cn(
-          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100vh-2rem)] sm:p-6 scrollbar-hide",
+          "relative z-10 max-h-[calc(100vh-1.5rem)] w-full min-w-0 overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/20 dark:border-slate-700 dark:bg-slate-900 sm:max-h-[calc(100vh-2rem)] sm:p-6 scrollbar-hide",
           !hasCustomMaxWidth && "max-w-lg",
           !shouldShowClose && "[&_[data-slot=dialog-header]]:pr-0",
           className
@@ -125,7 +126,8 @@ function DialogContent({ className, children, showClose, ...props }) {
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

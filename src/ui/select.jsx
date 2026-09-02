@@ -223,6 +223,7 @@ function SelectTrigger({ className, children, ...props }) {
     <button
       type="button"
       {...props}
+      data-slot="select-trigger"
       ref={triggerRef}
       id={props.id || triggerId}
       role="combobox"
@@ -249,7 +250,7 @@ function SelectTrigger({ className, children, ...props }) {
         }
       }}
       className={cn(
-        "flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold leading-5 text-slate-900 shadow-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0",
+        "flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold leading-5 text-slate-900 shadow-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0",
         className
       )}
     >
@@ -363,6 +364,7 @@ function SelectContent({ children, className }) {
   return createPortal(
     <div
       ref={contentRef}
+      data-slot="select-content"
       id={listboxId}
       role="listbox"
       style={portalStyle}
@@ -373,7 +375,7 @@ function SelectContent({ children, className }) {
         }
       }}
       className={cn(
-        "fixed z-[1000] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl animate-in fade-in zoom-in-95",
+        "fixed z-[2200] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-xl animate-in fade-in zoom-in-95",
         className
       )}
     >
@@ -485,7 +487,7 @@ function SelectItem({ value: itemValue, children, className, disabled = false })
       data-disabled={disabled ? "" : undefined}
       className={cn(
         "relative flex min-h-9 w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 hover:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        isSelected && "bg-slate-50 font-medium text-[#155dfc]",
+        isSelected && "bg-blue-50 font-bold text-blue-800",
         className
       )}
     >

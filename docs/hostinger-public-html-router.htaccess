@@ -1,0 +1,28 @@
+# Keep this file at public_html/.htaccess.
+# Hostinger serves public_html, while the application is deployed to public_html/set.
+
+Options -Indexes
+
+<Files ".env">
+    Require all denied
+</Files>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep Hostinger/SSL validation paths at the real document root.
+    RewriteRule ^(?:\.well-known|cgi-bin)(?:/|$) - [L]
+
+    # Runtime media is read by PHP through /api/uploads/media, never directly.
+    RewriteRule ^ipawcus_runtime_media(?:/|$) - [F,L]
+
+    # Route both supported API URL formats directly into the deployed PHP API.
+    RewriteRule ^api/?(.*)$ set/php/index.php/api/$1 [QSA,L]
+    RewriteRule ^php(?:/(.*))?$ set/php/$1 [QSA,L]
+
+    # Avoid rewriting a request that already includes the deployment directory.
+    RewriteRule ^set(?:/|$) - [L]
+
+    # Internally serve the application without exposing /set in the public URL.
+    RewriteRule ^(.*)$ set/$1 [QSA,L]
+</IfModule>

@@ -10,6 +10,7 @@ require_once __DIR__ . '/booking_slot_helpers.php';
 require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/consent_file_helpers.php';
 require_once __DIR__ . '/upload_receipt_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 header('Content-Type: application/json');
 
@@ -131,6 +132,29 @@ function boarding_index_exists(PDO $pdo, string $tableName, string $indexName): 
     $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
 
     return $cache[$cacheKey];
+}
+
+function boarding_unique_index_matches(PDO $pdo, string $tableName, string $indexName, array $expectedColumns): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT column_name, non_unique
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+          AND index_name = ?
+        ORDER BY seq_in_index ASC
+    ");
+    $stmt->execute([$tableName, $indexName]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($rows) || (int)$rows[0]['non_unique'] !== 0) {
+        return false;
+    }
+
+    return array_map(
+        static fn(array $row): string => strtolower((string)$row['column_name']),
+        $rows
+    ) === array_map('strtolower', $expectedColumns);
 }
 
 function boarding_constraint_exists(PDO $pdo, string $tableName, string $constraintName): bool
@@ -292,24 +316,49 @@ function require_boarding_tables(PDO $pdo, array $tableNames): void
     }
 }
 
-function ensure_boarding_rooms_schema(PDO $pdo): void
+function ensure_boarding_rooms_schema(PDO $pdo, bool $requireWritableIndexes = false): void
 {
-    if (!boarding_table_exists($pdo, 'rooms')) {
+    if (!boarding_table_exists($pdo, 'rooms') || !boarding_table_exists($pdo, 'room_unit_statuses')) {
         error_log('Boarding rooms schema is missing.');
-        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
+        boarding_error(409, 'Boarding room storage is not ready. Run DDL/20260902_01_boarding_room_branch_fix.sql in the Hostinger database.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
         return;
     }
 
-    $missingColumns = [];
-    foreach (['room_id', 'room_type', 'total_capacity', 'description'] as $columnName) {
+    $missingRoomColumns = [];
+    foreach (['room_id', 'branch_id', 'room_type', 'total_capacity', 'description'] as $columnName) {
         if (!boarding_column_exists($pdo, 'rooms', $columnName)) {
-            $missingColumns[] = $columnName;
+            $missingRoomColumns[] = $columnName;
         }
     }
 
-    if (!empty($missingColumns)) {
-        error_log('Boarding rooms schema is missing required columns: ' . implode(', ', $missingColumns));
-        boarding_error(500, 'Boarding rooms are temporarily unavailable. Please contact the system administrator.');
+    $missingStatusColumns = [];
+    foreach (['branch_id', 'room_type', 'room_number', 'status', 'notes'] as $columnName) {
+        if (!boarding_column_exists($pdo, 'room_unit_statuses', $columnName)) {
+            $missingStatusColumns[] = $columnName;
+        }
+    }
+
+    if (!empty($missingRoomColumns) || !empty($missingStatusColumns)) {
+        error_log(sprintf(
+            'Boarding branch-room schema is incomplete. rooms=[%s], room_unit_statuses=[%s]',
+            implode(', ', $missingRoomColumns),
+            implode(', ', $missingStatusColumns)
+        ));
+        boarding_error(409, 'Boarding location support is not ready. Run DDL/20260902_01_boarding_room_branch_fix.sql in the Hostinger database.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
+    }
+
+    if ($requireWritableIndexes && (
+        !boarding_unique_index_matches($pdo, 'rooms', 'rooms_branch_type_unique', ['branch_id', 'room_type'])
+        || !boarding_unique_index_matches($pdo, 'room_unit_statuses', 'room_unit_status_branch_unique', ['branch_id', 'room_type', 'room_number'])
+    )) {
+        error_log('Boarding branch-room unique indexes are missing or incorrect.');
+        boarding_error(409, 'Room creation needs the latest branch-room database update. Run DDL/20260902_01_boarding_room_branch_fix.sql in Hostinger phpMyAdmin, then try again.', [
+            'code' => 'BOARDING_ROOM_MIGRATION_REQUIRED',
+        ]);
     }
 }
 
@@ -829,8 +878,8 @@ function boarding_consent_pdf_path(?string $path): ?string
     $candidatePath = boarding_consent_candidate_path($path);
     if ($candidatePath === null) return null;
 
-    $signatureRoot = realpath(__DIR__ . '/../public/signatures');
-    $realPath = realpath(__DIR__ . '/../public/' . $candidatePath);
+    $signatureRoot = realpath(ipawcus_runtime_media_directory('signatures'));
+    $realPath = realpath(ipawcus_runtime_media_path($candidatePath));
     if ($signatureRoot === false || $realPath === false || !is_file($realPath)) {
         return null;
     }
@@ -2021,6 +2070,9 @@ function rooms_action(PDO $pdo): void
         if ($quantity <= 0) {
             boarding_error(400, 'Enter a valid room quantity.');
         }
+        if ($quantity > 100) {
+            boarding_error(422, 'Add no more than 100 rooms in one update.');
+        }
 
         $pdo->beginTransaction();
         try {
@@ -2032,7 +2084,7 @@ function rooms_action(PDO $pdo): void
             $stmt = $pdo->prepare($selectSql);
             $stmt->execute([$branchId, $roomType]);
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
-            $oldCapacity = (int)($room['total_capacity'] ?? 0);
+            $oldCapacity = get_room_capacity($pdo, $roomType, $branchId);
 
             if ($room) {
                 $whereColumn = $hasRoomIdColumn ? 'room_id' : 'room_type';
@@ -2070,6 +2122,8 @@ function rooms_action(PDO $pdo): void
                 'message' => $quantity === 1 ? 'Room added.' : 'Rooms added.',
                 'roomType' => $roomType,
                 'branchId' => $branchId,
+                'addedQuantity' => $quantity,
+                'createdRoomNumbers' => range($oldCapacity + 1, $oldCapacity + $quantity),
                 'totalCapacity' => get_room_capacity($pdo, $roomType, $branchId),
             ]);
         } catch (Exception $e) {
@@ -2159,6 +2213,84 @@ function resolve_boarding_pet_id(PDO $pdo, $petId): ?int
     return $resolved !== false ? (int)$resolved : null;
 }
 
+function boarding_direct_check_in_owner(PDO $pdo, int $petId): array
+{
+    $primaryOrder = boarding_column_exists($pdo, 'pet_ownership', 'is_primary')
+        ? 'COALESCE(po.is_primary, 0) DESC,'
+        : '';
+    $ownerStmt = $pdo->prepare("
+        SELECT po.user_id
+        FROM pet_ownership po
+        JOIN users owner ON owner.user_id = po.user_id
+        WHERE po.pet_id = ?
+          AND LOWER(REPLACE(REPLACE(TRIM(owner.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
+        ORDER BY {$primaryOrder} po.link_id ASC
+        LIMIT 1
+    ");
+    $ownerStmt->execute([$petId]);
+    $ownerId = (int)($ownerStmt->fetchColumn() ?: 0);
+    if ($ownerId > 0) {
+        return ['user_id' => $ownerId, 'repair_link' => false];
+    }
+
+    // Older imported pets may have lost their pet_ownership row while their
+    // completed booking history still identifies one unambiguous owner.
+    $bookingPetCondition = boarding_table_exists($pdo, 'booking_pets')
+        ? ' OR EXISTS (SELECT 1 FROM booking_pets bp WHERE bp.booking_id = b.booking_id AND bp.pet_id = ?)'
+        : '';
+    $params = $bookingPetCondition === '' ? [$petId] : [$petId, $petId];
+    $legacyStmt = $pdo->prepare("
+        SELECT b.user_id, MAX(b.booking_id) AS latest_booking_id
+        FROM bookings b
+        JOIN users owner ON owner.user_id = b.user_id
+        WHERE (b.pet_id = ? {$bookingPetCondition})
+          AND LOWER(REPLACE(REPLACE(TRIM(owner.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
+        GROUP BY b.user_id
+        ORDER BY latest_booking_id DESC
+        LIMIT 2
+    ");
+    $legacyStmt->execute($params);
+    $legacyOwners = array_values(array_unique(array_map(
+        'intval',
+        array_column($legacyStmt->fetchAll(PDO::FETCH_ASSOC), 'user_id')
+    )));
+
+    if (count($legacyOwners) === 1 && $legacyOwners[0] > 0) {
+        return ['user_id' => $legacyOwners[0], 'repair_link' => true];
+    }
+
+    return ['user_id' => 0, 'repair_link' => false];
+}
+
+function boarding_repair_direct_check_in_owner_link(PDO $pdo, int $petId, int $ownerId): void
+{
+    $columns = ['user_id', 'pet_id'];
+    $values = ['?', '?'];
+    $params = [$ownerId, $petId];
+    if (boarding_column_exists($pdo, 'pet_ownership', 'relationship')) {
+        $columns[] = 'relationship';
+        $values[] = "'primary'";
+    }
+    if (boarding_column_exists($pdo, 'pet_ownership', 'is_primary')) {
+        $columns[] = 'is_primary';
+        $values[] = '1';
+    }
+    $params[] = $petId;
+
+    $insert = $pdo->prepare(
+        'INSERT INTO pet_ownership (' . implode(', ', $columns) . ') '
+        . 'SELECT ' . implode(', ', $values) . ' '
+        . 'WHERE NOT EXISTS (SELECT 1 FROM pet_ownership WHERE pet_id = ?)'
+    );
+    $insert->execute($params);
+
+    $verify = $pdo->prepare('SELECT user_id FROM pet_ownership WHERE pet_id = ? ORDER BY link_id ASC LIMIT 1');
+    $verify->execute([$petId]);
+    if ((int)($verify->fetchColumn() ?: 0) !== $ownerId) {
+        boarding_error(409, 'The pet owner link changed during check-in. Refresh the pet list and try again.');
+    }
+}
+
 function direct_check_in_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -2223,12 +2355,8 @@ function direct_check_in_action(PDO $pdo): void
         $notes = trim($notes . "\n" . $catalogNote);
     }
 
-    $ownerStmt = $pdo->prepare("SELECT user_id FROM pet_ownership WHERE pet_id = ? ORDER BY link_id DESC LIMIT 1");
-    $ownerStmt->execute([$petId]);
-    $ownerId = (int)($ownerStmt->fetchColumn() ?: 0);
-    if ($ownerId <= 0 && isset($input['user_id'])) {
-        $ownerId = (int)$input['user_id'];
-    }
+    $ownerResolution = boarding_direct_check_in_owner($pdo, $petId);
+    $ownerId = (int)$ownerResolution['user_id'];
     if ($ownerId <= 0) {
         boarding_error(409, 'This pet has no linked owner account. Link an owner before direct check-in.');
     }
@@ -2237,6 +2365,10 @@ function direct_check_in_action(PDO $pdo): void
     $consentLockName = null;
     $pdo->beginTransaction();
     try {
+        if (!empty($ownerResolution['repair_link'])) {
+            boarding_repair_direct_check_in_owner_link($pdo, $petId, $ownerId);
+        }
+
         $consent = boarding_secure_consent_payload(
             $pdo,
             $input,
@@ -2559,7 +2691,7 @@ function boarding_document_file_metadata(string $documentPath, array $input): ar
 {
     $fileName = boarding_document_nullable_text($input['file_name'] ?? $input['fileName'] ?? null);
     $mimeType = boarding_document_nullable_text($input['mime_type'] ?? $input['mimeType'] ?? null);
-    $absolutePath = __DIR__ . '/../public/' . $documentPath;
+    $absolutePath = ipawcus_runtime_media_path($documentPath);
 
     if (is_file($absolutePath)) {
         $fileName = $fileName ?: basename($documentPath);
@@ -2593,8 +2725,8 @@ function boarding_cleanup_unstored_document(PDO $pdo, string $documentPath): voi
         return;
     }
 
-    $documentRoot = realpath(__DIR__ . '/../public/boarding_documents');
-    $absolutePath = realpath(__DIR__ . '/../public/' . $documentPath);
+    $documentRoot = realpath(ipawcus_runtime_media_directory('boarding_documents'));
+    $absolutePath = realpath(ipawcus_runtime_media_path($documentPath));
     if ($documentRoot === false || $absolutePath === false) {
         return;
     }
@@ -2617,6 +2749,7 @@ function boarding_fetch_document_subject(PDO $pdo, array $input): array
                 ba.booking_id,
                 ba.status,
                 b.pet_id,
+                b.branch_id,
                 b.service_type,
                 b.status AS booking_status
             FROM boarding_assignments ba
@@ -3260,12 +3393,16 @@ function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookin
     $visitLockStmt->execute([$bookingId]);
     $visitLockStmt->fetchAll(PDO::FETCH_COLUMN);
 
+    // A verified payment settles only the invoice lines that existed when it
+    // was recorded. An active booked stay may still incur new material usage;
+    // POS appends that usage as a new immutable charge and collects only the
+    // resulting outstanding balance. Refunded billing remains locked.
     $paymentStmt = $pdo->prepare("
         SELECT vp.payment_status
         FROM visit_payments vp
         JOIN visits v ON v.visit_id = vp.visit_id
         WHERE v.booking_id = ?
-          AND vp.payment_status IN ('verified', 'refunded')
+          AND vp.payment_status = 'refunded'
         ORDER BY vp.payment_id ASC
         LIMIT 1
     ");
@@ -3274,9 +3411,7 @@ function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookin
     if ($lockedPaymentStatus !== '') {
         boarding_error(
             409,
-            'Boarding materials are locked because this stay has a '
-            . $lockedPaymentStatus
-            . ' payment. Resolve billing through the payment record instead of changing the recorded stay.'
+            'Boarding materials cannot be changed because this stay has a refunded payment. Resolve the refunded billing record first.'
         );
     }
 }
@@ -3375,7 +3510,7 @@ function boarding_fetch_material_usages(PDO $pdo, array $filters = []): array
                 FROM visits payment_visit
                 JOIN visit_payments vp ON vp.visit_id = payment_visit.visit_id
                 WHERE payment_visit.booking_id = bmu.booking_id
-                  AND vp.payment_status IN ('verified', 'refunded')
+                  AND vp.payment_status = 'refunded'
             ) AS has_locked_payment
         ";
     }
@@ -3872,7 +4007,7 @@ try {
     $requiredTables = ['rooms', 'room_unit_statuses', 'boarding_assignments', 'boarding_observations', 'boarding_tasks'];
 
     if ($action === 'rooms') {
-        ensure_boarding_rooms_schema($pdo);
+        ensure_boarding_rooms_schema($pdo, $method !== 'GET');
     }
 
     if ($action === 'rooms' && $method === 'POST') {

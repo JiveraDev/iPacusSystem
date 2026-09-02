@@ -552,6 +552,10 @@ function vetDiagnosisSaveVaccinationRecord(PDO $pdo, int $diagnosisId, int $petI
         http_response_code(400);
         throw new RuntimeException('Vaccine name, date administered, and next due date are required to record vaccination details.');
     }
+    if ($nextDueDate < $dateAdministered) {
+        http_response_code(422);
+        throw new RuntimeException('Next due date cannot be earlier than the date administered.');
+    }
 
     $hasLicense = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_veterinarian_license');
     $hasNotes = vetDiagnosisColumnExists($pdo, 'pet_vaccinations', 'vax_notes');

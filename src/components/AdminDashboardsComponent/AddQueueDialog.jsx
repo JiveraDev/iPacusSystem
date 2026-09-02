@@ -30,6 +30,7 @@ import SubmissionStatus from '../shared/SubmissionStatus';
 import { addQueueItem, fetchQueuePets } from '../../services/queueService';
 import { formatDisplayDateTime } from '../../lib/date';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import { QUEUE_PRIORITY_OPTIONS } from '../../lib/queuePriority';
 import BranchBookingSelect from '../shared/BranchBookingSelect.jsx';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 
@@ -308,7 +309,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                     className="mt-1.5 min-h-28 resize-y"
                                     value={complaint}
                                     onChange={(event) => setComplaint(event.target.value)}
-                                    placeholder="Reason for visit, symptoms, or staff notes"
+                                            placeholder="Visit reason or symptoms"
                                     disabled={isSubmitting}
                                 />
                                 <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -353,8 +354,11 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="normal">Normal</SelectItem>
-                                            <SelectItem value="urgent">Urgent</SelectItem>
+                                            {QUEUE_PRIORITY_OPTIONS.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

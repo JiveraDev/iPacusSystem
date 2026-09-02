@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 export default function NearExpiryPage() {
   const [urgencyFilter, setUrgencyFilter] = useState('all');
@@ -20,15 +21,11 @@ export default function NearExpiryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-          Near Expiry Items
-        </h2>
-        <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-          Monitor and manage items approaching expiration
-        </p>
-      </div>
+      <DashboardPageHeader
+        icon={Clock}
+        title="Near Expiry Items"
+        description="Monitor and manage items approaching expiration."
+      />
 
       {/* Critical Alert Banner */}
       {criticalCount > 0 && (

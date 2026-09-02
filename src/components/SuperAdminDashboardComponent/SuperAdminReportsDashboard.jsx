@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -14,6 +16,8 @@ import DashboardPageHeader from '../shared/DashboardPageHeader';
 import ReportChartCard from './ReportChartCard';
 import ReportDateInput from './ReportDateInput';
 import ReportKpiCard from './ReportKpiCard';
+
+gsap.registerPlugin(useGSAP);
 
 const GENERAL_CHART_IDS = [
     'revenue_diagnosis_trend',
@@ -300,6 +304,7 @@ function formatAttentionValue(value, column) {
 export default function SuperAdminReportsDashboard() {
     const user = useDashboardUser();
     const navigate = useNavigate();
+    const rootRef = useRef(null);
     const highlightTimerRef = useRef(null);
     const [range, setRange] = useState('this_month');
     const [customStart, setCustomStart] = useState(defaultMonthStart);
@@ -369,6 +374,28 @@ export default function SuperAdminReportsDashboard() {
         }
     }, []);
 
+    useGSAP(() => {
+        if (!dashboard) return;
+
+        const items = gsap.utils.toArray('.report-motion-item');
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            gsap.set(items, { autoAlpha: 1, clearProps: 'transform' });
+            return;
+        }
+
+        gsap.fromTo(items, {
+            autoAlpha: 0,
+            y: 18,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.42,
+            stagger: 0.035,
+            ease: 'power3.out',
+            clearProps: 'transform',
+        });
+    }, { scope: rootRef, dependencies: [Boolean(dashboard)], revertOnUpdate: true });
+
     const charts = useMemo(() => {
         const chartItems = Array.isArray(dashboard?.charts) ? dashboard.charts : [];
         return GENERAL_CHART_IDS
@@ -413,13 +440,15 @@ export default function SuperAdminReportsDashboard() {
     }
 
     return (
-        <div className="space-y-6">
-            <DashboardPageHeader
-                title="Reports Dashboard"
-                description="Clinic performance, service activity, billing, inventory, and patient case overview."
-                layout="stacked"
-                toolbar={(
-                    <div className="flex w-full flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:flex-row lg:items-center lg:justify-between">
+        <div ref={rootRef} className="space-y-6">
+            <div className="report-motion-item">
+                <DashboardPageHeader
+                    title="Reports Dashboard"
+                    description="A focused view of clinic performance, patient activity, billing, inventory, and service demand."
+                    layout="stacked"
+                    className="h-full overflow-hidden border-blue-100 bg-[radial-gradient(circle_at_90%_0%,rgba(147,197,253,0.16),transparent_34%),white] dark:border-blue-900/50 dark:bg-none dark:bg-slate-900"
+                    toolbar={(
+                        <div className="flex w-full flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50/65 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:flex-row lg:items-center lg:justify-between">
                         <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)]">
                             <div className="min-w-0">
                                 <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
@@ -464,8 +493,9 @@ export default function SuperAdminReportsDashboard() {
                             </Button>
                         </div>
                     </div>
-                )}
-            />
+                    )}
+                />
+            </div>
 
             {error ? (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>
@@ -473,11 +503,11 @@ export default function SuperAdminReportsDashboard() {
 
             {isLoading && !dashboard ? (
                 <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                    <Loader2 className="size-8 animate-spin text-[#155dfc]" />
+                    <Loader2 className="size-8 animate-spin text-blue-700" />
                 </div>
             ) : (
                 <>
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="report-motion-item grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {(dashboard?.kpis || []).map(kpi => {
                             const targetChartId = chartTargetForKpi(kpi.label, chartById);
                             const targetChart = targetChartId ? chartById.get(targetChartId) : null;
@@ -501,7 +531,7 @@ export default function SuperAdminReportsDashboard() {
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
-                        <Card className="border-amber-200 bg-amber-50 shadow-none">
+                        <Card className="report-motion-item border-amber-200 bg-amber-50 shadow-none">
                             <CardContent className="flex gap-3 p-4 text-sm font-semibold leading-6 text-amber-900">
                                 <AlertTriangle className="mt-0.5 size-5 shrink-0" />
                                 <div>
@@ -514,19 +544,19 @@ export default function SuperAdminReportsDashboard() {
                     ) : null}
 
                     {fullWidthCharts.length ? (
-                        <section className="space-y-4">
+                        <section className="report-motion-item space-y-4">
                             <div>
-                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Movement, Revenue, and Utilization Charts</h2>
-                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Line and bar charts span the full row for easier wide-screen reading.</p>
+                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Movement, Revenue, and Utilization</h2>
+                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Compact paired charts reduce page length while preserving readable axes and labels.</p>
                             </div>
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                                 {fullWidthCharts.map(chartItem => (
                                     <div
                                         key={chartItem.id}
                                         id={`report-chart-${chartItem.id}`}
                                         className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
                                             highlightedTargetId === `report-chart-${chartItem.id}`
-                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
                                         }`}
                                     >
@@ -534,6 +564,7 @@ export default function SuperAdminReportsDashboard() {
                                             title={chartItem.title}
                                             summary={chartItem.summary}
                                             chart={chartItem.chart}
+                                            compact
                                         />
                                     </div>
                                 ))}
@@ -542,7 +573,7 @@ export default function SuperAdminReportsDashboard() {
                     ) : null}
 
                     {pieCharts.length ? (
-                        <section className="space-y-4">
+                        <section className="report-motion-item space-y-4">
                             <div>
                                 <h2 className="text-lg font-black text-slate-950 dark:text-white">Service Mix and Clinic Resources</h2>
                                 <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Pie and doughnut charts are grouped two per row on wider screens.</p>
@@ -554,7 +585,7 @@ export default function SuperAdminReportsDashboard() {
                                         id={`report-chart-${chartItem.id}`}
                                         className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
                                             highlightedTargetId === `report-chart-${chartItem.id}`
-                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
                                         }`}
                                     >
@@ -562,6 +593,7 @@ export default function SuperAdminReportsDashboard() {
                                             title={chartItem.title}
                                             summary={chartItem.summary}
                                             chart={chartItem.chart}
+                                            compact
                                         />
                                     </div>
                                 ))}
@@ -569,7 +601,7 @@ export default function SuperAdminReportsDashboard() {
                         </section>
                     ) : null}
 
-                    <section className="space-y-4">
+                    <section className="report-motion-item space-y-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
@@ -594,7 +626,7 @@ export default function SuperAdminReportsDashboard() {
                                         id={targetId}
                                         className={`scroll-mt-24 rounded-xl transition duration-700 ${
                                             highlightedTargetId === targetId
-                                                ? 'ring-4 ring-[#155dfc]/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
                                         }`}
                                     >

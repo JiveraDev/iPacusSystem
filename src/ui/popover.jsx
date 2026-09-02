@@ -37,7 +37,7 @@ export const PopoverContent = ({ children, className }) => {
   const { open } = React.useContext(PopoverContext);
   if (!open) return null;
   return (
-    <div className={cn("absolute z-50 mt-2 bg-white rounded-md border shadow-lg", className)}>
+    <div data-slot="popover-content" className={cn("absolute z-50 mt-2 bg-white rounded-md border shadow-lg", className)}>
       {children}
     </div>
   );

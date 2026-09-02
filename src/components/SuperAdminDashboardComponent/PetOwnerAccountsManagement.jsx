@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Archive, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, RotateCcw, Search, ShieldAlert, X } from 'lucide-react';
+import { Archive, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, RotateCcw, Search, ShieldAlert, ShieldCheck, UserPlus, X } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -152,7 +152,7 @@ export default function PetOwnerAccountsManagement() {
     const [owners, setOwners] = useState([]);
     const [statusSupported, setStatusSupported] = useState(true);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('active');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [selectedOwner, setSelectedOwner] = useState(null);
     const [pendingStatusOwner, setPendingStatusOwner] = useState(null);
     const [pendingPetArchive, setPendingPetArchive] = useState(null);
@@ -191,7 +191,12 @@ export default function PetOwnerAccountsManagement() {
             owner.mail_Address,
             owner.phoneNumber,
             owner.personal_Address,
-            ...(owner.pets || []).map(pet => `${pet.pet_name} ${pet.pet_species} ${pet.pet_breed}`)
+            ...(owner.pets || []).map(pet => [
+                pet.pet_name,
+                pet.pet_species,
+                pet.pet_breed,
+                ...(pet.owners || []).flatMap(linkedOwner => [linkedOwner.name, linkedOwner.email])
+            ].filter(Boolean).join(' '))
         ].filter(Boolean).join(' ').toLowerCase().includes(query));
     }, [owners, search, statusFilter]);
 
@@ -279,12 +284,48 @@ export default function PetOwnerAccountsManagement() {
             <DashboardPageHeader
                 title="Pet Owners"
                 description="Review owner accounts, linked pets, activity, and reversible archive status."
+                petHover
+                petKind="dog"
+                petAccent="blue"
                 layout="stacked"
-                actions={(
-                    <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap">
-                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                        Refresh
-                    </Button>
+                toolbar={(
+                    <div className="space-y-3">
+                        <div className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 md:grid-cols-[minmax(0,1fr)_11rem] xl:grid-cols-[minmax(0,1fr)_11rem_auto] xl:items-center">
+                            <div className="min-w-0">
+                                <Input
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Search owners or pets"
+                                    className="h-11 bg-white dark:bg-slate-900"
+                                    leftIcon={<Search className="size-4" />}
+                                />
+                            </div>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="h-11 w-full bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All owners</SelectItem>
+                                    <SelectItem value="active">Active owners</SelectItem>
+                                    <SelectItem value="archived">Archived owners</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <div className="flex w-full rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 md:col-span-2 xl:col-span-1 xl:w-fit">
+                                <Button type="button" variant={viewMode === 'cards' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('cards')} className="gap-2">
+                                    <LayoutGrid className="size-4" />
+                                    Cards
+                                </Button>
+                                <Button type="button" variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="gap-2">
+                                    <List className="size-4" />
+                                    Table
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+                            <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap">
+                                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                                <span>Refresh</span>
+                            </Button>
+                        </div>
+                    </div>
                 )}
             />
 
@@ -303,48 +344,6 @@ export default function PetOwnerAccountsManagement() {
                     </CardContent>
                 </Card>
             ) : null}
-
-            <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_11rem] xl:grid-cols-[minmax(0,1fr)_11rem_auto] xl:items-center">
-                <div className="min-w-0">
-                    <Input
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Search owner, email, address, pet name, animal type, or breed"
-                        className="h-11 bg-white"
-                        leftIcon={<Search className="size-4" />}
-                    />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 w-full bg-white"><SelectValue placeholder="Account status" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="active">Active owners</SelectItem>
-                        <SelectItem value="archived">Archived owners</SelectItem>
-                        <SelectItem value="all">All owners</SelectItem>
-                    </SelectContent>
-                </Select>
-                <div className="flex w-full rounded-xl border border-slate-200 bg-white p-1 shadow-sm md:col-span-2 xl:col-span-1 xl:w-fit">
-                    <Button
-                        type="button"
-                        variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('cards')}
-                        className="gap-2"
-                    >
-                        <LayoutGrid className="size-4" />
-                        Cards
-                    </Button>
-                    <Button
-                        type="button"
-                        variant={viewMode === 'table' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('table')}
-                        className="gap-2"
-                    >
-                        <List className="size-4" />
-                        Table
-                    </Button>
-                </div>
-            </div>
 
             {isLoading && !owners.length ? (
                 <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-slate-200 bg-white">
@@ -567,6 +566,12 @@ export default function PetOwnerAccountsManagement() {
                                                         {pet.is_archived
                                                             ? <Badge className="border-0 bg-slate-100 text-slate-600">Archived</Badge>
                                                             : <Badge className={petStatusClass(pet.pet_status)}>{cleanValue(pet.pet_status)}</Badge>}
+                                                        <Badge className={pet.is_primary_owner
+                                                            ? 'border border-blue-200 bg-blue-50 text-[#155dfc]'
+                                                            : 'border border-violet-200 bg-violet-50 text-violet-700'}>
+                                                            {pet.is_primary_owner ? <ShieldCheck className="mr-1 size-3" /> : <UserPlus className="mr-1 size-3" />}
+                                                            {pet.is_primary_owner ? 'Primary owner' : 'Co-parent'}
+                                                        </Badge>
                                                     </div>
                                                     <p className="mt-1 truncate text-sm font-semibold text-slate-500">
                                                         {cleanValue(pet.pet_species)} / {cleanValue(pet.pet_breed)}
@@ -587,6 +592,43 @@ export default function PetOwnerAccountsManagement() {
                                                 {pet.is_archived ? <RotateCcw className="mr-2 size-4" /> : <Archive className="mr-2 size-4" />}
                                                 {pet.is_archived ? 'Restore Pet' : 'Archive Pet'}
                                             </Button>
+                                        </div>
+
+                                        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-2 dark:border-slate-700 dark:bg-slate-900/60">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Primary owner</p>
+                                                <div className="mt-1 flex min-w-0 items-start gap-2">
+                                                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#155dfc]" />
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
+                                                            {pet.primary_owner?.name || 'Not assigned'}
+                                                        </p>
+                                                        {pet.primary_owner?.email ? (
+                                                            <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{pet.primary_owner.email}</p>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                                    Co-parents ({pet.co_parents?.length || 0})
+                                                </p>
+                                                {pet.co_parents?.length ? (
+                                                    <div className="mt-1 space-y-1.5">
+                                                        {pet.co_parents.map(coParent => (
+                                                            <div key={coParent.userId} className="flex min-w-0 items-start gap-2">
+                                                                <UserPlus className="mt-0.5 size-4 shrink-0 text-violet-500" />
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{coParent.name}</p>
+                                                                    {coParent.email ? <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{coParent.email}</p> : null}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">No approved co-parent</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -188,7 +188,6 @@ function record_request_require_veterinarian(PDO $pdo, int $userId): void
     $profileIsAcceptingPatients = (int)($user['profile_is_accepting_patients'] ?? 0) === 1;
     if (
         $role !== 'veterinarian'
-        || in_array($accountStatus, ['archived', 'inactive', 'deactivated', 'disabled', 'suspended'], true)
         || !$profileExists
         || !$profileIsActive
         || !$profileIsAcceptingPatients
@@ -391,6 +390,7 @@ function record_request_row(array $row): array
         'paymentAmount' => (float)$row['payment_amount'],
         'paymentStatus' => $row['payment_status'],
         'paymentProofUrl' => $row['payment_proof_url'] ?? '',
+        'paymentReference' => $row['payment_reference'] ?? '',
         'status' => $row['status'],
         'adminNotes' => $row['admin_notes'] ?? '',
         'veterinarianNotes' => $row['veterinarian_notes'] ?? '',
@@ -496,6 +496,13 @@ function record_request_create(PDO $pdo, array $input): void
     }
 
     $paymentProofUrl = record_request_nullable_text($input['paymentProofUrl'] ?? $input['payment_proof_url'] ?? null);
+    $paymentReference = record_request_nullable_text($input['paymentReference'] ?? $input['payment_reference'] ?? null);
+    if ($paymentMethod !== 'cash' && $paymentReference === null) {
+        record_request_error(400, 'Please enter the payment transaction number.');
+    }
+    if ($paymentReference !== null && !preg_match('/^\d{18}$/', $paymentReference)) {
+        record_request_error(400, 'The payment transaction number must contain exactly 18 digits.');
+    }
     $paymentAmount = 200.0;
     $paymentStatus = ($paymentProofUrl && $paymentMethod !== 'cash') ? 'submitted' : 'pending';
     $ownerUserId = $currentRole === 'pet_owner'
@@ -550,8 +557,9 @@ function record_request_create(PDO $pdo, array $input): void
             payment_amount,
             payment_status,
             payment_proof_url,
+            payment_reference,
             status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_admin_review')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_admin_review')
     ");
     $stmt->execute([
         record_request_number($pdo),
@@ -563,6 +571,7 @@ function record_request_create(PDO $pdo, array $input): void
         $paymentAmount,
         $paymentStatus,
         $paymentProofUrl,
+        $paymentReference,
     ]);
 
     $requestId = (int)$pdo->lastInsertId();
@@ -979,13 +988,6 @@ try {
     $currentRole = ipawcus_guard_role($currentUser);
     $currentUserId = ipawcus_guard_user_id($currentUser);
 
-    if ($_SERVER['REQUEST_METHOD'] === 'PATCH' && $currentRole === 'admin') {
-        $mainBranchId = branch_main_id($pdo);
-        if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
-            record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
-        }
-    }
-
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $filters = [
             'request_id' => $_GET['requestId'] ?? $_GET['request_id'] ?? null,
@@ -1012,12 +1014,6 @@ try {
             $filters['vet_visible_user_id'] = $currentUserId;
         } elseif (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'You are not allowed to view record update requests.');
-        } elseif ($currentRole !== 'super_admin') {
-            $mainBranchId = branch_main_id($pdo);
-            if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
-                record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
-            }
-            $filters['branch_id'] = $mainBranchId;
         }
 
         echo json_encode([

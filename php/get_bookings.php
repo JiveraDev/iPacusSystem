@@ -132,6 +132,7 @@ try {
                    u.birthdate,
                    u.setProfilePic_url,
                    v.first_Name as vet_first_name, v.last_Name as vet_last_name,
+                   vp.prc_license_number AS veterinarian_license_number,
                    branch.branch_code,
                    branch.branch_name,
                    branch.address AS branch_address,
@@ -142,6 +143,7 @@ try {
             LEFT JOIN pets_information p ON b.pet_id = p.pet_id
             JOIN users u ON b.user_id = u.user_id
             LEFT JOIN users v ON b.veterinarian_id = v.user_id
+            LEFT JOIN veterinarian_profiles vp ON b.veterinarian_id = vp.user_id
             LEFT JOIN branches branch ON branch.branch_id = b.branch_id
             {$multiPetJoin}
             {$boardingAssignmentJoin}";
@@ -399,6 +401,7 @@ try {
             'isOnlineConsultation' => $isOnlineConsultation,
             'veterinarianId' => $b['veterinarian_id'],
             'veterinarian' => $b['vet_first_name'] ? "Dr. {$b['vet_first_name']} {$b['vet_last_name']}" : "Unassigned",
+            'veterinarianLicenseNumber' => $b['veterinarian_license_number'] ?? null,
             'hotelBoardingType' => $b['hotel_boarding_type'] ?? null,
             'checkInDate' => $b['check_in_date'] ?? null,
             'checkOutDate' => $b['check_out_date'] ?? null,

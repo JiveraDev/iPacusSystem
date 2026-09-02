@@ -29,7 +29,7 @@ export function ConsentTemplateEditor({ value, onChange, textareaRef, onInsertCo
                             <Code2 className="size-4 text-blue-600" /> Template content
                         </p>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Select an underline blank, then insert a code to replace it.
+                            Select an underline blank, then insert a code to replace it. Inserted values appear bold in the document preview.
                         </p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={applySmartConversion}>
@@ -60,7 +60,7 @@ export function ConsentTemplateEditor({ value, onChange, textareaRef, onInsertCo
                 rows={rows}
                 spellCheck
                 className="min-h-[320px] resize-y rounded-none border-0 bg-white font-mono text-sm leading-6 focus:ring-0 dark:bg-slate-950 dark:text-slate-100"
-                placeholder="Write the consent text here or upload a TXT document. Use codes such as &pet_name& and &date& for information filled by the system."
+                placeholder="Consent text or TXT upload"
             />
 
             <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800/70 sm:flex-row sm:flex-wrap sm:items-center">

@@ -124,12 +124,12 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
                                 Forgot password?
                             </button>
                         </div>
-                        <div className="relative">
+                        <div className="relative h-11">
                             <input
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(event) => setPassword(event.target.value)}
-                                className="hide-native-password-toggle h-11 min-h-11 w-full appearance-none rounded-lg border-0 bg-[#f3f3f5] px-3 py-0 pr-11 text-[16px] leading-5 text-[#0a0a0a] outline-none placeholder:text-[#717182] focus:ring-2 focus:ring-[#155dfc]"
+                                className="hide-native-password-toggle h-full min-h-11 w-full appearance-none rounded-lg border-0 bg-[#f3f3f5] px-3 py-0 pr-11 text-[16px] leading-5 text-[#0a0a0a] outline-none placeholder:text-[#717182] focus:ring-2 focus:ring-[#155dfc]"
                                 placeholder="Enter your password"
                                 style={{ fontFamily: "Arimo, sans-serif" }}
                                 required
@@ -137,7 +137,7 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
                             <button
                                 type="button"
                                 onClick={() => setShowPassword((currentValue) => !currentValue)}
-                                className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-[#717182] transition-colors hover:bg-slate-100 hover:text-[#0a0a0a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
+                                className="absolute inset-y-0 right-1 my-auto flex size-9 items-center justify-center rounded-md text-[#717182] transition-colors hover:bg-slate-100 hover:text-[#0a0a0a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
                                 aria-label={showPassword ? "Hide password" : "Show password"}
                             >
                                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}

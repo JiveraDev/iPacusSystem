@@ -10,6 +10,8 @@ import { useNavigate } from '../dashboardRouter.jsx';
 import { createStockReceipt, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -157,6 +159,7 @@ export default function StockInPage() {
   const [viewerImage, setViewerImage] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResponsibilityOpen, setIsResponsibilityOpen] = useState(false);
 
   const loadStockInData = async ({ isAutoRefresh = false } = {}) => {
     if (!isAutoRefresh) {
@@ -270,10 +273,9 @@ export default function StockInPage() {
     setViewerImage(null);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     setErrorMessage('');
-    setIsSubmitting(true);
 
     try {
       const incompleteIndex = items.findIndex((item) => (
@@ -289,6 +291,20 @@ export default function StockInPage() {
         throw new Error(`Complete all required fields for Item #${incompleteIndex + 1}.`);
       }
 
+      setIsResponsibilityOpen(true);
+    } catch (error) {
+      const message = error.message || 'Please review the stock-in receipt.';
+      setErrorMessage(message);
+      toast.error(message);
+    }
+  };
+
+  const handleConfirmStockIn = async (confirmation) => {
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+
       const currentUser = getCurrentUser();
       let proofImagePath = '';
       if (receiptFile?.file) {
@@ -302,6 +318,7 @@ export default function StockInPage() {
         delivery_note_number: deliveryNote,
         proof_image_path: proofImagePath,
         notes,
+        ...confirmation,
         items: items.map((item) => {
           const selectedItem = inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(item.productId));
           return {
@@ -317,6 +334,7 @@ export default function StockInPage() {
         })
       });
       toast.success(`Stock-in recorded for ${items.length} item${items.length === 1 ? '' : 's'}.`);
+      setIsResponsibilityOpen(false);
       navigate('/dashboard/inventory');
     } catch (error) {
       const message = error.message || 'Failed to record stock in.';
@@ -342,25 +360,17 @@ export default function StockInPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/dashboard/inventory')}
-        >
-          <ArrowLeft className="size-4 mr-2" />
-          Back
-        </Button>
-        <div className="flex-1">
-          <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828]">
-            Stock In - Receive Inventory
-          </h2>
-          <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-            Record incoming inventory from supplier deliveries
-          </p>
-        </div>
-      </div>
+      <DashboardPageHeader
+        icon={Upload}
+        title="Stock In - Receive Inventory"
+        description="Record incoming inventory from supplier deliveries."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/inventory')} className="gap-2">
+            <ArrowLeft className="size-4" />
+            Back to inventory
+          </Button>
+        )}
+      />
 
       {errorMessage && (
         <div className="rounded-[10px] border border-[#fecdca] bg-[#fffbfa] p-4 font-['Arimo:Regular',sans-serif] text-[14px] text-[#b42318]">
@@ -480,7 +490,7 @@ export default function StockInPage() {
                     <Select
                       value={item.productId}
                       onValueChange={(value) => handleProductSelect(index, value)}
-                      searchPlaceholder="Search product, SKU, brand, or location"
+                      searchPlaceholder="Search product or SKU"
                       required
                     >
                       <SelectTrigger>
@@ -724,7 +734,7 @@ export default function StockInPage() {
               </Label>
               <Textarea
                 id="notes"
-                placeholder="Add any relevant notes about this delivery..."
+                      placeholder="Delivery notes"
                 rows={3}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
@@ -828,6 +838,22 @@ export default function StockInPage() {
         alt={viewerImage?.alt}
         open={!!viewerImage}
         onOpenChange={() => setViewerImage(null)}
+      />
+      <InventoryResponsibilityDialog
+        open={isResponsibilityOpen}
+        onOpenChange={setIsResponsibilityOpen}
+        title="Confirm Stock-In Receipt"
+        description="One password confirmation covers every product line in this receipt."
+        summary={[
+          { label: 'Products', value: `${items.length} line${items.length === 1 ? '' : 's'}` },
+          { label: 'Total received', value: `${totalQuantity} units` },
+          { label: 'Receiving date', value: receivingDate },
+          { label: 'Delivery note', value: deliveryNote || 'Not provided' },
+          { label: 'Locations', value: `${locationCount} location${locationCount === 1 ? '' : 's'}` }
+        ]}
+        confirmLabel="Record receipt"
+        isSubmitting={isSubmitting}
+        onConfirm={handleConfirmStockIn}
       />
     </div>
   );

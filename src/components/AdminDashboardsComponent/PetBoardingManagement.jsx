@@ -66,13 +66,15 @@ import {
 import { fetchBookings } from '../../services/bookingService';
 import { fetchAllPets } from '../../services/petService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
-import { deleteUpload, uploadDocumentFile, uploadFormData } from '../../services/uploadService';
+import { deleteUpload, uploadDocumentFile } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { assignedBranchId, isBranchSelectionLocked } from '../../lib/branchAccess.js';
 import { fetchConsentFiles } from '../../services/consentFileService.js';
 import { hasConsentContext, normalizeConsentTemplate } from '../../lib/consentAssignments.js';
 import { createAndUploadConsentDocumentPdf } from '../../services/consentDocumentPdf.js';
 import { consentDocumentPath, openProtectedDocument } from '../../hooks/useConsentDocumentSource.js';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 const FACILITY_LABELS = {
     boarding: 'Kennel Boarding',
@@ -114,6 +116,7 @@ const DOCUMENT_TYPE_LABELS = {
 };
 
 const emptyAddRoomForm = {
+    branchId: '',
     type: 'boarding',
     roomSize: 'small',
     quantity: '1',
@@ -329,7 +332,7 @@ function getPetName(pet) {
 }
 
 function getPetOwnerName(pet) {
-    const directName = pet?.ownerName || pet?.owner_name || pet?.owner || pet?.userName;
+    const directName = pet?.ownerName || pet?.owner_name || pet?.owner || pet?.userName || pet?.tempOwnerName || pet?.pet_Temp_owner;
 
     if (directName) {
         return String(directName).trim();
@@ -550,15 +553,6 @@ function buildPaymentPrefill(unit, materialLines = []) {
     };
 }
 
-function getUserName(user) {
-    const fullName = [
-        user?.firstName || user?.FirstName || user?.first_name,
-        user?.lastName || user?.LastName || user?.last_name
-    ].filter(Boolean).join(' ').trim();
-
-    return fullName || user?.name || user?.email || 'Staff';
-}
-
 function resolveFileUrl(path) {
     if (!path) return '';
     const value = String(path).trim();
@@ -673,7 +667,7 @@ function BoardingConsentCapture({
             <div className="space-y-2">
                 <Label>Boarding consent template *</Label>
                 <Select value={templateId} onValueChange={onTemplateIdChange} disabled={disabled || templates.length === 0}>
-                    <SelectTrigger><SelectValue placeholder="Select the assigned boarding consent" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select boarding consent" /></SelectTrigger>
                     <SelectContent>
                         {templates.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}
                     </SelectContent>
@@ -887,7 +881,6 @@ export default function PetBoardingManagement() {
     const branchSelectionLocked = isBranchSelectionLocked(dashboardUser);
     const documentFileInputRef = useRef(null);
     const materialMutationVersionRef = useRef(0);
-    const currentUserName = getUserName(dashboardUser);
     const [activeTab, setActiveTab] = useState('overview');
     const [facilityView, setFacilityView] = useState('boarding');
     const [units, setUnits] = useState([]);
@@ -1391,6 +1384,28 @@ export default function PetBoardingManagement() {
 
     const handleDocumentFileSelect = (event) => {
         const file = event.target.files?.[0] || null;
+        const allowedTypes = new Set([
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'application/pdf'
+        ]);
+        const allowedExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf']);
+        const extension = String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+
+        if (file && !allowedTypes.has(file.type) && !allowedExtensions.has(extension)) {
+            toast.error('Upload a JPG, PNG, GIF, WEBP, or PDF document.');
+            event.target.value = '';
+            return;
+        }
+
+        if (file && (file.size <= 0 || file.size > 8 * 1024 * 1024)) {
+            toast.error('Boarding documents must be larger than 0 bytes and no more than 8 MB.');
+            event.target.value = '';
+            return;
+        }
+
         setDocumentForm((current) => ({
             ...current,
             file,
@@ -1445,6 +1460,7 @@ export default function PetBoardingManagement() {
     const openAddRoom = () => {
         setAddRoomForm({
             ...emptyAddRoomForm,
+            branchId: String(branchId || ''),
             type: facilityView
         });
         setIsAddRoomOpen(true);
@@ -1675,15 +1691,21 @@ export default function PetBoardingManagement() {
 
     const addRoom = async () => {
         const quantity = Number(addRoomForm.quantity);
-        if (!Number.isFinite(quantity) || quantity <= 0) {
+        const targetBranchId = String(addRoomForm.branchId || branchId || '');
+        const targetBranch = branches.find(branch => String(branch.id) === targetBranchId);
+        if (!targetBranchId || !targetBranch) {
+            toast.error('Select the clinic location that will receive these rooms.');
+            return;
+        }
+        if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100) {
             toast.error('Enter a valid room quantity.');
             return;
         }
 
         setActionLoading('add-room');
         try {
-            await createBoardingRooms({
-                branch_id: Number(branchId),
+            const result = await createBoardingRooms({
+                branch_id: Number(targetBranchId),
                 room_type: `${addRoomForm.type}-${addRoomForm.roomSize}`,
                 hotel_boarding_type: addRoomForm.type,
                 room_size: addRoomForm.roomSize,
@@ -1691,14 +1713,16 @@ export default function PetBoardingManagement() {
                 description: addRoomForm.description
             });
 
-            toast.success('Room capacity updated.');
+            toast.success(`${quantity} ${quantity === 1 ? 'room' : 'rooms'} added to ${targetBranch.name}. Total capacity: ${result.totalCapacity}.`);
+            setBranchId(targetBranchId);
             setFacilityView(addRoomForm.type);
             setIsAddRoomOpen(false);
-            setAddRoomForm(emptyAddRoomForm);
-            fetchBoardingData();
+            setAddRoomForm({ ...emptyAddRoomForm });
+            const refreshedRooms = await fetchBoardingRooms({ branch_id: targetBranchId });
+            setUnits(Array.isArray(refreshedRooms.units) ? refreshedRooms.units : []);
         } catch (error) {
             console.error('Failed to add a boarding room:', error);
-            toast.error('The room could not be added. Review the details and try again.');
+            toast.error(error.message || 'The room could not be added. Review the details and try again.');
         } finally {
             setActionLoading('');
         }
@@ -1872,6 +1896,11 @@ export default function PetBoardingManagement() {
     };
 
     const addMaterialUsage = async () => {
+        if (materialSchemaReady !== true || materialBillingTraceReady !== true) {
+            toast.error(materialSyncMessage || 'Boarding materials are temporarily unavailable. Refresh the page or contact support.');
+            return;
+        }
+
         if (!materialForm.assignmentId || !materialForm.inventoryId) {
             toast.error('Select a pet room and inventory item.');
             return;
@@ -1905,38 +1934,18 @@ export default function PetBoardingManagement() {
         if (!materialForm.clientReference) {
             setMaterialForm((current) => ({ ...current, clientReference }));
         }
-        const line = {
-            id: clientReference,
-            clientReference,
-            assignmentId: materialForm.assignmentId,
-            bookingId: selectedAssignment?.assignment?.bookingId || null,
-            petName: selectedAssignment?.assignment?.petName || 'Pet',
-            roomLabel: selectedAssignment?.unit?.roomLabel || '',
-            inventoryId: item.id,
-            itemId: item.itemId,
-            itemName: item.name,
-            category: item.category,
-            quantity,
-            unit: item.unit,
-            unitPrice,
-            notes: materialForm.notes.trim(),
-            createdAt: new Date().toISOString(),
-            createdByName: currentUserName
-        };
-
         setActionLoading('material');
         materialMutationVersionRef.current += 1;
         try {
-            const savedLine = materialSchemaReady === true
-                ? (await createBoardingMaterial({
-                    assignment_id: Number(materialForm.assignmentId),
-                    item_id: item.itemId,
-                    quantity,
-                    unit_price: unitPrice,
-                    notes: materialForm.notes.trim() || null,
-                    client_reference: clientReference
-                })).material
-                : line;
+            const savedLine = (await createBoardingMaterial({
+                assignment_id: Number(materialForm.assignmentId),
+                pet_id: selectedAssignment?.assignment?.petId || null,
+                item_id: item.itemId,
+                quantity,
+                unit_price: unitPrice,
+                notes: materialForm.notes.trim() || null,
+                client_reference: clientReference
+            })).material;
 
             if (!savedLine) {
                 throw new Error('The boarding material could not be saved.');
@@ -1960,9 +1969,10 @@ export default function PetBoardingManagement() {
             toast.success('Boarding material added to checkout.');
             setIsMaterialOpen(false);
             setMaterialForm(emptyMaterialForm);
+            fetchBoardingData();
         } catch (error) {
             console.error('Failed to save a boarding material:', error);
-            toast.error('The material entry could not be saved. Review it and try again.');
+            toast.error(error?.message || 'The material entry could not be saved. Review it and try again.');
         } finally {
             setActionLoading('');
         }
@@ -2088,21 +2098,22 @@ export default function PetBoardingManagement() {
 
         setActionLoading('boarding-document');
         try {
-            const uploadData = new FormData();
-            uploadData.append('image', documentForm.file);
-            uploadData.append('type', 'boarding_document');
+            const documentPath = await uploadDocumentFile(documentForm.file, 'boarding_document');
 
-            const uploadResult = await uploadFormData(uploadData);
+            if (!documentPath) {
+                throw new Error('The document upload completed without a usable file path.');
+            }
 
             await createBoardingDocument({
                 assignment_id: selectedDocumentSubject.assignmentId || null,
                 booking_id: selectedDocumentSubject.bookingId,
+                pet_id: selectedDocumentSubject.petId || null,
                 document_type: documentForm.documentType,
-                title: documentForm.title,
-                document_path: uploadResult.relative_url || uploadResult.url,
+                title: documentForm.title.trim(),
+                document_path: documentPath,
                 file_name: documentForm.file.name,
                 mime_type: documentForm.file.type,
-                notes: documentForm.notes
+                notes: documentForm.notes.trim() || null
             });
 
             toast.success('Boarding document attached.');
@@ -2111,7 +2122,7 @@ export default function PetBoardingManagement() {
             fetchBoardingData();
         } catch (error) {
             console.error('Failed to save a boarding document:', error);
-            toast.error('The document could not be attached. Please try again.');
+            toast.error(error?.message || 'The document could not be attached. Please try again.');
         } finally {
             setActionLoading('');
         }
@@ -2477,61 +2488,55 @@ export default function PetBoardingManagement() {
 
     return (
         <div className="space-y-6">
-            <section className={`overflow-hidden rounded-lg border border-l-4 border-slate-200 bg-white shadow-sm ${currentFacilityMeta.accent}`}>
-                <div className="p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <span className={`flex size-12 shrink-0 items-center justify-center rounded-lg ${currentFacilityMeta.surface} ${currentFacilityMeta.text}`}>
-                                <CurrentFacilityIcon className="size-6" />
-                            </span>
-                            <div className="min-w-0">
-                                <h2 className="font-['Arimo:Bold',sans-serif] text-[24px] font-bold text-[#101828]">
-                                    Pet Hotel & Kennel Boarding Management
-                                </h2>
-                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    <Badge className={`${currentFacilityMeta.surface} ${currentFacilityMeta.text}`}>
-                                        {FACILITY_LABELS[facilityView]}
-                                    </Badge>
-                                    <Badge className="bg-slate-100 text-slate-700">
-                                        {stats.total} units
-                                    </Badge>
-                                    {stats.overdue > 0 && (
-                                        <Badge className="bg-red-50 text-red-700">
-                                            {stats.overdue} missed task{stats.overdue === 1 ? '' : 's'}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                            <div className="min-w-64">
-                                {branchSelectionLocked ? (
-                                    <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                                        <Building2 className="size-4 text-slate-500" />
-                                        {getBranchDisplayName(branches, branchId, 'Assigned clinic location')}
-                                    </div>
-                                ) : (
-                                    <Select value={branchId} onValueChange={setBranchId}>
-                                        <SelectTrigger aria-label="Boarding clinic location">
-                                            <Building2 className="mr-2 size-4 text-slate-500" />
-                                            <SelectValue
-                                                placeholder="Select clinic location"
-                                                displayValue={getBranchDisplayName(branches, branchId)}
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {branches.map(branch => (
-                                                <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            {renderFacilityToggle()}
-                        </div>
+            <DashboardPageHeader
+                icon={CurrentFacilityIcon}
+                title="Pet Hotel & Kennel Boarding Management"
+                description="Manage kennel and hotel units, active stays, daily care, and boarding availability."
+                petHover
+                petKind="dog"
+                petAccent="mint"
+                meta={(
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={`${currentFacilityMeta.surface} ${currentFacilityMeta.text}`}>
+                            {FACILITY_LABELS[facilityView]}
+                        </Badge>
+                        <Badge className="border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            {stats.total} units
+                        </Badge>
+                        {stats.overdue > 0 && (
+                            <Badge className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
+                                {stats.overdue} missed task{stats.overdue === 1 ? '' : 's'}
+                            </Badge>
+                        )}
                     </div>
-                </div>
-            </section>
+                )}
+                layout="stacked"
+                toolbar={(
+                    <div className="grid gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
+                        <div className="min-w-0 lg:max-w-md">
+                            {branchSelectionLocked ? (
+                                <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                    <Building2 className="size-4 shrink-0 text-slate-500" />
+                                    <span className="truncate">{getBranchDisplayName(branches, branchId, 'Assigned clinic location')}</span>
+                                </div>
+                            ) : (
+                                <Select value={branchId} onValueChange={setBranchId}>
+                                    <SelectTrigger aria-label="Boarding clinic location">
+                                        <Building2 className="mr-2 size-4 text-slate-500" />
+                                        <SelectValue placeholder="Select clinic location" displayValue={getBranchDisplayName(branches, branchId)} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {branches.map(branch => (
+                                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        </div>
+                        <div className="flex justify-end">{renderFacilityToggle()}</div>
+                    </div>
+                )}
+            />
 
             {schemaMessage && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -2786,7 +2791,7 @@ export default function PetBoardingManagement() {
                                         <Input
                                             value={searchQuery}
                                             onChange={(event) => setSearchQuery(event.target.value)}
-                                            placeholder="Search room, pet, owner, booking..."
+                                            placeholder="Search room or booking"
                                             leftIcon={<Search className="size-4" />}
                                         />
                                     </div>
@@ -2843,7 +2848,7 @@ export default function PetBoardingManagement() {
                                     <ClipboardList className="size-4" />
                                     Add Observation
                                 </Button>
-                                <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0}>
+                                <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0 || materialSchemaReady !== true || materialBillingTraceReady !== true}>
                                     <Package className="size-4" />
                                     Add Material
                                 </Button>
@@ -2979,7 +2984,7 @@ export default function PetBoardingManagement() {
                                 <h4 className="font-black text-[#101828]">Materials Used</h4>
                                 <p className="text-sm font-semibold text-slate-500">Inventory items recorded during monitoring and added to checkout payment.</p>
                             </div>
-                            <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0}>
+                            <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0 || materialSchemaReady !== true || materialBillingTraceReady !== true}>
                                 <Package className="size-4" />
                                 Add Material
                             </Button>
@@ -3137,7 +3142,7 @@ export default function PetBoardingManagement() {
                                                 <CalendarClock className="size-4" />
                                                 Schedule Task
                                             </Button>
-                                            <Button variant="outline" size="sm" onClick={() => openMaterialUsage(selectedUnit)} disabled={activeInventoryItems.length === 0}>
+                                            <Button variant="outline" size="sm" onClick={() => openMaterialUsage(selectedUnit)} disabled={activeInventoryItems.length === 0 || materialSchemaReady !== true || materialBillingTraceReady !== true}>
                                                 <Package className="size-4" />
                                                 Add Material
                                             </Button>
@@ -3374,6 +3379,30 @@ export default function PetBoardingManagement() {
                         <DialogDescription>Increase capacity for a pet hotel room or kennel boarding category.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label>Clinic Location</Label>
+                            <Select
+                                value={String(addRoomForm.branchId || '')}
+                                onValueChange={(value) => {
+                                    setAddRoomForm(current => ({ ...current, branchId: value }));
+                                    setBranchId(value);
+                                }}
+                            >
+                                <SelectTrigger aria-label="Room clinic location">
+                                    <Building2 className="mr-2 size-4 text-slate-500" />
+                                    <SelectValue
+                                        placeholder="Select clinic location"
+                                        displayValue={getBranchDisplayName(branches, addRoomForm.branchId)}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {branches.map(branch => (
+                                        <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-slate-500">Rooms are added only to this location.</p>
+                        </div>
                         <FieldSelect
                             label="Facility"
                             value={addRoomForm.type}
@@ -3641,7 +3670,7 @@ export default function PetBoardingManagement() {
                             <Textarea
                                 value={directCheckInForm.notes}
                                 onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, notes: event.target.value })}
-                                placeholder="Diet, medication, handling notes..."
+                                placeholder="Care notes"
                                 rows={3}
                             />
                         </div>
@@ -3832,13 +3861,13 @@ export default function PetBoardingManagement() {
                                 value={materialForm.notes}
                                 onChange={(event) => setMaterialForm({ ...materialForm, notes: event.target.value })}
                                 rows={3}
-                                placeholder="Example: Extra food, shampoo, dressing material..."
+                                placeholder="e.g., Extra food"
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsMaterialOpen(false)}>Cancel</Button>
-                        <Button onClick={addMaterialUsage} disabled={actionLoading === 'material'} className="bg-[#155dfc]">
+                        <Button onClick={addMaterialUsage} disabled={actionLoading === 'material' || materialSchemaReady !== true || materialBillingTraceReady !== true} className="bg-[#155dfc]">
                             {actionLoading === 'material' ? <Loader2 className="size-4 animate-spin" /> : <Package className="size-4" />}
                             Add Material
                         </Button>
@@ -3890,6 +3919,7 @@ export default function PetBoardingManagement() {
                                 value={documentForm.title}
                                 onChange={(event) => setDocumentForm({ ...documentForm, title: event.target.value })}
                                 placeholder="Example: Daily monitoring sheet"
+                                maxLength={180}
                             />
                         </div>
 
@@ -3902,7 +3932,7 @@ export default function PetBoardingManagement() {
                             >
                                 <Upload className="mb-3 size-9 text-slate-500" />
                                 <span className="font-bold text-slate-900">{documentForm.fileName || 'Choose file'}</span>
-                                <span className="mt-1 text-sm font-medium text-slate-500">Image, PDF, Word, or Excel</span>
+                                <span className="mt-1 text-sm font-medium text-slate-500">JPG, PNG, GIF, WEBP, or PDF up to 8 MB</span>
                             </button>
                         </div>
 
@@ -3912,7 +3942,7 @@ export default function PetBoardingManagement() {
                                 value={documentForm.notes}
                                 onChange={(event) => setDocumentForm({ ...documentForm, notes: event.target.value })}
                                 rows={3}
-                                placeholder="Optional context for this document"
+                                placeholder="Document notes"
                             />
                         </div>
                     </div>
@@ -3941,18 +3971,30 @@ export default function PetBoardingManagement() {
                     <div className="min-h-[55vh] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                         {previewDocumentIsImage && previewDocumentUrl ? (
                             <div className="flex h-[65vh] items-center justify-center p-3">
-                                <img
+                                <ProtectedImage
                                     src={previewDocumentUrl}
                                     alt={previewDocument?.title || 'Boarding document preview'}
                                     className="max-h-full max-w-full object-contain"
+                                    fallbackClassName="h-full w-full"
                                 />
                             </div>
                         ) : previewDocumentIsPdf && previewDocumentUrl ? (
-                            <iframe
-                                title={previewDocument?.title || 'Boarding document preview'}
-                                src={previewDocumentUrl}
-                                className="h-[65vh] w-full bg-white"
-                            />
+                            <div className="flex h-[55vh] flex-col items-center justify-center p-6 text-center">
+                                <FileText className="mb-3 size-12 text-blue-500" />
+                                <p className="font-black text-slate-900">{previewDocument?.fileName || previewDocument?.title || 'Boarding document'}</p>
+                                <p className="mt-2 max-w-md text-sm font-semibold text-slate-500">Open the protected PDF in a new tab to review it.</p>
+                                <Button
+                                    type="button"
+                                    className="mt-4 bg-[#155dfc] hover:bg-[#0d4acf]"
+                                    onClick={() => openProtectedDocument(previewDocumentUrl).catch((error) => {
+                                        console.error('Failed to open boarding document:', error);
+                                        toast.error(error?.message || 'The boarding document could not be opened.');
+                                    })}
+                                >
+                                    <Eye className="size-4" />
+                                    Open Document
+                                </Button>
+                            </div>
                         ) : (
                             <div className="flex h-[55vh] flex-col items-center justify-center p-6 text-center">
                                 <FileText className="mb-3 size-12 text-slate-300" />
@@ -3961,13 +4003,17 @@ export default function PetBoardingManagement() {
                                     This file type cannot be rendered inline. Download it to view the full document.
                                 </p>
                                 {previewDocumentUrl && (
-                                    <a
-                                        href={previewDocumentUrl}
-                                        download
-                                        className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-[#155dfc] px-4 text-sm font-bold text-white hover:bg-[#0d4acf]"
+                                    <Button
+                                        type="button"
+                                        className="mt-4 bg-[#155dfc] hover:bg-[#0d4acf]"
+                                        onClick={() => openProtectedDocument(previewDocumentUrl).catch((error) => {
+                                            console.error('Failed to open boarding document:', error);
+                                            toast.error(error?.message || 'The boarding document could not be opened.');
+                                        })}
                                     >
-                                        Download Document
-                                    </a>
+                                        <Eye className="size-4" />
+                                        Open Document
+                                    </Button>
                                 )}
                             </div>
                         )}
@@ -4083,7 +4129,7 @@ function SearchablePetField({ value, pets = [], onChange }) {
                     onChange={handleQueryChange}
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Search pet name, species, owner, or ID..."
+                    placeholder="Search pet or owner"
                     leftIcon={<Search className="size-4" />}
                     role="combobox"
                     aria-expanded={isOpen}

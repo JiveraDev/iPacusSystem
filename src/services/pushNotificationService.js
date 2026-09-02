@@ -2,10 +2,14 @@ import { getApiUrl, getStoredAuthToken } from './apiClient';
 import { getPwaServiceWorkerUrl, isPwaActivated } from '../pwa/pwaConfig';
 import {
     disableNotificationPushSubscription,
+    fetchNotificationPreferences,
     fetchNotificationPushPublicKey,
     fetchNotificationPushStatus,
+    saveNotificationPreferences,
     saveNotificationPushSubscription
 } from './notificationService';
+
+export const BROWSER_PUSH_SETTING_CHANGED_EVENT = 'ipawcus:browser-push-setting-change';
 
 function browserPushAvailable() {
     return typeof window !== 'undefined'
@@ -17,6 +21,11 @@ function browserPushAvailable() {
 
 function logPushError(message, error) {
     console.error(`[iPawcus push] ${message}`, error);
+}
+
+function notifyBrowserPushSettingChanged(detail) {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(BROWSER_PUSH_SETTING_CHANGED_EVENT, { detail }));
 }
 
 function serviceWorkerDiagnostics(registration) {
@@ -270,4 +279,55 @@ export async function disableBrowserPush(userId) {
     }
 
     return getBrowserPushState(userId);
+}
+
+export async function setBrowserPushEnabledForAccount(userId, enabled, currentPreferences = null) {
+    if (!userId) {
+        throw new Error('Session error. Please log in again.');
+    }
+
+    const preferences = currentPreferences || (await fetchNotificationPreferences(userId)).preferences || {};
+    const nextPreferences = {
+        ...preferences,
+        browser_push_enabled: Boolean(enabled)
+    };
+
+    if (enabled) {
+        const browserState = await enableBrowserPush(userId);
+
+        try {
+            const saved = await saveNotificationPreferences(userId, nextPreferences);
+            const result = {
+                browserState: { ...browserState, accountEnabled: true },
+                preferences: saved.preferences || nextPreferences
+            };
+            notifyBrowserPushSettingChanged(result);
+            return result;
+        } catch (error) {
+            await disableBrowserPush(userId).catch((rollbackError) => {
+                logPushError('Browser push rollback failed after preference save failure.', rollbackError);
+            });
+            throw error;
+        }
+    }
+
+    const saved = await saveNotificationPreferences(userId, nextPreferences);
+    let browserState;
+    try {
+        browserState = await disableBrowserPush(userId);
+    } catch (error) {
+        // The persisted account preference is authoritative, so delivery is
+        // off even if this browser could not finish local subscription cleanup.
+        logPushError('Browser subscription cleanup failed after push was disabled for the account.', error);
+        browserState = await getBrowserPushState(userId).catch(() => ({
+            supported: browserPushAvailable(),
+            permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+        }));
+    }
+    const result = {
+        browserState: { ...browserState, accountEnabled: false, enabled: false },
+        preferences: saved.preferences || nextPreferences
+    };
+    notifyBrowserPushSettingChanged(result);
+    return result;
 }

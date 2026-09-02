@@ -20,13 +20,16 @@ import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumen
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { paymentMethodInstruction, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
 import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/consentAssignments";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import ProtectedImage from "../shared/ProtectedImage";
 import { homeServicePriceById } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
-import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
+import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import ConsentTemplateText from "../shared/ConsentTemplateText.jsx";
 
 const HOME_SERVICE_TRANSPORT_FEE = 50;
 
@@ -126,22 +129,22 @@ export default function HomeServiceConfirmation() {
       toast.error("No home service consent form is assigned. Please contact the clinic.");
       return;
     }
-    if (!signature) {
-      toast.error("Please provide your signature.");
-      return;
-    }
-    if (!paymentFormData.paymentMethod) {
-      toast.error("Please select a payment method.");
-      return;
-    }
+    const validationErrors = [];
+    if (!signature) validationErrors.push({ fieldId: 'home-signature', label: 'Digital signature', type: 'missing', message: 'Provide your digital signature.' });
+    if (!paymentFormData.paymentMethod) validationErrors.push({ fieldId: 'home-payment-method', label: 'Payment method', type: 'selection', message: 'Select a payment method.' });
     if (!paymentFormData.referenceNumber.trim()) {
-      toast.error("Please enter the payment transaction reference.");
-      return;
+      validationErrors.push({ fieldId: 'home-payment-reference', label: 'Transaction number', type: 'missing', message: 'Enter the 18-digit payment transaction number.' });
+    } else if (!isValidTransactionNumber(paymentFormData.referenceNumber)) {
+      validationErrors.push({ fieldId: 'home-payment-reference', label: 'Transaction number', type: 'invalid', message: TRANSACTION_NUMBER_MESSAGE });
     }
     if (!paymentFormData.receiptFile) {
-      toast.error("Please upload proof of payment.");
-      return;
+      validationErrors.push({ fieldId: 'homeServiceReceipt', label: 'Payment proof', type: 'upload', message: 'Upload the payment receipt or screenshot.' });
+    } else if (Number(paymentFormData.receiptFile.size || 0) > 8 * 1024 * 1024) {
+      validationErrors.push({ fieldId: 'homeServiceReceipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be 8 MB or smaller.' });
+    } else if (!(String(paymentFormData.receiptFile.type || '').startsWith('image/') || paymentFormData.receiptFile.type === 'application/pdf')) {
+      validationErrors.push({ fieldId: 'homeServiceReceipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be an image or PDF file.' });
     }
+    if (reportBookingFormErrors(validationErrors)) return;
 
     setIsSubmitting(true);
     try {
@@ -224,7 +227,10 @@ export default function HomeServiceConfirmation() {
       navigate("/dashboard/services"); 
     } catch (error) {
       console.error("Submission error:", error);
-      toast.error(error.message || "An error occurred during submission");
+      reportBookingSubmissionError(error, {
+        transaction: 'home-payment-reference',
+        upload: 'homeServiceReceipt',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -250,28 +256,24 @@ export default function HomeServiceConfirmation() {
     previewUser.firstName || previewUser.first_Name || previewUser.first_name,
     previewUser.lastName || previewUser.last_Name || previewUser.last_name
   ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
-  const consentPreviewContent = homeServiceConsentTemplate
-    ? resolveConsentTemplate(homeServiceConsentTemplate.content, {
-        ownerName: previewOwnerName,
-        ownerAddress: previewUser.personal_Address || previewUser.address || booking.address || '',
-        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
-        petName: booking.new_pet_name || booking.petName,
-        petSpecies: booking.petType || booking.petSpecies,
-        petBreed: booking.new_pet_breed || booking.petBreed,
-        serviceName: 'Home Service',
-        branchName: 'Vetfocus Care Animal Clinic'
-      }, { preview: true })
-    : '';
+  const consentPreviewContext = {
+    ownerName: previewOwnerName,
+    ownerAddress: previewUser.personal_Address || previewUser.address || booking.address || '',
+    ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+    petName: booking.new_pet_name || booking.petName,
+    petSpecies: booking.petType || booking.petSpecies,
+    petBreed: booking.new_pet_breed || booking.petBreed,
+    serviceName: 'Home Service',
+    branchName: 'Vetfocus Care Animal Clinic'
+  };
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-10">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-          <FileText className="h-10 w-10 text-blue-600" />
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900">Review Your Request</h1>
-        <p className="text-gray-500">Please verify details, sign, and review the home-service pricing projection</p>
-      </div>
+      <DashboardPageHeader
+        icon={FileText}
+        title="Review Your Request"
+        description="Verify the details, sign the consent, and review the home-service pricing projection."
+      />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
@@ -342,12 +344,15 @@ export default function HomeServiceConfirmation() {
                             </span>
                         )}
                     </div>
-                    <p className="max-h-52 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                        {consentPreviewContent || "An admin must assign a home service consent form in Consent Management before this booking can be submitted."}
-                    </p>
+                    <ConsentTemplateText
+                        content={homeServiceConsentTemplate?.content}
+                        context={consentPreviewContext}
+                        fallback="An admin must assign a home service consent form in Consent Management before this booking can be submitted."
+                        className="max-h-52 overflow-y-auto text-sm leading-6 text-gray-700"
+                    />
                 </div>
 
-                <div className="space-y-3">
+                <div id="home-signature" tabIndex={-1} className="space-y-3 rounded-xl">
                     <Label className="font-semibold text-gray-900">Digital Signature *</Label>
                     <SignatureCapture 
                         signature={signature} 
@@ -371,7 +376,7 @@ export default function HomeServiceConfirmation() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleFinalSubmit} className="space-y-6">
+              <form onSubmit={handleFinalSubmit} noValidate className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -382,7 +387,7 @@ export default function HomeServiceConfirmation() {
                         disabled={isSubmitting || isLoadingPaymentMethods}
                         searchPlaceholder="Search payment method"
                       >
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger id="home-payment-method" className="bg-white">
                           <SelectValue placeholder={isLoadingPaymentMethods ? "Loading methods..." : "Select method"} displayValue={selectedMethod?.label} />
                         </SelectTrigger>
                         <SelectContent>
@@ -420,12 +425,16 @@ export default function HomeServiceConfirmation() {
                     <div className="space-y-2">
                       <Label>Reference Number *</Label>
                       <Input
-                        placeholder="Transaction ID"
-                        restriction="alphanumeric"
+                        id="home-payment-reference"
+                        placeholder="Enter exactly 18 digits"
+                        restriction="digits"
+                        inputMode="numeric"
+                        maxLength={TRANSACTION_NUMBER_LENGTH}
                         value={paymentFormData.referenceNumber}
-                        onChange={(e) => setPaymentFormData({ ...paymentFormData, referenceNumber: e.target.value })}
+                        onChange={(e) => setPaymentFormData({ ...paymentFormData, referenceNumber: normalizeTransactionNumber(e.target.value) })}
                         disabled={isSubmitting}
                       />
+                      <p className="text-xs text-gray-500">Enter the complete 18-digit transaction number shown on the receipt.</p>
                     </div>
                   </div>
 

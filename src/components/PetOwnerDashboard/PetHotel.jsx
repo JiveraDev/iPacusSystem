@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { ArrowLeft, Check, Home, Hotel, PawPrint } from "lucide-react";
+import { Check, Home, Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
@@ -20,8 +20,12 @@ import { normalizeConsentTemplate, pickConsentForContext } from "../../lib/conse
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
-import { resolveConsentTemplate } from "../../lib/consentTemplateCodes";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
+import { useBookingPriceProjections } from '../../hooks/useBookingPriceProjections';
+import { PetHotelContentEditor } from './ServiceContentEditor.jsx';
+import { reportBookingFormErrors, reportBookingSubmissionError } from '../../lib/bookingFormValidation';
+import ConsentTemplateText from '../shared/ConsentTemplateText.jsx';
 
 const ROOM_OPTIONS = {
   hotel: [
@@ -133,6 +137,9 @@ function getRoomPetLimit(size) {
 
 export default function PetHotel() {
   const navigate = useNavigate();
+  const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
+  const roomOptions = priceProjectionConfig.boardingRooms || ROOM_OPTIONS;
+  const addOnServices = priceProjectionConfig.boardingAddOns || ADD_ON_SERVICES;
   const availabilityPrefill = readBookingAvailabilitySelection('boarding');
   const prefilledRoomParts = String(availabilityPrefill?.roomType || '').split('-');
   const prefilledCheckOut = availabilityPrefill?.date
@@ -164,7 +171,7 @@ export default function PetHotel() {
     return days > 0 ? days : 0;
   }, [checkInDate, checkOutDate]);
 
-  const selectedRoom = ROOM_OPTIONS[serviceType].find((room) => room.id === roomSize);
+  const selectedRoom = roomOptions[serviceType].find((room) => room.id === roomSize);
   const selectedPetData = useMemo(() => {
     return selectedPets
       .map((petId) => pets.find((pet) => pet.id === petId))
@@ -181,23 +188,21 @@ export default function PetHotel() {
     previewUser.firstName || previewUser.first_Name || previewUser.first_name,
     previewUser.lastName || previewUser.last_Name || previewUser.last_name
   ].filter(Boolean).join(" ").trim() || previewUser.name || "Pet owner";
-  const boardingConsentPreview = boardingConsentTemplate
-    ? resolveConsentTemplate(boardingConsentTemplate.content, {
-        ownerName: previewOwnerName,
-        ownerAddress: previewUser.personal_Address || previewUser.address || '',
-        ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
-        petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
-        petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
-        petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
-        serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
-      }, { preview: true })
-    : '';
+  const boardingConsentPreviewContext = {
+    ownerName: previewOwnerName,
+    ownerAddress: previewUser.personal_Address || previewUser.address || '',
+    ownerPhone: previewUser.phoneNumber || previewUser.phone || '',
+    petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
+    petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
+    petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
+    serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+  };
 
   const selectedAddOnItems = useMemo(() => {
     return addOns
-      .map((addOnId) => ADD_ON_SERVICES.find((addOn) => addOn.id === addOnId))
+      .map((addOnId) => addOnServices.find((addOn) => addOn.id === addOnId))
       .filter(Boolean);
-  }, [addOns]);
+  }, [addOns, addOnServices]);
 
   const estimatedTotal = useMemo(() => {
     const roomTotal = selectedRoom && stayDuration > 0 ? selectedRoom.pricePerDay * stayDuration : 0;
@@ -383,69 +388,45 @@ export default function PetHotel() {
       return;
     }
 
-    if (selectedPets.length === 0) {
-      toast.error("Please select at least one pet.");
-      return;
-    }
-
-    if (selectedPetData.some((pet) => isPetDeceased(pet))) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
-      return;
-    }
-
+    const validationErrors = [];
+    if (!branchId) validationErrors.push({ fieldId: 'branch-boarding', label: 'Clinic location', type: 'selection', message: 'Select a clinic location.' });
+    if (!checkInDate) validationErrors.push({ fieldId: 'checkInDate', label: 'Check-in date', type: 'missing', message: 'Select a check-in date.' });
+    else if (checkInDate < today) validationErrors.push({ fieldId: 'checkInDate', label: 'Check-in date', type: 'range', message: 'Check-in date cannot be in the past.' });
+    if (!checkOutDate) validationErrors.push({ fieldId: 'checkOutDate', label: 'Check-out date', type: 'missing', message: 'Select a check-out date.' });
+    else if (checkInDate && checkOutDate <= checkInDate) validationErrors.push({ fieldId: 'checkOutDate', label: 'Check-out date', type: 'range', message: 'Check-out date must be after check-in date.' });
+    if (selectedPets.length === 0) validationErrors.push({ fieldId: 'boarding-pets', label: 'Pet', type: 'selection', message: 'Select at least one pet.' });
+    if (selectedPetData.some((pet) => isPetDeceased(pet))) validationErrors.push({ fieldId: 'boarding-pets', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE });
     const selectedSpeciesSet = new Set(selectedPetData.map((pet) => normalizeSpecies(pet.species)));
     if (selectedSpeciesSet.size > 1) {
-      toast.error("Please select pets of the same species only.");
-      return;
+      validationErrors.push({ fieldId: 'boarding-pets', label: 'Selected pets', type: 'invalid', message: 'Select pets of the same species only.' });
     }
 
     const selectedSpeciesName = selectedPetData[0] ? normalizeSpecies(selectedPetData[0].species) : "";
     const maxBySpecies = getSpeciesPetLimit(selectedSpeciesName);
-    if (selectedPets.length > maxBySpecies) {
-      toast.error(`Maximum ${maxBySpecies} ${getSpeciesLabel(selectedSpeciesName)} allowed.`);
-      return;
-    }
-
-    if (!roomSize) {
-      toast.error("Please select an available room or kennel.");
-      return;
-    }
+    if (selectedPets.length > maxBySpecies) validationErrors.push({ fieldId: 'boarding-pets', label: 'Selected pets', type: 'range', message: `Maximum ${maxBySpecies} ${getSpeciesLabel(selectedSpeciesName)} allowed.` });
+    if (!roomSize) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room or kennel', type: 'selection', message: 'Select an available room or kennel.' });
 
     const maxByRoom = getRoomPetLimit(roomSize);
-    if (selectedPets.length > maxByRoom) {
-      toast.error(`The selected room or kennel allows only ${maxByRoom} pet${maxByRoom === 1 ? "" : "s"}.`);
-      return;
-    }
-
-    if (stayDuration < 1) {
-      toast.error("Check-out date must be after check-in date.");
-      return;
-    }
+    if (roomSize && selectedPets.length > maxByRoom) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room capacity', type: 'range', message: `The selected room or kennel allows only ${maxByRoom} pet${maxByRoom === 1 ? "" : "s"}.` });
 
     const emergencyContactError = getPhilippinePhoneError(emergencyContact, {
       requiredMessage: "Please provide an emergency contact number."
     });
-    if (emergencyContactError) {
-      toast.error(emergencyContactError);
-      return;
-    }
-    const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(emergencyContact, { optional: true });
+    if (emergencyContactError) validationErrors.push({ fieldId: 'emergencyContact', label: 'Emergency contact', type: emergencyContact ? 'invalid' : 'missing', message: emergencyContactError });
 
     if (!boardingConsentTemplate) {
       toast.error("No boarding consent form is assigned. Please contact the clinic.");
       return;
     }
 
-    if (!boardingSignature) {
-      toast.error("Please sign the boarding liability consent before submitting.");
-      return;
-    }
+    if (!boardingSignature) validationErrors.push({ fieldId: 'boarding-signature', label: 'Owner signature', type: 'missing', message: 'Sign the boarding liability consent before submitting.' });
 
     const selectedAvailability = getAvailabilityForRoom(roomSize);
     if (selectedAvailability && !selectedAvailability.available) {
-      toast.error("The selected room or kennel is no longer available.");
-      return;
+      validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room or kennel', type: 'unavailable', message: 'The selected room or kennel is no longer available.' });
     }
+    if (reportBookingFormErrors(validationErrors)) return;
+    const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(emergencyContact, { optional: true });
 
     setIsSubmitting(true);
     try {
@@ -527,31 +508,37 @@ export default function PetHotel() {
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Failed to submit hotel booking:", error);
-      toast.error(error.message || "Failed to submit booking.");
+      reportBookingSubmissionError(error, {
+        branch: 'branch-boarding',
+        date: 'checkInDate',
+        pet: 'boarding-pets',
+        time: 'boarding-rooms',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-5xl space-y-6 lg:space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")} className="self-start">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Pet Hotel & Kennel Boarding</h1>
-          <p className="mt-1 text-sm text-gray-600">Rooms and kennels are checked against live availability.</p>
-        </div>
-      </div>
+    <ServicePageShell>
+      <ServicePageHeader
+        icon={Hotel}
+        title="Pet Hotel & Kennel Boarding"
+        description="Rooms and kennels are checked against live availability."
+        onBack={() => navigate("/dashboard/services")}
+      />
 
-      <Card>
+      <PetHotelContentEditor
+        config={priceProjectionConfig}
+        onSave={savePriceProjectionConfig}
+      />
+
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Booking Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-7">
+          <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-7">
             <div className="space-y-3">
               <Label>Service Type *</Label>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -633,7 +620,7 @@ export default function PetHotel() {
                   No registered pets found for this account.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div id="boarding-pets" tabIndex={-1} className="grid grid-cols-1 gap-3 rounded-xl sm:grid-cols-2 lg:grid-cols-3">
                   {pets.map((pet) => {
                     const isSelected = selectedPets.includes(pet.id);
                     const petSpecies = normalizeSpecies(pet.species);
@@ -688,8 +675,8 @@ export default function PetHotel() {
                 <Label>Select Room/Kennel Size *</Label>
                 {isLoadingAvailability && <span className="text-xs text-gray-500">Checking availability...</span>}
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {ROOM_OPTIONS[serviceType].map((room) => {
+              <div id="boarding-rooms" tabIndex={-1} className="grid gap-4 rounded-xl md:grid-cols-3">
+                {roomOptions[serviceType].map((room) => {
                   const availability = getAvailabilityForRoom(room.id);
                   const availableCount = availability?.available_count;
                   const isUnavailable = availability && !availability.available;
@@ -743,7 +730,7 @@ export default function PetHotel() {
             <div className="space-y-3">
               <Label>Add-ons</Label>
               <div className="grid gap-3 sm:grid-cols-2">
-                {ADD_ON_SERVICES.map((addOn) => {
+                {addOnServices.map((addOn) => {
                   const isSelected = addOns.includes(addOn.id);
 
                   return (
@@ -792,7 +779,7 @@ export default function PetHotel() {
                 id="specialRequests"
                 value={specialRequests}
                 onChange={(event) => setSpecialRequests(event.target.value)}
-                placeholder="Medication notes, feeding instructions, behavior concerns, or other care requests."
+                  placeholder="Care instructions"
               />
             </div>
 
@@ -824,12 +811,15 @@ export default function PetHotel() {
                     </span>
                   )}
                 </div>
-                <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-sm font-medium leading-6 text-gray-700">
-                  {boardingConsentPreview || "An admin must assign a boarding consent form in Consent Management before this booking can be submitted."}
-                </p>
+                <ConsentTemplateText
+                  content={boardingConsentTemplate?.content}
+                  context={boardingConsentPreviewContext}
+                  fallback="An admin must assign a boarding consent form in Consent Management before this booking can be submitted."
+                  className="max-h-56 overflow-y-auto text-sm font-medium leading-6 text-gray-700"
+                />
               </div>
 
-              <div className="space-y-2">
+              <div id="boarding-signature" tabIndex={-1} className="space-y-2 rounded-xl">
                 <Label>Owner Signature *</Label>
                 <SignatureCapture
                   signature={boardingSignature}
@@ -845,7 +835,7 @@ export default function PetHotel() {
               type="submit"
               className="w-full"
               size="lg"
-              disabled={isSubmitting || isLoadingPets || pets.length === 0 || !boardingConsentTemplate || !boardingSignature}
+              disabled={isSubmitting || isLoadingPets || pets.length === 0 || !boardingConsentTemplate}
             >
               {isSubmitting
                 ? "Submitting Booking..."
@@ -856,6 +846,6 @@ export default function PetHotel() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </ServicePageShell>
   );
 }

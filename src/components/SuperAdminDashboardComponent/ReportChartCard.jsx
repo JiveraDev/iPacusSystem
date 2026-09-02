@@ -27,7 +27,7 @@ ChartJS.register(
     Tooltip
 );
 
-const palette = ['#155dfc', '#0f9f6e', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#475569'];
+const palette = ['#155dfc', '#60a5fa', '#93c5fd', '#2563eb', '#7c3aed', '#0891b2', '#e9a23b', '#475569'];
 
 function lineGradient(context, color) {
     const { chart } = context;
@@ -179,14 +179,14 @@ export default function ReportChartCard({ title, summary, chart, compact = false
             }
         }
     };
-    const heightClass = compact ? 'h-56' : 'h-72';
+    const heightClass = compact ? 'h-64' : 'h-72';
     const chartType = chart?.type || 'bar';
     const hasData = hasChartData(chart);
     const ChartComponent = chartType === 'line' ? Line : (chartType === 'doughnut' || chartType === 'pie' ? Doughnut : Bar);
 
     return (
-        <Card className="h-full overflow-hidden border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 shadow-sm dark:border-slate-700 dark:bg-none dark:bg-slate-900">
-            <CardContent className="flex h-full flex-col gap-4 p-5">
+        <Card className="h-full overflow-hidden rounded-xl border-slate-200 bg-[radial-gradient(circle_at_100%_0%,rgba(147,197,253,0.16),transparent_30%),white] shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-none dark:bg-slate-900 dark:hover:border-blue-800">
+            <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
                 <div>
                     <h3 className="text-base font-black text-slate-950 dark:text-white">{title}</h3>
                     {summary ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-300">{summary}</p> : null}

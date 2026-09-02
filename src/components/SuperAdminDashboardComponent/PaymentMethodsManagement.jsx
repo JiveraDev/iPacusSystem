@@ -419,9 +419,12 @@ export default function PaymentMethodsManagement() {
             <DashboardPageHeader
                 title="Payment Methods"
                 description="Add and manage e-wallet and bank-transfer details used across owner payments, invoices, refunds, and reports."
+                petHover
+                petKind="parrot"
+                petAccent="mint"
                 layout="stacked"
-                actions={(
-                    <div className="flex flex-wrap gap-2">
+                toolbar={(
+                    <div className="flex w-full flex-wrap justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                         <Button
                             type="button"
                             variant="outline"
@@ -647,7 +650,7 @@ export default function PaymentMethodsManagement() {
                                 value={draft.accountName}
                                 onChange={(event) => updateDraft('accountName', event.target.value)}
                                 onBlur={(event) => updateDraft('accountName', normalizeInlineText(event.target.value))}
-                                placeholder="Name shown on the receiving account"
+                                placeholder="Receiving account name"
                                 autoComplete="name"
                                 autoCapitalize="words"
                                 maxLength={150}
@@ -697,7 +700,7 @@ export default function PaymentMethodsManagement() {
                                 onBlur={(event) => updateDraft('instructions', event.target.value.trim())}
                                 className="min-h-24"
                                 maxLength={1000}
-                                placeholder="Tell owners how to pay and what proof to upload."
+                                placeholder="Payment instructions"
                                 disabled={isSaving}
                             />
                         </div>

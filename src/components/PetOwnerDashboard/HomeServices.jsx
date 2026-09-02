@@ -10,30 +10,39 @@ import { Checkbox } from "../../ui/checkbox";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import { toast } from "../../reusecomponent/toast.jsx";
 import {
-  ArrowLeft, Bath, Bug, Scissors, Syringe, Heart, Stethoscope, Pill, Check,
+  Bath, Bug, Scissors, Syringe, Heart, Home, Stethoscope, Pill, Check,
   Upload, X, Image as ImageIcon, MapPin, Search, Loader2
 } from "lucide-react";
 import { searchAddresses } from "../../services/addressAutocomplete";
 import { useCurrentAddressLookup } from "../../hooks/useCurrentAddressLookup.js";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { fetchUserPets } from "../../services/petService";
-import { homeServicePriceById } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import AddressMapPreview from "../shared/AddressMapPreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
+import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
+import { HomeServicesContentEditor } from './ServiceContentEditor.jsx';
+import { reportBookingFormErrors, standardAppointmentBookingErrors } from '../../lib/bookingFormValidation';
+
+const HOME_SERVICE_CARD_META = {
+  "home-grooming": { selectionId: "grooming-full", icon: Scissors, includes: ["nail-trim"], order: 1 },
+  "nail-trimming": { selectionId: "nail-trim", icon: Scissors, isSubService: true, order: 2 },
+  "bath-blow-dry": { selectionId: "bathing", icon: Bath, order: 3 },
+  "home-visit-consultation": { selectionId: "general-checkup", icon: Stethoscope, includes: ["vaccination", "medication"], order: 4 },
+  vaccines: { selectionId: "vaccination", icon: Syringe, isSubService: true, order: 5 },
+  deworming: { selectionId: "deworming", icon: Bug, order: 6 },
+  "medication-administration": { selectionId: "medication", icon: Pill, isSubService: true, order: 7 },
+  "wound-care": { selectionId: "wound-care", icon: Heart, order: 8 },
+  "ear-cleaning": { selectionId: "ear-cleaning", icon: Stethoscope, order: 9 }
+};
 
 export default function HomeServices() {
   const navigate = useNavigate();
   const availabilityPrefill = readBookingAvailabilitySelection('home-service');
-  const { config: priceProjectionConfig } = useBookingPriceProjections();
-  const { instructions } = priceProjectionConfig;
-  const homeServicePrice = (id) => homeServicePriceById(priceProjectionConfig, id);
-  const homeServiceName = (id, fallback) => (
-    priceProjectionConfig.homeServices.find((item) => item.id === id)?.name || fallback
-  );
+  const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
   const [pets, setPets] = useState([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
@@ -72,85 +81,20 @@ export default function HomeServices() {
   const [newPetAge, setNewPetAge] = useState("");
   const [newPetWeight, setNewPetWeight] = useState("");
 
-  const homeServices = [
-    {
-      id: "grooming-full",
-      name: homeServiceName("home-grooming", "Home Grooming"),
-      description: "Bath, haircut, nail trim, ear cleaning",
-      price: homeServicePrice("home-grooming"),
-      icon: Scissors,
-      color: "text-blue-600",
-      includes: ["nail-trim"]
-    },
-    {
-      id: "nail-trim",
-      name: homeServiceName("nail-trimming", "Nail Trimming Add-on"),
-      description: "Nail care and filing",
-      price: homeServicePrice("nail-trimming"),
-      icon: Scissors,
-      color: "text-orange-600",
-      isSubService: true
-    },
-    {
-      id: "bathing",
-      name: homeServiceName("bath-blow-dry", "Bath and Blow-dry"),
-      description: "Bath with quality products",
-      price: homeServicePrice("bath-blow-dry"),
-      icon: Bath,
-      color: "text-cyan-600"
-    },
-    {
-      id: "general-checkup",
-      name: homeServiceName("home-visit-consultation", "Home Visit + Consultation"),
-      description: "Complete physical examination",
-      price: homeServicePrice("home-visit-consultation"),
-      icon: Stethoscope,
-      color: "text-purple-600",
-      includes: ["vaccination", "medication"]
-    },
-    {
-      id: "vaccination",
-      name: homeServiceName("vaccines", "Vaccines"),
-      description: "Core vaccines, rabies, and boosters",
-      price: homeServicePrice("vaccines"),
-      icon: Syringe,
-      color: "text-green-600",
-      isSubService: true
-    },
-    {
-      id: "deworming",
-      name: homeServiceName("deworming", "Deworming"),
-      description: "Parasite control by pet weight",
-      price: homeServicePrice("deworming"),
-      icon: Bug,
-      color: "text-amber-600"
-    },
-    {
-      id: "medication",
-      name: homeServiceName("medication-administration", "Medication Administration"),
-      description: "Medication delivery",
-      price: homeServicePrice("medication-administration"),
-      icon: Pill,
-      color: "text-red-600",
-      isSubService: true
-    },
-    {
-      id: "wound-care",
-      name: homeServiceName("wound-care", "Wound Care"),
-      description: "Cleaning and dressing of minor wounds",
-      price: homeServicePrice("wound-care"),
-      icon: Heart,
-      color: "text-pink-600"
-    },
-    {
-      id: "ear-cleaning",
-      name: homeServiceName("ear-cleaning", "Ear Cleaning Add-on"),
-      description: "Ear hygiene service",
-      price: homeServicePrice("ear-cleaning"),
-      icon: Stethoscope,
-      color: "text-indigo-600"
-    }
-  ];
+  const homeServices = priceProjectionConfig.homeServices
+    .filter((service) => service.id !== 'outside-lucena')
+    .map((service) => {
+      const meta = HOME_SERVICE_CARD_META[service.id] || {};
+      return {
+        ...service,
+        id: meta.selectionId || service.id,
+        icon: meta.icon || Home,
+        includes: meta.includes,
+        isSubService: meta.isSubService,
+        order: meta.order || 1000
+      };
+    })
+    .sort((left, right) => left.order - right.order);
 
   useEffect(() => {
     const fetchPets = async () => {
@@ -216,9 +160,19 @@ export default function HomeServices() {
     if (!files) return;
 
     const fileArray = Array.from(files);
+    if (uploadedImages.length + fileArray.length > 5) {
+      reportBookingFormErrors([{ fieldId: 'hsImageUpload', label: 'Pet photos', type: 'upload', message: 'Upload no more than 5 pet or concern photos.' }]);
+      e.target.value = "";
+      return;
+    }
+    if (fileArray.some((file) => Number(file.size || 0) > 8 * 1024 * 1024)) {
+      reportBookingFormErrors([{ fieldId: 'hsImageUpload', label: 'Pet photos', type: 'upload', message: 'Each photo must be 8 MB or smaller.' }]);
+      e.target.value = "";
+      return;
+    }
     fileArray.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`${file.name} is not a supported image.`);
+        reportBookingFormErrors([{ fieldId: 'hsImageUpload', label: 'Pet photos', type: 'upload', message: `${file.name} is not a supported image.` }]);
         return;
       }
 
@@ -263,41 +217,47 @@ export default function HomeServices() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedPet) {
-      toast.error("Please select a pet");
-      return;
+    const standardErrors = standardAppointmentBookingErrors({
+      formData: {
+        petId: selectedPet,
+        petName: newPetName,
+        newPetSpecies,
+        newPetBreed,
+        newPetAge,
+        newPetWeight,
+        date: preferredDate,
+        time: preferredTime,
+        files: [],
+      },
+      isNewPet,
+      today: clinicTodayDate(),
+      fieldIds: {
+        petName: 'home-new-pet-name',
+        species: 'home-new-pet-species',
+        breed: 'home-new-pet-breed',
+        age: 'home-new-pet-age',
+        weight: 'home-new-pet-weight',
+        date: 'home-service-date',
+        time: 'home-service-time',
+      },
+    });
+    const scheduleErrors = standardErrors.filter((error) => ['home-service-date', 'home-service-time'].includes(error.fieldId));
+    const validationErrors = standardErrors.filter((error) => !['home-service-date', 'home-service-time'].includes(error.fieldId));
+    if (selectedServices.length === 0) {
+      validationErrors.push({ fieldId: 'home-service-options', label: 'Home service', type: 'selection', message: 'Select at least one home service.' });
     }
-    
-    if (isNewPet) {
-      if (!newPetName || !newPetSpecies || !newPetBreed || !newPetAge) {
-        toast.error("Please fill in all required pet information");
-        return;
-      }
+    validationErrors.push(...scheduleErrors);
+    if (!address.trim()) {
+      validationErrors.push({ fieldId: 'home-service-address', label: 'Service address', type: 'missing', message: 'Enter the complete service address.' });
     }
+    if (reportBookingFormErrors(validationErrors)) return;
 
     const selectedRegisteredPet = !isNewPet
       ? pets.find(p => p.db_id?.toString() === selectedPet)
       : null;
 
     if (isPetDeceased(selectedRegisteredPet)) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
-      return;
-    }
-    
-    if (selectedServices.length === 0) {
-      toast.error("Please select at least one service");
-      return;
-    }
-    if (!preferredDate) {
-      toast.error("Please select a preferred date");
-      return;
-    }
-    if (!preferredTime) {
-      toast.error("Please select a preferred time");
-      return;
-    }
-    if (!address.trim()) {
-      toast.error("Please enter your service address");
+      reportBookingFormErrors([{ fieldId: 'petSelect', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
       return;
     }
 
@@ -340,21 +300,17 @@ export default function HomeServices() {
   };
 
   return (
-    <div className="w-full max-w-4xl min-w-0 space-y-6 pb-10 lg:space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")} className="self-start">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Home Service Request</h1>
-          <p className="text-gray-500">Provide details for your at-home veterinary service</p>
-        </div>
-      </div>
+    <ServicePageShell className="pb-10">
+      <ServicePageHeader
+        icon={Home}
+        title="Home Service Request"
+        description="Provide details for your at-home veterinary service"
+        onBack={() => navigate("/dashboard/services")}
+      />
 
-      <div className="grid min-w-0 gap-8 lg:grid-cols-3">
-        <div className="min-w-0 space-y-6 lg:col-span-2">
-          <Card>
+      <div className="grid min-w-0 items-start gap-6">
+        <div className="min-w-0 space-y-6">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-blue-600" />
@@ -403,9 +359,9 @@ export default function HomeServices() {
                 <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                   <h3 className="font-semibold text-blue-900 text-sm">New Pet Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input placeholder="Pet Name *" restriction="name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
+                    <Input id="home-new-pet-name" placeholder="Pet Name *" restriction="name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
                     <Select value={newPetSpecies} onValueChange={setNewPetSpecies}>
-                      <SelectTrigger><SelectValue placeholder="Species *" /></SelectTrigger>
+                      <SelectTrigger id="home-new-pet-species"><SelectValue placeholder="Species *" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Dog">Dog</SelectItem>
                         <SelectItem value="Cat">Cat</SelectItem>
@@ -413,9 +369,9 @@ export default function HomeServices() {
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Breed *" restriction="name" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
-                    <Input placeholder="Age *" restriction="integer" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
-                    <Input placeholder="Weight (Optional)" restriction="decimal" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
+                    <Input id="home-new-pet-breed" placeholder="Breed *" restriction="name" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
+                    <Input id="home-new-pet-age" placeholder="Age *" restriction="integer" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
+                    <Input id="home-new-pet-weight" placeholder="Weight (Optional)" restriction="decimal" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
                   </div>
                 </div>
               )}
@@ -423,30 +379,37 @@ export default function HomeServices() {
               {/* Service Grid */}
               <div className="space-y-3">
                 <Label>Select Services Needed *</Label>
-                <div className="responsive-grid gap-3">
+                <HomeServicesContentEditor
+                  config={priceProjectionConfig}
+                  onSave={savePriceProjectionConfig}
+                />
+                <div id="home-service-options" tabIndex={-1} className="grid items-stretch gap-3 rounded-xl sm:grid-cols-2">
                   {homeServices.map((service) => {
                     const Icon = service.icon;
                     const isSelected = selectedServices.includes(service.id);
                     return (
-                      <div
+                      <button
                         key={service.id}
+                        type="button"
                         onClick={() => toggleService(service.id)}
-                        className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                          isSelected ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                        className={`h-full w-full rounded-xl border p-4 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
+                          isSelected
+                            ? "border-blue-600 bg-blue-50 shadow-sm dark:border-blue-500 dark:bg-blue-950/40"
+                            : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? "bg-blue-600 text-white" : "bg-gray-100 " + service.color}`}>
+                          <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isSelected ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"}`}>
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm">{service.name}</h4>
-                            <p className="text-[10px] text-gray-500 truncate">{service.description}</p>
-                            <p className="text-xs font-bold text-blue-600 mt-1">{service.price}</p>
+                            <h4 className="text-sm font-bold text-slate-950 dark:text-white">{service.name}</h4>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{service.description}</p>
+                            <p className="mt-2 text-xs font-bold text-blue-700 dark:text-blue-300">{service.price}</p>
                           </div>
                           {isSelected && <Check className="h-4 w-4 text-blue-600" />}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -454,10 +417,10 @@ export default function HomeServices() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-red-600" />
+                <MapPin className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                 Service Location & Time
               </CardTitle>
             </CardHeader>
@@ -465,7 +428,7 @@ export default function HomeServices() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Preferred Date *</Label>
-                  <Input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
+                  <Input id="home-service-date" type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
                 </div>
                 <BookingTimeSlotField
                   id="home-service-time"
@@ -561,7 +524,7 @@ export default function HomeServices() {
                 <Label htmlFor="home-service-location-details">Specific Location Details (Optional)</Label>
                 <Input 
                   id="home-service-location-details"
-                  placeholder="e.g. Unit 402, Green Building, Near City Hall" 
+                  placeholder="e.g., Unit 402"
                   value={specificLocation} 
                   onChange={(e) => setSpecificLocation(e.target.value)}
                 />
@@ -569,10 +532,10 @@ export default function HomeServices() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <ImageIcon className="h-5 w-5 text-purple-600" />
+                <ImageIcon className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                 Photos & Additional Info
               </CardTitle>
             </CardHeader>
@@ -613,7 +576,7 @@ export default function HomeServices() {
               <div className="space-y-2">
                 <Label>Notes for the Veterinarian</Label>
                 <Textarea 
-                  placeholder="Any special instructions, pet temperament, or specific concerns..." 
+                  placeholder="Care instructions"
                   value={notes} 
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
@@ -623,43 +586,18 @@ export default function HomeServices() {
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6">
-          <Card className="lg:sticky lg:top-4">
+        <aside className="min-w-0">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg">Continue to Consent</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="pt-4 border-t space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{homeServiceName("home-visit-consultation", "Home Visit + Consultation")}</span>
-                  <span className="font-semibold">{homeServicePrice("home-visit-consultation")}</span>
-                </div>
-                <div className="flex justify-between gap-4 text-sm">
-                  <span className="text-gray-600">Outside Lucena</span>
-                  <span className="text-right font-semibold">{homeServicePrice("outside-lucena")}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Services</span>
-                  <span className="font-semibold">Varies</span>
-                </div>
-                {instructions.homeService && (
-                  <p className="rounded-lg bg-blue-50 p-3 text-xs font-medium text-blue-700">
-                    {instructions.homeService}
-                  </p>
-                )}
-                <div className="pt-2 border-t">
-                  <p className="text-[10px] text-amber-600 leading-tight">
-                    * Final total will be calculated based on the distance and specific services performed. Payment is collected after the visit.
-                  </p>
-                </div>
-              </div>
-
+            <CardContent>
               <Button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700 h-12" size="lg">
                 Continue to Consent & Signature
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </aside>
       </div>
 
       <PhotoViewer
@@ -668,7 +606,7 @@ export default function HomeServices() {
         alt="Home-service concern preview"
         onOpenChange={(open) => !open && setViewingImage(null)}
       />
-    </div>
+    </ServicePageShell>
   );
 }
 

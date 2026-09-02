@@ -6,8 +6,9 @@ import { Badge } from '../../ui/badge';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
+import { Checkbox } from '../../ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { UserCog, Mail, Award, Archive, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, RotateCcw, ShieldCheck, Pencil, Save, X, Search, RefreshCw } from 'lucide-react';
+import { UserCog, Mail, Award, Archive, CheckCircle, UserPlus, Key, Stethoscope, Briefcase, Calendar, Loader2, MapPin, Phone, RotateCcw, ShieldCheck, Pencil, Save, X, Search, RefreshCw, SlidersHorizontal, UsersRound } from 'lucide-react';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
@@ -18,6 +19,9 @@ import DashboardPageHeader from '../shared/DashboardPageHeader';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import PasswordRequirements from '../shared/PasswordRequirements.jsx';
 import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../../lib/passwordPolicy.js';
+import { formatRoleLabel } from '../../lib/roleLabel.js';
+import { ADMIN_FEATURE_GROUPS, defaultAdminFeaturePermissions, normalizeAdminFeaturePermissions } from '../../lib/adminFeatureAccess.js';
+import { fetchAdminFeatureAccess, saveAdminFeatureAccess } from '../../services/adminFeatureAccessService.js';
 
 const PERSONNEL_POSITION_OPTIONS = [
     { value: 'Nurse', label: 'Senior Nurse' },
@@ -39,16 +43,160 @@ const employmentStatusLabels = EMPLOYMENT_STATUS_OPTIONS.reduce((labels, option)
     [option.value]: option.label
 }), {});
 
+function displayValue(value, fallback = 'Not provided') {
+    const text = String(value ?? '').trim();
+    return text || fallback;
+}
+
+function parseHistory(value) {
+    if (!value) return [];
+    try {
+        const decoded = JSON.parse(value);
+        if (Array.isArray(decoded)) {
+            return decoded.map((entry) => {
+                if (typeof entry === 'string') return entry;
+                return [
+                    entry.title,
+                    entry.organization,
+                    entry.company,
+                    entry.description,
+                    entry.year || entry.years || entry.date
+                ].filter(Boolean).join(' - ');
+            }).filter(Boolean);
+        }
+    } catch {
+        return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    }
+    return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
+
+function ProfileField({ icon, label, value, accent = 'text-slate-950' }) {
+    return (
+        <div className="min-h-24 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    {createElement(icon, { className: 'size-4' })}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(value)}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function EditableProfileSelectField({
+    icon,
+    label,
+    value,
+    displayText,
+    options,
+    isEditing,
+    disabled,
+    onChange,
+    accent = 'text-slate-950',
+    allowCustom = false
+}) {
+    return (
+        <div className="min-h-24 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    {createElement(icon, { className: 'size-4' })}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+                    {isEditing ? (
+                        <Select
+                            value={value}
+                            onValueChange={onChange}
+                            disabled={disabled}
+                            allowCustom={allowCustom}
+                            onCreateOption={onChange}
+                            customOptionLabel={(option) => `Use "${option}"`}
+                        >
+                            <SelectTrigger className="mt-2 h-11 w-full bg-white dark:bg-slate-950">
+                                <SelectValue placeholder={`Select ${label.toLowerCase()}`} displayValue={displayText || value} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {options.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(displayText || value)}</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function EditableProfileInputField({ icon, label, value, displayText, isEditing, disabled, onChange, accent = 'text-slate-950' }) {
+    return (
+        <div className="min-h-24 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    {createElement(icon, { className: 'size-4' })}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+                    {isEditing ? (
+                        <Input
+                            value={value}
+                            onChange={(event) => onChange(event.target.value)}
+                            disabled={disabled}
+                            maxLength={250}
+                            className="mt-2 h-11 w-full bg-white dark:bg-slate-950"
+                        />
+                    ) : (
+                        <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(displayText || value)}</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function HistoryBlock({ title, value }) {
+    const rows = parseHistory(value);
+    return (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h5 className="text-sm font-black text-slate-950">{title}</h5>
+            {rows.length ? (
+                <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
+                    {rows.map((line, index) => <li key={`${title}-${index}`}>{line}</li>)}
+                </ul>
+            ) : (
+                <p className="mt-3 text-sm font-semibold text-slate-400">Not provided</p>
+            )}
+        </div>
+    );
+}
+
 export default function AccountManagement() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showCreateAccount, setShowCreateAccount] = useState(false);
+    const [showAccessControl, setShowAccessControl] = useState(false);
+    const [selectedAccessAdminId, setSelectedAccessAdminId] = useState('');
+    const [accessPermissions, setAccessPermissions] = useState(defaultAdminFeaturePermissions);
+    const [savedAccessPermissions, setSavedAccessPermissions] = useState(defaultAdminFeaturePermissions);
+    const [isLoadingAccess, setIsLoadingAccess] = useState(false);
+    const [isSavingAccess, setIsSavingAccess] = useState(false);
     const [pendingStatusAction, setPendingStatusAction] = useState(null);
     const [pendingDeleteAction, setPendingDeleteAction] = useState(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
-    const [personnelForm, setPersonnelForm] = useState({ position: '', employmentStatus: 'full-time', branchId: '' });
+    const [personnelForm, setPersonnelForm] = useState({
+        position: '',
+        employmentStatus: 'full-time',
+        branchId: '',
+        specialization: '',
+        licenseNumber: ''
+    });
     const [deleteForm, setDeleteForm] = useState({ masterKey: '', reason: '' });
     const [isSavingPersonnel, setIsSavingPersonnel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -121,6 +269,71 @@ export default function AccountManagement() {
 
     useAutoRefresh(fetchAccounts);
 
+    useEffect(() => {
+        if (!showAccessControl || !selectedAccessAdminId) return undefined;
+
+        let isCancelled = false;
+        setIsLoadingAccess(true);
+        fetchAdminFeatureAccess(selectedAccessAdminId)
+            .then((response) => {
+                if (isCancelled) return;
+                const nextPermissions = normalizeAdminFeaturePermissions(response?.permissions);
+                setAccessPermissions(nextPermissions);
+                setSavedAccessPermissions(nextPermissions);
+            })
+            .catch((error) => {
+                if (isCancelled) return;
+                console.error('Failed to load Admin feature access:', error);
+                toast.error(error?.message || 'Admin feature access could not be loaded.');
+            })
+            .finally(() => {
+                if (!isCancelled) setIsLoadingAccess(false);
+            });
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [selectedAccessAdminId, showAccessControl]);
+
+    const openAccessControl = (account = null) => {
+        const requestedId = account?.type === 'staff' ? String(account.user_id) : '';
+        const firstAdminId = requestedId || String(accounts.staff[0]?.user_id || '');
+        setSelectedAccessAdminId(firstAdminId);
+        setAccessPermissions(defaultAdminFeaturePermissions());
+        setSavedAccessPermissions(defaultAdminFeaturePermissions());
+        setShowAccessControl(true);
+    };
+
+    const closeAccessControl = () => {
+        if (isSavingAccess) return;
+        setShowAccessControl(false);
+    };
+
+    const setFeatureAccess = (featureKey, allowed) => {
+        setAccessPermissions((current) => ({ ...current, [featureKey]: allowed }));
+    };
+
+    const handleSaveAccess = async () => {
+        if (!selectedAccessAdminId) {
+            toast.error('Select an Admin account.');
+            return;
+        }
+
+        setIsSavingAccess(true);
+        try {
+            const response = await saveAdminFeatureAccess(selectedAccessAdminId, accessPermissions);
+            const nextPermissions = normalizeAdminFeaturePermissions(response?.permissions);
+            setAccessPermissions(nextPermissions);
+            setSavedAccessPermissions(nextPermissions);
+            toast.success('Admin feature access updated. Hidden features will disappear from that account navigation.');
+        } catch (error) {
+            console.error('Failed to save Admin feature access:', error);
+            toast.error(error?.message || 'Admin feature access could not be saved.');
+        } finally {
+            setIsSavingAccess(false);
+        }
+    };
+
     const handleCreateRoleChange = (role) => {
         setCreateForm((currentForm) => ({
             ...currentForm,
@@ -160,10 +373,6 @@ export default function AccountManagement() {
     };
 
     const isAccountActive = (status) => status === true || status === 1 || status === '1' || status === 'active';
-    const displayValue = (value, fallback = 'Not provided') => {
-        const text = String(value ?? '').trim();
-        return text || fallback;
-    };
     const getInitials = (account) => {
         const first = displayValue(account?.first_Name, '').charAt(0);
         const last = displayValue(account?.last_Name, '').charAt(0);
@@ -197,11 +406,18 @@ export default function AccountManagement() {
         return syncedAccount ? { ...syncedAccount, type: currentUser.type } : currentUser;
     };
     const formatEmploymentStatus = (value) => employmentStatusLabels[String(value || '').toLowerCase()] || displayValue(value);
-    const getPersonnelFormFromUser = (user) => ({
-        position: String(user?.postionn || '').trim(),
-        employmentStatus: String(user?.employment_status || 'full-time').trim().toLowerCase(),
-        branchId: String(user?.preferred_branch_id || '')
-    });
+    const getPersonnelFormFromUser = (user) => {
+        const branchName = String(user?.preferred_branch_name || user?.branch_name || '').trim();
+        const matchingBranch = branches.find((branch) => String(branch.name || '').trim() === branchName);
+
+        return {
+            position: String(user?.postionn || user?.position || '').trim(),
+            employmentStatus: String(user?.employment_status || user?.employmentStatus || 'full-time').trim().toLowerCase(),
+            branchId: String(user?.preferred_branch_id || user?.branch_id || user?.assigned_branch_id || matchingBranch?.id || ''),
+            specialization: String(user?.specialization || '').trim(),
+            licenseNumber: String(user?.prc_license_number || user?.license_number || '').trim()
+        };
+    };
     const openAccountDetails = (user, type) => {
         const detailsUser = { ...user, type };
         setSelectedUser(detailsUser);
@@ -214,100 +430,6 @@ export default function AccountManagement() {
         setShowDetails(false);
         setIsEditingPersonnel(false);
     };
-    const parseHistory = (value) => {
-        if (!value) return [];
-        try {
-            const decoded = JSON.parse(value);
-            if (Array.isArray(decoded)) {
-                return decoded.map((entry) => {
-                    if (typeof entry === 'string') return entry;
-                    return [
-                        entry.title,
-                        entry.organization,
-                        entry.company,
-                        entry.description,
-                        entry.year || entry.years || entry.date
-                    ].filter(Boolean).join(' - ');
-                }).filter(Boolean);
-            }
-        } catch {
-            return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-        }
-        return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    };
-    const ProfileField = ({ icon, label, value, accent = 'text-slate-950' }) => (
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-                    {createElement(icon, { className: 'size-4' })}
-                </div>
-                <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
-                    <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(value)}</p>
-                </div>
-            </div>
-        </div>
-    );
-    const EditableProfileSelectField = ({
-        icon,
-        label,
-        value,
-        displayText,
-        options,
-        isEditing,
-        disabled,
-        onChange,
-        accent = 'text-slate-950',
-        allowCustom = false
-    }) => (
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-                    {createElement(icon, { className: 'size-4' })}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
-                    {isEditing ? (
-                        <Select
-                            value={value}
-                            onValueChange={onChange}
-                            disabled={disabled}
-                            allowCustom={allowCustom}
-                            onCreateOption={onChange}
-                            customOptionLabel={(option) => `Use "${option}"`}
-                        >
-                            <SelectTrigger className="mt-2 h-10 bg-white">
-                                <SelectValue placeholder={`Select ${label.toLowerCase()}`} displayValue={displayText || value} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {options.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <p className={`mt-1 break-words text-sm font-bold ${accent}`}>{displayValue(displayText || value)}</p>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-    const HistoryBlock = ({ title, value }) => {
-        const rows = parseHistory(value);
-        return (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <h5 className="text-sm font-black text-slate-950">{title}</h5>
-                {rows.length ? (
-                    <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
-                        {rows.map((line, index) => <li key={`${title}-${index}`}>{line}</li>)}
-                    </ul>
-                ) : (
-                    <p className="mt-3 text-sm font-semibold text-slate-400">Not provided</p>
-                )}
-            </div>
-        );
-    };
-
     const openStatusConfirmation = (user) => {
         const currentStatus = isAccountActive(user.is_active) && !isAccountDeactivated(user);
         setPendingStatusAction({
@@ -411,23 +533,30 @@ export default function AccountManagement() {
     };
 
     const handleSavePersonnelDetails = async () => {
-        if (!selectedUser || selectedUser.type !== 'staff') return;
+        if (!selectedUser || !['staff', 'vet'].includes(selectedUser.type)) return;
 
         const position = personnelForm.position.trim();
         const employmentStatus = personnelForm.employmentStatus;
         const branchId = personnelForm.branchId;
+        const specialization = personnelForm.specialization.trim();
+        const licenseNumber = personnelForm.licenseNumber.trim();
+        const isVeterinarian = selectedUser.type === 'vet';
 
-        if (!position) {
+        if (!isVeterinarian && !position) {
             toast.error('Position is required.');
             return;
         }
 
-        if (!employmentStatusLabels[employmentStatus]) {
+        if (!isVeterinarian && !employmentStatusLabels[employmentStatus]) {
             toast.error('Select a valid employment status.');
             return;
         }
         if (!branches.some((branch) => String(branch.id) === String(branchId))) {
-            toast.error('Select the branch this Admin account is assigned to.');
+            toast.error(`Select the branch this ${isVeterinarian ? 'Veterinarian' : 'Admin'} account is assigned to.`);
+            return;
+        }
+        if (isVeterinarian && (!licenseNumber || !specialization)) {
+            toast.error('PRC license number and specialization are required.');
             return;
         }
 
@@ -437,13 +566,17 @@ export default function AccountManagement() {
                 type: selectedUser.type,
                 position,
                 employmentStatus,
-                branchId: Number(branchId)
+                branchId: Number(branchId),
+                specialization,
+                licenseNumber
             });
             const assignedBranch = branches.find((branch) => String(branch.id) === String(branchId));
             const updatedAccount = response.account || {
                 ...selectedUser,
                 postionn: position,
                 employment_status: employmentStatus,
+                specialization,
+                prc_license_number: licenseNumber,
                 preferred_branch_id: Number(branchId),
                 preferred_branch_name: assignedBranch?.name || ''
             };
@@ -452,25 +585,21 @@ export default function AccountManagement() {
                 ...current,
                 postionn: updatedAccount.postionn ?? position,
                 employment_status: updatedAccount.employment_status ?? employmentStatus,
+                specialization: updatedAccount.specialization ?? specialization,
+                prc_license_number: updatedAccount.prc_license_number ?? licenseNumber,
                 preferred_branch_id: updatedAccount.preferred_branch_id ?? Number(branchId),
                 preferred_branch_name: updatedAccount.preferred_branch_name ?? assignedBranch?.name ?? ''
             } : current);
             setAccounts((current) => ({
                 ...current,
-                staff: current.staff.map((account) => (
+                [isVeterinarian ? 'veterinarians' : 'staff']: current[isVeterinarian ? 'veterinarians' : 'staff'].map((account) => (
                     String(account.user_id) === String(selectedUser.user_id)
-                        ? {
-                            ...account,
-                            postionn: updatedAccount.postionn ?? position,
-                            employment_status: updatedAccount.employment_status ?? employmentStatus,
-                            preferred_branch_id: updatedAccount.preferred_branch_id ?? Number(branchId),
-                            preferred_branch_name: updatedAccount.preferred_branch_name ?? assignedBranch?.name ?? ''
-                        }
+                        ? { ...account, ...updatedAccount, type: selectedUser.type }
                         : account
                 ))
             }));
             setIsEditingPersonnel(false);
-            toast.success('Personnel details and assigned branch updated successfully.');
+            toast.success(`${isVeterinarian ? 'Professional' : 'Personnel'} details and assigned branch updated successfully.`);
             fetchAccounts({ isAutoRefresh: true });
         } catch (error) {
             console.error('Personnel update error:', error);
@@ -608,6 +737,13 @@ export default function AccountManagement() {
         ].join(' ').toLowerCase().includes(accountSearchQuery);
     });
 
+    const selectedAccessAdmin = accounts.staff.find(
+        (account) => String(account.user_id) === String(selectedAccessAdminId)
+    ) || null;
+    const accessFeatureCount = ADMIN_FEATURE_GROUPS.reduce((total, group) => total + group.features.length, 0);
+    const allowedFeatureCount = Object.values(accessPermissions).filter(Boolean).length;
+    const hasUnsavedAccessChanges = JSON.stringify(accessPermissions) !== JSON.stringify(savedAccessPermissions);
+
     const ProfileAvatar = ({ account, type, size = 'card' }) => {
         const [failedSrc, setFailedSrc] = useState('');
         const imageSrc = getAccountImage(account);
@@ -674,12 +810,28 @@ export default function AccountManagement() {
             <DashboardPageHeader
                 title="Account Management"
                 description="Manage clinic users, profile details, and account access."
+                petHover
+                petKind="bunny"
+                petAccent="coral"
                 layout="stacked"
-                actions={(
-                    <Button onClick={() => setShowCreateAccount(true)} className="h-10 justify-center gap-2 bg-blue-600 text-white">
-                        <UserPlus className="size-4" />
-                        Create Account
-                    </Button>
+                className="account-management-page-header"
+                toolbar={(
+                    <div className="flex flex-col justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => openAccessControl()}
+                            disabled={accounts.staff.length === 0}
+                            className="h-10 justify-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                        >
+                            <SlidersHorizontal className="size-4" />
+                            <span>Admin Access</span>
+                        </Button>
+                        <Button onClick={() => setShowCreateAccount(true)} className="h-10 justify-center gap-2 bg-blue-600 text-white">
+                            <UserPlus className="size-4" />
+                            <span>Create Account</span>
+                        </Button>
+                    </div>
                 )}
             />
 
@@ -690,7 +842,7 @@ export default function AccountManagement() {
                             <Input
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
-                                placeholder="Search name, email, license, position"
+                                placeholder="Search accounts"
                                 leftIcon={<Search className="size-4" />}
                             />
                         </div>
@@ -840,7 +992,7 @@ export default function AccountManagement() {
 
             {/* View Details Modal */}
             <Dialog open={showDetails} onOpenChange={(open) => open ? setShowDetails(true) : closeAccountDetails()}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-h-[94dvh] max-w-6xl overflow-y-auto">
                     {selectedUser && (
                         <>
                             <DialogHeader>
@@ -856,7 +1008,7 @@ export default function AccountManagement() {
                                             <div className="min-w-0">
                                                 <h3 className="truncate text-xl font-bold text-gray-900 dark:text-white">{selectedUser.first_Name} {selectedUser.last_Name}</h3>
                                                 <p className="text-sm font-semibold text-gray-600 dark:text-slate-300">
-                                                    {selectedUser.role} - {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : selectedUser.type === 'superadmin' ? displayValue(selectedUser.employee_id, 'Super Admin') : displayValue(selectedUser.employee_id)}
+                                                    {formatRoleLabel(selectedUser.role, getRoleLabel(selectedUser.type))} - {selectedUser.type === 'vet' ? displayValue(selectedUser.veterinarian_id) : selectedUser.type === 'superadmin' ? displayValue(selectedUser.employee_id, 'Super Admin') : displayValue(selectedUser.employee_id)}
                                                 </p>
                                             </div>
                                         </div>
@@ -868,7 +1020,7 @@ export default function AccountManagement() {
 
                                 <div className="space-y-4">
                                     <h4 className="font-bold text-gray-900">Personal Information</h4>
-                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                         <ProfileField icon={Mail} label="Email Address" value={selectedUser.mail_Address} />
                                         <ProfileField icon={Phone} label="Phone Number" value={selectedUser.phoneNumber || selectedUser.emergencyNumber} />
                                         <ProfileField icon={MapPin} label="Address" value={selectedUser.personal_Address} />
@@ -879,18 +1031,51 @@ export default function AccountManagement() {
                                 <div className="space-y-4">
                                     <h4 className="font-bold text-gray-900">Professional Profile</h4>
                                     {selectedUser.type === 'vet' ? (
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                        <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${isEditingPersonnel ? '' : 'xl:grid-cols-3'}`}>
                                             <ProfileField icon={Award} label="Veterinarian ID" value={selectedUser.veterinarian_id} accent="text-blue-700" />
-                                            <ProfileField icon={Award} label="PRC License" value={selectedUser.prc_license_number} accent="text-blue-700" />
-                                            <ProfileField icon={Briefcase} label="Specialization" value={selectedUser.specialization} />
-                                            <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
+                                            <EditableProfileSelectField
+                                                icon={MapPin}
+                                                label="Assigned Branch"
+                                                value={personnelForm.branchId}
+                                                displayText={isEditingPersonnel
+                                                    ? branches.find((branch) => String(branch.id) === personnelForm.branchId)?.name
+                                                    : selectedUser.preferred_branch_name}
+                                                options={branches.map((branch) => ({ value: String(branch.id), label: branch.name }))}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(branchId) => setPersonnelForm((current) => ({ ...current, branchId }))}
+                                                accent="text-blue-700"
+                                            />
+                                            <EditableProfileInputField
+                                                icon={Award}
+                                                label="PRC License"
+                                                value={personnelForm.licenseNumber}
+                                                displayText={selectedUser.prc_license_number}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(licenseNumber) => setPersonnelForm((current) => ({ ...current, licenseNumber }))}
+                                                accent="text-blue-700"
+                                            />
+                                            <EditableProfileInputField
+                                                icon={Briefcase}
+                                                label="Specialization"
+                                                value={personnelForm.specialization}
+                                                displayText={selectedUser.specialization}
+                                                isEditing={isEditingPersonnel}
+                                                disabled={isSavingPersonnel}
+                                                onChange={(specialization) => setPersonnelForm((current) => ({ ...current, specialization }))}
+                                            />
                                             <ProfileField icon={ShieldCheck} label="Accepting Patients" value={Number(selectedUser.is_accepting_patients ?? 1) === 1 ? 'Yes' : 'No'} />
-                                            <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
-                                            <ProfileField icon={CheckCircle} label="Consultation Rate" value={selectedUser.consultation_rate ? `PHP ${selectedUser.consultation_rate}` : ''} />
+                                            {!isEditingPersonnel && (
+                                                <>
+                                                    <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
+                                                    <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
+                                                </>
+                                            )}
                                         </div>
                                     ) : selectedUser.type === 'superadmin' ? (
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                                            <ProfileField icon={ShieldCheck} label="Access Role" value={selectedUser.role || 'Super Admin'} accent="text-emerald-700" />
+                                        <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${isEditingPersonnel ? '' : 'xl:grid-cols-3'}`}>
+                                            <ProfileField icon={ShieldCheck} label="Access Role" value={formatRoleLabel(selectedUser.role, 'Super Admin')} accent="text-emerald-700" />
                                             <ProfileField icon={UserCog} label="Employee ID" value={selectedUser.employee_id} accent="text-emerald-700" />
                                             <ProfileField icon={Calendar} label="Start Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
                                         </div>
@@ -932,25 +1117,44 @@ export default function AccountManagement() {
                                                 disabled={isSavingPersonnel}
                                                 onChange={(value) => setPersonnelForm((current) => ({ ...current, employmentStatus: value }))}
                                             />
-                                            <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
-                                            <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
-                                            <ProfileField icon={ShieldCheck} label="SSS Number" value={selectedUser.sss_number} />
-                                            <ProfileField icon={ShieldCheck} label="PhilHealth Number" value={selectedUser.philhealth_number} />
-                                            <ProfileField icon={ShieldCheck} label="TIN Number" value={selectedUser.tin_number} />
-                                            <ProfileField icon={ShieldCheck} label="Pag-IBIG Number" value={selectedUser.pagibig_number} />
+                                            {!isEditingPersonnel && (
+                                                <>
+                                                    <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
+                                                    <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
+                                                    <ProfileField icon={ShieldCheck} label="SSS Number" value={selectedUser.sss_number} />
+                                                    <ProfileField icon={ShieldCheck} label="PhilHealth Number" value={selectedUser.philhealth_number} />
+                                                    <ProfileField icon={ShieldCheck} label="TIN Number" value={selectedUser.tin_number} />
+                                                    <ProfileField icon={ShieldCheck} label="Pag-IBIG Number" value={selectedUser.pagibig_number} />
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <HistoryBlock title="Education History" value={selectedUser.education_history} />
-                                    <HistoryBlock title="Experience History" value={selectedUser.experience_history} />
-                                </div>
+                                {!isEditingPersonnel && (
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <HistoryBlock title="Education History" value={selectedUser.education_history} />
+                                        <HistoryBlock title="Experience History" value={selectedUser.experience_history} />
+                                    </div>
+                                )}
 
                                 <div className="border-t pt-6">
                                     <h4 className="font-bold text-gray-900 mb-3 text-sm">Administrative Actions</h4>
                                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                                        {selectedUser.type === 'staff' && (
+                                        {selectedUser.type === 'staff' && !isEditingPersonnel ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setShowDetails(false);
+                                                    openAccessControl(selectedUser);
+                                                }}
+                                                className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                            >
+                                                <SlidersHorizontal className="mr-2 size-4" /> Manage Access
+                                            </Button>
+                                        ) : null}
+                                        {['staff', 'vet'].includes(selectedUser.type) && (
                                             isEditingPersonnel ? (
                                                 <>
                                                     <Button
@@ -960,7 +1164,7 @@ export default function AccountManagement() {
                                                         disabled={isSavingPersonnel}
                                                         className="flex-1"
                                                     >
-                                                        <X className="size-4 mr-2" /> Cancel Edit
+                                                        <X className="mr-2 size-4" /> Cancel
                                                     </Button>
                                                     <Button
                                                         type="button"
@@ -975,7 +1179,7 @@ export default function AccountManagement() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <Save className="size-4 mr-2" /> Save Admin Assignment
+                                                                <Save className="mr-2 size-4" /> Save
                                                             </>
                                                         )}
                                                     </Button>
@@ -987,7 +1191,7 @@ export default function AccountManagement() {
                                                     onClick={handleStartPersonnelEdit}
                                                     className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
                                                 >
-                                                    <Pencil className="size-4 mr-2" /> Edit Employment Info
+                                                    <Pencil className="size-4 mr-2" /> {selectedUser.type === 'vet' ? 'Edit Professional Info' : 'Edit Employment Info'}
                                                 </Button>
                                             )
                                         )}
@@ -1008,11 +1212,13 @@ export default function AccountManagement() {
                                                     disabled={isSavingPersonnel || isDeletingAccount}
                                                     className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50"
                                                 >
-                                                    <Archive className="size-4 mr-2" /> Archive Account
+                                                    <Archive className="mr-2 size-4" /> Archive
                                                 </Button>
                                             )
                                         )}
-                                        <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel || isDeletingAccount}>Close</Button>
+                                        <Button variant="ghost" onClick={closeAccountDetails} disabled={isSavingPersonnel || isDeletingAccount}>
+                                            <X className="mr-2 size-4" /> Close
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -1038,7 +1244,7 @@ export default function AccountManagement() {
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                                 <p className="text-sm text-slate-600">Account</p>
                                 <p className="mt-1 font-semibold text-slate-900">{pendingStatusAction.name}</p>
-                                <p className="text-sm text-slate-500">{pendingStatusAction.role}</p>
+                                <p className="text-sm text-slate-500">{formatRoleLabel(pendingStatusAction.role)}</p>
                                 {pendingStatusAction.email ? (
                                     <p className="mt-2 break-words text-sm font-semibold text-slate-700">{pendingStatusAction.email}</p>
                                 ) : null}
@@ -1089,7 +1295,7 @@ export default function AccountManagement() {
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                                     <p className="text-sm font-semibold text-slate-600">Account to archive</p>
                                     <p className="mt-1 font-bold text-slate-950">{pendingDeleteAction.name}</p>
-                                    <p className="text-sm font-semibold text-slate-700">{pendingDeleteAction.role}</p>
+                                    <p className="text-sm font-semibold text-slate-700">{formatRoleLabel(pendingDeleteAction.role)}</p>
                                     {pendingDeleteAction.email ? (
                                         <p className="mt-2 break-words text-sm font-semibold text-slate-800">{pendingDeleteAction.email}</p>
                                     ) : null}
@@ -1151,6 +1357,141 @@ export default function AccountManagement() {
                             </DialogFooter>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={showAccessControl}
+                onOpenChange={(open) => {
+                    if (open) setShowAccessControl(true);
+                    else closeAccessControl();
+                }}
+            >
+                <DialogContent className="max-w-4xl overflow-hidden p-0">
+                    <DialogHeader className="mb-0 border-b border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                <SlidersHorizontal className="size-5" />
+                            </span>
+                            <div>
+                                <DialogTitle className="text-xl font-black text-slate-950 dark:text-white">Admin Feature Access</DialogTitle>
+                                <DialogDescription className="mt-1 max-w-3xl font-medium dark:text-slate-300">
+                                    Check the features this Admin can use. Unchecked features are hidden from navigation and blocked from direct access.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto px-4 py-5 scrollbar-hide sm:px-6">
+                        <section className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-end">
+                            <div>
+                                <Label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                                    <UsersRound className="size-4" /> Admin account
+                                </Label>
+                                <Select
+                                    value={selectedAccessAdminId}
+                                    onValueChange={setSelectedAccessAdminId}
+                                    disabled={isSavingAccess || accounts.staff.length === 0}
+                                >
+                                    <SelectTrigger className="h-12 bg-white dark:bg-slate-900">
+                                        <SelectValue
+                                            placeholder="Select Admin"
+                                            displayValue={selectedAccessAdmin ? `${getAccountName(selectedAccessAdmin)} · ${selectedAccessAdmin.mail_Address}` : ''}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {accounts.staff.map((account) => (
+                                            <SelectItem key={account.user_id} value={String(account.user_id)}>
+                                                {getAccountName(account)} · {account.mail_Address}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                <Badge className="border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
+                                    {allowedFeatureCount} of {accessFeatureCount} allowed
+                                </Badge>
+                                {hasUnsavedAccessChanges ? (
+                                    <Badge className="border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                        Unsaved changes
+                                    </Badge>
+                                ) : (
+                                    <Badge className="border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                        Saved
+                                    </Badge>
+                                )}
+                            </div>
+                        </section>
+
+                        {isLoadingAccess ? (
+                            <div className="flex min-h-72 items-center justify-center gap-3 text-sm font-bold text-slate-500">
+                                <Loader2 className="size-5 animate-spin text-blue-600" /> Loading feature access…
+                            </div>
+                        ) : selectedAccessAdmin ? (
+                            <div className="mt-5 space-y-4">
+                                {ADMIN_FEATURE_GROUPS.map((group) => {
+                                    return (
+                                        <section
+                                            key={group.id}
+                                            className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                                        >
+                                            <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                                                <div>
+                                                    <h3 className="text-sm font-black text-slate-950 dark:text-white">{group.label}</h3>
+                                                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">{group.description}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid divide-y divide-slate-100 dark:divide-slate-800 sm:grid-cols-2 sm:divide-y-0">
+                                                {group.features.map((feature) => {
+                                                    const allowed = accessPermissions[feature.key] !== false;
+                                                    return (
+                                                        <label
+                                                            key={feature.key}
+                                                            className="flex cursor-pointer items-start gap-3 border-slate-100 px-4 py-4 transition hover:bg-blue-50/40 dark:border-slate-800 dark:hover:bg-blue-950/20 sm:border-b sm:odd:border-r"
+                                                        >
+                                                            <Checkbox
+                                                                checked={allowed}
+                                                                onCheckedChange={(checked) => setFeatureAccess(feature.key, checked)}
+                                                                disabled={isSavingAccess}
+                                                                aria-label={`${feature.label} access`}
+                                                                className="mt-0.5 size-5 shrink-0"
+                                                            />
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-black text-slate-900 dark:text-slate-100">{feature.label}</p>
+                                                                <p className="mt-1 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">{feature.description}</p>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </section>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 px-6 text-center dark:border-slate-700">
+                                <UsersRound className="size-9 text-slate-400" />
+                                <p className="mt-3 text-sm font-black text-slate-800 dark:text-slate-200">No Admin account is available</p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">Create an Admin account before configuring feature access.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="mt-0 border-t border-slate-200 bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-900 sm:px-6">
+                        <Button type="button" variant="outline" onClick={closeAccessControl} disabled={isSavingAccess}>Cancel</Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveAccess}
+                            disabled={!selectedAccessAdmin || isLoadingAccess || isSavingAccess || !hasUnsavedAccessChanges}
+                            className="bg-blue-600 text-white hover:bg-blue-700"
+                        >
+                            {isSavingAccess ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+                            {isSavingAccess ? 'Saving access…' : 'Save Access'}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

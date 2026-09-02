@@ -4,6 +4,8 @@ import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { prepareNotificationRedirect } from '../../lib/notificationRedirect';
 import NotificationFeed from './NotificationFeed.jsx';
+import DashboardPageHeader from './DashboardPageHeader.jsx';
+import BrowserNotificationButton from './BrowserNotificationButton.jsx';
 
 const NOTIFICATIONS_RETURN_PATH_KEY = 'ipawcus-notifications-return-path';
 
@@ -59,24 +61,22 @@ export default function NotificationsPage({ user }) {
 
     return (
         <section className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-            <div className="flex items-center gap-3">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleBack}
-                    aria-label="Back to dashboard"
-                    className="size-10 shrink-0 rounded-lg bg-white text-slate-700 shadow-sm hover:bg-slate-50"
-                >
-                    <ArrowLeft className="size-5" />
-                </Button>
-                <div className="min-w-0">
-                    <h1 className="truncate text-2xl font-black text-slate-950">Notifications</h1>
-                    <p className="text-sm font-semibold text-slate-500">
-                        {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
-                    </p>
-                </div>
-            </div>
+            <DashboardPageHeader
+                title="Notifications"
+                description={unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
+                navigation={(
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleBack}
+                        className="-ml-2 gap-2 text-slate-600 dark:text-slate-300"
+                    >
+                        <ArrowLeft className="size-4" />
+                        Back to dashboard
+                    </Button>
+                )}
+            />
 
             <NotificationFeed
                 layout="page"
@@ -95,6 +95,7 @@ export default function NotificationsPage({ user }) {
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
                 loadMoreLabel={loadMoreLabel}
+                notificationControl={<BrowserNotificationButton user={user} />}
                 onNotificationClick={handleNotificationClick}
             />
         </section>

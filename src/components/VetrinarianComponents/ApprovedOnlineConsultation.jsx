@@ -13,6 +13,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchOnlineConsultations, startOnlineConsultation } from '../../services/onlineConsultationService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
@@ -114,8 +115,8 @@ export default function ApprovedOnlineConsultation() {
     const [isLoading, setIsLoading] = useState(true);
     const [actionId, setActionId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [dateFilter, setDateFilter] = useState('upcoming');
-    const [statusFilter, setStatusFilter] = useState('active');
+    const [dateFilter, setDateFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [viewerImage, setViewerImage] = useState(null);
 
     const loadConsultations = useCallback(async ({ isAutoRefresh = false } = {}) => {
@@ -174,12 +175,12 @@ export default function ApprovedOnlineConsultation() {
     const scheduledConsultations = filteredConsultations.filter((consultation) => !['completed', 'cancelled'].includes(String(consultation.status || '').toLowerCase()));
     const completedConsultations = filteredConsultations.filter((consultation) => String(consultation.status || '').toLowerCase() === 'completed');
     const cancelledConsultations = filteredConsultations.filter((consultation) => String(consultation.status || '').toLowerCase() === 'cancelled');
-    const filtersAreActive = Boolean(searchQuery || dateFilter !== 'upcoming' || statusFilter !== 'active');
+    const filtersAreActive = Boolean(searchQuery || dateFilter !== 'all' || statusFilter !== 'all');
 
     const clearFilters = () => {
         setSearchQuery('');
-        setDateFilter('upcoming');
-        setStatusFilter('active');
+        setDateFilter('all');
+        setStatusFilter('all');
     };
 
     const openDiagnosisPage = (consultationId) => {
@@ -308,19 +309,19 @@ export default function ApprovedOnlineConsultation() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Online Consultations</h1>
-                    <p className="text-sm text-slate-500">Approved sessions assigned to you. Start a session to open the consultation workspace.</p>
-                </div>
-                <Button variant="outline" onClick={loadConsultations} disabled={isLoading} className="gap-2">
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Refresh
-                </Button>
-            </div>
-
-            <Card className="border-slate-200 shadow-none">
-                <CardContent className="grid gap-4 p-4 lg:grid-cols-[minmax(16rem,1fr)_14rem_14rem_auto] lg:items-end">
+            <DashboardPageHeader
+                icon={Video}
+                title="Online Consultations"
+                description="Approved sessions assigned to you. Start a session to open the consultation workspace."
+                layout="stacked"
+                actions={(
+                    <Button variant="outline" onClick={loadConsultations} disabled={isLoading} className="gap-2">
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        Refresh
+                    </Button>
+                )}
+                toolbar={(
+                <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:grid-cols-[minmax(16rem,1fr)_14rem_14rem_auto] lg:items-end">
                     <div className="space-y-1.5">
                         <Label htmlFor="online-consult-search" className="text-xs font-semibold text-slate-600">Search bookings</Label>
                         <Input
@@ -339,11 +340,11 @@ export default function ApprovedOnlineConsultation() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="upcoming">All upcoming</SelectItem>
+                                <SelectItem value="all">All dates</SelectItem>
+                                <SelectItem value="upcoming">Upcoming</SelectItem>
                                 <SelectItem value="today">Today</SelectItem>
                                 <SelectItem value="next-7-days">Next 7 days</SelectItem>
                                 <SelectItem value="past">Past appointments</SelectItem>
-                                <SelectItem value="all">All dates</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -355,13 +356,13 @@ export default function ApprovedOnlineConsultation() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="active">All active</SelectItem>
+                                <SelectItem value="all">All statuses</SelectItem>
+                                <SelectItem value="active">Active only</SelectItem>
                                 <SelectItem value="scheduled">Scheduled</SelectItem>
                                 <SelectItem value="vet_ready">Vet ready</SelectItem>
                                 <SelectItem value="in_progress">In progress</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
-                                <SelectItem value="all">Every status</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -369,8 +370,9 @@ export default function ApprovedOnlineConsultation() {
                         <X className="size-4" />
                         Reset
                     </Button>
-                </CardContent>
-            </Card>
+                </div>
+                )}
+            />
 
             <section className="space-y-3">
                 <div className="flex items-center justify-between gap-3">

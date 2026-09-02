@@ -1,12 +1,12 @@
 import logoImg from '../assets/logo-no-bg.png';
-import { resolveConsentTemplate } from '../lib/consentTemplateCodes';
+import { resolveConsentTemplateSegments } from '../lib/consentTemplateCodes';
 import { uploadDocumentFile } from './uploadService';
 
 const PAGE_MARGIN = 54;
 const FOOTER_LIMIT = 780;
 const BODY_LINE_HEIGHT = 15;
 
-function cleanText(value, fallback = '') {
+function cleanText(value, fallback = '', { trim = true } = {}) {
     const source = String(value || fallback);
     const markupWithBreaks = source
         .replace(/<br\s*\/?>/gi, '\n')
@@ -19,7 +19,7 @@ function cleanText(value, fallback = '') {
         plainText = String(container.textContent || container.innerText || plainText);
     }
 
-    return plainText
+    const normalizedText = plainText
         .replace(/\r\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .replace(/\u00a0/g, ' ')
@@ -33,8 +33,68 @@ function cleanText(value, fallback = '') {
         .replace(/\t/g, '    ')
         .split('\n')
         .map(line => line.replace(/[^\x20-\x7e]/g, '?'))
-        .join('\n')
-        .trim();
+        .join('\n');
+
+    return trim ? normalizedText.trim() : normalizedText;
+}
+
+function drawConsentContent(doc, segments, contentWidth, startY, startContinuationPage) {
+    const left = PAGE_MARGIN;
+    const right = left + contentWidth;
+    let x = left;
+    let y = startY;
+    let lineHasContent = false;
+
+    const moveToNextLine = (extraGap = 0) => {
+        y += BODY_LINE_HEIGHT + extraGap;
+        x = left;
+        lineHasContent = false;
+    };
+    const ensureLineSpace = () => {
+        if (y + BODY_LINE_HEIGHT > FOOTER_LIMIT) {
+            y = startContinuationPage();
+            x = left;
+            lineHasContent = false;
+        }
+    };
+
+    segments.forEach((segment) => {
+        const segmentText = cleanText(segment.text, '', { trim: false });
+        const chunks = segmentText.split(/(\n|[ \t]+)/);
+
+        chunks.forEach((chunk) => {
+            if (!chunk) return;
+            if (chunk === '\n') {
+                moveToNextLine(lineHasContent ? 5 : 0);
+                return;
+            }
+
+            doc.setFont('times', segment.emphasized ? 'bold' : 'normal');
+
+            if (/^[ \t]+$/.test(chunk)) {
+                if (lineHasContent) {
+                    x += doc.getTextWidth(chunk.replace(/\t/g, '    '));
+                }
+                return;
+            }
+
+            const pieces = doc.splitTextToSize(chunk, contentWidth);
+            pieces.forEach((piece, pieceIndex) => {
+                const pieceWidth = doc.getTextWidth(piece);
+                if ((x + pieceWidth > right && lineHasContent) || pieceIndex > 0) {
+                    moveToNextLine();
+                }
+
+                ensureLineSpace();
+                doc.setFont('times', segment.emphasized ? 'bold' : 'normal');
+                doc.text(piece, x, y);
+                x += pieceWidth;
+                lineHasContent = true;
+            });
+        });
+    });
+
+    return y + BODY_LINE_HEIGHT + 5;
 }
 
 function safeFileToken(value, fallback = 'signed-consent') {
@@ -75,6 +135,30 @@ async function imageDataUrl(source) {
     } catch {
         return '';
     }
+}
+
+function imageOnWhiteBackground(dataUrl) {
+    if (!dataUrl || typeof document === 'undefined') return Promise.resolve(dataUrl);
+
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, image.naturalWidth || image.width);
+            canvas.height = Math.max(1, image.naturalHeight || image.height);
+            const context = canvas.getContext('2d');
+            if (!context) {
+                resolve(dataUrl);
+                return;
+            }
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        image.onerror = () => resolve(dataUrl);
+        image.src = dataUrl;
+    });
 }
 
 function addPageHeader(doc, logoData, title, continued = false) {
@@ -141,11 +225,12 @@ export async function createConsentDocumentPdfBlob({
         throw new Error('A valid owner signature is required to generate the signed consent PDF.');
     }
 
-    const [{ jsPDF }, logoData, signatureData] = await Promise.all([
+    const [{ jsPDF }, rawLogoData, signatureData] = await Promise.all([
         import('jspdf'),
         imageDataUrl(logoImg),
         imageDataUrl(signatureImage)
     ]);
+    const logoData = await imageOnWhiteBackground(rawLogoData);
     if (!signatureData) {
         throw new Error('The owner signature could not be read. Please capture it again.');
     }
@@ -153,13 +238,20 @@ export async function createConsentDocumentPdfBlob({
     const pageWidth = doc.internal.pageSize.getWidth();
     const contentWidth = pageWidth - (PAGE_MARGIN * 2);
     const resolvedTitle = cleanText(title, 'Consent Form');
-    const resolvedContent = cleanText(resolveConsentTemplate(content, {
+    const resolvedContentSegments = resolveConsentTemplateSegments(content, {
         ...templateContext,
         signerName,
         signedAt,
         veterinarianName,
         veterinarianLicense
-    }), 'No consent content was provided.');
+    });
+    const cleanResolvedContent = resolvedContentSegments
+        .map((segment) => cleanText(segment.text, '', { trim: false }))
+        .join('')
+        .trim();
+    const printableContentSegments = cleanResolvedContent
+        ? resolvedContentSegments
+        : [{ text: 'No consent content was provided.', emphasized: false, token: null }];
 
     doc.setProperties({
         title: resolvedTitle,
@@ -178,6 +270,7 @@ export async function createConsentDocumentPdfBlob({
         doc.setFont('times', 'normal');
         doc.setFontSize(10.5);
         doc.setTextColor(51, 65, 85);
+        return y;
     };
     const ensureSpace = (height) => {
         if (y + height > FOOTER_LIMIT) startContinuationPage();
@@ -202,21 +295,7 @@ export async function createConsentDocumentPdfBlob({
     doc.setFontSize(10.5);
     doc.setTextColor(51, 65, 85);
 
-    resolvedContent.split('\n').forEach((paragraph) => {
-        if (!paragraph.trim()) {
-            ensureSpace(BODY_LINE_HEIGHT);
-            y += BODY_LINE_HEIGHT;
-            return;
-        }
-
-        const lines = doc.splitTextToSize(paragraph.trim(), contentWidth);
-        lines.forEach((line) => {
-            ensureSpace(BODY_LINE_HEIGHT);
-            doc.text(line, PAGE_MARGIN, y);
-            y += BODY_LINE_HEIGHT;
-        });
-        y += 5;
-    });
+    y = drawConsentContent(doc, printableContentSegments, contentWidth, y, startContinuationPage);
 
     const signatureBlockHeight = 152;
     y += 18;
@@ -267,7 +346,7 @@ export async function createConsentDocumentPdfBlob({
     doc.text(displayDate(signedAt) || 'Date recorded by the system', leftX + (columnWidth / 2), signatureLineY + 45, { align: 'center' });
     doc.text(cleanText(representativeLabel, 'Veterinarian name and license'), rightX + (columnWidth / 2), signatureLineY + 17, { align: 'center' });
     doc.text(
-        cleanText(representativeDetail, veterinarianLicense ? `License: ${veterinarianLicense}` : 'License: N/A'),
+        cleanText(veterinarianLicense ? `License: ${veterinarianLicense}` : representativeDetail, 'License: N/A'),
         rightX + (columnWidth / 2),
         signatureLineY + 32,
         { align: 'center' }

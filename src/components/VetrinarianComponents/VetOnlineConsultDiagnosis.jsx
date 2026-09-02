@@ -1,6 +1,7 @@
 import { createElement, useCallback, useEffect, useState } from 'react';
 import {
     ArrowLeft,
+    Camera,
     CheckCircle,
     CircleAlert,
     ClipboardList,
@@ -29,6 +30,7 @@ import {
     startOnlineConsultation,
     submitOnlineConsultationDiagnosis
 } from '../../services/onlineConsultationService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 const emptyDiagnosisForm = {
     diagnosis: '',
@@ -140,11 +142,12 @@ function ClinicalTextareaField({
 export default function VetOnlineConsultDiagnosis() {
     const navigate = useNavigate();
     const { onlineConsultationId } = useParams();
-    const { activeCall, isMinimized, startCall, minimizeCall, maximizeCall, endCall } = useVideoCall();
+    const { activeCall, isMinimized, startCall, minimizeCall, maximizeCall, endCall, captureRemoteParticipant } = useVideoCall();
     const [consultation, setConsultation] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isStarting, setIsStarting] = useState(false);
+    const [isCapturing, setIsCapturing] = useState(false);
     const [lastAutosavedAt, setLastAutosavedAt] = useState('');
     const [diagnosisForm, setDiagnosisForm] = useState(emptyDiagnosisForm);
     const [diagnosisError, setDiagnosisError] = useState('');
@@ -173,6 +176,23 @@ export default function VetOnlineConsultDiagnosis() {
 
         startCall(buildCallDetails(source), options);
     }, [buildCallDetails, consultation, startCall]);
+
+    const handleCapturePetOwner = async () => {
+        setIsCapturing(true);
+        try {
+            const capture = await captureRemoteParticipant();
+            const download = document.createElement('a');
+            const safePetName = String(consultation?.petName || 'consultation').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+            download.href = capture.dataUrl;
+            download.download = `${safePetName || 'consultation'}-pet-owner-${Date.now()}.png`;
+            download.click();
+            toast.success(`Captured ${capture.participantName || 'the pet owner'}'s video.`);
+        } catch (error) {
+            toast.error(error.message || 'The pet owner video could not be captured.');
+        } finally {
+            setIsCapturing(false);
+        }
+    };
 
     useEffect(() => {
         const loadConsultation = async () => {
@@ -347,36 +367,26 @@ export default function VetOnlineConsultDiagnosis() {
     };
 
     return (
-        <div>
-            <div className="relative flex min-h-[calc(100vh-120px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:h-[calc(100vh-120px)] lg:min-h-[680px]">
-                <div className="flex flex-col gap-4 border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-4">
+        <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4 overflow-y-auto lg:h-[calc(100vh-120px)] lg:min-h-[680px] lg:overflow-hidden">
+            <DashboardPageHeader
+                icon={Stethoscope}
+                title="Consultation Diagnosis"
+                description={`${consultation.petName || 'Unnamed Pet'} with ${consultation.ownerName || 'Pet Owner'} - ${formatDisplayDateTime(consultation.scheduledStart)}`}
+                meta={getStatusBadge(consultation.status)}
+                className="shrink-0"
+                navigation={(
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleBackToConsults}
-                        className="gap-2"
+                        className="-ml-2 gap-2 text-slate-600 dark:text-slate-300"
                     >
                         <ArrowLeft className="h-4 w-4" />
-                        Back
+                        Back to online consultations
                     </Button>
-                    <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Consultation Diagnosis</h1>
-                            {getStatusBadge(consultation.status)}
-                        </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {consultation.petName || 'Unnamed Pet'} with {consultation.ownerName || 'Pet Owner'} - {formatDisplayDateTime(consultation.scheduledStart)}
-                        </p>
-                        {lastAutosavedAt && (
-                            <p className="mt-1 text-xs font-medium text-emerald-600">
-                                Draft autosaved {formatDisplayDateTime(lastAutosavedAt)}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                    <div className="flex flex-wrap gap-2">
+                )}
+                actions={(
+                    <>
                         {!callStarted && canUseRoom && (
                             <Button onClick={startConsultation} disabled={isStarting} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
                                 {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
@@ -387,6 +397,12 @@ export default function VetOnlineConsultDiagnosis() {
                             <Button variant="outline" onClick={isMinimized ? handleOpenCall : minimizeCall} className="gap-2">
                                 {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
                                 {isMinimized ? 'Open Call' : 'Minimize'}
+                            </Button>
+                        )}
+                        {callStarted && canUseRoom && (
+                            <Button variant="outline" onClick={handleCapturePetOwner} disabled={isCapturing} className="gap-2">
+                                {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                                Capture Pet Owner
                             </Button>
                         )}
                         <Button
@@ -401,8 +417,17 @@ export default function VetOnlineConsultDiagnosis() {
                                 : <PanelRightOpen className="size-4" aria-hidden="true" />}
                             {isClinicalPanelOpen ? 'Hide Diagnosis Panel' : 'Show Diagnosis Panel'}
                         </Button>
-                    </div>
-                </div>
+                    </>
+                )}
+            />
+
+            {lastAutosavedAt && (
+                <p className="-mt-2 px-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    Draft autosaved {formatDisplayDateTime(lastAutosavedAt)}
+                </p>
+            )}
+
+            <div className="relative flex min-h-[42rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:min-h-0">
 
                 <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
                     <section className="flex min-h-[520px] min-w-0 flex-1 flex-col bg-[#101828] lg:min-h-0">
@@ -527,7 +552,7 @@ export default function VetOnlineConsultDiagnosis() {
                                     icon={ClipboardList}
                                     value={diagnosisForm.diagnosis}
                                     onChange={(event) => updateDiagnosisField('diagnosis', event.target.value)}
-                                    placeholder="Enter the primary diagnosis or clinical assessment..."
+                                    placeholder="Primary diagnosis"
                                     required
                                     error={diagnosisError}
                                     className="min-h-[160px]"
@@ -540,7 +565,7 @@ export default function VetOnlineConsultDiagnosis() {
                                         icon={FileText}
                                         value={diagnosisForm.recommendations}
                                         onChange={(event) => updateDiagnosisField('recommendations', event.target.value)}
-                                        placeholder="Document owner instructions and the recommended next steps..."
+                                    placeholder="Owner instructions"
                                         className="min-h-[130px]"
                                     />
                                 </div>
@@ -573,7 +598,7 @@ export default function VetOnlineConsultDiagnosis() {
                                     icon={Pill}
                                     value={diagnosisForm.medications}
                                     onChange={(event) => updateDiagnosisField('medications', event.target.value)}
-                                    placeholder="Example: Medicine, dose, route, frequency, duration..."
+                                    placeholder="Medicine and dosage"
                                     className="min-h-[125px]"
                                 />
                             </div>

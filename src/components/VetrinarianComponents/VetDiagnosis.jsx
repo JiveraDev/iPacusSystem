@@ -46,6 +46,7 @@ import { fetchQueues } from '../../services/queueService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadDocumentFile, uploadFormData } from '../../services/uploadService';
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 const DIAGNOSIS_DRAFT_STORAGE_PREFIX = 'ipawcus-vet-diagnosis-draft';
@@ -1654,6 +1655,10 @@ export default function VetDiagnosis() {
             toast.error('Vaccine name, date administered, and next due date are required for vaccination records.');
             return false;
         }
+        if (shouldSaveVaccinationRecord && vaccinationRecord.nextDueDate < vaccinationRecord.dateAdministered) {
+            toast.error('Next due date cannot be earlier than the date administered.');
+            return false;
+        }
 
         setIsSaving(true);
 
@@ -1768,25 +1773,21 @@ export default function VetDiagnosis() {
 
     return (
         <div className="mx-auto max-w-6xl space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <Button type="button" variant="ghost" onClick={goBackToMyList} className="w-fit gap-2">
+            <DashboardPageHeader
+                icon={Stethoscope}
+                title="Diagnosis Form"
+                description={`${context.petName} - Owner: ${context.ownerName}`}
+                meta={loadedDiagnosisId ? (
+                    <Badge className="border-0 bg-green-50 text-green-700">Saved clinical record</Badge>
+                ) : null}
+                navigation={(
+                    <Button type="button" variant="ghost" size="sm" onClick={goBackToMyList} className="-ml-2 w-fit gap-2">
                         <ArrowLeft className="size-4" />
                         Back to My List
                     </Button>
-                    <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-2xl font-bold text-[#101828]">Diagnosis Form</h2>
-                            {loadedDiagnosisId && (
-                                <Badge className="border-0 bg-green-50 text-green-700">Saved clinical record</Badge>
-                            )}
-                        </div>
-                        <p className="text-sm font-semibold text-slate-500">
-                            {context.petName} - Owner: {context.ownerName}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                )}
+                actions={(
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
                         {context.serviceName}
                     </div>
@@ -1799,8 +1800,9 @@ export default function VetDiagnosis() {
                         boardingDocumentUploads={boardingDocumentUploads}
                         onPreview={setPreviewImage}
                     />
-                </div>
-            </div>
+                    </div>
+                )}
+            />
 
             {schemaWarning && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
@@ -2055,6 +2057,7 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
                         label="Next Due Date"
                         type="date"
                         value={record.nextDueDate}
+                        min={record.dateAdministered || undefined}
                         onChange={(value) => updateRecord('nextDueDate', value)}
                     />
                     <InputBlock
@@ -2073,7 +2076,7 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
                         <Textarea
                             value={record.notes}
                             onChange={(event) => updateRecord('notes', event.target.value)}
-                            placeholder="Reaction notes, batch details, reminders, or owner instructions"
+                                                    placeholder="Reaction or batch notes"
                             className="min-h-20 bg-white"
                         />
                     </Field>
@@ -2712,7 +2715,7 @@ function GeneralDiagnosisForm({
                 <Textarea
                     value={formData.symptoms}
                     onChange={(event) => updateForm('symptoms', event.target.value)}
-                    placeholder="Observable symptoms and clinical signs"
+                                placeholder="Symptoms and signs"
                     className="min-h-20"
                 />
             </Field>
@@ -2755,7 +2758,7 @@ function GeneralDiagnosisForm({
                 <Textarea
                     value={formData.physicalExam}
                     onChange={(event) => updateForm('physicalExam', event.target.value)}
-                    placeholder="General appearance, HEENT, cardiovascular, respiratory, etc."
+                                placeholder="Physical exam findings"
                     className="min-h-24"
                 />
             </Field>
@@ -2764,7 +2767,7 @@ function GeneralDiagnosisForm({
                 <Textarea
                     value={formData.diagnosis}
                     onChange={(event) => updateForm('diagnosis', event.target.value)}
-                    placeholder="Primary diagnosis and differential diagnoses"
+                                placeholder="Primary diagnosis"
                     className="min-h-20"
                 />
             </Field>
@@ -2773,7 +2776,7 @@ function GeneralDiagnosisForm({
                 <Textarea
                     value={formData.treatment}
                     onChange={(event) => updateForm('treatment', event.target.value)}
-                    placeholder="Recommended treatments, procedures, and interventions"
+                                placeholder="Recommended treatment"
                     className="min-h-20"
                 />
             </Field>
@@ -2822,7 +2825,7 @@ function MajorSymptomsContainer({ value, onChange }) {
             <Textarea
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                placeholder="High-priority symptoms, red flags, onset, severity, and duration"
+                                        placeholder="Urgent symptoms"
                 className="mt-3 min-h-24 border-amber-200 bg-white"
             />
         </div>
@@ -3091,7 +3094,7 @@ function PrescriptionEditor({
             <Textarea
                 value={currentPrescription.instructions}
                 onChange={(event) => updatePrescriptionInput('instructions', event.target.value)}
-                placeholder="Optional prescription instructions"
+                                            placeholder="Prescription notes"
                 className="min-h-16 bg-white"
             />
 
@@ -3234,7 +3237,7 @@ function CustomDiagnosisForm({
                         <Textarea
                             value={field.value}
                             onChange={(event) => updateCustomField(field.id, 'value', event.target.value)}
-                            placeholder="Service-specific findings, diagnosis notes, or recommendations"
+                                                    placeholder="Service findings"
                             className="min-h-24 bg-white"
                         />
                     </Field>
@@ -3431,7 +3434,7 @@ function Field({ label, required = false, children }) {
     );
 }
 
-function InputBlock({ label, value, onChange, placeholder = '', type = 'text', restriction }) {
+function InputBlock({ label, value, onChange, placeholder = '', type = 'text', restriction, min, max }) {
     return (
         <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</Label>
@@ -3441,6 +3444,8 @@ function InputBlock({ label, value, onChange, placeholder = '', type = 'text', r
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
                 restriction={restriction}
+                min={min}
+                max={max}
                 className="bg-white"
             />
         </div>

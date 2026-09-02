@@ -24,3 +24,11 @@ export function deactivateServiceCatalogItem(serviceId) {
 export function deleteServiceCatalogItem(serviceId) {
     return deleteRequest(`/service-catalog/${serviceId}?hardDelete=1`);
 }
+
+export function fetchServiceDisplaySettings() {
+    return apiRequest('/service-display-settings');
+}
+
+export function saveServiceDisplaySettings(config) {
+    return patchJson('/service-display-settings', { config });
+}

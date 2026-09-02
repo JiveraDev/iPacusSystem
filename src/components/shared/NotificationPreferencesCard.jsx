@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BellOff, BellPlus, BellRing, Loader2, Mail, MonitorCheck, Save, Smartphone } from 'lucide-react';
+import { BellOff, BellPlus, BellRing, Check, Loader2, Mail, MonitorCheck, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
@@ -10,9 +10,9 @@ import {
     saveNotificationPreferences
 } from '../../services/notificationService';
 import {
-    disableBrowserPush,
-    enableBrowserPush,
-    getBrowserPushState
+    BROWSER_PUSH_SETTING_CHANGED_EVENT,
+    getBrowserPushState,
+    setBrowserPushEnabledForAccount
 } from '../../services/pushNotificationService';
 
 const DEFAULT_PREFERENCES = {
@@ -152,6 +152,7 @@ export default function NotificationPreferencesCard({ user }) {
     const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('');
     const [isPushUpdating, setIsPushUpdating] = useState(false);
     const [loadError, setLoadError] = useState('');
     const [browserPushState, setBrowserPushState] = useState(DEFAULT_BROWSER_PUSH_STATE);
@@ -229,27 +230,47 @@ export default function NotificationPreferencesCard({ user }) {
         };
     }, [userId]);
 
-    const updatePreference = (key, value) => {
-        setPreferences(current => ({ ...current, [key]: Boolean(value) }));
-    };
+    useEffect(() => {
+        const handlePushSettingChange = (event) => {
+            if (event.detail?.preferences) {
+                setPreferences(normalizePreferences(event.detail.preferences));
+            }
+            if (event.detail?.browserState) {
+                setBrowserPushState(event.detail.browserState);
+            }
+        };
 
-    const handleSave = async () => {
+        window.addEventListener(BROWSER_PUSH_SETTING_CHANGED_EVENT, handlePushSettingChange);
+        return () => window.removeEventListener(BROWSER_PUSH_SETTING_CHANGED_EVENT, handlePushSettingChange);
+    }, []);
+
+    const updatePreference = async (key, value) => {
         if (!userId) {
             toast.error('Session error. Please log in again.');
             return;
         }
 
+        const previousPreferences = preferences;
+        const nextPreferences = {
+            ...preferences,
+            [key]: Boolean(value)
+        };
+
+        setPreferences(nextPreferences);
         setIsSaving(true);
+        setSaveStatus('saving');
 
         try {
-            const data = await saveNotificationPreferences(userId, preferences);
+            const data = await saveNotificationPreferences(userId, nextPreferences);
             setPreferences(normalizePreferences(data.preferences));
-            toast.success('Notification settings saved.');
+            setSaveStatus('saved');
         } catch (error) {
             console.error('[iPawcus push] Notification preferences save failed.', error);
+            setPreferences(previousPreferences);
+            setSaveStatus('error');
             toast.error(getUserFacingErrorMessage(
                 error,
-                'Failed to save notification settings.',
+                'This notification setting could not be saved.',
                 { log: false }
             ));
         } finally {
@@ -263,26 +284,29 @@ export default function NotificationPreferencesCard({ user }) {
             return;
         }
 
+        if (browserPushState.permission === 'denied') {
+            toast.info('Notifications are blocked for this site. Allow them in your browser site settings, then try again.');
+            return;
+        }
+
         setIsPushUpdating(true);
-
         try {
-            const state = await enableBrowserPush(userId);
-            const nextPreferences = {
-                ...preferences,
-                browser_push_enabled: true
-            };
-            const data = await saveNotificationPreferences(userId, nextPreferences);
-
-            setPreferences(normalizePreferences(data.preferences));
-            setBrowserPushState(state);
-            toast.success('iPawcus Push notification is now activated.');
+            const result = await setBrowserPushEnabledForAccount(userId, true, preferences);
+            setPreferences(normalizePreferences(result.preferences));
+            setBrowserPushState(result.browserState);
+            toast.success('Browser notifications are now on for this account.');
         } catch (error) {
             console.error('[iPawcus push] Browser push enable failed.', error);
-            toast.error(getUserFacingErrorMessage(
+            const message = getUserFacingErrorMessage(
                 error,
                 'Browser notifications could not be turned on.',
                 { log: false }
-            ));
+            );
+            if (/blocked|not allowed/i.test(message)) {
+                toast.info(message);
+            } else {
+                toast.error(message);
+            }
             try {
                 setBrowserPushState(await getBrowserPushState(userId));
             } catch (stateError) {
@@ -310,16 +334,10 @@ export default function NotificationPreferencesCard({ user }) {
         setIsPushUpdating(true);
 
         try {
-            const state = await disableBrowserPush(userId);
-            const nextPreferences = {
-                ...preferences,
-                browser_push_enabled: false
-            };
-            const data = await saveNotificationPreferences(userId, nextPreferences);
-
-            setPreferences(normalizePreferences(data.preferences));
-            setBrowserPushState(state);
-            toast.success('Browser notifications are off for this device.');
+            const result = await setBrowserPushEnabledForAccount(userId, false, preferences);
+            setPreferences(normalizePreferences(result.preferences));
+            setBrowserPushState(result.browserState);
+            toast.success('Browser notifications are now off for this account.');
         } catch (error) {
             console.error('[iPawcus push] Browser push disable failed.', error);
             toast.error(getUserFacingErrorMessage(
@@ -343,8 +361,8 @@ export default function NotificationPreferencesCard({ user }) {
     const canEnableBrowserPush = browserPushState.supported
         && browserPushState.secure !== false
         && browserPushState.configured
-        && browserPushState.permission !== 'denied'
         && !browserPushState.error;
+    const isBrowserPushEnabled = Boolean(preferences.browser_push_enabled && browserPushState.enabled);
 
     if (isLoading) {
         return (
@@ -365,6 +383,19 @@ export default function NotificationPreferencesCard({ user }) {
                         <div className="flex flex-wrap items-center gap-2">
                             <BellRing className="size-5 text-[#155dfc]" />
                             <CardTitle className="text-xl font-bold text-slate-950">Notification Settings</CardTitle>
+                            {saveStatus === 'saving' && (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+                                    <Loader2 className="size-3 animate-spin" /> Saving
+                                </span>
+                            )}
+                            {saveStatus === 'saved' && (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
+                                    <Check className="size-3" /> Saved automatically
+                                </span>
+                            )}
+                            {saveStatus === 'error' && (
+                                <span className="text-xs font-bold text-red-600">Not saved</span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -384,16 +415,16 @@ export default function NotificationPreferencesCard({ user }) {
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h3 className="text-base font-black text-slate-950">Browser notifications</h3>
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-black ${browserPushState.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                                        {browserPushState.enabled ? 'On this device' : 'Off'}
+                                    <span className={`rounded-full px-2 py-0.5 text-xs font-black ${isBrowserPushEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                        {isBrowserPushEnabled ? 'On this device' : 'Off'}
                                     </span>
                                 </div>
                                 <p className="mt-1 text-sm font-medium leading-5 text-slate-600">
-                                    {browserPushMessage(browserPushState)}
+                                    {browserPushMessage({ ...browserPushState, enabled: isBrowserPushEnabled })}
                                 </p>
                             </div>
                         </div>
-                        {browserPushState.enabled ? (
+                        {isBrowserPushEnabled ? (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -448,6 +479,7 @@ export default function NotificationPreferencesCard({ user }) {
                                             <Checkbox
                                                 checked={preferences[item.key]}
                                                 onCheckedChange={(checked) => updatePreference(item.key, checked)}
+                                                disabled={isSaving}
                                                 className="mt-1"
                                             />
                                             <span className="min-w-0 flex-1">
@@ -465,20 +497,6 @@ export default function NotificationPreferencesCard({ user }) {
                     ))}
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-semibold leading-5 text-slate-500">
-                        Small pop-up confirmations inside the app stay on so actions like saving, booking, and cancelling still feel clear.
-                    </p>
-                    <Button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="h-11 bg-[#155dfc] px-5 text-white hover:bg-[#0d4acf]"
-                    >
-                        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                        Save Changes
-                    </Button>
-                </div>
             </CardContent>
         </Card>
     );

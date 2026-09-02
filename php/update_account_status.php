@@ -11,7 +11,6 @@ if (!is_array($input)) {
     $input = [];
 }
 $isActive = filter_var($input['is_active'] ?? 0, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
-$type = strtolower($input['type'] ?? '');
 
 if (!$userId) {
     http_response_code(400);
@@ -29,22 +28,6 @@ try {
         echo json_encode(['message' => 'Account not found.']);
         exit;
     }
-
-    $role = strtolower($user['role'] ?? '');
-
-    if ($type === 'vet' || $role === 'veterinarian') {
-        $stmt = $pdo->prepare("UPDATE veterinarian_profiles SET is_active = ? WHERE user_id = ?");
-    } else {
-        if (!ensureAdminAccountStatusColumn($pdo)) {
-            http_response_code(500);
-            echo json_encode(['message' => 'Admin account status column is missing.']);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("UPDATE admin_profiles SET is_active = ? WHERE user_id = ?");
-    }
-    
-    $stmt->execute([$isActive, $userId]);
 
     if (accountColumnExists($pdo, 'users', 'account_status')) {
         $reactivateColumns = ['account_status = ?'];
@@ -67,10 +50,6 @@ try {
         $reactivateStmt->execute($reactivateParams);
     }
 
-    if (!$isActive) {
-        accountRevokeAccessTokens($pdo, (int)$userId);
-    }
-
     try {
         $accountName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')))
             ?: trim((string)($user['mail_Address'] ?? 'Personnel account'));
@@ -89,7 +68,7 @@ try {
     }
 
     echo json_encode([
-        'message' => 'Account status updated successfully.',
+        'message' => $isActive ? 'Archive marker removed.' : 'Account marked as archived. Access remains unchanged.',
         'user_id' => (int)$userId,
         'is_active' => $isActive
     ]);

@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Scissors, ArrowLeft } from "lucide-react";
+import { Scissors } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
@@ -16,14 +16,17 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
+import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
+import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 
 export default function Grooming() {
   const navigate = useNavigate();
-  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
   const { groomingMatrix, instructions, serviceDetails, servicePrices } = priceProjectionConfig;
   const serviceDetail = serviceDetails.grooming;
   const [pets, setPets] = useState([]);
@@ -77,18 +80,14 @@ export default function Grooming() {
       return;
     }
 
-    if (!formData.branchId || !formData.date || !formData.time) {
-      toast.error("Select a clinic location and an available appointment date and time.");
-      return;
-    }
-    
-    if (!isNewPet && !formData.petId) {
-      toast.error("Please select a pet");
-      return;
-    }
-
-    if (isNewPet && !formData.petName) {
-      toast.error("Please enter the pet's name");
+    const validationErrors = standardAppointmentBookingErrors({
+      formData,
+      isNewPet,
+      branchRequired: true,
+      branchFieldId: 'branch-grooming',
+      today: clinicTodayDate(),
+    });
+    if (reportBookingFormErrors(validationErrors)) {
       return;
     }
 
@@ -97,7 +96,7 @@ export default function Grooming() {
       : null;
 
     if (isPetDeceased(selectedRegisteredPet)) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      reportBookingFormErrors([{ fieldId: 'petSelect', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
       return;
     }
 
@@ -151,7 +150,7 @@ export default function Grooming() {
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Booking error:", error);
-      toast.error(error.message || "Failed to submit booking");
+      reportBookingSubmissionError(error, { branch: 'branch-grooming' });
     } finally {
       setIsSubmitting(false);
     }
@@ -194,26 +193,23 @@ export default function Grooming() {
   };
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Grooming</h1>
-          <p className="text-gray-600 mt-1">Professional grooming services for your pet</p>
-        </div>
-      </div>
+    <ServicePageShell>
+      <ServicePageHeader
+        icon={Scissors}
+        title="Grooming"
+        description="Professional grooming services for your pet"
+        onBack={() => navigate("/dashboard/services")}
+      />
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,0.8fr)]">
         {/* Booking Form */}
-        <Card className="lg:col-span-2">
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Booking Details</CardTitle>
             <CardDescription>Fill in the information below to schedule your appointment</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="petSelect">Select Pet *</Label>
                 <Select value={formData.petId} onValueChange={handlePetChange}>
@@ -344,7 +340,7 @@ export default function Grooming() {
                 <Label htmlFor="notes">Grooming Preferences</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Any specific grooming requests or pet sensitivities?"
+                  placeholder="Grooming requests"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={4}
@@ -375,23 +371,35 @@ export default function Grooming() {
         </Card>
 
         {/* Service Info */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="w-16 h-16 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Scissors className="h-8 w-8" />
-              </div>
-              <CardTitle className="text-center">Grooming</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <aside className="min-w-0 space-y-4">
+          <ServiceSummaryCard icon={Scissors} title={serviceDetail?.title || "Grooming"}>
+              <ServiceProjectionEditor
+                config={priceProjectionConfig}
+                detailKey="grooming"
+                instructionKey="grooming"
+                priceFields={[{ key: 'grooming', label: 'Displayed price range' }]}
+                matrixConfig={{
+                  key: 'groomingMatrix',
+                  label: 'Grooming price table',
+                  identityField: 'service',
+                  columns: [
+                    { key: 'service', label: 'Service', wide: true },
+                    { key: 'small', label: 'Small' },
+                    { key: 'medium', label: 'Medium' },
+                    { key: 'large', label: 'Large' },
+                    { key: 'xl', label: 'XL' }
+                  ]
+                }}
+                onSave={savePriceProjectionConfig}
+              />
               <ServiceProjectionDetails detail={serviceDetail}>
-                <p className="text-lg font-bold text-pink-600">{servicePrices.grooming}</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{servicePrices.grooming}</p>
                 {instructions.grooming && (
-                  <p className="mt-1 text-xs text-gray-500">{instructions.grooming}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{instructions.grooming}</p>
                 )}
-                <div className="mt-3 overflow-x-auto rounded-lg border border-pink-100">
+                <div className="mt-3 overflow-x-auto rounded-lg border border-blue-100 dark:border-blue-900/60">
                   <table className="min-w-full text-xs">
-                    <thead className="bg-pink-50 text-pink-700">
+                    <thead className="bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
                       <tr>
                         <th className="px-3 py-2 text-left font-semibold">Grooming service</th>
                         <th className="px-3 py-2 text-right font-semibold">Small</th>
@@ -400,26 +408,25 @@ export default function Grooming() {
                         <th className="px-3 py-2 text-right font-semibold">XL</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-pink-100 bg-white">
+                    <tbody className="divide-y divide-blue-100 bg-white dark:divide-blue-900/50 dark:bg-slate-900">
                       {groomingMatrix.map((row) => (
                         <tr key={row.service}>
-                          <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{row.service}</td>
-                          <td className="px-3 py-2 text-right text-gray-600">{row.small}</td>
-                          <td className="px-3 py-2 text-right text-gray-600">{row.medium}</td>
-                          <td className="px-3 py-2 text-right text-gray-600">{row.large}</td>
-                          <td className="px-3 py-2 text-right text-gray-600">{row.xl}</td>
+                          <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700 dark:text-slate-200">{row.service}</td>
+                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.small}</td>
+                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.medium}</td>
+                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.large}</td>
+                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.xl}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </ServiceProjectionDetails>
-            </CardContent>
-          </Card>
+          </ServiceSummaryCard>
 
           <ServiceProjectionNote detail={serviceDetail} />
-        </div>
+        </aside>
       </div>
-    </div>
+    </ServicePageShell>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell } from 'lucide-react';
 import NotificationFeed from './NotificationFeed.jsx';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { prepareNotificationRedirect } from '../../lib/notificationRedirect';
+import BrowserNotificationButton from './BrowserNotificationButton.jsx';
 
 const NOTIFICATIONS_ROUTE = '/dashboard/notifications';
 const NOTIFICATIONS_RETURN_PATH_KEY = 'ipawcus-notifications-return-path';
@@ -22,6 +24,7 @@ export default function NotificationBell({
     collapsed = false
 }) {
     const containerRef = useRef(null);
+    const panelRef = useRef(null);
     const [isOpen, setIsOpen] = useState(false);
     const {
         unreadCount,
@@ -44,7 +47,10 @@ export default function NotificationBell({
 
     useEffect(() => {
         const closeOnOutsideClick = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            const clickedTrigger = containerRef.current?.contains(event.target);
+            const clickedPanel = panelRef.current?.contains(event.target);
+
+            if (!clickedTrigger && !clickedPanel) {
                 setIsOpen(false);
             }
         };
@@ -83,15 +89,45 @@ export default function NotificationBell({
 
     const isNavVariant = variant === 'nav';
     const panelClassName = isNavVariant
-        ? `fixed bottom-4 left-4 right-4 z-50 max-h-[calc(100vh-2rem)] md:bottom-6 md:right-auto md:w-[27rem] md:max-w-[calc(100vw-21rem)] ${
+        ? `fixed bottom-4 left-4 right-4 z-[1200] max-h-[calc(100vh-2rem)] md:bottom-6 md:right-auto md:w-[27rem] md:max-w-[calc(100vw-21rem)] ${
             collapsed ? 'md:left-24' : 'md:left-[19rem]'
         }`
         : 'absolute right-0 z-50 mt-2 w-[min(27rem,calc(100vw-2rem))]';
     const buttonClassName = isNavVariant
-        ? `relative flex items-center rounded-xl border border-slate-200 text-left text-slate-700 shadow-sm transition hover:bg-slate-50 ${
-            collapsed ? 'mx-auto size-12 justify-center bg-white p-0' : 'w-full gap-3 bg-white px-4 py-3'
+        ? `relative flex min-h-11 items-center rounded-xl text-left text-slate-700 transition-colors duration-200 hover:bg-blue-50 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white dark:focus-visible:ring-offset-slate-900 ${
+            collapsed ? 'mx-auto size-11 justify-center p-0' : 'w-full gap-3 px-2.5 py-2'
         }`
-        : 'relative flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50';
+        : 'relative flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800';
+
+    const notificationPanel = isOpen ? (
+        <div
+            ref={panelRef}
+            data-motion="popover"
+            role="dialog"
+            aria-label="Notification viewer"
+            className={`${panelClassName} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900`}
+        >
+            <NotificationFeed
+                unreadCount={unreadCount}
+                filter={filter}
+                onFilterChange={setFilter}
+                summaryItems={summaryItems}
+                isUpdating={isUpdating}
+                onMarkAllRead={markAllRead}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                visibleNotifications={visibleNotifications}
+                notificationGroups={notificationGroups}
+                canLoadMoreVisible={canLoadMoreVisible}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMore}
+                loadMoreLabel={loadMoreLabel}
+                notificationControl={<BrowserNotificationButton user={user} />}
+                onNotificationClick={handleNotificationClick}
+                onClose={() => setIsOpen(false)}
+            />
+        </div>
+    ) : null;
 
     return (
         <div ref={containerRef} className={`relative ${isNavVariant ? 'w-full' : ''}`}>
@@ -102,8 +138,8 @@ export default function NotificationBell({
                 aria-label="Open notifications"
                 title={collapsed ? label : undefined}
             >
-                <span className="relative flex size-8 shrink-0 items-center justify-center">
-                    <Bell className="size-5" />
+                <span className={`relative flex size-8 shrink-0 items-center justify-center rounded-lg ${isNavVariant ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300' : ''}`}>
+                    <Bell className="size-4.5" />
                     {(!isNavVariant || collapsed) && unreadCount > 0 && (
                         <span className="absolute -right-3 -top-3 flex min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1.5 text-[11px] font-black leading-5 text-white shadow-md">
                             {unreadCount > 9 ? '9+' : unreadCount}
@@ -113,9 +149,9 @@ export default function NotificationBell({
                 {isNavVariant && !collapsed && (
                     <>
                         <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{label}</span>
+                            <span className="block truncate text-sm font-bold">{label}</span>
                             {description && (
-                                <span className="block truncate text-xs font-semibold text-[#155dfc]">{description}</span>
+                                <span className="block truncate text-xs font-semibold text-blue-700 dark:text-blue-300">{description}</span>
                             )}
                         </span>
                         {unreadCount > 0 && (
@@ -132,28 +168,9 @@ export default function NotificationBell({
                 )}
             </button>
 
-            {isOpen && (
-                <div className={`${panelClassName} overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl`}>
-                    <NotificationFeed
-                        unreadCount={unreadCount}
-                        filter={filter}
-                        onFilterChange={setFilter}
-                        summaryItems={summaryItems}
-                        isUpdating={isUpdating}
-                        onMarkAllRead={markAllRead}
-                        isLoading={isLoading}
-                        errorMessage={errorMessage}
-                        visibleNotifications={visibleNotifications}
-                        notificationGroups={notificationGroups}
-                        canLoadMoreVisible={canLoadMoreVisible}
-                        isLoadingMore={isLoadingMore}
-                        onLoadMore={loadMore}
-                        loadMoreLabel={loadMoreLabel}
-                        onNotificationClick={handleNotificationClick}
-                        onClose={() => setIsOpen(false)}
-                    />
-                </div>
-            )}
+            {isNavVariant && typeof document !== 'undefined'
+                ? createPortal(notificationPanel, document.body)
+                : notificationPanel}
         </div>
     );
 }

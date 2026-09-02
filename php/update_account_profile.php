@@ -44,11 +44,13 @@ $currentUser = account_profile_require_super_admin($pdo);
 
 $position = trim((string)($input['position'] ?? $input['postionn'] ?? ''));
 $employmentStatus = strtolower(trim((string)($input['employmentStatus'] ?? $input['employment_status'] ?? '')));
+$specialization = trim((string)($input['specialization'] ?? ''));
+$licenseNumber = trim((string)($input['licenseNumber'] ?? $input['prc_license_number'] ?? ''));
 $branchId = isset($input['branchId']) && is_numeric($input['branchId']) ? (int)$input['branchId'] : 0;
 $validEmploymentStatuses = ['full-time', 'part-time', 'contract'];
 
-if ($position === '' || strlen($position) > 250 || !in_array($employmentStatus, $validEmploymentStatuses, true) || $branchId <= 0) {
-    account_profile_json(['message' => 'A valid assigned branch, position, and employment status are required.'], 422);
+if ($branchId <= 0) {
+    account_profile_json(['message' => 'A valid assigned branch is required.'], 422);
 }
 
 try {
@@ -56,13 +58,7 @@ try {
     if (!branch_fetch($pdo, $branchId)) {
         account_profile_json(['message' => 'Select an active branch for this Admin account.'], 422);
     }
-    $stmt = $pdo->prepare("
-        SELECT u.user_id, u.role
-        FROM users u
-        JOIN admin_profiles a ON a.user_id = u.user_id
-        WHERE u.user_id = ?
-        LIMIT 1
-    ");
+    $stmt = $pdo->prepare('SELECT user_id, role FROM users WHERE user_id = ? LIMIT 1');
     $stmt->execute([$userId]);
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -71,17 +67,25 @@ try {
     }
 
     $accountRole = account_profile_normalize_role($account['role'] ?? '');
-    if ($accountRole !== 'admin') {
-        account_profile_json(['message' => 'Only staff personnel employment information can be updated here.'], 422);
+    $isVeterinarian = in_array($accountRole, ['veterinarian', 'vet'], true);
+    if (!$isVeterinarian && $accountRole !== 'admin') {
+        account_profile_json(['message' => 'Only Admin and Veterinarian professional information can be updated here.'], 422);
+    }
+    if ($isVeterinarian && ($specialization === '' || $licenseNumber === '' || strlen($specialization) > 250 || strlen($licenseNumber) > 250)) {
+        account_profile_json(['message' => 'A valid PRC license number and specialization are required.'], 422);
+    }
+    if (!$isVeterinarian && ($position === '' || strlen($position) > 250 || !in_array($employmentStatus, $validEmploymentStatuses, true))) {
+        account_profile_json(['message' => 'A valid position and employment status are required.'], 422);
     }
 
     $pdo->beginTransaction();
-    $update = $pdo->prepare("
-        UPDATE admin_profiles
-        SET postionn = ?, employment_status = ?
-        WHERE user_id = ?
-    ");
-    $update->execute([$position, $employmentStatus, $userId]);
+    if ($isVeterinarian) {
+        $update = $pdo->prepare('UPDATE veterinarian_profiles SET specialization = ?, prc_license_number = ? WHERE user_id = ?');
+        $update->execute([$specialization, $licenseNumber, $userId]);
+    } else {
+        $update = $pdo->prepare('UPDATE admin_profiles SET postionn = ?, employment_status = ? WHERE user_id = ?');
+        $update->execute([$position, $employmentStatus, $userId]);
+    }
 
     $userUpdate = $pdo->prepare('UPDATE users SET preferred_branch_id = ? WHERE user_id = ?');
     $userUpdate->execute([$branchId, $userId]);
@@ -106,10 +110,11 @@ try {
     ");
     $assignBranch->execute([$userId, $branchId, ipawcus_guard_user_id($currentUser)]);
 
+    $profileTable = $isVeterinarian ? 'veterinarian_profiles' : 'admin_profiles';
     $select = $pdo->prepare("
-        SELECT u.*, a.*, branch.branch_name AS preferred_branch_name
+        SELECT u.*, profile.*, branch.branch_name AS preferred_branch_name
         FROM users u
-        JOIN admin_profiles a ON a.user_id = u.user_id
+        JOIN {$profileTable} profile ON profile.user_id = u.user_id
         LEFT JOIN branches branch ON branch.branch_id = u.preferred_branch_id
         WHERE u.user_id = ?
         LIMIT 1
@@ -125,7 +130,9 @@ try {
             'type' => 'personnel_account_assignment_updated',
             'category' => 'account_updates',
             'title' => 'Personnel assignment updated',
-            'message' => "{$accountName} is now {$position} ({$employmentStatus}) at {$branchName}.",
+            'message' => $isVeterinarian
+                ? "{$accountName}'s professional information and assignment at {$branchName} were updated."
+                : "{$accountName} is now {$position} ({$employmentStatus}) at {$branchName}.",
             'push_message' => "Personnel assignment updated for {$accountName}.",
             'redirect_path' => '/dashboard/accounts',
             'dedupe_key' => 'personnel-account-assignment-' . $userId . '-' . date('YmdHis'),
@@ -135,7 +142,9 @@ try {
     }
 
     account_profile_json([
-        'message' => 'Personnel information and branch assignment updated successfully.',
+        'message' => $isVeterinarian
+            ? 'Veterinarian professional information and branch assignment updated successfully.'
+            : 'Personnel information and branch assignment updated successfully.',
         'account' => $updatedAccount,
     ]);
 } catch (Throwable $e) {

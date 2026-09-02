@@ -23,7 +23,8 @@ const RadioGroupItem = React.forwardRef(({ value, className, ...props }, ref) =>
       type="radio"
       checked={context?.value === value}
       onChange={() => context?.onValueChange?.(value)}
-      className={cn("h-4 w-4 accent-[#155dfc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2", className)}
+      data-slot="radio-group-item"
+      className={cn("h-4 w-4 accent-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2", className)}
       {...props}
     />
   );

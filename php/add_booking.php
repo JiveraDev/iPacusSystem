@@ -817,9 +817,9 @@ $submittedPaymentAmount = is_numeric($submittedPaymentAmountValue)
     : null;
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
-if ($paymentReference !== null && strlen($paymentReference) > 120) {
+if ($paymentReference !== null && !preg_match('/^\d{18}$/', $paymentReference)) {
     http_response_code(422);
-    echo json_encode(['message' => 'Payment reference must be 120 characters or fewer.']);
+    echo json_encode(['message' => 'Payment transaction number must contain exactly 18 digits.']);
     exit;
 }
 if ($paymentProofUrl !== null && strlen($paymentProofUrl) > 500) {
@@ -842,14 +842,6 @@ $emergencyContact = $input['emergency_contact'] ?? null;
 $isHotelBoarding = $serviceType === 'boarding' && in_array($hotelBoardingType, ['hotel', 'boarding'], true);
 
 if ($currentApiRole === 'pet_owner') {
-    if (in_array(strtolower(trim((string)($currentApiUser['account_status'] ?? 'active'))), ['archived', 'deactivated'], true)) {
-        http_response_code(403);
-        echo json_encode([
-            'code' => 'ARCHIVED_OWNER_BOOKING_RESTRICTED',
-            'message' => 'Your account is archived. You can review existing records, but clinic staff must restore booking access or place your pet in the queue.',
-        ]);
-        exit;
-    }
     if ($submittedUserId !== null && $submittedUserId !== '' && (int)$submittedUserId !== $currentApiUserId) {
         http_response_code(403);
         echo json_encode(['message' => 'You cannot submit a booking for another user account.']);
@@ -878,9 +870,9 @@ if (count($exclusiveModes) > 1) {
 $isHomeService = $homeServiceRequested ? 1 : 0;
 $isOnlineConsultation = $onlineConsultRequested ? 1 : 0;
 
-if ($isOnlineConsultation === 1 && ($paymentReference === null || !preg_match('/^\d{1,18}$/', $paymentReference))) {
+if ($isOnlineConsultation === 1 && $paymentReference === null) {
     http_response_code(422);
-    echo json_encode(['message' => 'Online consultation payment reference must contain no more than 18 digits.']);
+    echo json_encode(['message' => 'Online consultation payment transaction number is required.']);
     exit;
 }
 
@@ -1198,6 +1190,11 @@ if ($serviceType === 'special services' && count($selectedSpecialServices) === 1
 
 $requiresBookingPrepayment = in_array($serviceKey, ['home-service', 'online-consultation'], true);
 $expectedBookingPayment = $serviceKey === 'home-service' ? $transportFee : $price;
+if ($serviceKey === 'special-services' && $paymentMethod === null) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Select a payment method before submitting this Special Services booking.']);
+    exit;
+}
 if ($paymentProofUrl !== null && $paymentMethod === null) {
     http_response_code(422);
     echo json_encode(['message' => 'Select QR Ph, GCash, Maya, or bank transfer for an uploaded booking payment proof.']);

@@ -6,7 +6,6 @@ import {
   FileText,
   Loader2,
   Minus,
-  Package,
   PawPrint,
   Pill,
   Plus,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { Checkbox } from '../../ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -43,10 +43,12 @@ import { fetchInventoryItems } from '../../services/inventoryApi';
 import { updateBookingStatus } from '../../services/bookingService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadDocumentFile } from '../../services/uploadService';
-import { createVisit, fetchVisits, postVisitPayment, postVisitRefund } from '../../services/visitBillingService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import { createVisit, fetchVisits, postVisitPayment } from '../../services/visitBillingService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { assignedBranchId, isBranchSelectionLocked } from '../../lib/branchAccess.js';
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from '../../lib/transactionNumber.js';
 
 const INVOICE_DATE = new Date().toLocaleDateString(undefined, {
   month: 'long',
@@ -462,6 +464,45 @@ function serviceTypeLabel(value) {
   return labels[value] || 'Service';
 }
 
+function getServiceBranchKey(service) {
+  const serviceType = normalizeText(service?.serviceType);
+  const serviceName = normalizeSearchText(service?.serviceName);
+
+  if (serviceName.includes('online') && serviceName.includes('consult')) {
+    return 'consultation';
+  }
+
+  if (serviceType === 'consultation') return 'general check up';
+  if (serviceType === 'vaccination') return 'vaccination';
+  if (serviceType === 'laboratory') return 'lab testing';
+  if (serviceType === 'surgery') return 'surgery';
+  if (serviceType === 'grooming') return 'grooming';
+  if (serviceType === 'boarding') return 'boarding';
+  if (serviceType === 'dental') return 'dental';
+  if (serviceType === 'home_service') return 'home service';
+
+  if (serviceName.includes('parasite') || serviceName.includes('deworm')) return 'parasite control';
+  if (serviceName.includes('kapon') || serviceName.includes('spay') || serviceName.includes('neuter')) return 'kapon';
+  return 'special services';
+}
+
+function isServiceAvailableAtBranch(service, branch) {
+  const availableServices = Array.isArray(branch?.services) ? branch.services : [];
+  if (availableServices.length === 0) return false;
+
+  const serviceKey = getServiceBranchKey(service);
+  const serviceName = normalizeSearchText(service?.serviceName);
+
+  return availableServices.some((availableService) => {
+    const availableKey = normalizeSearchText(availableService?.key);
+    const availableLabel = normalizeSearchText(availableService?.label);
+    return availableKey === serviceKey
+      || availableLabel === serviceKey
+      || availableKey === serviceName
+      || availableLabel === serviceName;
+  });
+}
+
 function normalizeServiceCatalogItem(service) {
   const classificationId = getCatalogClassification(service.serviceType);
   const normalizeMaterial = (material) => {
@@ -527,14 +568,14 @@ function normalizeInventoryItems(data) {
       ...inventoryItem,
       searchText: buildSearchText(buildInventorySearchParts(inventoryItem)),
     };
-  }).filter((item) => item.id);
+  }).filter((item) => item.id && item.stock > 0 && item.batches.some((batch) => Number(batch.quantity || 0) > 0));
 }
 
 function buildCatalog(inventory, serviceCatalog = [], allowDemoCatalog = false) {
   const activeCatalogItems = serviceCatalog
     .filter((service) => service.isActive !== false)
     .map(normalizeServiceCatalogItem);
-  const catalogServices = activeCatalogItems.filter((item) => item.classificationId === 'services');
+  const catalogServices = activeCatalogItems;
   const catalogDiagnostics = activeCatalogItems.filter((item) => item.classificationId === 'diagnostics');
 
   const medicationItems = inventory
@@ -1267,14 +1308,6 @@ export default function ServicePOS() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentReference, setPaymentReference] = useState('');
   const [cashNoReference, setCashNoReference] = useState(true);
-  const [refundOpen, setRefundOpen] = useState(false);
-  const [refundVisitId, setRefundVisitId] = useState('');
-  const [refundPaymentId, setRefundPaymentId] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundMethod, setRefundMethod] = useState('cash');
-  const [refundReference, setRefundReference] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [isPostingRefund, setIsPostingRefund] = useState(false);
   const [posPrefill] = useState(() => readPosPrefill());
   const prefillReconciledRef = useRef(false);
   const emptyInventoryNoticeBranchesRef = useRef(new Set());
@@ -1286,9 +1319,17 @@ export default function ServicePOS() {
     || posPrefill?.visit?.branch_id
     || ''
   ));
+  const selectedBranch = useMemo(
+    () => branches.find((branch) => String(branch.id) === String(branchId)) || null,
+    [branchId, branches]
+  );
+  const availableServiceCatalog = useMemo(
+    () => serviceCatalog.filter((service) => isServiceAvailableAtBranch(service, selectedBranch)),
+    [selectedBranch, serviceCatalog]
+  );
   const catalog = useMemo(
-    () => buildCatalog(inventory, serviceCatalog, POS_DEMO_CATALOG_ENABLED),
-    [inventory, serviceCatalog]
+    () => buildCatalog(inventory, availableServiceCatalog, POS_DEMO_CATALOG_ENABLED),
+    [availableServiceCatalog, inventory]
   );
   const catalogMap = useMemo(() => flattenCatalog(catalog), [catalog]);
   const inventoryById = useMemo(() => groupById(inventory), [inventory]);
@@ -1303,14 +1344,6 @@ export default function ServicePOS() {
   const payableDatabaseVisitOptions = useMemo(() => (
     databaseVisitOptions.filter((visit) => isPendingPaymentStatus(visit.billingStatus))
   ), [databaseVisitOptions]);
-  const refundableVisitOptions = useMemo(() => (
-    databaseVisitOptions.filter((visit) => (
-      visit.payments.some((payment) => Number(payment.refundableAmount) > 0.0001)
-    ))
-  ), [databaseVisitOptions]);
-  const selectedRefundVisit = refundableVisitOptions.find((visit) => String(visit.visitId) === String(refundVisitId)) || null;
-  const refundablePayments = selectedRefundVisit?.payments.filter((payment) => Number(payment.refundableAmount) > 0.0001) || [];
-  const selectedRefundPayment = refundablePayments.find((payment) => String(payment.paymentId) === String(refundPaymentId)) || null;
   const pendingPaymentCount = useMemo(() => (
     payableDatabaseVisitOptions.length
   ), [payableDatabaseVisitOptions]);
@@ -1486,7 +1519,7 @@ export default function ServicePOS() {
 
     try {
       if (!branchId) return;
-      const data = await fetchInventoryItems({ branchId });
+      const data = await fetchInventoryItems({ branchId, stockedOnly: true });
 
       const items = normalizeInventoryItems(data);
       setInventory(items);
@@ -1615,6 +1648,10 @@ export default function ServicePOS() {
       return 'Enter the transaction number, or check no transaction number for cash.';
     }
 
+    if (hasPaymentReference && !isValidTransactionNumber(effectivePaymentReference)) {
+      return TRANSACTION_NUMBER_MESSAGE;
+    }
+
     return '';
   })();
   const canPreviewInvoice = !invoiceBlockReason && !isPostingPayment;
@@ -1663,7 +1700,7 @@ export default function ServicePOS() {
       paper_width: receiptPaperWidth,
     };
   };
-  const confirmLinkedBookingPayment = async (postedInvoiceNumber) => {
+  const confirmLinkedBookingPayment = async () => {
     if (!selectedVisit?.bookingId || normalizeText(selectedVisit.bookingStatus) !== 'pending') {
       return false;
     }
@@ -1671,7 +1708,7 @@ export default function ServicePOS() {
     await updateBookingStatus(selectedVisit.bookingId, {
       status: 'confirmed',
       payment_method: paymentMethod,
-      payment_reference: hasPaymentReference ? effectivePaymentReference : postedInvoiceNumber,
+      payment_reference: hasPaymentReference ? effectivePaymentReference : null,
     });
 
     return true;
@@ -1902,6 +1939,11 @@ export default function ServicePOS() {
       return;
     }
 
+    if (hasPaymentReference && !isValidTransactionNumber(effectivePaymentReference)) {
+      showNotification(TRANSACTION_NUMBER_MESSAGE, 'error');
+      return;
+    }
+
     if (selectedVisit?.source === 'database') {
       if (!selectedVisit.visitId) {
         showNotification('Visit payment endpoint is not available.', 'error');
@@ -1953,7 +1995,7 @@ export default function ServicePOS() {
         let bookingConfirmed = false;
         let bookingConfirmationFailed = false;
         try {
-          bookingConfirmed = await confirmLinkedBookingPayment(postedInvoiceNumber);
+          bookingConfirmed = await confirmLinkedBookingPayment();
         } catch {
           bookingConfirmationFailed = true;
         }
@@ -2047,7 +2089,7 @@ export default function ServicePOS() {
       let bookingConfirmed = false;
       let bookingConfirmationFailed = false;
       try {
-        bookingConfirmed = await confirmLinkedBookingPayment(postedInvoiceNumber);
+        bookingConfirmed = await confirmLinkedBookingPayment();
       } catch {
         bookingConfirmationFailed = true;
       }
@@ -2067,63 +2109,6 @@ export default function ServicePOS() {
     }
   };
 
-  const openRefundDialog = () => {
-    const visit = refundableVisitOptions[0];
-    const payment = visit?.payments.find((entry) => Number(entry.refundableAmount) > 0.0001);
-    if (!visit || !payment) {
-      showNotification('No refundable verified payment is available at this location.', 'info');
-      return;
-    }
-    setRefundVisitId(String(visit.visitId));
-    setRefundPaymentId(String(payment.paymentId));
-    setRefundAmount(String(payment.refundableAmount));
-    setRefundMethod(payment.paymentMethod || 'cash');
-    setRefundReference('');
-    setRefundReason('');
-    setRefundOpen(true);
-  };
-
-  const submitRefund = async () => {
-    const amount = Number(refundAmount);
-    const refundableAmount = Number(selectedRefundPayment?.refundableAmount || 0);
-    if (!selectedRefundVisit || !selectedRefundPayment) {
-      showNotification('Select a refundable visit payment.', 'error');
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0 || amount - refundableAmount > 0.0001) {
-      showNotification(`Refund must be between PHP 0.01 and ${formatPhpCurrency(refundableAmount)}.`, 'error');
-      return;
-    }
-    if (!refundReason.trim()) {
-      showNotification('Enter the reason for this refund.', 'error');
-      return;
-    }
-    if (refundMethod !== 'cash' && !refundReference.trim()) {
-      showNotification('Enter the non-cash refund transaction reference.', 'error');
-      return;
-    }
-
-    setIsPostingRefund(true);
-    try {
-      await postVisitRefund(selectedRefundVisit.visitId, {
-        visit_id: selectedRefundVisit.visitId,
-        payment_id: selectedRefundPayment.paymentId,
-        amount,
-        refund_method: refundMethod,
-        reference_number: refundReference.trim() || null,
-        reason: refundReason.trim(),
-      });
-      await loadVisitBills({ isAutoRefresh: true });
-      setRefundOpen(false);
-      showNotification(`Refund of ${formatPhpCurrency(amount)} recorded for ${selectedRefundVisit.petName}.`, 'success');
-    } catch (error) {
-      console.error('Failed to record a Point-Of-Sale refund:', error);
-      showNotification('The refund could not be recorded. Verify the details and try again.', 'error');
-    } finally {
-      setIsPostingRefund(false);
-    }
-  };
-
   const catalogEmptyMessage = (() => {
     if (searchQuery.trim()) {
       return 'No items match the current search.';
@@ -2138,7 +2123,7 @@ export default function ServicePOS() {
     }
 
     if (activeTab === 'services' || activeTab === 'diagnostics') {
-      return 'No active billable services are configured in this category.';
+      return `No active billable services are available at ${selectedBranch?.name || 'the selected location'}.`;
     }
 
     return 'No sellable inventory items are available in this category at the selected branch.';
@@ -2224,15 +2209,13 @@ export default function ServicePOS() {
           />
         </div>
       )}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-['Montserrat:Bold',sans-serif] text-[30px] font-bold text-[#101828]">
-            Veterinary Point-Of-Sale
-          </h1>
-          <p className="font-['Arimo:Regular',sans-serif] text-[15px] text-[#4a5565]">
-            Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction.
-          </p>
-        </div>
+      <DashboardPageHeader
+        icon={Receipt}
+        title="Veterinary Point-Of-Sale"
+        description="Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction."
+        layout="stacked"
+        toolbar={(
+        <div className="flex w-full justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="w-full sm:w-72">
           <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Sales location</p>
           {branchSelectionLocked ? (
@@ -2245,13 +2228,14 @@ export default function ServicePOS() {
               value={branchId}
               onValueChange={(value) => {
                 setBranchId(value);
+                setSearchQuery('');
                 setInventory([]);
                 setInventoryError('');
                 setIsLoadingInventory(true);
                 setSelectedVisitId(WALK_IN_SALE_ID);
                 setCharges([]);
                 setSelectedChargeId('');
-                showNotification('Location changed. Inventory and unpaid visits are being refreshed for this branch.', 'info');
+                showNotification('Location changed. Available services, inventory, and unpaid visits now match this branch.', 'info');
               }}
               disabled={!branches.length || isPostingPayment}
             >
@@ -2270,18 +2254,10 @@ export default function ServicePOS() {
             </Select>
           )}
           {branchError && <p className="mt-1 text-xs font-semibold text-red-600">{branchError}</p>}
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-2 h-9 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-            onClick={openRefundDialog}
-            disabled={refundableVisitOptions.length === 0 || isPostingPayment}
-          >
-            <Receipt className="mr-2 size-4" />
-            Record Refund
-          </Button>
         </div>
-      </div>
+        </div>
+        )}
+      />
 
       {(visitSchemaMessage || isLoadingVisits) && (
         <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-blue-800">
@@ -2357,7 +2333,7 @@ export default function ServicePOS() {
                 <ShoppingCart className="size-5 text-[#155dfc]" />
                 <h2 className="text-lg font-black text-[#101828]">Products</h2>
               </div>
-              <p className="mt-1 text-sm font-semibold text-slate-500">Add services, medication, products, and internal usage.</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Add services and in-stock items available at this location.</p>
             </div>
 
             <div className="space-y-4 p-4">
@@ -2491,123 +2467,6 @@ export default function ServicePOS() {
             </section>
           </main>
       </div>
-
-      <Dialog open={refundOpen} onOpenChange={(open) => !isPostingRefund && setRefundOpen(open)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Record Payment Refund</DialogTitle>
-            <DialogDescription>
-              Refunds are linked to the original verified payment and appear as negative collections in reports.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Visit</p>
-              <Select
-                value={refundVisitId}
-                onValueChange={(value) => {
-                  const visit = refundableVisitOptions.find((entry) => String(entry.visitId) === value);
-                  const payment = visit?.payments.find((entry) => Number(entry.refundableAmount) > 0.0001);
-                  setRefundVisitId(value);
-                  setRefundPaymentId(payment ? String(payment.paymentId) : '');
-                  setRefundAmount(payment ? String(payment.refundableAmount) : '');
-                  setRefundMethod(payment?.paymentMethod || 'cash');
-                  setRefundReference('');
-                }}
-                disabled={isPostingRefund}
-              >
-                <SelectTrigger><SelectValue placeholder="Select paid visit" /></SelectTrigger>
-                <SelectContent>
-                  {refundableVisitOptions.map((visit) => (
-                    <SelectItem key={visit.visitId} value={String(visit.visitId)}>
-                      {visit.petName} - {getVisitDisplayReference(visit)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Original Payment</p>
-              <Select
-                value={refundPaymentId}
-                onValueChange={(value) => {
-                  const payment = refundablePayments.find((entry) => String(entry.paymentId) === value);
-                  setRefundPaymentId(value);
-                  setRefundAmount(payment ? String(payment.refundableAmount) : '');
-                  setRefundMethod(payment?.paymentMethod || 'cash');
-                  setRefundReference('');
-                }}
-                disabled={isPostingRefund}
-              >
-                <SelectTrigger><SelectValue placeholder="Select payment" /></SelectTrigger>
-                <SelectContent>
-                  {refundablePayments.map((payment) => (
-                    <SelectItem key={payment.paymentId} value={String(payment.paymentId)}>
-                      {formatPhpCurrency(payment.refundableAmount)} refundable - {String(payment.paymentMethod).replace(/_/g, ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Amount</p>
-                <Input
-                  type="number"
-                  min="0.01"
-                  max={selectedRefundPayment?.refundableAmount || undefined}
-                  step="0.01"
-                  restriction="decimal"
-                  value={refundAmount}
-                  onChange={(event) => setRefundAmount(event.target.value)}
-                  disabled={isPostingRefund}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Method</p>
-                <Select value={refundMethod} onValueChange={setRefundMethod} disabled={isPostingRefund}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {posPaymentMethods.map((method) => (
-                      <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {refundMethod !== 'cash' && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Refund Reference</p>
-                <Input
-                  value={refundReference}
-                  onChange={(event) => setRefundReference(event.target.value)}
-                  restriction="alphanumeric"
-                  placeholder="Transaction or bank reference"
-                  disabled={isPostingRefund}
-                />
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Reason</p>
-              <Textarea
-                value={refundReason}
-                onChange={(event) => setRefundReason(event.target.value)}
-                rows={3}
-                maxLength={500}
-                placeholder="Explain why this payment is being refunded."
-                disabled={isPostingRefund}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRefundOpen(false)} disabled={isPostingRefund}>Cancel</Button>
-            <Button type="button" variant="destructive" onClick={submitRefund} disabled={isPostingRefund || !selectedRefundPayment}>
-              {isPostingRefund && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {isPostingRefund ? 'Recording...' : 'Record Refund'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
         <DialogContent className="theme-static-light max-w-5xl">
@@ -2773,25 +2632,25 @@ export default function ServicePOS() {
               <Input
                 aria-label="Payment transaction number"
                 value={paymentReference}
-                onChange={(event) => setPaymentReference(event.target.value)}
-                restriction="alphanumeric"
-                placeholder={paymentMethod === 'cash' ? 'Cash receipt or transaction number' : 'Transaction number'}
+                onChange={(event) => setPaymentReference(normalizeTransactionNumber(event.target.value))}
+                restriction="digits"
+                inputMode="numeric"
+                maxLength={TRANSACTION_NUMBER_LENGTH}
+                placeholder={paymentMethod === 'cash' ? 'Optional 18-digit reference' : 'Enter exactly 18 digits'}
                 disabled={isPostingPayment || (paymentMethod === 'cash' && cashNoReference)}
                 className="h-10 bg-white"
               />
               {paymentMethod === 'cash' && (
                 <label className="flex items-center gap-2 text-xs font-black text-slate-600">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={cashNoReference}
-                    onChange={(event) => {
-                      setCashNoReference(event.target.checked);
-                      if (event.target.checked) {
+                    onCheckedChange={(checked) => {
+                      setCashNoReference(checked);
+                      if (checked) {
                         setPaymentReference('');
                       }
                     }}
                     disabled={isPostingPayment}
-                    className="size-4 rounded border-slate-300"
                   />
                   Cash payment has no transaction number
                 </label>
@@ -2939,7 +2798,6 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
   const usageByInventory = buildUsageByInventory(charges);
   const shortages = getShortageMessages(getCatalogConsumption(item, 1), usageByInventory, inventoryById);
   const isBlocked = shortages.length > 0;
-  const materialCount = (item.materials || []).length;
 
   return (
     <div className={`rounded-lg border p-4 transition ${isBlocked ? 'border-red-200 bg-red-50/40' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
@@ -2965,25 +2823,6 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
         </div>
       </div>
 
-      {materialCount > 0 && (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-slate-400">
-            <Package className="size-3.5" />
-            Package Materials
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {item.materials.map((material) => {
-              const inventoryItem = inventoryById[material.inventoryId];
-              return (
-                <Badge key={`${item.id}-${material.inventoryId}`} className="border-0 bg-white text-slate-700">
-                  {inventoryItem?.name || 'Inventory item'} x{material.quantity}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {isBlocked && (
         <p className="mt-3 rounded-lg bg-red-100 p-2 text-xs font-bold text-red-700">
           {shortages[0]}
@@ -2994,7 +2833,6 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
 }
 
 function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selected }) {
-  const hiddenMaterialCount = charge.includedMaterials.length + charge.extraMaterials.length;
   const controlsLocked = Boolean(charge.lockedExisting || charge.lockedToParent);
 
   return (
@@ -3010,11 +2848,6 @@ function InvoiceLine({ charge, onDecrease, onIncrease, onRemove, onSelect, selec
         >
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <Badge className="border-0 bg-slate-100 text-slate-700">{charge.receiptType}</Badge>
-            {hiddenMaterialCount > 0 && (
-              <Badge className="border-0 bg-amber-50 text-amber-700">
-                {hiddenMaterialCount} hidden materials
-              </Badge>
-            )}
             {charge.lockedExisting && (
               <Badge className="border-0 bg-blue-50 text-blue-700">Clinical line</Badge>
             )}
@@ -3142,7 +2975,6 @@ function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, c
       <ReceiptDivider />
 
       <div className="text-center text-[8px] font-bold leading-tight">
-        <p>Child materials are recorded internally.</p>
         <p>Thank you for trusting Ipawcus.</p>
       </div>
     </div>

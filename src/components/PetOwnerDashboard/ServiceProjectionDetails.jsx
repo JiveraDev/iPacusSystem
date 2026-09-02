@@ -1,42 +1,50 @@
 import { Card, CardContent } from "../../ui/card";
+import { cn } from "../../ui/utils";
 
 export function ServiceProjectionDetails({ detail, children }) {
     const includedItems = Array.isArray(detail?.includedItems) ? detail.includedItems : [];
 
     return (
-        <div className="space-y-4 text-sm text-gray-700">
-            <div>
-                <h4 className="font-semibold mb-2">{detail?.includedTitle || "What's Included:"}</h4>
-                <ul className="space-y-1 ml-4">
+        <div className="space-y-5 text-sm text-slate-700 dark:text-slate-300">
+            <section>
+                <h4 className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                    {detail?.includedTitle || "What's Included:"}
+                </h4>
+                <ul className="space-y-2">
                     {includedItems.map((item) => (
-                        <li key={item}>
-                            <span aria-hidden="true">&bull;</span> {item}
+                        <li key={item} className="flex items-start gap-2.5 leading-5">
+                            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[#155dfc]" aria-hidden="true" />
+                            <span>{item}</span>
                         </li>
                     ))}
                 </ul>
-            </div>
-            <div>
-                <h4 className="font-semibold mb-2">Duration:</h4>
-                <p>{detail?.duration || "To be announced"}</p>
-            </div>
-            <div>
-                <h4 className="font-semibold mb-2">Price:</h4>
+            </section>
+            <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/30">
+                <h4 className="text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Duration</h4>
+                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{detail?.duration || "To be announced"}</p>
+            </section>
+            <section>
+                <h4 className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Price</h4>
                 {children}
-            </div>
+            </section>
         </div>
     );
 }
 
-export function ServiceProjectionNote({ detail, className = "bg-blue-50 border-blue-200" }) {
+export function ServiceProjectionNote({ detail, className = "" }) {
     if (!detail?.reviewNote) {
         return null;
     }
 
     return (
-        <Card className={className}>
-            <CardContent className="pt-6">
-                <p className="text-sm text-gray-700">
-                    <span aria-hidden="true">&#8505;&#65039;</span> {detail.reviewNote}
+        <Card className={cn(
+            "border-blue-100 bg-blue-50/70 shadow-none dark:border-blue-900/60 dark:bg-blue-950/20",
+            className
+        )}>
+            <CardContent className="pt-4 sm:pt-5">
+                <p className="text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
+                    <span className="mr-1 font-black text-blue-700 dark:text-blue-300" aria-hidden="true">i</span>
+                    {detail.reviewNote}
                 </p>
             </CardContent>
         </Card>

@@ -167,7 +167,16 @@ $user_id = $data['user_id'] ?? null;
 $service_name = $data['service_name'] ?? null;
 $requestedBranchId = $data['branch_id'] ?? $data['branchId'] ?? null;
 $sourceBookingId = isset($data['booking_id']) && is_numeric($data['booking_id']) ? (int)$data['booking_id'] : null;
-$priority = $data['priority'] ?? 'normal';
+$priority = strtolower(trim((string)($data['priority'] ?? 'normal')));
+$allowedPriorities = ['normal', 'urgent', 'low-test'];
+if (!in_array($priority, $allowedPriorities, true)) {
+    http_response_code(422);
+    echo json_encode([
+        'message' => 'Invalid queue priority.',
+        'allowedPriorities' => $allowedPriorities,
+    ]);
+    exit;
+}
 $complaint = $data['complaint'] ?? '';
 $image_path = $data['image_path'] ?? null;
 $signiture_self_service_path = $data['signiture_self_service_path'] ?? null;
@@ -188,18 +197,6 @@ $currentApiUser = ipawcus_guard_current_user($pdo);
 $currentApiRole = ipawcus_guard_role($currentApiUser);
 $currentApiUserId = ipawcus_guard_user_id($currentApiUser);
 $queue_source = $data['queue_source'] ?? ($currentApiRole === 'pet_owner' ? 'self_service' : 'admin');
-
-if (
-    $currentApiRole === 'pet_owner'
-    && in_array(strtolower(trim((string)($currentApiUser['account_status'] ?? 'active'))), ['archived', 'deactivated'], true)
-) {
-    http_response_code(403);
-    echo json_encode([
-        'code' => 'ARCHIVED_OWNER_QUEUE_RESTRICTED',
-        'message' => 'Your account is archived. Clinic staff must restore self-service access or place your pet in the queue.',
-    ]);
-    exit;
-}
 
 if (!is_string($queue_source) || trim($queue_source) === '') {
     http_response_code(422);

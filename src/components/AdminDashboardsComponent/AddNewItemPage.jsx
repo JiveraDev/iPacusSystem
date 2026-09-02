@@ -10,6 +10,8 @@ import { useNavigate } from '../dashboardRouter.jsx';
 import { createInventoryItem, fetchInventoryMeta, getCurrentUser, uploadInventoryFile } from '../../services/inventoryApi';
 import { formatDisplayDate } from '../../lib/date';
 import { toast } from '../../reusecomponent/toast.jsx';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 
 const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'vials', 'bags', 'kg', 'liters'];
 const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -88,6 +90,7 @@ export default function AddNewItemPage() {
   const [pendingItem, setPendingItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResponsibilityOpen, setIsResponsibilityOpen] = useState(false);
 
   useEffect(() => {
     fetchInventoryMeta()
@@ -173,6 +176,7 @@ export default function AddNewItemPage() {
       if (!selectedUnit) throw new Error('Unit is required.');
       if (!selectedLocation) throw new Error('Inventory location is required.');
       if (!selectedStorageArea) throw new Error('Storage area is required.');
+      if (barcode.length > 80) throw new Error('Barcode must be 80 characters or fewer.');
       if (Number.isNaN(quantity) || quantity < 0) throw new Error('Quantity must be zero or higher.');
       if (Number.isNaN(unitCost) || unitCost < 0) throw new Error('Unit cost must be zero or higher.');
       if (Number.isNaN(sellingPrice) || sellingPrice < 0) throw new Error('Selling price must be zero or higher.');
@@ -236,7 +240,7 @@ export default function AddNewItemPage() {
     }
   };
 
-  const handleConfirmAddItem = async () => {
+  const handleConfirmAddItem = async (confirmation) => {
     if (!pendingItem) return;
 
     setErrorMessage('');
@@ -251,10 +255,12 @@ export default function AddNewItemPage() {
 
       await createInventoryItem({
         ...pendingItem.payload,
-        profile_image_path: profileImagePath
+        profile_image_path: profileImagePath,
+        ...confirmation
       });
       toast.success(`${pendingItem.summary.productName} added to inventory.`);
       navigate('/dashboard/inventory');
+      setIsResponsibilityOpen(false);
     } catch (error) {
       const message = error.message || 'Failed to add inventory item.';
       setErrorMessage(message);
@@ -279,24 +285,17 @@ export default function AddNewItemPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/dashboard/inventory')}
-        >
-          <ArrowLeft className="size-4 mr-2" />
-          Back
-        </Button>
-        <div className="flex-1">
-          <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828]">
-            Add New Inventory Item
-          </h2>
-          <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-            Fill in the details to add a new item to inventory
-          </p>
-        </div>
-      </div>
+      <DashboardPageHeader
+        icon={Plus}
+        title="Add New Inventory Item"
+        description="Fill in the details to add a new item to inventory."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/inventory')} className="gap-2">
+            <ArrowLeft className="size-4" />
+            Back to inventory
+          </Button>
+        )}
+      />
 
       {errorMessage && (
         <div className="rounded-[10px] border border-[#fecdca] bg-[#fffbfa] p-4 font-['Arimo:Regular',sans-serif] text-[14px] text-[#b42318]">
@@ -430,7 +429,9 @@ export default function AddNewItemPage() {
                 name="barcode"
                 placeholder="Optional barcode number"
                 restriction="alphanumeric"
+                maxLength={80}
               />
+              <p className="mt-1 text-xs font-medium text-slate-500">Maximum 80 characters.</p>
             </div>
           </div>
         </div>
@@ -504,7 +505,7 @@ export default function AddNewItemPage() {
               </Label>
               <Input
                 id="storageArea"
-                placeholder="e.g., Vaccine Refrigerator, Shelf A, Display Rack"
+                  placeholder="e.g., Vaccine Refrigerator"
                 value={storageArea}
                 onChange={(event) => setStorageArea(event.target.value)}
                 maxLength={120}
@@ -775,7 +776,7 @@ export default function AddNewItemPage() {
                 <Button
                   type="button"
                   className="bg-[#155dfc] hover:bg-[#0d4acf]"
-                  onClick={handleConfirmAddItem}
+                  onClick={() => setIsResponsibilityOpen(true)}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Saving...' : 'Confirm and Save Item'}
@@ -808,6 +809,23 @@ export default function AddNewItemPage() {
         alt={viewerImage?.alt}
         open={!!viewerImage}
         onOpenChange={() => setViewerImage(null)}
+      />
+      <InventoryResponsibilityDialog
+        open={isResponsibilityOpen}
+        onOpenChange={setIsResponsibilityOpen}
+        title="Confirm New Inventory Product"
+        description="Review the final product and initial stock, then verify this action with your account password."
+        summary={pendingItem ? [
+          { label: 'Product', value: pendingItem.summary.productName },
+          { label: 'SKU', value: pendingItem.summary.sku },
+          { label: 'Initial stock', value: `${pendingItem.summary.quantity} ${pendingItem.summary.unit}` },
+          { label: 'Location', value: `${pendingItem.summary.locationName} / ${pendingItem.summary.storageArea}` },
+          { label: 'Unit cost', value: formatMoney(pendingItem.summary.unitCost) },
+          { label: 'Selling price', value: formatMoney(pendingItem.summary.sellingPrice) }
+        ] : []}
+        confirmLabel="Add product"
+        isSubmitting={isSubmitting}
+        onConfirm={handleConfirmAddItem}
       />
     </div>
   );

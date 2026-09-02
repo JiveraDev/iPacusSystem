@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Activity, ArrowLeft } from "lucide-react";
+import { Activity } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
@@ -16,13 +16,16 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
+import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
+import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 
 export default function Surgery() {
   const navigate = useNavigate();
-  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
   const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
   const serviceDetail = serviceDetails.surgery;
   const [pets, setPets] = useState([]);
@@ -75,18 +78,12 @@ export default function Surgery() {
       return;
     }
 
-    if (!formData.date || !formData.time) {
-      toast.error("Select an available appointment date and time.");
-      return;
-    }
-    
-    if (!isNewPet && !formData.petId) {
-      toast.error("Please select a pet");
-      return;
-    }
-
-    if (isNewPet && !formData.petName) {
-      toast.error("Please enter the pet's name");
+    const validationErrors = standardAppointmentBookingErrors({
+      formData,
+      isNewPet,
+      today: clinicTodayDate(),
+    });
+    if (reportBookingFormErrors(validationErrors)) {
       return;
     }
 
@@ -95,7 +92,7 @@ export default function Surgery() {
       : null;
 
     if (isPetDeceased(selectedRegisteredPet)) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      reportBookingFormErrors([{ fieldId: 'petSelect', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
       return;
     }
 
@@ -148,7 +145,7 @@ export default function Surgery() {
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Booking error:", error);
-      toast.error(error.message || "Failed to submit booking");
+      reportBookingSubmissionError(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -191,26 +188,23 @@ export default function Surgery() {
   };
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Surgery</h1>
-          <p className="text-gray-600 mt-1">Surgical procedures and post-operative care</p>
-        </div>
-      </div>
+    <ServicePageShell>
+      <ServicePageHeader
+        icon={Activity}
+        title="Surgery"
+        description="Surgical procedures and post-operative care"
+        onBack={() => navigate("/dashboard/services")}
+      />
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,0.8fr)]">
         {/* Booking Form */}
-        <Card className="lg:col-span-2">
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Booking Details</CardTitle>
             <CardDescription>Fill in the information below to schedule a consultation</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="petSelect">Select Pet *</Label>
                 <Select value={formData.petId} onValueChange={handlePetChange}>
@@ -333,7 +327,7 @@ export default function Surgery() {
                 <Label htmlFor="notes">Surgery Details</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Describe the type of surgery needed or consultation reason"
+                  placeholder="Surgery or consult reason"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={4}
@@ -364,27 +358,26 @@ export default function Surgery() {
         </Card>
 
         {/* Service Info */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Activity className="h-8 w-8" />
-              </div>
-              <CardTitle className="text-center">Surgery</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <aside className="min-w-0 space-y-4">
+          <ServiceSummaryCard icon={Activity} title={serviceDetail?.title || "Surgery"}>
+              <ServiceProjectionEditor
+                config={priceProjectionConfig}
+                detailKey="surgery"
+                instructionKey="surgery"
+                priceFields={[{ key: 'surgery', label: 'Price' }]}
+                onSave={savePriceProjectionConfig}
+              />
               <ServiceProjectionDetails detail={serviceDetail}>
-                <p className="text-lg font-bold text-red-600">{servicePrices.surgery}</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{servicePrices.surgery}</p>
                 {instructions.surgery && (
-                  <p className="mt-1 text-xs text-gray-500">{instructions.surgery}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{instructions.surgery}</p>
                 )}
               </ServiceProjectionDetails>
-            </CardContent>
-          </Card>
+          </ServiceSummaryCard>
 
-          <ServiceProjectionNote detail={serviceDetail} className="bg-red-50 border-red-200" />
-        </div>
+          <ServiceProjectionNote detail={serviceDetail} />
+        </aside>
       </div>
-    </div>
+    </ServicePageShell>
   );
 }

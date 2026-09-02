@@ -4,6 +4,7 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 export default function LowStockPage() {
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -18,15 +19,11 @@ export default function LowStockPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-          Low Stock Items
-        </h2>
-        <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-          Monitor inventory levels and reorder items before stockouts
-        </p>
-      </div>
+      <DashboardPageHeader
+        icon={TrendingDown}
+        title="Low Stock Items"
+        description="Monitor inventory levels and reorder items before stockouts."
+      />
 
       {/* Critical Alert Banner */}
       {criticalCount > 0 && (

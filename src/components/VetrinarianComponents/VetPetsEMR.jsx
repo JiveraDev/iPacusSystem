@@ -38,6 +38,7 @@ import { formatDisplayDate } from '../../lib/date';
 import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import { fetchProfile } from '../../services/profileService';
 import {
     addPetMedicalRecordGroupItem,
@@ -779,21 +780,17 @@ export default function VetPetsEMR() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-950">Medical Record Editor</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Curate paid or finished service records into owner-ready organized summaries.
-                    </p>
-                </div>
-                <Button onClick={openCreateGroup} disabled={!selectedPetId || isSavingGroup} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                    {isSavingGroup ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                    New Organized Summary
-                </Button>
-            </div>
+            <DashboardPageHeader
+                icon={Stethoscope}
+                title="Medical Record Editor"
+                description="Curate paid or finished service records into owner-ready organized summaries."
+                petHover
+                petKind="cat"
+                petAccent="blue"
+            />
 
             <section className="space-y-4">
-                <Card className="border-slate-200">
+                <Card petHover={false} className="relative z-40 overflow-visible border-slate-200">
                     <CardContent className="p-4">
                         <div className="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-center">
                             <div>
@@ -822,7 +819,7 @@ export default function VetPetsEMR() {
                                 />
 
                                 {isPetSearchOpen && (
-                                    <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
+                                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
                                         {isLoadingPets ? (
                                             <div className="flex items-center justify-center gap-2 p-5 text-sm font-semibold text-slate-500">
                                                 <Loader2 className="size-4 animate-spin text-[#155dfc]" />
@@ -947,29 +944,46 @@ export default function VetPetsEMR() {
             {selectedPetId && (
             <section className={`grid min-h-[38rem] gap-5 ${isServiceRecordsOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
                 <main className="min-w-0 space-y-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h3 className="text-lg font-black text-slate-950">Organized Medical Records</h3>
+                    <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-700 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
+                                <ClipboardList className="size-5" />
+                            </span>
+                            <div className="min-w-0">
+                            <h3 className="text-lg font-black text-slate-950 dark:text-white">Organized Medical Records</h3>
                             {selectedPet && (
-                                <p className="text-sm font-semibold text-slate-500">
+                                <p className="truncate text-sm font-semibold text-slate-500 dark:text-slate-300">
                                     {selectedPet.name || selectedPet.petName} - {selectedPet.species || 'Pet'} {selectedPet.ownerName ? `- ${selectedPet.ownerName}` : ''}
                                 </p>
                             )}
+                            </div>
                         </div>
-                        {groups.length > 0 && (
-                            <Select value={String(selectedGroupId)} onValueChange={setSelectedGroupId}>
-                                <SelectTrigger className="w-full sm:w-72">
-                                    <SelectValue placeholder="Target organized record" displayValue={selectedGroup?.title} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {groups.map((group) => (
-                                        <SelectItem key={group.groupId} value={String(group.groupId)}>
-                                            {group.title}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
+                        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:justify-end">
+                            {groups.length > 0 && (
+                                <Select value={String(selectedGroupId)} onValueChange={setSelectedGroupId}>
+                                    <SelectTrigger className="w-full sm:w-72">
+                                        <SelectValue placeholder="Select organized record" displayValue={selectedGroup?.title} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {groups.map((group) => (
+                                            <SelectItem key={group.groupId} value={String(group.groupId)}>
+                                                {group.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            <Button
+                                type="button"
+                                onClick={openCreateGroup}
+                                disabled={!selectedPetId || isSavingGroup}
+                                aria-label="Create a new organized summary"
+                                className="shrink-0 gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                            >
+                                {isSavingGroup ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                                <span>New Organized Summary</span>
+                            </Button>
+                        </div>
                     </div>
 
                     {isLoadingRecords ? (
@@ -1137,7 +1151,7 @@ export default function VetPetsEMR() {
                                 <Label>Source Diagnosis Sheet</Label>
                                 <Textarea
                                     value={itemDraft.summary}
-                                    onChange={(event) => setItemDraft(current => ({ ...current, summary: cleanOrganizedSummary(event.target.value) }))}
+                                    onChange={(event) => setItemDraft(current => ({ ...current, summary: event.target.value }))}
                                     className="min-h-40"
                                 />
                             </div>
@@ -1146,7 +1160,7 @@ export default function VetPetsEMR() {
                                 <Textarea
                                     value={itemDraft.revisionNotes}
                                     onChange={(event) => setItemDraft(current => ({ ...current, revisionNotes: event.target.value }))}
-                                    placeholder="Explain changes, clarifications, or owner-facing revisions."
+                                            placeholder="Revision notes"
                                 />
                             </div>
                         </div>
@@ -1169,7 +1183,7 @@ export default function VetPetsEMR() {
 }
 
 function PetPreviewCard({ pet, onCollapse }) {
-    const imageSrc = resolveImageUrl(pet?.profileImage || pet?.setpetImage_url || '');
+    const imageSrc = pet?.profileImage || pet?.setpetImage_url || '';
     const petName = pet?.name || pet?.petName || 'No pet selected';
     const petId = pet?.id || pet?.pet_sharable_ID || pet?.dbId || pet?.db_id || 'N/A';
 
@@ -1179,7 +1193,12 @@ function PetPreviewCard({ pet, onCollapse }) {
                 <div className="flex min-w-0 items-start gap-3">
                     <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                         {imageSrc ? (
-                            <img src={imageSrc} alt={petName} className="h-full w-full object-cover" />
+                            <ProtectedImage
+                                src={imageSrc}
+                                alt={`${petName} profile`}
+                                className="h-full w-full object-cover"
+                                fallbackClassName="h-full w-full"
+                            />
                         ) : (
                             <PawPrint className="size-8 text-slate-300" />
                         )}
@@ -1535,8 +1554,8 @@ function RecordGroup({
                                 <Label>Group Summary</Label>
                                 <Textarea
                                     value={draft.summary}
-                                    onChange={(event) => onDraftChange(current => ({ ...current, summary: cleanOrganizedSummary(event.target.value) }))}
-                                    placeholder="Summarize this treatment group, condition, or service sequence."
+                                    onChange={(event) => onDraftChange(current => ({ ...current, summary: event.target.value }))}
+                                    placeholder="Treatment summary"
                                     className="min-h-24"
                                 />
                             </div>

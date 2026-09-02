@@ -132,15 +132,9 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
     $accountStatusSelect = $hasAccountStatus
         ? "COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') AS account_status,"
         : "'active' AS account_status,";
-    $activeAccountFilter = $hasAccountStatus
-        ? "AND (
-                COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') = 'active'
-                OR (
-                    COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') IN ('archived', 'deactivated')
-                    AND LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('pet_owner', 'petowner')
-                )
-            )"
-        : '';
+    // Archive is an administrative marker only. It must not invalidate an
+    // otherwise valid access token or change the account's permissions.
+    $activeAccountFilter = '';
 
     $stmt = $pdo->prepare("
         SELECT

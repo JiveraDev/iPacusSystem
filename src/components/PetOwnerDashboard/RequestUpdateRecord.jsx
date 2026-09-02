@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
+import { Input } from "../../ui/input";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Textarea } from "../../ui/textarea";
 import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
@@ -10,9 +11,12 @@ import { uploadImageFile } from "../../services/uploadService";
 import { createRecordUpdateRequest, fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 import { useDashboardUser } from "../dashboardRouter.jsx";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
+import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import ProtectedImage from "../shared/ProtectedImage";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
 function currentUserId(user) {
   return user?.user_id || user?.userId || user?.id || null;
@@ -38,6 +42,7 @@ export default function RequestUpdateRecord() {
   const canRequestRecordUpdate = isPetOwnerRole(currentUser?.role);
   const [selectedMethod, setSelectedMethod] = useState("");
   const [paymentProof, setPaymentProof] = useState(null);
+  const [paymentReference, setPaymentReference] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -88,18 +93,23 @@ export default function RequestUpdateRecord() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!selectedMethod) {
-      setErrorMessage("Please select a payment method.");
-      return;
+    const validationErrors = [];
+    if (!selectedMethod) validationErrors.push({ fieldId: 'record-payment-methods', label: 'Payment method', type: 'selection', message: 'Select a payment method.' });
+    if (selectedMethodRequiresProof && !paymentReference.trim()) {
+      validationErrors.push({ fieldId: 'payment-reference', label: 'Transaction number', type: 'missing', message: 'Enter the 18-digit payment transaction number.' });
+    } else if (paymentReference.trim() && !isValidTransactionNumber(paymentReference)) {
+      validationErrors.push({ fieldId: 'payment-reference', label: 'Transaction number', type: 'invalid', message: TRANSACTION_NUMBER_MESSAGE });
     }
-
     if (selectedMethodRequiresProof && !paymentProof) {
-      setErrorMessage("Please upload your payment proof.");
-      return;
+      validationErrors.push({ fieldId: 'payment-proof', label: 'Payment proof', type: 'upload', message: 'Upload your payment receipt or screenshot.' });
+    } else if (paymentProof && Number(paymentProof.size || 0) > 8 * 1024 * 1024) {
+      validationErrors.push({ fieldId: 'payment-proof', label: 'Payment proof', type: 'upload', message: 'Payment proof must be 8 MB or smaller.' });
+    } else if (paymentProof && !(String(paymentProof.type || '').startsWith('image/') || paymentProof.type === 'application/pdf')) {
+      validationErrors.push({ fieldId: 'payment-proof', label: 'Payment proof', type: 'upload', message: 'Payment proof must be an image or PDF file.' });
     }
-
-    if (!notes.trim()) {
-      setErrorMessage("Please describe what needs to be updated.");
+    if (!notes.trim()) validationErrors.push({ fieldId: 'record-update-purpose', label: 'Update purpose', type: 'missing', message: 'Describe what information needs to be updated.' });
+    if (reportBookingFormErrors(validationErrors)) {
+      setErrorMessage(validationErrors[0]?.message || 'Review the highlighted fields.');
       return;
     }
 
@@ -115,6 +125,7 @@ export default function RequestUpdateRecord() {
         ownerUserId: currentUserId(currentUser),
         paymentMethod: selectedMethod,
         paymentProofUrl,
+        paymentReference: paymentReference.trim(),
         requestedChanges: notes,
         paymentAmount: convenienceFee
       });
@@ -122,7 +133,9 @@ export default function RequestUpdateRecord() {
       setSubmittedRequest(response.request || null);
       setIsSubmitted(true);
     } catch (error) {
-      setErrorMessage(error.message || "Failed to submit record update request.");
+      const message = error.message || "Failed to submit record update request.";
+      setErrorMessage(message);
+      reportBookingSubmissionError(error, { transaction: 'payment-reference', upload: 'payment-proof' });
     } finally {
       setIsSubmitting(false);
     }
@@ -218,17 +231,16 @@ export default function RequestUpdateRecord() {
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
-      <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Pet Profile
-      </Button>
-
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Request Record Update</h1>
-        <p className="text-gray-600">
-          Pay the veterinarian convenience fee to request an update to your pet's medical records.
-        </p>
-      </div>
+      <DashboardPageHeader
+        icon={CheckCircle2}
+        title="Request Record Update"
+        description="Pay the veterinarian convenience fee to request an update to your pet's medical records."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/dashboard/my-pets/${petId}`)} className="-ml-2 gap-2">
+            <ArrowLeft className="size-4" /> Back to Pet Profile
+          </Button>
+        )}
+      />
 
       <Card className="border-blue-200">
         <CardHeader className="bg-blue-50">
@@ -247,7 +259,7 @@ export default function RequestUpdateRecord() {
         </CardContent>
       </Card>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {errorMessage && (
           <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
             <AlertCircle className="h-5 w-5" />
@@ -260,6 +272,7 @@ export default function RequestUpdateRecord() {
             <CardTitle>Select Payment Method</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div id="record-payment-methods" tabIndex={-1} className="rounded-xl">
             <RadioGroup value={selectedMethod} onValueChange={setSelectedMethod}>
               {isLoadingPaymentMethods && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
@@ -280,6 +293,7 @@ export default function RequestUpdateRecord() {
                 </div>
               ))}
             </RadioGroup>
+            </div>
 
             {!selectedMethod && (
               <div className="flex items-center gap-2 text-amber-700 bg-amber-50 p-3 rounded-lg">
@@ -327,6 +341,26 @@ export default function RequestUpdateRecord() {
                 <CardTitle>Upload Payment Proof</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {selectedMethodRequiresProof && (
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-reference">
+                      Transaction Number <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="payment-reference"
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(normalizeTransactionNumber(event.target.value))}
+                      maxLength={TRANSACTION_NUMBER_LENGTH}
+                      inputMode="numeric"
+                      restriction="digits"
+                      autoComplete="off"
+                      placeholder="Enter exactly 18 digits"
+                    />
+                    <p className="text-xs font-medium text-gray-500">
+                      Enter the complete 18-digit number shown on your receipt so the clinic can compare both records.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="payment-proof">
                     Upload Screenshot or Receipt
@@ -353,7 +387,8 @@ export default function RequestUpdateRecord() {
               </CardHeader>
               <CardContent>
                 <Textarea
-                  placeholder="Please specify what information needs to be updated in your pet's records..."
+                  id="record-update-purpose"
+                placeholder="Describe the needed update"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
@@ -392,7 +427,7 @@ export default function RequestUpdateRecord() {
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedMethod || !notes.trim() || (selectedMethodRequiresProof && !paymentProof) || isSubmitting || isLoadingPaymentMethods}
+                disabled={isSubmitting || isLoadingPaymentMethods}
                 className="flex-1"
               >
                 {isSubmitting ? "Submitting..." : "Submit Request"}

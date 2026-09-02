@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from '../../ui/button';
 
@@ -117,7 +117,7 @@ function resetJaaSExternalApi(scriptUrl) {
     }
 }
 
-export function JaaSMeeting({
+export const JaaSMeeting = forwardRef(function JaaSMeeting({
     meetingUrl,
     jwt = '',
     displayName = '',
@@ -126,14 +126,56 @@ export function JaaSMeeting({
     onConferenceLeft,
     compact = false,
     className = ''
-}) {
+}, forwardedRef) {
     const parentNodeRef = useRef(null);
     const apiRef = useRef(null);
+    const localParticipantIdRef = useRef('');
     const compactRef = useRef(compact);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const [status, setStatus] = useState('loading');
     const [errorMessage, setErrorMessage] = useState('');
     const jaasMeeting = useMemo(() => parseJaaSMeetingUrl(meetingUrl), [meetingUrl]);
+
+    useImperativeHandle(forwardedRef, () => ({
+        async captureRemoteParticipant() {
+            const api = apiRef.current;
+            if (!api || typeof api.captureLargeVideoScreenshot !== 'function') {
+                throw new Error('The meeting must be connected before taking a capture.');
+            }
+
+            const participants = typeof api.getParticipantsInfo === 'function'
+                ? api.getParticipantsInfo()
+                : [];
+            const remoteParticipant = participants.find((participant) => {
+                const participantId = String(participant?.participantId || participant?.id || '');
+                return participantId && participantId !== localParticipantIdRef.current;
+            });
+
+            if (!remoteParticipant) {
+                throw new Error('The pet owner must be in the call before taking a capture.');
+            }
+
+            const remoteParticipantId = String(remoteParticipant.participantId || remoteParticipant.id);
+            if (typeof api.setLargeVideoParticipant === 'function') {
+                api.setLargeVideoParticipant(remoteParticipantId);
+            } else if (typeof api.executeCommand === 'function') {
+                api.executeCommand('pinParticipant', remoteParticipantId, 'video');
+            }
+
+            await new Promise((resolve) => window.setTimeout(resolve, 240));
+            const screenshot = await api.captureLargeVideoScreenshot();
+            const dataUrl = screenshot?.dataURL || screenshot?.dataUrl || screenshot;
+            if (!String(dataUrl || '').startsWith('data:image/')) {
+                throw new Error('The pet owner video could not be captured. Please try again.');
+            }
+
+            return {
+                dataUrl,
+                participantId: remoteParticipantId,
+                participantName: remoteParticipant.displayName || 'Pet owner'
+            };
+        }
+    }), []);
 
     useEffect(() => {
         if (!jaasMeeting) {
@@ -179,9 +221,13 @@ export function JaaSMeeting({
                         onConferenceLeft?.();
                     }
                 };
+                const handleConferenceJoined = (event) => {
+                    localParticipantIdRef.current = String(event?.id || event?.participantId || '');
+                };
 
                 api.addEventListener('videoConferenceLeft', handleConferenceLeft);
                 api.addEventListener('readyToClose', handleConferenceLeft);
+                api.addEventListener('videoConferenceJoined', handleConferenceJoined);
                 setStatus('ready');
             })
             .catch((error) => {
@@ -199,6 +245,7 @@ export function JaaSMeeting({
             }
             if (apiRef.current === api) {
                 apiRef.current = null;
+                localParticipantIdRef.current = '';
             }
         };
     }, [displayName, email, jaasMeeting, jwt, loadAttempt, onConferenceLeft]);
@@ -259,4 +306,4 @@ export function JaaSMeeting({
             )}
         </div>
     );
-}
+});

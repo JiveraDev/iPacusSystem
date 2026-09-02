@@ -109,19 +109,12 @@ try {
             exit;
         }
     } else {
-        $isOwnerCancellation = $currentRole === 'pet_owner'
-            && $status === 'cancelled'
-            && (
-                (int)($queue['user_id'] ?? 0) === $currentUserId
-                || ipawcus_guard_pet_access($pdo, (int)($queue['pet_id'] ?? 0), $currentUserId)
-            );
-
-        if (!$currentIsAdmin && !$isOwnerCancellation) {
+        if (!$currentIsAdmin) {
             $pdo->rollBack();
             http_response_code(403);
             echo json_encode([
                 'error' => $status === 'cancelled'
-                    ? 'Only an authorized admin or the linked pet owner can cancel this queue entry.'
+                    ? 'Only an authorized admin can cancel this queue entry.'
                     : 'Only an authorized admin can change this queue status.'
             ]);
             exit;
@@ -133,9 +126,7 @@ try {
     $previousStatus = strtolower(trim((string)($queue['status'] ?? '')));
     $effectiveCancellationReason = $cancellationReason !== ''
         ? $cancellationReason
-        : ($currentIsAdmin
-            ? 'Cancelled by clinic staff from Queue Management.'
-            : 'Cancelled by the pet owner.');
+        : 'Cancelled by clinic staff from Queue Management.';
 
     if ($status === 'cancelled' && $previousStatus !== 'cancelled') {
         $cancelled = maintenance_cancel_queue(

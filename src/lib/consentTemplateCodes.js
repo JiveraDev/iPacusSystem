@@ -92,15 +92,44 @@ export function inspectConsentTemplate(content) {
 }
 
 export function resolveConsentTemplate(content, context = {}, { preview = false } = {}) {
-    const values = buildConsentTemplateContext(context);
+    return resolveConsentTemplateSegments(content, context, { preview })
+        .map((segment) => segment.text)
+        .join('');
+}
 
-    return String(content || '').replace(TOKEN_PATTERN, (token) => {
+export function resolveConsentTemplateSegments(content, context = {}, { preview = false } = {}) {
+    const values = buildConsentTemplateContext(context);
+    const source = String(content || '');
+    const segments = [];
+    let cursor = 0;
+
+    source.replace(TOKEN_PATTERN, (token, offset) => {
+        if (offset > cursor) {
+            segments.push({ text: source.slice(cursor, offset), emphasized: false, token: null });
+        }
+
         const definition = CODE_BY_TOKEN.get(token.toLowerCase());
-        if (!definition) return token;
-        const value = values[definition.key];
-        if (value) return value;
-        return preview ? `[${definition.label}]` : '________________';
+        const value = definition ? values[definition.key] : '';
+        const resolvedValue = !definition
+            ? token
+            : value || (preview ? `[${definition.label}]` : '________________');
+
+        segments.push({
+            text: resolvedValue,
+            emphasized: true,
+            token,
+            supported: Boolean(definition)
+        });
+        cursor = offset + token.length;
+
+        return token;
     });
+
+    if (cursor < source.length) {
+        segments.push({ text: source.slice(cursor), emphasized: false, token: null });
+    }
+
+    return segments;
 }
 
 export function normalizeImportedConsentTemplate(content) {

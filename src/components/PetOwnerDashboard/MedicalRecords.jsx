@@ -31,6 +31,7 @@ import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { emailPetMedicalRecords, fetchPetMedicalRecords } from '../../services/petService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
+import ServicePetPeek from '../shared/ServicePetPeek.jsx';
 
 const MEDICAL_SEARCH_FOCUS_KEY = 'ipawcus-medical-search-focus';
 
@@ -419,7 +420,8 @@ export default function MedicalRecords() {
                         </div>
                     </div>
                 )}
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm print-break-inside">
+                <section data-header-pet="enabled" className="dashboard-page-header-pet relative isolate overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm print-break-inside">
+                    <ServicePetPeek kind="bunny" accent="blue" />
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest text-[#155dfc]">Vetfocus Animal Care Clinic</p>

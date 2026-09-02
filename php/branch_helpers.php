@@ -126,13 +126,51 @@ function branch_fetch(PDO $pdo, int $branchId): ?array
 
 function branch_user_ids(PDO $pdo, int $userId): array
 {
-    if ($userId <= 0 || !branch_table_exists($pdo, 'user_branch_assignments')) {
+    if ($userId <= 0) {
         return [];
     }
 
-    $stmt = $pdo->prepare("SELECT branch_id FROM user_branch_assignments WHERE user_id = ? AND is_active = 1 ORDER BY is_primary DESC, branch_id");
-    $stmt->execute([$userId]);
-    return array_values(array_unique(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
+    $branchIds = [];
+    if (branch_column_exists($pdo, 'users', 'preferred_branch_id')) {
+        $preferredStmt = $pdo->prepare('SELECT preferred_branch_id FROM users WHERE user_id = ? LIMIT 1');
+        $preferredStmt->execute([$userId]);
+        $preferredBranchId = (int)($preferredStmt->fetchColumn() ?: 0);
+        if ($preferredBranchId > 0) {
+            $branchIds[] = $preferredBranchId;
+        }
+    }
+
+    if (
+        branch_table_exists($pdo, 'user_branch_assignments')
+        && branch_column_exists($pdo, 'user_branch_assignments', 'user_id')
+        && branch_column_exists($pdo, 'user_branch_assignments', 'branch_id')
+    ) {
+        $activeFilter = branch_column_exists($pdo, 'user_branch_assignments', 'is_active')
+            ? ' AND is_active = 1'
+            : '';
+        $primaryOrder = branch_column_exists($pdo, 'user_branch_assignments', 'is_primary')
+            ? 'is_primary DESC, '
+            : '';
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT branch_id
+                FROM user_branch_assignments
+                WHERE user_id = ?{$activeFilter}
+                ORDER BY {$primaryOrder}branch_id
+            ");
+            $stmt->execute([$userId]);
+            $branchIds = array_merge($branchIds, array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
+        } catch (Throwable $error) {
+            // preferred_branch_id remains the authoritative legacy fallback.
+            error_log('User branch assignment lookup failed: ' . $error->getMessage());
+        }
+    }
+
+    return array_values(array_unique(array_filter(
+        $branchIds,
+        static fn(int $branchId): bool => $branchId > 0
+    )));
 }
 
 function branch_user_primary_id(PDO $pdo, int $userId): int

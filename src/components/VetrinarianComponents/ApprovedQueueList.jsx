@@ -20,6 +20,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, clinicTodayDate, formatDisplayDateTime } from '../../lib/date';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
+import { normalizeQueuePriority } from '../../lib/queuePriority';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import {
@@ -30,6 +31,7 @@ import {
 import { fetchQueues, receiveQueue as receiveQueueService } from '../../services/queueService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 const BOOKING_QUEUE_SOURCE = 'booking_management';
 
 function normalize(value) {
@@ -665,34 +667,39 @@ export default function VetQueueList() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-[#101828]">Approved Queue List</h2>
-                    <p className="text-sm font-medium text-slate-500">
-                        Queue patients for today, current-date confirmed bookings, and missed physical bookings.
-                    </p>
-                </div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                        loadQueue();
-                        loadBookings();
-                    }}
-                    disabled={isLoading || isBookingsLoading}
-                    className="w-full gap-2 sm:w-auto"
-                >
-                    {isLoading || isBookingsLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
+            <DashboardPageHeader
+                icon={CalendarClock}
+                title="Approved Queue List"
+                description="Queue patients for today, current-date confirmed bookings, and missed physical bookings."
+                petHover
+                petKind="bunny"
+                petAccent="coral"
+                layout="stacked"
+                toolbar={(
+                    <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                loadQueue();
+                                loadBookings();
+                            }}
+                            disabled={isLoading || isBookingsLoading}
+                            className="gap-2"
+                        >
+                            {isLoading || isBookingsLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            <span>Refresh</span>
+                        </Button>
+                    </div>
+                )}
+            />
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)]">
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search queue ID, pet, owner, service, or complaint"
+                        placeholder="Search queue or pet"
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
@@ -1013,7 +1020,7 @@ export default function VetQueueList() {
                 aria-label="Jump to confirmed and rescheduled bookings"
             >
                 <CalendarClock className="size-5" />
-                <span className="hidden sm:inline">Bookings</span>
+                <span>Bookings</span>
                 <Badge className="border-0 bg-white/20 text-white">
                     {filteredConfirmedBookings.length + filteredMissedBookings.length}
                 </Badge>
@@ -1062,14 +1069,17 @@ function getStatusBadge(status) {
 }
 
 function getPriorityBadge(priority) {
-    return normalize(priority) === 'urgent' ? (
+    const normalizedPriority = normalizeQueuePriority(priority);
+    if (normalizedPriority === 'urgent') return (
         <Badge className="border-0 bg-red-600 text-white">
             <AlertCircle className="mr-1 size-3" />
             Urgent
         </Badge>
-    ) : (
-        <Badge className="border-0 bg-slate-100 text-slate-700">Normal</Badge>
     );
+    if (normalizedPriority === 'low-test') return (
+        <Badge className="border border-blue-200 bg-blue-50 text-blue-700">Low-test</Badge>
+    );
+    return <Badge className="border-0 bg-slate-100 text-slate-700">Normal</Badge>;
 }
 
 function getSourceLabel(source) {

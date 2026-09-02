@@ -16,6 +16,7 @@ import {
   FilePenLine,
   Images,
   ListChecks,
+  Loader2,
   LogOut,
   Menu,
   MonitorPlay,
@@ -43,6 +44,62 @@ import NotificationBell from "./shared/NotificationBell.jsx";
 import ProtectedImage from "./shared/ProtectedImage.jsx";
 import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
 import { clearSessionFormDraftsForUser, useSessionFormPersistence } from "../hooks/useSessionFormPersistence.js";
+import { useAutoRefresh } from "../hooks/useAutoRefresh.js";
+import { formatRoleLabel } from "../lib/roleLabel.js";
+import { getDashboardPageTitle, setDocumentPageTitle } from '../lib/pageTitle.js';
+import { defaultAdminFeaturePermissions, getAdminFeatureForDashboardPath, normalizeAdminFeaturePermissions } from '../lib/adminFeatureAccess.js';
+import { fetchAdminFeatureAccess } from '../services/adminFeatureAccessService.js';
+
+function DashboardBrand({ compact = false }) {
+  return (
+    <div data-slot="dashboard-brand" className="flex min-w-0 items-center gap-3 overflow-hidden">
+      <span className="relative shrink-0">
+        <span className="absolute -inset-1 rounded-full bg-blue-200/0 blur transition-colors group-hover:bg-blue-200/50 dark:group-hover:bg-blue-700/20" aria-hidden="true" />
+        <img
+          src={logo}
+          alt="iPawcus logo"
+          className={`relative object-contain ${compact ? 'size-10' : 'size-11'}`}
+        />
+      </span>
+      <span className="min-w-0 max-w-[9.5rem] whitespace-nowrap leading-none">
+        <span className={`block truncate font-black tracking-tight text-[#155dfc] dark:text-blue-300 ${compact ? 'text-lg' : 'text-xl'}`}>
+          iPawcus
+        </span>
+        <span className={`mt-0.5 block truncate font-bold uppercase text-slate-500 dark:text-slate-400 ${compact ? 'text-[6px] tracking-[0.04em]' : 'text-[7px] tracking-[0.06em]'}`}>
+          Vetfocus Care
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function DashboardAccessState({ loading = false, message, details = '', onGoHome }) {
+  if (loading) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center p-10 text-center">
+        <Loader2 className="mb-4 size-8 animate-spin text-blue-600" />
+        <h2 className="text-lg font-black text-slate-900 dark:text-white">Checking feature access</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">Your Admin permissions are being verified.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-64 flex-col items-center justify-center p-10 text-center">
+      <X className="mb-4 size-12 text-red-500" />
+      <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Access Denied</h2>
+      <p className="mb-6 text-slate-600 dark:text-slate-300">{message}</p>
+      {details ? <p className="mb-6 text-xs text-slate-400">{details}</p> : null}
+      <button
+        type="button"
+        onClick={onGoHome}
+        className="rounded-xl bg-[#155dfc] px-6 py-2 font-medium text-white"
+      >
+        Go to Home
+      </button>
+    </div>
+  );
+}
 
 // Lazy load screens
 const HomeScreen = lazy(() => import("./PetOwnerDashboard/Home.jsx"));
@@ -169,15 +226,15 @@ function getNavItemIcon(item, userRole) {
 const navItems = [
   { id: "home", label: "Home", icon: Home, path: "/dashboard", roles: ALL_ROLES, navGroup: "superadmin" },
   { id: "consult", label: "Consult", icon: MonitorPlay, path: "/dashboard/consult", roles: PETOWNER_ROLES, navGroup: "petowner" },
-  { id: "services", label: "Services", icon: BriefcaseMedical, path: "/dashboard/services", roles: SERVICE_ROLES, navGroup: "admin" },
-  { id: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES, navGroup: "admin" },
-  { id: "pet-register", label: "Pet Register", icon: ClipboardPlus, path: "/dashboard/pet-register", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "bookings", label: "Bookings", icon: CalendarCheck2, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "record-requests", label: "Record Requests", icon: ClipboardPenLine, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "service-catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "services", featureKey: "services", label: "Services", icon: BriefcaseMedical, path: "/dashboard/services", roles: SERVICE_ROLES, navGroup: "admin" },
+  { id: "pets", featureKey: "pets", label: "My Pets", icon: PawPrint, path: "/dashboard/my-pets", roles: ALL_ROLES, navGroup: "admin" },
+  { id: "pet-register", featureKey: "pet_register", label: "Pet Register", icon: ClipboardPlus, path: "/dashboard/pet-register", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "bookings", featureKey: "bookings", label: "Bookings", icon: CalendarCheck2, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "record-requests", featureKey: "record_requests", label: "Record Requests", icon: ClipboardPenLine, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "boarding", featureKey: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "queue", featureKey: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pos", featureKey: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "service-catalog", featureKey: "service_catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
     id: "inventory", 
     label: "Inventory", 
@@ -188,10 +245,11 @@ const navItems = [
       { id: "add-item", label: "Add New Item", path: "/dashboard/inventory/add" },
       { id: "stock-in", label: "Stock In", path: "/dashboard/inventory/stock-in" },
     ], roles: ADMIN_ROLES,
+    featureKey: "inventory",
     navGroup: "admin"
   },
   { id: "self-service-queue", label: "Self-Service Queue", icon: ScanLine, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES, navGroup: "petowner" },
-  { id: "consent", label: "Consent Files", icon: FilePenLine, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "consent", featureKey: "consent", label: "Consent Files", icon: FilePenLine, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "vet-approved-queue", label: "Approved List", icon: ClipboardCheck, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-medical-records", label: "Medical Records", icon: NotebookTabs, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
@@ -388,7 +446,7 @@ function getDashboardRouteRoles(routePath) {
 
 function formatRoleList(roles) {
   return roles
-    .map((role) => String(role).replace(/_/g, " "))
+    .map((role) => formatRoleLabel(role))
     .join(", ");
 }
 
@@ -559,7 +617,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigate = useCallback((target) => {
+  const navigate = useCallback((target, options = {}) => {
     if (typeof target === "number") {
       window.history.go(target);
       return;
@@ -573,12 +631,20 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
       setOpenSuperAdminNavGroup(nextGroup.id);
     }
     if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, "", nextPath);
+      if (options.replace) {
+        window.history.replaceState({}, "", nextPath);
+      } else {
+        window.history.pushState({}, "", nextPath);
+      }
     }
     
     setHistoryStack((current) => {
       if (current[current.length - 1] === nextPath) {
         return current;
+      }
+
+      if (options.replace) {
+        return [...current.slice(0, -1), nextPath];
       }
 
       return [...current, nextPath];
@@ -622,14 +688,50 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
   useSessionFormPersistence({ user, path: currentPath });
 
   const userRole = getUserValue(user, ["role"]);
+  const normalizedUserRole = normalizeRole(userRole);
+  const isRestrictedAdmin = normalizedUserRole === 'admin';
+  const [adminFeaturePermissions, setAdminFeaturePermissions] = useState(null);
+  const [adminFeatureAccessError, setAdminFeatureAccessError] = useState('');
+
+  const refreshAdminFeatureAccess = useCallback(async () => {
+    if (!isRestrictedAdmin) {
+      setAdminFeaturePermissions(defaultAdminFeaturePermissions());
+      setAdminFeatureAccessError('');
+      return;
+    }
+
+    try {
+      const response = await fetchAdminFeatureAccess();
+      setAdminFeaturePermissions(normalizeAdminFeaturePermissions(response?.permissions));
+      setAdminFeatureAccessError('');
+    } catch (error) {
+      setAdminFeatureAccessError(error?.message || 'Feature access could not be verified.');
+      if (import.meta.env.DEV) {
+        console.warn('Admin feature access could not be refreshed.', error);
+      }
+    }
+  }, [isRestrictedAdmin]);
+
+  useAutoRefresh(refreshAdminFeatureAccess, {
+    enabled: isRestrictedAdmin,
+    refreshKey: `admin-feature-access-${getUserValue(user, ['id', 'userId', 'user_id'], 'unknown')}`,
+  });
+
+  useEffect(() => {
+    setDocumentPageTitle(getDashboardPageTitle(routeMatch.path, userRole));
+  }, [routeMatch.path, userRole]);
 
   // Filter nav items based on roles if specified
   const filteredNavItems = useMemo(() => {
     return navItems.filter(item => {
       if (!item.roles) return true;
-      return roleIsAllowed(userRole, item.roles);
+      if (!roleIsAllowed(userRole, item.roles)) return false;
+      if (isRestrictedAdmin && item.featureKey) {
+        return adminFeaturePermissions?.[item.featureKey] === true;
+      }
+      return true;
     });
-  }, [userRole]);
+  }, [adminFeaturePermissions, isRestrictedAdmin, userRole]);
 
   const groupedNavItems = useMemo(() => {
     if (!isSuperAdminRole(userRole)) {
@@ -639,31 +741,21 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
     return groupNavItemsForSuperAdmin(filteredNavItems);
   }, [filteredNavItems, userRole]);
 
-  // Authorization check for the current route
-  const ScreenComponent = useMemo(() => {
-    const Component = screenMap[routeMatch.path] ?? HomeScreen;
-    const allowedRoles = getDashboardRouteRoles(routeMatch.path);
-    
-    // Check if the current user role is allowed for this route.
-    if (!roleIsAllowed(userRole, allowedRoles)) {
-      return () => (
-        <div className="flex flex-col items-center justify-center h-full text-center p-10">
-          <X className="size-12 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
-          <p className="text-slate-600 mb-6">You do not have permission to access this page.</p>
-          <p className="text-xs text-slate-400 mb-6">Required: {formatRoleList(allowedRoles)} | Your Role: {userRole || "Unknown"}</p>
-          <button 
-            onClick={() => navigate("/dashboard")}
-            className="bg-[#155dfc] text-white px-6 py-2 rounded-xl font-medium"
-          >
-            Go to Home
-          </button>
-        </div>
-      );
-    }
-    
-    return Component;
-  }, [routeMatch.path, userRole, navigate]);
+  const ScreenComponent = useMemo(() => screenMap[routeMatch.path] ?? HomeScreen, [routeMatch.path]);
+  const allowedRouteRoles = getDashboardRouteRoles(routeMatch.path);
+  const requiredAdminFeature = getAdminFeatureForDashboardPath(currentPath);
+  const featureAccessIsLoading = Boolean(
+    isRestrictedAdmin
+    && requiredAdminFeature
+    && adminFeaturePermissions === null
+    && !adminFeatureAccessError
+  );
+  const featureIsDenied = Boolean(
+    isRestrictedAdmin
+    && requiredAdminFeature
+    && (adminFeatureAccessError || adminFeaturePermissions?.[requiredAdminFeature] !== true)
+  );
+  const routeRoleIsDenied = !roleIsAllowed(userRole, allowedRouteRoles);
 
   const displayName = useMemo(() => {
     const firstName = getUserValue(user, ["firstName", "FirstName", "first_name"]);
@@ -674,7 +766,6 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
 
   const profileImageSrc = useMemo(() => getUserValue(user, ["profileImage", "profile_image", "setProfilePic_url"]), [user]);
   const logoutAccountLabel = displayName || "Pet Owner";
-
   const requestLogout = () => {
     setIsMobileNavOpen(false);
     setIsLogoutDialogOpen(true);
@@ -691,14 +782,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
     const isCollapsed = !isMobileDrawer && isSidebarCollapsed;
 
     return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" data-slot="dashboard-sidebar-content">
       {!isMobileDrawer && (
-        <div className={`flex items-center border-b border-slate-200 px-4 py-5 h-[89px] transition-all duration-500 ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        <div className={`flex h-[82px] items-center border-b border-slate-200/80 px-4 py-4 transition-all duration-300 dark:border-slate-800 ${isCollapsed ? "justify-center" : "justify-between"}`}>
           {isCollapsed ? (
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
-              className="group relative flex size-12 flex-shrink-0 items-center justify-center rounded-full border border-transparent bg-white transition hover:border-blue-100 hover:bg-blue-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+              className="group relative flex size-11 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:border-blue-200 hover:bg-blue-50 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Expand sidebar"
               title="Expand sidebar"
             >
@@ -707,22 +798,18 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                 alt="iPawcus logo"
                 className="size-10 object-contain transition duration-200 group-hover:scale-90 group-hover:opacity-0 group-focus-visible:scale-90 group-focus-visible:opacity-0"
               />
-              <ChevronRight className="absolute size-5 text-[#155dfc] opacity-0 transition duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" strokeWidth={2.75} />
+              <ChevronRight className="absolute size-5 text-blue-700 opacity-0 transition duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-blue-300" strokeWidth={2.75} />
             </button>
           ) : (
             <>
-              <div className="flex max-w-xs items-center gap-3 overflow-hidden opacity-100 transition-all duration-500 ease-in-out">
-                <img src={logo} alt="iPawcus logo" className="h-10 w-10 min-w-10 object-contain" />
-                <div className="whitespace-nowrap">
-                  <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
-                  <p className="text-xs text-slate-500">Dashboard</p>
-                </div>
+              <div className="group max-w-xs opacity-100 transition-all duration-500 ease-in-out">
+                <DashboardBrand />
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsSidebarCollapsed(true)}
-                className="flex size-10 flex-shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-[#155dfc] shadow-sm transition hover:border-blue-200 hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
+                className="flex size-9 flex-shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-800 transition hover:border-blue-200 hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-300"
                 aria-label="Collapse sidebar"
                 title="Collapse sidebar"
               >
@@ -734,18 +821,14 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
       )}
 
       {isMobileDrawer && (
-         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 flex-shrink-0">
-           <img src={logo} alt="iPawcus logo" className="h-12 w-12 object-contain" />
-           <div>
-             <p className="text-lg font-bold text-[#155dfc]">iPawcus</p>
-             <p className="text-sm text-slate-500">Pet owner dashboard</p>
-           </div>
+         <div className="group flex-shrink-0 border-b border-slate-200/80 px-5 py-4 dark:border-slate-800">
+           <DashboardBrand />
          </div>
       )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-hide">
-          <nav className={isSuperAdminRole(userRole) ? "space-y-4" : "space-y-2"}>
+          <nav data-slot="dashboard-navigation" aria-label="Dashboard navigation" className={isSuperAdminRole(userRole) ? "space-y-4" : "space-y-2"}>
             {groupedNavItems.map((group, groupIndex) => {
               const isGroupOpen = openSuperAdminNavGroup === group.id;
 
@@ -758,7 +841,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                     <button
                       type="button"
                       onClick={() => setOpenSuperAdminNavGroup((current) => current === group.id ? '' : group.id)}
-                      className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc]"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                       aria-expanded={isGroupOpen}
                       aria-controls={`superadmin-nav-group-${group.id}`}
                     >
@@ -784,10 +867,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                           type="button"
                           onClick={() => navigate(item.path)}
                           title={isCollapsed ? itemLabel : ""}
-                          className={`flex items-center rounded-xl py-3 text-left transition-all duration-300 ease-in-out ${
+                          aria-current={isActive ? 'page' : undefined}
+                          className={`flex min-h-11 items-center rounded-xl py-2.5 text-left transition-all duration-200 ${
                             isCollapsed ? "justify-center px-0 w-12 mx-auto" : "gap-3 px-4 w-full"
                           } ${
-                            isActive ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "text-slate-700 hover:bg-slate-100"
+                            isActive ? "bg-[#155dfc] text-white shadow-sm shadow-blue-950/15" : "text-slate-700 hover:bg-blue-50 hover:text-blue-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                           }`}
                         >
                           <Icon className={`h-5 w-5 min-w-5 flex-shrink-0 transition-transform duration-300 ${isActive ? "scale-110" : ""}`} />
@@ -811,8 +895,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                                   onClick={() => navigate(subItem.path)}
                                   className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors duration-200 ${
                                     isSubActive 
-                                      ? "bg-blue-50 text-[#155dfc] font-bold" 
-                                      : "text-slate-600 hover:bg-slate-50"
+                                      ? "bg-blue-50 text-blue-800 font-bold dark:bg-blue-950/40 dark:text-blue-200"
+                                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
                                   }`}
                                 >
                                   <span className="truncate">{subItem.label}</span>
@@ -832,8 +916,13 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
           </nav>
         </div>
 
-        <div className="shrink-0 border-t border-slate-200 bg-white p-4">
-          <div className="mb-3">
+        <div
+          data-slot="dashboard-account-dock"
+          className={`shrink-0 border-t border-slate-200/80 bg-slate-50/90 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90 ${
+            isCollapsed ? "p-2" : "p-3"
+          }`}
+        >
+          <div className={`rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${isCollapsed ? "p-1" : "p-2"}`}>
             <NotificationBell
               user={user}
               navigate={navigate}
@@ -841,67 +930,76 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
               collapsed={isCollapsed}
               label="Notifications"
             />
+
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/profile")}
+              title={isCollapsed ? `${displayName} profile` : ""}
+              className={`group mt-1 flex min-h-12 w-full items-center rounded-xl text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                isCollapsed ? "justify-center px-1" : "gap-3 px-2.5 py-2"
+              } ${
+                activeTab === "profile"
+                  ? "bg-[#155dfc] text-white shadow-sm shadow-blue-950/15"
+                  : "text-slate-800 hover:bg-blue-50 dark:text-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="relative shrink-0">
+                  {profileImageSrc ? (
+                    <ProtectedImage
+                      src={profileImageSrc}
+                      alt={displayName}
+                      className={`size-10 rounded-xl border object-cover shadow-sm transition duration-200 ${
+                        activeTab === "profile" ? "border-white/30" : "border-slate-200 dark:border-slate-700"
+                      }`}
+                      fallbackClassName={`size-10 rounded-xl border shadow-sm ${
+                        activeTab === "profile" ? "border-white/30" : "border-slate-200 dark:border-slate-700"
+                      }`}
+                    />
+                  ) : (
+                    <div className={`flex size-10 items-center justify-center rounded-xl text-sm font-black shadow-sm ${
+                      activeTab === "profile" ? "bg-white text-blue-800" : "bg-[#155dfc] text-white"
+                    }`}>
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 ${
+                    activeTab === "profile" ? "border-blue-700 bg-blue-200" : "border-white bg-emerald-500 dark:border-slate-900"
+                  }`} aria-hidden="true" />
+              </div>
+
+              {!isCollapsed && (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-black ${activeTab === "profile" ? "text-white" : "text-slate-950 dark:text-white"}`}>
+                      {displayName}
+                    </span>
+                    <span className={`mt-0.5 block truncate text-[10px] font-black uppercase tracking-[0.12em] ${
+                      activeTab === "profile" ? "text-blue-100" : "text-blue-700 dark:text-blue-300"
+                    }`}>
+                      {formatRoleLabel(getUserValue(user, ["role"]), 'Account')}
+                    </span>
+                  </span>
+                  <ChevronRight className={`size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${
+                    activeTab === "profile" ? "text-blue-100" : "text-slate-400"
+                  }`} aria-hidden="true" />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={requestLogout}
+              title={isCollapsed ? "Log out" : ""}
+              className={`group mt-1 flex min-h-11 w-full items-center rounded-xl text-left text-slate-600 transition-colors duration-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 dark:text-slate-300 dark:hover:bg-rose-950/30 dark:hover:text-rose-300 dark:focus:ring-offset-slate-900 ${
+                isCollapsed ? "justify-center px-1" : "gap-3 px-2.5"
+              }`}
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 transition-colors group-hover:bg-rose-100 dark:bg-slate-800 dark:group-hover:bg-rose-950/50">
+                <LogOut className="size-4" aria-hidden="true" />
+              </span>
+              {!isCollapsed && <span className="text-sm font-bold">Log out</span>}
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard/profile")}
-            title={isCollapsed ? "Profile" : ""}
-            className={`mb-4 block text-left transition-all duration-500 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2 ${
-              isCollapsed
-                ? `w-12 mx-auto rounded-full ${activeTab === "profile" ? "ring-2 ring-[#155dfc] ring-offset-2" : ""}`
-                : `rounded-2xl p-4 w-full ${activeTab === "profile" ? "bg-[#155dfc] text-white shadow-md shadow-blue-200" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`
-            }`}
-          >
-            <div className={`flex items-center ${isCollapsed ? "justify-center" : ""}`}>
-              <div className="relative flex-shrink-0">
-                {profileImageSrc ? (
-                  <ProtectedImage
-                    src={profileImageSrc} 
-                    alt={displayName}
-                    className={`rounded-full object-cover border-2 transition-all duration-500 shadow-sm ${
-                      isCollapsed
-                        ? "h-10 w-10 border-[#155dfc]"
-                        : activeTab === "profile" ? "h-12 w-12 border-blue-200" : "h-12 w-12 border-white"
-                    }`}
-                    fallbackClassName={`rounded-full border-2 shadow-sm ${
-                      isCollapsed
-                        ? "h-10 w-10 border-[#155dfc]"
-                        : activeTab === "profile" ? "h-12 w-12 border-blue-200" : "h-12 w-12 border-white"
-                    }`}
-                  />
-                ) : (
-                  <div className={`rounded-full bg-[#155dfc] flex items-center justify-center text-white font-bold shadow-sm transition-all duration-500 ${
-                    isCollapsed ? "h-10 w-10 text-base" : activeTab === "profile" ? "h-12 w-12 text-lg bg-white text-[#155dfc]" : "h-12 w-12 text-lg"
-                  }`}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              
-              <div className={`min-w-0 transition-all duration-500 overflow-hidden whitespace-nowrap ${
-                isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3 flex-1"
-              }`}>
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${activeTab === "profile" ? "text-blue-100" : "text-slate-400"}`}>Signed in as</p>
-                <p className={`font-bold truncate ${activeTab === "profile" ? "text-white" : "text-slate-900"}`}>{displayName}</p>
-                <p className={`text-xs font-medium truncate ${activeTab === "profile" ? "text-blue-100" : "text-[#155dfc]"}`}>{getUserValue(user, ["role"])}</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={requestLogout}
-            title={isCollapsed ? "Log Out" : ""}
-            className={`flex w-full items-center rounded-xl border border-red-200 py-3 text-left text-red-600 transition-all duration-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100 px-4`}
-          >
-            <LogOut className="h-5 w-5 min-w-5 flex-shrink-0" />
-            <span className={`font-medium whitespace-nowrap transition-all duration-500 overflow-hidden ${
-              isCollapsed ? "max-w-0 opacity-0 pointer-events-none ml-0" : "max-w-xs opacity-100 ml-3"
-            }`}>
-              Log Out
-            </span>
-          </button>
         </div>
       </div>
     </div>
@@ -911,7 +1009,11 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
   return (
     <DashboardRouterProvider value={{ currentPath, navigate, params: routeMatch.params, onUserUpdate, user }}>
       <VideoCallProvider>
-        <div className="min-h-screen min-w-0 bg-slate-50 text-slate-900">
+        <div
+          data-slot="dashboard-shell"
+          data-dashboard-role={normalizeRole(userRole) || 'unknown'}
+          className="min-h-screen min-w-0 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+        >
           <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
@@ -943,19 +1045,15 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
           </Dialog>
 
           {isCompactLayout && (
-            <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
-              <div className="flex items-center gap-3">
-                <img src={logo} alt="iPawcus logo" className="h-10 w-10 object-contain" />
-                <div>
-                  <p className="text-base font-bold text-[#155dfc]">iPawcus</p>
-                  <p className="text-xs text-slate-500">Dashboard</p>
-                </div>
+            <header data-slot="dashboard-mobile-header" className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+              <div className="group min-w-0">
+                <DashboardBrand compact />
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsMobileNavOpen((current) => !current)}
-                  className="rounded-xl border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100"
+                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                   aria-label={isMobileNavOpen ? "Close navigation" : "Open navigation"}
                 >
                   {isMobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -975,7 +1073,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                 />
 
                 <aside
-                  className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 h-full w-[18rem] max-w-[85vw] border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 flex flex-col ${
+                  data-slot="dashboard-sidebar"
+                  className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 flex h-full w-[18rem] max-w-[85vw] flex-col border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 ${
                     isMobileNavOpen ? "open" : ""
                   }`}
                 >
@@ -984,7 +1083,8 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
               </>
             ) : (
               <aside
-                className={`fixed left-0 top-0 h-screen transition-all duration-300 border-r border-slate-200 bg-white z-40 ${
+                data-slot="dashboard-sidebar"
+                className={`fixed left-0 top-0 z-40 h-screen border-r border-slate-200 bg-white transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 ${
                   isSidebarCollapsed ? "w-20" : "w-72"
                 }`}
               >
@@ -997,22 +1097,35 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                 !isCompactLayout ? (isSidebarCollapsed ? "pl-20" : "pl-72") : ""
               }`}
             >
-              <main data-dashboard-content className="mx-auto w-full max-w-[112rem] min-w-0 p-3 sm:p-5 lg:p-8 2xl:p-10">
+              <main data-dashboard-content data-dashboard-role={normalizeRole(userRole) || 'unknown'} className="mx-auto w-full max-w-[112rem] min-w-0 p-3 sm:p-5 lg:p-8 2xl:p-10">
                 <Suspense fallback={
                   <div className="flex h-64 w-full items-center justify-center">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#155dfc] border-t-transparent"></div>
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-700 border-t-transparent"></div>
                       <p className="text-sm font-medium text-slate-500">Loading page...</p>
                     </div>
                   </div>
                 }>
-                  {/* eslint-disable-next-line react-hooks/static-components */}
-                  <ScreenComponent
-                    user={user}
-                    onUserUpdate={onUserUpdate}
-                    onLogout={onLogout}
-                    onForgotPassword={onForgotPassword}
-                  />
+                  {featureAccessIsLoading ? (
+                    <DashboardAccessState loading onGoHome={() => navigate('/dashboard')} />
+                  ) : routeRoleIsDenied || featureIsDenied ? (
+                    <DashboardAccessState
+                      message={featureIsDenied
+                        ? adminFeatureAccessError || 'This feature is not enabled for your Admin account.'
+                        : 'You do not have permission to access this page.'}
+                      details={routeRoleIsDenied
+                        ? `Required: ${formatRoleList(allowedRouteRoles)} | Your Role: ${formatRoleLabel(userRole, 'Unknown')}`
+                        : ''}
+                      onGoHome={() => navigate('/dashboard')}
+                    />
+                  ) : (
+                    <ScreenComponent
+                      user={user}
+                      onUserUpdate={onUserUpdate}
+                      onLogout={onLogout}
+                      onForgotPassword={onForgotPassword}
+                    />
+                  )}
                 </Suspense>
               </main>
             </div>

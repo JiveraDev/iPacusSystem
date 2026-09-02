@@ -144,15 +144,7 @@ try {
         exit;
     }
 
-    $normalizedRole = strtolower(str_replace([' ', '-'], '_', trim((string)($user['role'] ?? ''))));
-    $isPetOwner = in_array($normalizedRole, ['pet_owner', 'petowner'], true);
     $isArchived = isUserAccountArchived($pdo, $user);
-
-    if (($isArchived && !$isPetOwner) || isStaffAccountDeactivated($pdo, $user)) {
-        http_response_code(403);
-        echo json_encode(['message' => DEACTIVATED_ACCOUNT_MESSAGE]);
-        exit;
-    }
 
     $accessToken = ipawcus_create_access_token($pdo, (int)$user['user_id']);
 
@@ -173,7 +165,7 @@ try {
             'profileImage' => $user['setProfilePic_url'],
             'birthdate' => $user['birthdate'],
             'accountStatus' => $isArchived ? 'archived' : 'active',
-            'bookingRestricted' => $isPetOwner && $isArchived
+            'bookingRestricted' => false
         ]
     ]);
 

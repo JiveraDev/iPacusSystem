@@ -7,6 +7,7 @@ import { Label } from "../../ui/label";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { ArrowLeft, PawPrint, AlertCircle } from "lucide-react";
 import { linkPetService } from "../../services/ConnectOwnership";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
 export default function AddPet() {
   const navigate = useNavigate();
@@ -52,15 +53,16 @@ export default function AddPet() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="self-start">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Link Your Pet</h1>
-        </div>
-      </div>
+      <DashboardPageHeader
+        icon={PawPrint}
+        title="Link Your Pet"
+        description="Connect an existing clinic pet record to your owner account."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/my-pets")} className="-ml-2 gap-2">
+            <ArrowLeft className="size-4" /> Back to My Pets
+          </Button>
+        )}
+      />
 
       <Card className="border-2 border-blue-100">
         <CardHeader className="bg-blue-50">
@@ -91,7 +93,7 @@ export default function AddPet() {
               <Input
                 id="petId"
 
-                placeholder="Enter the ID provided by the clinic (e.g., PET-1-IPAWCUS)"
+              placeholder="e.g., PET-1-IPAWCUS"
                 restriction="alphanumeric"
                 value={petId}
                 onChange={(e) => setPetId(e.target.value)}

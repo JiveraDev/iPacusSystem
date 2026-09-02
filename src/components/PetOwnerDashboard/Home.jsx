@@ -39,11 +39,11 @@ import consultImage from "../../assets/consultimage.png";
 import VetActiveLocationPanel from "../VetrinarianComponents/VetActiveLocationPanel.jsx";
 import AdminAssignedLocationPanel from "../AdminDashboardsComponent/AdminAssignedLocationPanel.jsx";
 import ClinicAvailabilityCalendar from "../shared/ClinicAvailabilityCalendar.jsx";
+import ServicePetPeek from "../shared/ServicePetPeek.jsx";
 import {
   bookingRouteForAvailabilityService,
   saveBookingAvailabilitySelection,
 } from "../../lib/bookingAvailabilityNavigation.js";
-import { isArchivedPetOwner } from "../../lib/accountStatus.js";
 
 const CLINIC_DETAILS = {
   hours: "8:00 AM - 6:00 PM",
@@ -53,6 +53,12 @@ const CLINIC_DETAILS = {
 };
 
 const CLINIC_GOOGLE_MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(CLINIC_DETAILS.address)}`;
+const QUICK_ACTION_PETS = [
+  { kind: "dog", accent: "blue" },
+  { kind: "cat", accent: "coral" },
+  { kind: "bunny", accent: "sun" },
+  { kind: "parrot", accent: "mint" },
+];
 
 const emptyHomeData = {
   bookings: [],
@@ -515,7 +521,8 @@ export default function Home({ user }) {
   const dashboardFocus = getActionsForRole(roleKey, priceProjectionConfig.servicePrices);
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
-  const isArchivedOwner = isArchivedPetOwner(user);
+  // Archived accounts retain normal access; archive is only an admin marker.
+  const isArchivedOwner = false;
 
   const openAvailabilityBooking = (selection) => {
     if (isArchivedOwner) return;
@@ -584,8 +591,9 @@ export default function Home({ user }) {
           </div>
         </section>
       )}
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section data-header-pet="enabled" className="home-dashboard-header-pet relative isolate overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <ServicePetPeek kind="dog" accent="blue" />
+        <div className="relative z-20 grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-0 bg-emerald-50 text-emerald-700">Open Mon-Sat {CLINIC_DETAILS.hours}</Badge>
@@ -628,9 +636,10 @@ export default function Home({ user }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {dashboardFocus.actions.map((action) => {
+          {dashboardFocus.actions.map((action, index) => {
             const Icon = action.icon;
             const requiresActiveOwner = roleKey === "petowner" && action.path !== "/dashboard/my-pets";
+            const pet = QUICK_ACTION_PETS[index % QUICK_ACTION_PETS.length];
 
             return (
               <button
@@ -638,13 +647,14 @@ export default function Home({ user }) {
                 type="button"
                 onClick={() => navigate(action.path)}
                 disabled={isArchivedOwner && requiresActiveOwner}
-                className="group rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:border-blue-200 enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
+                className="dashboard-service-card group relative isolate overflow-hidden rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:border-blue-200 enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
               >
                 <span className={`flex h-11 w-11 items-center justify-center rounded-lg ${action.tone}`}>
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="mt-4 block text-base font-black text-slate-950 group-hover:text-[#155dfc]">{action.title}</span>
                 <span className="mt-2 block text-sm font-medium leading-6 text-slate-600">{action.description}</span>
+                <ServicePetPeek kind={pet.kind} accent={pet.accent} />
               </button>
             );
           })}

@@ -56,6 +56,20 @@ export function createStockOut(payload) {
   });
 }
 
+export function transferInventoryStock(payload) {
+  return jsonRequest('/inventory/transfer', payload, {
+    apiPrefix: true,
+    method: 'POST'
+  });
+}
+
+export function archiveInventoryItem(payload) {
+  return jsonRequest('/inventory/archive', payload, {
+    apiPrefix: true,
+    method: 'POST'
+  });
+}
+
 export function uploadInventoryFile(file, type = "inventory_item") {
   const formData = new FormData();
   formData.append("image", file);

@@ -1,7 +1,7 @@
 import { cn } from "./utils";
 
 const variantClasses = {
-  default: "border-blue-200 bg-blue-50 text-blue-700",
+  default: "border-blue-200 bg-blue-50 text-blue-800",
   secondary: "border-slate-200 bg-slate-100 text-slate-700",
   outline: "border-slate-300 bg-transparent text-slate-700",
   success: "border-emerald-200 bg-emerald-50 text-emerald-700",

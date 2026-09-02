@@ -4,6 +4,7 @@ export const BOOKING_PRICE_PROJECTION_UPDATED_EVENT = 'ipawcus-booking-price-pro
 export const SERVICE_PRICE_PROJECTIONS = Object.freeze({
     onlineConsultation: '\u20b1500 per session',
     generalConsultation: '\u20b1400',
+    laboratoryTesting: 'Price confirmed after review',
     parasiteControl: 'Starts at \u20b1200',
     vaccination: '\u20b1300\u2013\u20b11,200 per vaccine',
     grooming: '\u20b1500\u2013\u20b11,200, depending on size',
@@ -32,20 +33,43 @@ export const KAPON_PRICE_MATRIX = Object.freeze([
 ]);
 
 export const HOME_SERVICE_PRICE_PROJECTIONS = Object.freeze([
-    { id: 'home-visit-consultation', name: 'Home Visit + Consultation within Lucena', price: 'Starts at \u20b11,400' },
-    { id: 'outside-lucena', name: 'Outside Lucena', price: 'Quoted by location' },
-    { id: 'vaccines', name: 'Vaccines', price: 'Add regular vaccine price' },
-    { id: 'deworming', name: 'Deworming', price: 'Add weight-based price' },
-    { id: 'medication-administration', name: 'Medication Administration', price: '\u20b1250 professional fee + medicine' },
-    { id: 'wound-care', name: 'Wound Care', price: '\u20b1400\u2013\u20b11,000 + materials' },
-    { id: 'home-grooming', name: 'Home Grooming', price: '\u20b1700\u2013\u20b11,300 + applicable travel charge' },
-    { id: 'bath-blow-dry', name: 'Bath and Blow-dry', price: '\u20b1400\u2013\u20b1800' },
-    { id: 'nail-trimming', name: 'Nail Trimming Add-on', price: '\u20b1150\u2013\u20b1250' },
-    { id: 'ear-cleaning', name: 'Ear Cleaning Add-on', price: '\u20b1150\u2013\u20b1250' }
+    { id: 'home-visit-consultation', name: 'Home Visit + Consultation within Lucena', description: 'Complete physical examination', price: 'Starts at \u20b11,400' },
+    { id: 'outside-lucena', name: 'Outside Lucena', description: '', price: 'Quoted by location' },
+    { id: 'vaccines', name: 'Vaccines', description: 'Core vaccines, rabies, and boosters', price: 'Add regular vaccine price' },
+    { id: 'deworming', name: 'Deworming', description: 'Parasite control by pet weight', price: 'Add weight-based price' },
+    { id: 'medication-administration', name: 'Medication Administration', description: 'Medication delivery', price: '\u20b1250 professional fee + medicine' },
+    { id: 'wound-care', name: 'Wound Care', description: 'Cleaning and dressing of minor wounds', price: '\u20b1400\u2013\u20b11,000 + materials' },
+    { id: 'home-grooming', name: 'Home Grooming', description: 'Bath, haircut, nail trim, ear cleaning', price: '\u20b1700\u2013\u20b11,300 + applicable travel charge' },
+    { id: 'bath-blow-dry', name: 'Bath and Blow-dry', description: 'Bath with quality products', price: '\u20b1400\u2013\u20b1800' },
+    { id: 'nail-trimming', name: 'Nail Trimming Add-on', description: 'Nail care and filing', price: '\u20b1150\u2013\u20b1250' },
+    { id: 'ear-cleaning', name: 'Ear Cleaning Add-on', description: 'Ear hygiene service', price: '\u20b1150\u2013\u20b1250' }
+]);
+
+export const BOARDING_ROOM_PROJECTIONS = Object.freeze({
+    hotel: [
+        { id: 'small', name: 'Small Room', capacity: '1 pet', pricePerDay: 600, features: ['Climate controlled', 'Comfortable bedding', '2 meals/day', 'Daily cleaning'] },
+        { id: 'medium', name: 'Medium Room', capacity: '1-2 pets', pricePerDay: 1200, features: ['Spacious area', 'Comfortable bedding', '3 meals/day', 'Play area access'] },
+        { id: 'large', name: 'Large Room', capacity: '2-3 pets', pricePerDay: 2000, features: ['Extra large space', 'Deluxe meals', 'Private play area', 'Daily grooming'] }
+    ],
+    boarding: [
+        { id: 'small', name: 'Small Kennel', capacity: '1 pet', pricePerDay: 400, features: ['Secure kennel', 'Basic bedding', '2 meals/day', 'Outdoor time'] },
+        { id: 'medium', name: 'Medium Kennel', capacity: '1-2 pets', pricePerDay: 800, features: ['Spacious kennel', 'Comfortable bedding', '3 meals/day', 'Extended outdoor time'] },
+        { id: 'large', name: 'Large Kennel', capacity: '2-3 pets', pricePerDay: 1400, features: ['Extra large kennel', 'Premium meals', 'Extended play sessions', 'Training activities'] }
+    ]
+});
+
+export const BOARDING_ADD_ON_PROJECTIONS = Object.freeze([
+    { id: 'behavior', name: 'Behavior Observation', price: 300, billing: 'day' },
+    { id: 'playtime', name: 'Extra Playtime (1hr)', price: 200, billing: 'day' },
+    { id: 'training', name: 'Basic Training Session', price: 500, billing: 'stay' },
+    { id: 'photos', name: 'Daily Photo Updates', price: 150, billing: 'day' },
+    { id: 'medication', name: 'Medication Administration', price: 200, billing: 'day' },
+    { id: 'special-diet', name: 'Special Diet Meals', price: 250, billing: 'day' }
 ]);
 
 export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
     generalConsultation: {
+        title: 'General Check-up',
         includedTitle: "What's Included:",
         includedItems: [
             'Physical examination',
@@ -58,6 +82,7 @@ export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
         reviewNote: "Your booking will be reviewed by our team. You'll receive a confirmation email once approved."
     },
     parasiteControl: {
+        title: 'Parasite Control',
         includedTitle: "What's Included:",
         includedItems: [
             'Flea and tick treatment',
@@ -69,7 +94,20 @@ export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
         duration: '20-30 minutes',
         reviewNote: "Your booking will be reviewed by our team. You'll receive a confirmation email once approved."
     },
+    laboratoryTesting: {
+        title: 'Laboratory Testing',
+        includedTitle: "What's Included:",
+        includedItems: [
+            'Veterinarian review of the requested test',
+            'Sample and preparation guidance',
+            'Laboratory processing',
+            'Results release and interpretation guidance'
+        ],
+        duration: 'Varies by requested test',
+        reviewNote: 'The clinic will confirm the appropriate test, sample requirements, preparation, and final laboratory fee after review.'
+    },
     vaccination: {
+        title: 'Vaccination',
         includedTitle: 'Common Vaccines:',
         includedItems: [
             'Rabies vaccine',
@@ -82,6 +120,7 @@ export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
         reviewNote: "Please bring your pet's vaccination record if available."
     },
     grooming: {
+        title: 'Grooming',
         includedTitle: 'Services Include:',
         includedItems: [
             'Bath and blow dry',
@@ -94,6 +133,7 @@ export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
         reviewNote: "Your booking will be reviewed by our team. You'll receive a confirmation email once approved."
     },
     dental: {
+        title: 'Dental Check-up',
         includedTitle: "What's Included:",
         includedItems: [
             'Oral examination',
@@ -106,6 +146,7 @@ export const SERVICE_DETAIL_PROJECTIONS = Object.freeze({
         reviewNote: "Your booking will be reviewed by our team. You'll receive a confirmation email once approved."
     },
     surgery: {
+        title: 'Surgery',
         includedTitle: 'Services Include:',
         includedItems: [
             'Pre-surgical consultation',
@@ -124,10 +165,13 @@ export const DEFAULT_BOOKING_PRICE_PROJECTION_CONFIG = Object.freeze({
     groomingMatrix: GROOMING_PRICE_MATRIX,
     kaponMatrix: KAPON_PRICE_MATRIX,
     homeServices: HOME_SERVICE_PRICE_PROJECTIONS,
+    boardingRooms: BOARDING_ROOM_PROJECTIONS,
+    boardingAddOns: BOARDING_ADD_ON_PROJECTIONS,
     serviceDetails: SERVICE_DETAIL_PROJECTIONS,
     instructions: Object.freeze({
         onlineConsultation: '',
         generalConsultation: '',
+        laboratoryTesting: '',
         parasiteControl: '',
         vaccination: '',
         grooming: '',
@@ -154,10 +198,16 @@ function defaultConfigClone() {
         groomingMatrix: cloneRows(GROOMING_PRICE_MATRIX),
         kaponMatrix: cloneRows(KAPON_PRICE_MATRIX),
         homeServices: cloneRows(HOME_SERVICE_PRICE_PROJECTIONS),
+        boardingRooms: {
+            hotel: BOARDING_ROOM_PROJECTIONS.hotel.map((room) => ({ ...room, features: [...room.features] })),
+            boarding: BOARDING_ROOM_PROJECTIONS.boarding.map((room) => ({ ...room, features: [...room.features] }))
+        },
+        boardingAddOns: cloneRows(BOARDING_ADD_ON_PROJECTIONS),
         serviceDetails: Object.fromEntries(
             Object.entries(SERVICE_DETAIL_PROJECTIONS).map(([key, value]) => [
                 key,
                 {
+                    title: value.title,
                     includedTitle: value.includedTitle,
                     includedItems: [...value.includedItems],
                     duration: value.duration,
@@ -174,7 +224,10 @@ function mergeServicePrices(overrides) {
     const source = overrides && typeof overrides === 'object' ? overrides : {};
 
     return Object.fromEntries(
-        Object.entries(defaults).map(([key, value]) => [key, text(source[key], value)])
+        Object.entries(defaults).map(([key, value]) => [
+            key,
+            key === 'onlineConsultation' ? value : text(source[key], value)
+        ])
     );
 }
 
@@ -191,6 +244,66 @@ function mergeRows(defaultRows, rows, fields, identityField) {
         return Object.fromEntries(
             fields.map((field) => [field, text(source[field], defaultRow[field])])
         );
+    });
+}
+
+function mergeHomeServiceRows(rows) {
+    const sourceRows = Array.isArray(rows) ? rows.filter((row) => row && typeof row === 'object') : [];
+    const mergedDefaults = mergeRows(
+        HOME_SERVICE_PRICE_PROJECTIONS,
+        sourceRows,
+        ['id', 'name', 'description', 'price'],
+        'id'
+    );
+    const defaultIds = new Set(HOME_SERVICE_PRICE_PROJECTIONS.map((row) => row.id));
+    const additionalRows = sourceRows
+        .filter((row) => row.id && !defaultIds.has(String(row.id)))
+        .map((row) => ({
+            id: text(row.id),
+            name: text(row.name, 'Custom Home Service'),
+            description: text(row.description),
+            price: text(row.price, 'Price confirmed after review')
+        }));
+
+    return [...mergedDefaults, ...additionalRows];
+}
+
+function finiteNumber(value, fallback) {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) && normalized >= 0 ? normalized : fallback;
+}
+
+function mergeBoardingRooms(rooms) {
+    const source = rooms && typeof rooms === 'object' ? rooms : {};
+
+    return Object.fromEntries(Object.entries(BOARDING_ROOM_PROJECTIONS).map(([type, defaultRooms]) => {
+        const sourceRooms = Array.isArray(source[type]) ? source[type] : [];
+        return [type, defaultRooms.map((defaultRoom, index) => {
+            const sourceRoom = sourceRooms.find((room) => String(room?.id) === defaultRoom.id) || sourceRooms[index] || {};
+            const features = Array.isArray(sourceRoom.features)
+                ? sourceRoom.features.map((feature) => text(feature)).filter(Boolean)
+                : [];
+            return {
+                id: defaultRoom.id,
+                name: text(sourceRoom.name, defaultRoom.name),
+                capacity: text(sourceRoom.capacity, defaultRoom.capacity),
+                pricePerDay: finiteNumber(sourceRoom.pricePerDay, defaultRoom.pricePerDay),
+                features: features.length > 0 ? features : [...defaultRoom.features]
+            };
+        })];
+    }));
+}
+
+function mergeBoardingAddOns(rows) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    return BOARDING_ADD_ON_PROJECTIONS.map((defaultRow, index) => {
+        const sourceRow = sourceRows.find((row) => String(row?.id) === defaultRow.id) || sourceRows[index] || {};
+        return {
+            id: defaultRow.id,
+            name: text(sourceRow.name, defaultRow.name),
+            price: finiteNumber(sourceRow.price, defaultRow.price),
+            billing: ['day', 'stay'].includes(sourceRow.billing) ? sourceRow.billing : defaultRow.billing
+        };
     });
 }
 
@@ -216,6 +329,7 @@ function mergeServiceDetails(details) {
             return [
                 key,
                 {
+                    title: text(sourceDetail.title, value.title),
                     includedTitle: text(sourceDetail.includedTitle, value.includedTitle),
                     includedItems: sourceItems.length > 0 ? sourceItems : [...value.includedItems],
                     duration: text(sourceDetail.duration, value.duration),
@@ -245,12 +359,9 @@ export function mergeBookingPriceProjectionConfig(overrides = {}) {
             ['procedure', 'price'],
             'procedure'
         ),
-        homeServices: mergeRows(
-            HOME_SERVICE_PRICE_PROJECTIONS,
-            overrides.homeServices,
-            ['id', 'name', 'price'],
-            'id'
-        ),
+        homeServices: mergeHomeServiceRows(overrides.homeServices),
+        boardingRooms: mergeBoardingRooms(overrides.boardingRooms),
+        boardingAddOns: mergeBoardingAddOns(overrides.boardingAddOns),
         serviceDetails: mergeServiceDetails(overrides.serviceDetails),
         instructions: mergeInstructions(overrides.instructions)
     };
@@ -280,10 +391,10 @@ export function readBookingPriceProjectionConfig() {
     }
 }
 
-export function saveBookingPriceProjectionConfig(config) {
+export function saveBookingPriceProjectionConfig(config, { persist = true } = {}) {
     const normalized = mergeBookingPriceProjectionConfig(config);
 
-    if (typeof window !== 'undefined') {
+    if (persist && typeof window !== 'undefined') {
         window.localStorage.setItem(BOOKING_PRICE_PROJECTION_STORAGE_KEY, JSON.stringify(normalized));
         window.dispatchEvent(new CustomEvent(BOOKING_PRICE_PROJECTION_UPDATED_EVENT, { detail: normalized }));
     }
@@ -291,10 +402,10 @@ export function saveBookingPriceProjectionConfig(config) {
     return normalized;
 }
 
-export function resetBookingPriceProjectionConfig() {
+export function resetBookingPriceProjectionConfig({ persist = true } = {}) {
     const normalized = defaultConfigClone();
 
-    if (typeof window !== 'undefined') {
+    if (persist && typeof window !== 'undefined') {
         window.localStorage.removeItem(BOOKING_PRICE_PROJECTION_STORAGE_KEY);
         window.dispatchEvent(new CustomEvent(BOOKING_PRICE_PROJECTION_UPDATED_EVENT, { detail: normalized }));
     }

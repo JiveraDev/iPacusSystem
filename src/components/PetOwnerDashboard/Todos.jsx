@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Calendar, dayjsLocalizer, Views } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -36,8 +36,13 @@ import {
 } from '../../services/todoService';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { fetchBranches, fetchVeterinarianBranchSchedules, getBranchDisplayName, saveVeterinarianBranchSchedule } from '../../services/branchService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import ServicePetPeek from '../shared/ServicePetPeek.jsx';
 
 const calendarLocalizer = dayjsLocalizer(dayjs);
+const TodoCalendarEventsContext = createContext([]);
+const TODO_DAY_PET_KINDS = ['dog', 'cat', 'bunny', 'parrot'];
+const TODO_DAY_PET_ACCENTS = ['blue', 'coral', 'sun', 'mint'];
 
 const CATEGORY_OPTIONS = [
     'Personal Task',
@@ -60,7 +65,7 @@ const CATEGORY_STYLES = {
 };
 
 CATEGORY_STYLES['Online Consultation'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
-CATEGORY_STYLES['Branch Visit'] = { dot: 'bg-teal-600', badge: 'bg-teal-50 text-teal-700', border: 'border-teal-200' };
+CATEGORY_STYLES['Branch Visit'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
 
 const CATEGORY_COLORS = {
     Booking: '#2563eb',
@@ -70,7 +75,7 @@ const CATEGORY_COLORS = {
     Medication: '#d97706',
     'Personal Task': '#475569',
     'Online Consultation': '#2563eb',
-    'Branch Visit': '#0f766e',
+    'Branch Visit': '#155dfc',
     Other: '#64748b'
 };
 
@@ -670,30 +675,30 @@ export default function Todos({ user }) {
 
     return (
         <div className="space-y-6 lg:space-y-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">
-                        {isVeterinarian ? 'Schedule & TODOs' : 'TODOs & Schedule'}
-                    </h1>
-                    <p className="mt-2 text-sm font-medium text-slate-500">
-                        {isVeterinarian
-                            ? 'Online consultation appointments, follow-up recording, and personal tasks.'
-                            : 'Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.'}
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {isVeterinarian && (
-                        <Button type="button" onClick={() => setIsVisitDialogOpen(true)}>
-                            <Stethoscope className="size-4" />
-                            Schedule Pet Corner Visit
+            <DashboardPageHeader
+                icon={CalendarDays}
+                title={isVeterinarian ? 'Schedule & TODOs' : 'TODOs & Schedule'}
+                description={isVeterinarian
+                    ? 'Online consultation appointments, follow-up recording, and personal tasks.'
+                    : 'Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.'}
+                petHover
+                petKind="bunny"
+                petAccent="blue"
+                actions={(
+                    <div className="flex flex-wrap gap-2">
+                        {isVeterinarian && (
+                            <Button type="button" onClick={() => setIsVisitDialogOpen(true)}>
+                                <Stethoscope className="size-4" />
+                                Schedule Pet Corner Visit
+                            </Button>
+                        )}
+                        <Button type="button" variant="outline" onClick={() => loadTasks()} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            Refresh
                         </Button>
-                    )}
-                    <Button type="button" variant="outline" onClick={() => loadTasks()} disabled={isLoading}>
-                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                        Refresh
-                    </Button>
-                </div>
-            </div>
+                    </div>
+                )}
+            />
 
             {loadError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
@@ -750,34 +755,39 @@ export default function Todos({ user }) {
                                 Loading schedules...
                             </div>
                         ) : (
-                            <Calendar
-                                localizer={calendarLocalizer}
-                                events={calendarEvents}
-                                date={calendarView === Views.AGENDA ? startOfDay(new Date()) : calendarDate}
-                                view={calendarView}
-                                views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
-                                length={31}
-                                toolbar={false}
-                                selectable="ignoreEvents"
-                                popup
-                                showMultiDayTimes
-                                longPressThreshold={180}
-                                step={30}
-                                timeslots={2}
-                                onNavigate={setCalendarDate}
-                                onView={handleViewChange}
-                                onSelectEvent={handleSelectEvent}
-                                onSelectSlot={handleSelectSlot}
-                                eventPropGetter={eventPropGetter}
-                                dayPropGetter={dayPropGetter}
-                                messages={{
-                                    noEventsInRange: calendarView === Views.AGENDA
-                                        ? 'No upcoming schedules from today.'
-                                        : 'No schedules in this calendar range.'
-                                }}
-                                components={{ event: CalendarEvent }}
-                                className={`todo-rbc todo-rbc-${calendarView}`}
-                            />
+                            <TodoCalendarEventsContext.Provider value={calendarEvents}>
+                                <Calendar
+                                    localizer={calendarLocalizer}
+                                    events={calendarEvents}
+                                    date={calendarView === Views.AGENDA ? startOfDay(new Date()) : calendarDate}
+                                    view={calendarView}
+                                    views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+                                    length={31}
+                                    toolbar={false}
+                                    selectable="ignoreEvents"
+                                    popup
+                                    showMultiDayTimes
+                                    longPressThreshold={180}
+                                    step={30}
+                                    timeslots={2}
+                                    onNavigate={setCalendarDate}
+                                    onView={handleViewChange}
+                                    onSelectEvent={handleSelectEvent}
+                                    onSelectSlot={handleSelectSlot}
+                                    eventPropGetter={eventPropGetter}
+                                    dayPropGetter={dayPropGetter}
+                                    messages={{
+                                        noEventsInRange: calendarView === Views.AGENDA
+                                            ? 'No upcoming schedules from today.'
+                                            : 'No schedules in this calendar range.'
+                                    }}
+                                    components={{
+                                        event: CalendarEvent,
+                                        month: { dateHeader: TodoMonthDateHeader }
+                                    }}
+                                    className={`todo-rbc todo-rbc-${calendarView}`}
+                                />
+                            </TodoCalendarEventsContext.Provider>
                         )}
                     </div>
 
@@ -982,7 +992,7 @@ export default function Todos({ user }) {
                         </div>
                         <div className="space-y-2">
                             <Label>Notes</Label>
-                            <Textarea value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional instructions for the branch" />
+                            <Textarea value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Branch instructions" />
                         </div>
                         <Button type="button" className="w-full" onClick={saveBranchVisit} disabled={isSaving}>
                             {isSaving ? <Loader2 className="size-4 animate-spin" /> : <CalendarDays className="size-4" />}
@@ -992,6 +1002,35 @@ export default function Todos({ user }) {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function TodoMonthDateHeader({ date, label, onDrillDown }) {
+    const events = useContext(TodoCalendarEventsContext);
+    const dayStart = dayjs(date).startOf('day');
+    const dayEnd = dayStart.add(1, 'day');
+    const hasSchedule = events.some((event) => {
+        const eventStart = dayjs(event.start);
+        const eventEnd = dayjs(event.end);
+        return eventStart.isBefore(dayEnd) && eventEnd.isAfter(dayStart);
+    });
+    const variationIndex = date.getDate() + date.getMonth();
+
+    return (
+        <button
+            type="button"
+            className={`todo-calendar-date-number${hasSchedule ? '' : ' todo-calendar-date-number--empty'}`}
+            onClick={onDrillDown}
+            aria-label={`Open ${dayjs(date).format('MMMM D, YYYY')}`}
+        >
+            <span>{label}</span>
+            {!hasSchedule ? (
+                <ServicePetPeek
+                    kind={TODO_DAY_PET_KINDS[variationIndex % TODO_DAY_PET_KINDS.length]}
+                    accent={TODO_DAY_PET_ACCENTS[variationIndex % TODO_DAY_PET_ACCENTS.length]}
+                />
+            ) : null}
+        </button>
     );
 }
 

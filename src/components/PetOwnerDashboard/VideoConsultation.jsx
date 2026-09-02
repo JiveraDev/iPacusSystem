@@ -4,8 +4,19 @@ import { useParams, useNavigate } from "../dashboardRouter.jsx";
 import { Button } from "../../ui/button";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { formatDisplayDateTime } from "../../lib/date";
-import { fetchOnlineConsultation } from "../../services/onlineConsultationService";
+import { joinOnlineConsultation } from "../../services/onlineConsultationService";
 import { useVideoCall } from "../../context/VideoCallProvider.jsx";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+
+const CLOSED_CONSULTATION_STATUSES = new Set(["completed", "cancelled", "canceled", "no_show", "no-show"]);
+
+function isClosedConsultation(consultation) {
+  const consultationStatus = String(consultation?.status || "").trim().toLowerCase();
+  const bookingStatus = String(consultation?.bookingStatus || consultation?.booking_status || "").trim().toLowerCase();
+
+  return CLOSED_CONSULTATION_STATUSES.has(consultationStatus)
+    || CLOSED_CONSULTATION_STATUSES.has(bookingStatus);
+}
 
 export default function VideoConsultation() {
   const { consultationId } = useParams();
@@ -18,8 +29,17 @@ export default function VideoConsultation() {
     const fetchConsultation = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchOnlineConsultation(consultationId);
+        // Always enter through the join action. This keeps notification deep
+        // links secure and records the owner as present in the live room.
+        const data = await joinOnlineConsultation(consultationId);
         const found = Array.isArray(data) ? data[0] : data;
+
+        if (isClosedConsultation(found)) {
+          endCall();
+          toast.info("This online consultation has already ended.");
+          navigate("/dashboard/consult", { replace: true });
+          return;
+        }
 
         if (found?.meetingUrl) {
           setConsultation(found);
@@ -54,11 +74,11 @@ export default function VideoConsultation() {
     if (consultationId) {
       fetchConsultation();
     }
-  }, [consultationId, navigate, startCall]);
+  }, [consultationId, endCall, navigate, startCall]);
 
   const handleEndCall = () => {
     endCall();
-    navigate("/dashboard/consult");
+    navigate("/dashboard/consult", { replace: true });
   };
 
   const handleBack = () => {
@@ -104,27 +124,25 @@ export default function VideoConsultation() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-120px)] min-h-[680px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-4">
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4 overflow-y-auto lg:h-[calc(100vh-120px)] lg:min-h-[680px] lg:overflow-hidden">
+      <DashboardPageHeader
+        icon={Video}
+        title="Online Consultation"
+        description={`${consultation.petName || "Your pet"} with ${consultation.veterinarianName || "Veterinarian"} - ${formatDisplayDateTime(consultation.scheduledStart)}`}
+        className="shrink-0"
+        navigation={(
           <Button
             variant="ghost"
             size="sm"
             onClick={handleBack}
-            className="gap-2"
+            className="-ml-2 gap-2 text-slate-600 dark:text-slate-300"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            Back to consultations
           </Button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Online Consultation</h1>
-            <p className="text-sm text-slate-500">
-              {consultation.petName || "Your pet"} with {consultation.veterinarianName || "Veterinarian"} - {formatDisplayDateTime(consultation.scheduledStart)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
+        )}
+        actions={(
+          <>
           <Button variant="outline" onClick={isMinimized ? openCall : minimizeCall} className="gap-2">
             {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
             {isMinimized ? "Open Call" : "Minimize"}
@@ -137,10 +155,11 @@ export default function VideoConsultation() {
             <PhoneOff className="h-4 w-4" />
             Leave
           </Button>
-        </div>
-      </div>
+          </>
+        )}
+      />
 
-      <div className="flex min-h-0 flex-1 flex-col bg-[#101828]">
+      <div className="flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-[#101828] dark:border-slate-800 lg:min-h-0">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
           <div>
             <p className="text-sm font-semibold">8x8 JaaS Meeting Room</p>

@@ -9,11 +9,14 @@
     "php:dev": "php -S localhost:8000 -t .",
     "server": "node server/userAddPetOwner.js",
     "build": "vite build --configLoader native",
+    "deploy:hostinger": "node scripts/deploy-hostinger.mjs",
+    "deploy:hostinger:preview": "node scripts/deploy-hostinger.mjs --dry-run",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "@docuseal/signature-maker-react": "^1.0.2",
+    "@gsap/react": "^2.1.2",
     "@mantine/core": "^9.4.1",
     "@mantine/dates": "^9.4.1",
     "@mantine/hooks": "^9.4.1",
@@ -26,6 +29,7 @@
     "env": "^0.0.2",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
+    "gsap": "^3.15.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "multer": "^2.1.1",

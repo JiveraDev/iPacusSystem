@@ -19,6 +19,8 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { reportBookingFormErrors, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
 const TIME_SLOT_ORDER = [
   "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM",
@@ -185,6 +187,7 @@ export default function ConsultBooking() {
             userId: v.user_id,
             name: `Dr. ${v.first_Name} ${v.last_Name}`,
             specialization: v.specialization || "General Practice",
+            licenseNumber: v.prc_license_number || v.license_number || v.licenseNumber || '',
             availability: schedule?.hasScheduleRows ? schedule.availability : {}
           };
         }).filter((vet) => Object.values(vet.availability).some((slots) => slots.length > 0));
@@ -229,7 +232,12 @@ export default function ConsultBooking() {
 
     files.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        toast.error(`${file.name} is not a supported image.`);
+        reportBookingFormErrors([{
+          fieldId: 'consultConcernImages',
+          label: 'Concern photos',
+          type: 'upload',
+          message: `${file.name} is not a supported image. Upload a PNG or JPG file.`,
+        }]);
         return;
       }
 
@@ -256,50 +264,43 @@ export default function ConsultBooking() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!selectedPet) {
-      toast.error("Please select a pet");
-      return;
-    }
-
-    if (!isNewPet && isPetDeceased(selectedPetData)) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
-      return;
-    }
-    
-    // Validate new pet information if "New Pet" is selected
-    if (isNewPet) {
-      if (!newPetName) {
-        toast.error("Please enter the pet's name");
-        return;
-      }
-      if (!newPetSpecies) {
-        toast.error("Please select the pet's species");
-        return;
-      }
-      if (!newPetBreed) {
-        toast.error("Please enter the pet's breed");
-        return;
-      }
-      if (!newPetAge) {
-        toast.error("Please enter the pet's age");
-        return;
-      }
-    }
-    
+    const standardErrors = standardAppointmentBookingErrors({
+      formData: {
+        petId: selectedPet,
+        petName: newPetName,
+        newPetSpecies,
+        newPetBreed,
+        newPetAge,
+        newPetWeight,
+        date: selectedDate,
+        time: selectedTime,
+        files: [],
+      },
+      isNewPet,
+      today: format(new Date(), "yyyy-MM-dd"),
+      fieldIds: {
+        pet: 'consult-pet',
+        petName: 'newPetName',
+        date: 'selectedDate',
+        time: 'online-consultation-time',
+      },
+    });
+    const scheduleErrors = standardErrors.filter((error) => ['selectedDate', 'online-consultation-time'].includes(error.fieldId));
+    const validationErrors = standardErrors.filter((error) => !['selectedDate', 'online-consultation-time'].includes(error.fieldId));
     if (discussionTopic.length === 0) {
-      toast.error("Please select at least one discussion topic");
-      return;
+      validationErrors.push({ fieldId: 'consult-discussion-topics', label: 'Discussion topic', type: 'selection', message: 'Select at least one discussion topic.' });
     }
     if (!selectedVet) {
-      toast.error("Please select a veterinarian");
-      return;
+      validationErrors.push({ fieldId: 'consult-veterinarian', label: 'Veterinarian', type: 'selection', message: 'Select a veterinarian.' });
     }
-    if (!selectedDate) {
-      toast.error("Please select a date");
-      return;
+    validationErrors.push(...scheduleErrors);
+    if (concernImages.length > 5) {
+      validationErrors.push({ fieldId: 'consultConcernImages', label: 'Concern photos', type: 'upload', message: 'Upload no more than 5 concern photos.' });
     }
-    if (!selectedTime) {
-      toast.error("Please select a time");
+    if (reportBookingFormErrors(validationErrors)) return;
+
+    if (!isNewPet && isPetDeceased(selectedPetData)) {
+      reportBookingFormErrors([{ fieldId: 'consult-pet', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
       return;
     }
     // Store booking data in session storage
@@ -320,6 +321,8 @@ export default function ConsultBooking() {
       time: selectedTime,
       veterinarianId: selectedVet,
       veterinarian: selectedVetData?.name,
+      veterinarianName: selectedVetData?.name,
+      veterinarianLicense: selectedVetData?.licenseNumber || selectedVetData?.prcLicenseNumber || selectedVetData?.prc_license_number || '',
       dateTime: `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`,
       concernImages,
     };
@@ -399,22 +402,23 @@ export default function ConsultBooking() {
 
   return (
     <div className="space-y-6 lg:space-y-8 max-w-3xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/consult")} className="self-start">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Book Online Consultation</h1>
-        </div>
-      </div>
+      <DashboardPageHeader
+        icon={CalendarPlus}
+        title="Book Online Consultation"
+        description="Choose a pet, veterinarian, date, and available consultation time."
+        navigation={(
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/consult")} className="-ml-2 gap-2">
+            <ArrowLeft className="size-4" /> Back to Consultations
+          </Button>
+        )}
+      />
 
       <Card>
         <CardHeader>
           <CardTitle>Consultation Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             {/* Select Pet */}
             <div className="space-y-2">
               <Label>Select Pet</Label>
@@ -432,7 +436,7 @@ export default function ConsultBooking() {
                   setIsNewPet(false);
                 }
               }}>
-                <SelectTrigger>
+                <SelectTrigger id="consult-pet">
                   <SelectValue
                     placeholder="Choose your pet"
                     displayValue={isNewPet ? "New Pet (Not Registered)" : getPetName(selectedPetData)}
@@ -519,7 +523,7 @@ export default function ConsultBooking() {
                     <Label htmlFor="newPetMedicalConditions">Medical Conditions (Optional)</Label>
                     <Textarea
                       id="newPetMedicalConditions"
-                      placeholder="Any known allergies, conditions, or medications..."
+                placeholder="Allergies or medications"
                       value={newPetMedicalConditions}
                       onChange={(e) => setNewPetMedicalConditions(e.target.value)}
                       rows={3}
@@ -532,7 +536,7 @@ export default function ConsultBooking() {
             {/* Discussion Topics */}
             <div className="space-y-2">
               <Label>Discussion Topics</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div id="consult-discussion-topics" tabIndex={-1} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg">
                 {discussionTopics.map((topic) => (
                   <button
                     key={topic}
@@ -554,7 +558,7 @@ export default function ConsultBooking() {
             <div className="space-y-2">
               <Label>Select Veterinarian</Label>
               <Select value={selectedVet} onValueChange={handleVetChange}>
-                <SelectTrigger>
+                <SelectTrigger id="consult-veterinarian">
                   <SelectValue placeholder="Choose a veterinarian" displayValue={getVetLabel(selectedVetData)} />
                 </SelectTrigger>
                 <SelectContent>
@@ -662,7 +666,7 @@ export default function ConsultBooking() {
               <Label htmlFor="notes">Additional Notes (Optional)</Label>
               <Textarea
                 id="notes"
-                placeholder="Describe any specific concerns or symptoms..."
+                placeholder="Concerns or symptoms"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}

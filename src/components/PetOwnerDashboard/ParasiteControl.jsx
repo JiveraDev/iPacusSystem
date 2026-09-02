@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Bug, ArrowLeft } from "lucide-react";
+import { Bug } from "lucide-react";
 import { useState, useEffect } from "react";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
@@ -16,14 +16,17 @@ import SubmissionStatus from "../shared/SubmissionStatus";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
+import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
+import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
+import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 
 export default function ParasiteControl() {
   const navigate = useNavigate();
-  const { config: priceProjectionConfig } = useBookingPriceProjections();
+  const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
   const { instructions, serviceDetails, servicePrices } = priceProjectionConfig;
   const serviceDetail = serviceDetails.parasiteControl;
   const [pets, setPets] = useState([]);
@@ -77,18 +80,14 @@ export default function ParasiteControl() {
       return;
     }
 
-    if (!formData.branchId || !formData.date || !formData.time) {
-      toast.error("Select a clinic location and an available appointment date and time.");
-      return;
-    }
-    
-    if (!isNewPet && !formData.petId) {
-      toast.error("Please select a pet");
-      return;
-    }
-
-    if (isNewPet && !formData.petName) {
-      toast.error("Please enter the pet's name");
+    const validationErrors = standardAppointmentBookingErrors({
+      formData,
+      isNewPet,
+      branchRequired: true,
+      branchFieldId: 'branch-parasite-control',
+      today: clinicTodayDate(),
+    });
+    if (reportBookingFormErrors(validationErrors)) {
       return;
     }
 
@@ -97,7 +96,7 @@ export default function ParasiteControl() {
       : null;
 
     if (isPetDeceased(selectedRegisteredPet)) {
-      toast.error(DECEASED_PET_BOOKING_MESSAGE);
+      reportBookingFormErrors([{ fieldId: 'petSelect', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
       return;
     }
 
@@ -151,7 +150,7 @@ export default function ParasiteControl() {
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Booking error:", error);
-      toast.error(error.message || "Failed to submit booking");
+      reportBookingSubmissionError(error, { branch: 'branch-parasite-control' });
     } finally {
       setIsSubmitting(false);
     }
@@ -194,26 +193,23 @@ export default function ParasiteControl() {
   };
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/services")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Parasite Control</h1>
-          <p className="text-gray-600 mt-1">Prevention and treatment for parasites</p>
-        </div>
-      </div>
+    <ServicePageShell>
+      <ServicePageHeader
+        icon={Bug}
+        title="Parasite Control"
+        description="Prevention and treatment for parasites"
+        onBack={() => navigate("/dashboard/services")}
+      />
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,0.8fr)]">
         {/* Booking Form */}
-        <Card className="lg:col-span-2">
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Booking Details</CardTitle>
             <CardDescription>Fill in the information below to schedule your appointment</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="petSelect">Select Pet *</Label>
                 <Select value={formData.petId} onValueChange={handlePetChange}>
@@ -344,7 +340,7 @@ export default function ParasiteControl() {
                 <Label htmlFor="notes">Additional Notes</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Describe any symptoms or concerns"
+                  placeholder="Symptoms or concerns"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={4}
@@ -375,27 +371,26 @@ export default function ParasiteControl() {
         </Card>
 
         {/* Service Info */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Bug className="h-8 w-8" />
-              </div>
-              <CardTitle className="text-center">Parasite Control</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <aside className="min-w-0 space-y-4">
+          <ServiceSummaryCard icon={Bug} title={serviceDetail?.title || "Parasite Control"}>
+              <ServiceProjectionEditor
+                config={priceProjectionConfig}
+                detailKey="parasiteControl"
+                instructionKey="parasiteControl"
+                priceFields={[{ key: 'parasiteControl', label: 'Price' }]}
+                onSave={savePriceProjectionConfig}
+              />
               <ServiceProjectionDetails detail={serviceDetail}>
-                <p className="text-lg font-bold text-orange-600">{servicePrices.parasiteControl}</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{servicePrices.parasiteControl}</p>
                 {instructions.parasiteControl && (
-                  <p className="mt-1 text-xs text-gray-500">{instructions.parasiteControl}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{instructions.parasiteControl}</p>
                 )}
               </ServiceProjectionDetails>
-            </CardContent>
-          </Card>
+          </ServiceSummaryCard>
 
           <ServiceProjectionNote detail={serviceDetail} />
-        </div>
+        </aside>
       </div>
-    </div>
+    </ServicePageShell>
   );
 }

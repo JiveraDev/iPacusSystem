@@ -373,17 +373,8 @@ function onlineConsultationEnsureOwnerJoinWindow(array $consultation, string $ro
         ipawcus_guard_error(409, 'Please wait for the veterinarian to start the consultation.');
     }
 
-    $timezone = new DateTimeZone('Asia/Manila');
-    $scheduledStart = new DateTimeImmutable((string)$consultation['scheduled_start'], $timezone);
-    $scheduledEnd = !empty($consultation['scheduled_end'])
-        ? new DateTimeImmutable((string)$consultation['scheduled_end'], $timezone)
-        : $scheduledStart->modify('+60 minutes');
-    $joinOpensAt = $scheduledStart->modify('-10 minutes');
-    $now = new DateTimeImmutable('now', $timezone);
-
-    if ($now < $joinOpensAt || $now > $scheduledEnd) {
-        ipawcus_guard_error(409, 'Online consultations can be joined from 10 minutes before the scheduled time until the scheduled session ends.');
-    }
+    // Owners can join as soon as the veterinarian marks the room ready. The
+    // scheduled time is informational and must not block a live consultation.
 }
 
 try {

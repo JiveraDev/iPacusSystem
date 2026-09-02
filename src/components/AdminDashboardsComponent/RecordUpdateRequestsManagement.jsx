@@ -6,7 +6,6 @@ import {
     Loader2,
     RefreshCw,
     Search,
-    ShieldCheck,
     XCircle
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
@@ -21,16 +20,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
-import { resolveImageUrl } from '../../lib/image';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { fetchVeterinarians } from '../../services/accountService';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
-
-function currentUserId(user) {
-    return user?.user_id || user?.userId || user?.id || null;
-}
+import { openProtectedDocument } from '../../hooks/useConsentDocumentSource';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 function normalize(value) {
     return String(value || '').trim().toLowerCase();
@@ -84,13 +79,16 @@ function paymentLabel(status) {
     return labels[status] || status;
 }
 
+function isImageProof(path) {
+    return /\.(png|jpe?g|gif|webp|bmp)(?:[?#].*)?$/i.test(String(path || ''));
+}
+
 export default function RecordUpdateRequestsManagement() {
-    const currentUser = useDashboardUser();
     const [requests, setRequests] = useState([]);
     const [veterinarians, setVeterinarians] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('active');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [selectedVetId, setSelectedVetId] = useState('');
     const [adminNotes, setAdminNotes] = useState('');
@@ -243,49 +241,52 @@ export default function RecordUpdateRequestsManagement() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-950">Record Update Requests</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Review owner payment proofs, approve requests, and assign them to veterinarians.
-                    </p>
-                </div>
-                <Button variant="outline" onClick={() => loadData()} disabled={isLoading} className="gap-2">
-                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
-
-
-            <Card>
-                <CardContent className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <div>
-                        <Input
-                            value={searchQuery}
-                            onChange={(event) => setSearchQuery(event.target.value)}
-                            placeholder="Search request, pet, owner, notes, or payment"
-                            leftIcon={<Search className="size-4" />}
-                        />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger>
-                            <SelectValue
-                                displayValue={statusFilter === 'active' ? 'Active Requests' : statusFilter === 'all' ? 'All Requests' : statusLabel(statusFilter)}
+            <DashboardPageHeader
+                icon={FileText}
+                title="Record Update Requests"
+                description="Review owner payment proofs, approve requests, and assign them to veterinarians."
+                petHover
+                petKind="cat"
+                petAccent="coral"
+                layout="stacked"
+                actions={(
+                    <Button variant="outline" onClick={() => loadData()} disabled={isLoading} className="gap-2">
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        Refresh
+                    </Button>
+                )}
+                toolbar={(
+                <div className="space-y-3">
+                    <div data-filter-bar data-session-persist="off" className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:grid-cols-[minmax(0,1fr)_220px]">
+                        <div>
+                            <Input
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="Search requests or pets"
+                                leftIcon={<Search className="size-4" />}
                             />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="active">Active Requests</SelectItem>
-                            <SelectItem value="all">All Requests</SelectItem>
-                            <SelectItem value="pending_admin_review">Pending Review</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
-                            <SelectItem value="assigned">Assigned</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </CardContent>
-            </Card>
+                        </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger>
+                                <SelectValue
+                                    displayValue={statusFilter === 'active' ? 'Active Requests' : statusFilter === 'all' ? 'All Requests' : statusLabel(statusFilter)}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="active">Active Requests</SelectItem>
+                                <SelectItem value="all">All Requests</SelectItem>
+                                <SelectItem value="pending_admin_review">Pending Review</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="assigned">Assigned</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="rejected">Rejected</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                )}
+            />
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <Table>
@@ -383,19 +384,43 @@ export default function RecordUpdateRequestsManagement() {
                                     {selectedRequest.paymentProofUrl ? (
                                         <button
                                             type="button"
-                                            onClick={() => setViewer({ src: resolveImageUrl(selectedRequest.paymentProofUrl), alt: 'Payment proof' })}
+                                            onClick={() => {
+                                                if (isImageProof(selectedRequest.paymentProofUrl)) {
+                                                    setViewer({ src: selectedRequest.paymentProofUrl, alt: 'Payment proof' });
+                                                    return;
+                                                }
+                                                openProtectedDocument(selectedRequest.paymentProofUrl)
+                                                    .catch((error) => toast.error(error.message || 'The payment proof could not be opened.'));
+                                            }}
                                             className="w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left"
                                         >
                                             <div className="flex h-40 items-center justify-center bg-white">
-                                                <ProtectedImage src={selectedRequest.paymentProofUrl} alt="Payment proof" className="h-full w-full object-cover" />
+                                                {isImageProof(selectedRequest.paymentProofUrl) ? (
+                                                    <ProtectedImage src={selectedRequest.paymentProofUrl} alt="Payment proof" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <FileText className="size-12 text-slate-400" aria-hidden="true" />
+                                                )}
                                             </div>
-                                            <p className="p-3 text-xs font-bold text-[#155dfc]">View payment proof</p>
+                                            <p className="p-3 text-xs font-bold text-[#155dfc]">Open payment proof</p>
                                         </button>
                                     ) : (
                                         <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-400">
                                             No proof uploaded. Cash or counter verification may be needed.
                                         </p>
                                     )}
+                                    <div className="mt-4 space-y-2">
+                                        <Label htmlFor="review-record-payment-reference">Transaction Number Submitted by Pet Owner</Label>
+                                        <Input
+                                            id="review-record-payment-reference"
+                                            value={selectedRequest.paymentReference || ''}
+                                            readOnly
+                                            placeholder="No transaction number submitted"
+                                            className="bg-slate-50 font-mono tracking-wide"
+                                        />
+                                        <p className="text-xs font-medium text-slate-500">
+                                            Compare this number with the uploaded payment proof before updating the payment status.
+                                        </p>
+                                    </div>
                                 </section>
                             </div>
 
@@ -513,6 +538,11 @@ function PaymentBadge({ request }) {
             <p className="text-xs font-semibold text-slate-500">
                 {request.paymentMethod} - PHP {Number(request.paymentAmount || 0).toLocaleString()}
             </p>
+            {request.paymentReference && (
+                <p className="max-w-52 truncate text-xs font-semibold text-slate-500" title={request.paymentReference}>
+                    Ref: {request.paymentReference}
+                </p>
+            )}
         </div>
     );
 }

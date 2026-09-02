@@ -19,6 +19,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 function currentUserId(user) {
     return user?.user_id || user?.userId || user?.id || null;
@@ -195,18 +196,21 @@ export default function VetRecordUpdateRequests() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-950">Record Update Requests</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                        View approved owner requests, assign them to yourself, then open the pet medical record editor.
-                    </p>
-                </div>
-                <Button variant="outline" onClick={() => loadRequests()} disabled={isLoading} className="gap-2">
-                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
+            <DashboardPageHeader
+                icon={ClipboardList}
+                title="Record Update Requests"
+                description="View approved owner requests, assign them to yourself, then open the pet medical record editor."
+                petHover
+                petKind="dog"
+                petAccent="sun"
+                layout="stacked"
+                actions={(
+                    <Button variant="outline" onClick={() => loadRequests()} disabled={isLoading} className="gap-2">
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        Refresh
+                    </Button>
+                )}
+            />
 
 
 

@@ -14,9 +14,11 @@ import { fetchAllPets, searchPetDirectory, updatePetStatus } from "../../service
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
 const DIRECTORY_ROLES = ["Admin", "Super Admin", "Veterinarian"];
 const MEDICAL_SEARCH_FOCUS_KEY = "ipawcus-medical-search-focus";
+const PET_CARD_ACCENTS = ["blue", "coral", "sun", "mint"];
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -32,6 +34,21 @@ function petAge(pet) {
 
 function petType(pet) {
   return [pet.species, pet.breed].filter(Boolean).join(" - ") || "No type details";
+}
+
+function petCardHoverKind(pet) {
+  const species = normalize(pet?.species);
+
+  if (species.includes("cat") || species.includes("feline")) return "cat";
+  if (species.includes("rabbit") || species.includes("bunny")) return "bunny";
+  if (species.includes("bird") || species.includes("parrot") || species.includes("avian")) return "parrot";
+  return "dog";
+}
+
+function petCardHoverAccent(pet) {
+  const seed = String(petKey(pet) || "pet");
+  const hash = Array.from(seed).reduce((total, character) => total + character.charCodeAt(0), 0);
+  return PET_CARD_ACCENTS[hash % PET_CARD_ACCENTS.length];
 }
 
 function getStatusTone(status) {
@@ -55,7 +72,7 @@ export default function MyPets() {
   const [isAdminView, setIsAdminView] = useState(false);
   const [directorySearch, setDirectorySearch] = useState("");
   const [directoryView, setDirectoryView] = useState("card");
-  const [archiveFilter, setArchiveFilter] = useState("active");
+  const [archiveFilter, setArchiveFilter] = useState("all");
   const [clinicalSearchResults, setClinicalSearchResults] = useState([]);
   const [isClinicalSearchLoading, setIsClinicalSearchLoading] = useState(false);
   const [clinicalSearchError, setClinicalSearchError] = useState("");
@@ -287,11 +304,13 @@ export default function MyPets() {
 
   return (
     <div className="animate-in fade-in space-y-6 duration-500 lg:space-y-8">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-          {isAdminView ? "Pet Directory" : "My Pets"}
-        </h1>
-      </div>
+      <DashboardPageHeader
+        icon={PawPrint}
+        title={isAdminView ? "Pet Directory" : "My Pets"}
+        description={isAdminView
+          ? "Search registered pets, owners, and linked clinical history."
+          : "Review your linked pets and open their health information."}
+      />
 
       {isAdminView && (
         <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -300,7 +319,7 @@ export default function MyPets() {
               <Input
                 value={directorySearch}
                 onChange={(event) => setDirectorySearch(event.target.value)}
-                placeholder="Search pets, owners, diagnoses, symptoms, allergies, or clinic ID"
+                placeholder="Search pets or clinic ID"
                 className="h-10"
                 leftIcon={<Search className="size-4" />}
                 rightIcon={isClinicalSearchLoading ? <Loader2 className="size-4 animate-spin text-[#155dfc]" /> : null}
@@ -310,9 +329,9 @@ export default function MyPets() {
               <Select value={archiveFilter} onValueChange={setArchiveFilter}>
                 <SelectTrigger className="h-10 min-w-40 bg-white"><SelectValue placeholder="Pet status" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All pets</SelectItem>
                   <SelectItem value="active">Active pets</SelectItem>
                   <SelectItem value="archived">Archived pets</SelectItem>
-                  <SelectItem value="all">All pets</SelectItem>
                 </SelectContent>
               </Select>
             {!hasClinicalSearch && <div className="flex w-full gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
@@ -726,6 +745,9 @@ function PetDirectoryTable({ pets, onOpenPet, canManageArchives, onToggleArchive
 function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArchive }) {
   return (
     <Card
+      petHover="always"
+      petKind={petCardHoverKind(pet)}
+      petAccent={petCardHoverAccent(pet)}
       className={`group min-w-0 cursor-pointer overflow-hidden border-slate-200 transition-all duration-300 hover:-translate-y-1 hover:border-[#155dfc] hover:shadow-xl ${compact ? "rounded-[12px]" : ""}`}
       onClick={onOpen}
     >
@@ -828,7 +850,10 @@ function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArch
 function LinkPetCard({ navigate }) {
   return (
     <Card
-      className="group flex min-h-[300px] cursor-pointer flex-col justify-center border-2 border-dashed border-slate-200 bg-slate-50/30 transition-all hover:border-[#155dfc] hover:bg-blue-50/30"
+      petHover="always"
+      petKind="bunny"
+      petAccent="sun"
+      className="group flex min-h-[300px] cursor-pointer flex-col justify-center overflow-hidden border-2 border-dashed border-slate-200 bg-slate-50/30 transition-all hover:border-[#155dfc] hover:bg-blue-50/30"
       onClick={() => navigate("/dashboard/my-pets/add")}
     >
       <CardContent className="flex items-center justify-center pt-0">

@@ -8,6 +8,7 @@ import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 export default function DisposalLogsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,17 +74,12 @@ export default function DisposalLogsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col items-start justify-between gap-4 lg:flex-row">
-        <div>
-          <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-            Disposal Logs
-          </h2>
-          <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-            Complete record of all disposed inventory items for regulatory compliance
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+      <DashboardPageHeader
+        icon={Archive}
+        title="Disposal Logs"
+        description="Complete record of all disposed inventory items for regulatory compliance."
+        actions={(
+          <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
           <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <Download className="size-4 mr-2" />
             Export Report
@@ -92,8 +88,9 @@ export default function DisposalLogsPage() {
             <FileText className="size-4 mr-2" />
             Generate Compliance Report
           </Button>
-        </div>
-      </div>
+          </div>
+        )}
+      />
 
       {/* Compliance Notice */}
       <div className="bg-[#eff6ff] border border-[#155dfc] rounded-[14px] p-4">
@@ -182,7 +179,7 @@ export default function DisposalLogsPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <Input
-              placeholder="Search by product, SKU, or disposal ID..."
+            placeholder="Search product or disposal ID"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               leftIcon={<Search className="size-4" />}

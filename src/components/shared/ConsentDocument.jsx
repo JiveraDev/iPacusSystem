@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Copyright } from 'lucide-react';
 import logoImg from '../../assets/logo-no-bg.png';
-import { resolveConsentTemplate } from '../../lib/consentTemplateCodes';
+import ConsentTemplateText from './ConsentTemplateText.jsx';
 
 function resolveText(value, fallback = '') {
     return String(value || fallback).trim();
@@ -31,7 +31,6 @@ const ConsentDocument = forwardRef(function ConsentDocument({
         veterinarianName,
         veterinarianLicense
     };
-    const resolvedContent = resolveConsentTemplate(content, resolvedContext, { preview: true });
 
     return (
         <div
@@ -56,9 +55,12 @@ const ConsentDocument = forwardRef(function ConsentDocument({
                 </h2>
             </div>
 
-            <div className={`flex-1 whitespace-pre-wrap px-0 text-justify text-gray-800 sm:px-4 ${isCompact ? 'min-h-[220px] text-xs leading-relaxed' : 'text-sm leading-relaxed'}`}>
-                {resolveText(resolvedContent, 'No content available for this form.')}
-            </div>
+            <ConsentTemplateText
+                content={content}
+                context={resolvedContext}
+                fallback="No content available for this form."
+                className={`flex-1 px-0 text-justify text-gray-800 sm:px-4 ${isCompact ? 'min-h-[220px] text-xs leading-relaxed' : 'text-sm leading-relaxed'}`}
+            />
 
             <div className={`flex items-end justify-between gap-6 px-0 sm:px-4 ${isCompact ? 'mt-8' : 'mt-12'}`}>
                 <div className={`${isCompact ? 'w-56' : 'w-72'} text-center`}>

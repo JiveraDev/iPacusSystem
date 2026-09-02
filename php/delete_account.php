@@ -63,7 +63,7 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
 
     $accountName = delete_account_name($account);
     $title = 'Account archived';
-    $intro = "Hello {$accountName}, your iPawcus account has been archived by clinic administration. Your records remain protected and the account can be restored when appropriate. If you believe this was a mistake, please contact the clinic.";
+    $intro = "Hello {$accountName}, your iPawcus account has been marked as archived by clinic administration. This is an administrative label only; your normal account access remains available.";
     $rows = [
         'Account' => $accountName,
         'Role' => $account['role'] ?? '',
@@ -78,9 +78,9 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
         'type' => 'account_removed',
         'category' => 'account_updates',
         'title' => $title,
-        'message' => 'Your account has been archived by clinic administration.',
+        'message' => 'Your account was marked as archived. Your access remains unchanged.',
         'push_title' => $title,
-        'push_message' => 'Your account has been archived by clinic administration.',
+        'push_message' => 'Your account was marked as archived. Your access remains unchanged.',
         'force_in_app' => true,
         'dedupe_key' => "account-removed-{$userId}",
         'email_subject' => 'Your iPawcus account was archived',
@@ -93,7 +93,7 @@ function delete_account_notify_super_admins(PDO $pdo, array $account, string $re
 {
     $accountName = delete_account_name($account);
     $title = 'Account archived';
-    $message = "{$accountName} was archived from active account use.";
+    $message = "{$accountName} was marked as archived; account access remains unchanged.";
     $rows = [
         'Account' => $accountName,
         'Email' => $account['mail_Address'] ?? '',
@@ -208,19 +208,6 @@ try {
     $deleteStmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $setParts) . ' WHERE user_id = ?');
     $deleteStmt->execute($params);
 
-    if ($normalizedRole === 'veterinarian') {
-        $profileStmt = $pdo->prepare('UPDATE veterinarian_profiles SET is_active = 0 WHERE user_id = ?');
-        $profileStmt->execute([$userId]);
-    } else {
-        if (!ensureAdminAccountStatusColumn($pdo)) {
-            throw new RuntimeException('Admin account status column is missing.');
-        }
-        $profileStmt = $pdo->prepare('UPDATE admin_profiles SET is_active = 0 WHERE user_id = ?');
-        $profileStmt->execute([$userId]);
-    }
-
-    accountRevokeAccessTokens($pdo, $userId);
-
     $pdo->commit();
 
     try {
@@ -232,7 +219,7 @@ try {
 
     delete_account_json([
         'success' => true,
-        'message' => 'Account archived.',
+        'message' => 'Account marked as archived. Access remains unchanged.',
         'user_id' => $userId,
     ]);
 } catch (Throwable $e) {

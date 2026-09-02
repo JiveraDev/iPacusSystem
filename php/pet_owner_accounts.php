@@ -109,10 +109,31 @@ function owner_accounts_list(PDO $pdo): void
     ");
     $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $hasOwnershipRelationship = owner_accounts_column_exists($pdo, 'pet_ownership', 'relationship');
+    $hasPrimaryOwnership = owner_accounts_column_exists($pdo, 'pet_ownership', 'is_primary');
+    $relationshipSelect = $hasOwnershipRelationship
+        ? 'po.relationship'
+        : "'primary' AS relationship";
+    $primarySelect = $hasPrimaryOwnership
+        ? 'po.is_primary'
+        : '1 AS is_primary';
+    $primaryOrder = $hasPrimaryOwnership
+        ? 'CASE WHEN po.is_primary = 1 THEN 0 ELSE 1 END,'
+        : '';
+    $relationshipOrder = $hasOwnershipRelationship
+        ? "CASE WHEN po.relationship = 'primary' THEN 0 ELSE 1 END,"
+        : '';
+
     $petsByOwner = [];
     $petStmt = $pdo->query("
         SELECT
             po.user_id,
+            po.link_id,
+            {$relationshipSelect},
+            {$primarySelect},
+            linked_owner.first_Name AS linked_owner_first_name,
+            linked_owner.last_Name AS linked_owner_last_name,
+            linked_owner.mail_Address AS linked_owner_email,
             p.pet_id,
             p.pet_sharable_ID,
             p.pet_name,
@@ -131,17 +152,80 @@ function owner_accounts_list(PDO $pdo): void
             p.archived_at,
             p.archive_reason
         FROM pet_ownership po
+        JOIN users linked_owner ON linked_owner.user_id = po.user_id
         JOIN pets_information p ON p.pet_id = po.pet_id
         WHERE COALESCE(p.pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
-        ORDER BY p.pet_name ASC
+        ORDER BY
+            p.pet_name ASC,
+            {$primaryOrder}
+            {$relationshipOrder}
+            po.link_id ASC
     ");
-    foreach ($petStmt->fetchAll(PDO::FETCH_ASSOC) as $pet) {
+    $petRows = $petStmt->fetchAll(PDO::FETCH_ASSOC);
+    $ownershipsByPet = [];
+
+    foreach ($petRows as $pet) {
+        $petId = (int)$pet['pet_id'];
+        $relationship = strtolower(trim((string)($pet['relationship'] ?? '')));
+        $isPrimary = (int)($pet['is_primary'] ?? 0) === 1 || $relationship === 'primary';
+        $linkedOwnerName = trim((string)($pet['linked_owner_first_name'] ?? '') . ' ' . (string)($pet['linked_owner_last_name'] ?? ''));
+
+        if (!isset($ownershipsByPet[$petId])) {
+            $ownershipsByPet[$petId] = [];
+        }
+        $ownershipsByPet[$petId][] = [
+            'userId' => (int)$pet['user_id'],
+            'name' => $linkedOwnerName !== '' ? $linkedOwnerName : ((string)($pet['linked_owner_email'] ?? '') ?: 'Pet owner'),
+            'email' => $pet['linked_owner_email'] ?? '',
+            'relationship' => $isPrimary ? 'primary' : 'co_parent',
+            'isPrimary' => $isPrimary,
+        ];
+    }
+
+    foreach ($ownershipsByPet as &$petOwnerships) {
+        $primaryAssigned = false;
+        foreach ($petOwnerships as &$ownership) {
+            if ($ownership['isPrimary'] && !$primaryAssigned) {
+                $primaryAssigned = true;
+                continue;
+            }
+            $ownership['isPrimary'] = false;
+            $ownership['relationship'] = 'co_parent';
+        }
+        unset($ownership);
+
+        if (!$primaryAssigned && !empty($petOwnerships)) {
+            $petOwnerships[0]['isPrimary'] = true;
+            $petOwnerships[0]['relationship'] = 'primary';
+        }
+    }
+    unset($petOwnerships);
+
+    foreach ($petRows as $pet) {
         $ownerId = (int)$pet['user_id'];
+        $petId = (int)$pet['pet_id'];
         if (!isset($petsByOwner[$ownerId])) {
             $petsByOwner[$ownerId] = [];
         }
+        $petOwnerships = $ownershipsByPet[$petId] ?? [];
+        $primaryOwner = null;
+        $coParents = [];
+        foreach ($petOwnerships as $ownership) {
+            if ($ownership['isPrimary'] && $primaryOwner === null) {
+                $primaryOwner = $ownership;
+            } else {
+                $coParents[] = $ownership;
+            }
+        }
+        $currentOwnership = null;
+        foreach ($petOwnerships as $ownership) {
+            if ((int)$ownership['userId'] === $ownerId) {
+                $currentOwnership = $ownership;
+                break;
+            }
+        }
         $petsByOwner[$ownerId][] = [
-            'pet_id' => (int)$pet['pet_id'],
+            'pet_id' => $petId,
             'pet_sharable_ID' => $pet['pet_sharable_ID'],
             'pet_name' => $pet['pet_name'],
             'pet_species' => $pet['pet_species'],
@@ -162,6 +246,11 @@ function owner_accounts_list(PDO $pdo): void
             'is_archived' => (int)($pet['is_archived'] ?? 0) === 1,
             'archived_at' => $pet['archived_at'] ?? null,
             'archive_reason' => $pet['archive_reason'] ?? '',
+            'ownership_relationship' => $currentOwnership['relationship'] ?? 'co_parent',
+            'is_primary_owner' => (bool)($currentOwnership['isPrimary'] ?? false),
+            'owners' => $petOwnerships,
+            'primary_owner' => $primaryOwner,
+            'co_parents' => $coParents,
         ];
     }
 
@@ -225,10 +314,6 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     $params[] = $userId;
     $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
     $update->execute($params);
-    if ($status === 'archived') {
-        accountRevokeAccessTokens($pdo, $userId);
-    }
-
     try {
         $ownerName = trim((string)(($ownerAccount['first_Name'] ?? '') . ' ' . ($ownerAccount['last_Name'] ?? '')))
             ?: trim((string)($ownerAccount['mail_Address'] ?? 'Pet owner'));
@@ -248,7 +333,9 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
 
     owner_accounts_json([
         'success' => true,
-        'message' => $status === 'archived' ? 'Pet owner account archived.' : 'Pet owner account restored.',
+        'message' => $status === 'archived'
+            ? 'Pet owner marked as archived. Access remains unchanged.'
+            : 'Pet owner archive marker removed.',
     ]);
 }
 

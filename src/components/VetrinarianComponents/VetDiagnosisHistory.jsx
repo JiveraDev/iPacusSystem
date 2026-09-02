@@ -42,6 +42,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { fetchBookings } from '../../services/bookingService';
 import { fetchOnlineConsultations } from '../../services/onlineConsultationService';
 import { fetchVetDiagnoses } from '../../services/vetDiagnosisService';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 function getStoredUser() {
     try {
@@ -388,24 +389,27 @@ export default function VetDiagnosisHistory() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-[#101828]">Diagnosis Histories</h2>
-                    <p className="text-sm font-medium text-slate-500">
-                        Past clinic, online, and completed boarding service records.
-                    </p>
-                </div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => loadHistory()}
-                    disabled={isLoading}
-                    className="w-full gap-2 sm:w-auto"
-                >
-                    {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                    Refresh
-                </Button>
-            </div>
+            <DashboardPageHeader
+                icon={History}
+                title="Diagnosis Histories"
+                description="Past clinic, online, and completed boarding service records."
+                petHover
+                petKind="parrot"
+                petAccent="mint"
+                layout="stacked"
+                actions={(
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => loadHistory()}
+                        disabled={isLoading}
+                        className="w-full gap-2 sm:w-auto"
+                    >
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        Refresh
+                    </Button>
+                )}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatCard icon={History} label="Total Records" value={records.length} tone="blue" />

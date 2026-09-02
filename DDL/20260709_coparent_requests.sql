@@ -48,7 +48,9 @@ SET
         WHEN po.link_id = first_owner.primary_link_id THEN 1
         ELSE 0
     END
-WHERE po.relationship IS NULL
+WHERE @has_relationship = 0
+   OR @has_is_primary = 0
+   OR po.relationship IS NULL
    OR po.relationship = ''
    OR po.is_primary IS NULL;
 

@@ -8,11 +8,11 @@ import {
 } from 'lucide-react';
 import { DEFAULT_ERROR_MESSAGE, getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = 2500;
 const EXIT_ANIMATION_MS = 260;
 const MAX_VISIBLE_TOASTS = 4;
-const MIN_DURATION_MS = 1800;
-const MAX_DURATION_MS = 15000;
+const MIN_DURATION_MS = 2500;
+const MAX_DURATION_MS = 2500;
 
 const TYPE_DETAILS = {
   success: {
@@ -228,6 +228,7 @@ function ToastCard({ toastItem }) {
 
   return (
     <div
+      data-slot="toast"
       onMouseEnter={() => pauseToast(toastItem.id, 'pointer')}
       onMouseLeave={() => resumeToast(toastItem.id, 'pointer')}
       onFocusCapture={() => pauseToast(toastItem.id, 'focus')}
@@ -296,7 +297,7 @@ function ToastViewport() {
 
   return (
     <div
-      className="ipawcus-toast-viewport pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-[28rem]"
+      className="ipawcus-toast-viewport pointer-events-none fixed left-1/2 top-4 z-[2300] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[28rem] -translate-x-1/2 flex-col gap-3 overflow-y-auto sm:top-6"
       aria-label="Notifications"
     >
       {toasts.map((toastItem) => <ToastCard key={toastItem.id} toastItem={toastItem} />)}

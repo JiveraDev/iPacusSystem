@@ -13,16 +13,17 @@ const Table = ({ children, className, ...props }) => (
 );
 
 const TableHeader = ({ className, ...props }) => (
-  <thead className={cn('bg-slate-50/80 text-slate-600 [&_tr]:border-b', className)} {...props} />
+  <thead className={cn('bg-slate-50/90 text-slate-600 dark:bg-slate-950/70 dark:text-slate-300 [&_tr]:border-b', className)} {...props} />
 );
 
 const TableBody = ({ className, ...props }) => (
-  <tbody className={cn('divide-y divide-slate-100 bg-white [&_tr:last-child]:border-0', className)} {...props} />
+  <tbody data-slot="table-body" className={cn('divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900 [&_tr:last-child]:border-0', className)} {...props} />
 );
 
 const TableRow = ({ className, ...props }) => (
   <tr
-    className={cn('border-b transition-colors hover:bg-slate-50/70 data-[state=selected]:bg-slate-100', className)}
+    data-slot="table-row"
+    className={cn('border-b border-slate-100 transition-colors hover:bg-blue-50/60 data-[state=selected]:bg-blue-50 dark:border-slate-800 dark:hover:bg-blue-950/20 dark:data-[state=selected]:bg-blue-950/30', className)}
     {...props}
   />
 );

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/role_access.php';
+require_once __DIR__ . '/runtime_media.php';
 
 $pdo = ipawcus_get_pdo();
 
@@ -49,7 +50,7 @@ if (!in_array($directory, $allowedDirectories, true)) {
 
 ipawcus_enforce_media_access($pdo, $relativePath);
 
-$baseDirectory = realpath(__DIR__ . '/../public');
+$baseDirectory = realpath(ipawcus_runtime_media_root());
 if (!$baseDirectory) {
     http_response_code(404);
     echo json_encode(['success' => false, 'message' => 'Media directory was not found.']);

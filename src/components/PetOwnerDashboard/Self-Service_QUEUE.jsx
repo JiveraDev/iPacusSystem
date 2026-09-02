@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { Textarea } from "../../ui/textarea";
 import { PhotoViewer } from "../../ui/photo-viewer";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import {
     ClipboardList,
     CheckCircle,
@@ -15,7 +15,12 @@ import {
     Upload,
     X,
     Image as ImageIcon,
-    Loader2
+    ShieldCheck,
+    Stethoscope,
+    FileSignature,
+    MapPin,
+    Wifi,
+    Clock3
 } from "lucide-react";
 import SignatureCapture from "../SignatureCapture";
 import SubmissionStatus from "../shared/SubmissionStatus";
@@ -25,13 +30,14 @@ import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumen
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
-import { addQueueItem, updateQueueStatus } from "../../services/queueService";
+import { addQueueItem } from "../../services/queueService";
 import { checkSelfServiceAccess, fetchPublicWanIp } from "../../services/selfServiceService";
 import { fetchUserPets } from "../../services/petService";
 import { fetchConsentFiles } from "../../services/consentFileService";
 import { uploadImageFile } from "../../services/uploadService";
 import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
+import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
 const MAX_CONCERN_IMAGE_BYTES = 8 * 1024 * 1024;
 const SUPPORTED_CONCERN_IMAGE_TYPES = new Set([
@@ -123,8 +129,6 @@ export default function QueueDashboard() {
     const [uploadedImages, setUploadedImages] = useState([]);
     const [viewingImage, setViewingImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [queueToCancel, setQueueToCancel] = useState(null);
-    const [cancellingQueueId, setCancellingQueueId] = useState(null);
     const [consentTemplates, setConsentTemplates] = useState([]);
     const [isLoadingConsentTemplates, setIsLoadingConsentTemplates] = useState(false);
 
@@ -193,6 +197,15 @@ export default function QueueDashboard() {
 
     useAutoRefresh(loadPets, { refreshKey: submitted });
 
+    useEffect(() => {
+        setSelectedPet((currentPetId) => {
+            const currentPetIsEligible = pets.some((pet) => pet.id === currentPetId && !pet.activeQueue);
+            if (currentPetIsEligible) return currentPetId;
+            if (pets.length === 1 && !pets[0].activeQueue) return pets[0].id;
+            return null;
+        });
+    }, [pets]);
+
     const loadConsentTemplates = async ({ isAutoRefresh = false } = {}) => {
         if (!isAutoRefresh) {
             setIsLoadingConsentTemplates(true);
@@ -220,38 +233,6 @@ export default function QueueDashboard() {
         intervalMs: 15000,
         refreshKey: "self-service-queue-consent-templates"
     });
-
-    const handleCancelQueue = async () => {
-        if (!queueToCancel || cancellingQueueId) return;
-
-        const queueId = Number(queueToCancel.queueId);
-        setCancellingQueueId(queueId);
-        try {
-            const data = await updateQueueStatus({
-                queue_id: queueId,
-                status: "cancelled",
-                reason: "Cancelled by the pet owner from the self-service queue."
-            });
-
-            if (data.success !== false) {
-                setPets((current) => current.map((pet) => (
-                    Number(pet.activeQueue?.queue_id) === queueId
-                        ? { ...pet, activeQueue: null }
-                        : pet
-                )));
-                toast.success(`Queue for ${queueToCancel.petName} has been cancelled.`);
-                setQueueToCancel(null);
-                await loadPets();
-            } else {
-                toast.error(data.message || "Failed to cancel queue.");
-            }
-        } catch (error) {
-            console.error("Error cancelling queue:", error);
-            toast.error(error.message || "An error occurred while cancelling the queue.");
-        } finally {
-            setCancellingQueueId(null);
-        }
-    };
 
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
@@ -404,13 +385,22 @@ export default function QueueDashboard() {
     const currentUser = getCurrentUser();
     const ownerName = getOwnerName(currentUser);
     const canSubmit = selectedPet && selectedService && selectedBranchId && selectedConsent && signature && !isSubmitting;
+    const queueSteps = [
+        { label: "Pet", complete: Boolean(selectedPet), icon: Dog },
+        { label: "Visit details", complete: Boolean(selectedService && selectedBranchId), icon: Stethoscope },
+        { label: "Consent", complete: Boolean(selectedConsent && signature), icon: FileSignature }
+    ];
 
     if (isAccessLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white px-4 flex items-center justify-center dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
-                <Card className="w-full max-w-xl">
-                    <CardContent className="py-10 text-center text-gray-600">
-                        Checking network access...
+            <div className="flex min-h-[60vh] items-center justify-center px-4">
+                <Card className="w-full max-w-md" petHover={false}>
+                    <CardContent className="flex flex-col items-center py-10 text-center">
+                        <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
+                            <Wifi className="size-6 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+                        </span>
+                        <p className="font-bold text-slate-900 dark:text-white">Checking clinic access</p>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Confirming that you are connected to the clinic network.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -419,19 +409,24 @@ export default function QueueDashboard() {
 
     if (!isAccessAllowed) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white px-4 flex items-center justify-center dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
-                <Card className="w-full max-w-xl border-red-200 bg-red-50">
-                    <CardHeader>
-                        <CardTitle className="text-red-700">Cannot Access Self-Service Queue</CardTitle>
+            <div className="flex min-h-[60vh] items-center justify-center px-4">
+                <Card className="w-full max-w-xl border-red-200 dark:border-red-900/70" petHover={false}>
+                    <CardHeader className="border-b border-red-100 dark:border-red-900/50">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300">
+                                <Wifi className="size-5" aria-hidden="true" />
+                            </span>
+                            <div>
+                                <CardTitle className="text-red-700 dark:text-red-300">Clinic network required</CardTitle>
+                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Connect to the clinic Wi-Fi before joining the self-service queue.</p>
+                            </div>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-red-700 font-medium">
-                            Cannot access: must be connected to clinic WiFi to add queue.
-                        </p>
-                        <div className="mt-4 text-xs text-red-700/80 space-y-1">
-                            <p>Detected IP: <span className="font-mono">{accessDebug.client_ip || "unknown"}</span></p>
-                            <p>Detected WAN IP: <span className="font-mono">{publicWanIp || "unknown"}</span></p>
-                            <p>Allowed Rules: <span className="font-mono">{accessDebug.allowed_rules.join(", ") || "none"}</span></p>
+                    <CardContent className="pt-5">
+                        <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
+                            <p>Detected IP: <span className="font-mono text-slate-700 dark:text-slate-200">{accessDebug.client_ip || "unknown"}</span></p>
+                            <p>Detected WAN IP: <span className="font-mono text-slate-700 dark:text-slate-200">{publicWanIp || "unknown"}</span></p>
+                            <p>Allowed rules: <span className="font-mono text-slate-700 dark:text-slate-200">{accessDebug.allowed_rules.join(", ") || "none"}</span></p>
                         </div>
                     </CardContent>
                 </Card>
@@ -440,133 +435,153 @@ export default function QueueDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white dark:from-[#313338] dark:via-[#2b2d31] dark:to-[#313338]">
-            <div className="container mx-auto px-4 py-8">
-                {/* Success Message */}
+        <div className="min-h-screen bg-slate-50/70 dark:bg-[#2b2d31]">
+            <div className="mx-auto w-full max-w-7xl space-y-5 px-3 py-5 sm:px-5 lg:px-6 lg:py-7">
                 {submitted && (
-                    <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <p className="text-green-800 font-semibold">Successfully added to queue! Your ticket number will be provided shortly.</p>
+                    <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-200" role="status">
+                        <CheckCircle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                        <div>
+                            <p className="font-bold">Queue entry submitted</p>
+                            <p className="mt-0.5 text-sm">The clinic team will review the entry and provide the queue number shortly.</p>
+                        </div>
                     </div>
                 )}
 
-                <div className="space-y-6">
-                    {/* Page Title */}
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Add Queue</h1>
-                    </div>
+                <DashboardPageHeader
+                    icon={ClipboardList}
+                    title="Self-Service Queue"
+                    description="Join the clinic queue in three clear steps: choose a pet, provide visit details, and sign the assigned consent form."
+                    layout="stacked"
+                    meta={(
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            <Wifi className="size-3.5" aria-hidden="true" />
+                            Clinic network verified
+                        </span>
+                    )}
+                    toolbar={(
+                        <ol className="grid gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-3" aria-label="Queue registration progress">
+                            {queueSteps.map((step, index) => {
+                                const StepIcon = step.icon;
+                                return (
+                                    <li
+                                        key={step.label}
+                                        className={`flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-bold ${
+                                            step.complete
+                                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                                : "bg-slate-50 text-slate-500 dark:bg-slate-800/70 dark:text-slate-400"
+                                        }`}
+                                    >
+                                        <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs ${
+                                            step.complete ? "bg-emerald-600 text-white" : "bg-white text-slate-500 shadow-sm dark:bg-slate-700 dark:text-slate-300"
+                                        }`}>
+                                            {step.complete ? <CheckCircle className="size-4" /> : index + 1}
+                                        </span>
+                                        <StepIcon className="size-4 shrink-0" aria-hidden="true" />
+                                        <span className="truncate">{step.label}</span>
+                                    </li>
+                                );
+                            })}
+                        </ol>
+                    )}
+                />
 
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        {/* Left Side - Form */}
-                        <div className="lg:col-span-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <ClipboardList className="h-5 w-5 text-blue-600" />
-                                        Queue Registration
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-6">
-                                        {/* Pet Selection */}
-                                        <div className="space-y-3">
-                                            <Label>Select Your Pet *</Label>
-                                            <div className="grid sm:grid-cols-2 gap-3">
-                                                {pets.length === 0 && (
-                                                    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center sm:col-span-2 dark:border-white/10 dark:bg-[#232428]">
-                                                        <p className="font-semibold text-gray-900">No pets found</p>
-                                                        <p className="mt-1 text-sm text-gray-600">
-                                                            Add a pet to your account before using the self-service queue.
-                                                        </p>
-                                                    </div>
-                                                )}
-                                                {pets.map((pet) => {
-                                                    const Icon = getPetIcon(pet.species);
-                                                    return (
-                                                        <Card
-                                                            key={pet.id}
-                                                            className={`relative min-w-0 overflow-hidden transition-all hover:shadow-md ${
-                                                                selectedPet === pet.id
-                                                                    ? "ring-2 ring-blue-600 bg-blue-50"
-                                                                    : "hover:border-blue-300"
-                                                            } ${pet.activeQueue ? "opacity-90" : "cursor-pointer"}`}
-                                                            onClick={() => {
-                                                                if (isSubmitting || pet.activeQueue) return;
-                                                                setSelectedPet(pet.id);
-                                                                setSignature(null);
-                                                            }}
-                                                            role={pet.activeQueue ? undefined : "button"}
-                                                            tabIndex={pet.activeQueue ? -1 : 0}
-                                                            onKeyDown={(event) => {
-                                                                if (!pet.activeQueue && (event.key === "Enter" || event.key === " ")) {
-                                                                    event.preventDefault();
-                                                                    setSelectedPet(pet.id);
-                                                                    setSignature(null);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <CardContent className="pt-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center overflow-hidden ${
-                                                                        selectedPet === pet.id ? "bg-blue-600" : "bg-gray-200"
-                                                                    }`}>
-                                                                        {pet.profileImage ? (
-                                                                            <ProtectedImage
-                                                                                src={pet.profileImage}
-                                                                                alt={`${pet.name} profile`}
-                                                                                className="h-full w-full object-cover"
-                                                                                fallbackClassName="h-full w-full"
-                                                                            />
-                                                                        ) : (
-                                                                            <Icon className={`h-6 w-6 ${
-                                                                                selectedPet === pet.id ? "text-white" : "text-gray-600"
-                                                                            }`} />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="flex min-w-0 items-start justify-between gap-2">
-                                                                            <div className="min-w-0">
-                                                                                <p className="font-semibold text-gray-900">{pet.name}</p>
-                                                                                <p className="truncate text-sm text-gray-600">{pet.breed}</p>
-                                                                            </div>
-                                                                            {pet.activeQueue && (
-                                                                                <div className="flex shrink-0 items-center gap-1.5">
-                                                                                    <span className="whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700">
-                                                                                        IN QUEUE {formatQueueReference(pet.activeQueue)}
-                                                                                    </span>
-                                                                                    <Button
-                                                                                        type="button"
-                                                                                        size="icon"
-                                                                                        variant="ghost"
-                                                                                        className="size-7 shrink-0 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            setQueueToCancel({
-                                                                                                queueId: pet.activeQueue.queue_id,
-                                                                                                queueReference: formatQueueReference(pet.activeQueue),
-                                                                                                petName: pet.name
-                                                                                            });
-                                                                                        }}
-                                                                                        aria-label={`Cancel queue for ${pet.name}`}
-                                                                                        title="Cancel queue"
-                                                                                    >
-                                                                                        <X className="size-3.5" />
-                                                                                    </Button>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    );
-                                                })}
-                                            </div>
+                <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                    <Card className="overflow-hidden" petHover={false}>
+                        <CardHeader className="border-b border-slate-100 bg-white pb-4 dark:border-slate-800 dark:bg-slate-900">
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <ClipboardList className="size-5 text-[#155dfc]" aria-hidden="true" />
+                                Queue registration
+                            </CardTitle>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Required fields are marked with an asterisk.</p>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <form onSubmit={handleSubmit}>
+                                <section className="space-y-4 p-4 sm:p-6" aria-labelledby="queue-pet-heading">
+                                    <div className="flex items-start gap-3">
+                                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-black text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">1</span>
+                                        <div>
+                                            <h2 id="queue-pet-heading" className="font-bold text-slate-950 dark:text-white">Choose your pet *</h2>
+                                            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                                                {pets.length === 1 && !pets[0]?.activeQueue ? "Your only eligible pet was selected automatically." : "Select the pet that needs clinic service today."}
+                                            </p>
                                         </div>
+                                    </div>
 
-                                        {/* Service Selection */}
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {pets.length === 0 && (
+                                            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center sm:col-span-2 dark:border-slate-700 dark:bg-slate-800/60">
+                                                <p className="font-bold text-slate-900 dark:text-white">No linked pets found</p>
+                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Register or link a pet before joining the queue.</p>
+                                            </div>
+                                        )}
+                                        {pets.map((pet) => {
+                                            const Icon = getPetIcon(pet.species);
+                                            const isSelected = selectedPet === pet.id;
+                                            const isUnavailable = Boolean(pet.activeQueue);
+                                            return (
+                                                <button
+                                                    key={pet.id}
+                                                    type="button"
+                                                    disabled={isSubmitting || isUnavailable}
+                                                    aria-pressed={isSelected}
+                                                    onClick={() => {
+                                                        setSelectedPet(pet.id);
+                                                        setSignature(null);
+                                                    }}
+                                                    className={`group flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 disabled:cursor-not-allowed dark:focus-visible:ring-offset-slate-900 ${
+                                                        isSelected
+                                                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:border-blue-500 dark:bg-blue-950/40"
+                                                            : isUnavailable
+                                                                ? "border-slate-200 bg-slate-50 opacity-80 dark:border-slate-700 dark:bg-slate-800/60"
+                                                                : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20"
+                                                    }`}
+                                                >
+                                                    <span className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full ${isSelected ? "bg-[#155dfc] text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"}`}>
+                                                        {pet.profileImage ? (
+                                                            <ProtectedImage
+                                                                src={pet.profileImage}
+                                                                alt=""
+                                                                className="size-full object-cover"
+                                                                fallbackClassName="size-full"
+                                                            />
+                                                        ) : (
+                                                            <Icon className="size-6" aria-hidden="true" />
+                                                        )}
+                                                    </span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="block truncate font-bold text-slate-950 dark:text-white">{pet.name}</span>
+                                                        <span className="block truncate text-sm text-slate-500 dark:text-slate-400">{pet.species} · {pet.breed}</span>
+                                                        {isUnavailable && (
+                                                            <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                                                <Clock3 className="size-3 shrink-0" aria-hidden="true" />
+                                                                <span className="truncate">In queue {formatQueueReference(pet.activeQueue)}</span>
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                    {isSelected && <CheckCircle className="size-5 shrink-0 text-[#155dfc]" aria-hidden="true" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {pets.some((pet) => pet.activeQueue) && (
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            Active queue entries are managed by clinic staff. Contact the front desk if an entry needs to be changed.
+                                        </p>
+                                    )}
+                                </section>
+
+                                <section className="space-y-4 border-t border-slate-100 p-4 dark:border-slate-800 sm:p-6" aria-labelledby="queue-details-heading">
+                                    <div className="flex items-start gap-3">
+                                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-black text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">2</span>
+                                        <div>
+                                            <h2 id="queue-details-heading" className="font-bold text-slate-950 dark:text-white">Visit details *</h2>
+                                            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Choose the service and clinic location, then describe the concern.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="service">Select Service *</Label>
+                                            <Label htmlFor="service">Service *</Label>
                                             <Select
                                                 value={selectedService}
                                                 onValueChange={(service) => {
@@ -577,7 +592,7 @@ export default function QueueDashboard() {
                                                 searchPlaceholder="Search service"
                                             >
                                                 <SelectTrigger id="service">
-                                                    <SelectValue placeholder="Select a service" />
+                                                    <SelectValue placeholder="Select service" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {SERVICES.map(service => (
@@ -588,76 +603,33 @@ export default function QueueDashboard() {
                                         </div>
 
                                         {selectedService && (
-                                            <BranchBookingSelect
-                                                service={selectedService}
-                                                value={selectedBranchId}
-                                                onChange={setSelectedBranchId}
-                                            />
-                                        )}
-
-                                        {/* Service Consent Display */}
-                                        {selectedService && (
-                                            <div className="space-y-3">
-                                                <div>
-                                                    <Label>Assigned Consent Form *</Label>
-                                                    <p className="mt-1 text-sm text-gray-600">
-                                                        This document is assigned by admins in Consent Files Management.
-                                                    </p>
-                                                </div>
-                                                {isLoadingConsentTemplates ? (
-                                                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm font-semibold text-gray-500">
-                                                        Loading assigned consent form...
-                                                    </div>
-                                                ) : selectedConsent ? (
-                                                    <div className="max-h-[34rem] overflow-y-auto rounded-lg border border-gray-200 bg-white">
-                                                        <ConsentDocument
-                                                            title={selectedConsent.title}
-                                                            content={selectedConsent.content}
-                                                            signatureImage={signature}
-                                                            signerName={signature ? ownerName : ""}
-                                                            signedAt={signature ? "Pending submission" : ""}
-                                                            veterinarianName="Clinic Intake"
-                                                            variant="compact"
-                                                            templateContext={{
-                                                                ownerName,
-                                                                ownerAddress: currentUser.personal_Address || currentUser.address || '',
-                                                                ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
-                                                                petName: selectedPetData?.name || selectedPetData?.pet_name || '',
-                                                                petSpecies: selectedPetData?.species || selectedPetData?.pet_species || '',
-                                                                petBreed: selectedPetData?.breed || selectedPetData?.pet_breed || '',
-                                                                serviceName: selectedService
-                                                            }}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-                                                        No consent form is assigned to {selectedService}. Ask an admin to assign a consent template to this service category.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Statement of Concern */}
-                                        {selectedService && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="concern">Statement of Concern</Label>
-                                                <textarea
-                                                    id="concern"
-                                                    rows={4}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                                    placeholder="Describe any concerns, symptoms, or observations about your pet..."
-                                                    value={concernStatement}
-                                                    onChange={(e) => setConcernStatement(e.target.value)}
-                                                    disabled={isSubmitting}
+                                            <div className="min-w-0">
+                                                <BranchBookingSelect
+                                                    service={selectedService}
+                                                    value={selectedBranchId}
+                                                    onChange={setSelectedBranchId}
                                                 />
                                             </div>
                                         )}
+                                    </div>
 
-                                        {/* Image Upload */}
-                                        {selectedService && (
-                                            <div className="space-y-3">
-                                                <Label>Upload an Image (Optional)</Label>
-                                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                    {selectedService && (
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="concern">Concern or symptoms</Label>
+                                                <Textarea
+                                                    id="concern"
+                                                    rows={5}
+                                                    placeholder="Describe the main concern"
+                                                    value={concernStatement}
+                                                    onChange={(event) => setConcernStatement(event.target.value)}
+                                                    disabled={isSubmitting}
+                                                    className="min-h-32 resize-y"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="imageUpload">Concern image <span className="font-normal text-slate-400">(optional)</span></Label>
+                                                <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-blue-700 dark:hover:bg-blue-950/20">
                                                     <input
                                                         type="file"
                                                         id="imageUpload"
@@ -666,209 +638,184 @@ export default function QueueDashboard() {
                                                         className="hidden"
                                                         disabled={isSubmitting}
                                                     />
-                                                    <label htmlFor="imageUpload" className="cursor-pointer">
-                                                        <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                                                        <p className="text-sm text-gray-600 mb-1">
-                                                            Click to choose an image
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">
-                                                            PNG, JPG, WEBP, or GIF up to 8 MB
-                                                        </p>
+                                                    <label htmlFor="imageUpload" className={`block ${isSubmitting ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+                                                        <Upload className="mx-auto mb-2 size-7 text-slate-400" aria-hidden="true" />
+                                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Choose an image</p>
+                                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">JPG, PNG, WEBP, or GIF · 8 MB maximum</p>
                                                     </label>
                                                 </div>
-
-                                                {/* Image Previews */}
-                                                {uploadedImages.length > 0 && (
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                        {uploadedImages.map((image, index) => (
-                                                            <div
-                                                                key={index}
-                                                                className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200"
-                                                            >
-                                                                <UploadImagePreview
-                                                                    src={image.previewUrl}
-                                                                    alt={`Uploaded ${index + 1}`}
-                                                                    onPreview={setViewingImage}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveImage(index)}
-                                                                    disabled={isSubmitting}
-                                                                    className="absolute top-2 right-2 z-20 bg-red-500 text-white rounded-full p-1 opacity-100 transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100"
-                                                                    aria-label="Remove image"
-                                                                >
-                                                                    <X className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
                                             </div>
-                                        )}
+                                            {uploadedImages.length > 0 && (
+                                                <div className="md:col-start-2">
+                                                    {uploadedImages.map((image, index) => (
+                                                        <div key={image.previewUrl} className="group relative aspect-video max-w-sm overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                                                            <UploadImagePreview src={image.previewUrl} alt="Concern upload preview" onPreview={setViewingImage} />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveImage(index)}
+                                                                disabled={isSubmitting}
+                                                                className="absolute right-2 top-2 z-20 flex size-8 items-center justify-center rounded-full bg-slate-950/75 text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                                                                aria-label="Remove concern image"
+                                                            >
+                                                                <X className="size-4" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </section>
 
-                                        {/* Signature Capture */}
-                                        {selectedService && selectedConsent && (
-                                            <div className="space-y-3">
-                                                <Label>Signature Approval *</Label>
-                                                <p className="text-sm text-gray-600">
-                                                    By signing below, I acknowledge that I have read and agree to the assigned consent form for{" "}
-                                                    <span className="font-semibold text-blue-600">{selectedService}</span>
-                                                    {selectedPetData && (
-                                                        <span> for my pet <span className="font-semibold text-blue-600">{selectedPetData.name}</span></span>
-                                                    )}.
-                                                </p>
-                                                <SignatureCapture
-                                                    onSignatureChange={setSignature}
-                                                    signature={signature}
-                                                    disabled={isSubmitting}
+                                {selectedService && (
+                                    <section className="space-y-5 border-t border-slate-100 p-4 dark:border-slate-800 sm:p-6" aria-labelledby="queue-consent-heading">
+                                        <div className="flex items-start gap-3">
+                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-black text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">3</span>
+                                            <div>
+                                                <h2 id="queue-consent-heading" className="font-bold text-slate-950 dark:text-white">Review and sign consent *</h2>
+                                                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Read the assigned form before adding your signature.</p>
+                                            </div>
+                                        </div>
+
+                                        {isLoadingConsentTemplates ? (
+                                            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">Loading assigned consent form...</div>
+                                        ) : selectedConsent ? (
+                                            <div className="max-h-[32rem] overflow-y-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700">
+                                                <ConsentDocument
+                                                    title={selectedConsent.title}
+                                                    content={selectedConsent.content}
+                                                    signatureImage={signature}
+                                                    signerName={signature ? ownerName : ""}
+                                                    signedAt={signature ? "Pending submission" : ""}
+                                                    veterinarianName="Clinic Intake"
+                                                    variant="compact"
+                                                    templateContext={{
+                                                        ownerName,
+                                                        ownerAddress: currentUser.personal_Address || currentUser.address || '',
+                                                        ownerPhone: currentUser.phoneNumber || currentUser.phone || '',
+                                                        petName: selectedPetData?.name || selectedPetData?.pet_name || '',
+                                                        petSpecies: selectedPetData?.species || selectedPetData?.pet_species || '',
+                                                        petBreed: selectedPetData?.breed || selectedPetData?.pet_breed || '',
+                                                        serviceName: selectedService
+                                                    }}
                                                 />
                                             </div>
-                                        )}
-
-                                        <SubmissionStatus
-                                            active={isSubmitting}
-                                            label="Adding queue entry..."
-                                            slowLabel="Still adding queue entry..."
-                                        />
-
-                                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                                            <Button
-                                                type="submit"
-                                                className="w-full sm:w-auto sm:min-w-36"
-                                                disabled={!canSubmit}
-                                            >
-                                                {isSubmitting ? "Adding to Queue..." : "Add to Queue"}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                disabled={isSubmitting}
-                                                onClick={() => {
-                                                    setSelectedPet(null);
-                                                    setSelectedService("");
-                                                    setSelectedBranchId("");
-                                                    setSignature(null);
-                                                    setConcernStatement("");
-                                                    setUploadedImages([]);
-                                                }}
-                                            >
-                                                Clear Form
-                                            </Button>
-                                        </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Right Side - Summary */}
-                        <div className="lg:col-span-1">
-                            <Card className="sticky top-4">
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Queue Summary</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {selectedPetData ? (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Selected Pet</p>
-                                                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                                                    {(() => {
-                                                        const Icon = getPetIcon(selectedPetData.species);
-                                                        if (selectedPetData.profileImage) {
-                                                            return (
-                                                                <ProtectedImage
-                                                                    src={selectedPetData.profileImage}
-                                                                    alt={`${selectedPetData.name} profile`}
-                                                                    className="h-8 w-8 rounded-full object-cover"
-                                                                    fallbackClassName="h-8 w-8 rounded-full"
-                                                                />
-                                                            );
-                                                        }
-                                                        return <Icon className="h-8 w-8 text-blue-600" />;
-                                                    })()}
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900">{selectedPetData.name}</p>
-                                                        <p className="text-sm text-gray-600">{selectedPetData.breed}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         ) : (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Selected Pet</p>
-                                                <p className="text-sm text-gray-400 italic">No pet selected</p>
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-200">
+                                                No consent form is assigned to {selectedService}. Ask clinic staff to assign one before continuing.
                                             </div>
                                         )}
 
-                                        {selectedService ? (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Selected Service</p>
-                                                <div className="p-3 bg-green-50 rounded-lg">
-                                                    <p className="font-semibold text-gray-900">{selectedService}</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Selected Service</p>
-                                                <p className="text-sm text-gray-400 italic">No service selected</p>
-                                            </div>
-                                        )}
-
-                                        {concernStatement ? (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Statement of Concern</p>
-                                                <div className="p-3 bg-purple-50 rounded-lg">
-                                                    <p className="text-sm text-gray-700 line-clamp-3">{concernStatement}</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Statement of Concern</p>
-                                                <p className="text-sm text-gray-400 italic">No concern added</p>
-                                            </div>
-                                        )}
-
-                                        {uploadedImages.length > 0 ? (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Uploaded Image</p>
-                                                <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
-                                                    <ImageIcon className="h-5 w-5 text-orange-600" />
-                                                    <p className="text-sm font-semibold text-orange-700">
-                                                        Ready to upload
+                                        {selectedConsent && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#155dfc]" aria-hidden="true" />
+                                                    <p>
+                                                        Signing confirms that you reviewed the consent for <strong>{selectedService}</strong>
+                                                        {selectedPetData ? <> for <strong>{selectedPetData.name}</strong></> : null}.
                                                     </p>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Uploaded Image</p>
-                                                <p className="text-sm text-gray-400 italic">No image uploaded</p>
+                                                <SignatureCapture onSignatureChange={setSignature} signature={signature} disabled={isSubmitting} />
                                             </div>
                                         )}
+                                    </section>
+                                )}
 
-                                        {signature ? (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Signature Status</p>
-                                                <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-                                                    <CheckCircle className="h-5 w-5 text-green-600" />
-                                                    <p className="text-sm font-semibold text-green-700">Signed</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="text-sm text-gray-600 mb-1">Signature Status</p>
-                                                <p className="text-sm text-gray-400 italic">Not signed</p>
-                                            </div>
-                                        )}
-
-                                        <div className="pt-4 border-t">
-                                            <p className="text-xs text-gray-500">
-                                                Please ensure all information is correct before submitting to queue.
-                                            </p>
-                                        </div>
+                                <div className="border-t border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+                                    <SubmissionStatus active={isSubmitting} label="Adding queue entry..." slowLabel="Still adding queue entry..." />
+                                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={isSubmitting}
+                                            onClick={() => {
+                                                setSelectedPet(pets.length === 1 && !pets[0]?.activeQueue ? pets[0].id : null);
+                                                setSelectedService("");
+                                                setSelectedBranchId("");
+                                                setSignature(null);
+                                                setConcernStatement("");
+                                                setUploadedImages([]);
+                                            }}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            Clear details
+                                        </Button>
+                                        <Button type="submit" className="w-full sm:min-w-40 sm:w-auto" disabled={!canSubmit}>
+                                            {isSubmitting ? "Adding to queue..." : "Join queue"}
+                                        </Button>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+
+                    <aside className="space-y-4 xl:sticky xl:top-4">
+                        <Card petHover={false}>
+                            <CardHeader className="border-b border-slate-100 pb-4 dark:border-slate-800">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <ShieldCheck className="size-5 text-[#155dfc]" aria-hidden="true" />
+                                    Ready check
+                                </CardTitle>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Review the essentials before joining.</p>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-5">
+                                <div className="flex items-center gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
+                                        {selectedPetData?.profileImage ? (
+                                            <ProtectedImage src={selectedPetData.profileImage} alt="" className="size-full object-cover" fallbackClassName="size-full" />
+                                        ) : selectedPetData ? (
+                                            (() => {
+                                                const PetIcon = getPetIcon(selectedPetData.species);
+                                                return <PetIcon className="size-5" aria-hidden="true" />;
+                                            })()
+                                        ) : (
+                                            <Dog className="size-5" aria-hidden="true" />
+                                        )}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Pet</p>
+                                        <p className={`truncate font-bold ${selectedPetData ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{selectedPetData?.name || "Not selected"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"><Stethoscope className="size-5" aria-hidden="true" /></span>
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Service</p>
+                                        <p className={`truncate font-bold ${selectedService ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{selectedService || "Not selected"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"><MapPin className="size-5" aria-hidden="true" /></span>
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Location</p>
+                                        <p className={`font-bold ${selectedBranchId ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{selectedBranchId ? "Selected" : "Not selected"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"><FileSignature className="size-5" aria-hidden="true" /></span>
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Consent</p>
+                                        <p className={`font-bold ${signature ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400"}`}>{signature ? "Signed" : "Signature required"}</p>
+                                    </div>
+                                </div>
+
+                                {uploadedImages.length > 0 && (
+                                    <div className="flex items-center gap-2 border-t border-slate-100 pt-4 text-sm font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                                        <ImageIcon className="size-4 text-[#155dfc]" aria-hidden="true" />
+                                        Concern image ready
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
+                            <p className="font-bold">After you join</p>
+                            <p className="mt-1 leading-5">Clinic staff will manage the active queue. Ask the front desk if the entry needs to be changed or cancelled.</p>
                         </div>
-                    </div>
+                    </aside>
                 </div>
             </div>
 
@@ -878,44 +825,6 @@ export default function QueueDashboard() {
                 alt="Self-service concern preview"
                 onOpenChange={(open) => !open && setViewingImage(null)}
             />
-
-            <Dialog
-                open={Boolean(queueToCancel)}
-                onOpenChange={(open) => {
-                    if (!open && !cancellingQueueId) setQueueToCancel(null);
-                }}
-            >
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Cancel queue entry?</DialogTitle>
-                        <DialogDescription>
-                            {queueToCancel
-                                ? `${queueToCancel.queueReference} for ${queueToCancel.petName} will be removed from the active queue.`
-                                : "This queue entry will be cancelled."}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setQueueToCancel(null)}
-                            disabled={Boolean(cancellingQueueId)}
-                        >
-                            Keep Queue
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handleCancelQueue}
-                            disabled={Boolean(cancellingQueueId)}
-                            className="sm:min-w-32"
-                        >
-                            {cancellingQueueId ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
-                            {cancellingQueueId ? "Cancelling..." : "Cancel Queue"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

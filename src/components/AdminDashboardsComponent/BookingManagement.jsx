@@ -47,6 +47,8 @@ import { fetchBranches, getBranchDisplayName, relocateBooking } from '../../serv
 import TablePagination from '../shared/TablePagination.jsx';
 import BookingTimeSlotField from '../shared/BookingTimeSlotField.jsx';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from '../../lib/transactionNumber.js';
+import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -62,6 +64,8 @@ const REVIEW_SERVICE_TYPES = [
 ];
 
 const BOOKING_PAGE_SIZE = 20;
+const BOOKING_DISPLAY_SETTINGS_VISIBLE = false;
+const BOOKING_REFUNDS_VISIBLE = false;
 const ADMIN_BOOKING_SERVICE_TYPES = [
     ...REVIEW_SERVICE_TYPES.filter(
         (type) => !['consultation', 'home-service', 'special services', 'boarding'].includes(type.value)
@@ -805,16 +809,24 @@ export default function BookingsManagement() {
         }));
     };
 
-    const handleSaveDisplayConfig = () => {
-        saveBookingDisplayConfig(displayConfigDraft);
-        setDisplayConfigOpen(false);
-        toast.success('Booking display projections updated.');
+    const handleSaveDisplayConfig = async () => {
+        try {
+            await saveBookingDisplayConfig(displayConfigDraft);
+            setDisplayConfigOpen(false);
+            toast.success('Booking display projections updated.');
+        } catch (error) {
+            toast.error(error?.message || 'Booking display projections could not be saved.');
+        }
     };
 
-    const handleResetDisplayConfig = () => {
-        const defaults = resetBookingDisplayConfig();
-        setDisplayConfigDraft(cloneProjectionConfig(defaults));
-        toast.success('Booking display projections reset.');
+    const handleResetDisplayConfig = async () => {
+        try {
+            const defaults = await resetBookingDisplayConfig();
+            setDisplayConfigDraft(cloneProjectionConfig(defaults));
+            toast.success('Booking display projections reset.');
+        } catch (error) {
+            toast.error(error?.message || 'Booking display projections could not be reset.');
+        }
     };
 
     const selectBookingPet = (pet) => {
@@ -1214,6 +1226,11 @@ export default function BookingsManagement() {
             return;
         }
 
+        if (cancellationData.transactionNumber.trim() && !isValidTransactionNumber(cancellationData.transactionNumber)) {
+            toast.error(TRANSACTION_NUMBER_MESSAGE);
+            return;
+        }
+
         if (!isValidPhilippinePhone(cancellationData.walletNumber, { optional: !walletRequired })) {
             toast.error('Wallet number must be complete after +639.');
             return;
@@ -1502,37 +1519,35 @@ export default function BookingsManagement() {
 
     return (
         <div className="w-full space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h2 className="font-['Arimo:Bold',sans-serif] font-bold text-[24px] text-[#101828] mb-2">
-                        Bookings Management
-                    </h2>
-                    <p className="font-['Arimo:Regular',sans-serif] text-[16px] text-[#4a5565]">
-                        View and manage all booking appointments
-                    </p>
-                </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    {canConfigureBookingDisplay && (
+            <DashboardPageHeader
+                icon={CalendarClock}
+                title="Bookings Management"
+                description="View and manage all booking appointments."
+                layout="stacked"
+                toolbar={(
+                    <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                        {BOOKING_DISPLAY_SETTINGS_VISIBLE && canConfigureBookingDisplay && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={openDisplayConfigDialog}
+                                className="gap-2"
+                            >
+                                <Settings className="size-4" />
+                                <span>Display Settings</span>
+                            </Button>
+                        )}
                         <Button
                             type="button"
-                            variant="outline"
-                            onClick={openDisplayConfigDialog}
-                            className="w-full gap-2 sm:w-auto"
+                            onClick={openAddBookingDialog}
+                            className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]"
                         >
-                            <Settings className="size-4" />
-                            Display Settings
+                            <Plus className="size-4" />
+                            <span>Add Booking</span>
                         </Button>
-                    )}
-                    <Button
-                        type="button"
-                        onClick={openAddBookingDialog}
-                        className="w-full gap-2 bg-[#155dfc] hover:bg-[#0d4acf] sm:w-auto"
-                    >
-                        <Plus className="size-4" />
-                        Add Booking
-                    </Button>
-                </div>
-            </div>
+                    </div>
+                )}
+            />
 
             <div className="flex flex-wrap gap-3 sm:gap-6">
                 <div className="flex items-center gap-2">
@@ -1550,7 +1565,7 @@ export default function BookingsManagement() {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className={`grid gap-4 sm:grid-cols-2 ${branchFilterLocked ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
+                <div data-filter-bar className={`grid gap-4 sm:grid-cols-2 ${branchFilterLocked ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
                     <div className="space-y-1.5 sm:col-span-2 xl:col-span-1">
                         <Label htmlFor="booking-search" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                             Search bookings
@@ -2115,6 +2130,12 @@ export default function BookingsManagement() {
                                                     <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-3">
                                                         Payment Proof
                                                     </p>
+                                                    <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Transaction Number</p>
+                                                        <p className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-slate-100">
+                                                            {booking.paymentReference || booking.transactionReference || 'Not provided'}
+                                                        </p>
+                                                    </div>
                                                     {booking.paymentProof ? (
                                                         <div className="space-y-3">
                                                             <BookingAttachmentCard
@@ -2133,7 +2154,7 @@ export default function BookingsManagement() {
                                                             <p className="text-[14px] text-gray-400">No Proof of Payment</p>
                                                         </div>
                                                     )}
-                                                    {booking.status === 'cancelled' && booking.paymentProof && (
+                                                    {BOOKING_REFUNDS_VISIBLE && booking.status === 'cancelled' && booking.paymentProof && (
                                                         <Button
                                                             type="button"
                                                             variant="outline"
@@ -2233,7 +2254,7 @@ export default function BookingsManagement() {
                                                                         <Textarea
                                                                             value={getReviewDraft(booking).notes}
                                                                             onChange={(event) => updateReviewDraft(booking, 'notes', event.target.value)}
-                                                                            placeholder="Adjust the service based on client notes, observations, or request before confirming."
+                                placeholder="Service adjustment notes"
                                                                             rows={4}
                                                                             className="bg-white"
                                                                         />
@@ -2315,7 +2336,7 @@ export default function BookingsManagement() {
             />
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
 
-            <Dialog open={displayConfigOpen} onOpenChange={setDisplayConfigOpen}>
+            {BOOKING_DISPLAY_SETTINGS_VISIBLE && <Dialog open={displayConfigOpen} onOpenChange={setDisplayConfigOpen}>
                 <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[24px]">
@@ -2541,7 +2562,7 @@ export default function BookingsManagement() {
                         </div>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
+            </Dialog>}
 
             <Dialog
                 open={addBookingOpen}
@@ -2815,7 +2836,7 @@ export default function BookingsManagement() {
                                 id="cancellationMessage"
                                 value={cancellationData.message}
                                 onChange={(event) => setCancellationData({ ...cancellationData, message: event.target.value })}
-                                placeholder="Explain why the booking is being cancelled and what the admin should communicate to the client."
+                                placeholder="Cancellation reason"
                                 rows={4}
                             />
                         </div>
@@ -2842,9 +2863,11 @@ export default function BookingsManagement() {
                                 <Input
                                     id="transactionNumber"
                                     value={cancellationData.transactionNumber}
-                                    onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: event.target.value })}
-                                    placeholder="Manual return transaction reference"
-                                    restriction="alphanumeric"
+                                    onChange={(event) => setCancellationData({ ...cancellationData, transactionNumber: normalizeTransactionNumber(event.target.value) })}
+                                    placeholder="Enter exactly 18 digits"
+                                    restriction="digits"
+                                    inputMode="numeric"
+                                    maxLength={TRANSACTION_NUMBER_LENGTH}
                                 />
                             </div>
                         </div>
@@ -3105,7 +3128,7 @@ export default function BookingsManagement() {
                             />
                         </div>
                         <div className="space-y-2 sm:col-span-2">
-                            <Label>Temporary Owner Name</Label>
+                            <Label>Owner Name</Label>
                             <Input 
                                 value={registrationData.tempOwnerName} 
                                 readOnly

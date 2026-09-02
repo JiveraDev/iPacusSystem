@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { toast } from "../../reusecomponent/toast.jsx";
 import {
-    ArrowLeft,
     Plus,
     Trash2,
     Sparkles,
@@ -39,6 +38,9 @@ import {
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
+import { usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -94,26 +96,26 @@ function KaponPriceProjection({ config, service }) {
 
     return (
         <div className="mt-3 space-y-2">
-            <div className="overflow-x-auto rounded-lg border border-purple-100">
+            <div className="overflow-x-auto rounded-lg border border-blue-100 dark:border-blue-900/60">
                 <table className="min-w-full text-xs">
-                    <thead className="bg-purple-50 text-purple-700">
+                    <thead className="bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
                         <tr>
                             <th className="px-3 py-2 text-left font-semibold">Procedure</th>
                             <th className="px-3 py-2 text-right font-semibold">Recommended starting price</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-purple-100 bg-white">
+                    <tbody className="divide-y divide-blue-100 bg-white dark:divide-blue-900/50 dark:bg-slate-900">
                         {config.kaponMatrix.map((row) => (
                             <tr key={row.procedure}>
-                                <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{row.procedure}</td>
-                                <td className="px-3 py-2 text-right text-gray-600">{row.price}</td>
+                                <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700 dark:text-slate-200">{row.procedure}</td>
+                                <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.price}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
             {instruction && (
-                <p className="text-xs font-medium text-purple-700">{instruction}</p>
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{instruction}</p>
             )}
         </div>
     );
@@ -125,7 +127,7 @@ function SpecialSurgeryInstruction({ config, service }) {
     }
 
     return (
-        <p className="mt-3 text-xs font-medium text-purple-700">
+        <p className="mt-3 text-xs font-medium text-blue-700 dark:text-blue-300">
             {config.instructions.specialSurgery}
         </p>
     );
@@ -288,6 +290,7 @@ export default function SpecialServices({ user }) {
     const [selectedServiceIds, setSelectedServiceIds] = useState([]);
     const [serviceDate, setServiceDate] = useState(availabilityPrefill?.date || "");
     const [serviceTime, setServiceTime] = useState(availabilityPrefill?.time || "");
+    const [paymentMethod, setPaymentMethod] = useState("");
     const [notes, setNotes] = useState("");
     const [isNewPet, setIsNewPet] = useState(false);
     const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -301,6 +304,12 @@ export default function SpecialServices({ user }) {
     const [isUpdatingService, setIsUpdatingService] = useState(false);
     const [availabilityDialogService, setAvailabilityDialogService] = useState(null);
     const [pendingEditDisableConfirmation, setPendingEditDisableConfirmation] = useState(null);
+    const {
+        paymentMethods,
+        isLoadingPaymentMethods,
+        paymentMethodsError,
+        retryPaymentMethods,
+    } = usePaymentMethods();
 
     const [newPetName, setNewPetName] = useState("");
     const [newPetSpecies, setNewPetSpecies] = useState("");
@@ -598,44 +607,41 @@ export default function SpecialServices({ user }) {
             return;
         }
 
+        const validationErrors = [];
         if (selectedServiceIds.length === 0) {
-            toast.error("Please select one special service.");
-            return;
+            validationErrors.push({ fieldId: 'special-service-options', label: 'Special service', type: 'selection', message: 'Select one special service.' });
         }
-
-        if (!serviceDate) {
-            toast.error("Please select the announced service date.");
-            return;
-        }
-
-        if (!serviceTime) {
-            toast.error("Please select an available service time.");
-            return;
-        }
-
-        if (selectedService && !isDateAllowedForService(selectedService, serviceDate)) {
-            toast.error(getDateRestrictionLabel(selectedService));
-            return;
-        }
-
         if (isNewPet) {
-            if (!newPetName.trim() || !newPetSpecies.trim() || !newPetAge.trim()) {
-                toast.error("Please complete the new pet information.");
-                return;
+            if (!newPetName.trim()) validationErrors.push({ fieldId: 'newPetName', label: 'Pet name', type: 'missing', message: "Enter the pet's name." });
+            if (!newPetSpecies.trim()) validationErrors.push({ fieldId: 'newPetSpecies', label: 'Species', type: 'selection', message: "Select the pet's species." });
+            if (!newPetAge.trim()) {
+                validationErrors.push({ fieldId: 'newPetAge', label: 'Pet age', type: 'missing', message: "Enter the pet's age." });
+            } else if (!Number.isFinite(Number(newPetAge)) || Number(newPetAge) < 0 || Number(newPetAge) > 50) {
+                validationErrors.push({ fieldId: 'newPetAge', label: 'Pet age', type: 'range', message: 'Pet age must be between 0 and 50 years.' });
+            }
+            if (newPetWeight.trim() && (!Number.isFinite(Number(newPetWeight)) || Number(newPetWeight) < 0.1 || Number(newPetWeight) > 300)) {
+                validationErrors.push({ fieldId: 'newPetWeight', label: 'Pet weight', type: 'range', message: 'Pet weight must be between 0.1 and 300 kg.' });
             }
         } else if (selectedPetIds.length === 0) {
-            toast.error("Please select at least one pet.");
-            return;
+            validationErrors.push({ fieldId: 'special-service-pets', label: 'Pet', type: 'selection', message: 'Select at least one pet.' });
         }
+        if (!serviceDate) {
+            validationErrors.push({ fieldId: 'serviceDate', label: 'Service date', type: 'missing', message: 'Select the announced service date.' });
+        } else if (selectedService && !isDateAllowedForService(selectedService, serviceDate)) {
+            validationErrors.push({ fieldId: 'serviceDate', label: 'Service date', type: 'unavailable', message: getDateRestrictionLabel(selectedService) });
+        }
+        if (!serviceTime) validationErrors.push({ fieldId: 'special-service-time', label: 'Service time', type: 'selection', message: 'Select an available service time.' });
+        if (!paymentMethod) validationErrors.push({ fieldId: 'special-service-payment-method', label: 'Payment method', type: 'selection', message: 'Select a payment method.' });
+        if (reportBookingFormErrors(validationErrors)) return;
 
         if (!isNewPet && selectedPetIds.some((petId) => isPetDeceased(pets.find((pet) => String(pet.id) === String(petId))))) {
-            toast.error(DECEASED_PET_BOOKING_MESSAGE);
+            reportBookingFormErrors([{ fieldId: 'special-service-pets', label: 'Pet', type: 'invalid', message: DECEASED_PET_BOOKING_MESSAGE }]);
             return;
         }
 
         const petCount = isNewPet ? 1 : selectedPetIds.length;
         if (selectedServiceLimit !== null && petCount > selectedServiceLimit) {
-            toast.error(`The selected service allows up to ${selectedServiceLimit} pet${selectedServiceLimit === 1 ? "" : "s"} per booking.`);
+            reportBookingFormErrors([{ fieldId: 'special-service-pets', label: 'Selected pets', type: 'range', message: `The selected service allows up to ${selectedServiceLimit} pet${selectedServiceLimit === 1 ? "" : "s"} per booking.` }]);
             return;
         }
 
@@ -648,6 +654,7 @@ export default function SpecialServices({ user }) {
                 service_type: "special services",
                 booking_date: serviceDate,
                 booking_time: serviceTime,
+                payment_method: paymentMethod,
                 notes: notes.trim(),
                 registered_status: isNewPet ? "Not Registered" : "Registered",
                 petType: isNewPet ? newPetSpecies : null,
@@ -662,41 +669,38 @@ export default function SpecialServices({ user }) {
             navigate("/dashboard/services");
         } catch (error) {
             console.error("Special services booking error:", error);
-            toast.error("The booking could not be submitted. Review the details and try again.");
+            reportBookingSubmissionError(error, {
+                pet: 'special-service-pets',
+                date: 'serviceDate',
+                time: 'special-service-time',
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="space-y-6 lg:space-y-8 max-w-5xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-4">
-                    <Button variant="ghost" onClick={() => navigate("/dashboard/services")} className="self-start">
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Special Services</h1>
-                        <p className="text-sm text-gray-600">Book Kapon and other special service items using the clinic catalog.</p>
-                    </div>
-                </div>
-
-                {isAdminUser && (
+        <ServicePageShell>
+            <ServicePageHeader
+                icon={Sparkles}
+                title="Special Services"
+                description="Book Kapon and other special service items using the clinic catalog."
+                onBack={() => navigate("/dashboard/services")}
+                action={isAdminUser ? (
                     <Button
                         type="button"
                         variant="outline"
                         onClick={() => setShowAdminForm((current) => !current)}
-                        className="self-start"
+                        className="w-full sm:w-auto"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         {showAdminForm ? "Close Service Form" : "Add Special Service Type"}
                     </Button>
-                )}
-            </div>
+                ) : null}
+            />
 
             {isAdminUser && showAdminForm && (
-                <Card className="border-blue-200 bg-blue-50">
+                <Card className="overflow-hidden border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <ShieldCheck className="h-5 w-5 text-blue-600" />
@@ -712,7 +716,7 @@ export default function SpecialServices({ user }) {
                                     value={serviceForm.service_code}
                                     onChange={(event) => setServiceForm({ ...serviceForm, service_code: event.target.value })}
                                     restriction="alphanumeric"
-                                    placeholder="kapon, special-surgery, grooming-plus"
+                                    placeholder="e.g., kapon"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -730,7 +734,7 @@ export default function SpecialServices({ user }) {
                                     id="service_description"
                                     value={serviceForm.service_description}
                                     onChange={(event) => setServiceForm({ ...serviceForm, service_description: event.target.value })}
-                                    placeholder="Surgical sterilization procedure"
+                                    placeholder="Service description"
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
@@ -740,7 +744,7 @@ export default function SpecialServices({ user }) {
                                     value={serviceForm.service_details}
                                     onChange={(event) => setServiceForm({ ...serviceForm, service_details: event.target.value })}
                                     rows={4}
-                                    placeholder="Use the same style as the Kapon details..."
+                                    placeholder="Service details"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -853,7 +857,7 @@ export default function SpecialServices({ user }) {
                                 value={editServiceForm.service_code}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, service_code: event.target.value })}
                                 restriction="alphanumeric"
-                                placeholder="kapon, special-surgery, grooming-plus"
+                                    placeholder="e.g., kapon"
                             />
                         </div>
                         <div className="space-y-2">
@@ -871,7 +875,7 @@ export default function SpecialServices({ user }) {
                                 id="edit_service_description"
                                 value={editServiceForm.service_description}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, service_description: event.target.value })}
-                                placeholder="Surgical sterilization procedure"
+                                    placeholder="Service description"
                             />
                         </div>
                         <div className="space-y-2 md:col-span-2">
@@ -881,7 +885,7 @@ export default function SpecialServices({ user }) {
                                 value={editServiceForm.service_details}
                                 onChange={(event) => setEditServiceForm({ ...editServiceForm, service_details: event.target.value })}
                                 rows={4}
-                                placeholder="Details, preparation notes, or requirements"
+                                    placeholder="Service requirements"
                             />
                         </div>
                         <div className="space-y-2">
@@ -1072,10 +1076,10 @@ export default function SpecialServices({ user }) {
                 </DialogContent>
             </Dialog>
 
-            <Card>
+            <Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        <Sparkles className="h-5 w-5 text-blue-700 dark:text-blue-300" />
                         Available Special Services
                     </CardTitle>
                 </CardHeader>
@@ -1091,7 +1095,7 @@ export default function SpecialServices({ user }) {
                             {isAdminUser && <p className="mt-1 text-sm text-gray-500">Use the add form above to create the first one.</p>}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div id="special-service-options" tabIndex={-1} className="grid grid-cols-1 gap-4 rounded-xl md:grid-cols-2">
                             {services.map((service) => {
                                 const Icon = getServiceIcon(service);
                                 const isSelected = selectedServiceIds.includes(String(service.id));
@@ -1112,14 +1116,14 @@ export default function SpecialServices({ user }) {
                                         }}
                                         className={`rounded-xl border p-4 transition-all ${
                                             isSelected
-                                                ? "border-purple-500 bg-purple-50"
+                                                ? "border-blue-600 bg-blue-50 dark:border-blue-500 dark:bg-blue-950/40"
                                                 : isDisabled
                                                     ? "border-gray-200 bg-gray-50 opacity-75"
-                                                    : "cursor-pointer border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50/40"
+                                                    : "cursor-pointer border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
                                         }`}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
                                                 <Icon className="h-5 w-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -1132,7 +1136,7 @@ export default function SpecialServices({ user }) {
                                                     </div>
                                                     <div className="flex shrink-0 flex-col items-end gap-1">
                                                         {!isDisabled && (
-                                                            <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                                                            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
                                                                 Up to {service.maxPets || 1} per booking
                                                             </span>
                                                         )}
@@ -1161,7 +1165,7 @@ export default function SpecialServices({ user }) {
                                                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                     <div className="flex items-center gap-2 text-sm font-medium">
                                                         {isSelected ? (
-                                                            <span className="inline-flex items-center gap-2 text-purple-700">
+                                                            <span className="inline-flex items-center gap-2 text-blue-700 dark:text-blue-300">
                                                                 <Check className="h-4 w-4" />
                                                                 Selected
                                                             </span>
@@ -1211,7 +1215,7 @@ export default function SpecialServices({ user }) {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle>Selected Service</CardTitle>
                 </CardHeader>
@@ -1243,12 +1247,12 @@ export default function SpecialServices({ user }) {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle>Booking Details</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-6">
                         <div className="space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <Label>Select Pet(s)</Label>
@@ -1312,7 +1316,7 @@ export default function SpecialServices({ user }) {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div id="special-service-pets" tabIndex={-1} className="grid grid-cols-1 gap-3 rounded-xl md:grid-cols-2">
                                     {isLoadingPets ? (
                                         <div className="rounded-lg border border-dashed border-gray-300 p-6 text-gray-600 md:col-span-2">
                                             Loading pets...
@@ -1390,13 +1394,46 @@ export default function SpecialServices({ user }) {
                         />
 
                         <div className="space-y-2">
+                            <Label htmlFor="special-service-payment-method">Payment Method *</Label>
+                            <Select
+                                value={paymentMethod}
+                                onValueChange={setPaymentMethod}
+                                disabled={isSubmitting || isLoadingPaymentMethods}
+                                searchPlaceholder="Search payment method"
+                            >
+                                <SelectTrigger id="special-service-payment-method">
+                                    <SelectValue placeholder={isLoadingPaymentMethods ? "Loading payment methods..." : "Select payment method"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {paymentMethods.map((method) => (
+                                        <SelectItem key={method.value} value={method.value}>
+                                            {method.label || method.name || method.value}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {paymentMethodsError ? (
+                                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-red-600">
+                                    <span>{paymentMethodsError}</span>
+                                    <Button type="button" variant="outline" size="sm" onClick={retryPaymentMethods}>
+                                        Retry
+                                    </Button>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-600">
+                                    The clinic will provide the final amount and payment instructions after reviewing the special service request.
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="notes">Additional Notes</Label>
                             <Textarea
                                 id="notes"
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                                 rows={4}
-                                placeholder="Special instructions, concerns, or preparation notes."
+                                    placeholder="Preparation notes"
                             />
                         </div>
 
@@ -1413,7 +1450,7 @@ export default function SpecialServices({ user }) {
 
                         <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />
 
-                        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || isLoadingServices}>
+                        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || isLoadingServices || isLoadingPaymentMethods}>
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1426,6 +1463,6 @@ export default function SpecialServices({ user }) {
                     </form>
                 </CardContent>
             </Card>
-        </div>
+        </ServicePageShell>
     );
 }

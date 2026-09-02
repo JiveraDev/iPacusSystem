@@ -59,16 +59,15 @@ function booking_availability_active_veterinarians(PDO $pdo): array
         return [];
     }
 
-    $accountFilter = branch_column_exists($pdo, 'users', 'account_status')
-        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') NOT IN ('archived', 'deactivated', 'disabled', 'inactive')"
-        : '';
-    $stmt = $pdo->query("\n        SELECT u.user_id, u.first_Name, u.last_Name,\n               COALESCE(NULLIF(TRIM(vp.specialization), ''), 'General Practice') AS specialization\n        FROM users u\n        JOIN veterinarian_profiles vp ON vp.user_id = u.user_id\n        WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('veterinarian', 'vet')\n          AND COALESCE(vp.is_active, 1) = 1\n          AND COALESCE(vp.is_accepting_patients, 1) = 1\n          {$accountFilter}\n        ORDER BY u.last_Name, u.first_Name, u.user_id\n    ");
+    $accountFilter = '';
+    $stmt = $pdo->query("\n        SELECT u.user_id, u.first_Name, u.last_Name,\n               COALESCE(NULLIF(TRIM(vp.specialization), ''), 'General Practice') AS specialization,\n               vp.prc_license_number\n        FROM users u\n        JOIN veterinarian_profiles vp ON vp.user_id = u.user_id\n        WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('veterinarian', 'vet')\n          AND COALESCE(vp.is_active, 1) = 1\n          AND COALESCE(vp.is_accepting_patients, 1) = 1\n          {$accountFilter}\n        ORDER BY u.last_Name, u.first_Name, u.user_id\n    ");
 
     return array_map(static function (array $row): array {
         return [
             'id' => (int)$row['user_id'],
             'name' => trim('Dr. ' . $row['first_Name'] . ' ' . $row['last_Name']),
             'specialization' => $row['specialization'],
+            'licenseNumber' => $row['prc_license_number'] ?? '',
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -419,19 +418,21 @@ try {
         $boardingReservations = booking_availability_boarding_reservations($pdo, $branchId, $rangeStart, $rangeEnd);
         for ($cursor = $rangeStartObject; $cursor->format('Y-m-d') <= $rangeEnd; $cursor = $cursor->modify('+1 day')) {
             $date = $cursor->format('Y-m-d');
+            $isPastDate = $date < $now->format('Y-m-d');
             $rooms = booking_availability_rooms_for_date($configuration, $boardingReservations, $date, $now->getTimestamp());
-            $isOpen = booking_availability_hours($pdo, $branchId, $date) !== null;
+            $isOpen = !$isPastDate && booking_availability_hours($pdo, $branchId, $date) !== null;
             if (!$isOpen) {
                 $rooms = array_map(static fn(array $room): array => array_merge($room, ['available' => 0]), $rooms);
             }
             $availableCount = array_sum(array_column($rooms, 'available'));
             $bookedCount = array_sum(array_column($rooms, 'booked'));
+            $isFull = $isOpen && $availableCount === 0 && $bookedCount > 0;
             $days[] = [
                 'date' => $date,
                 'isOpen' => $isOpen,
                 'availableCount' => $isOpen ? $availableCount : 0,
                 'bookedCount' => $bookedCount,
-                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : 'full'),
+                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : ($isFull ? 'full' : 'closed')),
             ];
             if ($date === $selectedDate) {
                 $selectedRooms = $rooms;
@@ -441,6 +442,7 @@ try {
         $reservations = booking_slot_fetch_reservations($pdo, $rangeStart, $rangeEnd, $branchId);
         for ($cursor = $rangeStartObject; $cursor->format('Y-m-d') <= $rangeEnd; $cursor = $cursor->modify('+1 day')) {
             $date = $cursor->format('Y-m-d');
+            $isPastDate = $date < $now->format('Y-m-d');
             $slots = booking_availability_slots_for_date(
                 $pdo,
                 $date,
@@ -456,13 +458,14 @@ try {
             );
             $availableCount = count(array_filter($slots, static fn(array $slot): bool => $slot['status'] === 'available'));
             $bookedCount = count(array_filter($slots, static fn(array $slot): bool => $slot['status'] === 'booked'));
-            $isOpen = booking_availability_hours($pdo, $branchId, $date) !== null;
+            $isOpen = !$isPastDate && booking_availability_hours($pdo, $branchId, $date) !== null;
+            $isFull = $isOpen && $availableCount === 0 && $bookedCount > 0;
             $days[] = [
                 'date' => $date,
                 'isOpen' => $isOpen,
                 'availableCount' => $availableCount,
                 'bookedCount' => $bookedCount,
-                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : 'full'),
+                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : ($isFull ? 'full' : 'closed')),
             ];
             if ($date === $selectedDate) {
                 $selectedSlots = $slots;

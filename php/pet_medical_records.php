@@ -138,6 +138,20 @@ function pet_medical_nullable_text($value): ?string
     return $text === '' ? null : $text;
 }
 
+function pet_medical_date($value): ?string
+{
+    $date = pet_medical_nullable_text($value);
+    if ($date === null) {
+        return null;
+    }
+
+    $parsed = DateTime::createFromFormat('!Y-m-d', $date);
+    $errors = DateTime::getLastErrors();
+    $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+
+    return $parsed && !$hasErrors && $parsed->format('Y-m-d') === $date ? $date : null;
+}
+
 function pet_medical_compare_value($value): string
 {
     if ($value === null) {
@@ -1813,12 +1827,22 @@ function pet_medical_save_vaccination(PDO $pdo, int $petId, array $input): void
             pet_medical_error(409, 'Vaccination table is missing.');
         }
 
+        $vaccineName = pet_medical_nullable_text($input['name'] ?? null);
+        $dateAdministered = pet_medical_date($input['date'] ?? null);
+        $nextDueDate = pet_medical_date($input['nextDue'] ?? null);
+        if ($vaccineName === null || $dateAdministered === null || $nextDueDate === null) {
+            pet_medical_error(422, 'Vaccine name, date administered, and next due date are required. Use valid dates.');
+        }
+        if ($nextDueDate < $dateAdministered) {
+            pet_medical_error(422, 'Next due date cannot be earlier than the date administered.');
+        }
+
         $columns = ['pet_id', 'vax_name', 'vax_date', 'vax_next_due', 'vax_applicator', 'vax_status'];
         $values = [
             $petId,
-            $input['name'] ?? '',
-            $input['date'] ?? null,
-            $input['nextDue'] ?? null,
+            $vaccineName,
+            $dateAdministered,
+            $nextDueDate,
             $input['applicator'] ?? null,
             $input['status'] ?? 'completed',
         ];

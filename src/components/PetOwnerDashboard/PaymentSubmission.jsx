@@ -14,6 +14,8 @@ import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumen
 import { uploadImageFile } from "../../services/uploadService";
 import SubmissionStatus from "../shared/SubmissionStatus";
 import { paymentMethodInstruction, paymentMethodRequiresProof, usePaymentMethods } from "../../hooks/usePaymentMethods";
+import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
+import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import FileUploadDropzone from "../shared/FileUploadDropzone";
 import ProtectedImage from "../shared/ProtectedImage";
@@ -98,14 +100,26 @@ export default function PaymentSubmission() {
       toast.error(DECEASED_PET_BOOKING_MESSAGE);
       return;
     }
-    if (!formData.paymentMethod) {
-      toast.error("Please select a payment method");
-      return;
+    const validationErrors = [];
+    if (!formData.paymentMethod) validationErrors.push({ fieldId: 'paymentMethod', label: 'Payment method', type: 'selection', message: 'Select a payment method.' });
+    if (!String(formData.amount || '').trim()) {
+      validationErrors.push({ fieldId: 'amount', label: 'Payment amount', type: 'missing', message: 'Enter the payment amount.' });
+    } else if (!Number.isFinite(Number(formData.amount)) || Number(formData.amount) <= 0 || Number(formData.amount) > 1000000) {
+      validationErrors.push({ fieldId: 'amount', label: 'Payment amount', type: 'range', message: 'Payment amount must be greater than zero and no more than PHP 1,000,000.' });
+    }
+    if (selectedMethodRequiresProof && !formData.referenceNumber.trim()) {
+      validationErrors.push({ fieldId: 'referenceNumber', label: 'Transaction number', type: 'missing', message: 'Enter the 18-digit payment transaction number.' });
+    } else if (formData.referenceNumber.trim() && !isValidTransactionNumber(formData.referenceNumber)) {
+      validationErrors.push({ fieldId: 'referenceNumber', label: 'Transaction number', type: 'invalid', message: TRANSACTION_NUMBER_MESSAGE });
     }
     if (!formData.receiptFile && selectedMethodRequiresProof) {
-      toast.error("Please upload proof of payment");
-      return;
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Upload the payment receipt or screenshot.' });
+    } else if (formData.receiptFile && Number(formData.receiptFile.size || 0) > 8 * 1024 * 1024) {
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be 8 MB or smaller.' });
+    } else if (formData.receiptFile && !(String(formData.receiptFile.type || '').startsWith('image/') || formData.receiptFile.type === 'application/pdf')) {
+      validationErrors.push({ fieldId: 'receipt', label: 'Payment proof', type: 'upload', message: 'Payment proof must be an image or PDF file.' });
     }
+    if (reportBookingFormErrors(validationErrors)) return;
 
     setIsSubmitting(true);
     try {
@@ -143,15 +157,18 @@ export default function PaymentSubmission() {
             signatureImage: sourceSignature,
             signerName: form.signerName || form.signer_name || ownerName,
             signedAt: form.signedAt || form.signed_at || defaultSignedAt,
+            veterinarianName: sourceBookingData.veterinarianName || sourceBookingData.veterinarian,
+            veterinarianLicense: sourceBookingData.veterinarianLicense || sourceBookingData.prcLicenseNumber || sourceBookingData.prc_license_number || sourceBookingData.licenseNumber,
             templateContext: {
               ownerName: form.signerName || form.signer_name || ownerName,
-              petName: bookingData.petName || bookingData.new_pet_name,
-              petSpecies: bookingData.petSpecies || bookingData.petType,
-              petBreed: bookingData.petBreed || bookingData.new_pet_breed,
-              veterinarianName: bookingData.veterinarianName || bookingData.veterinarian,
-              serviceName: form.serviceType || bookingData.serviceType || bookingData.service_type,
-              branchName: bookingData.branchName || bookingData.branch_name,
-              bookingNumber: bookingData.bookingNumber || bookingData.booking_number
+              petName: sourceBookingData.petName || sourceBookingData.new_pet_name,
+              petSpecies: sourceBookingData.petSpecies || sourceBookingData.petType,
+              petBreed: sourceBookingData.petBreed || sourceBookingData.new_pet_breed,
+              veterinarianName: sourceBookingData.veterinarianName || sourceBookingData.veterinarian,
+              veterinarianLicense: sourceBookingData.veterinarianLicense || sourceBookingData.prcLicenseNumber || sourceBookingData.prc_license_number || sourceBookingData.licenseNumber,
+              serviceName: form.serviceType || sourceBookingData.serviceType || sourceBookingData.service_type,
+              branchName: sourceBookingData.branchName || sourceBookingData.branch_name,
+              bookingNumber: sourceBookingData.bookingNumber || sourceBookingData.booking_number
             }
           }, `booking_consent_${index + 1}`);
           if (!documentPath) {
@@ -217,7 +234,10 @@ export default function PaymentSubmission() {
       navigate("/dashboard/services"); 
     } catch (error) {
       console.error("Submission error:", error);
-      toast.error(error.message || "An error occurred during submission");
+      reportBookingSubmissionError(error, {
+        transaction: 'referenceNumber',
+        upload: 'receipt',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -265,7 +285,7 @@ export default function PaymentSubmission() {
           <CardDescription>Fill in your payment information below</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             {/* Payment Method Selection */}
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -340,17 +360,19 @@ export default function PaymentSubmission() {
 
             {/* Reference Number */}
             <div className="space-y-2">
-              <Label htmlFor="referenceNumber">Reference/Transaction Number</Label>
+              <Label htmlFor="referenceNumber">Reference/Transaction Number{selectedMethodRequiresProof ? " *" : ""}</Label>
               <Input
                 id="referenceNumber"
-                placeholder="Enter reference number (if applicable)"
-                restriction="alphanumeric"
+                placeholder="Enter exactly 18 digits"
+                restriction="digits"
+                inputMode="numeric"
+                maxLength={TRANSACTION_NUMBER_LENGTH}
                 value={formData.referenceNumber}
-                onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, referenceNumber: normalizeTransactionNumber(e.target.value) })}
                 disabled={isSubmitting}
               />
               <p className="text-xs text-gray-500">
-                For QRPH, Maya, GCash, and Bank Transfer, please include the transaction reference number
+                Enter the complete 18-digit transaction number for electronic payments.
               </p>
             </div>
 
@@ -374,7 +396,7 @@ export default function PaymentSubmission() {
               <Label htmlFor="notes">Additional Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Any additional information about your payment"
+                  placeholder="Payment notes"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}

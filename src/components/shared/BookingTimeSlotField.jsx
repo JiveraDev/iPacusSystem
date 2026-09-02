@@ -25,6 +25,18 @@ function formatTime(value) {
     return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
 }
 
+function formatDateLabel(value) {
+    const match = String(value || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return 'the selected date';
+
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return new Intl.DateTimeFormat('en-PH', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+    }).format(date);
+}
+
 export default function BookingTimeSlotField({
     service,
     date,
@@ -88,6 +100,7 @@ export default function BookingTimeSlotField({
     }, [allowCurrentValue, branchId, canLoad, date, onChange, requestKey, selectedValue, service, veterinarianId]);
 
     const availableSlots = slots.filter((slot) => slot.available);
+    const selectedDateLabel = formatDateLabel(date);
     const selectedLabel = slots.find((slot) => normalizeTime(slot.time) === selectedValue)?.label
         || formatTime(selectedValue);
     const currentValueIsListed = availableSlots.some((slot) => normalizeTime(slot.time) === selectedValue);
@@ -100,8 +113,13 @@ export default function BookingTimeSlotField({
                 : errorMessage
                     ? errorMessage
                     : availableSlots.length === 0
-                        ? 'No available times for this date.'
-                        : `${availableSlots.length} time ${availableSlots.length === 1 ? 'slot' : 'slots'} available.`;
+                        ? `Unavailable on ${selectedDateLabel}. Choose another date.`
+                        : `${availableSlots.length} available ${availableSlots.length === 1 ? 'time' : 'times'} on ${selectedDateLabel}.`;
+    const clockTone = errorMessage
+        ? 'text-red-600 dark:text-red-400'
+        : !isLoading && canLoad && availableSlots.length === 0
+            ? 'text-amber-600 dark:text-amber-300'
+            : 'text-blue-600 dark:text-blue-300';
 
     return (
         <div className={className}>
@@ -111,20 +129,20 @@ export default function BookingTimeSlotField({
             <Select
                 value={selectedValue}
                 onValueChange={onChange}
-                disabled={disabled || !canLoad || isLoading || (availableSlots.length === 0 && !allowCurrentValue)}
+                disabled={disabled || !canLoad || isLoading || (slots.length === 0 && !allowCurrentValue)}
                 searchable={false}
             >
                 <SelectTrigger id={id} aria-label={label}>
-                    {isLoading ? <Loader2 className="animate-spin text-slate-400" /> : <Clock3 className="text-slate-400" />}
+                    {isLoading ? <Loader2 className="animate-spin text-blue-600 dark:text-blue-300" /> : <Clock3 className={clockTone} />}
                     <SelectValue placeholder="Select an available time" displayValue={selectedLabel} />
                 </SelectTrigger>
                 <SelectContent>
                     {allowCurrentValue && selectedValue && !currentValueIsListed && (
                         <SelectItem value={selectedValue}>{formatTime(selectedValue)} (current)</SelectItem>
                     )}
-                    {availableSlots.map((slot) => (
-                        <SelectItem key={slot.time} value={normalizeTime(slot.time)}>
-                            {slot.label}
+                    {slots.map((slot) => (
+                        <SelectItem key={slot.time} value={normalizeTime(slot.time)} disabled={!slot.available}>
+                            {slot.label} — {slot.available ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
                         </SelectItem>
                     ))}
                 </SelectContent>

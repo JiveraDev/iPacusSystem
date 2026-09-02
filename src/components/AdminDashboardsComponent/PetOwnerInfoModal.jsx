@@ -3,6 +3,7 @@ import { Calendar, Mail, MapPin, Phone, Shield, User } from 'lucide-react';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { fetchUser } from '../../services/userService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
+import { formatRoleLabel } from '../../lib/roleLabel.js';
 
 function normalizeOwner(data = {}) {
     const fullName = `${data.firstName || data.first_Name || ''} ${data.lastName || data.last_Name || ''}`.trim();
@@ -110,7 +111,7 @@ export default function PetOwnerProfileModal({
                         <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Pet Owner</p>
                         <h3 className="mt-1 break-words text-2xl font-black text-slate-900">{fullName}</h3>
                         <p className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-[#155dfc]">
-                            {owner.role || 'Pet Owner'}
+                            {formatRoleLabel(owner.role, 'Pet Owner')}
                         </p>
                     </div>
                 </div>

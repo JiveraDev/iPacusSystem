@@ -12,6 +12,7 @@ import {
   subscribeToServerStatus
 } from "./services/apiClient.js";
 import { clearPushContext } from "./services/pushNotificationService.js";
+import { getPublicPageTitle, setDocumentPageTitle } from './lib/pageTitle.js';
 
 // Lazy load components
 const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
@@ -241,6 +242,18 @@ function App() {
     }
   }, [view, registrationData.email]);
 
+  useEffect(() => {
+    if (serverStatus.isDown) {
+      setDocumentPageTitle('Service Unavailable');
+      return;
+    }
+
+    const nextActiveView = getRouteRedirect(view, currentUser, registrationData.email).view;
+    if (nextActiveView !== 'dashboard') {
+      setDocumentPageTitle(getPublicPageTitle(nextActiveView));
+    }
+  }, [currentUser, registrationData.email, serverStatus.isDown, view]);
+
   const resetRegistrationFlow = useCallback(() => {
     setRegistrationData(initialRegistrationData);
     setRegistrationFlowKey((currentValue) => currentValue + 1);
@@ -284,7 +297,7 @@ function App() {
     clearPushContext().catch(() => {});
     clearStoredAuthSession();
     setCurrentUser(null);
-    navigateTo(routes.login);
+    navigateTo(routes.landing);
   }, [navigateTo]);
 
   const handleAuthenticatedForgotPassword = useCallback(() => {
@@ -377,7 +390,10 @@ function App() {
         </div>
       </div>
     }>
-      <div className={activeView === 'dashboard' ? 'min-h-screen theme-aware' : 'min-h-screen theme-static-light'}>
+      <div
+        data-motion-page={activeView}
+        className={activeView === 'dashboard' ? 'min-h-screen theme-aware' : 'min-h-screen theme-static-light'}
+      >
         <ToastViewport />
         {activeView === 'statusDisplay' && (
           <TVStatusDisplay />

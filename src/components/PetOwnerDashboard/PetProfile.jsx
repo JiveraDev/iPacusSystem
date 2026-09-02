@@ -5,7 +5,7 @@ import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, Printer, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, XCircle, Eye, ShieldCheck, Pencil, Save, X, Download } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download } from "lucide-react";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
@@ -28,7 +28,6 @@ import ProtectedImage from "../shared/ProtectedImage.jsx";
 import { findPetService } from "../../services/findPet";
 import { updateBookingStatus } from "../../services/bookingService";
 import { fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
-import { updateQueueStatus } from "../../services/queueService";
 import { uploadFormData } from "../../services/uploadService";
 import { fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 
@@ -229,9 +228,9 @@ export default function PetProfile() {
       } : current);
       setTempOwnerDraft(nextTempOwnerName);
       setIsEditingTempOwner(false);
-      toast.success(nextTempOwnerName ? "Temporary owner name updated." : "Temporary owner name cleared.");
+      toast.success(nextTempOwnerName ? "Owner name updated." : "Owner name cleared.");
     } catch (error) {
-      toast.error(error.message || "Could not update temporary owner name.");
+      toast.error(error.message || "Could not update owner name.");
     } finally {
       setIsSavingTempOwner(false);
     }
@@ -297,16 +296,6 @@ export default function PetProfile() {
   const hasRegisteredOwner = Boolean(pet?.hasOwnership || pet?.ownerUserId || pet?.ownerName);
   const canEditTemporaryOwner = canManageTemporaryOwner && pet && !hasRegisteredOwner;
 
-  const openQueueCancelDialog = () => {
-    if (!activeQueue) return;
-    setConfirmAction({
-      type: "queue",
-      id: activeQueue.queue_id,
-      title: "Cancel queue entry?",
-      description: `${formatQueueReference(activeQueue)} for ${pet?.name || "this pet"} will be cancelled.`
-    });
-  };
-
   const openBookingCancelDialog = (booking) => {
     setConfirmAction({
       type: "booking",
@@ -325,22 +314,11 @@ export default function PetProfile() {
 
     setIsCancelling(true);
     try {
-      if (confirmAction.type === "queue") {
-        const data = await updateQueueStatus({ queue_id: confirmAction.id, status: "cancelled" });
-        if (data.success === false) {
-          throw new Error(data.message || "Failed to cancel queue entry");
-        }
-        setQueueRecords(records =>
-          records.map(item => item.queue_id === confirmAction.id ? { ...item, status: "cancelled" } : item)
-        );
-        toast.success("Queue entry cancelled");
-      } else {
-        await updateBookingStatus(confirmAction.id, { status: "cancelled" });
-        setBookingRecords(records =>
-          records.map(item => item.id === confirmAction.id ? { ...item, status: "cancelled" } : item)
-        );
-        toast.success("Booking cancelled");
-      }
+      await updateBookingStatus(confirmAction.id, { status: "cancelled" });
+      setBookingRecords(records =>
+        records.map(item => item.id === confirmAction.id ? { ...item, status: "cancelled" } : item)
+      );
+      toast.success("Booking cancelled");
       setConfirmAction(null);
     } catch (error) {
       toast.error(error.message || "Cancellation failed");
@@ -677,7 +655,13 @@ export default function PetProfile() {
       </div>
 
       {/* Main Profile Header */}
-      <Card className="overflow-hidden border-none shadow-xl rounded-2xl bg-white">
+      <Card
+        petHover="always"
+        petKind={String(pet.species || '').toLowerCase().includes('cat') ? 'cat' : 'dog'}
+        petAccent="mint"
+        petPosition="bottom-left"
+        className="overflow-hidden border-none shadow-xl rounded-2xl bg-white"
+      >
         <div className="h-40 bg-gradient-to-r from-[#155dfc] via-blue-600 to-indigo-700 relative">
             <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
         </div>
@@ -779,12 +763,64 @@ export default function PetProfile() {
             </CardContent>
           </Card>
 
+          {pet.hasOwnership && (
+            <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                  <UserPlus className="size-4 text-[#155dfc]" />
+                  Pet Owners
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 p-4 sm:p-6">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/30">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#155dfc]" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-300">Primary owner</p>
+                      <p className="truncate text-sm font-black text-slate-900 dark:text-white">
+                        {pet.primaryOwner?.name || pet.ownerName || "Pet owner"}
+                      </p>
+                      {(pet.primaryOwner?.email) && (
+                        <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{pet.primaryOwner.email}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    Co-parents ({pet.coParents?.length || 0})
+                  </p>
+                  {pet.coParents?.length ? (
+                    <div className="space-y-2">
+                      {pet.coParents.map((coParent) => (
+                        <div key={coParent.userId} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                          <UserPlus className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{coParent.name || "Pet owner"}</p>
+                            {coParent.email && (
+                              <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{coParent.email}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                      No approved co-parent is linked to this pet.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {canEditTemporaryOwner && (
             <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b border-slate-100">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                    Temporary Owner
+                    Owner
                   </CardTitle>
                   {!isEditingTempOwner && (
                     <Button
@@ -810,7 +846,7 @@ export default function PetProfile() {
                       value={tempOwnerDraft}
                       onChange={(event) => setTempOwnerDraft(event.target.value)}
                       restriction="name"
-                      placeholder="Temporary owner name"
+                      placeholder="Owner name"
                       disabled={isSavingTempOwner}
                     />
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -896,54 +932,66 @@ export default function PetProfile() {
 
         {/* Right Column: Vaccinations & Actions */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Action Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card
-              className={`group overflow-hidden rounded-2xl border-slate-200 bg-white transition-all ${
-                canRequestRecordUpdate && !activeRecordUpdateRequest
-                  ? "cursor-pointer hover:border-green-200 hover:shadow-xl"
-                  : "cursor-not-allowed opacity-60"
+          {/* Pet record actions */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              disabled={!canRequestRecordUpdate || Boolean(activeRecordUpdateRequest)}
+              onClick={() => navigate(`/dashboard/my-pets/${petId}/request-update`)}
+              className={`group flex min-h-[6.5rem] w-full items-center gap-4 rounded-2xl border p-4 text-left shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 motion-reduce:transition-none sm:p-5 ${
+                activeRecordUpdateRequest
+                  ? "cursor-not-allowed border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20"
+                  : canRequestRecordUpdate
+                    ? "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20"
+                    : "cursor-not-allowed border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60"
               }`}
-              aria-disabled={!canRequestRecordUpdate || Boolean(activeRecordUpdateRequest)}
-              onClick={() => {
-                if (canRequestRecordUpdate && !activeRecordUpdateRequest) {
-                  navigate(`/dashboard/my-pets/${petId}/request-update`);
-                }
-              }}
+              aria-label={activeRecordUpdateRequest ? "Record update request is in progress" : "Request a pet record update"}
             >
-              <CardContent className="p-6 flex items-center gap-5">
-                <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                  canRequestRecordUpdate && !activeRecordUpdateRequest
-                    ? "bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white"
-                    : "bg-slate-100 text-slate-400"
-                }`}>
-                  <FileText className="h-7 w-7" />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-900 text-lg tracking-tight">Update Record</h4>
-                  <p className="text-sm text-slate-500 font-medium">
-                    {activeRecordUpdateRequest
-                      ? `${activeRecordUpdateRequest.shortRequestNumber || `RUR-${String(activeRecordUpdateRequest.requestId || 0).padStart(5, "0")}`} is in progress`
-                      : canRequestRecordUpdate
-                        ? "Submit data correction request"
-                        : "Available to pet owner accounts only"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+              <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${
+                activeRecordUpdateRequest
+                  ? "border-amber-200 bg-white text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                  : canRequestRecordUpdate
+                    ? "border-blue-100 bg-blue-50 text-[#155dfc] dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300"
+                    : "border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-800"
+              }`}>
+                <ClipboardPenLine className="size-6" strokeWidth={2.25} aria-hidden="true" />
+              </span>
 
-            <Card className="group hover:shadow-xl transition-all cursor-pointer bg-white border-slate-200 hover:border-blue-200 rounded-2xl overflow-hidden"
-                  onClick={handlePrint}>
-              <CardContent className="p-6 flex items-center gap-5">
-                <div className="h-14 w-14 bg-blue-50 rounded-2xl flex items-center justify-center text-[#155dfc] group-hover:bg-[#155dfc] group-hover:text-white transition-all duration-300">
-                  <Printer className="h-7 w-7" />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-900 text-lg tracking-tight">Health History</h4>
-                  <p className="text-sm text-slate-500 font-medium">Export clinical medical logs</p>
-                </div>
-              </CardContent>
-            </Card>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-black tracking-tight text-slate-950 dark:text-white">Update Record</span>
+                {activeRecordUpdateRequest ? (
+                  <span className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-bold">
+                    <span className="text-slate-600 dark:text-slate-300">
+                      {activeRecordUpdateRequest.shortRequestNumber || `RUR-${String(activeRecordUpdateRequest.requestId || 0).padStart(5, "0")}`}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-1 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+                      <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                      In progress
+                    </span>
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {canRequestRecordUpdate ? "Request a correction" : "Pet owner access only"}
+                  </span>
+                )}
+              </span>
+
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="group flex min-h-[6.5rem] w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 dark:focus-visible:ring-offset-slate-950 motion-reduce:transition-none sm:p-5"
+              aria-label="Open pet health history"
+            >
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[#155dfc] dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
+                <HeartPulse className="size-6" strokeWidth={2.25} aria-hidden="true" />
+              </span>
+
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-black tracking-tight text-slate-950 dark:text-white">Health History</span>
+              </span>
+            </button>
           </div>
 
           <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
@@ -990,16 +1038,6 @@ export default function PetProfile() {
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
                         </Button>
-                        {activeQueue && (
-                          <Button
-                            variant="destructive"
-                            onClick={openQueueCancelDialog}
-                            className="sm:w-auto"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Cancel Queue
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ) : (
@@ -1448,15 +1486,14 @@ function ConsentImagesPanel({ records, onPreview }) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-2xl font-black text-slate-900">{records.length}</p>
-              <p className="text-sm font-semibold text-slate-500">Complete signed consent documents</p>
+              <p className="text-sm font-semibold text-slate-500">Consent files linked to this pet</p>
             </div>
-            <Badge className="border-0 bg-slate-100 text-slate-700">Preview records</Badge>
           </div>
 
           <SheetTrigger asChild>
             <Button type="button" variant="outline" className="w-full gap-2" disabled={records.length === 0}>
               <Eye className="h-4 w-4" />
-              View Holder
+              View Documents
             </Button>
           </SheetTrigger>
 
@@ -1473,10 +1510,10 @@ function ConsentImagesPanel({ records, onPreview }) {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
               <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
-              Consent Document Holder
+              Consent Documents
             </SheetTitle>
             <SheetDescription>
-              Complete signed owner consent forms for this pet. PDF records open in a protected browser tab.
+              Review or download consent files linked to this pet.
             </SheetDescription>
           </SheetHeader>
 
@@ -1534,60 +1571,46 @@ function ConsentRecordCard({ record, onPreview }) {
   };
 
   return (
-    <div className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
-      <div className="grid gap-0 sm:grid-cols-[9rem_minmax(0,1fr)]">
-        <div className="flex h-36 items-center justify-center overflow-hidden bg-slate-50 sm:h-full">
-          {source ? (
-            isPdf ? (
-              <button type="button" onClick={handleView} className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-500 hover:bg-slate-100">
-                <FileText className="size-8 text-blue-600" />
-                <span className="text-xs font-bold">Open PDF</span>
-              </button>
-            ) : (
-              <ProtectedImage
-                src={source}
-                alt={`${record.identifier} complete signed consent form`}
-                className="h-full w-full object-contain"
-                fallbackClassName="h-full w-full"
-              />
-            )
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          onClick={handleView}
+          disabled={!source || isOpening}
+          className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-blue-700 dark:hover:bg-blue-950/40"
+          aria-label={`Open ${record.title || record.sourceLabel}`}
+        >
+          {source && !isPdf ? (
+            <ProtectedImage
+              src={source}
+              alt=""
+              className="h-full w-full object-cover"
+              fallbackClassName="h-full w-full"
+            />
           ) : isLoading ? (
-            <div className="flex flex-col items-center gap-2 text-xs font-semibold text-slate-400">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Building full form
-            </div>
+            <Loader2 className="size-5 animate-spin" />
           ) : (
-            <div className="px-3 text-center text-xs font-semibold leading-5 text-amber-700">
-              Complete consent document unavailable
+            <FileText className="size-6" />
+          )}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-slate-900 dark:text-white">
+            {record.title || record.sourceLabel}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {[record.sourceLabel, record.service].filter(Boolean).join(' · ')}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">{record.identifier}</p>
+          {(isReconstructed || isUnavailable) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {isReconstructed && <Badge className="border-0 bg-amber-50 text-amber-700">Legacy document</Badge>}
+              {isUnavailable && <Badge className="border-0 bg-amber-50 text-amber-700">Unavailable</Badge>}
             </div>
           )}
         </div>
-        <div className="space-y-3 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="border-0 bg-blue-50 text-[#155dfc]">{record.sourceLabel}</Badge>
-            <Badge className="border-0 bg-slate-100 text-slate-700">Complete form</Badge>
-            {isReconstructed && <Badge className="border-0 bg-amber-50 text-amber-700">Legacy full form</Badge>}
-            {isUnavailable && <Badge className="border-0 bg-amber-50 text-amber-700">Not displayable</Badge>}
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Consent form</p>
-            <p className="mt-1 break-words text-sm font-black text-slate-900">{record.title || record.sourceLabel}</p>
-          </div>
-          <div className="grid gap-2 text-sm">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Source</p>
-              <p className="font-bold text-slate-800">{record.identifier}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Service</p>
-              <p className="font-semibold text-slate-700">{record.service}</p>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Signed / Recorded</p>
-              <p className="font-semibold text-slate-700">{record.dateLabel}</p>
-            </div>
-          </div>
-          <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+
+        <div className={`grid shrink-0 gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <Button
               type="button"
               variant="outline"
@@ -1610,10 +1633,9 @@ function ConsentRecordCard({ record, onPreview }) {
               {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Download
             </Button>}
-          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 

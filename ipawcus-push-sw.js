@@ -53,7 +53,11 @@ async function fetchLatestNotification(settings) {
         limit: '5'
     });
     const response = await fetch(buildApiUrl(settings.apiBase, `/notifications?${query.toString()}`), {
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: {
+            ...(settings.accessToken ? { Authorization: `Bearer ${settings.accessToken}` } : {}),
+            ...(settings.userId ? { 'X-User-Id': String(settings.userId) } : {})
+        }
     });
 
     if (!response.ok) {
@@ -101,12 +105,19 @@ async function markNotificationRead(data) {
         return;
     }
 
-    await fetch(buildApiUrl(data.apiBase, `/notifications/${data.notificationId}/read`), {
+    const settings = await readPushSettings().catch(() => ({}));
+    const apiBase = settings.apiBase || data.apiBase;
+    const accessToken = settings.accessToken || '';
+    const userId = settings.userId || data.userId;
+
+    await fetch(buildApiUrl(apiBase, `/notifications/${data.notificationId}/read`), {
         method: 'PATCH',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...(userId ? { 'X-User-Id': String(userId) } : {})
         },
-        body: JSON.stringify({ user_id: data.userId })
+        body: JSON.stringify({ user_id: userId })
     }).catch(() => {});
 }
 
@@ -134,12 +145,21 @@ async function openNotificationTarget(data) {
 }
 
 self.addEventListener('message', event => {
+    if (event.data?.type === 'IPAWCUS_PUSH_CONTEXT_CLEAR') {
+        const clearTask = writePushSettings({});
+        if (typeof event.waitUntil === 'function') {
+            event.waitUntil(clearTask);
+        }
+        return;
+    }
+
     if (event.data?.type !== 'IPAWCUS_PUSH_CONTEXT') {
         return;
     }
 
     const writeTask = writePushSettings({
         userId: event.data.userId || '',
+        accessToken: event.data.accessToken || '',
         apiBase: event.data.apiBase || '',
         appOrigin: event.data.appOrigin || self.location.origin
     });

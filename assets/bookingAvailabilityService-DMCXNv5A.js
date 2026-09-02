@@ -1,0 +1,1 @@
+import{Z as e}from"./index-C9_RNQ_5.js";function t(t={},n={}){let r=new URLSearchParams;Object.entries(t).forEach(([e,t])=>{t!=null&&t!==``&&r.set(e,String(t))});let i=r.toString();return e(`/booking-availability${i?`?${i}`:``}`,n)}export{t};

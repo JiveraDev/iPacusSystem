@@ -988,13 +988,6 @@ try {
     $currentRole = ipawcus_guard_role($currentUser);
     $currentUserId = ipawcus_guard_user_id($currentUser);
 
-    if ($_SERVER['REQUEST_METHOD'] === 'PATCH' && $currentRole === 'admin') {
-        $mainBranchId = branch_main_id($pdo);
-        if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
-            record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
-        }
-    }
-
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $filters = [
             'request_id' => $_GET['requestId'] ?? $_GET['request_id'] ?? null,
@@ -1021,12 +1014,6 @@ try {
             $filters['vet_visible_user_id'] = $currentUserId;
         } elseif (!ipawcus_guard_is_admin_role($currentRole)) {
             record_request_error(403, 'You are not allowed to view record update requests.');
-        } elseif ($currentRole !== 'super_admin') {
-            $mainBranchId = branch_main_id($pdo);
-            if (!branch_user_can_access($pdo, $currentUser, $mainBranchId)) {
-                record_request_error(403, 'Record update requests are managed by the Main Clinic only.');
-            }
-            $filters['branch_id'] = $mainBranchId;
         }
 
         echo json_encode([

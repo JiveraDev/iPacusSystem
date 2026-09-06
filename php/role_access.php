@@ -43,6 +43,7 @@ function ipawcus_admin_feature_keys(): array
         'bookings',
         'record_requests',
         'boarding',
+        'grooming',
         'queue',
         'pos',
         'inventory',
@@ -117,6 +118,7 @@ function ipawcus_admin_feature_for_mutation(string $path, string $method): ?stri
     if (preg_match('#^/service-catalog(/|$)#', $path)) return 'service_catalog';
     if (preg_match('#^/record-update-requests(/|$)#', $path)) return 'record_requests';
     if (preg_match('#^/boarding(/|$)#', $path)) return 'boarding';
+    if ($path === '/grooming') return 'grooming';
     if (preg_match('#^/queues(/|$)#', $path)) return 'queue';
     if (preg_match('#^/visits(/|$)#', $path)) return 'pos';
     if (preg_match('#^/inventory(/|$)#', $path)) return 'inventory';
@@ -151,6 +153,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
     }
 
     $method = strtoupper($method);
+
+    if ($path === '/vet-presence') {
+        return $method === 'GET' ? ['public' => true] : ['roles' => ipawcus_roles('admin')];
+    }
 
     if (ipawcus_public_route($path)) {
         return ['public' => true];
@@ -202,6 +208,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if (preg_match('#^/notifications(/|$)#', $path)) {
         return ['roles' => ipawcus_roles('all')];
+    }
+
+    if ($path === '/grooming') {
+        return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('clinic')];
     }
 
     if ($path === '/boarding/documents') {
@@ -418,6 +428,7 @@ function ipawcus_media_access_roles(string $relativePath): array
         'inventory_items', 'inventory_receipts' => ipawcus_roles('admin'),
         'invoices' => ipawcus_roles('owner_or_clinic'),
         'boarding_documents' => ipawcus_roles('clinic'),
+        'grooming_photos' => ipawcus_roles('owner_or_clinic'),
         'signatures' => ipawcus_roles('owner_or_clinic'),
         'payment_qr', 'pet_profile_images', 'uploads' => ipawcus_roles('all'),
         'concerns', 'diagnosis', 'payments' => ipawcus_roles('owner_or_clinic'),
@@ -696,6 +707,12 @@ function ipawcus_enforce_media_access(PDO $pdo, string $relativePath): array
     }
 
     $directory = explode('/', trim(str_replace('\\', '/', $relativePath), '/'), 2)[0] ?? '';
+    if ($directory === 'grooming_photos') {
+        require_once __DIR__ . '/grooming_helpers.php';
+        if (!grooming_media_access($pdo, $relativePath, $user)) {
+            ipawcus_access_json(403, 'This grooming photo is not shared with your account.', 'media_forbidden');
+        }
+    }
     if ($role === 'pet_owner' && in_array($directory, ['concerns', 'diagnosis', 'invoices', 'payments', 'signatures'], true)) {
         if (!ipawcus_owner_can_view_media($pdo, (int)($user['user_id'] ?? 0), $relativePath)) {
             ipawcus_access_json(403, 'You can only view media attached to your own records.', 'media_owner_forbidden');

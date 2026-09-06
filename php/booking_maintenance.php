@@ -182,6 +182,12 @@ function maintenance_booking_reached_service(PDO $pdo, int $bookingId): bool
         return false;
     }
 
+    if (maintenance_table_exists($pdo, 'grooming_jobs')) {
+        $grooming = $pdo->prepare("SELECT 1 FROM grooming_jobs WHERE booking_id = ? AND status <> 'scheduled' LIMIT 1");
+        $grooming->execute([$bookingId]);
+        if ($grooming->fetchColumn()) return true;
+    }
+
     $hasAssignments = maintenance_table_exists($pdo, 'vet_queue_assignments');
     $assignmentJoin = $hasAssignments ? 'LEFT JOIN vet_queue_assignments vqa ON vqa.queue_id = q.queue_id' : '';
     $assignmentCondition = $hasAssignments ? " OR LOWER(COALESCE(vqa.status, '')) IN ('received', 'completed')" : '';

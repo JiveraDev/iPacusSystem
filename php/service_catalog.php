@@ -39,14 +39,30 @@ function service_catalog_column_exists(PDO $pdo, string $tableName, string $colu
 
 function service_catalog_schema_ready(PDO $pdo): bool
 {
-    return service_catalog_table_exists($pdo, 'service_catalog')
-        && service_catalog_table_exists($pdo, 'service_materials')
-        && service_catalog_table_exists($pdo, 'inventory_items');
+    return service_catalog_table_readable($pdo, 'service_catalog')
+        && service_catalog_table_readable($pdo, 'service_materials')
+        && service_catalog_table_readable($pdo, 'inventory_items');
+}
+
+function service_catalog_table_readable(PDO $pdo, string $tableName): bool
+{
+    if (!in_array($tableName, ['service_catalog', 'service_materials', 'inventory_items'], true)) {
+        throw new InvalidArgumentException('Unsupported catalog storage check.');
+    }
+    try {
+        // Metadata can list an InnoDB table whose storage engine cannot open it.
+        $pdo->query("SELECT 1 FROM `{$tableName}` LIMIT 0");
+        return true;
+    } catch (PDOException $error) {
+        if (!in_array((int)($error->errorInfo[1] ?? 0), [1146, 1932, 1812], true)) throw $error;
+        error_log('Service catalog storage unavailable: ' . $error->getMessage());
+        return false;
+    }
 }
 
 function service_catalog_missing_message(): string
 {
-    return 'Service catalog schema is missing. Restore the repository baseline DDL, then run DDL/20260723_01_backend_integrity_schema.sql.';
+    return 'Service catalog storage needs database repair. Contact the administrator. Editing is disabled to protect existing service and material records.';
 }
 
 function service_catalog_text($value): string
@@ -125,7 +141,7 @@ function service_catalog_format_material(array $row): array
 
 function service_catalog_list(PDO $pdo): void
 {
-    if (!service_catalog_schema_ready($pdo)) {
+    if (!service_catalog_table_readable($pdo, 'service_catalog')) {
         echo json_encode([
             'success' => true,
             'schemaReady' => false,
@@ -136,6 +152,8 @@ function service_catalog_list(PDO $pdo): void
     }
 
     $includeInactive = filter_var($_GET['includeInactive'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $materialsReady = service_catalog_table_readable($pdo, 'service_materials')
+        && service_catalog_table_readable($pdo, 'inventory_items');
     $whereSql = $includeInactive ? '' : 'WHERE sc.is_active = 1';
     $stmt = $pdo->query("
         SELECT
@@ -162,11 +180,11 @@ function service_catalog_list(PDO $pdo): void
             'createdByName' => trim((string)($row['created_by_name'] ?? '')),
             'createdAt' => $row['created_at'],
             'updatedAt' => $row['updated_at'],
-            'materials' => []
+            'materials' => $materialsReady ? [] : null
         ];
     }
 
-    if (!empty($services)) {
+    if ($materialsReady && !empty($services)) {
         $sellingPriceSelect = service_catalog_column_exists($pdo, 'inventory_items', 'selling_price')
             ? 'ii.selling_price'
             : 'ii.unit_cost AS selling_price';
@@ -194,6 +212,9 @@ function service_catalog_list(PDO $pdo): void
     echo json_encode([
         'success' => true,
         'schemaReady' => true,
+        'materialsReady' => $materialsReady,
+        'readOnly' => !$materialsReady,
+        'message' => $materialsReady ? null : 'Service material presets could not be opened. Service details are available for viewing, but editing is paused until the administrator repairs the database.',
         'services' => array_values($services)
     ]);
 }
@@ -249,6 +270,11 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
     $isActive = isset($input['is_active']) ? (int)(bool)$input['is_active'] : (isset($input['isActive']) ? (int)(bool)$input['isActive'] : 1);
     try {
         if ($serviceId !== null && $serviceId > 0) {
+            $existsStmt = $pdo->prepare('SELECT service_id FROM service_catalog WHERE service_id = ?');
+            $existsStmt->execute([$serviceId]);
+            if (!$existsStmt->fetchColumn()) {
+                service_catalog_error(404, 'This service was removed. Refresh the catalog before making changes.');
+            }
             $stmt = $pdo->prepare("
                 UPDATE service_catalog
                 SET service_code = ?,
@@ -289,7 +315,11 @@ function service_catalog_save(PDO $pdo, ?int $serviceId = null): void
             'serviceId' => $createdServiceId
         ]);
     } catch (PDOException $e) {
-        service_catalog_error(500, 'Failed to save service: ' . $e->getMessage());
+        error_log('Service catalog save failed: ' . $e->getMessage());
+        if ((int)($e->errorInfo[1] ?? 0) === 1062) {
+            service_catalog_error(409, 'This service code is already in use. Choose a different code or leave it blank.');
+        }
+        service_catalog_error(500, 'The service could not be saved. Please try again shortly.');
     }
 }
 
@@ -479,6 +509,8 @@ function service_catalog_delete(PDO $pdo, int $serviceId, bool $hardDelete = fal
 
     echo json_encode(['success' => true, 'message' => 'Service deleted.']);
 }
+
+if (defined('SERVICE_CATALOG_HELPERS_ONLY') && SERVICE_CATALOG_HELPERS_ONLY) return;
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';

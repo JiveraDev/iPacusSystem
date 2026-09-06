@@ -165,7 +165,6 @@ function reports_filters(array $payload): array
 
     $flatKeys = [
         'service_type',
-        'payment_method',
         'appointment_status',
         'queue_status',
         'consultation_type',
@@ -182,6 +181,10 @@ function reports_filters(array $payload): array
             $filters[$key] = $payload[$key];
         }
     }
+
+    // Financial reports always cover every payment method. Payment methods
+    // remain visible in report rows and summaries, but are never a filter.
+    unset($filters['payment_method']);
 
     return array_filter($filters, static function ($value) {
         return $value !== null && trim((string)$value) !== '' && $value !== 'all';
@@ -811,16 +814,6 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
     $where = ['v.created_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
 
-    if (!empty($filters['payment_method'])) {
-        $where[] = "EXISTS (
-            SELECT 1
-            FROM visit_payments pm_filter
-            WHERE pm_filter.visit_id = v.visit_id
-              AND pm_filter.payment_method = ?
-              AND pm_filter.payment_status IN ('verified', 'refunded')
-        )";
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $refundSelect = reports_table_exists($pdo, 'visit_payment_refunds')
@@ -944,10 +937,6 @@ function reports_unlinked_booking_billing_rows(PDO $pdo, array $range, array $fi
         'submission.submitted_at BETWEEN ? AND ?',
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'submission.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'booking.branch_id');
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1000,10 +989,6 @@ function reports_record_update_payment_rows(PDO $pdo, array $range, array $filte
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
 
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'r.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'r.branch_id');
 
     $sql = "
@@ -1055,10 +1040,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         'vp.paid_at BETWEEN ? AND ?',
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'vp.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $rows = reports_fetch_all($pdo, "
@@ -1105,10 +1086,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'refund.processed_at BETWEEN ? AND ?',
         ];
         $refundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $refundWhere[] = 'refund.refund_method = ?';
-            $refundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
         $refundRows = reports_fetch_all($pdo, "
             SELECT
@@ -1157,10 +1134,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
         ];
         $bookingParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingWhere[] = 'submission.payment_method = ?';
-            $bookingParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
         $bookingRows = reports_fetch_all($pdo, "
             SELECT
@@ -1198,10 +1171,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'refund.processed_at BETWEEN ? AND ?',
         ];
         $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingRefundWhere[] = 'refund.refund_method = ?';
-            $bookingRefundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
         $bookingRefundRows = reports_fetch_all($pdo, "
             SELECT
@@ -1290,6 +1259,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         if (!isset($daily[$date])) {
             $daily[$date] = [
                 'date' => $date,
+                'payment_methods' => [],
                 'service_sales' => 0,
                 'product_sales' => 0,
                 'total_sales' => 0,
@@ -1306,19 +1276,33 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
 
         foreach (array_filter(array_map('trim', explode(',', (string)$row['payment_methods']))) as $method) {
             $paymentCounts[$method] = ($paymentCounts[$method] ?? 0) + 1;
+            $daily[$date]['payment_methods'][$method] = true;
         }
     }
 
     ksort($daily);
     foreach ($daily as &$day) {
+        $day['payment_methods'] = reports_payment_method_labels(implode(', ', array_keys($day['payment_methods'])));
         foreach (['service_sales', 'product_sales', 'total_sales', 'paid_amount', 'balance'] as $key) {
             $day[$key] = reports_money($day[$key]);
         }
     }
+    unset($day);
 
     $totals = reports_financial_totals($visitRows);
     arsort($paymentCounts);
-    $topPaymentMethod = array_key_first($paymentCounts) ?: 'No verified payment yet';
+    $topPaymentMethodKey = array_key_first($paymentCounts);
+    $topPaymentMethod = $topPaymentMethodKey
+        ? reports_payment_method_labels($topPaymentMethodKey)
+        : 'No verified payment yet';
+    $paymentMethodBreakdowns = [];
+    foreach ($paymentCounts as $method => $count) {
+        $paymentMethodBreakdowns[] = [
+            'label' => reports_payment_method_labels($method),
+            'value' => number_format($count) . ($count === 1 ? ' transaction' : ' transactions'),
+            'detail' => 'Included in this all-payment-method sales report.',
+        ];
+    }
     $dominantCategory = $totals['service_sales'] >= $totals['product_sales'] ? 'service sales' : 'medicine/product sales';
 
     return [
@@ -1326,6 +1310,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         'title' => 'Sales Report',
         'columns' => [
             ['key' => 'date', 'label' => 'Date'],
+            ['key' => 'payment_methods', 'label' => 'Payment Methods'],
             ['key' => 'service_sales', 'label' => 'Service Sales'],
             ['key' => 'product_sales', 'label' => 'Medicine/Product Sales'],
             ['key' => 'total_sales', 'label' => 'Total Sales'],
@@ -1341,6 +1326,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
                 "Paid amount: {$totals['paid_amount']}",
                 'Refunds in the selected period are shown as negative collections.',
             ],
+            'breakdowns' => $paymentMethodBreakdowns,
         ],
         'chart' => [
             'type' => 'line',
@@ -1358,6 +1344,10 @@ function reports_billing_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
     $rows = reports_financial_visit_rows($pdo, $range, $filters, $missing);
+    foreach ($rows as &$row) {
+        $row['payment_methods'] = reports_payment_method_labels($row['payment_methods'] ?? '');
+    }
+    unset($row);
     $totals = reports_financial_totals($rows);
 
     return [
@@ -1369,6 +1359,7 @@ function reports_billing_report(PDO $pdo, array $range, array $filters): array
             ['key' => 'owner_name', 'label' => 'Client'],
             ['key' => 'pet_name', 'label' => 'Pet'],
             ['key' => 'charges_summary', 'label' => 'Services / Items'],
+            ['key' => 'payment_methods', 'label' => 'Payment Methods'],
             ['key' => 'total_bill', 'label' => 'Total Bill'],
             ['key' => 'paid_amount', 'label' => 'Paid'],
             ['key' => 'balance', 'label' => 'Balance'],
@@ -1396,10 +1387,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
 
     $where = ["vp.payment_status IN ('verified', 'refunded')", 'vp.paid_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'vp.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $rows = reports_fetch_all($pdo, "
@@ -1425,10 +1412,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
     if (reports_table_exists($pdo, 'visit_payment_refunds')) {
         $refundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
         $refundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $refundWhere[] = 'refund.refund_method = ?';
-            $refundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1458,10 +1441,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
         ];
         $bookingParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingWhere[] = 'submission.payment_method = ?';
-            $bookingParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1488,10 +1467,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
     if (reports_table_exists($pdo, 'booking_payment_refunds')) {
         $bookingRefundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
         $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingRefundWhere[] = 'refund.refund_method = ?';
-            $bookingRefundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1520,10 +1495,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             'COALESCE(request.reviewed_at, request.updated_at, request.created_at) BETWEEN ? AND ?',
         ];
         $recordParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $recordWhere[] = 'request.payment_method = ?';
-            $recordParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($recordWhere, $recordParams, $filters, 'request.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1549,6 +1520,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
 
     $totalPaid = 0;
     foreach ($rows as &$row) {
+        $row['payment_method'] = reports_payment_method_labels($row['payment_method'] ?? '');
         $row['amount_paid'] = reports_money($row['amount_paid']);
         $totalPaid += (float)$row['amount_paid'];
     }
@@ -1564,7 +1536,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             ['key' => 'payment_date', 'label' => 'Payment Date'],
             ['key' => 'client_name', 'label' => 'Client'],
             ['key' => 'pet_name', 'label' => 'Pet'],
-            ['key' => 'payment_method', 'label' => 'Method'],
+            ['key' => 'payment_method', 'label' => 'Payment Method'],
             ['key' => 'amount_paid', 'label' => 'Amount Paid'],
             ['key' => 'processed_by', 'label' => 'Processed By'],
         ],
@@ -3082,6 +3054,28 @@ function reports_humanize_value($value): string
     return ucwords(trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $text))));
 }
 
+function reports_payment_method_labels($value): string
+{
+    $labels = [];
+    $knownLabels = [
+        'cash' => 'Cash',
+        'gcash' => 'GCash',
+        'maya' => 'Maya',
+        'paymaya' => 'Maya',
+        'bank_transfer' => 'Bank Transfer',
+        'credit_card' => 'Credit Card',
+        'debit_card' => 'Debit Card',
+    ];
+
+    foreach (array_filter(array_map('trim', explode(',', (string)$value))) as $method) {
+        $key = strtolower(str_replace([' ', '-'], '_', $method));
+        $labels[] = $knownLabels[$key] ?? reports_humanize_value($method);
+    }
+
+    $labels = array_values(array_unique($labels));
+    return empty($labels) ? 'No verified payment' : implode(', ', $labels);
+}
+
 function reports_currency_label($value): string
 {
     $amount = reports_money($value);
@@ -3510,9 +3504,20 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
     $rangeLabel = $range['label'] ?? ($range['start_date'] . ' to ' . $range['end_date']);
     $baseSummary = trim((string)($report['summary']['text'] ?? ''));
     $filterSummary = reports_filter_summary($filters);
+    $includesAllPaymentMethods = in_array($type, ['sales', 'billing', 'invoice_receipt'], true);
     $filterText = empty($filterSummary)
         ? 'No extra filters were applied.'
         : 'Filters applied: ' . implode('; ', array_map(static fn($filter) => $filter['label'] . ' = ' . $filter['value'], $filterSummary)) . '.';
+    if ($includesAllPaymentMethods) {
+        $filterSummary[] = [
+            'label' => 'Payment Methods',
+            'value' => 'All payment methods',
+        ];
+        $filterText .= ' All payment methods are included.';
+    }
+    $existingBreakdowns = is_array($report['summary']['breakdowns'] ?? null)
+        ? $report['summary']['breakdowns']
+        : [];
 
     $report['summary'] = array_merge($report['summary'] ?? [], [
         'purpose' => $profile['purpose'],
@@ -3523,7 +3528,7 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
         'operational_context' => $baseSummary !== ''
             ? "{$baseSummary} {$profile['use']}"
             : $profile['use'],
-        'breakdowns' => reports_key_breakdowns($type, $totals),
+        'breakdowns' => array_merge(reports_key_breakdowns($type, $totals), $existingBreakdowns),
         'management_actions' => reports_management_actions($type, $totals, $rows, $missing),
     ]);
 
@@ -3532,6 +3537,8 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
 
 function reports_build_report(PDO $pdo, string $type, array $range, array $filters = [], bool $includeComparison = false): array
 {
+    // Ignore stale client filters in both query execution and the exported scope.
+    unset($filters['payment_method']);
     $reportType = reports_allowed_type($type);
     if (!$reportType) {
         reports_json([

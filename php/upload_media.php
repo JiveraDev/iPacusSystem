@@ -17,6 +17,7 @@ foreach ($pathSegments as $pathSegment) {
 }
 
 $allowedDirectories = [
+    'grooming_photos',
     'boarding_documents',
     'concerns',
     'diagnosis',
@@ -50,14 +51,22 @@ if (!in_array($directory, $allowedDirectories, true)) {
 
 ipawcus_enforce_media_access($pdo, $relativePath);
 
-$baseDirectory = realpath(ipawcus_runtime_media_root());
+if ($directory === 'grooming_photos') {
+    require_once __DIR__ . '/grooming_media.php';
+    try { $baseDirectory = realpath(grooming_photo_directory()); }
+    catch (Throwable $error) { ipawcus_access_json(409, 'Grooming photo storage is unavailable. Please contact the clinic.', 'grooming_storage_unavailable'); }
+    $fileRelativePath = substr($relativePath, strlen('grooming_photos/'));
+} else {
+    $baseDirectory = realpath(ipawcus_runtime_media_root());
+    $fileRelativePath = $relativePath;
+}
 if (!$baseDirectory) {
     http_response_code(404);
     echo json_encode(['success' => false, 'message' => 'Media directory was not found.']);
     exit;
 }
 
-$targetPath = realpath($baseDirectory . DIRECTORY_SEPARATOR . $relativePath);
+$targetPath = realpath($baseDirectory . DIRECTORY_SEPARATOR . $fileRelativePath);
 
 if (!$targetPath || strpos($targetPath, $baseDirectory . DIRECTORY_SEPARATOR) !== 0 || !is_file($targetPath)) {
     http_response_code(404);
@@ -74,5 +83,5 @@ if ($mimeType === 'application/pdf') {
     header('Content-Disposition: inline; filename="' . $safeFileName . '"');
 }
 header('Content-Length: ' . filesize($targetPath));
-header('Cache-Control: private, max-age=86400');
+header($directory === 'grooming_photos' ? 'Cache-Control: private, no-store' : 'Cache-Control: private, max-age=86400');
 readfile($targetPath);

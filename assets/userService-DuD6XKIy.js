@@ -1,0 +1,1 @@
+import{lt as e,nt as t}from"./index-BzO6OT7M.js";function n(e){return t(`/users/${e}`,{apiPrefix:!0})}function r(t,n){return e(`/users/${t}`,n,{apiPrefix:!0})}function i(t,n){return e(`/users/${t}/password`,n,{apiPrefix:!0})}export{r as n,i as r,n as t};

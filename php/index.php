@@ -164,6 +164,9 @@ switch ($path) {
     case '/service-display-settings':
         require_once __DIR__ . '/service_display_settings.php';
         break;
+    case '/vet-presence':
+        require_once __DIR__ . '/vet_presence.php';
+        break;
     case '/branches':
         require_once __DIR__ . '/branches.php';
         break;
@@ -175,6 +178,9 @@ switch ($path) {
         break;
     case '/rooms/availability':
         require_once __DIR__ . '/get_room_availability.php';
+        break;
+    case '/grooming':
+        require_once __DIR__ . '/grooming.php';
         break;
     case '/boarding/rooms':
         $_GET['action'] = 'rooms';
@@ -231,8 +237,8 @@ switch ($path) {
         $_GET['action'] = 'transfer';
         require_once __DIR__ . '/inventory.php';
         break;
-    case '/inventory/archive':
-        $_GET['action'] = 'archive-item';
+    case '/inventory/delete':
+        $_GET['action'] = 'delete-item';
         require_once __DIR__ . '/inventory.php';
         break;
     case '/accounts':

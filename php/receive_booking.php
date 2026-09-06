@@ -78,6 +78,11 @@ try {
         throw new RuntimeException('Booking not found.');
     }
 
+    require_once __DIR__ . '/grooming_rules.php';
+    if (grooming_is_service($booking['service_type'])) {
+        ipawcus_guard_error(409, 'Manage this booking in Grooming. Only a requested grooming review goes to the veterinarian.');
+    }
+
     if ($booking['status'] !== 'confirmed') {
         http_response_code(409);
         throw new RuntimeException('Only confirmed bookings can be received.');

@@ -25,6 +25,10 @@ if (!isset($_FILES['image']) && !isset($_FILES['file'])) {
 
 $file = $_FILES['image'] ?? $_FILES['file'];
 $type = $_POST['type'] ?? 'user'; // 'user' or 'pet'
+if ($type === 'grooming_photo') {
+    require __DIR__ . '/grooming_upload.php';
+    exit;
+}
 $allowedUploadTypesByRole = [
     'pet_owner' => ['user', 'pet', 'booking_signature', 'booking_payment', 'booking_concern', 'consent_document'],
     'veterinarian' => ['user', 'booking_signature', 'booking_concern', 'diagnosis', 'consent_document', 'prescription_document'],

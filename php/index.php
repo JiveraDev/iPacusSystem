@@ -231,8 +231,8 @@ switch ($path) {
         $_GET['action'] = 'transfer';
         require_once __DIR__ . '/inventory.php';
         break;
-    case '/inventory/archive':
-        $_GET['action'] = 'archive-item';
+    case '/inventory/delete':
+        $_GET['action'] = 'delete-item';
         require_once __DIR__ . '/inventory.php';
         break;
     case '/accounts':

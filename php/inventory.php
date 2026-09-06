@@ -449,8 +449,9 @@ function getInventoryItems(PDO $pdo): void
             'supplier' => $item['last_supplier'] ?: 'No stock receipt yet',
             'supplierContact' => '',
             'locationId' => (int)$item['location_id'],
-            'location' => ($batchesByItem[$itemId][0]['location'] ?? trim((string)($item['item_location_name'] ?: $item['branch_name'])) . ' / ' . trim((string)($item['item_storage_area'] ?: 'General Storage'))),
-            'storageArea' => $batchesByItem[$itemId][0]['storageArea'] ?? ($item['item_storage_area'] ?: 'General Storage'),
+            'location' => trim((string)($item['item_location_name'] ?: $item['branch_name'])) . ' / ' . trim((string)($item['item_storage_area'] ?: 'General Storage')),
+            'locationName' => $item['item_location_name'] ?: $item['branch_name'],
+            'storageArea' => $item['item_storage_area'] ?: 'General Storage',
             'branchId' => $branchId,
             'branchName' => $item['branch_name'],
             'quantity' => $quantity,
@@ -699,14 +700,18 @@ function createStockIn(PDO $pdo): void
     $pdo->beginTransaction();
     try {
         $receiptBranchId = null;
+        $resolvedItems = [];
         foreach ($items as $line) {
-            $lineLocationId = (int)($line['location_id'] ?? 0);
+            $lineLocationId = inventoryResolveLocationId($pdo, $line);
             $lineBranchId = inventoryAssertLocationAccess($pdo, $lineLocationId);
             if ($receiptBranchId !== null && $receiptBranchId !== $lineBranchId) {
                 throw new InvalidArgumentException('A stock-in receipt must contain items for one branch only.');
             }
             $receiptBranchId = $lineBranchId;
+            $line['location_id'] = $lineLocationId;
+            $resolvedItems[] = $line;
         }
+        $items = $resolvedItems;
         $receiptStmt = $pdo->prepare("
             INSERT INTO inventory_stock_receipts (
                 branch_id, receiving_date, delivery_note_number, proof_image_path, notes,
@@ -725,7 +730,7 @@ function createStockIn(PDO $pdo): void
         $receiptId = (int)$pdo->lastInsertId();
 
         foreach ($items as $line) {
-            foreach (['item_id', 'location_id', 'batch_number', 'quantity_received'] as $field) {
+            foreach (['item_id', 'location_id', 'quantity_received'] as $field) {
                 if (empty($line[$field])) {
                     throw new Exception("$field is required for each stock-in item.");
                 }
@@ -734,11 +739,24 @@ function createStockIn(PDO $pdo): void
             $itemId = (int)$line['item_id'];
             $supplierId = inventoryResolveSupplierId($pdo, $line);
             $locationId = (int)$line['location_id'];
-            $batchNumber = inventoryText($line['batch_number']);
             $quantity = (int)$line['quantity_received'];
             if ($quantity <= 0) {
                 throw new Exception('Quantity received must be greater than 0.');
             }
+            $unitCost = (float)($line['unit_cost'] ?? 0);
+            $sellingPrice = (float)($line['selling_price'] ?? $unitCost);
+            if ($unitCost < 0 || $sellingPrice < 0) {
+                throw new InvalidArgumentException('Unit cost and selling price cannot be negative.');
+            }
+
+            $itemStmt = $pdo->prepare('SELECT item_name FROM inventory_items WHERE item_id = ? AND status = \'active\' LIMIT 1');
+            $itemStmt->execute([$itemId]);
+            $itemName = $itemStmt->fetchColumn();
+            if (!$itemName) {
+                throw new InvalidArgumentException('A selected inventory product is no longer active.');
+            }
+            $batchNumber = inventoryOptionalText($line['batch_number'] ?? null)
+                ?: inventoryGenerateBatchNumber($pdo, $itemId, (string)$itemName);
 
             $batchLookup = $pdo->prepare("
                 SELECT batch_id, quantity, location_id
@@ -766,7 +784,7 @@ function createStockIn(PDO $pdo): void
                 $updateBatch->execute([
                     $after,
                     inventoryOptionalText($line['expiry_date'] ?? null),
-                    (float)($line['unit_cost'] ?? 0),
+                    $unitCost,
                     $batchId
                 ]);
             } else {
@@ -783,7 +801,7 @@ function createStockIn(PDO $pdo): void
                     $batchNumber,
                     $quantity,
                     inventoryOptionalText($line['expiry_date'] ?? null),
-                    (float)($line['unit_cost'] ?? 0)
+                    $unitCost
                 ]);
                 $batchId = (int)$pdo->lastInsertId();
             }
@@ -803,8 +821,18 @@ function createStockIn(PDO $pdo): void
                 $batchNumber,
                 $quantity,
                 inventoryOptionalText($line['expiry_date'] ?? null),
-                (float)($line['unit_cost'] ?? 0)
+                $unitCost
             ]);
+
+            $priceFields = ['unit_cost = ?'];
+            $priceValues = [$unitCost];
+            if (inventoryColumnExists($pdo, 'inventory_items', 'selling_price')) {
+                $priceFields[] = 'selling_price = ?';
+                $priceValues[] = $sellingPrice;
+            }
+            $priceValues[] = $itemId;
+            $priceStmt = $pdo->prepare('UPDATE inventory_items SET ' . implode(', ', $priceFields) . ' WHERE item_id = ?');
+            $priceStmt->execute($priceValues);
 
             $movementStmt = $pdo->prepare("
                 INSERT INTO inventory_stock_movements (
@@ -1020,28 +1048,8 @@ function updateInventoryItem(PDO $pdo): void
         $values[] = $sellingPrice;
     }
 
-    if (array_key_exists('location_id', $input)) {
-        $locationId = (int)$input['location_id'];
-        if ($locationId <= 0) {
-            http_response_code(400);
-            echo json_encode(['message' => 'location_id is required.']);
-            return;
-        }
-
-        $locationStmt = $pdo->prepare("
-            SELECT location_id
-            FROM inventory_locations
-            WHERE location_id = ? AND status = 'active'
-            LIMIT 1
-        ");
-        $locationStmt->execute([$locationId]);
-        if (!$locationStmt->fetchColumn()) {
-            http_response_code(404);
-            echo json_encode(['message' => 'Inventory location was not found.']);
-            return;
-        }
-        inventoryAssertLocationAccess($pdo, $locationId);
-
+    if (array_key_exists('location_id', $input) || inventoryOptionalText($input['location_name'] ?? null)) {
+        $locationId = inventoryResolveLocationId($pdo, $input);
         $fields[] = 'location_id = ?';
         $values[] = $locationId;
     }
@@ -1100,13 +1108,13 @@ function updateInventoryItem(PDO $pdo): void
     }
 }
 
-function archiveInventoryItem(PDO $pdo): void
+function deleteInventoryItem(PDO $pdo): void
 {
     $input = inventoryInput();
-    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'archive_item', true);
+    $confirmation = inventoryConfirmResponsibility($pdo, $input, 'delete_item', true);
     $itemId = (int)($input['item_id'] ?? 0);
     if ($itemId <= 0) {
-        ipawcus_guard_error(422, 'Select an inventory item to archive.');
+        ipawcus_guard_error(422, 'Select an inventory item to delete.');
     }
 
     $pdo->beginTransaction();
@@ -1124,16 +1132,25 @@ function archiveInventoryItem(PDO $pdo): void
             throw new InvalidArgumentException('Inventory item was not found.');
         }
         inventoryAssertLocationAccess($pdo, (int)$item['location_id']);
-        if (strtolower((string)$item['status']) === 'inactive') {
-            throw new InvalidArgumentException('This inventory item is already archived.');
-        }
-
         $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
         $quantityStmt->execute([$itemId]);
         $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
 
-        $update = $pdo->prepare("UPDATE inventory_items SET status = 'inactive' WHERE item_id = ?");
-        $update->execute([$itemId]);
+        $protectedReferences = [
+            'service_materials' => 'service definitions',
+            'visit_charges' => 'visit invoices',
+        ];
+        foreach ($protectedReferences as $tableName => $description) {
+            if (!ipawcus_guard_table_exists($pdo, $tableName) || !inventoryColumnExists($pdo, $tableName, 'item_id')) {
+                continue;
+            }
+            $referenceStmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE item_id = ?");
+            $referenceStmt->execute([$itemId]);
+            if ((int)$referenceStmt->fetchColumn() > 0) {
+                throw new InvalidArgumentException("This product cannot be deleted because it is used by {$description}. Remove those links first.");
+            }
+        }
+
         inventoryWriteAudit(
             $pdo,
             $confirmation,
@@ -1141,10 +1158,28 @@ function archiveInventoryItem(PDO $pdo): void
             null,
             (int)$item['location_id'],
             array_merge($item, ['quantity' => $quantity]),
-            array_merge($item, ['status' => 'inactive', 'quantity' => $quantity])
+            null
         );
+
+        if (ipawcus_guard_table_exists($pdo, 'inventory_transfer_items')) {
+            $deleteTransferItems = $pdo->prepare('DELETE FROM inventory_transfer_items WHERE item_id = ?');
+            $deleteTransferItems->execute([$itemId]);
+        }
+        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_receipt_items')) {
+            $deleteReceiptItems = $pdo->prepare('DELETE FROM inventory_stock_receipt_items WHERE item_id = ?');
+            $deleteReceiptItems->execute([$itemId]);
+        }
+        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_movements')) {
+            $deleteMovements = $pdo->prepare('DELETE FROM inventory_stock_movements WHERE item_id = ?');
+            $deleteMovements->execute([$itemId]);
+        }
+        $deleteBatches = $pdo->prepare('DELETE FROM inventory_batches WHERE item_id = ?');
+        $deleteBatches->execute([$itemId]);
+        $deleteItem = $pdo->prepare('DELETE FROM inventory_items WHERE item_id = ?');
+        $deleteItem->execute([$itemId]);
+
         $pdo->commit();
-        echo json_encode(['message' => 'Inventory item archived.']);
+        echo json_encode(['message' => 'Inventory item permanently deleted.']);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $error instanceof InvalidArgumentException ? 409 : 500;
@@ -1329,8 +1364,8 @@ if ($method === 'GET' && $action === 'meta') {
     createStockOut($pdo);
 } elseif ($method === 'POST' && $action === 'transfer') {
     transferInventoryStock($pdo);
-} elseif ($method === 'POST' && $action === 'archive-item') {
-    archiveInventoryItem($pdo);
+} elseif ($method === 'POST' && $action === 'delete-item') {
+    deleteInventoryItem($pdo);
 } else {
     http_response_code(405);
     echo json_encode(['message' => 'Method not allowed.']);

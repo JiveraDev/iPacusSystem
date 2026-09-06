@@ -1,123 +1,228 @@
-import { SignatureMaker } from "@docuseal/signature-maker-react";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, LockKeyhole, PenLine } from 'lucide-react';
 
-const SignatureCapture = ({ onSignatureChange, signature, disabled = false }) => {
-    const handleSave = (payload) => {
-        // Docuseal might return an object or a string depending on version/mode
-        let base64 = typeof payload === 'string' ? payload : (payload?.data || payload?.base64);
-        
-        console.log("--- Signature Debug ---");
-        console.log("Payload type:", typeof payload);
-        console.log("Extracted prefix:", base64?.substring(0, 30));
-        console.log("Data length:", base64?.length);
-        
-        if (!base64) {
-            console.error("No signature data received");
+const INK_COLOR = '#0f172a';
+const INK_WIDTH = 2.5;
+
+function configureContext(canvas) {
+    const context = canvas.getContext('2d');
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = INK_COLOR;
+    context.fillStyle = INK_COLOR;
+    context.lineWidth = INK_WIDTH;
+    return context;
+}
+
+function drawStoredSignature(canvas, signature) {
+    const context = configureContext(canvas);
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const width = canvas.width / ratio;
+    const height = canvas.height / ratio;
+
+    context.clearRect(0, 0, width, height);
+    if (!signature) {
+        return;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+        context.clearRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+    };
+    image.src = signature;
+}
+
+export default function SignatureCapture({ onSignatureChange, signature, disabled = false }) {
+    const containerRef = useRef(null);
+    const canvasRef = useRef(null);
+    const drawingRef = useRef(false);
+    const movedRef = useRef(false);
+    const signatureRef = useRef(signature || '');
+    const [isDrawing, setIsDrawing] = useState(false);
+    const hasInk = Boolean(signature) || isDrawing;
+
+    const resizeCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) {
             return;
         }
 
-        // If it's raw base64 (common with some versions of Docuseal), prepend the prefix
-        // PNG base64 typically starts with 'iVBOR'
-        if (base64.startsWith('iVBOR') || !base64.startsWith('data:image')) {
-            console.log("Prepending data URL prefix to raw base64");
-            base64 = `data:image/png;base64,${base64}`;
+        const rect = container.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const nextWidth = Math.round(width * ratio);
+        const nextHeight = Math.round(height * ratio);
+
+        if (canvas.width === nextWidth && canvas.height === nextHeight) {
+            return;
         }
-        
-        onSignatureChange(base64);
+
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+
+        const context = canvas.getContext('2d');
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawStoredSignature(canvas, signatureRef.current);
+    }, []);
+
+    useEffect(() => {
+        resizeCanvas();
+
+        const container = containerRef.current;
+        if (!container || typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', resizeCanvas);
+            return () => window.removeEventListener('resize', resizeCanvas);
+        }
+
+        const observer = new ResizeObserver(resizeCanvas);
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [resizeCanvas]);
+
+    useEffect(() => {
+        const nextSignature = signature || '';
+        if (nextSignature === signatureRef.current) {
+            return;
+        }
+
+        signatureRef.current = nextSignature;
+        if (canvasRef.current) {
+            drawStoredSignature(canvasRef.current, nextSignature);
+        }
+    }, [signature]);
+
+    const pointerPosition = (event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        return {
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+        };
     };
 
-    const handleClear = () => {
-        if (disabled) return;
-        onSignatureChange(null);
+    const startDrawing = (event) => {
+        if (disabled || event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+        const canvas = event.currentTarget;
+        const point = pointerPosition(event);
+        const context = configureContext(canvas);
+
+        canvas.focus();
+        canvas.setPointerCapture(event.pointerId);
+        context.beginPath();
+        context.moveTo(point.x, point.y);
+        drawingRef.current = true;
+        movedRef.current = false;
+        setIsDrawing(true);
+    };
+
+    const continueDrawing = (event) => {
+        if (!drawingRef.current || disabled) {
+            return;
+        }
+
+        event.preventDefault();
+        const canvas = event.currentTarget;
+        const point = pointerPosition(event);
+        const context = configureContext(canvas);
+        context.lineTo(point.x, point.y);
+        context.stroke();
+        movedRef.current = true;
+    };
+
+    const finishDrawing = (event) => {
+        if (!drawingRef.current) {
+            return;
+        }
+
+        event.preventDefault();
+        const canvas = event.currentTarget;
+        const context = configureContext(canvas);
+
+        if (!movedRef.current) {
+            const point = pointerPosition(event);
+            context.beginPath();
+            context.arc(point.x, point.y, INK_WIDTH / 2, 0, Math.PI * 2);
+            context.fill();
+        }
+
+        context.closePath();
+        drawingRef.current = false;
+        setIsDrawing(false);
+
+        if (canvas.hasPointerCapture(event.pointerId)) {
+            canvas.releasePointerCapture(event.pointerId);
+        }
+
+        const dataUrl = canvas.toDataURL('image/png');
+        signatureRef.current = dataUrl;
+        onSignatureChange?.(dataUrl);
     };
 
     return (
-        <div className="space-y-3 w-full">
-            <div className={`border-2 border-dashed rounded-xl overflow-hidden relative min-h-[220px] flex items-center justify-center transition-all bg-white dark:bg-[#232428] ${
-                disabled && !signature ? "bg-gray-100 border-gray-300" : "border-gray-200"
-            }`}>
-                
-                {/* 
-                  IMPORTANT: We keep the SignatureMaker in the DOM at all times.
-                  This prevents the 'unobserve' on 'IntersectionObserver' errors 
-                  caused by the library when the component is unmounted while active.
-                */}
-                <div className="w-full h-full p-2 relative flex items-center justify-center">
-                    
-                    {/* Locked State Overlay */}
-                    {disabled && !signature && (
-                        <div className="absolute inset-0 z-20 bg-gray-100/90 backdrop-blur-[1px] flex flex-col items-center justify-center text-gray-500 p-4 text-center select-none cursor-not-allowed dark:bg-[#232428]/90 dark:text-[#949ba4]">
-                            <div className="bg-white p-5 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center dark:bg-[#2b2d31] dark:border-white/10">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2 text-amber-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                <p className="text-sm font-bold text-gray-800">Signature Locked</p>
-                                <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tight font-semibold">Please agree to terms above first</p>
-                            </div>
-                        </div>
-                    )}
+        <div className="w-full">
+            <div
+                ref={containerRef}
+                className={`relative h-52 overflow-hidden rounded-xl border-2 bg-white shadow-sm transition-[border-color,box-shadow] duration-200 sm:h-60 ${
+                    disabled
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900'
+                        : isDrawing
+                            ? 'border-[#155dfc] shadow-[0_0_0_4px_rgba(21,93,252,0.12)]'
+                            : hasInk
+                                ? 'border-blue-200 dark:border-blue-800'
+                                : 'border-dashed border-slate-300 hover:border-blue-300 dark:border-slate-600 dark:hover:border-blue-700'
+                }`}
+            >
+                <canvas
+                    ref={canvasRef}
+                    role="img"
+                    aria-label={disabled ? 'Signature area unavailable' : 'Draw your signature inside this area'}
+                    aria-disabled={disabled}
+                    tabIndex={disabled ? -1 : 0}
+                    onPointerDown={startDrawing}
+                    onPointerMove={continueDrawing}
+                    onPointerUp={finishDrawing}
+                    onPointerCancel={finishDrawing}
+                    onContextMenu={(event) => event.preventDefault()}
+                    className={`absolute inset-0 size-full touch-none select-none outline-none transition-opacity focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-200 ${
+                        disabled ? 'pointer-events-none opacity-35' : 'cursor-crosshair opacity-100'
+                    }`}
+                />
 
-                    {/* Signature Maker (Hidden but still in DOM when signature exists) */}
-                    <div className={`w-full h-full min-h-[180px] transition-all duration-300 ${
-                        signature ? "absolute opacity-0 pointer-events-none scale-95" : (disabled ? "pointer-events-none grayscale opacity-30" : "opacity-100")
-                    }`}>
-                        <SignatureMaker
-                            onSave={handleSave}
-                            allowedModes={["draw", "type"]}
-                            color="black"
-                            placeholder="Sign here"
-                            className="docuseal-signature-maker"
-                        />
-                    </div>
-
-                    {/* Signature Preview Layer (Always overlayed when signature exists) */}
-                    {signature && (
-                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-white animate-in fade-in zoom-in-95 duration-500 dark:bg-[#232428]">
-                            <div className="relative group bg-gray-50/80 p-6 rounded-xl border border-dashed border-gray-300 w-full flex items-center justify-center min-h-[140px] dark:bg-[#313338] dark:border-white/10">
-                                <img 
-                                    src={signature} 
-                                    alt="Your Signature" 
-                                    className="max-w-full max-h-[120px] object-contain drop-shadow-md" 
-                                    onLoad={() => console.log("Preview image loaded")}
-                                    onError={() => {
-                                        console.error("Preview image failed to load");
-                                        // If image fails, clear it so user can try again
-                                        // onSignatureChange(null);
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleClear}
-                                    disabled={disabled}
-                                    className={`absolute -top-3 -right-3 p-2.5 rounded-full transition-all shadow-lg border ${
-                                        disabled 
-                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" 
-                                        : "bg-white text-red-500 hover:bg-red-50 border-red-100 hover:scale-110 active:scale-95"
-                                    }`}
-                                    title="Redraw signature"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H5c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                </button>
-                            </div>
-                            <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Verified Digital Signature</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            {/* Legend / Status Text */}
-            {!signature && (
-                <div className="flex flex-col items-center gap-1">
-                    <p className={`text-[10px] text-center font-medium ${disabled ? "text-gray-400" : "text-gray-500"}`}>
-                        {disabled ? "Waiting for consent checkboxes..." : "Draw with mouse/touch or type your name"}
-                    </p>
-                    <div className="flex gap-2">
-                        <span className={`w-2 h-2 rounded-full ${disabled ? "bg-gray-300" : "bg-black animate-pulse"}`}></span>
-                        <span className={`text-[10px] uppercase tracking-wider font-bold ${disabled ? "text-gray-400" : "text-gray-600"}`}>
-                            {disabled ? "Ink Disabled" : "Standard Black Ink"}
+                {!hasInk && !disabled && (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-slate-400">
+                        <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                            <PenLine className="size-5" aria-hidden="true" />
                         </span>
+                        <p className="mt-3 text-sm font-bold text-slate-600">Sign inside this box</p>
+                        <p className="mt-1 text-xs font-medium text-slate-400">Use your finger, stylus, or mouse</p>
                     </div>
-                </div>
-            )}
+                )}
+
+                {disabled && !hasInk && (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                        <LockKeyhole className="size-6 text-amber-500" aria-hidden="true" />
+                        <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">Signature unavailable</p>
+                        <p className="mt-1 text-xs font-medium text-slate-400">Complete the required consent step first.</p>
+                    </div>
+                )}
+
+                {hasInk && !disabled && (
+                    <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 shadow-sm">
+                        <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                        Signature captured
+                    </div>
+                )}
+
+                <div className="pointer-events-none absolute inset-x-6 bottom-5 border-b border-slate-200" aria-hidden="true" />
+            </div>
         </div>
     );
-};
-
-export default SignatureCapture;
+}

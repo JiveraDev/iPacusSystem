@@ -2111,6 +2111,12 @@ function AdditionalConsentSection({
         setIsSheetOpen(false);
     };
 
+    const cancelSignatureCapture = () => {
+        setDraft(current => ({ ...current, signature: null }));
+        setShowTemplatePreview(false);
+        setIsSheetOpen(false);
+    };
+
     return (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2215,15 +2221,25 @@ function AdditionalConsentSection({
                                         onSignatureChange={(signature) => setDraft(current => ({ ...current, signature }))}
                                         disabled={!selectedTemplate}
                                     />
-                                    <Button
-                                        type="button"
-                                        onClick={submitSignedConsent}
-                                        disabled={!selectedTemplate || !draft.signature}
-                                        className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf]"
-                                    >
-                                        <Upload className="size-4" />
-                                        Submit Signature
-                                    </Button>
+                                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={cancelSignatureCapture}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onClick={submitSignedConsent}
+                                            disabled={!selectedTemplate || !draft.signature}
+                                            className="w-full bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:min-w-40 sm:w-auto"
+                                        >
+                                            <Upload className="size-4" />
+                                            Submit Signature
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

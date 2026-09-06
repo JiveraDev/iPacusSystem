@@ -392,7 +392,11 @@ function App() {
     }>
       <div
         data-motion-page={activeView}
-        className={activeView === 'dashboard' ? 'min-h-screen theme-aware' : 'min-h-screen theme-static-light'}
+        className={activeView === 'dashboard'
+          ? 'min-h-screen theme-aware'
+          : activeView === 'statusDisplay'
+            ? 'min-h-screen'
+            : 'min-h-screen theme-static-light'}
       >
         <ToastViewport />
         {activeView === 'statusDisplay' && (

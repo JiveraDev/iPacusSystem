@@ -63,8 +63,8 @@ export function transferInventoryStock(payload) {
   });
 }
 
-export function archiveInventoryItem(payload) {
-  return jsonRequest('/inventory/archive', payload, {
+export function deleteInventoryItem(payload) {
+  return jsonRequest('/inventory/delete', payload, {
     apiPrefix: true,
     method: 'POST'
   });

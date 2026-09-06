@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Filter, Download, Plus, Trash2, Eye, Package, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X, ArrowRightLeft, Archive } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, Eye, Package, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X, ArrowRightLeft } from 'lucide-react';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -7,11 +7,10 @@ import { Textarea } from '../../ui/textarea';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { Checkbox } from '../../ui/checkbox';
 import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../ui/dialog';
 import InventoryStatusBadge from './InventoryStatusBadge';
-import { archiveInventoryItem, createStockOut, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, transferInventoryStock, updateInventoryItem } from '../../services/inventoryApi';
+import { createStockOut, deleteInventoryItem, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, transferInventoryStock, updateInventoryItem } from '../../services/inventoryApi';
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -20,6 +19,8 @@ import TablePagination from '../shared/TablePagination.jsx';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
+import InventoryLocationFields from './InventoryLocationFields.jsx';
+import { DEFAULT_STORAGE_AREA, matchingLocation } from './inventoryLocationUtils.js';
 
 const REPORT_INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
 const INVENTORY_PAGE_SIZE = 20;
@@ -29,7 +30,6 @@ function createEditItemForm(item = {}) {
   return {
     itemName: item.name || '',
     genericName: item.genericName || '',
-    barcode: item.barcode || '',
     description: item.description || '',
     category: item.category || '',
     brand: item.brand || '',
@@ -38,7 +38,9 @@ function createEditItemForm(item = {}) {
     expiryWarningDays: String(item.expiryWarningDays ?? 90),
     unitCost: String(item.costPrice ?? ''),
     sellingPrice: String(item.sellingPrice ?? item.costPrice ?? ''),
-    locationId: String(item.locationId ?? '')
+    locationId: String(item.locationId ?? ''),
+    locationName: item.locationName || String(item.location || '').split(' / ')[0] || '',
+    storageArea: item.storageArea || DEFAULT_STORAGE_AREA
   };
 }
 
@@ -52,8 +54,6 @@ export default function AllItemsPage() {
   const [categoryFilter, setCategoryFilter] = useState('Select Categories');
   const [locationFilter, setLocationFilter] = useState('Select Location');
   const [statusFilter, setStatusFilter] = useState('Select Status');
-  const [archiveFilter, setArchiveFilter] = useState('active');
-  const [selectedItems, setSelectedItems] = useState([]);
   const viewMode = 'list';
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -78,7 +78,7 @@ export default function AllItemsPage() {
     }
     try {
       const [itemsData, metaData] = await Promise.all([
-        fetchInventoryItems({ includeArchived: true }),
+        fetchInventoryItems(),
         fetchInventoryMeta()
       ]);
       const loadedItems = itemsData.items || [];
@@ -96,22 +96,6 @@ export default function AllItemsPage() {
   };
 
   useAutoRefresh(loadInventory);
-
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      setSelectedItems(filteredItems.map(item => item.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const handleSelectItem = (itemId, checked) => {
-    if (checked) {
-      setSelectedItems([...selectedItems, itemId]);
-    } else {
-      setSelectedItems(selectedItems.filter(id => id !== itemId));
-    }
-  };
 
   const openItemDetails = (item) => {
     setSelectedItem(item);
@@ -158,8 +142,6 @@ export default function AllItemsPage() {
     setCategoryFilter('Select Categories');
     setLocationFilter('Select Location');
     setStatusFilter('Select Status');
-    setArchiveFilter('active');
-    setSelectedItems([matchedItem.id]);
     openItemDetails(matchedItem);
   }, [inventoryItems, isLoading]);
 
@@ -179,7 +161,7 @@ export default function AllItemsPage() {
     }
 
     if (quantityToRemove > Number(selectedBatch.quantity || 0)) {
-      const message = `Stock out quantity cannot exceed ${selectedBatch.quantity} ${stockOutItem.unit} in ${selectedBatch.batchNumber}.`;
+      const message = `Stock out quantity cannot exceed ${selectedBatch.quantity} ${stockOutItem.unit} in the selected stock entry.`;
       setErrorMessage(message);
       toast.error(message);
       return;
@@ -200,10 +182,10 @@ export default function AllItemsPage() {
       },
       summary: [
         { label: 'Product', value: stockOutItem.name },
-        { label: 'Batch', value: selectedBatch.batchNumber },
+        { label: 'Expiry', value: formatInventoryDate(selectedBatch.expiryDate) },
         { label: 'Location', value: selectedBatch.location || stockOutItem.location },
         { label: 'Quantity', value: `${quantityToRemove} ${stockOutItem.unit}` },
-        { label: 'Remaining in batch', value: `${Number(selectedBatch.quantity) - quantityToRemove} ${stockOutItem.unit}` }
+        { label: 'Remaining in entry', value: `${Number(selectedBatch.quantity) - quantityToRemove} ${stockOutItem.unit}` }
       ]
     });
     setStockOutItem(null);
@@ -241,8 +223,8 @@ export default function AllItemsPage() {
       return;
     }
 
-    if (!editItemForm.locationId) {
-      const message = 'Select an inventory location.';
+    if (!editItemForm.locationName || !editItemForm.storageArea) {
+      const message = 'Choose or add an inventory location and storage area.';
       setErrorMessage(message);
       toast.error(message);
       return;
@@ -254,11 +236,10 @@ export default function AllItemsPage() {
       return;
     }
 
-    const nextLocation = locations.find((location) => String(location.id) === String(editItemForm.locationId));
+    const nextLocation = matchingLocation(locations, editItemForm.locationName, editItemForm.storageArea);
     const changes = [
       { label: 'Product name', before: selectedItem.name, after: editItemForm.itemName.trim() },
       { label: 'Generic name', before: selectedItem.genericName || 'Not set', after: editItemForm.genericName.trim() || 'Not set' },
-      { label: 'Barcode', before: selectedItem.barcode || 'Not set', after: editItemForm.barcode.trim() || 'Not set' },
       { label: 'Description', before: selectedItem.description || 'Not set', after: editItemForm.description.trim() || 'Not set' },
       { label: 'Category', before: selectedItem.category, after: editItemForm.category },
       { label: 'Brand', before: selectedItem.brand || 'Not set', after: editItemForm.brand.trim() || 'Not set' },
@@ -267,7 +248,7 @@ export default function AllItemsPage() {
       { label: 'Expiry warning', before: `${selectedItem.expiryWarningDays ?? 90} days`, after: `${expiryWarningDays} days` },
       { label: 'Unit cost', before: formatPhpCurrency(selectedItem.costPrice), after: formatPhpCurrency(unitCost) },
       { label: 'Selling price', before: formatPhpCurrency(selectedItem.sellingPrice ?? selectedItem.costPrice), after: formatPhpCurrency(sellingPrice) },
-      { label: 'Default location', before: selectedItem.location, after: nextLocation?.displayName || nextLocation?.name || 'Selected location' }
+      { label: 'Location', before: selectedItem.location, after: `${editItemForm.locationName} / ${editItemForm.storageArea}` }
     ].filter((change) => change.before !== change.after);
 
     if (changes.length === 0) {
@@ -286,7 +267,6 @@ export default function AllItemsPage() {
         item_id: selectedItem.itemId || selectedItem.id,
         item_name: editItemForm.itemName.trim(),
         generic_name: editItemForm.genericName.trim() || null,
-        barcode: editItemForm.barcode.trim() || null,
         description: editItemForm.description.trim() || null,
         category: editItemForm.category,
         brand: editItemForm.brand.trim() || null,
@@ -295,7 +275,9 @@ export default function AllItemsPage() {
         expiry_warning_days: expiryWarningDays,
         unit_cost: unitCost,
         selling_price: sellingPrice,
-        location_id: editItemForm.locationId
+        location_id: nextLocation?.id || null,
+        location_name: editItemForm.locationName,
+        storage_area: editItemForm.storageArea
       },
       summary: changes
     });
@@ -314,7 +296,7 @@ export default function AllItemsPage() {
     const destination = locations.find((location) => String(location.id) === String(transferDestinationId));
     const quantity = Number(transferQuantity);
     if (!transferItem || !sourceBatch || !destination || !Number.isFinite(quantity) || quantity <= 0) {
-      toast.error('Select the source batch, destination, and a valid quantity.');
+      toast.error('Select the source stock entry, destination, and a valid quantity.');
       return;
     }
     if (String(sourceBatch.locationId) === String(destination.id)) {
@@ -342,7 +324,7 @@ export default function AllItemsPage() {
       },
       summary: [
         { label: 'Product', value: transferItem.name },
-        { label: 'Batch', value: sourceBatch.batchNumber },
+        { label: 'Source expiry', value: formatInventoryDate(sourceBatch.expiryDate) },
         { label: 'Source', value: sourceBatch.location || transferItem.location },
         { label: 'Destination', value: destination.displayName || destination.name },
         { label: 'Quantity', value: `${quantity} ${transferItem.unit}` }
@@ -351,26 +333,23 @@ export default function AllItemsPage() {
     setTransferItem(null);
   };
 
-  const handleArchiveReview = () => {
+  const handleDeleteReview = () => {
     if (!selectedItem) return;
-    const remainingStock = Number(selectedItem.quantity || 0);
     setInventoryConfirmation({
-      type: 'archive',
-      title: 'Archive Inventory Product',
-      description: remainingStock > 0
-        ? 'This product still has stock. Archiving hides it from active inventory and POS while preserving its stock and transaction history.'
-        : 'This product will be removed from active inventory and POS without deleting its history.',
+      type: 'delete',
+      title: 'Permanently delete product',
+      description: 'This permanently removes the product, its stock entries, and its inventory receipt lines. This action cannot be undone.',
       requiresReason: true,
       destructive: true,
-      confirmLabel: 'Archive product',
+      confirmLabel: 'Delete permanently',
       itemId: selectedItem.itemId || selectedItem.id,
       itemName: selectedItem.name,
       payload: { item_id: selectedItem.itemId || selectedItem.id },
       summary: [
         { label: 'Product', value: selectedItem.name },
-        { label: 'SKU', value: selectedItem.sku },
         { label: 'Current stock', value: `${selectedItem.quantity} ${selectedItem.unit}` },
-        { label: 'Result', value: 'Hidden from Inventory and POS; history retained' }
+        { label: 'Location', value: selectedItem.location },
+        { label: 'Result', value: 'Permanently removed from inventory' }
       ]
     });
   };
@@ -391,7 +370,7 @@ export default function AllItemsPage() {
       if (action.type === 'edit') await updateInventoryItem(payload);
       if (action.type === 'stock-out') await createStockOut(payload);
       if (action.type === 'transfer') await transferInventoryStock(payload);
-      if (action.type === 'archive') await archiveInventoryItem(payload);
+      if (action.type === 'delete') await deleteInventoryItem(payload);
 
       const updatedItems = await loadInventory();
       const updatedItem = updatedItems.find((item) => String(item.itemId || item.id) === String(action.itemId));
@@ -399,7 +378,7 @@ export default function AllItemsPage() {
         setSelectedItem(updatedItem);
         setEditItemForm(createEditItemForm(updatedItem));
       }
-      if (action.type === 'archive') {
+      if (action.type === 'delete') {
         setSelectedItem(null);
         setIsDetailModalOpen(false);
       }
@@ -411,7 +390,7 @@ export default function AllItemsPage() {
         edit: `${action.itemName} inventory details updated.`,
         'stock-out': `${action.itemName} stock-out recorded.`,
         transfer: `${action.itemName} stock transferred.`,
-        archive: `${action.itemName} archived.`
+        delete: `${action.itemName} permanently deleted.`
       };
       toast.success(messages[action.type]);
     } catch (error) {
@@ -428,20 +407,18 @@ export default function AllItemsPage() {
     || categoryFilter !== 'Select Categories'
     || locationFilter !== 'Select Location'
     || statusFilter !== 'Select Status'
-    || archiveFilter !== 'active'
   );
   const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (item.genericName && item.genericName.toLowerCase().includes(searchQuery.toLowerCase()));
+    const normalizedQuery = searchQuery.toLowerCase();
+    const matchesSearch = item.name.toLowerCase().includes(normalizedQuery)
+      || (item.genericName && item.genericName.toLowerCase().includes(normalizedQuery))
+      || (item.brand && item.brand.toLowerCase().includes(normalizedQuery));
     const matchesCategory = categoryFilter === 'Select Categories' || item.category === categoryFilter;
     const matchesLocation = locationFilter === 'Select Location'
       || String(item.locationId) === String(locationFilter)
       || (item.batches || []).some((batch) => String(batch.locationId) === String(locationFilter));
     const matchesStatus = statusFilter === 'Select Status' || item.status === statusFilter;
-    const matchesArchive = archiveFilter === 'all'
-      || (archiveFilter === 'archived' ? item.isArchived : !item.isArchived);
-    return matchesSearch && matchesCategory && matchesLocation && matchesStatus && matchesArchive;
+    return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
   });
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
@@ -450,7 +427,7 @@ export default function AllItemsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, categoryFilter, locationFilter, statusFilter, archiveFilter]);
+  }, [searchQuery, categoryFilter, locationFilter, statusFilter]);
 
   useEffect(() => {
     if (
@@ -468,7 +445,7 @@ export default function AllItemsPage() {
     }
   }, [currentPage, totalPages]);
 
-  const activeInventoryItems = inventoryItems.filter(item => !item.isArchived);
+  const activeInventoryItems = inventoryItems;
   const lowStockCount = activeInventoryItems.filter(item => item.status === 'low-stock').length;
   const nearExpiryCount = activeInventoryItems.filter(item => item.status === 'near-expiry').length;
 
@@ -518,11 +495,11 @@ export default function AllItemsPage() {
 
       {/* Filters Section */}
       <div data-filter-bar data-session-persist="off" className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {/* Search */}
           <div className="md:col-span-2">
             <Input
-              placeholder="Search name or SKU"
+              placeholder="Search product, generic name, or brand"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               leftIcon={<Search className="size-4" />}
@@ -576,18 +553,6 @@ export default function AllItemsPage() {
             </SelectContent>
           </Select>
 
-          {/* Archive Filter */}
-          <Select value={archiveFilter} onValueChange={setArchiveFilter}>
-            <SelectTrigger>
-              <Archive className="size-4 mr-2" />
-              <SelectValue placeholder="Active Items" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active Items</SelectItem>
-              <SelectItem value="archived">Archived Items</SelectItem>
-              <SelectItem value="all">Active and Archived</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -634,35 +599,13 @@ export default function AllItemsPage() {
         </div>
       )}
 
-      {/* Bulk Actions */}
-      {selectedItems.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-[10px] border border-[#155dfc] bg-[#eff6ff] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">
-            {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
-          </p>
-          <div className="flex flex-wrap gap-2">
-
-            <Button variant="destructive" size="sm" onClick={() => setSelectedItems([])}>
-              <Trash2 className="size-4 mr-2" />
-              Clear Selection
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Content - List View */}
       {!isLoading && viewMode === 'list' && (
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] overflow-hidden">
           <div className="overflow-x-auto">
-            <Table className="min-w-[1120px]">
+            <Table className="min-w-[1040px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={filteredItems.length > 0 && selectedItems.length === filteredItems.length}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
                   <TableHead className="w-[80px]">Image</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Product Name</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Category</TableHead>
@@ -670,6 +613,7 @@ export default function AllItemsPage() {
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Location</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Quantity</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
+                  <TableHead className="w-[90px] text-right font-['Arimo:Bold',sans-serif]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -677,18 +621,8 @@ export default function AllItemsPage() {
                   <TableRow
                     key={item.id}
                     className="hover:bg-[#f9fafb] cursor-pointer"
-                    onClick={(e) => {
-                      if (!e.target.closest('input, button')) {
-                        handleItemClick(item);
-                      }
-                    }}
+                    onClick={() => handleItemClick(item)}
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selectedItems.includes(item.id)}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked)}
-                      />
-                    </TableCell>
                     <TableCell>
                       <div className="size-[50px] rounded-[8px] bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] flex items-center justify-center overflow-hidden">
                         {item.image ? (
@@ -719,18 +653,22 @@ export default function AllItemsPage() {
                       {item.quantity} {item.unit}
                     </TableCell>
                     <TableCell>
-                      {item.isArchived ? (
-                        <Badge className="border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          <Archive className="mr-1 size-3" />
-                          Archived
-                        </Badge>
-                      ) : (
-                        <InventoryStatusBadge status={item.status} />
-                      )}
+                      <InventoryStatusBadge status={item.status} />
                     </TableCell>
-
+                    <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                      <Button variant="ghost" size="sm" onClick={() => openItemDetails(item)} className="gap-2"><Eye className="size-4" />View</Button>
+                    </TableCell>
                   </TableRow>
                 ))}
+                {paginatedItems.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-48 text-center">
+                      <Package className="mx-auto mb-3 size-8 text-slate-400" />
+                      <p className="font-bold text-slate-800 dark:text-slate-100">No inventory products found</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try clearing the filters or add a new item.</p>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -803,14 +741,6 @@ export default function AllItemsPage() {
 
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                    SKU:
-                  </span>
-                  <span className="truncate text-right font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                    {item.sku}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                     Location:
                   </span>
                   <span className="truncate text-right font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
@@ -819,16 +749,15 @@ export default function AllItemsPage() {
                 </div>
               </div>
 
-              {/* Batch Information */}
+              {/* Stock entries */}
               <div className="rounded-[8px] border border-[rgba(0,0,0,0.08)] p-2.5 mb-3">
                 <p className="font-['Arimo:Bold',sans-serif] text-[11px] text-[#101828] mb-2">
-                  Batch Information
+                  Stock entries
                 </p>
                 <div className="max-h-24 space-y-2 overflow-y-auto pr-1">
                   {getItemBatches(item, 'newest').map((batch) => (
                     <div key={batch.id} className="flex items-center justify-between gap-3 text-[11px]">
                       <div>
-                        <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">{batch.batchNumber}</p>
                         <p className="font-['Arimo:Regular',sans-serif] text-[#4a5565]">Expires {formatInventoryDate(batch.expiryDate, { compact: true })}</p>
                       </div>
                       <div className="text-right">
@@ -838,7 +767,7 @@ export default function AllItemsPage() {
                   ))}
                   {getItemBatches(item, 'newest').length === 0 && (
                     <p className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
-                      No available batches
+                      No available stock entries
                     </p>
                   )}
                 </div>
@@ -866,14 +795,7 @@ export default function AllItemsPage() {
 
               {/* Status */}
               <div className="flex items-center justify-between">
-                {item.isArchived ? (
-                  <Badge className="border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    <Archive className="mr-1 size-3" />
-                    Archived
-                  </Badge>
-                ) : (
-                  <InventoryStatusBadge status={item.status} />
-                )}
+                <InventoryStatusBadge status={item.status} />
                 <Button variant="ghost" size="sm">
                   <Eye className="size-4 mr-2" />
                   Details
@@ -928,26 +850,9 @@ export default function AllItemsPage() {
                       {selectedItem.genericName || `${selectedItem.category} - ${selectedItem.brand}`}
                     </DialogDescription>
                   </div>
-                  {!selectedItem.isArchived && (
-                    <Button
-                      type="button"
-                      variant={isEditingItem ? 'ghost' : 'outline'}
-                      size="sm"
-                      onClick={isEditingItem ? () => setIsEditingItem(false) : handleEditItem}
-                    >
-                      {isEditingItem ? (
-                        <>
-                          <X className="size-4 mr-2" />
-                          Cancel Edit
-                        </>
-                      ) : (
-                        <>
-                          <Pencil className="size-4 mr-2" />
-                          Edit
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <Button type="button" variant={isEditingItem ? 'ghost' : 'outline'} size="sm" onClick={isEditingItem ? () => setIsEditingItem(false) : handleEditItem}>
+                    {isEditingItem ? <><X className="size-4 mr-2" />Cancel edit</> : <><Pencil className="size-4 mr-2" />Edit</>}
+                  </Button>
                 </div>
               </DialogHeader>
 
@@ -955,14 +860,7 @@ export default function AllItemsPage() {
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{selectedItem.category}</Badge>
-                  {selectedItem.isArchived ? (
-                    <Badge className="border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      <Archive className="mr-1 size-3" />
-                      Archived
-                    </Badge>
-                  ) : (
-                    <InventoryStatusBadge status={selectedItem.status} />
-                  )}
+                  <InventoryStatusBadge status={selectedItem.status} />
                   {selectedItem.isControlled && (
                     <Badge className="bg-[#ffe6e6] text-[#d92d20] hover:bg-[#ffe6e6]">
                       Controlled
@@ -989,10 +887,6 @@ export default function AllItemsPage() {
                       <div className="space-y-2">
                         <Label htmlFor="inventory-edit-generic">Generic name</Label>
                         <Input id="inventory-edit-generic" value={editItemForm.genericName} onChange={(event) => setEditItemForm((current) => ({ ...current, genericName: event.target.value }))} maxLength={150} placeholder="Optional generic name" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="inventory-edit-barcode">Barcode</Label>
-                        <Input id="inventory-edit-barcode" value={editItemForm.barcode} onChange={(event) => setEditItemForm((current) => ({ ...current, barcode: event.target.value }))} maxLength={80} placeholder="Optional barcode" />
                       </div>
                       <div className="space-y-2">
                         <Label>Category</Label>
@@ -1068,10 +962,6 @@ export default function AllItemsPage() {
                     </h4>
                     <div className="space-y-3">
                       <div>
-                        <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">SKU</p>
-                        <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">{selectedItem.sku}</p>
-                      </div>
-                      <div>
                         <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Brand</p>
                         <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">{selectedItem.brand}</p>
                       </div>
@@ -1087,22 +977,16 @@ export default function AllItemsPage() {
                       <div>
                         <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Inventory Location</p>
                         {isEditingItem ? (
-                          <Select
-                            value={editItemForm.locationId}
-                            onValueChange={(value) => setEditItemForm((current) => ({ ...current, locationId: value }))}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue
-                                placeholder="Select location"
-                                displayValue={locations.find((location) => String(location.id) === String(editItemForm.locationId))?.name}
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {locations.map((location) => (
-                                <SelectItem key={location.id} value={String(location.id)}>{location.displayName || `${location.name} / ${location.storageArea || 'General Storage'}`}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="mt-2">
+                            <InventoryLocationFields
+                              locations={locations}
+                              locationName={editItemForm.locationName}
+                              storageArea={editItemForm.storageArea}
+                              onChange={(nextLocation) => setEditItemForm((current) => ({ ...current, ...nextLocation }))}
+                              idPrefix="edit-item-location"
+                              compact
+                            />
+                          </div>
                         ) : (
                           <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">{selectedItem.location}</p>
                         )}
@@ -1145,11 +1029,11 @@ export default function AllItemsPage() {
                   </div>
                 </div>
 
-                {/* Batch Information */}
+                {/* Stock entry information */}
                 <div className="bg-[#f9fafb] rounded-[10px] p-4">
                   <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828]">
-                      Batch Information
+                      Stock entries
                     </h4>
                     <div className="w-full sm:w-44">
                       <Select value={batchSort} onValueChange={setBatchSort}>
@@ -1166,11 +1050,7 @@ export default function AllItemsPage() {
                   </div>
                   <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
                     {selectedItemBatches.map((batch) => (
-                      <div key={batch.id} className="grid grid-cols-1 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3 sm:grid-cols-4">
-                        <div>
-                          <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Batch</p>
-                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.batchNumber}</p>
-                        </div>
+                      <div key={batch.id} className="grid grid-cols-1 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3 sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-950">
                         <div>
                           <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Quantity</p>
                           <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.quantity} {selectedItem.unit}</p>
@@ -1187,7 +1067,7 @@ export default function AllItemsPage() {
                     ))}
                     {selectedItemBatches.length === 0 && (
                       <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                        No available batches
+                        No available stock entries
                       </p>
                     )}
                   </div>
@@ -1246,7 +1126,6 @@ export default function AllItemsPage() {
                 </div>
 
                 {/* Actions */}
-                {!selectedItem.isArchived ? (
                 <div className="grid grid-cols-1 gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-3">
                   {isEditingItem && (
                     <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={handleSaveItem}>
@@ -1266,17 +1145,11 @@ export default function AllItemsPage() {
                     <ArrowRightLeft className="size-4 mr-2" />
                     Transfer
                   </Button>
-                  <Button variant="destructive" onClick={handleArchiveReview}>
-                    <Archive className="size-4 mr-2" />
-                    Archive
+                  <Button variant="destructive" onClick={handleDeleteReview}>
+                    <Trash2 className="size-4 mr-2" />
+                    Delete permanently
                   </Button>
                 </div>
-                ) : (
-                  <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                    <Archive className="mt-0.5 size-4 shrink-0" />
-                    This archived product is read-only. Its stock and transaction history remain available for review.
-                  </div>
-                )}
               </div>
             </>
           )}
@@ -1291,14 +1164,14 @@ export default function AllItemsPage() {
               <DialogHeader>
                 <DialogTitle className="font-['Arimo:Bold',sans-serif] text-[22px]">Stock Out</DialogTitle>
                 <DialogDescription>
-                  Select the batch and quantity that will be deducted from {stockOutItem.name}.
+                  Select the stock entry and quantity that will be deducted from {stockOutItem.name}.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 mt-2">
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">Batch</p>
+                    <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">Stock entry</p>
                     <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
                       {stockOutBatches.length} available
                     </p>
@@ -1307,7 +1180,7 @@ export default function AllItemsPage() {
                     <Select value={stockOutBatchId} onValueChange={setStockOutBatchId}>
                       <SelectTrigger>
                         <SelectValue
-                          placeholder="Select batch"
+                          placeholder="Select stock entry"
                           displayValue={selectedStockOutBatch ? formatBatchOption(selectedStockOutBatch, stockOutItem.unit) : undefined}
                         />
                       </SelectTrigger>
@@ -1321,7 +1194,7 @@ export default function AllItemsPage() {
                     </Select>
                   ) : (
                     <div className="rounded-[8px] border border-[rgba(0,0,0,0.08)] bg-[#f9fafb] p-3 font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                      No available batches for this item.
+                      No available stock entries for this item.
                     </div>
                   )}
                 </div>
@@ -1340,7 +1213,7 @@ export default function AllItemsPage() {
                   />
                   {selectedStockOutBatch && (
                     <p className="mt-1 font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">
-                      Available in selected batch: {selectedStockOutBatch.quantity} {stockOutItem.unit}
+                      Available in selected entry: {selectedStockOutBatch.quantity} {stockOutItem.unit}
                     </p>
                   )}
                 </div>
@@ -1364,18 +1237,18 @@ export default function AllItemsPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Transfer Stock</DialogTitle>
-                <DialogDescription>Select a source batch, destination, and quantity for {transferItem.name}.</DialogDescription>
+                <DialogDescription>Select a source stock entry, destination, and quantity for {transferItem.name}.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Source batch</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Source stock entry</p>
                   <Select value={transferBatchId} onValueChange={(value) => {
                     setTransferBatchId(value);
                     setTransferDestinationId('');
                   }}>
                     <SelectTrigger>
                       <SelectValue
-                        placeholder="Select source batch"
+                        placeholder="Select source stock entry"
                         displayValue={selectedTransferBatch ? formatBatchOption(selectedTransferBatch, transferItem.unit) : undefined}
                       />
                     </SelectTrigger>
@@ -1490,7 +1363,7 @@ function getDateTime(value, fallback) {
 }
 
 function formatBatchOption(batch, unit) {
-  return `${batch.batchNumber} - ${batch.quantity} ${unit} - expires ${formatInventoryDate(batch.expiryDate, { compact: true })}`;
+  return `${batch.quantity} ${unit} · ${batch.location || 'Saved location'} · expires ${formatInventoryDate(batch.expiryDate, { compact: true })}`;
 }
 
 function formatInventoryDate(value, options = {}) {

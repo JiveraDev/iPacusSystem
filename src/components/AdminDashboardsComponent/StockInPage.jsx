@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Upload, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Minus, PackageCheck, Plus, Upload } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -12,6 +12,8 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
+import InventoryLocationFields from './InventoryLocationFields.jsx';
+import { DEFAULT_STORAGE_AREA } from './inventoryLocationUtils.js';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -20,10 +22,13 @@ const emptyStockInItem = () => ({
   productName: '',
   supplier: '',
   supplierName: '',
-  location: '',
+  locationId: '',
+  locationName: '',
+  storageArea: DEFAULT_STORAGE_AREA,
   quantity: 0,
-  batchNumber: '',
-  expiryDate: ''
+  expiryDate: '',
+  unitCost: '',
+  sellingPrice: ''
 });
 
 const NEW_SUPPLIER_PREFIX = 'new-supplier:';
@@ -44,101 +49,9 @@ function supplierDisplayName(item, suppliers) {
   return suppliers.find((supplier) => String(supplier.id) === String(item.supplier))?.name || '';
 }
 
-function getItemLocationOptions(inventoryItem) {
-  if (!inventoryItem) return [];
-
-  const locationsById = new Map();
-  const addLocation = (id, name) => {
-    if (!id || !name) return;
-    locationsById.set(String(id), { id: String(id), name });
-  };
-
-  addLocation(inventoryItem.locationId, inventoryItem.location);
-  (inventoryItem.batches || []).forEach((batch) => addLocation(batch.locationId, batch.location));
-
-  return Array.from(locationsById.values());
-}
-
 function formatInventoryQuantity(inventoryItem) {
   if (!inventoryItem) return 'Select product first';
   return `${inventoryItem.quantity ?? 0} ${inventoryItem.unit || ''}`.trim();
-}
-
-function codePart(value, length, fallback) {
-  const cleaned = String(value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || fallback;
-  return cleaned.padEnd(length, fallback).slice(0, length);
-}
-
-function formatDateCode(date = new Date()) {
-  const year = String(date.getFullYear()).slice(-2);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}${month}${day}`;
-}
-
-function getBatchSortValue(batch) {
-  const dateTime = new Date(batch.createdAt || batch.manufacturingDate || batch.expiryDate || '').getTime();
-  if (!Number.isNaN(dateTime)) return dateTime;
-
-  const numericId = Number(batch.batchId || batch.id || 0);
-  return Number.isFinite(numericId) ? numericId : 0;
-}
-
-function getLatestBatch(inventoryItem) {
-  const batches = inventoryItem?.batches || [];
-  if (!batches.length) return null;
-
-  return [...batches].sort((a, b) => (
-    getBatchSortValue(b) - getBatchSortValue(a) ||
-    Number(b.batchId || b.id || 0) - Number(a.batchId || a.id || 0)
-  ))[0];
-}
-
-function incrementBatchNumber(batchNumber) {
-  const value = String(batchNumber || '').trim();
-  if (!value) return '';
-
-  const numericSuffix = value.match(/(\d+)$/);
-  if (!numericSuffix) {
-    return `${value}-001`;
-  }
-
-  const nextNumber = String(Number(numericSuffix[1]) + 1).padStart(numericSuffix[1].length, '0');
-  return `${value.slice(0, numericSuffix.index)}${nextNumber}`;
-}
-
-function normalizeBatchNumber(batchNumber) {
-  return String(batchNumber || '').trim().toLowerCase();
-}
-
-function createFirstBatchNumber(inventoryItem) {
-  return ['BCH', codePart(inventoryItem?.name, 4, 'ITEM'), formatDateCode(), '001'].join('-');
-}
-
-function createNextStockInBatchNumber(inventoryItem, currentItems = [], currentIndex = -1) {
-  if (!inventoryItem) return '';
-
-  const latestBatch = getLatestBatch(inventoryItem);
-  const existingBatchNumbers = new Set([
-    ...(inventoryItem.batches || []).map((batch) => normalizeBatchNumber(batch.batchNumber)),
-    ...currentItems
-      .filter((item, index) => index !== currentIndex && String(item.productId) === String(inventoryItem.itemId))
-      .map((item) => normalizeBatchNumber(item.batchNumber))
-  ].filter(Boolean));
-
-  let batchNumber = latestBatch?.batchNumber
-    ? incrementBatchNumber(latestBatch.batchNumber)
-    : createFirstBatchNumber(inventoryItem);
-  if (!batchNumber) {
-    batchNumber = createFirstBatchNumber(inventoryItem);
-  }
-
-  while (existingBatchNumbers.has(normalizeBatchNumber(batchNumber))) {
-    batchNumber = incrementBatchNumber(batchNumber);
-  }
-
-  return batchNumber;
 }
 
 function formatFileSize(size) {
@@ -152,6 +65,7 @@ export default function StockInPage() {
   const [items, setItems] = useState([emptyStockInItem()]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [receivingDate, setReceivingDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [notes, setNotes] = useState('');
@@ -170,6 +84,7 @@ export default function StockInPage() {
       const [itemsData, metaData] = await Promise.all([fetchInventoryItems(), fetchInventoryMeta()]);
       setInventoryItems(itemsData.items || []);
       setSuppliers(metaData.suppliers || []);
+      setLocations(metaData.locations || []);
     } catch (error) {
       if (!isAutoRefresh) {
         setErrorMessage(error.message || 'Failed to load stock-in data.');
@@ -226,7 +141,7 @@ export default function StockInPage() {
 
   const handleProductSelect = (index, value) => {
     const selectedItem = getInventoryItem(value);
-    const defaultLocation = getItemLocationOptions(selectedItem)[0]?.id || '';
+    const defaultLocation = locations.find((location) => String(location.id) === String(selectedItem?.locationId));
 
     setItems((currentItems) => currentItems.map((item, itemIndex) => (
       itemIndex === index
@@ -234,10 +149,19 @@ export default function StockInPage() {
           ...item,
           productId: value,
           productName: selectedItem?.name || '',
-          location: defaultLocation,
-          batchNumber: createNextStockInBatchNumber(selectedItem, currentItems, index)
+          locationId: defaultLocation ? String(defaultLocation.id) : '',
+          locationName: defaultLocation?.name || selectedItem?.locationName || '',
+          storageArea: defaultLocation?.storageArea || selectedItem?.storageArea || DEFAULT_STORAGE_AREA,
+          unitCost: String(selectedItem?.costPrice ?? ''),
+          sellingPrice: String(selectedItem?.sellingPrice ?? selectedItem?.costPrice ?? '')
         }
       : item
+    )));
+  };
+
+  const handleLocationChange = (index, nextLocation) => {
+    setItems((currentItems) => currentItems.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, ...nextLocation } : item
     )));
   };
 
@@ -281,10 +205,15 @@ export default function StockInPage() {
       const incompleteIndex = items.findIndex((item) => (
         !item.productId ||
         (!item.supplier && !item.supplierName) ||
-        !item.location ||
+        !item.locationName ||
+        !item.storageArea ||
         item.quantity <= 0 ||
-        !item.batchNumber ||
-        !item.expiryDate
+        item.unitCost === '' ||
+        !Number.isFinite(Number(item.unitCost)) ||
+        Number(item.unitCost) < 0 ||
+        item.sellingPrice === '' ||
+        !Number.isFinite(Number(item.sellingPrice)) ||
+        Number(item.sellingPrice) < 0
       ));
 
       if (incompleteIndex >= 0) {
@@ -325,11 +254,13 @@ export default function StockInPage() {
             item_id: item.productId,
             supplier_id: isNewSupplierValue(item.supplier) ? null : item.supplier,
             supplier_name: item.supplierName || null,
-            location_id: item.location,
-            batch_number: item.batchNumber,
+            location_id: item.locationId || null,
+            location_name: item.locationName,
+            storage_area: item.storageArea,
             quantity_received: item.quantity,
             expiry_date: item.expiryDate || null,
-            unit_cost: selectedItem?.costPrice || 0
+            unit_cost: Number(item.unitCost || selectedItem?.costPrice || 0),
+            selling_price: Number(item.sellingPrice || selectedItem?.sellingPrice || selectedItem?.costPrice || 0)
           };
         })
       });
@@ -348,22 +279,23 @@ export default function StockInPage() {
   const displayedItems = items.map((item, index) => ({ item, index })).reverse();
   const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const supplierCount = new Set(items.map((item) => item.supplierName || item.supplier).filter(Boolean)).size;
-  const locationCount = new Set(items.map((item) => item.location).filter(Boolean)).size;
+  const locationCount = new Set(items.map((item) => `${item.locationName}/${item.storageArea}`).filter((value) => value !== '/')).size;
   const completedItems = items.filter((item) => (
     item.productId &&
     (item.supplier || item.supplierName) &&
-    item.location &&
+    item.locationName &&
+    item.storageArea &&
     item.quantity > 0 &&
-    item.batchNumber &&
-    item.expiryDate
+    item.unitCost !== '' && Number(item.unitCost) >= 0 &&
+    item.sellingPrice !== '' && Number(item.sellingPrice) >= 0
   )).length;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <DashboardPageHeader
-        icon={Upload}
-        title="Stock In - Receive Inventory"
-        description="Record incoming inventory from supplier deliveries."
+        icon={PackageCheck}
+        title="Receive stock"
+        description="Record a delivery with simple product, quantity, location, and pricing details."
         navigation={(
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/inventory')} className="gap-2">
             <ArrowLeft className="size-4" />
@@ -373,17 +305,18 @@ export default function StockInPage() {
       />
 
       {errorMessage && (
-        <div className="rounded-[10px] border border-[#fecdca] bg-[#fffbfa] p-4 font-['Arimo:Regular',sans-serif] text-[14px] text-[#b42318]">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
           {errorMessage}
         </div>
       )}
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {/* Receiving Information */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
-          <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-6">
-            Receiving Information
-          </h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"><Upload className="size-5" /></div>
+            <div><h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Delivery details</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Basic reference information for this receipt.</p></div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Receiving Date */}
@@ -403,11 +336,11 @@ export default function StockInPage() {
             {/* Delivery Note Number */}
             <div>
               <Label htmlFor="deliveryNote" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                Delivery Note #
+                Delivery reference
               </Label>
               <Input
                 id="deliveryNote"
-                placeholder="DN-2026-001"
+                placeholder="Optional invoice or delivery number"
                 value={deliveryNote}
                 onChange={(event) => setDeliveryNote(event.target.value)}
                 restriction="alphanumeric"
@@ -416,19 +349,10 @@ export default function StockInPage() {
 
             {/* Received By */}
             <div>
-              <Label htmlFor="receivedBy" className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                Received By *
-              </Label>
-              <Input
-                id="receivedBy"
-                placeholder="Staff Name"
-                value={(() => {
-                  const currentUser = getCurrentUser();
-                  return [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') || 'Logged-in staff';
-                })()}
-                readOnly
-                required
-              />
+              <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">Received by</Label>
+              <div className="flex min-h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                {(() => { const currentUser = getCurrentUser(); return [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') || 'Logged-in staff'; })()}
+              </div>
             </div>
 
             {/* Storage Location */}
@@ -437,11 +361,9 @@ export default function StockInPage() {
         </div>
 
         {/* Items to Receive */}
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4 sm:p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-950">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">
-              Items to Receive
-            </h3>
+            <div><h2 className="text-base font-bold text-slate-950 dark:text-slate-100">Products in this delivery</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Add one card per product. Internal batch codes are created automatically.</p></div>
             <Button
               type="button"
               variant="outline"
@@ -456,17 +378,14 @@ export default function StockInPage() {
           <div className="space-y-4">
             {displayedItems.map(({ item, index }) => {
               const selectedInventoryItem = getInventoryItem(item.productId);
-              const itemLocationOptions = getItemLocationOptions(selectedInventoryItem);
-              const selectedLocationName = itemLocationOptions.find((location) => String(location.id) === String(item.location))?.name;
-
               return (
               <div
                 key={index}
-                className="bg-[#f9fafb] rounded-[10px] p-4 space-y-4"
+                className="space-y-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/60"
               >
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-                    Item #{index + 1}
+                    Product {index + 1}
                   </p>
                   {items.length > 1 && (
                     <Button
@@ -481,22 +400,22 @@ export default function StockInPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-8">
                   {/* Product Selection */}
-                  <div className="md:col-span-2">
+                  <div className="lg:col-span-4">
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                       Product *
                     </Label>
                     <Select
                       value={item.productId}
                       onValueChange={(value) => handleProductSelect(index, value)}
-                      searchPlaceholder="Search product or SKU"
+                      searchPlaceholder="Search product, brand, or category"
                       required
                     >
                       <SelectTrigger>
                         <SelectValue
                           placeholder="Select product"
-                          displayValue={selectedInventoryItem ? `${selectedInventoryItem.name} - ${selectedInventoryItem.sku} - ${formatInventoryQuantity(selectedInventoryItem)}` : undefined}
+                          displayValue={selectedInventoryItem ? `${selectedInventoryItem.name} · ${formatInventoryQuantity(selectedInventoryItem)}` : undefined}
                         />
                       </SelectTrigger>
                       <SelectContent>
@@ -507,7 +426,6 @@ export default function StockInPage() {
                             searchText={[
                               inventoryItem.name,
                               inventoryItem.brand,
-                              inventoryItem.sku,
                               inventoryItem.location,
                               inventoryItem.category,
                               inventoryItem.unit
@@ -516,7 +434,7 @@ export default function StockInPage() {
                             <div className="flex flex-col">
                               <span>{inventoryItem.name}</span>
                               <span className="font-['Arimo:Regular',sans-serif] text-[11px] text-[#4a5565]">
-                                {[inventoryItem.brand || 'No brand', inventoryItem.sku, inventoryItem.location, `Current: ${formatInventoryQuantity(inventoryItem)}`].filter(Boolean).join(' - ')}
+                                {[inventoryItem.brand || 'No brand', inventoryItem.category, `Current: ${formatInventoryQuantity(inventoryItem)}`].filter(Boolean).join(' · ')}
                               </span>
                             </div>
                           </SelectItem>
@@ -525,30 +443,8 @@ export default function StockInPage() {
                     </Select>
                   </div>
 
-                  {/* Item Brand */}
-                  <div>
-                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                      Brand
-                    </Label>
-                    <Input
-                      value={selectedInventoryItem ? (selectedInventoryItem.brand || 'No brand') : 'Select product first'}
-                      readOnly
-                    />
-                  </div>
-
-                  {/* Current Stock */}
-                  <div>
-                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                      Current Stock
-                    </Label>
-                    <Input
-                      value={formatInventoryQuantity(selectedInventoryItem)}
-                      readOnly
-                    />
-                  </div>
-
                   {/* Supplier */}
-                  <div>
+                  <div className="lg:col-span-4">
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                       Supplier *
                     </Label>
@@ -576,37 +472,20 @@ export default function StockInPage() {
                     </Select>
                   </div>
 
-                  {/* Inventory Location */}
-                  <div>
-                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                      Inventory Location *
-                    </Label>
-                    {selectedInventoryItem ? (
-                      <Select
-                        value={item.location}
-                        onValueChange={(value) => handleItemChange(index, 'location', value)}
-                        searchPlaceholder="Search location"
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder="Select location"
-                            displayValue={selectedLocationName}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {itemLocationOptions.map((location) => (
-                            <SelectItem key={location.id} value={String(location.id)}>{location.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value="Select product first" readOnly />
-                    )}
+                  <div className="lg:col-span-8">
+                    <InventoryLocationFields
+                      locations={locations}
+                      locationName={item.locationName}
+                      storageArea={item.storageArea}
+                      onChange={(nextLocation) => handleLocationChange(index, nextLocation)}
+                      disabled={!selectedInventoryItem}
+                      idPrefix={`stock-in-${index}`}
+                      compact
+                    />
                   </div>
 
                   {/* Quantity */}
-                  <div>
+                  <div className="lg:col-span-2">
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
                       Quantity Received *
                     </Label>
@@ -621,30 +500,29 @@ export default function StockInPage() {
                     />
                   </div>
 
-                  {/* Batch Number */}
-                  <div>
-                    <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                      Batch Number *
-                    </Label>
-                    <Input
-                      placeholder={selectedInventoryItem ? 'Auto-generated' : 'Select product first'}
-                      value={item.batchNumber}
-                      readOnly
-                      required
-                    />
-                  </div>
-
                   {/* Expiry Date */}
-                  <div>
+                  <div className="lg:col-span-2">
                     <Label className="font-['Arimo:Bold',sans-serif] text-[14px] mb-2 block">
-                      Expiry Date *
+                      Expiry date
                     </Label>
                     <Input
                       type="date"
                       value={item.expiryDate}
                       onChange={(e) => handleItemChange(index, 'expiryDate', e.target.value)}
-                      required
                     />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Leave blank for non-expiring stock.</p>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <Label className="mb-2 block text-sm font-bold">Unit cost *</Label>
+                    <Input type="number" min="0" step="0.01" value={item.unitCost} onChange={(event) => handleItemChange(index, 'unitCost', event.target.value)} restriction="decimal" leftIcon={<span className="text-xs font-bold">₱</span>} disabled={!selectedInventoryItem} required />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Clinic cost per unit.</p>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <Label className="mb-2 block text-sm font-bold">Selling price *</Label>
+                    <Input type="number" min="0" step="0.01" value={item.sellingPrice} onChange={(event) => handleItemChange(index, 'sellingPrice', event.target.value)} restriction="decimal" leftIcon={<span className="text-xs font-bold">₱</span>} disabled={!selectedInventoryItem} required />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Client price per unit.</p>
                   </div>
                 </div>
               </div>
@@ -787,7 +665,6 @@ export default function StockInPage() {
                 <div className="divide-y divide-[rgba(0,0,0,0.06)]">
                   {items.map((item, index) => {
                     const selectedInventoryItem = getInventoryItem(item.productId);
-                    const selectedLocation = getItemLocationOptions(selectedInventoryItem).find((location) => String(location.id) === String(item.location));
 
                     return (
                       <div key={index} className="grid grid-cols-[1fr_140px_100px_150px_150px] gap-3 px-4 py-3">
@@ -804,7 +681,7 @@ export default function StockInPage() {
                           {supplierDisplayName(item, suppliers) || 'Not selected'}
                         </p>
                         <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565] truncate">
-                          {selectedLocation?.name || 'Not selected'}
+                          {item.locationName ? `${item.locationName} / ${item.storageArea}` : 'Not selected'}
                         </p>
                       </div>
                     );

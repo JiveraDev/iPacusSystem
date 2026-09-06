@@ -6,6 +6,7 @@ import {
     Loader2,
     RefreshCw,
     Search,
+    ShieldCheck,
     XCircle
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
@@ -191,7 +192,6 @@ export default function RecordUpdateRequestsManagement() {
         try {
             const response = await updateRecordUpdateRequest(selectedRequest.requestId, {
                 action,
-                userId: currentUserId(currentUser),
                 assignedVeterinarianUserId: selectedVetIsAvailable ? Number(normalizedVetId) : null,
                 adminNotes,
                 ...extraPayload

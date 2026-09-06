@@ -110,7 +110,7 @@ export default function PetRegister() {
             }
         } catch (error) {
             console.error('Failed to update status:', error);
-            toast.error("Error updating pet status");
+            toast.error('The pet status could not be updated. Please try again.');
         }
     };
 
@@ -181,7 +181,7 @@ export default function PetRegister() {
             const result = await addPetService(petPayload);
             const registeredPetId = Number(result?.id);
             
-            toast.success("Pet registered successfully!");
+            toast.success('Pet registered. The Pet ID is ready to share.');
             setRegisteredPetName(formData.petName);
             setGeneratedPetId(result.sharableId);
             setRegisteredPetQueueHandoff({
@@ -194,7 +194,7 @@ export default function PetRegister() {
             setShowSuccessDialog(true);
             fetchPets(); 
         } catch (error) {
-            toast.error('Failed to register pet: ' + error.message);
+            toast.error(error?.message || 'The pet could not be registered. Review the details and try again.');
         } finally {
             setIsUploading(false);
         }
@@ -215,7 +215,7 @@ export default function PetRegister() {
             document.execCommand('copy');
             textArea.remove();
             setCopiedPetId(true);
-            toast.success("Pet ID copied to clipboard!");
+            toast.success('Pet ID copied to the clipboard.');
             setTimeout(() => setCopiedPetId(false), 2000);
         } catch (err) {
             console.error('Failed to copy:', err);

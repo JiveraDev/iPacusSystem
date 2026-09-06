@@ -8,37 +8,41 @@ import {
 } from 'lucide-react';
 import { DEFAULT_ERROR_MESSAGE, getUserFacingErrorMessage } from '../lib/errorPresentation.js';
 
-const AUTO_DISMISS_MS = 2500;
 const EXIT_ANIMATION_MS = 260;
 const MAX_VISIBLE_TOASTS = 4;
-const MIN_DURATION_MS = 2500;
-const MAX_DURATION_MS = 2500;
+const MIN_DURATION_MS = 3500;
+const MAX_DURATION_MS = 12000;
+const REVIEW_MESSAGE_PATTERN = /^(?:please\s|select\s|enter\s|choose\s|add at least\s|provide\s|review\s|keep at least\s|validation failed\b|bad request\b)|\b(?:is|are) required\b|\b(?:cannot|must|do not|does not|needs your attention)\b/i;
 
 const TYPE_DETAILS = {
   success: {
-    title: 'Completed successfully',
-    description: 'The requested action has been completed.',
+    title: 'Done',
+    description: 'Your changes were saved.',
+    duration: 4200,
     icon: CheckCircle2,
     accentClass: 'bg-emerald-500',
     iconClass: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300',
   },
   error: {
-    title: 'Something went wrong',
+    title: 'Action could not be completed',
     description: DEFAULT_ERROR_MESSAGE,
+    duration: 7000,
     icon: AlertCircle,
     accentClass: 'bg-red-500',
     iconClass: 'bg-red-50 text-red-600 dark:bg-red-950/70 dark:text-red-300',
   },
   warning: {
-    title: 'Please review',
+    title: 'Check this',
     description: 'Review the information and try again.',
+    duration: 6000,
     icon: AlertTriangle,
     accentClass: 'bg-amber-500',
     iconClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300',
   },
   info: {
-    title: 'Information',
+    title: 'Good to know',
     description: 'New information is available.',
+    duration: 5500,
     icon: Info,
     accentClass: 'bg-blue-500',
     iconClass: 'bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-300',
@@ -149,40 +153,74 @@ function textValue(value) {
   return String(value || '').trim();
 }
 
+function makeSentence(value, type) {
+  let message = String(value || '').replace(/\s+/g, ' ').trim();
+
+  if (type === 'success') {
+    message = message
+      .replace(/^successfully\s+/i, '')
+      .replace(/\s+successfully(?=[.!?…]|$)/gi, '')
+      .replace(/!+$/, '.');
+  }
+
+  return message && !/[.!?…]$/.test(message) ? `${message}.` : message;
+}
+
+function resolveToastType(type, input, options = {}) {
+  if (type !== 'error' || options.keepErrorStyle) return type;
+
+  const structuredInput = input && typeof input === 'object' && !(input instanceof Error)
+    ? input
+    : {};
+  const message = textValue(
+    options.description
+    || structuredInput.description
+    || structuredInput.message
+    || input
+  );
+
+  return REVIEW_MESSAGE_PATTERN.test(message) ? 'warning' : type;
+}
+
 function normalizeContent(type, input, options = {}) {
   const structuredInput = input && typeof input === 'object' && !(input instanceof Error)
     ? input
     : {};
   const defaultTitle = TYPE_DETAILS[type]?.title || TYPE_DETAILS.info.title;
   const rawTitle = textValue(options.title || structuredInput.title || defaultTitle);
-  const rawDescription = textValue(
-    options.description
+  const descriptionSource = options.description
     || structuredInput.description
     || structuredInput.message
-    || input
-  );
+    || input;
+  const rawDescription = textValue(descriptionSource);
   const defaultDescription = TYPE_DETAILS[type]?.description || TYPE_DETAILS.info.description;
 
   return {
     title: getUserFacingErrorMessage(rawTitle, defaultTitle, {
       context: 'Technical toast title details were hidden from the user interface.',
     }),
-    description: getUserFacingErrorMessage(rawDescription, defaultDescription, {
-      context: 'Technical toast details were hidden from the user interface.',
-    }),
+    description: makeSentence(
+      getUserFacingErrorMessage(descriptionSource || rawDescription, defaultDescription, {
+        status: options.status || structuredInput.status,
+        context: 'Technical toast details were hidden from the user interface.',
+      }),
+      type
+    ),
   };
 }
 
 function showToast(type, input, options = {}) {
   const id = nextToastId++;
-  const content = normalizeContent(type, input, options);
+  const resolvedType = resolveToastType(type, input, options);
+  const content = normalizeContent(resolvedType, input, options);
   const requestedDuration = Number(options.duration);
+  const defaultDuration = TYPE_DETAILS[resolvedType]?.duration || TYPE_DETAILS.info.duration;
   const duration = Number.isFinite(requestedDuration) && requestedDuration > 0
     ? Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, requestedDuration))
-    : AUTO_DISMISS_MS;
+    : defaultDuration;
   const nextToast = {
     id,
-    type,
+    type: resolvedType,
     ...content,
     duration,
     remainingMs: duration,

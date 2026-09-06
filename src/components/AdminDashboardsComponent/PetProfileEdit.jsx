@@ -63,7 +63,7 @@ export default function PetProfileEdit() {
         });
       } catch (error) {
         console.error("Error fetching pet:", error);
-        toast.error("Could not load pet profile");
+        toast.error('We could not load the pet profile. Refresh the page or try again.');
       } finally {
         setIsLoading(false);
       }
@@ -112,14 +112,14 @@ export default function PetProfileEdit() {
     try {
       const result = await updatePetDetails(petId, formData);
       if (result.success) {
-        toast.success("Pet profile updated successfully");
+        toast.success('Pet profile updated.');
         setPet(prev => ({ ...prev, ...formData, name: formData.petName }));
         setIsEditMode(false);
       } else {
-        toast.error(result.message || "Failed to update profile");
+        toast.error(result.message || 'The pet profile could not be updated. Review it and try again.');
       }
     } catch {
-      toast.error("An error occurred during save");
+      toast.error('The pet profile could not be saved. Review it and try again.');
     } finally {
       setIsEditing(false);
     }
@@ -143,7 +143,7 @@ export default function PetProfileEdit() {
         toast.success("Vaccination record added");
       }
     } catch {
-      toast.error("Failed to add vaccination");
+      toast.error('The vaccination record could not be added. Review it and try again.');
     }
   };
 
@@ -154,7 +154,7 @@ export default function PetProfileEdit() {
       setVaccinations(prev => prev.filter(v => v.id !== id));
       toast.success("Record deleted");
     } catch {
-      toast.error("Failed to delete record");
+      toast.error('The vaccination record could not be deleted. Please try again.');
     }
   };
 
@@ -169,7 +169,7 @@ export default function PetProfileEdit() {
         toast.success("Allergy added");
       }
     } catch {
-      toast.error("Failed to add allergy");
+      toast.error('The allergy could not be added. Review it and try again.');
     }
   };
 
@@ -179,7 +179,7 @@ export default function PetProfileEdit() {
       setAllergies(prev => prev.filter(a => a.id !== id));
       toast.success("Allergy removed");
     } catch {
-      toast.error("Failed to remove allergy");
+      toast.error('The allergy could not be removed. Please try again.');
     }
   };
 
@@ -191,7 +191,7 @@ export default function PetProfileEdit() {
     document.execCommand('copy');
     document.body.removeChild(el);
     setCopied(true);
-    toast.success("ID copied!");
+    toast.success('Pet ID copied to the clipboard.');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -260,9 +260,9 @@ export default function PetProfileEdit() {
                   try {
                       const result = await uploadFormData(formData);
                       await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
-                      toast.success("Profile picture updated!");
+                      toast.success('Profile picture updated.');
                       setPet(prev => ({ ...prev, profileImage: result.relative_url }));
-                  } catch { toast.error("Upload failed."); }
+                  } catch { toast.error('The profile picture could not be uploaded. Choose the file again and retry.'); }
               }}/>
               <label htmlFor="pet-pic-upload" className="absolute bottom-2 right-2 p-2 bg-blue-600 rounded-full text-white shadow-lg cursor-pointer hover:bg-blue-700 transition-colors">
                 <Camera className="h-5 w-5" />

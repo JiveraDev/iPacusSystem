@@ -1,5 +1,6 @@
 import {
     DEFAULT_ERROR_MESSAGE,
+    getHttpErrorMessage,
     getUserFacingErrorMessage,
     logHiddenTechnicalError,
     sanitizeErrorPayload
@@ -43,7 +44,7 @@ export class ApiError extends Error {
         const fallbackMessage = details.fallbackMessage
             || (details.data?.code === 'database_unavailable'
                 ? DATABASE_UNAVAILABLE_MESSAGE
-                : (status >= 500 ? SERVER_UNAVAILABLE_MESSAGE : DEFAULT_ERROR_MESSAGE));
+                : getHttpErrorMessage(status, status >= 500 ? SERVER_UNAVAILABLE_MESSAGE : DEFAULT_ERROR_MESSAGE));
         const hideServerMessage = status >= 500;
 
         if (hideServerMessage && message && message !== fallbackMessage) {
@@ -56,6 +57,7 @@ export class ApiError extends Error {
         const safeMessage = hideServerMessage
             ? fallbackMessage
             : getUserFacingErrorMessage(message, fallbackMessage, {
+                status,
                 context: 'API error details were hidden from the user interface.'
             });
 

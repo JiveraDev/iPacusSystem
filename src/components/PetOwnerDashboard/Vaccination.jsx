@@ -65,7 +65,7 @@ export default function Vaccination() {
         setPets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching pets:", error);
-        toast.error("Failed to load your pets");
+        toast.error('We could not load your pets. Refresh the page or try again.');
       } finally {
         setIsLoadingPets(false);
       }
@@ -113,7 +113,7 @@ export default function Vaccination() {
       // 1. Upload all files if any
       let uploadedFileUrls = [];
       if (formData.files.length > 0) {
-        toast.success("Uploading documents...");
+        toast.info('Your documents are uploading. Keep this page open until they finish.');
         for (const file of formData.files) {
           try {
             const uploadedUrl = await uploadImageFile(file, 'booking_concern');
@@ -146,7 +146,7 @@ export default function Vaccination() {
 
       await createBooking(bookingPayload);
 
-      toast.success("Booking submitted! Awaiting admin approval.");
+      toast.success('Booking submitted for admin approval.');
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Booking error:", error);

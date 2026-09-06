@@ -92,7 +92,7 @@ export default function ConsentFilesManagement() {
         } catch (error) {
             console.error("Error fetching consent files:", error);
             if (!isAutoRefresh) {
-                toast.error("Failed to load consent forms");
+                toast.error('We could not load consent forms. Refresh the page or try again.');
             }
         } finally {
             setIsLoading(false);
@@ -191,14 +191,14 @@ export default function ConsentFilesManagement() {
             formData.append('pet_owner_contexts', JSON.stringify(uploadPetOwnerContexts.slice(0, 1)));
 
             await createConsentFile(formData);
-            toast.success("Consent form added successfully");
+            toast.success('Consent form added.');
             resetUploadEditor();
             const fileInput = document.getElementById('consent-file-input');
             if (fileInput) fileInput.value = '';
             fetchConsentFiles();
         } catch (error) {
             console.error("Upload error:", error);
-            toast.error("Upload failed");
+            toast.error('The consent form could not be added. Check the document and try again.');
         } finally {
             setIsUploading(false);
         }
@@ -224,11 +224,11 @@ export default function ConsentFilesManagement() {
                 category: editCategory,
                 pet_owner_contexts: JSON.stringify(editPetOwnerContexts.slice(0, 1))
             });
-            toast.success("Consent form updated");
+            toast.success('Consent form updated.');
             setEditModalOpen(false);
             fetchConsentFiles();
         } catch {
-            toast.error("Update failed");
+            toast.error('The consent form could not be updated. Review it and try again.');
         }
     };
 
@@ -237,12 +237,12 @@ export default function ConsentFilesManagement() {
         
         try {
             await deleteConsentFile(fileToDelete.file_id);
-            toast.success("Form deleted successfully");
+            toast.success('Consent form permanently deleted.');
             setFiles(files.filter(f => f.file_id !== fileToDelete.file_id));
             setDeleteDialogOpen(false);
             setFileToDelete(null);
         } catch {
-            toast.error("Error deleting form");
+            toast.error('The consent form could not be deleted. Please try again.');
         }
     };
 

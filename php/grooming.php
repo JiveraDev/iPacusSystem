@@ -63,6 +63,7 @@ if ($method === 'GET') {
     $stmt = $pdo->prepare('SELECT * FROM grooming_jobs WHERE booking_id = ?');
     $stmt->execute([$id]);
     $job = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['booking_id' => $id, 'status' => 'scheduled', 'performed_by' => '', 'version' => 0, 'published_at' => null];
+    if ($admin && empty($job['performed_by'])) $job['performed_by'] = grooming_handler_name($user);
     if ($booking['status'] === 'cancelled') $job['status'] = 'cancelled';
     $details = isset($job['details_json']) ? json_decode($job['details_json'], true) : grooming_validate_details(['ownerRequest' => $booking['notes'] ?? '', 'allergies' => $booking['pet_allergies'] ?? '']);
     unset($job['details_json']);
@@ -125,11 +126,14 @@ try {
 
     if ($action === 'save') {
         $nextStatus = (string)($input['status'] ?? $job['status']);
-        $nextDetails = grooming_validate_details(is_array($input['details'] ?? null) ? $input['details'] : []);
-        $performer = trim((string)($input['performedBy'] ?? ''));
+        $submittedDetails = is_array($input['details'] ?? null) ? $input['details'] : [];
+        // Grooming cannot override the official booking/catalog price.
+        $nextDetails = grooming_form_details($submittedDetails, $details);
+        // Preserve the original handler; new jobs use the authenticated account.
+        $performer = trim((string)($job['performed_by'] ?? '')) ?: grooming_handler_name($user);
         if (strlen($performer) > 120) throw new InvalidArgumentException('Keep the staff name under 120 characters.');
         if ($job['status'] === 'ready') {
-            $nextDetails = array_merge($details, array_intersect_key($nextDetails, array_flip(['pickupPerson', 'pickupNote'])));
+            $nextDetails = array_merge($details, array_intersect_key($nextDetails, array_flip(['pickupPerson', 'pickupNote', 'pickupConfirmed'])));
             $performer = $job['performed_by'];
         }
         grooming_assert_transition($job['status'], $nextStatus, $nextDetails, $performer, $latestReview['outcome'] ?? null);
@@ -138,6 +142,7 @@ try {
         if ($job['status'] !== $nextStatus && $nextStatus === 'checked_in' && $booking['booking_date'] !== $today) throw new InvalidArgumentException('Check in on the booked date. Reschedule the booking first if needed.');
         if ($nextStatus === 'no_show' && $booking['booking_date'] > $today) throw new InvalidArgumentException('This booking is in the future. You cannot mark it as missed yet.');
         if ($nextStatus === 'ready' && $job['status'] !== 'ready') {
+            $nextDetails['ownerSummary'] = grooming_completion_summary($nextDetails);
             if ((int)$booking['pet_id'] <= 0) throw new InvalidArgumentException('Link this booking to a registered pet before creating its invoice.');
             define('VISIT_BILLING_HELPERS_ONLY', true);
             define('VISIT_BILLING_THROW_ERRORS', true);
@@ -145,17 +150,16 @@ try {
             $lookup = $pdo->prepare("SELECT visit_id FROM visits WHERE booking_id = ? AND visit_status <> 'cancelled' LIMIT 1 FOR UPDATE");
             $lookup->execute([$id]);
             $visitId = (int)($lookup->fetchColumn() ?: 0);
-            if ($visitId > 0) {
-                $sum = $pdo->prepare('SELECT COALESCE(SUM(quantity * unit_price), 0) FROM visit_charges WHERE visit_id = ?');
-                $sum->execute([$visitId]);
-                if (abs((float)$sum->fetchColumn() - (float)$nextDetails['agreedTotal']) > 0.009) throw new InvalidArgumentException('An invoice already exists with a different total. Reconcile it in Point-of-Sale before completing grooming.');
-            } else {
-                if ((float)$nextDetails['agreedTotal'] <= 0) throw new InvalidArgumentException('Enter a positive agreed total before creating the grooming invoice.');
-                $price = $pdo->prepare('UPDATE bookings SET price = ? WHERE booking_id = ?');
-                $price->execute([$nextDetails['agreedTotal'], $id]);
+            if ($visitId <= 0) {
+                $charges = visit_billing_default_booking_charges($pdo, $id);
+                $total = array_sum(array_map(fn($charge) => (float)$charge['quantity'] * (float)$charge['unit_price'], $charges));
+                if ($total <= 0) throw new InvalidArgumentException('Set an active grooming price in Service Catalog before finishing this job. Pricing is managed there, not in Grooming Management.');
                 $invoice = visit_billing_save_visit_payload($pdo, ['pet_id' => (int)$booking['pet_id'], 'booking_id' => $id, 'source_type' => 'booking', 'visit_status' => 'treatment_done', 'charges' => []]);
                 $visitId = (int)$invoice['visitId'];
             }
+            $sum = $pdo->prepare('SELECT COALESCE(SUM(subtotal), 0) FROM visit_charges WHERE visit_id = ?');
+            $sum->execute([$visitId]);
+            $nextDetails['agreedTotal'] = round((float)$sum->fetchColumn(), 2);
         }
         $details = $nextDetails;
         if ($nextStatus === 'released') {

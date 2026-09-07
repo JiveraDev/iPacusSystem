@@ -8,7 +8,7 @@ function grooming_is_service($service): bool
 function grooming_validate_details(array $input): array
 {
     $result = [];
-    foreach (['package', 'addOns', 'ownerRequest', 'emergencyContact', 'pickupPerson', 'belongings', 'allergies', 'coat', 'handling', 'intakeNotes', 'internalNotes', 'ownerSummary', 'productsUsed', 'approvalNote', 'pickupNote'] as $field) {
+    foreach (['package', 'assistantName', 'addOns', 'ownerRequest', 'emergencyContact', 'pickupPerson', 'belongings', 'allergies', 'coat', 'handling', 'intakeNotes', 'internalNotes', 'ownerSummary', 'productsUsed', 'approvalNote', 'pickupNote'] as $field) {
         if (isset($input[$field]) && !is_string($input[$field])) throw new InvalidArgumentException('Enter text in ' . $field . '.');
         $result[$field] = trim((string)($input[$field] ?? ''));
         if (strlen($result[$field]) > 3000) throw new InvalidArgumentException('A note is too long. Keep each field under 3,000 characters.');
@@ -25,6 +25,8 @@ function grooming_validate_details(array $input): array
     $result['agreedTotal'] = $quote === '' ? '' : round((float)$quote, 2);
     $result['ownerApproved'] = ($input['ownerApproved'] ?? false) === true;
     $result['intakeConfirmed'] = ($input['intakeConfirmed'] ?? false) === true;
+    $result['completionConfirmed'] = ($input['completionConfirmed'] ?? false) === true;
+    $result['pickupConfirmed'] = ($input['pickupConfirmed'] ?? false) === true;
     $result['tasks'] = [];
     if (isset($input['tasks']) && !is_array($input['tasks'])) throw new InvalidArgumentException('Review the service checklist.');
     foreach (['bath', 'dry', 'brush', 'trim', 'nails', 'cleanup'] as $task) {
@@ -56,15 +58,35 @@ function grooming_assert_transition(string $from, string $to, array $details, st
     if ($from === 'vet_review' && $to === 'in_progress' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Wait for the assigned vet to clear this grooming job before resuming.');
     if (in_array($to, ['in_progress', 'ready', 'released'], true)) {
         if ($performer === '' || empty($details['package']) || empty($details['intakeConfirmed'])) throw new InvalidArgumentException('Assign the staff member, select a package, and confirm the intake before starting.');
-        if (empty($details['ownerApproved']) || empty($details['approvalNote']) || $details['agreedTotal'] === '') throw new InvalidArgumentException('Record the agreed total and owner approval before starting grooming.');
+        if (empty($details['ownerApproved'])) throw new InvalidArgumentException('Confirm the owner agreed to the service before starting grooming.');
     }
     if ($from !== $to && in_array($to, ['in_progress', 'ready'], true) && ($details['coat'] ?? '') === 'review' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Request a vet review for the recorded coat concern before continuing grooming.');
     if (in_array($to, ['ready', 'released'], true)) {
-        if (empty($details['ownerSummary'])) throw new InvalidArgumentException('Write the owner summary before marking the pet ready.');
-        if (empty($details['ownerApproved']) || empty($details['approvalNote']) || $details['agreedTotal'] === '') throw new InvalidArgumentException('Record the agreed total and owner approval before completing grooming.');
-        foreach ($details['tasks'] as $task) {
-            if ($task['status'] === 'not_started') throw new InvalidArgumentException('Complete the checklist or mark unused tasks as skipped with a reason.');
+        if (empty($details['completionConfirmed'])) {
+            foreach ($details['tasks'] as $task) {
+                if ($task['status'] === 'not_started') throw new InvalidArgumentException('Use Finish grooming to confirm the work is done.');
+            }
         }
     }
-    if ($to === 'released' && (empty($details['pickupPerson']) || empty($details['pickupNote']))) throw new InvalidArgumentException('Record the authorized pickup person and handover confirmation.');
+    if ($to === 'released' && (empty($details['pickupPerson']) || (empty($details['pickupConfirmed']) && empty($details['pickupNote'])))) throw new InvalidArgumentException('Enter who collected the pet, then confirm pickup.');
+}
+
+function grooming_completion_summary(array $details): string
+{
+    // Routine completion needs no additional writing. Do not publish internal
+    // notes, invent an assessment, or claim specific checklist tasks were done.
+    return trim((string)($details['ownerSummary'] ?? '')) ?: 'Grooming visit finished. Service: ' . $details['package'] . '.';
+}
+
+function grooming_handler_name(array $user): string
+{
+    return trim((string)($user['first_Name'] ?? '') . ' ' . (string)($user['last_Name'] ?? ''))
+        ?: 'Clinic staff #' . (int)($user['user_id'] ?? 0);
+}
+
+function grooming_form_details(array $submitted, array $stored): array
+{
+    // Never accept a price override from the grooming form, including old clients.
+    $submitted['agreedTotal'] = $stored['agreedTotal'] ?? '';
+    return grooming_validate_details($submitted);
 }

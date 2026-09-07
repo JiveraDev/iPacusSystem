@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/inventory_invoice_helpers.php';
 
 $inventoryCurrentUser = ipawcus_guard_current_user($pdo);
 
@@ -1138,7 +1139,6 @@ function deleteInventoryItem(PDO $pdo): void
 
         $protectedReferences = [
             'service_materials' => 'service definitions',
-            'visit_charges' => 'visit invoices',
         ];
         foreach ($protectedReferences as $tableName => $description) {
             if (!ipawcus_guard_table_exists($pdo, $tableName) || !inventoryColumnExists($pdo, $tableName, 'item_id')) {
@@ -1147,8 +1147,13 @@ function deleteInventoryItem(PDO $pdo): void
             $referenceStmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE item_id = ?");
             $referenceStmt->execute([$itemId]);
             if ((int)$referenceStmt->fetchColumn() > 0) {
-                throw new InvalidArgumentException("This product cannot be deleted because it is used by {$description}. Remove those links first.");
+                throw new InvalidArgumentException('This product is still configured as a service material. Replace or remove it in Service Catalog before deleting it.');
             }
+        }
+
+        $preservedInvoiceChargeIds = [];
+        if (ipawcus_guard_table_exists($pdo, 'visit_charges') && inventoryColumnExists($pdo, 'visit_charges', 'item_id')) {
+            $preservedInvoiceChargeIds = inventoryDetachInvoiceReferences($pdo, $itemId, (string)$item['item_name']);
         }
 
         inventoryWriteAudit(
@@ -1157,7 +1162,7 @@ function deleteInventoryItem(PDO $pdo): void
             $itemId,
             null,
             (int)$item['location_id'],
-            array_merge($item, ['quantity' => $quantity]),
+            array_merge($item, ['quantity' => $quantity, 'preserved_invoice_charge_ids' => $preservedInvoiceChargeIds]),
             null
         );
 
@@ -1179,7 +1184,7 @@ function deleteInventoryItem(PDO $pdo): void
         $deleteItem->execute([$itemId]);
 
         $pdo->commit();
-        echo json_encode(['message' => 'Inventory item permanently deleted.']);
+        echo json_encode(['message' => 'Inventory item permanently deleted. Existing invoice records were preserved.']);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $error instanceof InvalidArgumentException ? 409 : 500;

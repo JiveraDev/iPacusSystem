@@ -100,17 +100,6 @@ try {
             $stmt->execute($profileParams);
             $profileUpdated = true;
         }
-    } elseif ($normalizedRole === 'admin' || $normalizedRole === 'super_admin' || $normalizedRole === 'superadmin') {
-        $profileFields = [];
-        $profileParams = [];
-        addJsonFieldIfPresent($input, $profileFields, $profileParams, 'experienceHistory', 'experience_history');
-
-        if (!empty($profileFields)) {
-            $profileParams[] = $userId;
-            $stmt = $pdo->prepare('UPDATE admin_profiles SET ' . implode(', ', $profileFields) . ' WHERE user_id = ?');
-            $stmt->execute($profileParams);
-            $profileUpdated = true;
-        }
     }
 
     if (empty($userFields) && !$profileUpdated) {

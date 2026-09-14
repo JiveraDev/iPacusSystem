@@ -169,7 +169,6 @@ function reports_filters(array $payload): array
         'queue_status',
         'consultation_type',
         'veterinarian',
-        'pet_type',
         'inventory_category',
         'stock_status',
         'consent_status',
@@ -639,6 +638,8 @@ function reports_pet_distribution_chart(PDO $pdo, array &$missing): array
             COALESCE(NULLIF(TRIM(pet_breed), ''), 'Unspecified') AS breed,
             COUNT(*) AS pet_count
         FROM pets_information
+        WHERE COALESCE(pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
+          AND LOWER(TRIM(COALESCE(pet_species, ''))) <> 'retail'
         GROUP BY species, breed
         ORDER BY species ASC, pet_count DESC
     ", [], $missing, 'Animal distribution data could not be loaded.');
@@ -776,7 +777,6 @@ function reports_title_map(): array
         'medicine_product_sales' => 'Medicine/Product Sales Report',
         'confinement_pet_hotel' => 'Confinement and Pet Hotel Report',
         'consent_form' => 'Consent Form Report',
-        'categorized_pet_cases' => 'Categorized Pet Cases Report',
         'veterinarian_activity' => 'Veterinarian Activity Report',
     ];
 }
@@ -797,7 +797,6 @@ function reports_allowed_type(string $type): ?string
         'pet_hotel' => 'confinement_pet_hotel',
         'confinement' => 'confinement_pet_hotel',
         'consent' => 'consent_form',
-        'cases' => 'categorized_pet_cases',
         'vet_activity' => 'veterinarian_activity',
     ];
     $normalized = $aliases[$normalized] ?? $normalized;
@@ -2827,72 +2826,6 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
     ];
 }
 
-function reports_categorized_pet_cases_report(PDO $pdo, array $range, array $filters): array
-{
-    $missing = [];
-    if (!reports_has_tables($pdo, ['vet_diagnoses', 'pets_information'], $missing)) {
-        return reports_blank_report('categorized_pet_cases', $missing);
-    }
-
-    $bookingJoin = reports_table_exists($pdo, 'bookings') ? 'LEFT JOIN bookings b ON b.booking_id = vd.booking_id' : '';
-    $queueJoin = reports_table_exists($pdo, 'queues') ? 'LEFT JOIN queues case_queue ON case_queue.queue_id = vd.queue_id' : '';
-    $bookingService = reports_table_exists($pdo, 'bookings') ? "COALESCE(vd.service_name, b.service_type, 'Uncategorized')" : "COALESCE(vd.service_name, 'Uncategorized')";
-    $where = ['COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?'];
-    $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['pet_type'])) {
-        $where[] = 'p.pet_species = ?';
-        $params[] = $filters['pet_type'];
-    }
-    if ((int)($filters['branch_id'] ?? 0) > 0 && reports_table_exists($pdo, 'bookings') && reports_table_exists($pdo, 'queues')) {
-        $where[] = 'COALESCE(b.branch_id, case_queue.branch_id) = ?';
-        $params[] = (int)$filters['branch_id'];
-    }
-
-    $rows = reports_fetch_all($pdo, "
-        SELECT
-            {$bookingService} AS case_category,
-            p.pet_species AS animal_type,
-            COUNT(*) AS visit_frequency,
-            COUNT(DISTINCT vd.pet_id) AS unique_pets,
-            GROUP_CONCAT(DISTINCT COALESCE(vd.service_name, 'Unspecified') ORDER BY vd.service_name SEPARATOR ', ') AS service_type
-        FROM vet_diagnoses vd
-        JOIN pets_information p ON p.pet_id = vd.pet_id
-        {$bookingJoin}
-        {$queueJoin}
-        WHERE " . implode(' AND ', $where) . "
-        GROUP BY {$bookingService}, p.pet_species
-        ORDER BY visit_frequency DESC
-    ", $params, $missing, 'Categorized case data could not be loaded.');
-
-    foreach ($rows as &$row) {
-        $row['visit_frequency'] = reports_int($row['visit_frequency']);
-        $row['unique_pets'] = reports_int($row['unique_pets']);
-    }
-
-    return [
-        'type' => 'categorized_pet_cases',
-        'title' => 'Categorized Pet Cases Report',
-        'columns' => [
-            ['key' => 'case_category', 'label' => 'Case Category'],
-            ['key' => 'animal_type', 'label' => 'Animal Type'],
-            ['key' => 'visit_frequency', 'label' => 'Visit Frequency'],
-            ['key' => 'unique_pets', 'label' => 'Unique Pets'],
-            ['key' => 'service_type', 'label' => 'Service Type'],
-        ],
-        'rows' => $rows,
-        'totals' => [
-            'total_cases' => array_sum(array_column($rows, 'visit_frequency')),
-            'unique_categories' => count($rows),
-        ],
-        'summary' => [
-            'text' => "Case categories total " . count($rows) . ' groups in the selected period.',
-            'bullets' => [],
-        ],
-        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'case_category', 'visit_frequency', 'Cases'),
-        'missing_data' => $missing,
-    ];
-}
-
 function reports_veterinarian_activity_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
@@ -3216,11 +3149,6 @@ function reports_report_profile(string $type): array
             'use' => 'Use this report to verify documentation readiness for services, diagnosis, queue, and boarding flows.',
             'metrics' => ['total_records', 'total_files', 'signed', 'pending', 'released', 'cancelled'],
         ],
-        'categorized_pet_cases' => [
-            'purpose' => 'Groups clinical cases by category and animal type to show service demand and patient mix.',
-            'use' => 'Use this report for clinical service planning and case-volume review.',
-            'metrics' => ['total_cases', 'unique_categories'],
-        ],
         'veterinarian_activity' => [
             'purpose' => 'Relates veterinarian workload to face-to-face consultations, online consultations, follow-ups, and completed cases.',
             'use' => 'Use this report for workload balancing and clinical performance review.',
@@ -3398,8 +3326,6 @@ function reports_management_actions(string $type, array $totals, array $rows, ar
         $actions[] = 'Review active stays for room assignment, monitoring notes, task completion, and checkout readiness.';
     } elseif ($type === 'veterinarian_activity') {
         $actions[] = 'Use completed-case and follow-up counts to balance veterinarian workload and schedule coverage.';
-    } elseif ($type === 'categorized_pet_cases') {
-        $actions[] = 'Use high-frequency case categories to plan service capacity, inventory, and clinical staffing.';
     } else {
         $actions[] = 'Review the detailed records below before filing or sharing the printed report.';
     }
@@ -3562,7 +3488,6 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
         'medicine_product_sales' => reports_medicine_product_sales_report($pdo, $range, $filters),
         'confinement_pet_hotel' => reports_confinement_pet_hotel_report($pdo, $range, $filters),
         'consent_form' => reports_consent_form_report($pdo, $range, $filters),
-        'categorized_pet_cases' => reports_categorized_pet_cases_report($pdo, $range, $filters),
         'veterinarian_activity' => reports_veterinarian_activity_report($pdo, $range, $filters),
         default => reports_blank_report($reportType, ['Report type is not implemented.']),
     };
@@ -3737,6 +3662,12 @@ function reports_dashboard(PDO $pdo, array $range): array
             'title' => 'Revenue Breakdown',
             'summary' => 'Service revenue compared with medicine and product revenue over the selected period.',
             'chart' => $revenueBreakdownTrend,
+        ],
+        [
+            'id' => 'billing_mix',
+            'title' => 'Paid and Outstanding Billing',
+            'summary' => 'Paid amounts and remaining balances in the selected period.',
+            'chart' => $billing['chart'],
         ],
         [
             'id' => 'service_utilization',

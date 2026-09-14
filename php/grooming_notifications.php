@@ -10,7 +10,7 @@ function grooming_notify(PDO $pdo, array $booking, array $job, string $action, s
         'dedupe_key' => 'grooming-' . $id . '-' . $action . '-' . ((int)$job['version'] + 1),
     ];
     if ($action === 'request_review') {
-        $payload += ['user_id' => (int)$input['veterinarianId'], 'title' => 'Grooming review requested', 'message' => 'A grooming job is paused for your assessment. Open Grooming reviews in your Approved List.', 'redirect_path' => '/dashboard/vet/approved-queue'];
+        $payload += ['user_id' => (int)$input['veterinarianId'], 'title' => 'Grooming review requested', 'message' => 'A grooming job is paused for your assessment. Open Grooming reviews in My List.', 'redirect_path' => '/dashboard/vet/my-list'];
     } elseif ($action === 'review') {
         $payload += ['user_id' => (int)$review['requested_by'], 'title' => 'Vet assessment recorded', 'message' => 'The veterinarian has reviewed your grooming concern. Check the assessment before continuing the job.', 'redirect_path' => '/dashboard/grooming'];
     } elseif ($action === 'publish') {

@@ -48,6 +48,7 @@ $specialization = trim((string)($input['specialization'] ?? ''));
 $licenseNumber = trim((string)($input['licenseNumber'] ?? $input['prc_license_number'] ?? ''));
 $branchId = isset($input['branchId']) && is_numeric($input['branchId']) ? (int)$input['branchId'] : 0;
 $validEmploymentStatuses = ['full-time', 'part-time', 'contract'];
+$validAdminPositions = ['Assistant Vet', 'Secretary', 'Staff', 'HR'];
 
 if ($branchId <= 0) {
     account_profile_json(['message' => 'A valid assigned branch is required.'], 422);
@@ -74,7 +75,7 @@ try {
     if ($isVeterinarian && ($specialization === '' || $licenseNumber === '' || strlen($specialization) > 250 || strlen($licenseNumber) > 250)) {
         account_profile_json(['message' => 'A valid PRC license number and specialization are required.'], 422);
     }
-    if (!$isVeterinarian && ($position === '' || strlen($position) > 250 || !in_array($employmentStatus, $validEmploymentStatuses, true))) {
+    if (!$isVeterinarian && (!in_array($position, $validAdminPositions, true) || !in_array($employmentStatus, $validEmploymentStatuses, true))) {
         account_profile_json(['message' => 'A valid position and employment status are required.'], 422);
     }
 

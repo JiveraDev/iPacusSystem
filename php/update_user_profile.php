@@ -92,7 +92,6 @@ try {
     if ($normalizedRole === 'veterinarian' || $normalizedRole === 'vet') {
         $profileFields = [];
         $profileParams = [];
-        addJsonFieldIfPresent($input, $profileFields, $profileParams, 'educationHistory', 'education_history');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'experienceHistory', 'experience_history');
 
         if (!empty($profileFields)) {
@@ -104,11 +103,6 @@ try {
     } elseif ($normalizedRole === 'admin' || $normalizedRole === 'super_admin' || $normalizedRole === 'superadmin') {
         $profileFields = [];
         $profileParams = [];
-        addFieldIfPresent($input, $profileFields, $profileParams, 'sssNumber', 'sss_number');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'philhealthNumber', 'philhealth_number');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'tinNumber', 'tin_number');
-        addFieldIfPresent($input, $profileFields, $profileParams, 'pagibigNumber', 'pagibig_number');
-        addJsonFieldIfPresent($input, $profileFields, $profileParams, 'educationHistory', 'education_history');
         addJsonFieldIfPresent($input, $profileFields, $profileParams, 'experienceHistory', 'experience_history');
 
         if (!empty($profileFields)) {
@@ -141,11 +135,6 @@ try {
                 'profileImage' => 'profile photo',
                 'dateOfBirth' => 'birthdate',
                 'preferredBranchId' => 'preferred branch',
-                'sssNumber' => 'SSS number',
-                'philhealthNumber' => 'PhilHealth number',
-                'tinNumber' => 'TIN',
-                'pagibigNumber' => 'Pag-IBIG number',
-                'educationHistory' => 'education history',
                 'experienceHistory' => 'experience history',
             ];
             foreach ($fieldLabels as $inputKey => $label) {

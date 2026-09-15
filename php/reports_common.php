@@ -1044,6 +1044,7 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
     $rows = reports_fetch_all($pdo, "
         SELECT
             CONCAT('payment-', vp.payment_id) AS visit_id,
+            v.visit_id AS source_visit_id,
             DATE(vp.paid_at) AS visit_date,
             vp.paid_at AS created_at,
             v.source_type,
@@ -1089,6 +1090,7 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         $refundRows = reports_fetch_all($pdo, "
             SELECT
                 CONCAT('refund-', refund.refund_id) AS visit_id,
+                v.visit_id AS source_visit_id,
                 DATE(refund.processed_at) AS visit_date,
                 refund.processed_at AS created_at,
                 v.source_type,
@@ -1246,6 +1248,101 @@ function reports_financial_totals(array $visitRows): array
     return $totals;
 }
 
+function reports_sales_chart_details(PDO $pdo, array $visitRows, array &$missing): array
+{
+    $sourceVisitIds = array_values(array_unique(array_filter(array_map(
+        static fn($row) => (int)($row['source_visit_id'] ?? 0),
+        $visitRows
+    ))));
+    $chargesByVisit = [];
+
+    if (!empty($sourceVisitIds)) {
+        $placeholders = implode(', ', array_fill(0, count($sourceVisitIds), '?'));
+        $chargeRows = reports_fetch_all($pdo, "
+            SELECT
+                visit_id,
+                charge_type,
+                COALESCE(NULLIF(TRIM(description), ''), 'Unnamed sale item') AS sale_name,
+                SUM(subtotal) AS subtotal
+            FROM visit_charges
+            WHERE visit_id IN ({$placeholders})
+            GROUP BY visit_id, charge_type, COALESCE(NULLIF(TRIM(description), ''), 'Unnamed sale item')
+            ORDER BY sale_name ASC
+        ", $sourceVisitIds, $missing, 'Sales item details could not be loaded.');
+
+        foreach ($chargeRows as $chargeRow) {
+            $chargesByVisit[(int)$chargeRow['visit_id']][] = $chargeRow;
+        }
+    }
+
+    $details = [];
+    $materialTypes = ['medication', 'retail_product', 'consumable'];
+
+    foreach ($visitRows as $row) {
+        $date = trim((string)($row['visit_date'] ?? ''));
+        $collectedAmount = (float)($row['total_bill'] ?? 0);
+        if ($date === '' || abs($collectedAmount) <= 0.0001) {
+            continue;
+        }
+
+        if (!isset($details[$date])) {
+            $details[$date] = ['services' => [], 'materials' => []];
+        }
+
+        $sourceVisitId = (int)($row['source_visit_id'] ?? 0);
+        $invoiceTotal = (float)($row['invoice_total'] ?? 0);
+        $visitCharges = $chargesByVisit[$sourceVisitId] ?? [];
+        $hasAllocatedCharge = false;
+
+        foreach ($visitCharges as $charge) {
+            $chargeSubtotal = (float)($charge['subtotal'] ?? 0);
+            $allocatedAmount = $invoiceTotal > 0.0001
+                ? $collectedAmount * ($chargeSubtotal / $invoiceTotal)
+                : 0.0;
+            if (abs($allocatedAmount) <= 0.0001) {
+                continue;
+            }
+
+            $group = in_array((string)($charge['charge_type'] ?? ''), $materialTypes, true)
+                ? 'materials'
+                : 'services';
+            $name = trim((string)($charge['sale_name'] ?? '')) ?: 'Unnamed sale item';
+            $details[$date][$group][$name] = ($details[$date][$group][$name] ?? 0) + $allocatedAmount;
+            $hasAllocatedCharge = true;
+        }
+
+        if (!$hasAllocatedCharge) {
+            $sourceType = strtolower(trim((string)($row['source_type'] ?? '')));
+            $fallbackNames = [
+                'online_consultation' => 'Online consultation',
+                'online-consultation' => 'Online consultation',
+                'record_update' => 'Record update service',
+                'booking' => 'Booking service',
+                'boarding' => 'Boarding service',
+            ];
+            $name = $fallbackNames[$sourceType] ?? (trim((string)($row['source_label'] ?? '')) ?: 'Clinic service');
+            $details[$date]['services'][$name] = ($details[$date]['services'][$name] ?? 0) + $collectedAmount;
+        }
+    }
+
+    foreach ($details as &$groups) {
+        foreach (['services', 'materials'] as $group) {
+            uasort($groups[$group], static fn($first, $second) => abs((float)$second) <=> abs((float)$first));
+            $items = [];
+            foreach ($groups[$group] as $name => $amount) {
+                $items[] = [
+                    'name' => $name,
+                    'amount' => reports_money($amount),
+                ];
+            }
+            $groups[$group] = $items;
+        }
+    }
+    unset($groups);
+
+    return $details;
+}
+
 function reports_sales_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
@@ -1303,6 +1400,9 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         ];
     }
     $dominantCategory = $totals['service_sales'] >= $totals['product_sales'] ? 'service sales' : 'medicine/product sales';
+    $pointDetails = !empty($filters['include_chart_details'])
+        ? reports_sales_chart_details($pdo, $visitRows, $missing)
+        : [];
 
     return [
         'type' => 'sales',
@@ -1330,6 +1430,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         'chart' => [
             'type' => 'line',
             'labels' => array_map(static fn($row) => $row['date'], array_values($daily)),
+            'pointDetails' => $pointDetails,
             'datasets' => [[
                 'label' => 'Total Sales',
                 'data' => array_map(static fn($row) => $row['total_sales'], array_values($daily)),
@@ -3465,6 +3566,8 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
 {
     // Ignore stale client filters in both query execution and the exported scope.
     unset($filters['payment_method']);
+    $reportFilters = $filters;
+    unset($reportFilters['include_chart_details']);
     $reportType = reports_allowed_type($type);
     if (!$reportType) {
         reports_json([
@@ -3499,12 +3602,12 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
     ];
     $report['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone(REPORTS_TIMEZONE)))->format('Y-m-d H:i:s');
 
-    $report = reports_enrich_report($report, $range, $filters);
+    $report = reports_enrich_report($report, $range, $reportFilters);
 
     if ($includeComparison) {
         $comparisonRange = reports_previous_comparison_range($range);
         if ($comparisonRange) {
-            $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $filters, false);
+            $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $reportFilters, false);
             $report['comparison'] = reports_comparison_summary($report, $previousReport, $comparisonRange);
             $report['summary']['comparison_text'] = $report['comparison']['text'];
         }
@@ -3586,7 +3689,7 @@ function reports_inventory_material_type_overview(array $rows): array
 
 function reports_dashboard(PDO $pdo, array $range): array
 {
-    $sales = reports_build_report($pdo, 'sales', $range);
+    $sales = reports_build_report($pdo, 'sales', $range, ['include_chart_details' => true]);
     $billing = reports_build_report($pdo, 'billing', $range);
     $appointments = reports_build_report($pdo, 'appointment', $range);
     $queue = reports_build_report($pdo, 'queue', $range);

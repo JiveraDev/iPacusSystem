@@ -1,1 +1,0 @@
-import{lt as e,nt as t}from"./index-B4m7UFP0.js";function n({userId:e,role:n}){return t(`/profile?${new URLSearchParams({userId:e,role:n||``}).toString()}`,{apiPrefix:!0})}function r({userId:t,role:n,payload:r}){return e(`/profile?${new URLSearchParams({userId:t,role:n||``}).toString()}`,r,{apiPrefix:!0})}export{r as n,n as t};

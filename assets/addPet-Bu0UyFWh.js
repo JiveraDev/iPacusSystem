@@ -1,1 +1,0 @@
-import{ut as e}from"./index-BKMcCT0N.js";async function t(t){try{return await e(`/pet_information`,t,{apiPrefix:!0})}catch(e){throw console.error(`Error in addPetService:`,e),e}}export{t};

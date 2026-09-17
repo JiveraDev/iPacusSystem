@@ -603,7 +603,18 @@ function ipawcus_backup_restore_instructions(string $reference): string
         . "Do not restore directly over the only production database. A trained IT administrator should perform and test recovery.\n";
 }
 
-function ipawcus_backup_safe_failure_message(Throwable $error): string
+function ipawcus_backup_public_failure_stage(int $progressPercent): string
+{
+    if ($progressPercent < 8) return 'backup initialization';
+    if ($progressPercent < 18) return 'database structure reading';
+    if ($progressPercent < 55) return 'database export';
+    if ($progressPercent < 70) return 'Excel workbook creation';
+    if ($progressPercent < 80) return 'uploaded-file collection';
+    if ($progressPercent < 98) return 'ZIP packaging';
+    return 'final archive verification';
+}
+
+function ipawcus_backup_safe_failure_message(Throwable $error, int $progressPercent, string $reference): string
 {
     $message = trim($error->getMessage());
     $safeStarts = [
@@ -616,10 +627,12 @@ function ipawcus_backup_safe_failure_message(Throwable $error): string
     ];
     foreach ($safeStarts as $start) {
         if (str_starts_with($message, $start)) {
-            return $message;
+            return $message . ' Diagnostic reference: ' . substr($reference, 0, 8) . '.';
         }
     }
-    return 'Backup failed safely. No completed archive was published. Ask IT to check the server backup log, then try again.';
+    return 'Backup stopped during ' . ipawcus_backup_public_failure_stage($progressPercent)
+        . '. No archive was kept. Diagnostic reference: ' . substr($reference, 0, 8)
+        . '. Ask IT to check the matching server log entry.';
 }
 
 function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorName): array
@@ -819,8 +832,25 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
         if ($snapshotPdo instanceof PDO && $snapshotPdo->inTransaction()) {
             $snapshotPdo->rollBack();
         }
-        error_log('System backup ' . $reference . ' failed: ' . $error->getMessage());
-        $message = ipawcus_backup_safe_failure_message($error);
+        $progressPercent = 1;
+        try {
+            $progressStatement = $metaPdo->prepare('SELECT progress_percent FROM system_backups WHERE backup_id = ? LIMIT 1');
+            $progressStatement->execute([$backupId]);
+            $progressPercent = (int)($progressStatement->fetchColumn() ?: 1);
+        } catch (Throwable $progressError) {
+            error_log('Could not read failed backup progress for ' . $reference . ': ' . $progressError->getMessage());
+        }
+        $publicStage = ipawcus_backup_public_failure_stage($progressPercent);
+        error_log(sprintf(
+            'System backup %s failed during %s [%s]: %s in %s:%d',
+            $reference,
+            $publicStage,
+            get_class($error),
+            $error->getMessage(),
+            $error->getFile(),
+            $error->getLine()
+        ));
+        $message = ipawcus_backup_safe_failure_message($error, $progressPercent, $reference);
         if ($published) {
             throw new RuntimeException('The backup was verified, but its final response was interrupted. Refresh the backup list before trying again.', 0, $error);
         }
@@ -829,8 +859,8 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
         @unlink($archivePath);
         @unlink($statePath);
         try {
-            $failed = $metaPdo->prepare("UPDATE system_backups SET status = 'failed', progress_stage = 'Backup failed safely', error_message = ?, completed_at = NOW() WHERE backup_id = ?");
-            $failed->execute([substr($message, 0, 1000), $backupId]);
+            $failed = $metaPdo->prepare("UPDATE system_backups SET status = 'failed', progress_stage = ?, error_message = ?, completed_at = NOW() WHERE backup_id = ?");
+            $failed->execute(['Failed during ' . $publicStage, substr($message, 0, 1000), $backupId]);
         } catch (Throwable $metadataError) {
             error_log('Could not record backup failure: ' . $metadataError->getMessage());
         }

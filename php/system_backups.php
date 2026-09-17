@@ -50,6 +50,9 @@ function ipawcus_system_backups_stream_local_export(PDO $pdo, int $backupId): ne
 
     $delivered = false;
     try {
+        if (function_exists('ipawcus_error_response_discard_own_buffer')) {
+            ipawcus_error_response_discard_own_buffer();
+        }
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . str_replace(['"', "\r", "\n"], '', basename($archive['name'])) . '"');
         header('Content-Length: ' . $archive['size']);

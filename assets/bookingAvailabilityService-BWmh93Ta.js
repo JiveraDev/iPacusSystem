@@ -1,1 +1,0 @@
-import{nt as e}from"./index-DEyZ3aFn.js";function t(t={},n={}){let r=new URLSearchParams;Object.entries(t).forEach(([e,t])=>{t!=null&&t!==``&&r.set(e,String(t))});let i=r.toString();return e(`/booking-availability${i?`?${i}`:``}`,n)}export{t};

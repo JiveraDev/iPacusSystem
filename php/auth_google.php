@@ -54,6 +54,7 @@ try {
         ],
     ]);
 } catch (Throwable $error) {
+    googleAuthHandleSetupException($error);
     error_log('Google authentication failed: ' . $error->getMessage());
     googleAuthJsonResponse(500, [
         'message' => 'Google sign-in is temporarily unavailable. Please try again or use your password.',

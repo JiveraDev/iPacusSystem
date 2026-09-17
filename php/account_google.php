@@ -120,6 +120,7 @@ try {
         'message' => 'Google is now connected to this iPawcus account.',
     ]);
 } catch (Throwable $error) {
+    googleAuthHandleSetupException($error);
     error_log('Google account connection failed: ' . $error->getMessage());
     googleAuthJsonResponse(500, [
         'message' => 'The Google account connection is temporarily unavailable. Please try again.',

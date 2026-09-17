@@ -174,6 +174,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('superadmin')];
     }
 
+    if ($path === '/system-backups') {
+        return ['roles' => ipawcus_roles('superadmin')];
+    }
+
     if ($path === '/payment-methods') {
         return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('superadmin')];
     }

@@ -146,6 +146,9 @@ switch ($path) {
     case '/lifecycle/recovery-report':
         require_once __DIR__ . '/lifecycle_recovery_report.php';
         break;
+    case '/system-backups':
+        require_once __DIR__ . '/system_backups.php';
+        break;
     case '/reports/dashboard':
         require_once __DIR__ . '/reports_dashboard.php';
         break;

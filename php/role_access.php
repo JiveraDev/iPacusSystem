@@ -190,6 +190,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('all')];
     }
 
+    if ($path === '/account/google') {
+        return ['roles' => ipawcus_roles('all')];
+    }
+
     if ($path === '/admin-feature-access') {
         return ['roles' => $method === 'GET' ? ipawcus_roles('admin') : ipawcus_roles('superadmin')];
     }

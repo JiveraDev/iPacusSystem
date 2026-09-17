@@ -51,6 +51,15 @@ switch ($path) {
     case '/login':
         require_once __DIR__ . '/login.php';
         break;
+    case '/auth/google':
+        require_once __DIR__ . '/auth_google.php';
+        break;
+    case '/auth/google/complete':
+        require_once __DIR__ . '/auth_google_complete.php';
+        break;
+    case '/account/google':
+        require_once __DIR__ . '/account_google.php';
+        break;
     case '/auth/verify-email':
         require_once __DIR__ . '/auth_verify_email.php';
         break;

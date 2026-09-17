@@ -10,7 +10,6 @@ require_once __DIR__ . '/system_backup_zip.php';
 require_once __DIR__ . '/system_backup_excel.php';
 
 const IPAWCUS_BACKUP_SCHEMA_TABLE = 'system_backups';
-const IPAWCUS_BACKUP_SETTINGS_TABLE = 'system_backup_settings';
 const IPAWCUS_BACKUP_STATE_VERSION = 1;
 
 function ipawcus_backup_module_enabled(): bool
@@ -18,82 +17,49 @@ function ipawcus_backup_module_enabled(): bool
     return filter_var((string)(getenv('IPAWCUS_SYSTEM_BACKUPS_ENABLED') ?: '1'), FILTER_VALIDATE_BOOLEAN);
 }
 
-function ipawcus_backup_is_absolute_path(string $path): bool
+function ipawcus_backup_begin_local_download_storage(): string
 {
-    return str_starts_with($path, '/') || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
-}
-
-function ipawcus_backup_validate_storage_directory(string $directory): string
-{
-    $directory = trim(str_replace('\\', '/', $directory), '/ ');
-    if ($directory === '') {
-        return 'primary';
+    static $shutdownCleanupRegistered = false;
+    $root = rtrim(sys_get_temp_dir(), "/\\")
+        . DIRECTORY_SEPARATOR . 'ipawcus-local-export-' . bin2hex(random_bytes(12));
+    $GLOBALS['ipawcus_backup_temporary_root'] = $root;
+    if (!$shutdownCleanupRegistered) {
+        register_shutdown_function(static function (): void {
+            try {
+                ipawcus_backup_cleanup_temporary_root();
+            } catch (Throwable $error) {
+                error_log('Backup shutdown cleanup failed: ' . $error->getMessage());
+            }
+        });
+        $shutdownCleanupRegistered = true;
     }
-    if (strlen($directory) > 160 || ipawcus_backup_is_absolute_path($directory)) {
-        throw new InvalidArgumentException('Use a folder name under the private backup root, not an absolute server path.');
-    }
-    foreach (explode('/', $directory) as $segment) {
-        if ($segment === '' || $segment === '.' || $segment === '..' || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $segment) !== 1) {
-            throw new InvalidArgumentException('The backup folder can contain letters, numbers, dashes, underscores, dots, and nested folder separators only.');
-        }
-    }
-    return $directory;
-}
-
-function ipawcus_backup_configure_storage_directory(string $directory): void
-{
-    $GLOBALS['ipawcus_backup_storage_directory'] = ipawcus_backup_validate_storage_directory($directory);
+    return $root;
 }
 
 function ipawcus_backup_base_storage_root(bool $create = false): string
 {
-    static $baseRoot = null;
-    if ($baseRoot === null) {
-        $configured = trim((string)(getenv('IPAWCUS_BACKUP_STORAGE_ROOT') ?: ''));
-        if ($configured !== '') {
-            $baseRoot = ipawcus_backup_is_absolute_path($configured)
-                ? $configured
-                : dirname(__DIR__) . DIRECTORY_SEPARATOR . $configured;
-        } else {
-            $projectRoot = str_replace('\\', '/', dirname(__DIR__));
-            $publicHtmlPosition = stripos($projectRoot, '/public_html');
-            if ($publicHtmlPosition !== false) {
-                $publicHtmlRoot = substr($projectRoot, 0, $publicHtmlPosition + strlen('/public_html'));
-                $baseRoot = dirname($publicHtmlRoot) . DIRECTORY_SEPARATOR . 'ipawcus_private_backups';
-            } else {
-                $baseRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'backups';
-            }
-        }
-        $baseRoot = rtrim($baseRoot, "/\\");
+    $baseRoot = rtrim(trim((string)($GLOBALS['ipawcus_backup_temporary_root'] ?? '')), "/\\");
+    if ($baseRoot === '') {
+        throw new RuntimeException('The temporary local-download workspace has not been initialized.');
     }
-
     if ($create) {
         if (!is_dir($baseRoot) && !mkdir($baseRoot, 0700, true) && !is_dir($baseRoot)) {
-            throw new RuntimeException('The private backup storage directory could not be created.');
+            throw new RuntimeException('The temporary local-download workspace could not be created.');
         }
         @chmod($baseRoot, 0700);
-        $denyFile = $baseRoot . DIRECTORY_SEPARATOR . '.htaccess';
-        if (!is_file($denyFile)) {
-            @file_put_contents($denyFile, "Options -Indexes\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n", LOCK_EX);
-        }
     }
     return $baseRoot;
 }
 
 function ipawcus_backup_storage_root(bool $create = false): string
 {
-    $storageDirectory = ipawcus_backup_validate_storage_directory((string)($GLOBALS['ipawcus_backup_storage_directory'] ?? 'primary'));
-    $root = ipawcus_backup_base_storage_root($create) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $storageDirectory);
+    $root = ipawcus_backup_base_storage_root($create) . DIRECTORY_SEPARATOR . 'export';
     if ($create) {
         foreach ([$root, $root . DIRECTORY_SEPARATOR . 'archives', $root . DIRECTORY_SEPARATOR . 'states', $root . DIRECTORY_SEPARATOR . 'work'] as $directory) {
             if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-                throw new RuntimeException('The private backup storage directory could not be created.');
+                throw new RuntimeException('The temporary backup workspace could not be created.');
             }
             @chmod($directory, 0700);
-        }
-        $denyFile = $root . DIRECTORY_SEPARATOR . '.htaccess';
-        if (!is_file($denyFile)) {
-            @file_put_contents($denyFile, "Options -Indexes\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n", LOCK_EX);
         }
     }
     return $root;
@@ -117,68 +83,17 @@ function ipawcus_backup_table_exists(PDO $pdo, string $table = IPAWCUS_BACKUP_SC
 
 function ipawcus_backup_require_schema(PDO $pdo): void
 {
-    if (!ipawcus_backup_table_exists($pdo) || !ipawcus_backup_table_exists($pdo, IPAWCUS_BACKUP_SETTINGS_TABLE)) {
+    if (!ipawcus_backup_table_exists($pdo)) {
         throw new RuntimeException('System Backup is not installed yet. Apply DDL/20260915_01_system_backups.sql first.');
     }
 }
 
-function ipawcus_backup_settings(PDO $pdo): array
-{
-    ipawcus_backup_require_schema($pdo);
-    $pdo->exec("INSERT IGNORE INTO system_backup_settings (settings_id, automatic_enabled, automatic_time, storage_directory) VALUES (1, 0, '02:00:00', 'primary')");
-    $row = $pdo->query('SELECT * FROM system_backup_settings WHERE settings_id = 1 LIMIT 1')->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        throw new RuntimeException('Backup settings could not be loaded.');
-    }
-    $directory = ipawcus_backup_validate_storage_directory((string)($row['storage_directory'] ?? 'primary'));
-    return [
-        'automaticEnabled' => (int)($row['automatic_enabled'] ?? 0) === 1,
-        'automaticTime' => substr((string)($row['automatic_time'] ?? '02:00:00'), 0, 5),
-        'storageDirectory' => $directory,
-        'lastAutomaticAttemptAt' => $row['last_automatic_attempt_at'] ?? null,
-        'lastAutomaticStatus' => (string)($row['last_automatic_status'] ?? 'never'),
-        'lastAutomaticBackupId' => $row['last_automatic_backup_id'] === null ? null : (int)$row['last_automatic_backup_id'],
-        'updatedAt' => $row['updated_at'] ?? null,
-        'updatedBy' => (string)($row['updated_by_name'] ?? ''),
-    ];
-}
-
-function ipawcus_backup_update_settings(PDO $pdo, array $payload, ?int $actorUserId, string $actorName): array
-{
-    $current = ipawcus_backup_settings($pdo);
-    $runningCount = (int)$pdo->query("SELECT COUNT(*) FROM system_backups WHERE status = 'running' AND started_at >= DATE_SUB(NOW(), INTERVAL 2 HOUR)")->fetchColumn();
-    if ($runningCount > 0) {
-        throw new InvalidArgumentException('Wait for the current backup to finish before changing automatic backup settings.');
-    }
-    $enabled = filter_var($payload['automaticEnabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
-    $time = $enabled ? trim((string)($payload['automaticTime'] ?? '')) : $current['automaticTime'];
-    $directory = $enabled
-        ? ipawcus_backup_validate_storage_directory((string)($payload['storageDirectory'] ?? ''))
-        : $current['storageDirectory'];
-    if ($enabled && preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time) !== 1) {
-        throw new InvalidArgumentException('Choose a valid daily backup time.');
-    }
-    if ($enabled) {
-        ipawcus_backup_configure_storage_directory($directory);
-        ipawcus_backup_storage_root(true);
-    }
-    $stmt = $pdo->prepare('UPDATE system_backup_settings SET automatic_enabled = ?, automatic_time = ?, storage_directory = ?, updated_by_user_id = ?, updated_by_name = ?, updated_at = NOW() WHERE settings_id = 1');
-    $stmt->execute([
-        $enabled ? 1 : 0,
-        $time . ':00',
-        $directory,
-        $actorUserId,
-        substr(trim($actorName) !== '' ? trim($actorName) : 'Super Admin', 0, 220),
-    ]);
-    $settings = ipawcus_backup_settings($pdo);
-    ipawcus_backup_configure_storage_directory($settings['storageDirectory']);
-    return $settings;
-}
-
 function ipawcus_backup_relative_path(string $area, string $fileName): string
 {
-    $directory = ipawcus_backup_validate_storage_directory((string)($GLOBALS['ipawcus_backup_storage_directory'] ?? 'primary'));
-    return $directory . '/' . $area . '/' . basename($fileName);
+    if (!in_array($area, ['archives', 'states', 'work'], true)) {
+        throw new InvalidArgumentException('Unsupported backup storage area.');
+    }
+    return 'export/' . $area . '/' . basename($fileName);
 }
 
 function ipawcus_backup_resolve_stored_path(string $area, string $storedPath): string
@@ -187,15 +102,16 @@ function ipawcus_backup_resolve_stored_path(string $area, string $storedPath): s
     if ($normalized === '' || str_contains($normalized, '..')) {
         return '';
     }
-    if (!str_contains($normalized, '/')) {
-        $activePath = ipawcus_backup_path($area, basename($normalized));
-        $legacyPath = ipawcus_backup_base_storage_root(true) . DIRECTORY_SEPARATOR . $area . DIRECTORY_SEPARATOR . basename($normalized);
-        return is_file($activePath) || !is_file($legacyPath) ? $activePath : $legacyPath;
+    if (!in_array($area, ['archives', 'states', 'work'], true)) {
+        return '';
+    }
+    $expectedPrefix = 'export/' . $area . '/';
+    if (!str_starts_with($normalized, $expectedPrefix)) {
+        return '';
     }
     $base = ipawcus_backup_base_storage_root(true);
     $candidate = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
-    $expectedPart = DIRECTORY_SEPARATOR . $area . DIRECTORY_SEPARATOR;
-    return str_contains($candidate, $expectedPart) ? $candidate : '';
+    return $candidate;
 }
 
 function ipawcus_backup_uuid(): string
@@ -482,7 +398,7 @@ function ipawcus_backup_write_database(PDO $pdo, string $type, string $sqlPath, 
                 ipawcus_backup_write($handle, 'DROP TABLE IF EXISTS ' . $quotedTable . ";\n" . $definition['createSql'] . ";\n");
             }
 
-            if (in_array($table, [IPAWCUS_BACKUP_SCHEMA_TABLE, IPAWCUS_BACKUP_SETTINGS_TABLE], true)) {
+            if (in_array($table, [IPAWCUS_BACKUP_SCHEMA_TABLE, 'system_backup_settings'], true)) {
                 $stmt->closeCursor();
                 $tableStates[$table] = ['primary' => $primary, 'rows' => [], 'tableHash' => hash('sha256', '')];
                 ipawcus_backup_write($handle, "\n");
@@ -617,23 +533,6 @@ function ipawcus_backup_scan_media(): array
     return $files;
 }
 
-function ipawcus_backup_atomic_json(string $path, array $payload): void
-{
-    $temporary = $path . '.part';
-    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    if (file_put_contents($temporary, $json, LOCK_EX) === false) {
-        throw new RuntimeException('Backup metadata could not be written.');
-    }
-    @chmod($temporary, 0600);
-    if (DIRECTORY_SEPARATOR === '\\' && is_file($path)) {
-        @unlink($path);
-    }
-    if (!rename($temporary, $path)) {
-        @unlink($temporary);
-        throw new RuntimeException('Backup metadata could not be finalized.');
-    }
-}
-
 function ipawcus_backup_update_progress(PDO $pdo, int $backupId, int $percent, string $stage): void
 {
     $stmt = $pdo->prepare('UPDATE system_backups SET progress_percent = ?, progress_stage = ? WHERE backup_id = ?');
@@ -667,14 +566,13 @@ function ipawcus_backup_format_row(array $row): array
         'startedAt' => (string)$row['started_at'],
         'completedAt' => $row['completed_at'] === null ? null : (string)$row['completed_at'],
         'errorMessage' => $effectiveStatus === 'failed' || $effectiveStatus === 'interrupted' ? (string)($row['error_message'] ?? '') : '',
-        'downloadReady' => $effectiveStatus === 'completed' && trim((string)($row['archive_path'] ?? '')) !== '',
+        'downloadReady' => false,
     ];
 }
 
 function ipawcus_backup_list(PDO $pdo): array
 {
-    $settings = ipawcus_backup_settings($pdo);
-    ipawcus_backup_configure_storage_directory($settings['storageDirectory']);
+    ipawcus_backup_require_schema($pdo);
     $rows = $pdo->query('SELECT * FROM system_backups ORDER BY started_at DESC, backup_id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
     $backups = array_map('ipawcus_backup_format_row', $rows);
     $latest = null;
@@ -685,109 +583,21 @@ function ipawcus_backup_list(PDO $pdo): array
         }
     }
     $hasRunning = count(array_filter($backups, static fn(array $backup): bool => $backup['status'] === 'running')) > 0;
-    $base = ipawcus_backup_base($pdo);
-    $previous = ipawcus_backup_previous($pdo);
-    $previousState = ipawcus_backup_load_state($previous);
-    $root = ipawcus_backup_storage_root(false);
-    $configuredRoot = trim((string)(getenv('IPAWCUS_BACKUP_STORAGE_ROOT') ?: ''));
     return [
         'backups' => $backups,
         'latestVerified' => $latest,
-        'canCreateChanges' => !$hasRunning && $base !== null && $previousState !== null,
         'hasRunning' => $hasRunning,
-        'settings' => $settings,
-        'storage' => [
-            'configured' => $configuredRoot !== '',
-            'writable' => is_dir($root) ? is_writable($root) : is_writable(dirname($root)),
-            'offsiteLabel' => trim((string)(getenv('IPAWCUS_BACKUP_OFFSITE_LABEL') ?: '')),
-            'serverPath' => $root,
-            'baseConfigured' => $configuredRoot !== '',
-        ],
+        'localDownloadOnly' => true,
     ];
 }
 
-function ipawcus_backup_run_scheduled(): array
+function ipawcus_backup_restore_instructions(string $reference): string
 {
-    if (!ipawcus_backup_module_enabled()) {
-        return ['ran' => false, 'reason' => 'System Backup is disabled by the server configuration.'];
-    }
-
-    $pdo = createDatabaseConnection();
-    $settings = ipawcus_backup_settings($pdo);
-    ipawcus_backup_configure_storage_directory($settings['storageDirectory']);
-    if (!$settings['automaticEnabled']) {
-        return ['ran' => false, 'reason' => 'Automatic incremental backup is turned off.'];
-    }
-
-    $timezoneName = trim((string)(getenv('APP_TIMEZONE') ?: 'Asia/Manila'));
-    try {
-        $timezone = new DateTimeZone($timezoneName);
-    } catch (Throwable $error) {
-        $timezone = new DateTimeZone('Asia/Manila');
-    }
-    $now = new DateTimeImmutable('now', $timezone);
-    $scheduled = DateTimeImmutable::createFromFormat('!H:i', $settings['automaticTime'], $timezone);
-    if (!$scheduled) {
-        throw new RuntimeException('The saved automatic backup time is invalid.');
-    }
-    $todaySchedule = $now->setTime((int)$scheduled->format('H'), (int)$scheduled->format('i'));
-    if ($now < $todaySchedule) {
-        return ['ran' => false, 'reason' => 'The automatic backup time has not arrived yet.'];
-    }
-
-    $todayStart = $now->setTime(0, 0)->format('Y-m-d H:i:s');
-    $attemptAt = $now->format('Y-m-d H:i:s');
-    $claim = $pdo->prepare("UPDATE system_backup_settings SET last_automatic_attempt_at = ?, last_automatic_status = 'running', last_automatic_backup_id = NULL WHERE settings_id = 1 AND automatic_enabled = 1 AND (last_automatic_attempt_at IS NULL OR last_automatic_attempt_at < ?)");
-    $claim->execute([$attemptAt, $todayStart]);
-    if ($claim->rowCount() !== 1) {
-        return ['ran' => false, 'reason' => 'Today\'s automatic backup was already attempted.'];
-    }
-
-    try {
-        $previous = ipawcus_backup_previous($pdo);
-        $base = ipawcus_backup_base($pdo);
-        $type = $base !== null && ipawcus_backup_load_state($previous) !== null ? 'changes' : 'complete';
-        $backup = ipawcus_backup_create($type, null, 'Automatic schedule');
-        $complete = $pdo->prepare("UPDATE system_backup_settings SET last_automatic_status = 'completed', last_automatic_backup_id = ? WHERE settings_id = 1");
-        $complete->execute([$backup['id']]);
-        return ['ran' => true, 'reason' => '', 'backup' => $backup];
-    } catch (Throwable $error) {
-        $failed = $pdo->prepare("UPDATE system_backup_settings SET last_automatic_status = 'failed' WHERE settings_id = 1");
-        $failed->execute();
-        throw $error;
-    }
-}
-
-function ipawcus_backup_catalog(PDO $pdo): array
-{
-    $rows = $pdo->query("SELECT * FROM system_backups WHERE status = 'completed' ORDER BY completed_at ASC, backup_id ASC")->fetchAll(PDO::FETCH_ASSOC);
-    return [
-        'format' => 'iPawcus Backup Catalog',
-        'generatedAt' => gmdate(DATE_ATOM),
-        'restoreOrder' => 'Restore the selected complete backup, then every following changes backup in chronological order.',
-        'backups' => array_map(static function (array $row): array {
-            $item = ipawcus_backup_format_row($row);
-            unset($item['errorMessage'], $item['downloadReady'], $item['progressStage'], $item['progressPercent']);
-            return $item;
-        }, $rows),
-    ];
-}
-
-function ipawcus_backup_write_catalog(PDO $pdo): void
-{
-    ipawcus_backup_atomic_json(ipawcus_backup_storage_root(true) . DIRECTORY_SEPARATOR . 'backup-index.json', ipawcus_backup_catalog($pdo));
-}
-
-function ipawcus_backup_restore_instructions(string $type, string $reference, ?array $parent, ?array $base): string
-{
-    $dependency = $type === 'complete'
-        ? 'This package is a complete recovery baseline.'
-        : 'Restore the complete backup ID ' . (int)($base['backup_id'] ?? 0) . ', then each changes backup through parent ID ' . (int)($parent['backup_id'] ?? 0) . ' before this package.';
-    return "iPawcus Backup {$reference}\n\n{$dependency}\n\n"
+    return "iPawcus Backup {$reference}\n\nThis package is a complete recovery baseline.\n\n"
         . "RECOVERY\n1. Use a clean recovery server and preserve the failed server before changing it.\n"
-        . "2. Verify the ZIP SHA-256 checksum against the Super Admin list or the private backup-index.json stored beside the archives.\n"
+        . "2. Verify the package contents and component SHA-256 checksums recorded in backup-manifest.json.\n"
         . "3. Import database.sql into the intended iPawcus database.\n"
-        . "4. Copy the media/ directory into the configured runtime media root. For a changes package, remove paths listed in deleted-files.json.\n"
+        . "4. Copy the media/ directory into the configured runtime media root.\n"
         . "5. Verify login, pets, queue, bookings, diagnoses, inventory, invoices, and media before reopening the clinic system.\n\n"
         . "EMERGENCY WORKBOOK\nOpen emergency-operations.xlsx to read the saved operational lists. Enter outage work only in its Offline Entries sheet, then reconcile those entries manually after service returns.\n\n"
         . "Do not restore directly over the only production database. A trained IT administrator should perform and test recovery.\n";
@@ -817,17 +627,17 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
     if (!ipawcus_backup_module_enabled()) {
         throw new RuntimeException('System Backup is disabled by the server configuration.');
     }
-    if (!in_array($type, ['complete', 'changes'], true)) {
-        throw new InvalidArgumentException('Choose either a complete backup or a recent-changes backup.');
+    if ($type !== 'complete') {
+        throw new InvalidArgumentException('Local downloads must be complete backups.');
     }
     ignore_user_abort(true);
     @set_time_limit(0);
+    ipawcus_backup_begin_local_download_storage();
     $metaPdo = createDatabaseConnection();
-    $settings = ipawcus_backup_settings($metaPdo);
-    ipawcus_backup_configure_storage_directory($settings['storageDirectory']);
+    ipawcus_backup_require_schema($metaPdo);
     ipawcus_backup_storage_root(true);
 
-    $lockPath = ipawcus_backup_storage_root(true) . DIRECTORY_SEPARATOR . 'backup.lock';
+    $lockPath = rtrim(sys_get_temp_dir(), "/\\") . DIRECTORY_SEPARATOR . 'ipawcus-system-backup.lock';
     $lockHandle = fopen($lockPath, 'c+b');
     if ($lockHandle === false || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
         if (is_resource($lockHandle)) fclose($lockHandle);
@@ -970,7 +780,7 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
         $zip->addFile('emergency-operations.xlsx', $xlsxPath);
         $zip->addString('backup-manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addString('deleted-files.json', json_encode($deleted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-        $zip->addString('RESTORE-INSTRUCTIONS.txt', ipawcus_backup_restore_instructions($type, $reference, $parent, $base));
+        $zip->addString('RESTORE-INSTRUCTIONS.txt', ipawcus_backup_restore_instructions($reference));
         $includedTotal = count($included);
         $packedFiles = 0;
         foreach ($included as $relative => $details) {
@@ -1002,11 +812,6 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
             $database['scanned'], $database['changed'], count($included), count($deleted), $backupId,
         ]);
         $published = true;
-        try {
-            ipawcus_backup_write_catalog($metaPdo);
-        } catch (Throwable $catalogError) {
-            error_log('Backup catalog refresh failed after verified backup ' . $reference . ': ' . $catalogError->getMessage());
-        }
         $rowStmt = $metaPdo->prepare('SELECT * FROM system_backups WHERE backup_id = ?');
         $rowStmt->execute([$backupId]);
         return ipawcus_backup_format_row($rowStmt->fetch(PDO::FETCH_ASSOC));
@@ -1035,13 +840,13 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
         @unlink($xlsxPath);
         flock($lockHandle, LOCK_UN);
         fclose($lockHandle);
+        @unlink($lockPath);
     }
 }
 
 function ipawcus_backup_archive_for_download(PDO $pdo, int $backupId): array
 {
-    $settings = ipawcus_backup_settings($pdo);
-    ipawcus_backup_configure_storage_directory($settings['storageDirectory']);
+    ipawcus_backup_require_schema($pdo);
     $stmt = $pdo->prepare("SELECT * FROM system_backups WHERE backup_id = ? AND status = 'completed' LIMIT 1");
     $stmt->execute([$backupId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1054,4 +859,44 @@ function ipawcus_backup_archive_for_download(PDO $pdo, int $backupId): array
         throw new RuntimeException('The backup archive is unavailable from private storage.');
     }
     return ['path' => $archivePath, 'name' => (string)$row['archive_name'], 'size' => (int)filesize($archivePath)];
+}
+
+function ipawcus_backup_cleanup_temporary_root(): void
+{
+    $root = trim((string)($GLOBALS['ipawcus_backup_temporary_root'] ?? ''));
+    if ($root === '') {
+        return;
+    }
+
+    $temporaryBase = rtrim(str_replace('\\', '/', sys_get_temp_dir()), '/');
+    $normalizedRoot = rtrim(str_replace('\\', '/', $root), '/');
+    if (!str_starts_with($normalizedRoot, $temporaryBase . '/ipawcus-local-export-')) {
+        throw new RuntimeException('Refused to remove an unexpected backup workspace path.');
+    }
+
+    if (is_dir($root)) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $entry) {
+            $path = $entry->getPathname();
+            if ($entry->isLink() || $entry->isFile()) {
+                @unlink($path);
+            } elseif ($entry->isDir()) {
+                @rmdir($path);
+            }
+        }
+        @rmdir($root);
+    }
+    unset($GLOBALS['ipawcus_backup_temporary_root']);
+}
+
+function ipawcus_backup_mark_local_download_finished(PDO $pdo, int $backupId, bool $delivered): void
+{
+    $stage = $delivered
+        ? 'Downloaded locally; no server backup copy retained'
+        : 'Local download ended; temporary server files removed';
+    $stmt = $pdo->prepare('UPDATE system_backups SET archive_path = NULL, state_path = NULL, progress_stage = ? WHERE backup_id = ?');
+    $stmt->execute([$stage, $backupId]);
 }

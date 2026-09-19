@@ -6,19 +6,6 @@ require_once __DIR__ . '/auth_access_helpers.php';
 const GOOGLE_AUTH_PROVIDER = 'google';
 const GOOGLE_AUTH_ONBOARDING_TTL_MINUTES = 15;
 
-final class GoogleAuthSetupException extends RuntimeException
-{
-    public string $publicCode;
-    public string $publicMessage;
-
-    public function __construct(string $publicCode, string $publicMessage, string $internalMessage)
-    {
-        parent::__construct($internalMessage);
-        $this->publicCode = $publicCode;
-        $this->publicMessage = $publicMessage;
-    }
-}
-
 function googleAuthJsonResponse(int $statusCode, array $payload): void
 {
     http_response_code($statusCode);
@@ -117,20 +104,12 @@ function googleAuthRequireLibrary(): void
 {
     $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
     if (!is_file($autoloadPath)) {
-        throw new GoogleAuthSetupException(
-            'GOOGLE_DEPENDENCIES_MISSING',
-            'Google sign-in installation is not finished. Ask the system administrator to complete it.',
-            'Google authentication dependencies are not installed.'
-        );
+        throw new RuntimeException('Google authentication dependencies are not installed.');
     }
 
     require_once $autoloadPath;
     if (!class_exists('Google\\Client')) {
-        throw new GoogleAuthSetupException(
-            'GOOGLE_VERIFIER_MISSING',
-            'Google sign-in installation is not finished. Ask the system administrator to complete it.',
-            'The Google authentication verifier is unavailable.'
-        );
+        throw new RuntimeException('The Google authentication verifier is unavailable.');
     }
 }
 
@@ -138,11 +117,7 @@ function googleAuthVerifyCredential(string $credential): array
 {
     $clientId = trim((string)(getenv('GOOGLE_CLIENT_ID') ?: ''));
     if ($clientId === '') {
-        throw new GoogleAuthSetupException(
-            'GOOGLE_SERVER_CLIENT_ID_MISSING',
-            'Google sign-in is not configured on the server yet. Ask the system administrator to complete it.',
-            'GOOGLE_CLIENT_ID is missing from the server environment.'
-        );
+        throw new RuntimeException('Google authentication is not configured on the server.');
     }
 
     if ($credential === '') {
@@ -189,25 +164,8 @@ function googleAuthRequireSchema(PDO $pdo): void
     $stmt->execute();
 
     if ((int)$stmt->fetchColumn() !== 2) {
-        throw new GoogleAuthSetupException(
-            'GOOGLE_DATABASE_SETUP_MISSING',
-            'Google sign-in setup is not finished. Ask the system administrator to complete it.',
-            'Google authentication database tables are missing.'
-        );
+        throw new RuntimeException('Google authentication database tables are missing.');
     }
-}
-
-function googleAuthHandleSetupException(Throwable $error): void
-{
-    if (!$error instanceof GoogleAuthSetupException) {
-        return;
-    }
-
-    error_log('Google authentication setup error [' . $error->publicCode . ']: ' . $error->getMessage());
-    googleAuthJsonResponse(503, [
-        'message' => $error->publicMessage,
-        'code' => $error->publicCode,
-    ]);
 }
 
 function googleAuthColumnExists(PDO $pdo, string $tableName, string $columnName): bool

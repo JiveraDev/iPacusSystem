@@ -128,7 +128,6 @@ try {
         $pdo->rollBack();
     }
 
-    googleAuthHandleSetupException($error);
     error_log('Google onboarding failed: ' . $error->getMessage());
     googleAuthJsonResponse(500, [
         'message' => 'Google registration could not be completed. Please try again.',

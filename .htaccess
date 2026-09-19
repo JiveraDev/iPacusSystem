@@ -6,10 +6,6 @@
       AddType application/manifest+json .webmanifest
   </IfModule>
 
-  <IfModule mod_headers.c>
-      Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
-  </IfModule>
-
   <IfModule mod_rewrite.c>
       RewriteEngine On
 

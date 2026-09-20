@@ -148,6 +148,9 @@ try {
 
     $accessToken = ipawcus_create_access_token($pdo, (int)$user['user_id']);
 
+    require_once __DIR__ . '/staff_activity_helpers.php';
+    staff_activity_record_sign_in($pdo, $user, 'password');
+
     echo json_encode([
         'message' => 'Login successful.',
         'access_token' => $accessToken['token'],

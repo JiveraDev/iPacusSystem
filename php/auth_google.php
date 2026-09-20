@@ -34,7 +34,10 @@ try {
             WHERE provider = ? AND provider_subject = ?
         ");
         $updateStmt->execute([$profile['email'], GOOGLE_AUTH_PROVIDER, $profile['subject']]);
-        googleAuthJsonResponse(200, googleAuthIssueSession($pdo, $user));
+        $session = googleAuthIssueSession($pdo, $user);
+        require_once __DIR__ . '/staff_activity_helpers.php';
+        staff_activity_record_sign_in($pdo, $user, 'google');
+        googleAuthJsonResponse(200, $session);
     }
 
     if (googleAuthFindUserByEmail($pdo, $profile['email'])) {

@@ -110,6 +110,21 @@ try {
             $profile['subject'],
             $profile['email'],
         ]);
+
+        try {
+            require_once __DIR__ . '/notification_helpers.php';
+            notification_create($pdo, [
+                'user_id' => $currentUserId,
+                'type' => 'google_account_connected',
+                'category' => 'account_updates',
+                'title' => 'Google account connected',
+                'message' => 'Your Google account is now connected to your iPawcus account.',
+                'dedupe_key' => "google-account-connected-{$currentUserId}",
+                'force_in_app' => true,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Google account connection notification failed: ' . $notificationError->getMessage());
+        }
     }
 
     googleAuthJsonResponse(200, [

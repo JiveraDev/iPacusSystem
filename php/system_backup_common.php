@@ -478,7 +478,7 @@ function ipawcus_backup_scan_media(): array
 {
     $root = ipawcus_runtime_media_root(false);
     $files = [];
-    foreach (IPAWCUS_RUNTIME_MEDIA_DIRECTORIES as $directory) {
+    foreach (array_merge(IPAWCUS_RUNTIME_MEDIA_DIRECTORIES, ['staff_activity']) as $directory) {
         $directoryPath = $root . DIRECTORY_SEPARATOR . $directory;
         if (!is_dir($directoryPath)) {
             continue;

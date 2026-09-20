@@ -190,6 +190,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('all')];
     }
 
+    if ($path === '/activity' || $path === '/activity/options' || $path === '/activity/view') {
+        return ['roles' => ipawcus_roles('clinic')];
+    }
+
     if ($path === '/account/google') {
         return ['roles' => ipawcus_roles('all')];
     }

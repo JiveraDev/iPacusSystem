@@ -45,6 +45,9 @@ if (empty($routeAccessPolicy['public'])) {
     require_once __DIR__ . '/db.php';
     $pdo = ipawcus_get_pdo();
     ipawcus_enforce_route_access($pdo, $path, $_SERVER['REQUEST_METHOD']);
+
+    require_once __DIR__ . '/staff_activity_helpers.php';
+    staff_activity_register_mutation($pdo, $GLOBALS['ipawcus_current_api_user'], $path, $_SERVER['REQUEST_METHOD']);
 }
 
 switch ($path) {
@@ -59,6 +62,11 @@ switch ($path) {
         break;
     case '/account/google':
         require_once __DIR__ . '/account_google.php';
+        break;
+    case '/activity':
+    case '/activity/options':
+    case '/activity/view':
+        require_once __DIR__ . '/staff_activity.php';
         break;
     case '/auth/verify-email':
         require_once __DIR__ . '/auth_verify_email.php';

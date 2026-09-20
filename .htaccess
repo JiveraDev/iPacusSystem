@@ -1,4 +1,4 @@
-<Files ".env">
+  <Files ".env">
       Require all denied
   </Files>
 

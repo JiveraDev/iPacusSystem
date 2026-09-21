@@ -608,7 +608,8 @@ function ipawcus_backup_public_failure_stage(int $progressPercent): string
     if ($progressPercent < 8) return 'backup initialization';
     if ($progressPercent < 18) return 'database structure reading';
     if ($progressPercent < 55) return 'database export';
-    if ($progressPercent < 70) return 'Excel workbook creation';
+    if ($progressPercent < 68) return 'Excel workbook creation';
+    if ($progressPercent < 70) return 'database snapshot finalization';
     if ($progressPercent < 80) return 'uploaded-file collection';
     if ($progressPercent < 98) return 'ZIP packaging';
     return 'final archive verification';
@@ -722,6 +723,7 @@ function ipawcus_backup_create(string $type, ?int $actorUserId, string $actorNam
         $workbook = ipawcus_create_emergency_workbook($snapshotPdo, $xlsxPath, [
             'createdAt' => gmdate(DATE_ATOM), 'type' => $type, 'reference' => $reference,
         ]);
+        ipawcus_backup_update_progress($metaPdo, $backupId, 68, 'Finalizing the database snapshot');
         $snapshotPdo->commit();
 
         ipawcus_backup_update_progress($metaPdo, $backupId, 70, 'Comparing saved files');

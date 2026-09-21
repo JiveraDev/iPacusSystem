@@ -321,22 +321,32 @@ function ipawcus_backup_excel_definitions(PDO $pdo, array $backup): array
 
 function ipawcus_backup_excel_action_sheet(PDO $pdo): array
 {
+    // Audit tables were introduced with different collations; normalize text before UNION ALL.
     $sources = [];
     if (ipawcus_backup_excel_has_columns($pdo, 'inventory_action_audit', ['inventory_audit_id', 'item_id', 'action_type', 'performed_by_user_id', 'performed_by_name', 'reason', 'created_at'])) {
         $sources[] = "SELECT 'Inventory' AS source_module, inventory_audit_id AS event_id, item_id AS record_id,
-                             action_type AS action_name, performed_by_user_id AS actor_user_id,
-                             performed_by_name AS actor_name, reason AS details, created_at AS event_time
+                             CONVERT(action_type USING utf8mb4) COLLATE utf8mb4_unicode_ci AS action_name,
+                             performed_by_user_id AS actor_user_id,
+                             CONVERT(performed_by_name USING utf8mb4) COLLATE utf8mb4_unicode_ci AS actor_name,
+                             CONVERT(reason USING utf8mb4) COLLATE utf8mb4_unicode_ci AS details,
+                             created_at AS event_time
                       FROM inventory_action_audit";
     }
     if (ipawcus_backup_excel_has_columns($pdo, 'grooming_events', ['event_id', 'booking_id', 'actor_id', 'action', 'details_json', 'created_at'])) {
         $sources[] = "SELECT 'Grooming' AS source_module, event_id, booking_id AS record_id,
-                             action AS action_name, actor_id AS actor_user_id, '' AS actor_name,
-                             details_json AS details, created_at AS event_time FROM grooming_events";
+                             CONVERT(action USING utf8mb4) COLLATE utf8mb4_unicode_ci AS action_name,
+                             actor_id AS actor_user_id,
+                             CONVERT('' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS actor_name,
+                             CONVERT(details_json USING utf8mb4) COLLATE utf8mb4_unicode_ci AS details,
+                             created_at AS event_time FROM grooming_events";
     }
     if (ipawcus_backup_excel_has_columns($pdo, 'pet_record_update_request_events', ['event_id', 'request_id', 'event_type', 'actor_user_id', 'note', 'created_at'])) {
         $sources[] = "SELECT 'Record Update' AS source_module, event_id, request_id AS record_id,
-                             event_type AS action_name, actor_user_id, '' AS actor_name,
-                             note AS details, created_at AS event_time FROM pet_record_update_request_events";
+                             CONVERT(event_type USING utf8mb4) COLLATE utf8mb4_unicode_ci AS action_name,
+                             actor_user_id,
+                             CONVERT('' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS actor_name,
+                             CONVERT(note USING utf8mb4) COLLATE utf8mb4_unicode_ci AS details,
+                             created_at AS event_time FROM pet_record_update_request_events";
     }
 
     if (!$sources) {
@@ -376,7 +386,15 @@ function ipawcus_create_workbook_from_definitions(PDO $pdo, string $path, array 
                 throw new RuntimeException('A temporary Excel worksheet could not be created.');
             }
             $temporaryFiles[] = $temporaryPath;
-            $rowCounts[$sheet['title']] = ipawcus_backup_excel_write_sheet($pdo, $temporaryPath, $sheet);
+            try {
+                $rowCounts[$sheet['title']] = ipawcus_backup_excel_write_sheet($pdo, $temporaryPath, $sheet);
+            } catch (Throwable $error) {
+                throw new RuntimeException(
+                    'Emergency workbook sheet ' . $sheet['title'] . ' failed: ' . $error->getMessage(),
+                    0,
+                    $error
+                );
+            }
             $zip->addFile('xl/worksheets/sheet' . ($index + 1) . '.xml', $temporaryPath);
         }
 

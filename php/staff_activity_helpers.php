@@ -449,22 +449,15 @@ function staff_activity_options(PDO $pdo): array
 {
     $users = [];
     $branches = [];
-    $staffStmt = $pdo->query("
-        SELECT user_id, first_Name, last_Name, role FROM users
-        WHERE LOWER(REPLACE(REPLACE(TRIM(role), ' ', '_'), '-', '_'))
-            IN ('admin', 'veterinarian', 'vet', 'super_admin', 'superadmin')
+    $roles = [];
+    $kinds = [];
+    $planningStates = [];
+    $branchStmt = $pdo->query("
+        SELECT branch_id, branch_name
+        FROM branches
+        WHERE status = 'active' AND branch_code IN ('MAIN', 'ENRIQUEZ')
+        ORDER BY branch_name
     ");
-    foreach ($staffStmt->fetchAll(PDO::FETCH_ASSOC) as $user) {
-        if (!staff_activity_tracked_role($user)) continue;
-        $userId = (int)$user['user_id'];
-        $name = trim((string)$user['first_Name'] . ' ' . (string)$user['last_Name']);
-        $users[$userId] = [
-            'user_id' => $userId,
-            'name' => $name !== '' ? $name : 'User #' . $userId,
-            'role' => ipawcus_access_normalize_role((string)$user['role']),
-        ];
-    }
-    $branchStmt = $pdo->query('SELECT branch_id, branch_name FROM branches ORDER BY branch_name');
     foreach ($branchStmt->fetchAll(PDO::FETCH_ASSOC) as $branch) {
         $branches[(int)$branch['branch_id']] = $branch;
     }
@@ -477,16 +470,27 @@ function staff_activity_options(PDO $pdo): array
                 'role' => $entry['actor_role'],
             ];
         }
-        $branchId = (int)($entry['branch_id'] ?? 0);
-        if ($branchId > 0 && !isset($branches[$branchId])) {
-            $branches[$branchId] = ['branch_id' => $branchId, 'branch_name' => $entry['branch_name']];
-        }
+        $role = ipawcus_access_normalize_role((string)($entry['actor_role'] ?? ''));
+        if (in_array($role, ['admin', 'veterinarian', 'super_admin'], true)) $roles[$role] = true;
+        $kind = (string)($entry['activity_kind'] ?? '');
+        if (in_array($kind, ['action', 'page_view', 'sign_in'], true)) $kinds[$kind] = true;
+        $planning = (string)($entry['planning_status'] ?? 'not_recorded');
+        if (in_array($planning, ['planned', 'not_planned', 'not_recorded'], true)) $planningStates[$planning] = true;
     }
     $users = array_values($users);
     $branches = array_values($branches);
     usort($users, static fn($first, $second) => strcasecmp($first['name'], $second['name']));
     usort($branches, static fn($first, $second) => strcasecmp((string)$first['branch_name'], (string)$second['branch_name']));
-    return ['users' => $users, 'branches' => $branches];
+    $roleOrder = ['admin', 'veterinarian', 'super_admin'];
+    $kindOrder = ['action', 'page_view', 'sign_in'];
+    $planningOrder = ['planned', 'not_planned', 'not_recorded'];
+    return [
+        'users' => $users,
+        'branches' => $branches,
+        'roles' => array_values(array_filter($roleOrder, static fn($value) => isset($roles[$value]))),
+        'kinds' => array_values(array_filter($kindOrder, static fn($value) => isset($kinds[$value]))),
+        'planningStates' => array_values(array_filter($planningOrder, static fn($value) => isset($planningStates[$value]))),
+    ];
 }
 
 function staff_activity_input_number(array $input, array $keys): int

@@ -1,1 +1,0 @@
-import{at as e,ft as t}from"./index-wk7aRb_w.js";function n(t){return e(`/users/${t}`,{apiPrefix:!0})}function r(e,n){return t(`/users/${e}`,n,{apiPrefix:!0})}function i(e,n){return t(`/users/${e}/password`,n,{apiPrefix:!0})}export{r as n,i as r,n as t};

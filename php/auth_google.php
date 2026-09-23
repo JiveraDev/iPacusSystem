@@ -35,8 +35,6 @@ try {
         ");
         $updateStmt->execute([$profile['email'], GOOGLE_AUTH_PROVIDER, $profile['subject']]);
         $session = googleAuthIssueSession($pdo, $user);
-        require_once __DIR__ . '/staff_activity_helpers.php';
-        staff_activity_record_sign_in($pdo, $user, 'google');
         googleAuthJsonResponse(200, $session);
     }
 

@@ -19,56 +19,7 @@ $activityMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $activityPath = $path ?? '/activity';
 
 if ($activityPath === '/activity/view' && $activityMethod === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $viewPath = trim((string)($input['path'] ?? ''));
-    if (!preg_match('#^/dashboard(?:/[a-z0-9/-]+)?$#', $viewPath) || strlen($viewPath) > 160) {
-        ipawcus_access_json(422, 'Choose a valid dashboard page.', 'activity_path_invalid');
-    }
-
-    try {
-        $parts = array_values(array_filter(explode('/', $viewPath)));
-        $pageKey = (string)(end($parts) ?: 'dashboard');
-        $pageNames = [
-            'dashboard' => 'Dashboard',
-            'booking-management' => 'Booking Management',
-            'queue-management' => 'Queue Management',
-            'inventory' => 'Inventory',
-            'pet-boarding' => 'Pet Boarding',
-            'grooming' => 'Grooming',
-            'pos' => 'Point of Sale',
-            'accounts' => 'Account Management',
-            'reports' => 'Reports',
-            'profile' => 'Profile',
-            'payment-methods' => 'Payment Methods',
-        ];
-        $page = $pageNames[$pageKey] ?? ucwords(str_replace('-', ' ', $pageKey));
-        $safePath = preg_replace('#/\d+(?=/|$)#', '/:id', $viewPath);
-        try {
-            $branchId = staff_activity_request_branch($pdo, $viewPath, [], [], $activityUser);
-        } catch (Throwable $branchError) {
-            error_log('Staff page branch lookup failed: ' . $branchError->getMessage());
-            $branchId = 0;
-        }
-        staff_activity_record($pdo, $activityUser, [
-            'kind' => 'page_view',
-            'key' => 'view:' . $safePath,
-            'label' => 'Opened ' . $page,
-            'details' => [['label' => 'Dashboard page', 'value' => $page]],
-            'branch_id' => $branchId,
-            'branch_label' => $branchId > 0 ? null : (staff_activity_is_global_path($viewPath) || $activityRole === 'super_admin'
-                ? 'Organization-wide'
-                : 'Branch not recorded'),
-            'method' => 'GET',
-            'path' => $safePath,
-            'response_status' => 200,
-            'planning_status' => 'not_planned',
-            'planning_basis' => 'Immediate dashboard navigation',
-        ]);
-        echo json_encode(['success' => true]);
-    } catch (Throwable $error) {
-        error_log('Staff page activity failed: ' . $error->getMessage());
-        ipawcus_access_json(500, 'Activity could not be recorded.', 'activity_write_failed');
-    }
+    echo json_encode(['success' => true, 'recorded' => false]);
     exit;
 }
 
@@ -92,7 +43,7 @@ if ($activityPath === '/activity' && $activityMethod === 'GET') {
         ipawcus_access_json(403, 'You can only view your own activity.', 'activity_user_forbidden');
     }
 
-    $filters = [];
+    $filters = ['kind' => 'action'];
     if (!$allUsers) {
         $filters['user_id'] = (int)$activityUser['user_id'];
     } elseif ($requestedUserId && $requestedUserId > 0) {
@@ -109,10 +60,6 @@ if ($activityPath === '/activity' && $activityMethod === 'GET') {
         $filters['branch_id'] = (int)$branchFilter;
     } elseif ($allUsers && in_array($branchFilterValue, ['organization', 'unresolved'], true)) {
         $filters['branch_scope'] = $branchFilterValue;
-    }
-    $kindFilter = (string)($_GET['kind'] ?? '');
-    if (in_array($kindFilter, ['action', 'page_view', 'sign_in'], true)) {
-        $filters['kind'] = $kindFilter;
     }
     $planningFilter = (string)($_GET['planning'] ?? '');
     if (in_array($planningFilter, ['planned', 'not_planned', 'not_recorded'], true)) {

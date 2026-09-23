@@ -317,30 +317,6 @@ function staff_activity_record(PDO $pdo, array $user, array $event): void
     @chmod($file, 0640);
 }
 
-function staff_activity_record_sign_in(PDO $pdo, array $user, string $provider): void
-{
-    if (!staff_activity_tracked_role($user)) return;
-    try {
-        staff_activity_record($pdo, $user, [
-            'kind' => 'sign_in',
-            'key' => 'sign_in:' . $provider,
-            'label' => $provider === 'google' ? 'Signed in with Google' : 'Signed in',
-            'details' => [[
-                'label' => 'Authentication method',
-                'value' => $provider === 'google' ? 'Google' : 'Password',
-            ]],
-            'branch_label' => 'Organization-wide',
-            'method' => 'POST',
-            'path' => $provider === 'google' ? '/auth/google' : '/login',
-            'response_status' => 200,
-            'planning_status' => 'not_planned',
-            'planning_basis' => 'Immediate sign-in activity',
-        ]);
-    } catch (Throwable $error) {
-        error_log('Staff sign-in activity logging failed: ' . $error->getMessage());
-    }
-}
-
 function staff_activity_lines_newest(string $file): Generator
 {
     $handle = fopen($file, 'rb');
@@ -450,8 +426,6 @@ function staff_activity_options(PDO $pdo): array
     $users = [];
     $branches = [];
     $roles = [];
-    $kinds = [];
-    $planningStates = [];
     $branchStmt = $pdo->query("
         SELECT branch_id, branch_name
         FROM branches
@@ -462,6 +436,7 @@ function staff_activity_options(PDO $pdo): array
         $branches[(int)$branch['branch_id']] = $branch;
     }
     foreach (staff_activity_entries($pdo) as $entry) {
+        if (($entry['activity_kind'] ?? '') !== 'action') continue;
         $userId = (int)$entry['actor_user_id'];
         if (!isset($users[$userId])) {
             $users[$userId] = [
@@ -472,24 +447,16 @@ function staff_activity_options(PDO $pdo): array
         }
         $role = ipawcus_access_normalize_role((string)($entry['actor_role'] ?? ''));
         if (in_array($role, ['admin', 'veterinarian', 'super_admin'], true)) $roles[$role] = true;
-        $kind = (string)($entry['activity_kind'] ?? '');
-        if (in_array($kind, ['action', 'page_view', 'sign_in'], true)) $kinds[$kind] = true;
-        $planning = (string)($entry['planning_status'] ?? 'not_recorded');
-        if (in_array($planning, ['planned', 'not_planned', 'not_recorded'], true)) $planningStates[$planning] = true;
     }
     $users = array_values($users);
     $branches = array_values($branches);
     usort($users, static fn($first, $second) => strcasecmp($first['name'], $second['name']));
     usort($branches, static fn($first, $second) => strcasecmp((string)$first['branch_name'], (string)$second['branch_name']));
     $roleOrder = ['admin', 'veterinarian', 'super_admin'];
-    $kindOrder = ['action', 'page_view', 'sign_in'];
-    $planningOrder = ['planned', 'not_planned', 'not_recorded'];
     return [
         'users' => $users,
         'branches' => $branches,
         'roles' => array_values(array_filter($roleOrder, static fn($value) => isset($roles[$value]))),
-        'kinds' => array_values(array_filter($kindOrder, static fn($value) => isset($kinds[$value]))),
-        'planningStates' => array_values(array_filter($planningOrder, static fn($value) => isset($planningStates[$value]))),
     ];
 }
 

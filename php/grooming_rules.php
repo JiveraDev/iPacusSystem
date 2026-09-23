@@ -51,10 +51,10 @@ function grooming_assert_transition(string $from, string $to, array $details, st
         'in_progress' => ['ready', 'cancelled'],
         'vet_review' => ['in_progress', 'cancelled'],
         'ready' => ['released'],
-        'released' => [], 'cancelled' => [], 'no_show' => [],
+        'released' => [], 'cancelled' => [], 'no_show' => [], 'transferred' => [],
     ];
     if (!isset($transitions[$from]) || ($from !== $to && !in_array($to, $transitions[$from], true))) throw new InvalidArgumentException('This status change is not available. Refresh the job and review its progress.');
-    if (in_array($from, ['released', 'cancelled', 'no_show'], true)) throw new InvalidArgumentException('This job is closed. Its recorded history cannot be overwritten.');
+    if (in_array($from, ['released', 'cancelled', 'no_show', 'transferred'], true)) throw new InvalidArgumentException('This job is closed. Its recorded history cannot be overwritten.');
     if ($from === 'vet_review' && $to === 'in_progress' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Wait for the assigned vet to clear this grooming job before resuming.');
     if (in_array($to, ['in_progress', 'ready', 'released'], true)) {
         if ($performer === '' || empty($details['package']) || empty($details['intakeConfirmed'])) throw new InvalidArgumentException('Assign the staff member, select a package, and confirm the intake before starting.');

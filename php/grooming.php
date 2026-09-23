@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/grooming_helpers.php';
+require_once __DIR__ . '/clinical_confinement_helpers.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 $user = ipawcus_guard_current_user($pdo);
@@ -29,8 +30,11 @@ if ($method === 'GET' && $id <= 0) {
     }
     $stmt = $pdo->prepare("SELECT b.booking_id, b.booking_number, b.branch_id, b.user_id, b.booking_date, b.booking_time, b.status AS booking_status,
         COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
+        COALESCE(p.pet_species, b.petType, '') AS pet_species,
+        COALESCE(p.pet_breed, b.unregistered_pet_breed, '') AS pet_breed,
+        p.setpetImage_url AS pet_image,
         CONCAT(u.first_Name, ' ', u.last_Name) AS owner_name, br.branch_name,
-        COALESCE(j.status, 'scheduled') AS status, j.performed_by, COALESCE(j.version, 0) AS version, j.published_at,
+        COALESCE(j.status, 'scheduled') AS status, j.performed_by, COALESCE(j.version, 0) AS version, j.published_at, j.details_json AS grooming_details_json,
         (SELECT COUNT(*) FROM grooming_reviews r WHERE r.booking_id = b.booking_id AND r.outcome = 'pending') AS pending_reviews
         FROM bookings b JOIN users u ON u.user_id = b.user_id LEFT JOIN pets_information p ON p.pet_id = b.pet_id
         LEFT JOIN branches br ON br.branch_id = b.branch_id LEFT JOIN grooming_jobs j ON j.booking_id = b.booking_id
@@ -40,6 +44,9 @@ if ($method === 'GET' && $id <= 0) {
     $stmt->execute($params);
     $items = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $groomingDetails = json_decode((string)($item['grooming_details_json'] ?? ''), true);
+        $item['grooming_service'] = trim((string)($groomingDetails['package'] ?? '')) ?: 'Grooming service';
+        unset($item['grooming_details_json']);
         if ($role === 'pet_owner') {
             if ((int)$item['user_id'] !== $actor || !$item['published_at']) continue;
         }
@@ -191,10 +198,51 @@ try {
         if ($job['status'] !== 'vet_review' || !$latestReview || $latestReview['outcome'] !== 'pending' || (int)$latestReview['veterinarian_id'] !== $actor) ipawcus_guard_error(403, 'Only the assigned veterinarian can complete this pending review.');
         $outcome = $input['outcome'] ?? '';
         $notes = trim((string)($input['notes'] ?? ''));
-        if (!in_array($outcome, ['resume', 'stop', 'consultation'], true) || $notes === '' || strlen($notes) > 5000) throw new InvalidArgumentException('Choose a review outcome and enter the vet assessment notes.');
+        if (!in_array($outcome, ['resume', 'stop', 'consultation', 'confinement'], true) || $notes === '' || strlen($notes) > 5000) throw new InvalidArgumentException('Choose a review outcome and enter the vet assessment notes.');
         $update = $pdo->prepare('UPDATE grooming_reviews SET outcome = ?, review_notes = ?, reviewed_at = CURRENT_TIMESTAMP WHERE review_id = ?');
         $update->execute([$outcome, $notes, (int)$latestReview['review_id']]);
-        // Review does not complete grooming, create a diagnosis, or charge a consultation.
+        // Ordinary review outcomes only record the assessment. Confinement is
+        // the explicit exception: it closes grooming and transfers the pet to
+        // Boarding while keeping charges on this grooming visit.
+        if ($outcome === 'confinement') {
+            if ((int)$booking['pet_id'] <= 0) throw new InvalidArgumentException('Link this grooming booking to a registered pet before recommending confinement.');
+            if (!defined('VISIT_BILLING_HELPERS_ONLY')) define('VISIT_BILLING_HELPERS_ONLY', true);
+            if (!defined('VISIT_BILLING_THROW_ERRORS')) define('VISIT_BILLING_THROW_ERRORS', true);
+            require_once __DIR__ . '/visit_billing.php';
+
+            $lookup = $pdo->prepare("SELECT visit_id FROM visits WHERE booking_id = ? AND visit_status <> 'cancelled' LIMIT 1 FOR UPDATE");
+            $lookup->execute([$id]);
+            $visitId = (int)($lookup->fetchColumn() ?: 0);
+            if ($visitId <= 0) {
+                $charges = visit_billing_default_booking_charges($pdo, $id);
+                $total = array_sum(array_map(fn($charge) => (float)$charge['quantity'] * (float)$charge['unit_price'], $charges));
+                if ($total <= 0) throw new InvalidArgumentException('Set an active grooming price in Service Catalog before transferring this pet to confinement.');
+                $invoice = visit_billing_save_visit_payload($pdo, [
+                    'pet_id' => (int)$booking['pet_id'],
+                    'booking_id' => $id,
+                    'veterinarian_user_id' => $actor,
+                    'source_type' => 'booking',
+                    'visit_status' => 'treatment_done',
+                    'charges' => [],
+                ]);
+                $visitId = (int)$invoice['visitId'];
+            }
+
+            clinical_confinement_save($pdo, [
+                'visit_id' => $visitId,
+                'grooming_booking_id' => $id,
+                'pet_id' => (int)$booking['pet_id'],
+                'veterinarian_user_id' => $actor,
+                'branch_id' => (int)$booking['branch_id'],
+                'facility_type' => $input['facilityType'] ?? $input['facility_type'] ?? 'boarding',
+                'room_size' => $input['roomSize'] ?? $input['room_size'] ?? 'small',
+                'expected_discharge' => $input['expectedDischarge'] ?? $input['expected_discharge'] ?? null,
+                'reason' => $notes,
+                'care_instructions' => $input['careInstructions'] ?? $input['care_instructions'] ?? '',
+            ]);
+            $nextStatus = 'transferred';
+            $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?")->execute([$id]);
+        }
     } elseif ($action === 'publish') {
         if (!in_array($job['status'], ['ready', 'released'], true)) throw new InvalidArgumentException('Finish grooming before sharing its summary.');
         $pdo->prepare('UPDATE grooming_jobs SET published_at = CURRENT_TIMESTAMP WHERE booking_id = ?')->execute([$id]);
@@ -202,7 +250,7 @@ try {
 
     $update = $pdo->prepare('UPDATE grooming_jobs SET status = ?, performed_by = ?, details_json = ?, visit_id = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE booking_id = ?');
     $update->execute([$nextStatus, $performer, json_encode($details), $visitId ?: null, $actor, $id]);
-    grooming_event($pdo, $id, $actor, $action, ['from' => $job['status'], 'to' => $nextStatus, 'performedBy' => $performer, 'record' => $action === 'save' ? $details : array_intersect_key($input, array_flip(['reason', 'outcome', 'notes', 'veterinarianId']))]);
+    grooming_event($pdo, $id, $actor, $action, ['from' => $job['status'], 'to' => $nextStatus, 'performedBy' => $performer, 'record' => $action === 'save' ? $details : array_intersect_key($input, array_flip(['reason', 'outcome', 'notes', 'veterinarianId', 'facilityType', 'roomSize', 'expectedDischarge', 'careInstructions']))]);
     $pdo->commit();
     try {
         require_once __DIR__ . '/grooming_notifications.php';

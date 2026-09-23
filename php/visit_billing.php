@@ -1573,7 +1573,18 @@ function visit_billing_validate_boarding_material_charge(
     if (!in_array((string)($usage['assignment_status'] ?? ''), ['reserved', 'occupied'], true)) {
         visit_billing_error(409, 'Boarding material usage cannot be billed after checkout or cancellation.');
     }
-    if ((int)$usage['booking_id'] !== $bookingId) {
+    $usageBookingId = (int)$usage['booking_id'];
+    $matchesClinicalConfinement = false;
+    if (
+        $usageBookingId > 0
+        && visit_billing_column_exists($pdo, 'bookings', 'source_visit_id')
+        && visit_billing_column_exists($pdo, 'bookings', 'admission_type')
+    ) {
+        $clinicalStmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE booking_id = ? AND admission_type = 'confinement' AND source_visit_id = ?");
+        $clinicalStmt->execute([$usageBookingId, $visitId]);
+        $matchesClinicalConfinement = (int)$clinicalStmt->fetchColumn() > 0;
+    }
+    if ($usageBookingId !== $bookingId && !$matchesClinicalConfinement) {
         visit_billing_error(409, 'The boarding material usage belongs to a different booking.');
     }
     if ((int)$usage['item_id'] !== $itemId) {
@@ -1650,19 +1661,35 @@ function visit_billing_assert_boarding_invoice_complete(PDO $pdo, int $visitId):
 {
     $overstayRateSelect = visit_billing_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'b.boarding_overstay_daily_rate'
-        : 'NULL AS boarding_overstay_daily_rate';
+        : 'NULL';
+    $supportsClinicalConfinement = visit_billing_column_exists($pdo, 'bookings', 'source_visit_id')
+        && visit_billing_column_exists($pdo, 'bookings', 'admission_type');
+    $clinicalJoin = $supportsClinicalConfinement
+        ? "LEFT JOIN bookings confinement_booking ON confinement_booking.source_visit_id = v.visit_id AND confinement_booking.admission_type = 'confinement' AND confinement_booking.status <> 'cancelled'"
+        : '';
+    $clinicalBookingId = $supportsClinicalConfinement ? 'confinement_booking.booking_id' : 'NULL';
+    $clinicalServiceType = $supportsClinicalConfinement ? 'confinement_booking.service_type' : 'NULL';
+    $clinicalPrice = $supportsClinicalConfinement ? 'confinement_booking.price' : 'NULL';
+    $clinicalCheckOut = $supportsClinicalConfinement ? 'confinement_booking.check_out_date' : 'NULL';
+    $clinicalFacility = $supportsClinicalConfinement ? 'confinement_booking.hotel_boarding_type' : 'NULL';
+    $clinicalRoomSize = $supportsClinicalConfinement ? 'confinement_booking.room_size' : 'NULL';
+    $clinicalAddOns = $supportsClinicalConfinement ? 'confinement_booking.add_ons' : 'NULL';
+    $clinicalOverstayRate = $supportsClinicalConfinement && visit_billing_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
+        ? 'confinement_booking.boarding_overstay_daily_rate'
+        : 'NULL';
     $visitStmt = $pdo->prepare("
         SELECT
-            v.booking_id,
-            b.service_type,
-            b.price,
-            b.check_out_date,
-            b.hotel_boarding_type,
-            b.room_size,
-            b.add_ons,
-            {$overstayRateSelect}
+            COALESCE({$clinicalBookingId}, v.booking_id) AS booking_id,
+            COALESCE({$clinicalServiceType}, b.service_type) AS service_type,
+            COALESCE({$clinicalPrice}, b.price) AS price,
+            COALESCE({$clinicalCheckOut}, b.check_out_date) AS check_out_date,
+            COALESCE({$clinicalFacility}, b.hotel_boarding_type) AS hotel_boarding_type,
+            COALESCE({$clinicalRoomSize}, b.room_size) AS room_size,
+            COALESCE({$clinicalAddOns}, b.add_ons) AS add_ons,
+            COALESCE({$clinicalOverstayRate}, {$overstayRateSelect}) AS boarding_overstay_daily_rate
         FROM visits v
         LEFT JOIN bookings b ON b.booking_id = v.booking_id
+        {$clinicalJoin}
         WHERE v.visit_id = ?
         LIMIT 1
         FOR UPDATE
@@ -1709,6 +1736,7 @@ function visit_billing_assert_boarding_invoice_complete(PDO $pdo, int $visitId):
             vc.quantity AS charge_quantity,
             vc.unit_price AS charge_unit_price,
             vc.subtotal AS charge_subtotal,
+            charge_visit.visit_id AS charge_visit_id,
             charge_visit.booking_id AS charge_booking_id,
             charge_visit.visit_status AS charge_visit_status
         FROM boarding_material_usages bmu
@@ -1729,7 +1757,10 @@ function visit_billing_assert_boarding_invoice_complete(PDO $pdo, int $visitId):
         );
         if (
             (int)($material['charge_id'] ?? 0) <= 0
-            || (int)($material['charge_booking_id'] ?? 0) !== $bookingId
+            || (
+                (int)($material['charge_booking_id'] ?? 0) !== $bookingId
+                && (int)($material['charge_visit_id'] ?? 0) !== $visitId
+            )
             || ($material['charge_visit_status'] ?? '') === 'cancelled'
             || (int)($material['charge_item_id'] ?? 0) !== (int)$material['item_id']
             || abs((float)$material['charge_quantity'] - (float)$material['quantity']) > 0.0001

@@ -64,6 +64,213 @@ function staff_activity_branch(PDO $pdo, int $branchId): ?array
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+function staff_activity_detail_text($value, string $format = 'text'): ?string
+{
+    if ($value === null || is_array($value) || is_object($value)) {
+        return null;
+    }
+
+    if ($format === 'boolean') {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'Yes' : 'No';
+    }
+    if ($format === 'active') {
+        return (int)$value === 1 ? 'Active' : 'Archived';
+    }
+    if ($format === 'number') {
+        return is_numeric($value) ? (string)(0 + $value) : null;
+    }
+    if ($format === 'money') {
+        return is_numeric($value) ? 'PHP ' . number_format((float)$value, 2) : null;
+    }
+
+    $text = trim((string)$value);
+    if ($text === '') {
+        return null;
+    }
+    if ($format === 'enum') {
+        $text = ucwords(str_replace(['_', '-'], ' ', strtolower($text)));
+    }
+    return substr($text, 0, 160);
+}
+
+function staff_activity_action_details(array $input): array
+{
+    // This is intentionally an allow-list. Free-text notes, reasons, diagnoses,
+    // payment references, credentials, file paths, and contact details must not
+    // be copied into the operational activity history.
+    $fields = [
+        [['status', 'account_status'], 'New status', 'enum'],
+        [['is_active'], 'Account state', 'active'],
+        [['action'], 'Operation', 'enum'],
+        [['service_type'], 'Service', 'enum'],
+        [['payment_status'], 'Payment status', 'enum'],
+        [['payment_method'], 'Payment method', 'enum'],
+        [['priority'], 'Priority', 'enum'],
+        [['observation_type'], 'Observation type', 'enum'],
+        [['task_type'], 'Task type', 'enum'],
+        [['booking_date', 'new_date', 'receiving_date'], 'Date', 'text'],
+        [['booking_time', 'new_time'], 'Time', 'text'],
+        [['due_at'], 'Due at', 'text'],
+        [['desired_check_out_at', 'desired_checkout_at', 'check_out_at'], 'Check-out', 'text'],
+        [['quantity', 'quantity_received', 'quantity_out', 'transfer_quantity'], 'Quantity', 'number'],
+        [['amount', 'refund_amount', 'total_amount'], 'Amount', 'money'],
+        [['queue_id', 'queueId'], 'Queue ID', 'number'],
+        [['booking_id', 'bookingId'], 'Booking ID', 'number'],
+        [['visit_id', 'visitId'], 'Visit ID', 'number'],
+        [['item_id', 'itemId'], 'Item ID', 'number'],
+        [['request_id', 'requestId'], 'Request ID', 'number'],
+        [['diagnosis_id', 'diagnosisId'], 'Diagnosis ID', 'number'],
+        [['service_id', 'serviceId'], 'Service ID', 'number'],
+        [['room_id', 'roomId'], 'Room ID', 'number'],
+        [['assignment_id', 'assignmentId'], 'Assignment ID', 'number'],
+        [['task_id', 'taskId'], 'Task ID', 'number'],
+        [['source_location_id'], 'Source location ID', 'number'],
+        [['destination_location_id', 'location_id', 'locationId'], 'Destination location ID', 'number'],
+        [['branch_id', 'branchId'], 'Branch ID', 'number'],
+        [['to_branch_id', 'toBranchId'], 'Destination branch ID', 'number'],
+        [['veterinarian_user_id'], 'Veterinarian user ID', 'number'],
+        [['assigned_to'], 'Assigned to', 'text'],
+        [['item_name'], 'Item', 'text'],
+        [['service_name'], 'Service name', 'text'],
+        [['location_name'], 'Location', 'text'],
+        [['room_name'], 'Room', 'text'],
+        [['supplier_name'], 'Supplier', 'text'],
+    ];
+
+    $details = [];
+    foreach ($fields as [$keys, $label, $format]) {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $input)) {
+                continue;
+            }
+            $value = staff_activity_detail_text($input[$key], $format);
+            if ($value !== null) {
+                $details[] = ['label' => $label, 'value' => $value];
+            }
+            break;
+        }
+        if (count($details) >= 10) {
+            break;
+        }
+    }
+
+    $collections = [
+        'items' => 'Items',
+        'charges' => 'Charges',
+        'materials' => 'Materials',
+        'rooms' => 'Rooms',
+        'special_service_item_ids' => 'Special services',
+    ];
+    foreach ($collections as $key => $label) {
+        if (!isset($input[$key]) || !is_array($input[$key])) {
+            continue;
+        }
+        $count = count($input[$key]);
+        if ($count > 0) {
+            $details[] = ['label' => $label, 'value' => $count . ($count === 1 ? ' record' : ' records')];
+        }
+        if (count($details) >= 10) {
+            break;
+        }
+    }
+
+    if (isset($input['items']) && is_array($input['items'])) {
+        $quantity = 0.0;
+        $foundQuantity = false;
+        foreach ($input['items'] as $item) {
+            if (!is_array($item)) continue;
+            foreach (['quantity_received', 'quantity', 'quantity_out'] as $quantityKey) {
+                if (isset($item[$quantityKey]) && is_numeric($item[$quantityKey])) {
+                    $quantity += (float)$item[$quantityKey];
+                    $foundQuantity = true;
+                    break;
+                }
+            }
+        }
+        if ($foundQuantity && count($details) < 10) {
+            $details[] = ['label' => 'Total quantity', 'value' => (string)(0 + $quantity)];
+        }
+    }
+
+    return array_slice($details, 0, 10);
+}
+
+function staff_activity_action_summary(array $details): ?string
+{
+    $parts = [];
+    foreach (array_slice($details, 0, 3) as $detail) {
+        $label = trim((string)($detail['label'] ?? ''));
+        $value = trim((string)($detail['value'] ?? ''));
+        if ($label !== '' && $value !== '') {
+            $parts[] = $label . ': ' . $value;
+        }
+    }
+    return $parts ? substr(implode(' | ', $parts), 0, 360) : null;
+}
+
+function staff_activity_planning_status(string $path, array $input, ?DateTimeImmutable $recordedAt = null): array
+{
+    $clinicTimezone = new DateTimeZone('Asia/Manila');
+    $now = ($recordedAt ?? new DateTimeImmutable('now', $clinicTimezone))->setTimezone($clinicTimezone);
+
+    if (array_key_exists('planned_in_advance', $input)) {
+        $explicit = filter_var($input['planned_in_advance'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($explicit !== null) {
+            return [
+                'status' => $explicit ? 'planned' : 'not_planned',
+                'planned_for' => null,
+                'basis' => 'Explicitly recorded by the request',
+            ];
+        }
+    }
+
+    $scheduledValues = [];
+    $datePairs = [
+        ['booking_date', 'booking_time'],
+        ['new_date', 'new_time'],
+        ['check_in_date', 'check_in_time'],
+    ];
+    foreach ($datePairs as [$dateKey, $timeKey]) {
+        $date = trim((string)($input[$dateKey] ?? ''));
+        if ($date === '') continue;
+        $time = trim((string)($input[$timeKey] ?? ''));
+        $scheduledValues[] = trim($date . ' ' . ($time !== '' ? $time : '00:00:00'));
+    }
+    foreach (['due_at', 'scheduled_at', 'scheduled_start', 'planned_for', 'desired_check_out_at', 'desired_checkout_at', 'desired_check_out_date'] as $key) {
+        $value = trim((string)($input[$key] ?? ''));
+        if ($value !== '') $scheduledValues[] = $value;
+    }
+
+    foreach ($scheduledValues as $value) {
+        try {
+            $scheduledAt = new DateTimeImmutable($value, $clinicTimezone);
+        } catch (Throwable $error) {
+            continue;
+        }
+        if ($scheduledAt > $now) {
+            return [
+                'status' => 'planned',
+                'planned_for' => $scheduledAt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+                'basis' => 'A future schedule was included with the action',
+            ];
+        }
+    }
+
+    if (preg_match('#^/(vet_schedules|veterinarian-branch-schedules)(/|$)#', $path) === 1) {
+        return [
+            'status' => 'planned',
+            'planned_for' => null,
+            'basis' => 'The action created or updated a work schedule',
+        ];
+    }
+
+    return [
+        'status' => 'not_planned',
+        'planned_for' => null,
+        'basis' => 'No future schedule was recorded with the action',
+    ];
+}
+
 function staff_activity_record(PDO $pdo, array $user, array $event): void
 {
     if (!staff_activity_tracked_role($user)) {
@@ -72,6 +279,7 @@ function staff_activity_record(PDO $pdo, array $user, array $event): void
 
     $branch = staff_activity_branch($pdo, (int)($event['branch_id'] ?? 0));
     $actorName = trim((string)($user['first_Name'] ?? '') . ' ' . (string)($user['last_Name'] ?? ''));
+    $details = is_array($event['details'] ?? null) ? array_slice($event['details'], 0, 10) : [];
     $entry = [
         'activity_id' => bin2hex(random_bytes(12)),
         'actor_user_id' => (int)$user['user_id'],
@@ -82,10 +290,16 @@ function staff_activity_record(PDO $pdo, array $user, array $event): void
         'activity_kind' => (string)($event['kind'] ?? 'action'),
         'action_key' => (string)($event['key'] ?? 'updated_record'),
         'action_label' => (string)($event['label'] ?? 'Updated a record'),
+        'action_summary' => $event['summary'] ?? staff_activity_action_summary($details),
+        'action_details' => $details,
         'target_type' => $event['target_type'] ?? null,
         'target_id' => isset($event['target_id']) && (int)$event['target_id'] > 0 ? (int)$event['target_id'] : null,
         'request_method' => $event['method'] ?? null,
         'request_path' => $event['path'] ?? null,
+        'response_status' => isset($event['response_status']) ? (int)$event['response_status'] : null,
+        'planning_status' => $event['planning_status'] ?? null,
+        'planned_for' => $event['planned_for'] ?? null,
+        'planning_basis' => $event['planning_basis'] ?? null,
         'created_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.u\Z'),
     ];
     $line = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) . "\n";
@@ -111,9 +325,16 @@ function staff_activity_record_sign_in(PDO $pdo, array $user, string $provider):
             'kind' => 'sign_in',
             'key' => 'sign_in:' . $provider,
             'label' => $provider === 'google' ? 'Signed in with Google' : 'Signed in',
+            'details' => [[
+                'label' => 'Authentication method',
+                'value' => $provider === 'google' ? 'Google' : 'Password',
+            ]],
             'branch_label' => 'Organization-wide',
             'method' => 'POST',
             'path' => $provider === 'google' ? '/auth/google' : '/login',
+            'response_status' => 200,
+            'planning_status' => 'not_planned',
+            'planning_basis' => 'Immediate sign-in activity',
         ]);
     } catch (Throwable $error) {
         error_log('Staff sign-in activity logging failed: ' . $error->getMessage());
@@ -209,7 +430,14 @@ function staff_activity_list(PDO $pdo, array $filters, int $limit, int $offset):
         if (isset($filters['user_id']) && (int)$entry['actor_user_id'] !== (int)$filters['user_id']) continue;
         if (isset($filters['role']) && ($entry['actor_role'] ?? '') !== $filters['role']) continue;
         if (isset($filters['branch_id']) && (int)($entry['branch_id'] ?? 0) !== (int)$filters['branch_id']) continue;
+        if (($filters['branch_scope'] ?? '') === 'organization' && ($entry['branch_name'] ?? '') !== 'Organization-wide') continue;
+        if (($filters['branch_scope'] ?? '') === 'unresolved' && ($entry['branch_name'] ?? '') !== 'Branch not recorded') continue;
         if (isset($filters['kind']) && ($entry['activity_kind'] ?? '') !== $filters['kind']) continue;
+        if (isset($filters['planning'])) {
+            $planningStatus = (string)($entry['planning_status'] ?? 'not_recorded');
+            if ($planningStatus !== $filters['planning']) continue;
+        }
+        if (isset($filters['from']) && strcmp((string)($entry['created_at'] ?? ''), $filters['from']) < 0) continue;
         if ($matches++ < $offset) continue;
         $items[] = $entry;
         if (count($items) > $limit) break;
@@ -326,6 +554,45 @@ function staff_activity_request_branch(PDO $pdo, string $path, array $input, arr
         if ($branchId > 0) return $branchId;
     }
 
+    if (str_starts_with($path, '/boarding')) {
+        $assignmentId = staff_activity_input_number($input, ['assignmentId', 'assignment_id']);
+        if ($assignmentId > 0) {
+            $stmt = $pdo->prepare('
+                SELECT booking.branch_id
+                FROM boarding_assignments assignment_record
+                JOIN bookings booking ON booking.booking_id = assignment_record.booking_id
+                WHERE assignment_record.assignment_id = ? LIMIT 1
+            ');
+            $stmt->execute([$assignmentId]);
+            $branchId = (int)($stmt->fetchColumn() ?: 0);
+            if ($branchId > 0) return $branchId;
+        }
+
+        if (preg_match('#^/boarding/tasks/(\d+)#', $path, $match)) {
+            $stmt = $pdo->prepare('
+                SELECT booking.branch_id
+                FROM boarding_tasks task_record
+                JOIN bookings booking ON booking.booking_id = task_record.booking_id
+                WHERE task_record.task_id = ? LIMIT 1
+            ');
+            $stmt->execute([(int)$match[1]]);
+            $branchId = (int)($stmt->fetchColumn() ?: 0);
+            if ($branchId > 0) return $branchId;
+        }
+
+        if (preg_match('#^/boarding/materials/(\d+)#', $path, $match)) {
+            $stmt = $pdo->prepare('
+                SELECT booking.branch_id
+                FROM boarding_material_usages usage_record
+                JOIN bookings booking ON booking.booking_id = usage_record.booking_id
+                WHERE usage_record.usage_id = ? LIMIT 1
+            ');
+            $stmt->execute([(int)$match[1]]);
+            $branchId = (int)($stmt->fetchColumn() ?: 0);
+            if ($branchId > 0) return $branchId;
+        }
+    }
+
     if (preg_match('#^/vet-diagnoses/(\d+)#', $path, $match)) {
         $stmt = $pdo->prepare('
             SELECT COALESCE(queue.branch_id, booking.branch_id)
@@ -358,6 +625,18 @@ function staff_activity_request_branch(PDO $pdo, string $path, array $input, arr
         $branchId = staff_activity_lookup_branch($pdo, 'inventory_locations', 'location_id', $locationId);
         if ($branchId > 0) {
             return $branchId;
+        }
+        $itemId = staff_activity_input_number($input, ['item_id', 'itemId']);
+        if ($itemId > 0) {
+            $stmt = $pdo->prepare('
+                SELECT location.branch_id
+                FROM inventory_items item
+                JOIN inventory_locations location ON location.location_id = item.location_id
+                WHERE item.item_id = ? LIMIT 1
+            ');
+            $stmt->execute([$itemId]);
+            $branchId = (int)($stmt->fetchColumn() ?: 0);
+            if ($branchId > 0) return $branchId;
         }
     }
 
@@ -414,28 +693,47 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
         }
     }
     if ($targetId <= 0) {
-        $targetId = staff_activity_input_number($input, ['bookingId', 'booking_id', 'queueId', 'queue_id', 'visitId', 'visit_id', 'itemId', 'item_id']);
+        $targetKeys = match ($root) {
+            'bookings', 'boarding' => ['bookingId', 'booking_id'],
+            'queues' => ['queueId', 'queue_id'],
+            'visits' => ['visitId', 'visit_id'],
+            'inventory' => ['itemId', 'item_id'],
+            'record-update-requests' => ['requestId', 'request_id'],
+            'vet-diagnoses' => ['diagnosisId', 'diagnosis_id'],
+            'service-catalog' => ['serviceId', 'service_id'],
+            'online-consultations' => ['onlineConsultationId', 'online_consultation_id'],
+            default => [],
+        };
+        $targetId = staff_activity_input_number($input, $targetKeys);
     }
 
     $routePath = (string)preg_replace('#/\d+(?=/|$)#', '/:id', $path);
+    $routePath = (string)preg_replace('#^/(pet_information|pets)/[^/]+#', '/$1/:id', $routePath);
     $specificLabels = [
         'POST /accounts/create' => 'Created staff account',
         'PATCH /accounts/:id/status' => 'Changed account status',
         'PATCH /accounts/:id/profile' => 'Updated staff profile',
         'DELETE /accounts/:id' => 'Deleted staff account',
+        'PATCH /pet-owner-accounts/:id/status' => 'Changed pet owner account status',
+        'DELETE /pet-owner-accounts/:id/pets/:id' => 'Removed pet ownership access',
         'POST /admin-feature-access' => 'Changed admin feature access',
         'POST /pet_information' => 'Registered pet',
         'PATCH /pet_information/:id' => 'Updated pet record',
         'PATCH /pet_information/:id/status' => 'Changed pet status',
+        'POST /pets/:id/medical' => 'Updated pet medical record',
         'POST /bookings' => 'Created booking',
         'PATCH /bookings/:id/status' => 'Changed booking status',
         'PATCH /bookings/:id/schedule' => 'Rescheduled booking',
         'PATCH /bookings/:id/branch' => 'Transferred booking to another branch',
         'POST /bookings/:id/receive' => 'Received booking',
+        'POST /bookings/:id/payment-review' => 'Reviewed booking payment',
+        'POST /bookings/:id/payment-refunds' => 'Recorded booking payment refund',
         'POST /queues' => 'Created queue entry',
         'POST /queues/status' => 'Changed queue status',
         'POST /queues/receive' => 'Received queue entry',
         'POST /queues/assign' => 'Assigned queue entry',
+        'POST /queues/return' => 'Returned queue entry',
+        'POST /queues/reenter' => 'Returned patient to the queue',
         'POST /inventory/items' => 'Added inventory item',
         'PATCH /inventory/items' => 'Updated inventory item',
         'POST /inventory/stock-in' => 'Recorded stock in',
@@ -443,31 +741,76 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
         'POST /inventory/transfer' => 'Transferred inventory',
         'POST /inventory/delete' => 'Removed inventory item',
         'POST /grooming' => 'Updated grooming workflow',
+        'POST /boarding/rooms' => 'Added boarding room',
+        'PATCH /boarding/rooms' => 'Updated boarding room',
         'POST /boarding/direct-check-in' => 'Checked in boarding guest',
+        'POST /boarding/bookings/:id/assign-room' => 'Assigned boarding room',
         'POST /boarding/bookings/:id/check-in' => 'Checked in boarding guest',
         'POST /boarding/bookings/:id/check-out' => 'Checked out boarding guest',
+        'PATCH /boarding/bookings/:id/desired-check-out' => 'Updated desired boarding check-out',
+        'POST /boarding/observations' => 'Recorded boarding observation',
+        'POST /boarding/tasks' => 'Scheduled boarding task',
+        'PATCH /boarding/tasks/:id/complete' => 'Completed boarding task',
+        'POST /boarding/documents' => 'Added boarding document',
+        'POST /boarding/materials' => 'Recorded boarding material use',
+        'DELETE /boarding/materials/:id' => 'Removed boarding material use',
         'POST /record-update-requests' => 'Submitted record update request',
         'PATCH /record-update-requests/:id' => 'Updated record request',
         'POST /vet-diagnoses' => 'Saved diagnosis',
         'PATCH /vet-diagnoses/:id' => 'Updated diagnosis',
         'POST /online-consultations/:id/start' => 'Started online consultation',
+        'POST /online-consultations/:id/join' => 'Joined online consultation',
         'POST /online-consultations/:id/end' => 'Ended online consultation',
         'POST /online-consultations/:id/diagnosis' => 'Saved online diagnosis',
+        'POST /visits' => 'Created visit',
         'POST /visits/:id/charges' => 'Updated visit charges',
         'POST /visits/:id/payments' => 'Recorded visit payment',
         'POST /visits/:id/refunds' => 'Recorded visit refund',
+        'POST /service-catalog' => 'Added service catalog item',
+        'PATCH /service-catalog/:id' => 'Updated service catalog item',
+        'DELETE /service-catalog/:id' => 'Deactivated service catalog item',
+        'POST /service-catalog/:id/materials' => 'Updated service materials',
+        'PATCH /service-display-settings' => 'Updated service display settings',
+        'POST /special_services' => 'Added special service',
+        'PATCH /special_services/:id' => 'Updated special service',
+        'PATCH /profile' => 'Updated own profile',
+        'POST /consent_files' => 'Added consent template',
+        'PATCH /consent_files/:id' => 'Updated consent template',
+        'DELETE /consent_files/:id' => 'Deleted consent template',
+        'POST /consent-form-records' => 'Saved consent form record',
+        'PATCH /payment-methods' => 'Updated payment method settings',
+        'POST /payment-methods/otp' => 'Requested payment method verification',
+        'POST /notifications/preferences' => 'Updated notification preferences',
+        'POST /notifications/read-all' => 'Marked all notifications as read',
+        'POST /notifications/:id/read' => 'Marked notification as read',
         'POST /reports/generate' => 'Generated report',
         'POST /system-backups' => 'Created system backup',
         'POST /vet-presence' => 'Updated vet presence',
+        'POST /vet_schedules' => 'Updated vet schedule',
         'POST /veterinarian-branch-schedules' => 'Updated branch schedule',
         'POST /account/google' => 'Connected Google account',
     ];
     $label = $specificLabels[$method . ' ' . $routePath] ?? $label;
+    $details = staff_activity_action_details($input);
+    $planning = staff_activity_planning_status($path, $input);
+    foreach ($details as $detail) {
+        if (($detail['label'] ?? '') === 'New status'
+            && str_starts_with($label, 'Changed ')
+            && str_ends_with($label, ' status')) {
+            $label .= ' to ' . $detail['value'];
+            break;
+        }
+    }
 
     return [
         'kind' => 'action',
         'key' => substr($method . ':' . $routePath, 0, 120),
         'label' => substr($label, 0, 180),
+        'summary' => staff_activity_action_summary($details),
+        'details' => $details,
+        'planning_status' => $planning['status'],
+        'planned_for' => $planning['planned_for'],
+        'planning_basis' => $planning['basis'],
         'target_type' => substr($root, 0, 80),
         'target_id' => $targetId ?: null,
         'method' => $method,
@@ -504,6 +847,7 @@ function staff_activity_register_mutation(PDO $pdo, array $user, string $path, s
 
         try {
             $event = staff_activity_describe_mutation($path, $method, $input);
+            $event['response_status'] = $status;
             try {
                 $event['branch_id'] = staff_activity_request_branch($pdo, $path, $input, $query, $user);
             } catch (Throwable $branchError) {

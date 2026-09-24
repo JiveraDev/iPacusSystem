@@ -672,6 +672,13 @@ function bookingOfficialPrice(PDO $pdo, string $serviceType, string $serviceKey,
         return bookingOfficialBoardingPrice($hotelBoardingType, $roomSize, $checkInDate, $checkOutDate, $addOns);
     }
 
+    if ($serviceKey === 'grooming') {
+        // The owner's matrix choice is a grooming preference, not an
+        // authoritative charge. Staff select the exact active catalog item in
+        // Grooming Management before work begins and POS uses that price.
+        return 0.0;
+    }
+
     $catalogPrice = bookingOfficialCatalogPrice($pdo, $serviceType);
     return $catalogPrice !== null ? $catalogPrice : 0.0;
 }

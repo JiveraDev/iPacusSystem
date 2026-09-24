@@ -46,6 +46,7 @@ if ($method === 'GET' && $id <= 0) {
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
         $groomingDetails = json_decode((string)($item['grooming_details_json'] ?? ''), true);
         $item['grooming_service'] = trim((string)($groomingDetails['package'] ?? '')) ?: 'Grooming service';
+        $item['grooming_catalog_service_id'] = isset($groomingDetails['catalogServiceId']) ? (int)$groomingDetails['catalogServiceId'] : null;
         unset($item['grooming_details_json']);
         if ($role === 'pet_owner') {
             if ((int)$item['user_id'] !== $actor || !$item['published_at']) continue;
@@ -136,6 +137,9 @@ try {
         $submittedDetails = is_array($input['details'] ?? null) ? $input['details'] : [];
         // Grooming cannot override the official booking/catalog price.
         $nextDetails = grooming_form_details($submittedDetails, $details);
+        if ($job['status'] !== 'ready' && !in_array($nextStatus, ['cancelled', 'no_show'], true)) {
+            $nextDetails = grooming_apply_catalog_service($pdo, $nextDetails);
+        }
         // Preserve the original handler; new jobs use the authenticated account.
         $performer = trim((string)($job['performed_by'] ?? '')) ?: grooming_handler_name($user);
         if (strlen($performer) > 120) throw new InvalidArgumentException('Keep the staff name under 120 characters.');
@@ -172,6 +176,10 @@ try {
         if ($nextStatus === 'released') {
             $done = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?");
             $done->execute([$id]);
+            if (ipawcus_guard_table_exists($pdo, 'queues') && ipawcus_guard_column_exists($pdo, 'queues', 'booking_id')) {
+                $completeQueue = $pdo->prepare("UPDATE queues SET status = 'completed' WHERE booking_id = ? AND LOWER(TRIM(service_name)) IN ('grooming', 'pet grooming') AND status IN ('waiting', 'in-progress')");
+                $completeQueue->execute([$id]);
+            }
         }
         if (in_array($nextStatus, ['cancelled', 'no_show'], true)) {
             if (empty($details['internalNotes'])) throw new InvalidArgumentException('Record why grooming was cancelled or missed.');

@@ -23,6 +23,14 @@ function grooming_validate_details(array $input): array
     $quote = $input['agreedTotal'] ?? '';
     if ($quote !== '' && (!is_numeric($quote) || !is_finite((float)$quote) || (float)$quote < 0 || (float)$quote > 100000)) throw new InvalidArgumentException('Enter a valid agreed total from 0 to 100,000.');
     $result['agreedTotal'] = $quote === '' ? '' : round((float)$quote, 2);
+    $catalogServiceId = $input['catalogServiceId'] ?? null;
+    if ($catalogServiceId === '' || $catalogServiceId === null) {
+        $result['catalogServiceId'] = null;
+    } elseif (filter_var($catalogServiceId, FILTER_VALIDATE_INT) === false || (int)$catalogServiceId <= 0) {
+        throw new InvalidArgumentException('Choose a valid grooming service from Service Catalog.');
+    } else {
+        $result['catalogServiceId'] = (int)$catalogServiceId;
+    }
     $result['ownerApproved'] = ($input['ownerApproved'] ?? false) === true;
     $result['intakeConfirmed'] = ($input['intakeConfirmed'] ?? false) === true;
     $result['completionConfirmed'] = ($input['completionConfirmed'] ?? false) === true;
@@ -56,6 +64,7 @@ function grooming_assert_transition(string $from, string $to, array $details, st
     if (!isset($transitions[$from]) || ($from !== $to && !in_array($to, $transitions[$from], true))) throw new InvalidArgumentException('This status change is not available. Refresh the job and review its progress.');
     if (in_array($from, ['released', 'cancelled', 'no_show', 'transferred'], true)) throw new InvalidArgumentException('This job is closed. Its recorded history cannot be overwritten.');
     if ($from === 'vet_review' && $to === 'in_progress' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Wait for the assigned vet to clear this grooming job before resuming.');
+    if ($from !== $to && $to === 'in_progress' && empty($details['catalogServiceId'])) throw new InvalidArgumentException('Select an active grooming service and price from Service Catalog before starting.');
     if (in_array($to, ['in_progress', 'ready', 'released'], true)) {
         if ($performer === '' || empty($details['package']) || empty($details['intakeConfirmed'])) throw new InvalidArgumentException('Assign the staff member, select a package, and confirm the intake before starting.');
         if (empty($details['ownerApproved'])) throw new InvalidArgumentException('Confirm the owner agreed to the service before starting grooming.');

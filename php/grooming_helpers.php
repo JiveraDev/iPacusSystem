@@ -31,6 +31,38 @@ function grooming_event(PDO $pdo, int $id, int $actor, string $action, array $de
     $stmt->execute([$id, $actor, $action, json_encode($details, JSON_THROW_ON_ERROR)]);
 }
 
+function grooming_apply_catalog_service(PDO $pdo, array $details): array
+{
+    if (!ipawcus_guard_table_exists($pdo, 'service_catalog')) {
+        throw new InvalidArgumentException('Service Catalog is unavailable. Ask an administrator to restore it before starting grooming.');
+    }
+
+    $serviceId = (int)($details['catalogServiceId'] ?? 0);
+    if ($serviceId <= 0 && trim((string)($details['package'] ?? '')) !== '') {
+        $match = $pdo->prepare("SELECT service_id FROM service_catalog WHERE service_type = 'grooming' AND is_active = 1 AND LOWER(TRIM(service_name)) = LOWER(TRIM(?)) ORDER BY service_id LIMIT 1");
+        $match->execute([(string)$details['package']]);
+        $serviceId = (int)($match->fetchColumn() ?: 0);
+    }
+
+    if ($serviceId <= 0) {
+        return $details;
+    }
+
+    $stmt = $pdo->prepare("SELECT service_id, service_name, base_price FROM service_catalog WHERE service_id = ? AND service_type = 'grooming' AND is_active = 1 LIMIT 1");
+    $stmt->execute([$serviceId]);
+    $service = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$service) {
+        throw new InvalidArgumentException('The selected grooming service is inactive or no longer exists. Choose another Service Catalog item.');
+    }
+    if ((float)$service['base_price'] <= 0) {
+        throw new InvalidArgumentException('Set a price above PHP 0 for this grooming item in Service Catalog before assigning it.');
+    }
+
+    $details['catalogServiceId'] = (int)$service['service_id'];
+    $details['package'] = trim((string)$service['service_name']);
+    return $details;
+}
+
 function grooming_ensure_job(PDO $pdo, array $booking, int $actor): array
 {
     if (!in_array($booking['status'], ['confirmed', 'completed'], true)) ipawcus_guard_error(409, 'Approve this booking before opening its grooming job.');

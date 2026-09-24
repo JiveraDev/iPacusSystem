@@ -273,6 +273,9 @@ try {
         throw new InvalidArgumentException($branch['branch_name'] . ' is currently closed. Queue hours are Monday to Saturday, 8:00 AM to 6:00 PM; Sundays are closed.');
     }
     $queueServiceKey = branch_service_key((string)$service_name);
+    if ($queueServiceKey === 'grooming') {
+        throw new InvalidArgumentException('Grooming does not use the veterinarian diagnosis queue. Create or approve a Grooming booking, then manage it in Grooming Management.');
+    }
     $serviceStmt = $pdo->prepare("
         SELECT availability_mode
         FROM branch_service_availability

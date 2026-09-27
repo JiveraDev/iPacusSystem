@@ -145,17 +145,22 @@ function inventoryWriteAudit(
     ]);
 }
 
-function inventoryStatus(int $quantity, int $reorderLevel, ?string $expiryDate, int $warningDays): string
+function inventoryStockStatus(int $availableQuantity, int $reorderLevel): string
 {
-    if ($quantity <= 0) return 'out-of-stock';
-    if ($expiryDate) {
-        $today = new DateTimeImmutable('today');
-        $expiry = new DateTimeImmutable($expiryDate);
-        if ($expiry < $today) return 'expired';
-        if ((int)$today->diff($expiry)->format('%a') <= $warningDays) return 'near-expiry';
-    }
-    if ($reorderLevel > 0 && $quantity <= $reorderLevel) return 'low-stock';
+    if ($availableQuantity <= 0) return 'out-of-stock';
+    if ($reorderLevel > 0 && $availableQuantity <= $reorderLevel) return 'low-stock';
     return 'in-stock';
+}
+
+function inventoryExpiryStatus(?string $expiryDate, int $warningDays): ?string
+{
+    if (!$expiryDate) return null;
+
+    $today = new DateTimeImmutable('today');
+    $expiry = new DateTimeImmutable($expiryDate);
+    if ($expiry < $today) return 'expired';
+    if ((int)$today->diff($expiry)->format('%a') <= $warningDays) return 'near-expiry';
+    return null;
 }
 
 function inventoryText($value): string
@@ -360,6 +365,7 @@ function getInventoryItems(PDO $pdo): void
                 WHERE available_batch.item_id = i.item_id
                   AND available_location.branch_id = ?
                   AND available_batch.quantity > 0
+                  AND (available_batch.expiry_date IS NULL OR available_batch.expiry_date >= CURDATE())
             )"
         : '';
     $stmt = $pdo->prepare("
@@ -375,10 +381,38 @@ function getInventoryItems(PDO $pdo): void
                 WHERE b.item_id = i.item_id AND bl.branch_id = ?
             ) AS total_quantity,
             (
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN b.quantity > 0
+                         AND (b.expiry_date IS NULL OR b.expiry_date >= CURDATE())
+                        THEN b.quantity
+                        ELSE 0
+                    END
+                ), 0)
+                FROM inventory_batches b
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ?
+            ) AS available_quantity,
+            (
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN b.quantity > 0 AND b.expiry_date < CURDATE()
+                        THEN b.quantity
+                        ELSE 0
+                    END
+                ), 0)
+                FROM inventory_batches b
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ?
+            ) AS expired_quantity,
+            (
                 SELECT MIN(b.expiry_date)
                 FROM inventory_batches b
                 JOIN inventory_locations bl ON bl.location_id = b.location_id
-                WHERE b.item_id = i.item_id AND bl.branch_id = ? AND b.expiry_date IS NOT NULL
+                WHERE b.item_id = i.item_id
+                  AND bl.branch_id = ?
+                  AND b.quantity > 0
+                  AND b.expiry_date IS NOT NULL
             ) AS nearest_expiry,
             (
                 SELECT s.supplier_name
@@ -394,7 +428,7 @@ function getInventoryItems(PDO $pdo): void
         WHERE {$itemStatusCondition}{$stockedOnlyCondition}
         ORDER BY i.item_name ASC
     ");
-    $params = [$branchId, $branchId, $branchId];
+    $params = [$branchId, $branchId, $branchId, $branchId, $branchId];
     if ($stockedOnly) $params[] = $branchId;
     $stmt->execute($params);
     $items = $stmt->fetchAll();
@@ -430,9 +464,13 @@ function getInventoryItems(PDO $pdo): void
     $result = array_map(function ($item) use ($batchesByItem, $branchId, $hasSellingPrice) {
         $itemId = (int)$item['item_id'];
         $quantity = (int)$item['total_quantity'];
+        $availableQuantity = (int)$item['available_quantity'];
+        $expiredQuantity = (int)$item['expired_quantity'];
         $reorderLevel = (int)$item['reorder_level'];
         $warningDays = (int)$item['expiry_warning_days'];
         $nearestExpiry = $item['nearest_expiry'];
+        $stockStatus = inventoryStockStatus($availableQuantity, $reorderLevel);
+        $expiryStatus = inventoryExpiryStatus($nearestExpiry, $warningDays);
 
         return [
             'id' => (string)$itemId,
@@ -456,12 +494,16 @@ function getInventoryItems(PDO $pdo): void
             'branchId' => $branchId,
             'branchName' => $item['branch_name'],
             'quantity' => $quantity,
+            'availableQuantity' => $availableQuantity,
+            'expiredQuantity' => $expiredQuantity,
             'unit' => $item['unit'],
             'costPrice' => (float)$item['unit_cost'],
             'sellingPrice' => (float)($hasSellingPrice ? ($item['selling_price'] ?? $item['unit_cost']) : $item['unit_cost']),
             'expiryDate' => $nearestExpiry,
             'batches' => $batchesByItem[$itemId] ?? [],
-            'status' => inventoryStatus($quantity, $reorderLevel, $nearestExpiry, $warningDays),
+            'status' => $expiryStatus ?: $stockStatus,
+            'stockStatus' => $stockStatus,
+            'expiryStatus' => $expiryStatus,
             'lastUpdated' => $item['updated_at'],
             'reorderLevel' => $reorderLevel,
             'expiryWarningDays' => $warningDays,

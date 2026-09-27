@@ -2208,7 +2208,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         ? "LEFT JOIN (
               SELECT
                   item_id,
-                  SUM(quantity) AS total_stock,
+                  SUM(quantity) AS on_hand_stock,
+                  SUM(CASE
+                      WHEN quantity > 0 AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+                      THEN quantity
+                      ELSE 0
+                  END) AS available_stock,
                   MIN(CASE WHEN quantity > 0 THEN expiry_date ELSE NULL END) AS nearest_expiry
               FROM inventory_batches
               {$batchBranchWhere}
@@ -2216,17 +2221,22 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
           ) stock ON stock.item_id = ii.item_id"
         : '';
     $stockSelect = $hasBatches
-        ? "COALESCE(stock.total_stock, 0) AS stock_level, stock.nearest_expiry,"
-        : "0 AS stock_level, NULL AS nearest_expiry,";
+        ? "COALESCE(stock.available_stock, 0) AS stock_level,
+           COALESCE(stock.on_hand_stock, 0) AS on_hand_stock,
+           stock.nearest_expiry,"
+        : "0 AS stock_level, 0 AS on_hand_stock, NULL AS nearest_expiry,";
     $stockStatusSelect = $hasBatches
         ? "CASE
-                WHEN COALESCE(stock.total_stock, 0) <= 0 THEN 'out_of_stock'
-                WHEN COALESCE(stock.total_stock, 0) <= ii.reorder_level THEN 'low_stock'
-                WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry < ? THEN 'expired'
-                WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry <= DATE_ADD(?, INTERVAL ii.expiry_warning_days DAY) THEN 'near_expiry'
-                ELSE 'ok'
-            END AS stock_status"
-        : "'unknown' AS stock_status";
+               WHEN COALESCE(stock.available_stock, 0) <= 0 THEN 'out_of_stock'
+               WHEN COALESCE(stock.available_stock, 0) <= ii.reorder_level THEN 'low_stock'
+               ELSE 'ok'
+            END AS stock_status,
+            CASE
+               WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry < ? THEN 'expired'
+               WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry <= DATE_ADD(?, INTERVAL ii.expiry_warning_days DAY) THEN 'near_expiry'
+               ELSE 'ok'
+            END AS expiry_status"
+        : "'unknown' AS stock_status, 'unknown' AS expiry_status";
 
     $where = ['ii.status = ?'];
     $params = ['active'];
@@ -2258,14 +2268,30 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
     }
 
     if (!empty($filters['stock_status'])) {
-        $rows = array_values(array_filter($rows, static fn($row) => $row['stock_status'] === $filters['stock_status']));
+        $rows = array_values(array_filter($rows, static fn($row) => (
+            ($row['stock_status'] ?? '') === $filters['stock_status']
+            || ($row['expiry_status'] ?? '') === $filters['stock_status']
+        )));
     }
 
     $counts = ['low_stock' => 0, 'out_of_stock' => 0, 'near_expiry' => 0, 'expired' => 0, 'ok' => 0];
     foreach ($rows as &$row) {
         $row['stock_level'] = reports_int($row['stock_level']);
+        $row['on_hand_stock'] = reports_int($row['on_hand_stock']);
         $row['reorder_level'] = reports_int($row['reorder_level']);
-        $counts[$row['stock_status']] = ($counts[$row['stock_status']] ?? 0) + 1;
+        $attentionStatuses = array_values(array_filter([
+            ($row['stock_status'] ?? '') !== 'ok' ? ($row['stock_status'] ?? '') : null,
+            in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true) ? $row['expiry_status'] : null,
+        ]));
+        $row['attention_status'] = $attentionStatuses ? implode(', ', $attentionStatuses) : 'ok';
+        if (($row['stock_status'] ?? '') !== 'ok') {
+            $counts[$row['stock_status']] = ($counts[$row['stock_status']] ?? 0) + 1;
+        } else {
+            $counts['ok']++;
+        }
+        if (in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true)) {
+            $counts[$row['expiry_status']] = ($counts[$row['expiry_status']] ?? 0) + 1;
+        }
     }
     unset($row);
 
@@ -2276,10 +2302,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
             ['key' => 'item_name', 'label' => 'Item'],
             ['key' => 'category', 'label' => 'Category'],
             ['key' => 'sku', 'label' => 'SKU'],
-            ['key' => 'stock_level', 'label' => 'Stock'],
+            ['key' => 'stock_level', 'label' => 'Usable Stock'],
+            ['key' => 'on_hand_stock', 'label' => 'On Hand'],
             ['key' => 'reorder_level', 'label' => 'Reorder Level'],
             ['key' => 'nearest_expiry', 'label' => 'Nearest Expiry'],
             ['key' => 'stock_status', 'label' => 'Status'],
+            ['key' => 'expiry_status', 'label' => 'Expiry Status'],
         ],
         'rows' => $rows,
         'totals' => [
@@ -2293,11 +2321,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
             'text' => "Inventory has " . count($rows) . " active items; low stock " . ($counts['low_stock'] ?? 0) . ', out of stock ' . ($counts['out_of_stock'] ?? 0) . ', near expiry ' . ($counts['near_expiry'] ?? 0) . '.',
             'bullets' => [],
         ],
-        'chart' => reports_doughnut_chart(
-            ['Low Stock', 'Out of Stock', 'Near Expiry', 'Expired'],
-            [$counts['low_stock'] ?? 0, $counts['out_of_stock'] ?? 0, $counts['near_expiry'] ?? 0, $counts['expired'] ?? 0],
-            'Inventory Alerts'
-        ),
+        'chart' => reports_bar_chart([
+            ['status' => 'Low Stock', 'count' => $counts['low_stock'] ?? 0],
+            ['status' => 'Out of Stock', 'count' => $counts['out_of_stock'] ?? 0],
+            ['status' => 'Near Expiry', 'count' => $counts['near_expiry'] ?? 0],
+            ['status' => 'Expired', 'count' => $counts['expired'] ?? 0],
+        ], 'status', 'count', 'Inventory Alerts'),
         'missing_data' => $missing,
     ];
 }
@@ -3861,9 +3890,12 @@ function reports_dashboard(PDO $pdo, array $range): array
                 'title' => 'Inventory Attention',
                 'columns' => [
                     ['key' => 'item_name', 'label' => 'Name'],
-                    ['key' => 'stock_status', 'label' => 'Stock Status'],
+                    ['key' => 'attention_status', 'label' => 'Stock Status'],
                 ],
-                'rows' => array_values(array_slice(array_filter($inventory['rows'], static fn($row) => in_array($row['stock_status'] ?? '', ['low_stock', 'out_of_stock', 'near_expiry', 'expired'], true)), 0, 6)),
+                'rows' => array_values(array_slice(array_filter($inventory['rows'], static fn($row) => (
+                    in_array($row['stock_status'] ?? '', ['low_stock', 'out_of_stock'], true)
+                    || in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true)
+                )), 0, 6)),
             ],
         ],
         'missing_data' => array_values(array_unique(array_merge($missing, $dashboardMissing))),

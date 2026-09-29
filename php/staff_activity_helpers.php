@@ -93,11 +93,256 @@ function staff_activity_detail_text($value, string $format = 'text'): ?string
     return substr($text, 0, 160);
 }
 
-function staff_activity_action_details(array $input): array
+function staff_activity_enrich_inventory_input(PDO $pdo, string $path, array $input): array
 {
-    // This is intentionally an allow-list. Free-text notes, reasons, diagnoses,
-    // payment references, credentials, file paths, and contact details must not
-    // be copied into the operational activity history.
+    if (preg_match('#^/inventory(?:/|$)#', $path) !== 1) {
+        return $input;
+    }
+
+    $itemIds = [];
+    $topLevelItemId = staff_activity_input_number($input, ['item_id', 'itemId']);
+    if ($topLevelItemId > 0) {
+        $itemIds[] = $topLevelItemId;
+    }
+    foreach (($input['items'] ?? []) as $item) {
+        if (!is_array($item)) continue;
+        $itemId = staff_activity_input_number($item, ['item_id', 'itemId']);
+        if ($itemId > 0) $itemIds[] = $itemId;
+    }
+
+    $itemIds = array_values(array_unique($itemIds));
+    if (!$itemIds) {
+        return $input;
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($itemIds), '?'));
+    $stmt = $pdo->prepare("SELECT item_id, item_name FROM inventory_items WHERE item_id IN ({$placeholders})");
+    $stmt->execute($itemIds);
+    $itemNamesById = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $itemNamesById[(int)$item['item_id']] = trim((string)$item['item_name']);
+    }
+
+    if ($topLevelItemId > 0 && isset($itemNamesById[$topLevelItemId])) {
+        // Capture the database name before the mutation. This remains available
+        // in the activity record even when the product is permanently deleted.
+        $input['item_name'] = $itemNamesById[$topLevelItemId];
+    }
+
+    $itemNames = [];
+    if (isset($input['items']) && is_array($input['items'])) {
+        foreach ($input['items'] as $index => $item) {
+            if (!is_array($item)) continue;
+            $itemId = staff_activity_input_number($item, ['item_id', 'itemId']);
+            $itemName = $itemNamesById[$itemId] ?? trim((string)($item['item_name'] ?? ''));
+            if ($itemName === '') continue;
+            $input['items'][$index]['item_name'] = $itemName;
+            $itemNames[] = $itemName;
+        }
+    }
+    if ($itemNames) {
+        $input['item_names'] = array_values(array_unique($itemNames));
+    }
+
+    return $input;
+}
+
+function staff_activity_booking_subject(PDO $pdo, int $bookingId): ?array
+{
+    if ($bookingId <= 0) return null;
+    $stmt = $pdo->prepare("SELECT
+            COALESCE(NULLIF(TRIM(pet.pet_name), ''), NULLIF(TRIM(booking.unregistered_pet_name), ''), 'Unregistered pet') AS subject_name,
+            booking.service_type AS subject_description
+        FROM bookings booking
+        LEFT JOIN pets_information pet ON pet.pet_id = booking.pet_id
+        WHERE booking.booking_id = ? LIMIT 1");
+    $stmt->execute([$bookingId]);
+    $subject = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $subject ?: null;
+}
+
+function staff_activity_pet_subject(PDO $pdo, int $petId, string $description = ''): ?array
+{
+    if ($petId <= 0) return null;
+    $stmt = $pdo->prepare('SELECT pet_name AS subject_name FROM pets_information WHERE pet_id = ? LIMIT 1');
+    $stmt->execute([$petId]);
+    $name = trim((string)($stmt->fetchColumn() ?: ''));
+    return $name !== '' ? ['subject_name' => $name, 'subject_description' => $description] : null;
+}
+
+function staff_activity_apply_subject(array $input, ?array $subject): array
+{
+    if (!$subject) return $input;
+    $name = staff_activity_detail_text($subject['subject_name'] ?? null);
+    $description = staff_activity_detail_text($subject['subject_description'] ?? null, 'enum');
+    if ($description !== null) {
+        $description = (string)preg_replace('/\bPos\b/', 'POS', $description);
+    }
+    if ($name !== null) $input['_activity_subject_name'] = $name;
+    if ($description !== null) $input['_activity_subject_description'] = $description;
+    return $input;
+}
+
+function staff_activity_enrich_clinical_input(PDO $pdo, string $path, array $input): array
+{
+    $parts = array_values(array_filter(explode('/', trim($path, '/')), static fn($part) => $part !== ''));
+    $root = $parts[0] ?? '';
+    $pathId = isset($parts[1]) && ctype_digit((string)$parts[1]) ? (int)$parts[1] : 0;
+    $subject = null;
+
+    if ($root === 'bookings') {
+        $subject = staff_activity_booking_subject(
+            $pdo,
+            $pathId ?: staff_activity_input_number($input, ['booking_id', 'bookingId'])
+        );
+    } elseif ($root === 'queues') {
+        $queueId = $pathId ?: staff_activity_input_number($input, ['queue_id', 'queueId']);
+        if ($queueId > 0) {
+            $stmt = $pdo->prepare('SELECT queue.pet_id, queue.service_name FROM queues queue WHERE queue.queue_id = ? LIMIT 1');
+            $stmt->execute([$queueId]);
+            $queue = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($queue) $subject = staff_activity_pet_subject($pdo, (int)$queue['pet_id'], (string)$queue['service_name']);
+        }
+        $subject ??= staff_activity_pet_subject(
+            $pdo,
+            staff_activity_input_number($input, ['pet_id', 'petId']),
+            (string)($input['service_name'] ?? $input['service_type'] ?? 'Queue service')
+        );
+    } elseif ($root === 'visits') {
+        $billingContext = match (true) {
+            preg_match('#/charges$#', $path) === 1 => 'POS bill update',
+            preg_match('#/payments$#', $path) === 1 => 'POS payment',
+            preg_match('#/refunds$#', $path) === 1 => 'POS refund',
+            default => 'POS invoice',
+        };
+        $visitId = $pathId ?: staff_activity_input_number($input, ['visit_id', 'visitId']);
+        if ($visitId > 0) {
+            $stmt = $pdo->prepare('SELECT pet_id, source_type FROM visits WHERE visit_id = ? LIMIT 1');
+            $stmt->execute([$visitId]);
+            $visit = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($visit) $subject = staff_activity_pet_subject($pdo, (int)$visit['pet_id'], $billingContext);
+        }
+        $subject ??= staff_activity_pet_subject(
+            $pdo,
+            staff_activity_input_number($input, ['pet_id', 'petId']),
+            $billingContext
+        );
+
+        // A new POS invoice can contain its first payment as a nested object.
+        // Copy only the safe audit fields so the payment is visible without
+        // retaining transaction references, notes, uploaded files, or IDs.
+        $payment = is_array($input['payment'] ?? null) ? $input['payment'] : [];
+        if ($payment) {
+            if (!array_key_exists('amount', $input) && array_key_exists('amount', $payment)) {
+                $input['amount'] = $payment['amount'];
+            }
+            if (!array_key_exists('payment_method', $input)) {
+                $input['payment_method'] = $payment['payment_method'] ?? $payment['paymentMethod'] ?? null;
+            }
+            if (!array_key_exists('payment_status', $input)) {
+                $input['payment_status'] = $payment['payment_status'] ?? $payment['paymentStatus'] ?? 'verified';
+            }
+        }
+    } elseif ($root === 'vet-diagnoses') {
+        $diagnosisId = $pathId ?: staff_activity_input_number($input, ['diagnosis_id', 'diagnosisId']);
+        if ($diagnosisId > 0) {
+            $stmt = $pdo->prepare('SELECT pet_id, service_name FROM vet_diagnoses WHERE diagnosis_id = ? LIMIT 1');
+            $stmt->execute([$diagnosisId]);
+            $diagnosis = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($diagnosis) $subject = staff_activity_pet_subject($pdo, (int)$diagnosis['pet_id'], (string)($diagnosis['service_name'] ?: 'Diagnosis'));
+        }
+        $subject ??= staff_activity_pet_subject(
+            $pdo,
+            staff_activity_input_number($input, ['pet_id', 'petId']),
+            (string)($input['service_name'] ?? 'Diagnosis')
+        );
+    } elseif ($root === 'record-update-requests') {
+        $requestId = $pathId ?: staff_activity_input_number($input, ['request_id', 'requestId']);
+        if ($requestId > 0) {
+            $stmt = $pdo->prepare('SELECT pet_id FROM pet_record_update_requests WHERE request_id = ? LIMIT 1');
+            $stmt->execute([$requestId]);
+            $subject = staff_activity_pet_subject($pdo, (int)($stmt->fetchColumn() ?: 0), 'Medical record update');
+        }
+        $subject ??= staff_activity_pet_subject($pdo, staff_activity_input_number($input, ['pet_id', 'petId']), 'Medical record update');
+    } elseif ($root === 'online-consultations') {
+        $consultationId = $pathId ?: staff_activity_input_number($input, ['online_consultation_id', 'onlineConsultationId']);
+        if ($consultationId > 0) {
+            $stmt = $pdo->prepare('SELECT booking_id FROM online_consultations WHERE online_consultation_id = ? LIMIT 1');
+            $stmt->execute([$consultationId]);
+            $subject = staff_activity_booking_subject($pdo, (int)($stmt->fetchColumn() ?: 0));
+            if ($subject) $subject['subject_description'] = 'Online consultation';
+        }
+    } elseif ($root === 'grooming') {
+        $subject = staff_activity_booking_subject($pdo, staff_activity_input_number($input, ['booking_id', 'bookingId']));
+        if ($subject) $subject['subject_description'] = 'Grooming workflow';
+    } elseif ($root === 'boarding') {
+        $bookingId = preg_match('#^/boarding/bookings/(\d+)#', $path, $match)
+            ? (int)$match[1]
+            : staff_activity_input_number($input, ['booking_id', 'bookingId']);
+        if ($bookingId <= 0) {
+            $assignmentId = staff_activity_input_number($input, ['assignment_id', 'assignmentId']);
+            if ($assignmentId > 0) {
+                $stmt = $pdo->prepare('SELECT booking_id FROM boarding_assignments WHERE assignment_id = ? LIMIT 1');
+                $stmt->execute([$assignmentId]);
+                $bookingId = (int)($stmt->fetchColumn() ?: 0);
+            }
+        }
+        if ($bookingId <= 0 && preg_match('#^/boarding/tasks/(\d+)#', $path, $match)) {
+            $stmt = $pdo->prepare('SELECT booking_id FROM boarding_tasks WHERE task_id = ? LIMIT 1');
+            $stmt->execute([(int)$match[1]]);
+            $bookingId = (int)($stmt->fetchColumn() ?: 0);
+        }
+        $subject = staff_activity_booking_subject($pdo, $bookingId);
+        if ($subject) $subject['subject_description'] = 'Boarding or confinement';
+    } elseif (in_array($root, ['pets', 'pet_information'], true)) {
+        $petId = $pathId ?: staff_activity_input_number($input, ['pet_id', 'petId']);
+        $subject = staff_activity_pet_subject($pdo, $petId, str_starts_with($path, '/pets/') ? 'Medical record' : 'Pet record');
+    } elseif (in_array($root, ['vet-presence', 'vet_schedules', 'veterinarian-branch-schedules'], true)) {
+        $branch = staff_activity_branch($pdo, staff_activity_input_number($input, ['branch_id', 'branchId']));
+        if ($branch) {
+            $subject = ['subject_name' => $branch['branch_name'], 'subject_description' => 'Veterinarian availability'];
+        }
+    }
+
+    return staff_activity_apply_subject($input, $subject);
+}
+
+function staff_activity_action_details(array $input, string $path = ''): array
+{
+    // This remains an allow-list. Operational reasons are retained only for
+    // inventory, booking, and clinical workflow actions; diagnoses, credentials, payment references,
+    // file paths, contact details, and unrelated notes are never copied.
+    $details = [];
+    $subjectName = staff_activity_detail_text($input['_activity_subject_name'] ?? null);
+    $subjectDescription = staff_activity_detail_text($input['_activity_subject_description'] ?? null, 'enum');
+    if ($subjectDescription !== null) {
+        $subjectDescription = (string)preg_replace('/\bPos\b/', 'POS', $subjectDescription);
+    }
+    if ($subjectName !== null) $details[] = ['label' => 'Patient', 'value' => $subjectName];
+    if ($subjectDescription !== null) $details[] = ['label' => 'Context', 'value' => $subjectDescription];
+    $itemNames = [];
+    if (isset($input['item_names']) && is_array($input['item_names'])) {
+        $itemNames = array_values(array_filter(array_map(
+            static fn($value): string => trim((string)$value),
+            $input['item_names']
+        )));
+    }
+    $singleItemName = staff_activity_detail_text($input['item_name'] ?? null);
+    if ($singleItemName !== null) {
+        $details[] = ['label' => 'Product', 'value' => $singleItemName];
+    } elseif ($itemNames) {
+        $visibleNames = array_slice($itemNames, 0, 4);
+        $remaining = count($itemNames) - count($visibleNames);
+        $value = implode(', ', $visibleNames) . ($remaining > 0 ? ' +' . $remaining . ' more' : '');
+        $details[] = ['label' => count($itemNames) === 1 ? 'Product' : 'Products', 'value' => substr($value, 0, 160)];
+    }
+    if (preg_match('#^/(inventory|bookings|queues|visits|grooming|boarding|record-update-requests|online-consultations|vet-diagnoses)(?:/|$)#', $path) === 1) {
+        $reason = staff_activity_detail_text($input['reason'] ?? $input['remarks'] ?? null);
+        if ($reason !== null) {
+            $details[] = ['label' => 'Reason', 'value' => $reason];
+        }
+    }
+
     $fields = [
         [['status', 'account_status'], 'New status', 'enum'],
         [['is_active'], 'Account state', 'active'],
@@ -105,6 +350,7 @@ function staff_activity_action_details(array $input): array
         [['service_type'], 'Service', 'enum'],
         [['payment_status'], 'Payment status', 'enum'],
         [['payment_method'], 'Payment method', 'enum'],
+        [['refund_method', 'refundMethod'], 'Refund method', 'enum'],
         [['priority'], 'Priority', 'enum'],
         [['observation_type'], 'Observation type', 'enum'],
         [['task_type'], 'Task type', 'enum'],
@@ -114,30 +360,13 @@ function staff_activity_action_details(array $input): array
         [['desired_check_out_at', 'desired_checkout_at', 'check_out_at'], 'Check-out', 'text'],
         [['quantity', 'quantity_received', 'quantity_out', 'transfer_quantity'], 'Quantity', 'number'],
         [['amount', 'refund_amount', 'total_amount'], 'Amount', 'money'],
-        [['queue_id', 'queueId'], 'Queue ID', 'number'],
-        [['booking_id', 'bookingId'], 'Booking ID', 'number'],
-        [['visit_id', 'visitId'], 'Visit ID', 'number'],
-        [['item_id', 'itemId'], 'Item ID', 'number'],
-        [['request_id', 'requestId'], 'Request ID', 'number'],
-        [['diagnosis_id', 'diagnosisId'], 'Diagnosis ID', 'number'],
-        [['service_id', 'serviceId'], 'Service ID', 'number'],
-        [['room_id', 'roomId'], 'Room ID', 'number'],
-        [['assignment_id', 'assignmentId'], 'Assignment ID', 'number'],
-        [['task_id', 'taskId'], 'Task ID', 'number'],
-        [['source_location_id'], 'Source location ID', 'number'],
-        [['destination_location_id', 'location_id', 'locationId'], 'Destination location ID', 'number'],
-        [['branch_id', 'branchId'], 'Branch ID', 'number'],
-        [['to_branch_id', 'toBranchId'], 'Destination branch ID', 'number'],
-        [['veterinarian_user_id'], 'Veterinarian user ID', 'number'],
         [['assigned_to'], 'Assigned to', 'text'],
-        [['item_name'], 'Item', 'text'],
         [['service_name'], 'Service name', 'text'],
         [['location_name'], 'Location', 'text'],
         [['room_name'], 'Room', 'text'],
         [['supplier_name'], 'Supplier', 'text'],
     ];
 
-    $details = [];
     foreach ($fields as [$keys, $label, $format]) {
         foreach ($keys as $key) {
             if (!array_key_exists($key, $input)) {
@@ -206,6 +435,21 @@ function staff_activity_action_summary(array $details): ?string
         }
     }
     return $parts ? substr(implode(' | ', $parts), 0, 360) : null;
+}
+
+function staff_activity_target_label(array $details, string $fallback): string
+{
+    $values = [];
+    foreach (['Patient', 'Product', 'Products', 'Context', 'Service', 'Service name', 'Location', 'Room'] as $preferredLabel) {
+        foreach ($details as $detail) {
+            if (($detail['label'] ?? '') !== $preferredLabel) continue;
+            $value = trim((string)($detail['value'] ?? ''));
+            if ($value !== '' && !in_array($value, $values, true)) $values[] = $value;
+            break;
+        }
+        if (count($values) >= 2) break;
+    }
+    return substr($values ? implode(' — ', $values) : $fallback, 0, 240);
 }
 
 function staff_activity_planning_status(string $path, array $input, ?DateTimeImmutable $recordedAt = null): array
@@ -294,6 +538,7 @@ function staff_activity_record(PDO $pdo, array $user, array $event): void
         'action_details' => $details,
         'target_type' => $event['target_type'] ?? null,
         'target_id' => isset($event['target_id']) && (int)$event['target_id'] > 0 ? (int)$event['target_id'] : null,
+        'target_label' => isset($event['target_label']) ? substr(trim((string)$event['target_label']), 0, 240) : null,
         'request_method' => $event['method'] ?? null,
         'request_path' => $event['path'] ?? null,
         'response_status' => isset($event['response_status']) ? (int)$event['response_status'] : null,
@@ -398,17 +643,165 @@ function staff_activity_entries(PDO $pdo, ?int $userId = null): Generator
     }
 }
 
+function staff_activity_is_major_clinical_entry(array $entry): bool
+{
+    if (ipawcus_access_normalize_role((string)($entry['actor_role'] ?? '')) !== 'veterinarian') {
+        return false;
+    }
+
+    $key = (string)($entry['action_key'] ?? '');
+    if ($key === '') {
+        $key = strtoupper((string)($entry['request_method'] ?? '')) . ':' . (string)($entry['request_path'] ?? '');
+    }
+
+    return preg_match('#^(POST|PATCH):/vet-diagnoses(?:/:id)?$#', $key) === 1
+        || preg_match('#^POST:/online-consultations/:id/(start|end|diagnosis)$#', $key) === 1
+        || preg_match('#^POST:/queues/(receive|return|reenter|status)$#', $key) === 1
+        || $key === 'POST:/grooming'
+        || $key === 'POST:/boarding/observations'
+        || preg_match('#^(POST|PATCH):/record-update-requests(?:/:id)?$#', $key) === 1
+        || $key === 'POST:/visits'
+        || $key === 'POST:/pets/:id/medical';
+}
+
+function staff_activity_is_pos_billing_entry(array $entry): bool
+{
+    $actorRole = ipawcus_access_normalize_role((string)($entry['actor_role'] ?? ''));
+    if (!in_array($actorRole, ['admin', 'super_admin'], true)) {
+        return false;
+    }
+
+    $key = (string)($entry['action_key'] ?? '');
+    if ($key === '') {
+        $key = strtoupper((string)($entry['request_method'] ?? '')) . ':' . (string)($entry['request_path'] ?? '');
+    }
+
+    return preg_match('#^POST:/visits(?:/:id/(?:charges|payments|refunds))?$#', $key) === 1;
+}
+
+function staff_activity_reference_without_id(string $value, string $fallback): string
+{
+    $value = trim($value);
+    if ($value === '') return $fallback;
+    if (preg_match('/^#?\s*\d+$/', $value) === 1) return $fallback;
+
+    $cleaned = preg_replace(
+        '/\s*[\x{2014}\x{2013}-]\s*(?:(?:booking|grooming|record)(?:\s+id)?\s*)?#?\s*\d+\s*$/iu',
+        '',
+        $value
+    );
+    if ($cleaned === null) return $fallback;
+    if ($cleaned === $value) {
+        $cleaned = preg_replace(
+            '/\b(?:booking|grooming|record)(?:\s+id)?\s*#?\s*\d+\s*$/iu',
+            '',
+            $value
+        );
+    }
+    if ($cleaned === null || $cleaned === $value) return $value;
+
+    $cleaned = trim($cleaned, " \t\n\r\0\x0B-|\xE2\x80\x94\xE2\x80\x93");
+    return $cleaned !== '' ? $cleaned : $fallback;
+}
+
+function staff_activity_grooming_booking_id(array $entry): int
+{
+    $targetId = (int)($entry['target_id'] ?? 0);
+    if ($targetId > 0) return $targetId;
+
+    foreach ((array)($entry['action_details'] ?? []) as $detail) {
+        $label = trim((string)($detail['label'] ?? ''));
+        $value = trim((string)($detail['value'] ?? ''));
+        if (preg_match('/\b(?:booking|grooming)(?:\s+record)?\s+id\b/i', $label) === 1 && ctype_digit($value)) {
+            return (int)$value;
+        }
+    }
+
+    foreach ([(string)($entry['target_label'] ?? ''), (string)($entry['action_summary'] ?? '')] as $value) {
+        if (preg_match('/(?:booking|grooming)(?:\s+record)?(?:\s+id)?\s*#?\s*(\d+)\b/i', $value, $match) === 1) {
+            return (int)$match[1];
+        }
+        if (preg_match('/^#?\s*(\d+)$/', trim($value), $match) === 1) {
+            return (int)$match[1];
+        }
+    }
+
+    return 0;
+}
+
+function staff_activity_enrich_list_entry(PDO $pdo, array $entry, array &$groomingSubjects): array
+{
+    if ((string)($entry['target_type'] ?? '') !== 'grooming') return $entry;
+
+    $bookingId = staff_activity_grooming_booking_id($entry);
+    $subject = null;
+    if ($bookingId > 0) {
+        if (!array_key_exists($bookingId, $groomingSubjects)) {
+            try {
+                $groomingSubjects[$bookingId] = staff_activity_booking_subject($pdo, $bookingId);
+            } catch (Throwable $error) {
+                $groomingSubjects[$bookingId] = null;
+            }
+        }
+        $subject = $groomingSubjects[$bookingId];
+    }
+
+    $details = array_values(array_filter(
+        is_array($entry['action_details'] ?? null) ? $entry['action_details'] : [],
+        static fn($detail): bool => is_array($detail)
+            && preg_match('/(^|\s)ID$/i', trim((string)($detail['label'] ?? ''))) !== 1
+            && !in_array((string)($detail['label'] ?? ''), ['Patient', 'Context'], true)
+    ));
+
+    if ($subject) {
+        $patientName = staff_activity_detail_text($subject['subject_name'] ?? null) ?? 'Pet';
+        $context = 'Grooming workflow';
+        $details = array_merge([
+            ['label' => 'Patient', 'value' => $patientName],
+            ['label' => 'Context', 'value' => $context],
+        ], $details);
+        $entry['target_label'] = $patientName . ' — ' . $context;
+    } else {
+        $entry['target_label'] = staff_activity_reference_without_id(
+            (string)($entry['target_label'] ?? ''),
+            'Grooming workflow'
+        );
+    }
+
+    $entry['action_details'] = array_slice($details, 0, 10);
+    $entry['action_summary'] = staff_activity_action_summary($entry['action_details']);
+    return $entry;
+}
+
 function staff_activity_list(PDO $pdo, array $filters, int $limit, int $offset): array
 {
     $matches = 0;
     $items = [];
+    $groomingSubjects = [];
     foreach (staff_activity_entries($pdo, $filters['user_id'] ?? null) as $entry) {
+        $entry = staff_activity_enrich_list_entry($pdo, $entry, $groomingSubjects);
         if (isset($filters['user_id']) && (int)$entry['actor_user_id'] !== (int)$filters['user_id']) continue;
         if (isset($filters['role']) && ($entry['actor_role'] ?? '') !== $filters['role']) continue;
         if (isset($filters['branch_id']) && (int)($entry['branch_id'] ?? 0) !== (int)$filters['branch_id']) continue;
         if (($filters['branch_scope'] ?? '') === 'organization' && ($entry['branch_name'] ?? '') !== 'Organization-wide') continue;
         if (($filters['branch_scope'] ?? '') === 'unresolved' && ($entry['branch_name'] ?? '') !== 'Branch not recorded') continue;
         if (isset($filters['kind']) && ($entry['activity_kind'] ?? '') !== $filters['kind']) continue;
+        if (isset($filters['module'])) {
+            $targetType = (string)($entry['target_type'] ?? '');
+            $isMajorClinical = staff_activity_is_major_clinical_entry($entry);
+            $isPosBilling = staff_activity_is_pos_billing_entry($entry);
+            $matchesModule = match ($filters['module']) {
+                'major' => in_array($targetType, ['inventory', 'bookings'], true) || $isMajorClinical || $isPosBilling,
+                'operations' => in_array($targetType, ['inventory', 'bookings'], true),
+                'inventory' => $targetType === 'inventory',
+                'bookings' => $targetType === 'bookings',
+                'pos' => $isPosBilling,
+                'grooming' => $targetType === 'grooming',
+                'clinical' => $isMajorClinical,
+                default => true,
+            };
+            if (!$matchesModule) continue;
+        }
         if (isset($filters['planning'])) {
             $planningStatus = (string)($entry['planning_status'] ?? 'not_recorded');
             if ($planningStatus !== $filters['planning']) continue;
@@ -665,7 +1058,7 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
     }
     if ($targetId <= 0) {
         $targetKeys = match ($root) {
-            'bookings', 'boarding' => ['bookingId', 'booking_id'],
+            'bookings', 'boarding', 'grooming' => ['bookingId', 'booking_id'],
             'queues' => ['queueId', 'queue_id'],
             'visits' => ['visitId', 'visit_id'],
             'inventory' => ['itemId', 'item_id'],
@@ -733,10 +1126,10 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
         'POST /online-consultations/:id/join' => 'Joined online consultation',
         'POST /online-consultations/:id/end' => 'Ended online consultation',
         'POST /online-consultations/:id/diagnosis' => 'Saved online diagnosis',
-        'POST /visits' => 'Created visit',
-        'POST /visits/:id/charges' => 'Updated visit charges',
-        'POST /visits/:id/payments' => 'Recorded visit payment',
-        'POST /visits/:id/refunds' => 'Recorded visit refund',
+        'POST /visits' => 'Created POS invoice',
+        'POST /visits/:id/charges' => 'Updated POS bill',
+        'POST /visits/:id/payments' => 'Recorded POS payment',
+        'POST /visits/:id/refunds' => 'Recorded POS refund',
         'POST /service-catalog' => 'Added service catalog item',
         'PATCH /service-catalog/:id' => 'Updated service catalog item',
         'DELETE /service-catalog/:id' => 'Deactivated service catalog item',
@@ -762,7 +1155,10 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
         'POST /account/google' => 'Connected Google account',
     ];
     $label = $specificLabels[$method . ' ' . $routePath] ?? $label;
-    $details = staff_activity_action_details($input);
+    if ($method === 'POST' && $routePath === '/visits' && is_array($input['payment'] ?? null)) {
+        $label = 'Created POS invoice and recorded payment';
+    }
+    $details = staff_activity_action_details($input, $path);
     $planning = staff_activity_planning_status($path, $input);
     foreach ($details as $detail) {
         if (($detail['label'] ?? '') === 'New status'
@@ -784,6 +1180,7 @@ function staff_activity_describe_mutation(string $path, string $method, array $i
         'planning_basis' => $planning['basis'],
         'target_type' => substr($root, 0, 80),
         'target_id' => $targetId ?: null,
+        'target_label' => staff_activity_target_label($details, $label),
         'method' => $method,
         'path' => substr($routePath, 0, 200),
     ];
@@ -809,6 +1206,16 @@ function staff_activity_register_mutation(PDO $pdo, array $user, string $path, s
         }
     }
     $query = $_GET;
+    try {
+        $input = staff_activity_enrich_inventory_input($pdo, $path, $input);
+    } catch (Throwable $enrichmentError) {
+        error_log('Staff activity inventory detail lookup failed: ' . $enrichmentError->getMessage());
+    }
+    try {
+        $input = staff_activity_enrich_clinical_input($pdo, $path, $input);
+    } catch (Throwable $enrichmentError) {
+        error_log('Staff activity clinical context lookup failed: ' . $enrichmentError->getMessage());
+    }
 
     register_shutdown_function(static function () use ($pdo, $user, $path, $method, $input, $query): void {
         $status = http_response_code();

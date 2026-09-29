@@ -120,12 +120,12 @@ export default function RecordUpdateRequestsManagement() {
                 console.error('Failed to load veterinarians for record update assignment:', veterinarianResult.reason);
                 setVeterinarians([]);
                 if (!isAutoRefresh) {
-                    toast.error('Requests loaded, but veterinarian choices are temporarily unavailable.');
+                    toast.warning('Requests were loaded, but the veterinarian list is unavailable. Refresh before assigning a request.');
                 }
             }
         } catch (error) {
             if (!isAutoRefresh) {
-                toast.error(error.message || 'Failed to load record update requests.');
+                toast.error(error.message || 'Record update requests could not be loaded. Refresh the page or try again.');
             }
         } finally {
             if (!isAutoRefresh) {
@@ -203,7 +203,7 @@ export default function RecordUpdateRequestsManagement() {
             setSelectedRequest(response.request);
             toast.success(action === 'reject' ? 'Request rejected.' : 'Request updated.');
         } catch (error) {
-            toast.error(error.message || 'Failed to update request.');
+            toast.error(error.message || 'The record update request could not be changed. Review it and try again.');
         } finally {
             setActionLoading('');
         }

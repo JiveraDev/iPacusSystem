@@ -9,8 +9,12 @@ lerna-debug.log*
 
 
 node_modules
+vendor
 dist
 dist-ssr
+/storage/backups/
+/storage/activity/
+/tmp/composer-google-auth/
 *.local
 GEMINI.md
 

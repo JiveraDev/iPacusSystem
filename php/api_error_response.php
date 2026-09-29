@@ -380,6 +380,12 @@ if (!function_exists('ipawcus_error_response_is_http')) {
 
         $requestPath = strtolower((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: ''));
 
+        if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST'
+            && (preg_match('#/(?:api/)?system-backups/?$#', $requestPath) === 1
+                || str_ends_with($requestPath, '/system_backups.php'))) {
+            return true;
+        }
+
         return preg_match('#/(?:api/)?uploads/media(?:/|$)#', $requestPath) === 1
             || str_ends_with($requestPath, '/upload_media.php');
     }

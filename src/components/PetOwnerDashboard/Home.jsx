@@ -40,6 +40,7 @@ import VetActiveLocationPanel from "../VetrinarianComponents/VetActiveLocationPa
 import AdminAssignedLocationPanel from "../AdminDashboardsComponent/AdminAssignedLocationPanel.jsx";
 import ClinicAvailabilityCalendar from "../shared/ClinicAvailabilityCalendar.jsx";
 import ServicePetPeek from "../shared/ServicePetPeek.jsx";
+import VetPresenceSign from "../shared/VetPresenceSign.jsx";
 import {
   bookingRouteForAvailabilityService,
   saveBookingAvailabilitySelection,
@@ -578,6 +579,7 @@ export default function Home({ user }) {
 
   return (
     <div className="space-y-6">
+      {["admin", "superadmin"].includes(roleKey) && <VetPresenceSign editable />}
       {roleKey === "veterinarian" && <VetActiveLocationPanel />}
       {roleKey === "admin" && <AdminAssignedLocationPanel />}
       {isArchivedOwner && (
@@ -627,6 +629,8 @@ export default function Home({ user }) {
         </div>
       </section>
 
+      {roleKey === "petowner" && <VetPresenceSign variant="home" scheduleHref="#owner-availability" />}
+
       <section>
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -663,12 +667,14 @@ export default function Home({ user }) {
 
       <section>
         {roleKey === "petowner" && !isArchivedOwner ? (
-          <ClinicAvailabilityCalendar
-            title="Book an available time"
-            description="Check clinic schedules before opening a booking form. Select an available time to continue."
-            onSelectSlot={openAvailabilityBooking}
-            onSelectRoom={openAvailabilityBooking}
-          />
+          <div id="owner-availability" tabIndex={-1} className="scroll-mt-24 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+            <ClinicAvailabilityCalendar
+              title="Book an available time"
+              description="Check clinic schedules before opening a booking form. Select an available time to continue."
+              onSelectSlot={openAvailabilityBooking}
+              onSelectRoom={openAvailabilityBooking}
+            />
+          </div>
         ) : roleKey === "petowner" ? (
           <Card className="border-amber-200 bg-amber-50 shadow-sm">
             <CardContent className="flex items-start gap-3 p-5 text-sm font-semibold leading-6 text-amber-900">

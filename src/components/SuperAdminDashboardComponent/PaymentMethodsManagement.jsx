@@ -315,7 +315,7 @@ export default function PaymentMethodsManagement() {
         const nextKey = editingKey || methodKeyFromLabel(normalizedLabel);
         if (!editingKey && methods.some((method) => method.methodKey === nextKey)) {
             setDraftErrors({ label: 'A payment method with this name already exists.' });
-            toast.error('A payment method with this name already exists.');
+            toast.warning('A payment method with this name already exists. Choose a different display name.');
             return;
         }
         const nextMethod = normalizeMethod({

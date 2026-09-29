@@ -6,7 +6,7 @@ import { useGSAP } from '@gsap/react';
 import {
     ArrowRight, CalendarCheck, Check, ChevronRight, Clock, ExternalLink, FileHeart,
     HeartPulse, Mail, MapPin, Menu, MessageCircleHeart, PawPrint, Phone, Play,
-    Scissors, ShieldCheck, Sparkles, Stethoscope, Syringe, Video, X,
+    Scissors, ShieldCheck, Stethoscope, Syringe, Video, X,
 } from 'lucide-react';
 
 import consultImage from '../consultimage.png';
@@ -15,9 +15,11 @@ import logoImage from '../circular_logo.png';
 import PwaInstallButton from '../../pwa/PwaInstallButton.jsx';
 import ClinicAvailabilityCalendar from '../../components/shared/ClinicAvailabilityCalendar.jsx';
 import ServicePetPeek from '../../components/shared/ServicePetPeek.jsx';
-import { saveBookingAvailabilitySelection } from '../../lib/bookingAvailabilityNavigation.js';
+import VetPresenceSign from '../../components/shared/VetPresenceSign.jsx';
+import { clearLandingBookingIntent, saveLandingBookingIntent } from '../../lib/landingBookingIntent.js';
 
 const PetStage = lazy(() => import('./PetStage.jsx'));
+const SERVICE_BOOKING_KEYS = { consultation: 'general-checkup', vaccination: 'vaccination', grooming: 'grooming', online: 'online-consultation' };
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -129,9 +131,9 @@ export default function ModernLandingPageContent({ onLogin, onRegister }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const activeService = useMemo(() => services.find((service) => service.id === activeId) || services[0], [activeId]);
     const ActiveIcon = activeService.Icon;
-    const login = () => { setMenuOpen(false); onLogin?.(); };
-    const register = () => { setMenuOpen(false); onRegister?.(); };
-    const bookSelection = (selection) => { saveBookingAvailabilitySelection(selection); login(); };
+    const login = () => { clearLandingBookingIntent(); setMenuOpen(false); onLogin?.(); };
+    const register = () => { clearLandingBookingIntent(); setMenuOpen(false); onRegister?.(); };
+    const bookSelection = (selection) => { saveLandingBookingIntent(selection); setMenuOpen(false); onLogin?.(); };
 
     useGSAP(() => {
         const introElements = gsap.utils.toArray('.landing-enter');
@@ -230,13 +232,13 @@ export default function ModernLandingPageContent({ onLogin, onRegister }) {
                     <div className="landing-hero-wash" aria-hidden="true" /><div className="landing-aurora landing-aurora--one" aria-hidden="true" /><div className="landing-aurora landing-aurora--two" aria-hidden="true" />
                     <div className="relative mx-auto grid min-h-[calc(100svh-4.75rem)] w-full max-w-[90rem] items-center gap-8 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.95fr)_minmax(30rem,1.05fr)] lg:px-10 lg:py-20">
                         <div className="relative z-10 max-w-3xl">
-                            <div className="landing-enter landing-enter--1 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-[0.68rem] font-black uppercase tracking-[0.17em] text-blue-100 backdrop-blur-xl"><Sparkles className="h-4 w-4" />Veterinary care in Lucena City</div>
+                            <div className="landing-enter landing-enter--1"><VetPresenceSign variant="landing" /></div>
                             <h1 className="landing-enter landing-enter--2 mt-7 text-[clamp(2.75rem,7vw,6.9rem)] font-black leading-[0.9] tracking-[-0.055em]">Better care.<br /><span className="landing-hero-script">Happier tails.</span></h1>
                             <p className="landing-enter landing-enter--3 mt-7 max-w-xl text-base font-medium leading-7 text-white/75 sm:text-lg sm:leading-8">Clinic visits, vaccinations, grooming, and online consultations—thoughtfully connected around your pet, not paperwork.</p>
                             <div className="landing-enter landing-enter--4 mt-8 flex flex-col gap-3 sm:flex-row"><button type="button" onClick={register} className="landing-primary-button landing-primary-button--light justify-center px-6 py-3.5 text-base">Find care for my pet <ArrowRight className="h-5 w-5" /></button><a href="#services" onClick={(event) => navigate(event, '#services')} className="landing-ghost-button justify-center px-6 py-3.5 text-base"><Play className="h-4 w-4 fill-current" />Explore services</a></div>
                             <div className="landing-enter landing-enter--5 mt-9 flex flex-wrap gap-x-6 gap-y-3 border-t border-white/15 pt-6">{['Pet-specific medical history', 'Non-emergency online consults', 'Two connected Lucena locations'].map((point) => <div key={point} className="flex items-center gap-2 text-xs font-bold text-white/75 sm:text-sm"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-300 text-[#102a56]"><Check className="h-3 w-3" /></span>{point}</div>)}</div>
                         </div>
-                        <div className="landing-enter landing-enter--visual relative z-10 min-h-[24rem] lg:min-h-[39rem]"><Suspense fallback={<div className="landing-pet-stage"><img src="/landing-media/pet-ensemble.png" alt="Dogs, a cat, a parrot, and a rabbit" className="landing-pet-fallback" /></div>}><PetStage activePet={activeService.pet} /></Suspense><div className="landing-floating-note landing-floating-note--consult"><Video className="h-4 w-4 text-[#e05a47]" /><span><strong>Online vet</strong><small>PHP 500 consultation</small></span></div></div>
+                        <div className="landing-enter landing-enter--visual relative z-10 min-h-[24rem] lg:min-h-[39rem]"><Suspense fallback={<div className="landing-pet-stage"><img src="/landing-media/pet-ensemble.png" alt="Dogs, a cat, a parrot, and a rabbit" className="landing-pet-fallback" /></div>}><PetStage activePet={activeService.pet} /></Suspense><button type="button" onClick={() => bookSelection({ service: 'online-consultation' })} aria-label="Book an online consultation" className="landing-floating-note landing-floating-note--consult text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"><Video className="h-4 w-4 text-[#e05a47]" /><span><strong>Online vet</strong><small>PHP 500 consultation</small></span><ArrowRight className="h-4 w-4" aria-hidden="true" /></button></div>
                     </div>
                     <div className="relative z-10 mx-auto grid w-full max-w-[90rem] gap-px border-t border-white/10 bg-white/10 sm:grid-cols-3">{[['Monday–Saturday', 'Clinic days'], ['2 Lucena locations', 'Connected care'], ['Dogs, cats, birds +', 'Companion pets']].map(([value, label]) => <div key={label} className="bg-[#102a56]/80 px-5 py-4 backdrop-blur-xl sm:px-8"><div className="text-sm font-black">{value}</div><div className="mt-1 text-[0.65rem] font-black uppercase tracking-[0.15em] text-blue-200/70">{label}</div></div>)}</div>
                 </section>
@@ -246,7 +248,7 @@ export default function ModernLandingPageContent({ onLogin, onRegister }) {
                         <Reveal className="max-w-3xl"><div className="landing-kicker text-blue-700">Care in motion</div><h2 className="landing-display mt-4">Choose the moment your pet needs.</h2><p className="mt-5 max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg sm:leading-8">Real care deserves more than a list. Explore each service, see the experience, and start with a clear next step.</p></Reveal>
                         <div className="mt-12 grid gap-8 xl:grid-cols-[minmax(20rem,0.72fr)_minmax(0,1.28fr)] xl:items-stretch">
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">{services.map((service, index) => <Reveal key={service.id} delay={index * 70}><ServiceCard service={service} active={service.id === activeService.id} onSelect={() => setActiveId(service.id)} /></Reveal>)}</div>
-                            <Reveal delay={120} className="h-full"><article ref={showcaseRef} className={`landing-service-showcase landing-service-showcase--${activeService.accent}`}><div className="landing-service-showcase__media">{activeService.media ? <video key={activeService.media} src={activeService.media} poster={activeService.poster} autoPlay muted loop playsInline preload="metadata" /> : <img src={activeService.image} alt="Doctor providing an online consultation" className="landing-media-kenburns" />}<div className="landing-service-showcase__scrim" /><div className="landing-service-showcase__badge"><span className="landing-service-showcase__badge-icon"><ActiveIcon className="h-5 w-5" /></span>{activeService.detail}</div></div><div className="landing-service-showcase__copy"><div className="landing-kicker text-blue-700">{activeService.eyebrow}</div><h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.03em] sm:text-3xl">{activeService.title}</h3><p className="mt-4 text-base font-medium leading-7 text-slate-600">{activeService.description}</p><button type="button" onClick={register} className="mt-6 inline-flex items-center gap-2 text-sm font-black text-blue-700 transition hover:gap-3">Start this care request <ArrowRight className="h-4 w-4" /></button></div></article></Reveal>
+                            <Reveal delay={120} className="h-full"><article ref={showcaseRef} className={`landing-service-showcase landing-service-showcase--${activeService.accent}`}><div className="landing-service-showcase__media">{activeService.media ? <video key={activeService.media} src={activeService.media} poster={activeService.poster} autoPlay muted loop playsInline preload="metadata" /> : <img src={activeService.image} alt="Doctor providing an online consultation" className="landing-media-kenburns" />}<div className="landing-service-showcase__scrim" /><div className="landing-service-showcase__badge"><span className="landing-service-showcase__badge-icon"><ActiveIcon className="h-5 w-5" /></span>{activeService.detail}</div></div><div className="landing-service-showcase__copy"><div className="landing-kicker text-blue-700">{activeService.eyebrow}</div><h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.03em] sm:text-3xl">{activeService.title}</h3><p className="mt-4 text-base font-medium leading-7 text-slate-600">{activeService.description}</p><button type="button" onClick={() => bookSelection({ service: SERVICE_BOOKING_KEYS[activeService.id] })} className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-black text-blue-700 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Start this care request <ArrowRight className="h-4 w-4" /></button></div></article></Reveal>
                         </div>
                     </div>
                 </section>

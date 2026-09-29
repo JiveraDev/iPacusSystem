@@ -8,6 +8,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { User, Mail, Phone, MapPin, Calendar, Loader2, Pencil, Save, X } from "lucide-react";
 import { useUserUpdate, useDashboardUser } from "../dashboardRouter.jsx";
 import PasswordChangeCard from "../shared/PasswordChangeCard.jsx";
+import GoogleAccountLinkControl from "../shared/GoogleAccountLinkControl.jsx";
 import ThemeToggle from "../shared/ThemeToggle.jsx";
 import NotificationPreferencesCard from "../shared/NotificationPreferencesCard.jsx";
 import ProfileWorkspaceHeader from "../shared/ProfileWorkspaceHeader.jsx";
@@ -327,7 +328,7 @@ export default function PetOwnerProfile({ onForgotPassword }) {
                     />
                   </ProfileField>
 
-                  <ProfileField htmlFor="email" label="Email Address" icon={<Mail className="h-4 w-4 text-slate-400" />}>
+                  <ProfileField htmlFor="email" label="Email Address" icon={<Mail className="h-4 w-4 text-slate-400" />} labelAction={<GoogleAccountLinkControl />}>
                     <Input
                       id="email"
                       value={profileData.email}
@@ -445,13 +446,16 @@ export default function PetOwnerProfile({ onForgotPassword }) {
   );
 }
 
-function ProfileField({ htmlFor, label, icon, children, className = "" }) {
+function ProfileField({ htmlFor, label, icon, labelAction, children, className = "" }) {
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
-      <Label htmlFor={htmlFor} className={profileLabelClass()}>
-        {icon}
-        {label}
-      </Label>
+      <div className="flex min-h-7 items-center justify-between gap-2">
+        <Label htmlFor={htmlFor} className={profileLabelClass()}>
+          {icon}
+          {label}
+        </Label>
+        {labelAction}
+      </div>
       {children}
     </div>
   );

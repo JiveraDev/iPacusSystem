@@ -87,7 +87,7 @@ export default function VetRecordUpdateRequests() {
             setRequests(Array.isArray(data.requests) ? data.requests : []);
         } catch (error) {
             if (!isAutoRefresh) {
-                toast.error(error.message || 'Failed to load record update requests.');
+                toast.error(error.message || 'Your assigned record update requests could not be loaded. Refresh the page or try again.');
             }
         } finally {
             if (!isAutoRefresh) {
@@ -162,7 +162,7 @@ export default function VetRecordUpdateRequests() {
                 : 'Record update started. Opening medical records.');
             openMedicalEditor(response.request || request);
         } catch (error) {
-            toast.error(error.message || 'Failed to update request.');
+            toast.error(error.message || 'The record update request could not be started. Refresh the request and try again.');
         } finally {
             setActionLoading('');
         }

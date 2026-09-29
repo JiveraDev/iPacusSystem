@@ -17,10 +17,11 @@ The command:
 3. prepares a separate temporary Git worktree, leaving the current branch and uncommitted work untouched;
 4. copies the contents of `dist/` to the deployment root;
 5. copies `php/` to the deployment root as `php/`;
-6. excludes runtime uploads because they live in a persistent sibling directory outside the Git deployment target;
-7. uses the repository root `.htaccess` for the React fallback and same-domain PHP/API routes;
-8. excludes `.env` so production secrets remain server-only;
-9. commits and pushes the remaining deployment files to `origin/hostinger-deploy`.
+6. copies `composer.json` and `composer.lock` to the deployment root so Hostinger can install the PHP Google client into `vendor/`;
+7. excludes runtime uploads because they live in a persistent sibling directory outside the Git deployment target;
+8. uses the repository root `.htaccess` for the React fallback and same-domain PHP/API routes;
+9. excludes `.env` so production secrets remain server-only;
+10. commits and pushes the remaining deployment files to `origin/hostinger-deploy`.
 
 If the remote branch does not exist, the command creates it on the first push. In this repository it already exists, so the command updates it.
 
@@ -120,6 +121,8 @@ The updater does not copy or commit `.env`. Keep the production `.env` on Hostin
 
 The updater intentionally includes the repository root `.htaccess`, so React routing and same-domain API rewrite changes reach Hostinger automatically. No manual File Manager update is needed for this file after a normal deployment.
 
+The deployed `.htaccess` blocks HTTP access to `composer.json`, `composer.lock`, and `vendor/`. Composer still reads these files from disk during deployment.
+
 ## Connect the branch in Hostinger
 
 In hPanel:
@@ -132,6 +135,20 @@ In hPanel:
 6. Deploy, then enable automatic deployment if desired.
 
 The deployment branch already has `index.html`, frontend assets, `.htaccess`, and `php/` at its root. Hostinger may continue serving the fixed `public_html` document root; the permanent `public_html/.htaccess` router forwards requests internally to `set` while keeping `ipawcus_runtime_media` outside the Git deployment target.
+
+## Mail queue cron job
+
+Create a Hostinger Custom cron job that runs every minute (`* * * * *`). The worker is the PHP file inside the Git deployment target:
+
+```bash
+php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=50
+```
+
+Replace `YOUR_HOSTINGER_USER` with the hosting account's home directory name. If using a PHP-type cron job instead of Custom, enter only the absolute file path and the worker will use its default batch size. An empty queue prints `Mail queue: claimed 0, sent 0, failed 0`.
+
+## Staff activity files
+
+Run `DDL/20260920_01_user_activity_log_file.sql` once before deploying staff activity history. This adds a file reference to `users` without creating a log table. The application writes protected per-user files under `public_html/ipawcus_runtime_media/staff_activity/`, outside the Git deployment target. See `docs/staff_activity_history.md` for the recorded events and backup details.
 
 ## Important checks
 

@@ -130,16 +130,10 @@ function branch_user_ids(PDO $pdo, int $userId): array
         return [];
     }
 
+    // Active Account Management assignments are authoritative. Do not merge a
+    // stale legacy preference into them, because that would silently grant an
+    // Admin access to an additional clinic branch.
     $branchIds = [];
-    if (branch_column_exists($pdo, 'users', 'preferred_branch_id')) {
-        $preferredStmt = $pdo->prepare('SELECT preferred_branch_id FROM users WHERE user_id = ? LIMIT 1');
-        $preferredStmt->execute([$userId]);
-        $preferredBranchId = (int)($preferredStmt->fetchColumn() ?: 0);
-        if ($preferredBranchId > 0) {
-            $branchIds[] = $preferredBranchId;
-        }
-    }
-
     if (
         branch_table_exists($pdo, 'user_branch_assignments')
         && branch_column_exists($pdo, 'user_branch_assignments', 'user_id')
@@ -160,10 +154,27 @@ function branch_user_ids(PDO $pdo, int $userId): array
                 ORDER BY {$primaryOrder}branch_id
             ");
             $stmt->execute([$userId]);
-            $branchIds = array_merge($branchIds, array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
+            $branchIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+            $branchIds = array_values(array_unique(array_filter(
+                $branchIds,
+                static fn(int $branchId): bool => $branchId > 0
+            )));
+            if ($branchIds) {
+                return $branchIds;
+            }
         } catch (Throwable $error) {
-            // preferred_branch_id remains the authoritative legacy fallback.
             error_log('User branch assignment lookup failed: ' . $error->getMessage());
+        }
+    }
+
+    // Legacy installations may not have assignment rows yet. Only in that
+    // case may preferred_branch_id be used as a compatibility fallback.
+    if (branch_column_exists($pdo, 'users', 'preferred_branch_id')) {
+        $preferredStmt = $pdo->prepare('SELECT preferred_branch_id FROM users WHERE user_id = ? LIMIT 1');
+        $preferredStmt->execute([$userId]);
+        $preferredBranchId = (int)($preferredStmt->fetchColumn() ?: 0);
+        if ($preferredBranchId > 0) {
+            $branchIds[] = $preferredBranchId;
         }
     }
 
@@ -175,15 +186,6 @@ function branch_user_ids(PDO $pdo, int $userId): array
 
 function branch_user_primary_id(PDO $pdo, int $userId): int
 {
-    if ($userId > 0 && branch_column_exists($pdo, 'users', 'preferred_branch_id')) {
-        $stmt = $pdo->prepare("SELECT preferred_branch_id FROM users WHERE user_id = ? LIMIT 1");
-        $stmt->execute([$userId]);
-        $preferred = (int)$stmt->fetchColumn();
-        if ($preferred > 0) {
-            return $preferred;
-        }
-    }
-
     $branchIds = branch_user_ids($pdo, $userId);
     return $branchIds[0] ?? branch_main_id($pdo);
 }
@@ -197,6 +199,10 @@ function branch_user_can_access(PDO $pdo, array $user, int $branchId): bool
     $role = branch_normalize_role($user['role'] ?? $user['normalized_role'] ?? '');
     if ($role === 'super_admin' || $role === 'pet_owner') {
         return true;
+    }
+    if ($role === 'admin') {
+        $assignedBranchIds = branch_user_ids($pdo, (int)($user['user_id'] ?? 0));
+        return isset($assignedBranchIds[0]) && $branchId === $assignedBranchIds[0];
     }
 
     return in_array($branchId, branch_user_ids($pdo, (int)($user['user_id'] ?? 0)), true);

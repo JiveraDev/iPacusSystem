@@ -44,6 +44,19 @@ function safeFilePart(value) {
     .slice(0, 80) || 'invoice';
 }
 
+async function loadLogoDataUrl(logoUrl) {
+  if (!logoUrl) return '';
+  const response = await fetch(logoUrl);
+  if (!response.ok) throw new Error('The clinic logo could not be loaded for the invoice PDF.');
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('The clinic logo could not be read for the invoice PDF.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function lineCount(doc, value, width) {
   return Math.max(1, doc.splitTextToSize(safeText(value, '-'), width).length);
 }
@@ -105,7 +118,8 @@ function drawMetaRow(doc, y, left, right, label, value) {
  * Builds an immutable, print-ready thermal invoice PDF. The Blob is returned
  * instead of being saved so callers can upload it without forcing a download.
  */
-export function createInvoicePdfFile(input) {
+export async function createInvoicePdfFile(input) {
+  const logoDataUrl = input.logoDataUrl || await loadLogoDataUrl(input.logoUrl);
   const paperWidth = PAPER_WIDTHS_MM[input.paperWidth] || PAPER_WIDTHS_MM['80mm'];
   const sizingDocument = new jsPDF({ unit: 'mm', format: [paperWidth, 200] });
   const pageHeight = calculatePageHeight(sizingDocument, paperWidth, input);
@@ -130,15 +144,21 @@ export function createInvoicePdfFile(input) {
 
   doc.setFillColor(21, 93, 252);
   doc.rect(0, 0, paperWidth, 24, 'F');
+  const headerCenter = logoDataUrl ? (paperWidth + 19) / 2 : paperWidth / 2;
+  if (logoDataUrl) {
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(4, 4, 17, 17, 2, 2, 'F');
+    doc.addImage(logoDataUrl, 'PNG', 5, 5, 15, 15);
+  }
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(paperWidth <= 58 ? 12 : 15);
-  doc.text('IPAWCUS', paperWidth / 2, 9, { align: 'center' });
+  doc.text('IPAWCUS', headerCenter, 9, { align: 'center' });
   doc.setFontSize(7.5);
-  doc.text('VETERINARY CLINIC', paperWidth / 2, 14, { align: 'center' });
+  doc.text('VETERINARY CLINIC', headerCenter, 14, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.text('OFFICIAL INVOICE RECEIPT', paperWidth / 2, 19, { align: 'center' });
+  doc.text('OFFICIAL INVOICE RECEIPT', headerCenter, 19, { align: 'center' });
   y = 31;
 
   doc.setTextColor(15, 23, 42);
@@ -247,7 +267,7 @@ export function createInvoicePdfFile(input) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.4);
   doc.setTextColor(71, 85, 105);
-  doc.text('Thank you for trusting iPawcus.', paperWidth / 2, y, { align: 'center' });
+  doc.text('Thank you for trusting Ipawcus.', paperWidth / 2, y, { align: 'center' });
   y += 3.5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.7);

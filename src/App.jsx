@@ -4,6 +4,7 @@ import { registerUser } from "./services/registerUser.js";
 import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
 import ServerDownPage from "./components/ServerDownPage.jsx";
 import {
+  AUTH_EXPIRES_AT_KEY,
   checkServerHealth,
   clearStoredAuthSession,
   expireStoredAuthSession,
@@ -11,8 +12,10 @@ import {
   isStoredAuthTokenExpired,
   subscribeToServerStatus
 } from "./services/apiClient.js";
+import { completeGoogleRegistration } from './services/googleAuthService.js';
 import { clearPushContext } from "./services/pushNotificationService.js";
 import { getPublicPageTitle, setDocumentPageTitle } from './lib/pageTitle.js';
+import { clearLandingBookingIntent, consumeLandingBookingRoute, landingBookingRoute } from './lib/landingBookingIntent.js';
 
 // Lazy load components
 const LandingPage = lazy(() => import("./components/landingpage.jsx").then(module => ({ default: module.LandingPage })));
@@ -80,7 +83,7 @@ function getRouteRedirect(viewName, storedUser, registrationEmail = '') {
   }
 
   if (storedUser && ['landing', 'login', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(viewName)) {
-    return { view: 'dashboard', path: routes.dashboard };
+    return { view: 'dashboard', path: landingBookingRoute(storedUser) || routes.dashboard };
   }
 
   if (!storedUser && viewName === 'dashboard') {
@@ -123,6 +126,7 @@ const initialRegistrationData = {
   address: '',
   phoneNumber: '',
   emergencyNumber: '',
+  googleOnboardingToken: '',
 };
 
 function App() {
@@ -160,7 +164,7 @@ function App() {
       }
       
       if (['login', 'landing', 'register', 'registerProfile', 'verifyEmail', 'forgotPassword'].includes(nextView) && storedUser) {
-        window.history.replaceState({}, '', routes.dashboard);
+        window.history.replaceState({}, '', consumeLandingBookingRoute(storedUser) || routes.dashboard);
         setView('dashboard');
         setCurrentUser(storedUser);
         return;
@@ -179,6 +183,7 @@ function App() {
     
     if (redirect.path) {
       window.history.replaceState({}, '', redirect.path);
+      if (storedUser && redirect.view === 'dashboard') clearLandingBookingIntent();
     }
 
     if (window.location.pathname === '/' && !storedUser && currentView !== 'statusDisplay') {
@@ -274,11 +279,50 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [resetRegistrationFlow]);
 
-  const handleLoginSuccess = (user) => {
+  const handleLoginSuccess = useCallback((user) => {
     setCurrentUser(user);
     localStorage.setItem('currentUser', JSON.stringify(user));
-    navigateTo(routes.dashboard);
-  };
+    navigateTo(consumeLandingBookingRoute(user) || routes.dashboard);
+  }, [navigateTo]);
+
+  const handleGoogleAuthenticated = useCallback((result) => {
+    const user = result?.user;
+    const token = result?.access_token;
+
+    if (!user || !token) {
+      toast.error('Google sign-in returned an incomplete session. Please try again.');
+      return;
+    }
+
+    localStorage.setItem('authToken', token);
+    if (result.expires_at) {
+      localStorage.setItem(AUTH_EXPIRES_AT_KEY, result.expires_at);
+    } else {
+      localStorage.removeItem(AUTH_EXPIRES_AT_KEY);
+    }
+    toast.success(`Welcome, ${user.firstName || 'User'}!`);
+    handleLoginSuccess(user);
+  }, [handleLoginSuccess]);
+
+  const handleGoogleOnboarding = useCallback((result) => {
+    const profile = result?.profile || {};
+    const onboardingToken = result?.onboardingToken || '';
+
+    if (!profile.email || !onboardingToken) {
+      toast.error('Google registration could not be started. Please try again.');
+      return;
+    }
+
+    setRegistrationData({
+      ...initialRegistrationData,
+      email: profile.email,
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || '',
+      googleOnboardingToken: onboardingToken,
+    });
+    setRegistrationFlowKey((currentValue) => currentValue + 1);
+    navigateTo(routes.registerProfile);
+  }, [navigateTo]);
 
   const handleUserUpdate = useCallback((updatedUser) => {
     setCurrentUser(updatedUser);
@@ -322,6 +366,27 @@ function App() {
       ...registrationData,
       ...profileData,
     };
+
+    if (registrationData.googleOnboardingToken) {
+      try {
+        const result = await completeGoogleRegistration({
+          ...profileData,
+          onboardingToken: registrationData.googleOnboardingToken,
+        });
+        resetRegistrationFlow();
+        toast.success('Your pet owner account is ready.');
+        handleGoogleAuthenticated(result);
+      } catch (error) {
+        console.error('Google registration failed:', error);
+        toast.error(error.message || 'Google registration could not be completed.');
+
+        if (error?.data?.code === 'GOOGLE_ONBOARDING_EXPIRED') {
+          resetRegistrationFlow();
+          navigateTo(routes.register);
+        }
+      }
+      return;
+    }
 
     try {
       const result = await registerUser(completedRegistration);
@@ -417,6 +482,8 @@ function App() {
                 onRegister={() => navigateTo(routes.register)}
                 onForgotPassword={() => handleForgotPasswordRoute()}
                 onVerifyEmail={handleVerifyEmailRoute}
+                onGoogleAuthenticated={handleGoogleAuthenticated}
+                onGoogleOnboarding={handleGoogleOnboarding}
             />
         )}
 
@@ -452,6 +519,8 @@ function App() {
                 onLogin={() => navigateTo(routes.login)}
                 initialValues={registrationData}
                 onContinue={handleRegistrationContinue}
+                onGoogleAuthenticated={handleGoogleAuthenticated}
+                onGoogleOnboarding={handleGoogleOnboarding}
             />
         )}
 
@@ -459,6 +528,7 @@ function App() {
             <PetOwnerProfileForm
                 key={`register-profile-${registrationFlowKey}`}
                 email={registrationData.email}
+                initialValues={registrationData}
                 onBack={() => navigateTo(routes.register, { preserveRegistration: true })}
                 onComplete={handleRegistrationComplete}
             />

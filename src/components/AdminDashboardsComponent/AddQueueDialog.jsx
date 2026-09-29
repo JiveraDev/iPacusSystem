@@ -37,7 +37,6 @@ import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '
 const SERVICES = [
     'Consultation',
     'Vaccination',
-    'Grooming',
     'Dental',
     'General Check-up',
     'Surgery',
@@ -174,7 +173,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                 setBookingConflict(error.data);
                 return;
             }
-            toast.error(error.message || 'Failed to add queue item');
+            toast.error(error.message || 'The pet could not be added to the queue. Review the queue details and try again.');
         } finally {
             setIsSubmitting(false);
         }

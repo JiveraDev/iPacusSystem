@@ -5,8 +5,18 @@ import { AUTH_EMAIL_KEY, AUTH_EXPIRES_AT_KEY, AUTH_MESSAGE_KEY } from "../servic
 import { LoginError, loginUser } from "../services/userLogin";
 import { toast } from "../reusecomponent/toast.jsx";
 import { getUserFacingErrorMessage } from "../lib/errorPresentation.js";
+import GoogleContinueButton from './shared/GoogleContinueButton.jsx';
 
-export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyEmail, embedded = false }) {
+export function Login({
+    onLogin,
+    onBack,
+    onRegister,
+    onForgotPassword,
+    onVerifyEmail,
+    onGoogleAuthenticated,
+    onGoogleOnboarding,
+    embedded = false,
+}) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -159,6 +169,17 @@ export function Login({ onLogin, onBack, onRegister, onForgotPassword, onVerifyE
                     >
                         {isSubmitting ? "Logging in..." : "Login"}
                     </button>
+
+                    <div className="flex items-center gap-3" aria-hidden="true">
+                        <span className="h-px flex-1 bg-slate-200" />
+                        <span className="text-xs font-medium uppercase tracking-wider text-slate-400">or</span>
+                        <span className="h-px flex-1 bg-slate-200" />
+                    </div>
+
+                    <GoogleContinueButton
+                        onAuthenticated={onGoogleAuthenticated}
+                        onOnboarding={onGoogleOnboarding}
+                    />
 
                     <div className="pt-2 text-center">
                         <span className="text-base text-[#6a7282]" style={{ fontFamily: "Arimo, sans-serif" }}>

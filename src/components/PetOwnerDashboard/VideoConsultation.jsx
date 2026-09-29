@@ -124,7 +124,7 @@ export default function VideoConsultation() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4 overflow-y-auto lg:h-[calc(100vh-120px)] lg:min-h-[680px] lg:overflow-hidden">
+    <div className="flex min-h-[calc(100dvh-7rem)] min-w-0 flex-col gap-4">
       <DashboardPageHeader
         icon={Video}
         title="Online Consultation"
@@ -159,8 +159,8 @@ export default function VideoConsultation() {
         )}
       />
 
-      <div className="flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-[#101828] dark:border-slate-800 lg:min-h-0">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
+      <div className="flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-[#101828] dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-3 text-white">
           <div>
             <p className="text-sm font-semibold">8x8 JaaS Meeting Room</p>
             <p className="text-xs text-white/60">{consultation.meetingCode || "Private consultation room"}</p>
@@ -194,8 +194,8 @@ export default function VideoConsultation() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-white/10 bg-black/20 px-5 py-3 text-sm text-white/70">
-          <Video className="h-4 w-4" />
+        <div className="flex shrink-0 items-center gap-2 border-t border-white/10 bg-black/20 px-5 py-3 text-sm text-white/70">
+          <Video className="h-4 w-4 shrink-0" />
           Video consultations are securely hosted through the clinic's 8x8 JaaS service.
         </div>
       </div>

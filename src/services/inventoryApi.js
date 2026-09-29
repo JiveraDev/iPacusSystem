@@ -19,8 +19,9 @@ export function getCurrentUser() {
   return JSON.parse(localStorage.getItem("currentUser") || "null");
 }
 
-export function fetchInventoryMeta() {
-  return request("/inventory/meta");
+export function fetchInventoryMeta(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/inventory/meta${query ? `?${query}` : ''}`);
 }
 
 export function fetchInventoryItems(params = {}) {
@@ -29,45 +30,52 @@ export function fetchInventoryItems(params = {}) {
 }
 
 export function createInventoryItem(payload) {
-  return jsonRequest("/inventory/items", payload, {
+  return jsonRequest(branchScopedPath('/inventory/items', payload), payload, {
     apiPrefix: true,
     method: "POST"
   });
 }
 
 export function updateInventoryItem(payload) {
-  return jsonRequest("/inventory/items", payload, {
+  return jsonRequest(branchScopedPath('/inventory/items', payload), payload, {
     apiPrefix: true,
     method: "PATCH"
   });
 }
 
 export function createStockReceipt(payload) {
-  return jsonRequest("/inventory/stock-in", payload, {
+  return jsonRequest(branchScopedPath('/inventory/stock-in', payload), payload, {
     apiPrefix: true,
     method: "POST"
   });
 }
 
 export function createStockOut(payload) {
-  return jsonRequest("/inventory/stock-out", payload, {
+  return jsonRequest(branchScopedPath('/inventory/stock-out', payload), payload, {
     apiPrefix: true,
     method: "POST"
   });
 }
 
 export function transferInventoryStock(payload) {
-  return jsonRequest('/inventory/transfer', payload, {
+  return jsonRequest(branchScopedPath('/inventory/transfer', payload), payload, {
     apiPrefix: true,
     method: 'POST'
   });
 }
 
 export function deleteInventoryItem(payload) {
-  return jsonRequest('/inventory/delete', payload, {
+  return jsonRequest(branchScopedPath('/inventory/delete', payload), payload, {
     apiPrefix: true,
     method: 'POST'
   });
+}
+
+function branchScopedPath(path, payload = {}) {
+  const branchId = payload.branch_id ?? payload.branchId;
+  if (!branchId) return path;
+  const query = new URLSearchParams({ branchId: String(branchId) });
+  return `${path}?${query.toString()}`;
 }
 
 export function uploadInventoryFile(file, type = "inventory_item") {

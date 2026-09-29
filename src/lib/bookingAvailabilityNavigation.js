@@ -15,7 +15,8 @@ const SERVICE_ROUTES = Object.freeze({
 });
 
 export function bookingRouteForAvailabilityService(service) {
-    return SERVICE_ROUTES[String(service || '').trim().toLowerCase()] || '/dashboard/services';
+    const key = String(service || '').trim().toLowerCase();
+    return Object.hasOwn(SERVICE_ROUTES, key) ? SERVICE_ROUTES[key] : '/dashboard/services';
 }
 
 export function saveBookingAvailabilitySelection(selection = {}) {

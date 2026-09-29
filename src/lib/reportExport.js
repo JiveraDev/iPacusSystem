@@ -182,6 +182,9 @@ export async function exportReportPdf(report) {
                 ? rows.map(row => columns.map(column => cleanPdfText(formatReportValue(row[column.key], column))))
                 : [columns.map((column, index) => index === 0 ? 'No detailed records for this report.' : '')],
             theme: 'grid',
+            tableWidth: contentWidth,
+            showHead: 'everyPage',
+            rowPageBreak: 'avoid',
             margin: { left: margin, right: margin, bottom: 34 },
             styles: {
                 cellPadding: 4,

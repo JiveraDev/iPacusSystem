@@ -105,6 +105,14 @@ try {
     }
 
     $bookingStatus = strtolower(trim((string)($booking['status'] ?? '')));
+    if (ipawcus_guard_table_exists($pdo, 'grooming_jobs')) {
+        $groomingStmt = $pdo->prepare('SELECT status FROM grooming_jobs WHERE booking_id = ? FOR UPDATE');
+        $groomingStmt->execute([$bookingId]);
+        $groomingStatus = $groomingStmt->fetchColumn();
+        if ($groomingStatus && $groomingStatus !== 'scheduled') {
+            ipawcus_guard_error(409, 'This grooming job has already checked in or closed. Keep its booked date as part of the service history.');
+        }
+    }
     if (!in_array($bookingStatus, ['pending', 'confirmed'], true)) {
         throw new DomainException("A {$bookingStatus} booking cannot be rescheduled.");
     }

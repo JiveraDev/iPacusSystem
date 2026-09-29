@@ -78,7 +78,9 @@ const TECHNICAL_MESSAGE_PATTERNS = [
     /\b(?:Unexpected token\b[^\n]*\bJSON|JSON\.parse)\b/i,
     /\b(?:NetworkError|Failed to fetch|ERR_NETWORK|ECONN(?:REFUSED|RESET)|Load failed)\b/i,
     /(?:^|\s)#\d+\s+(?:\{|[A-Za-z_\\])/i,
-    /\b(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE)\b/i,
+    /\bSELECT\s+(?:\*|[`\w.]+(?:\s*,\s*[`\w.]+)*)\s+FROM\s+[`\w]+/i,
+    /\bUPDATE\s+[`\w.]+\s+SET\s+[`\w]+\s*=/i,
+    /\b(?:INSERT\s+INTO|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE)\s+[`\w]+/i,
     /\b(?:required_?sql|sql query|database query)\b/i,
     /\b(?:schema|database)\b.{0,80}\b(?:migration|required|not ready|missing|out of date)\b/i,
     /\bdatabase\b.{0,80}\b(?:column|table)s?\b/i,
@@ -258,13 +260,15 @@ export function getHttpErrorMessage(status, fallback = DEFAULT_ERROR_MESSAGE) {
     return statusMessage(Number(status)) || getUserFacingErrorMessage('', fallback);
 }
 
-function sanitizePayloadValue(value, fallback, seen) {
+function sanitizePayloadValue(value, fallback, seen, isMessage = false) {
     if (typeof value === 'string') {
-        return getUserFacingErrorMessage(value, fallback, { log: false });
+        return isMessage || isTechnicalErrorMessage(value)
+            ? getUserFacingErrorMessage(value, fallback, { log: false })
+            : value;
     }
 
     if (Array.isArray(value)) {
-        return value.map((item) => sanitizePayloadValue(item, fallback, seen));
+        return value.map((item) => sanitizePayloadValue(item, fallback, seen, isMessage));
     }
 
     if (!value || typeof value !== 'object' || seen.has(value)) {
@@ -279,7 +283,9 @@ function sanitizePayloadValue(value, fallback, seen) {
             return;
         }
 
-        sanitized[key] = sanitizePayloadValue(item, fallback, seen);
+        const messageField = /^(?:userMessage|message|error|errors|detail|description)$/i.test(key);
+        const metadataField = /^(?:code|status|type|field|id)$/i.test(key);
+        sanitized[key] = sanitizePayloadValue(item, fallback, seen, !metadataField && (isMessage || messageField));
     });
 
     return sanitized;

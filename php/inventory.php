@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/inventory_invoice_helpers.php';
 
 $inventoryCurrentUser = ipawcus_guard_current_user($pdo);
 
@@ -34,6 +35,26 @@ function inventoryAssertLocationAccess(PDO $pdo, int $locationId): int
         ipawcus_guard_error(403, 'You cannot change inventory at another branch.');
     }
     return $branchId;
+}
+
+function inventoryAssertItemMutationAccess(PDO $pdo, int $itemId, int $primaryLocationId): void
+{
+    global $inventoryCurrentUser;
+    inventoryAssertLocationAccess($pdo, $primaryLocationId);
+
+    // Product metadata and permanent deletion affect every batch for the item.
+    // An Admin may therefore mutate the product only when every existing batch
+    // belongs to a branch assigned to that Admin. Super Admin retains full scope.
+    $stmt = $pdo->prepare('SELECT DISTINCT location.branch_id
+        FROM inventory_batches batch
+        JOIN inventory_locations location ON location.location_id = batch.location_id
+        WHERE batch.item_id = ?');
+    $stmt->execute([$itemId]);
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $branchId) {
+        if (!branch_user_can_access($pdo, $inventoryCurrentUser, (int)$branchId)) {
+            ipawcus_guard_error(403, 'Only a Super Admin can change a product that is used by another branch.');
+        }
+    }
 }
 
 function inventoryInput(): array
@@ -144,17 +165,22 @@ function inventoryWriteAudit(
     ]);
 }
 
-function inventoryStatus(int $quantity, int $reorderLevel, ?string $expiryDate, int $warningDays): string
+function inventoryStockStatus(int $availableQuantity, int $reorderLevel): string
 {
-    if ($quantity <= 0) return 'out-of-stock';
-    if ($expiryDate) {
-        $today = new DateTimeImmutable('today');
-        $expiry = new DateTimeImmutable($expiryDate);
-        if ($expiry < $today) return 'expired';
-        if ((int)$today->diff($expiry)->format('%a') <= $warningDays) return 'near-expiry';
-    }
-    if ($reorderLevel > 0 && $quantity <= $reorderLevel) return 'low-stock';
+    if ($availableQuantity <= 0) return 'out-of-stock';
+    if ($reorderLevel > 0 && $availableQuantity <= $reorderLevel) return 'low-stock';
     return 'in-stock';
+}
+
+function inventoryExpiryStatus(?string $expiryDate, int $warningDays): ?string
+{
+    if (!$expiryDate) return null;
+
+    $today = new DateTimeImmutable('today');
+    $expiry = new DateTimeImmutable($expiryDate);
+    if ($expiry < $today) return 'expired';
+    if ((int)$today->diff($expiry)->format('%a') <= $warningDays) return 'near-expiry';
+    return null;
 }
 
 function inventoryText($value): string
@@ -359,12 +385,14 @@ function getInventoryItems(PDO $pdo): void
                 WHERE available_batch.item_id = i.item_id
                   AND available_location.branch_id = ?
                   AND available_batch.quantity > 0
+                  AND (available_batch.expiry_date IS NULL OR available_batch.expiry_date >= CURDATE())
             )"
         : '';
     $stmt = $pdo->prepare("
         SELECT
             i.*,
             branch.branch_name,
+            item_location.location_id AS scoped_location_id,
             item_location.location_name AS item_location_name,
             item_location.storage_area AS item_storage_area,
             (
@@ -374,10 +402,38 @@ function getInventoryItems(PDO $pdo): void
                 WHERE b.item_id = i.item_id AND bl.branch_id = ?
             ) AS total_quantity,
             (
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN b.quantity > 0
+                         AND (b.expiry_date IS NULL OR b.expiry_date >= CURDATE())
+                        THEN b.quantity
+                        ELSE 0
+                    END
+                ), 0)
+                FROM inventory_batches b
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ?
+            ) AS available_quantity,
+            (
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN b.quantity > 0 AND b.expiry_date < CURDATE()
+                        THEN b.quantity
+                        ELSE 0
+                    END
+                ), 0)
+                FROM inventory_batches b
+                JOIN inventory_locations bl ON bl.location_id = b.location_id
+                WHERE b.item_id = i.item_id AND bl.branch_id = ?
+            ) AS expired_quantity,
+            (
                 SELECT MIN(b.expiry_date)
                 FROM inventory_batches b
                 JOIN inventory_locations bl ON bl.location_id = b.location_id
-                WHERE b.item_id = i.item_id AND bl.branch_id = ? AND b.expiry_date IS NOT NULL
+                WHERE b.item_id = i.item_id
+                  AND bl.branch_id = ?
+                  AND b.quantity > 0
+                  AND b.expiry_date IS NOT NULL
             ) AS nearest_expiry,
             (
                 SELECT s.supplier_name
@@ -389,11 +445,31 @@ function getInventoryItems(PDO $pdo): void
             ) AS last_supplier
         FROM inventory_items i
         JOIN branches branch ON branch.branch_id = ?
-        LEFT JOIN inventory_locations item_location ON item_location.location_id = i.location_id
+        LEFT JOIN inventory_locations item_location
+          ON item_location.location_id = COALESCE(
+              (
+                  SELECT scoped_batch.location_id
+                  FROM inventory_batches scoped_batch
+                  JOIN inventory_locations scoped_location
+                    ON scoped_location.location_id = scoped_batch.location_id
+                  WHERE scoped_batch.item_id = i.item_id
+                    AND scoped_location.branch_id = ?
+                  ORDER BY (scoped_batch.quantity > 0) DESC, scoped_batch.batch_id DESC
+                  LIMIT 1
+              ),
+              (
+                  SELECT fallback_location.location_id
+                  FROM inventory_locations fallback_location
+                  WHERE fallback_location.branch_id = ?
+                    AND fallback_location.status = 'active'
+                  ORDER BY fallback_location.location_id
+                  LIMIT 1
+              )
+          )
         WHERE {$itemStatusCondition}{$stockedOnlyCondition}
         ORDER BY i.item_name ASC
     ");
-    $params = [$branchId, $branchId, $branchId];
+    $params = [$branchId, $branchId, $branchId, $branchId, $branchId, $branchId, $branchId];
     if ($stockedOnly) $params[] = $branchId;
     $stmt->execute($params);
     $items = $stmt->fetchAll();
@@ -429,9 +505,13 @@ function getInventoryItems(PDO $pdo): void
     $result = array_map(function ($item) use ($batchesByItem, $branchId, $hasSellingPrice) {
         $itemId = (int)$item['item_id'];
         $quantity = (int)$item['total_quantity'];
+        $availableQuantity = (int)$item['available_quantity'];
+        $expiredQuantity = (int)$item['expired_quantity'];
         $reorderLevel = (int)$item['reorder_level'];
         $warningDays = (int)$item['expiry_warning_days'];
         $nearestExpiry = $item['nearest_expiry'];
+        $stockStatus = inventoryStockStatus($availableQuantity, $reorderLevel);
+        $expiryStatus = inventoryExpiryStatus($nearestExpiry, $warningDays);
 
         return [
             'id' => (string)$itemId,
@@ -448,19 +528,23 @@ function getInventoryItems(PDO $pdo): void
             'brand' => $item['brand'],
             'supplier' => $item['last_supplier'] ?: 'No stock receipt yet',
             'supplierContact' => '',
-            'locationId' => (int)$item['location_id'],
+            'locationId' => $item['scoped_location_id'] !== null ? (int)$item['scoped_location_id'] : null,
             'location' => trim((string)($item['item_location_name'] ?: $item['branch_name'])) . ' / ' . trim((string)($item['item_storage_area'] ?: 'General Storage')),
             'locationName' => $item['item_location_name'] ?: $item['branch_name'],
             'storageArea' => $item['item_storage_area'] ?: 'General Storage',
             'branchId' => $branchId,
             'branchName' => $item['branch_name'],
             'quantity' => $quantity,
+            'availableQuantity' => $availableQuantity,
+            'expiredQuantity' => $expiredQuantity,
             'unit' => $item['unit'],
             'costPrice' => (float)$item['unit_cost'],
             'sellingPrice' => (float)($hasSellingPrice ? ($item['selling_price'] ?? $item['unit_cost']) : $item['unit_cost']),
             'expiryDate' => $nearestExpiry,
             'batches' => $batchesByItem[$itemId] ?? [],
-            'status' => inventoryStatus($quantity, $reorderLevel, $nearestExpiry, $warningDays),
+            'status' => $expiryStatus ?: $stockStatus,
+            'stockStatus' => $stockStatus,
+            'expiryStatus' => $expiryStatus,
             'lastUpdated' => $item['updated_at'],
             'reorderLevel' => $reorderLevel,
             'expiryWarningDays' => $warningDays,
@@ -1075,6 +1159,7 @@ function updateInventoryItem(PDO $pdo): void
         $pdo->rollBack();
         ipawcus_guard_error(404, 'Inventory item was not found.');
     }
+    inventoryAssertItemMutationAccess($pdo, $itemId, (int)$before['location_id']);
 
     try {
         $values[] = $itemId;
@@ -1131,14 +1216,13 @@ function deleteInventoryItem(PDO $pdo): void
         if (!$item) {
             throw new InvalidArgumentException('Inventory item was not found.');
         }
-        inventoryAssertLocationAccess($pdo, (int)$item['location_id']);
+        inventoryAssertItemMutationAccess($pdo, $itemId, (int)$item['location_id']);
         $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
         $quantityStmt->execute([$itemId]);
         $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
 
         $protectedReferences = [
             'service_materials' => 'service definitions',
-            'visit_charges' => 'visit invoices',
         ];
         foreach ($protectedReferences as $tableName => $description) {
             if (!ipawcus_guard_table_exists($pdo, $tableName) || !inventoryColumnExists($pdo, $tableName, 'item_id')) {
@@ -1147,8 +1231,13 @@ function deleteInventoryItem(PDO $pdo): void
             $referenceStmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE item_id = ?");
             $referenceStmt->execute([$itemId]);
             if ((int)$referenceStmt->fetchColumn() > 0) {
-                throw new InvalidArgumentException("This product cannot be deleted because it is used by {$description}. Remove those links first.");
+                throw new InvalidArgumentException('This product is still configured as a service material. Replace or remove it in Service Catalog before deleting it.');
             }
+        }
+
+        $preservedInvoiceChargeIds = [];
+        if (ipawcus_guard_table_exists($pdo, 'visit_charges') && inventoryColumnExists($pdo, 'visit_charges', 'item_id')) {
+            $preservedInvoiceChargeIds = inventoryDetachInvoiceReferences($pdo, $itemId, (string)$item['item_name']);
         }
 
         inventoryWriteAudit(
@@ -1157,7 +1246,7 @@ function deleteInventoryItem(PDO $pdo): void
             $itemId,
             null,
             (int)$item['location_id'],
-            array_merge($item, ['quantity' => $quantity]),
+            array_merge($item, ['quantity' => $quantity, 'preserved_invoice_charge_ids' => $preservedInvoiceChargeIds]),
             null
         );
 
@@ -1179,7 +1268,7 @@ function deleteInventoryItem(PDO $pdo): void
         $deleteItem->execute([$itemId]);
 
         $pdo->commit();
-        echo json_encode(['message' => 'Inventory item permanently deleted.']);
+        echo json_encode(['message' => 'Inventory item permanently deleted. Existing invoice records were preserved.']);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $error instanceof InvalidArgumentException ? 409 : 500;

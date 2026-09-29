@@ -150,7 +150,7 @@ export default function PetMediaMonitoring() {
         setPetLoadError('');
 
         try {
-            const data = await fetchAllPets();
+            const data = await fetchAllPets({ includeWalkInSales: true });
             setPets(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Pet Media Monitoring pet directory failed to load:', error);
@@ -303,7 +303,7 @@ export default function PetMediaMonitoring() {
         <div className="space-y-6">
             <DashboardPageHeader
                 title="Pet Files & Media"
-                description="Select one pet to review its images, signed consent forms, prescriptions, invoices, and other PDF records."
+                description="Select a pet or Walk-in Sale Receipts to review images, signed consent forms, prescriptions, invoices, and other PDF records."
                 layout="stacked"
             />
 
@@ -314,7 +314,7 @@ export default function PetMediaMonitoring() {
                             <PawPrint className="size-5 text-[#155dfc]" />
                             Find a pet
                         </h2>
-                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Search by pet name, clinic ID, species, breed, or owner.</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Search by pet name, clinic ID, species, breed, owner, or walk-in receipts.</p>
                     </div>
                     <div className="flex min-w-0 items-start gap-2">
                         <div
@@ -421,8 +421,8 @@ export default function PetMediaMonitoring() {
                 <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-8 text-center dark:border-slate-700 dark:bg-slate-900/40">
                     <div className="max-w-sm">
                         <PawPrint className="mx-auto mb-3 size-11 text-slate-300 dark:text-slate-600" />
-                        <p className="font-black text-slate-900 dark:text-white">Select a pet first</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">Files and media stay hidden until you explicitly choose a pet.</p>
+                        <p className="font-black text-slate-900 dark:text-white">Select a pet or walk-in receipts</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">Files and media stay hidden until you choose a record.</p>
                     </div>
                 </div>
             ) : (

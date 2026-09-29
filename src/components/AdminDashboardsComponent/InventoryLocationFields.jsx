@@ -68,7 +68,7 @@ export default function InventoryLocationFields({
         const currentAreaStillMatches = savedForName.some(
             (location) => cleanText(location.storageArea || DEFAULT_STORAGE_AREA).toLowerCase() === cleanText(storageArea).toLowerCase(),
         );
-        const nextArea = currentAreaStillMatches
+        const nextArea = currentAreaStillMatches || savedForName.length === 0
             ? storageArea
             : (savedForName[0]?.storageArea || DEFAULT_STORAGE_AREA);
 

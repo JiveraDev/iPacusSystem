@@ -81,7 +81,7 @@ Mail queue SQL only creates the table. Emails will not send until Hostinger Cron
 Cron command:
 
 ```bash
-php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/php/mail_queue_worker.php --limit=50
+php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=50
 ```
 
 Run it every 1 minute.

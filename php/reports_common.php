@@ -165,12 +165,10 @@ function reports_filters(array $payload): array
 
     $flatKeys = [
         'service_type',
-        'payment_method',
         'appointment_status',
         'queue_status',
         'consultation_type',
         'veterinarian',
-        'pet_type',
         'inventory_category',
         'stock_status',
         'consent_status',
@@ -182,6 +180,10 @@ function reports_filters(array $payload): array
             $filters[$key] = $payload[$key];
         }
     }
+
+    // Financial reports always cover every payment method. Payment methods
+    // remain visible in report rows and summaries, but are never a filter.
+    unset($filters['payment_method']);
 
     return array_filter($filters, static function ($value) {
         return $value !== null && trim((string)$value) !== '' && $value !== 'all';
@@ -636,6 +638,8 @@ function reports_pet_distribution_chart(PDO $pdo, array &$missing): array
             COALESCE(NULLIF(TRIM(pet_breed), ''), 'Unspecified') AS breed,
             COUNT(*) AS pet_count
         FROM pets_information
+        WHERE COALESCE(pet_sharable_ID, '') <> 'PET-WALK-IN-SALE'
+          AND LOWER(TRIM(COALESCE(pet_species, ''))) <> 'retail'
         GROUP BY species, breed
         ORDER BY species ASC, pet_count DESC
     ", [], $missing, 'Animal distribution data could not be loaded.');
@@ -773,7 +777,6 @@ function reports_title_map(): array
         'medicine_product_sales' => 'Medicine/Product Sales Report',
         'confinement_pet_hotel' => 'Confinement and Pet Hotel Report',
         'consent_form' => 'Consent Form Report',
-        'categorized_pet_cases' => 'Categorized Pet Cases Report',
         'veterinarian_activity' => 'Veterinarian Activity Report',
     ];
 }
@@ -794,7 +797,6 @@ function reports_allowed_type(string $type): ?string
         'pet_hotel' => 'confinement_pet_hotel',
         'confinement' => 'confinement_pet_hotel',
         'consent' => 'consent_form',
-        'cases' => 'categorized_pet_cases',
         'vet_activity' => 'veterinarian_activity',
     ];
     $normalized = $aliases[$normalized] ?? $normalized;
@@ -811,16 +813,6 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
     $where = ['v.created_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
 
-    if (!empty($filters['payment_method'])) {
-        $where[] = "EXISTS (
-            SELECT 1
-            FROM visit_payments pm_filter
-            WHERE pm_filter.visit_id = v.visit_id
-              AND pm_filter.payment_method = ?
-              AND pm_filter.payment_status IN ('verified', 'refunded')
-        )";
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $refundSelect = reports_table_exists($pdo, 'visit_payment_refunds')
@@ -944,10 +936,6 @@ function reports_unlinked_booking_billing_rows(PDO $pdo, array $range, array $fi
         'submission.submitted_at BETWEEN ? AND ?',
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'submission.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'booking.branch_id');
     $rows = reports_fetch_all($pdo, "
         SELECT
@@ -1000,10 +988,6 @@ function reports_record_update_payment_rows(PDO $pdo, array $range, array $filte
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
 
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'r.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'r.branch_id');
 
     $sql = "
@@ -1055,15 +1039,12 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         'vp.paid_at BETWEEN ? AND ?',
     ];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'vp.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $rows = reports_fetch_all($pdo, "
         SELECT
             CONCAT('payment-', vp.payment_id) AS visit_id,
+            v.visit_id AS source_visit_id,
             DATE(vp.paid_at) AS visit_date,
             vp.paid_at AS created_at,
             v.source_type,
@@ -1105,14 +1086,11 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'refund.processed_at BETWEEN ? AND ?',
         ];
         $refundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $refundWhere[] = 'refund.refund_method = ?';
-            $refundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
         $refundRows = reports_fetch_all($pdo, "
             SELECT
                 CONCAT('refund-', refund.refund_id) AS visit_id,
+                v.visit_id AS source_visit_id,
                 DATE(refund.processed_at) AS visit_date,
                 refund.processed_at AS created_at,
                 v.source_type,
@@ -1157,10 +1135,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
         ];
         $bookingParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingWhere[] = 'submission.payment_method = ?';
-            $bookingParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
         $bookingRows = reports_fetch_all($pdo, "
             SELECT
@@ -1198,10 +1172,6 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
             'refund.processed_at BETWEEN ? AND ?',
         ];
         $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingRefundWhere[] = 'refund.refund_method = ?';
-            $bookingRefundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
         $bookingRefundRows = reports_fetch_all($pdo, "
             SELECT
@@ -1278,6 +1248,101 @@ function reports_financial_totals(array $visitRows): array
     return $totals;
 }
 
+function reports_sales_chart_details(PDO $pdo, array $visitRows, array &$missing): array
+{
+    $sourceVisitIds = array_values(array_unique(array_filter(array_map(
+        static fn($row) => (int)($row['source_visit_id'] ?? 0),
+        $visitRows
+    ))));
+    $chargesByVisit = [];
+
+    if (!empty($sourceVisitIds)) {
+        $placeholders = implode(', ', array_fill(0, count($sourceVisitIds), '?'));
+        $chargeRows = reports_fetch_all($pdo, "
+            SELECT
+                visit_id,
+                charge_type,
+                COALESCE(NULLIF(TRIM(description), ''), 'Unnamed sale item') AS sale_name,
+                SUM(subtotal) AS subtotal
+            FROM visit_charges
+            WHERE visit_id IN ({$placeholders})
+            GROUP BY visit_id, charge_type, COALESCE(NULLIF(TRIM(description), ''), 'Unnamed sale item')
+            ORDER BY sale_name ASC
+        ", $sourceVisitIds, $missing, 'Sales item details could not be loaded.');
+
+        foreach ($chargeRows as $chargeRow) {
+            $chargesByVisit[(int)$chargeRow['visit_id']][] = $chargeRow;
+        }
+    }
+
+    $details = [];
+    $materialTypes = ['medication', 'retail_product', 'consumable'];
+
+    foreach ($visitRows as $row) {
+        $date = trim((string)($row['visit_date'] ?? ''));
+        $collectedAmount = (float)($row['total_bill'] ?? 0);
+        if ($date === '' || abs($collectedAmount) <= 0.0001) {
+            continue;
+        }
+
+        if (!isset($details[$date])) {
+            $details[$date] = ['services' => [], 'materials' => []];
+        }
+
+        $sourceVisitId = (int)($row['source_visit_id'] ?? 0);
+        $invoiceTotal = (float)($row['invoice_total'] ?? 0);
+        $visitCharges = $chargesByVisit[$sourceVisitId] ?? [];
+        $hasAllocatedCharge = false;
+
+        foreach ($visitCharges as $charge) {
+            $chargeSubtotal = (float)($charge['subtotal'] ?? 0);
+            $allocatedAmount = $invoiceTotal > 0.0001
+                ? $collectedAmount * ($chargeSubtotal / $invoiceTotal)
+                : 0.0;
+            if (abs($allocatedAmount) <= 0.0001) {
+                continue;
+            }
+
+            $group = in_array((string)($charge['charge_type'] ?? ''), $materialTypes, true)
+                ? 'materials'
+                : 'services';
+            $name = trim((string)($charge['sale_name'] ?? '')) ?: 'Unnamed sale item';
+            $details[$date][$group][$name] = ($details[$date][$group][$name] ?? 0) + $allocatedAmount;
+            $hasAllocatedCharge = true;
+        }
+
+        if (!$hasAllocatedCharge) {
+            $sourceType = strtolower(trim((string)($row['source_type'] ?? '')));
+            $fallbackNames = [
+                'online_consultation' => 'Online consultation',
+                'online-consultation' => 'Online consultation',
+                'record_update' => 'Record update service',
+                'booking' => 'Booking service',
+                'boarding' => 'Boarding service',
+            ];
+            $name = $fallbackNames[$sourceType] ?? (trim((string)($row['source_label'] ?? '')) ?: 'Clinic service');
+            $details[$date]['services'][$name] = ($details[$date]['services'][$name] ?? 0) + $collectedAmount;
+        }
+    }
+
+    foreach ($details as &$groups) {
+        foreach (['services', 'materials'] as $group) {
+            uasort($groups[$group], static fn($first, $second) => abs((float)$second) <=> abs((float)$first));
+            $items = [];
+            foreach ($groups[$group] as $name => $amount) {
+                $items[] = [
+                    'name' => $name,
+                    'amount' => reports_money($amount),
+                ];
+            }
+            $groups[$group] = $items;
+        }
+    }
+    unset($groups);
+
+    return $details;
+}
+
 function reports_sales_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
@@ -1290,6 +1355,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         if (!isset($daily[$date])) {
             $daily[$date] = [
                 'date' => $date,
+                'payment_methods' => [],
                 'service_sales' => 0,
                 'product_sales' => 0,
                 'total_sales' => 0,
@@ -1306,26 +1372,44 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
 
         foreach (array_filter(array_map('trim', explode(',', (string)$row['payment_methods']))) as $method) {
             $paymentCounts[$method] = ($paymentCounts[$method] ?? 0) + 1;
+            $daily[$date]['payment_methods'][$method] = true;
         }
     }
 
     ksort($daily);
     foreach ($daily as &$day) {
+        $day['payment_methods'] = reports_payment_method_labels(implode(', ', array_keys($day['payment_methods'])));
         foreach (['service_sales', 'product_sales', 'total_sales', 'paid_amount', 'balance'] as $key) {
             $day[$key] = reports_money($day[$key]);
         }
     }
+    unset($day);
 
     $totals = reports_financial_totals($visitRows);
     arsort($paymentCounts);
-    $topPaymentMethod = array_key_first($paymentCounts) ?: 'No verified payment yet';
+    $topPaymentMethodKey = array_key_first($paymentCounts);
+    $topPaymentMethod = $topPaymentMethodKey
+        ? reports_payment_method_labels($topPaymentMethodKey)
+        : 'No verified payment yet';
+    $paymentMethodBreakdowns = [];
+    foreach ($paymentCounts as $method => $count) {
+        $paymentMethodBreakdowns[] = [
+            'label' => reports_payment_method_labels($method),
+            'value' => number_format($count) . ($count === 1 ? ' transaction' : ' transactions'),
+            'detail' => 'Included in this all-payment-method sales report.',
+        ];
+    }
     $dominantCategory = $totals['service_sales'] >= $totals['product_sales'] ? 'service sales' : 'medicine/product sales';
+    $pointDetails = !empty($filters['include_chart_details'])
+        ? reports_sales_chart_details($pdo, $visitRows, $missing)
+        : [];
 
     return [
         'type' => 'sales',
         'title' => 'Sales Report',
         'columns' => [
             ['key' => 'date', 'label' => 'Date'],
+            ['key' => 'payment_methods', 'label' => 'Payment Methods'],
             ['key' => 'service_sales', 'label' => 'Service Sales'],
             ['key' => 'product_sales', 'label' => 'Medicine/Product Sales'],
             ['key' => 'total_sales', 'label' => 'Total Sales'],
@@ -1341,10 +1425,12 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
                 "Paid amount: {$totals['paid_amount']}",
                 'Refunds in the selected period are shown as negative collections.',
             ],
+            'breakdowns' => $paymentMethodBreakdowns,
         ],
         'chart' => [
             'type' => 'line',
             'labels' => array_map(static fn($row) => $row['date'], array_values($daily)),
+            'pointDetails' => $pointDetails,
             'datasets' => [[
                 'label' => 'Total Sales',
                 'data' => array_map(static fn($row) => $row['total_sales'], array_values($daily)),
@@ -1358,6 +1444,10 @@ function reports_billing_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
     $rows = reports_financial_visit_rows($pdo, $range, $filters, $missing);
+    foreach ($rows as &$row) {
+        $row['payment_methods'] = reports_payment_method_labels($row['payment_methods'] ?? '');
+    }
+    unset($row);
     $totals = reports_financial_totals($rows);
 
     return [
@@ -1369,6 +1459,7 @@ function reports_billing_report(PDO $pdo, array $range, array $filters): array
             ['key' => 'owner_name', 'label' => 'Client'],
             ['key' => 'pet_name', 'label' => 'Pet'],
             ['key' => 'charges_summary', 'label' => 'Services / Items'],
+            ['key' => 'payment_methods', 'label' => 'Payment Methods'],
             ['key' => 'total_bill', 'label' => 'Total Bill'],
             ['key' => 'paid_amount', 'label' => 'Paid'],
             ['key' => 'balance', 'label' => 'Balance'],
@@ -1396,10 +1487,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
 
     $where = ["vp.payment_status IN ('verified', 'refunded')", 'vp.paid_at BETWEEN ? AND ?'];
     $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['payment_method'])) {
-        $where[] = 'vp.payment_method = ?';
-        $params[] = $filters['payment_method'];
-    }
     reports_append_branch_filter($where, $params, $filters, 'v.branch_id');
 
     $rows = reports_fetch_all($pdo, "
@@ -1425,10 +1512,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
     if (reports_table_exists($pdo, 'visit_payment_refunds')) {
         $refundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
         $refundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $refundWhere[] = 'refund.refund_method = ?';
-            $refundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($refundWhere, $refundParams, $filters, 'v.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1458,10 +1541,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             'COALESCE(submission.reviewed_at, submission.submitted_at) BETWEEN ? AND ?',
         ];
         $bookingParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingWhere[] = 'submission.payment_method = ?';
-            $bookingParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingWhere, $bookingParams, $filters, 'b.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1488,10 +1567,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
     if (reports_table_exists($pdo, 'booking_payment_refunds')) {
         $bookingRefundWhere = ["refund.refund_status = 'processed'", 'refund.processed_at BETWEEN ? AND ?'];
         $bookingRefundParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $bookingRefundWhere[] = 'refund.refund_method = ?';
-            $bookingRefundParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($bookingRefundWhere, $bookingRefundParams, $filters, 'booking.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1520,10 +1595,6 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             'COALESCE(request.reviewed_at, request.updated_at, request.created_at) BETWEEN ? AND ?',
         ];
         $recordParams = [$range['start_datetime'], $range['end_datetime']];
-        if (!empty($filters['payment_method'])) {
-            $recordWhere[] = 'request.payment_method = ?';
-            $recordParams[] = $filters['payment_method'];
-        }
         reports_append_branch_filter($recordWhere, $recordParams, $filters, 'request.branch_id');
         $rows = array_merge($rows, reports_fetch_all($pdo, "
             SELECT
@@ -1549,6 +1620,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
 
     $totalPaid = 0;
     foreach ($rows as &$row) {
+        $row['payment_method'] = reports_payment_method_labels($row['payment_method'] ?? '');
         $row['amount_paid'] = reports_money($row['amount_paid']);
         $totalPaid += (float)$row['amount_paid'];
     }
@@ -1564,7 +1636,7 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             ['key' => 'payment_date', 'label' => 'Payment Date'],
             ['key' => 'client_name', 'label' => 'Client'],
             ['key' => 'pet_name', 'label' => 'Pet'],
-            ['key' => 'payment_method', 'label' => 'Method'],
+            ['key' => 'payment_method', 'label' => 'Payment Method'],
             ['key' => 'amount_paid', 'label' => 'Amount Paid'],
             ['key' => 'processed_by', 'label' => 'Processed By'],
         ],
@@ -2136,7 +2208,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         ? "LEFT JOIN (
               SELECT
                   item_id,
-                  SUM(quantity) AS total_stock,
+                  SUM(quantity) AS on_hand_stock,
+                  SUM(CASE
+                      WHEN quantity > 0 AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+                      THEN quantity
+                      ELSE 0
+                  END) AS available_stock,
                   MIN(CASE WHEN quantity > 0 THEN expiry_date ELSE NULL END) AS nearest_expiry
               FROM inventory_batches
               {$batchBranchWhere}
@@ -2144,17 +2221,22 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
           ) stock ON stock.item_id = ii.item_id"
         : '';
     $stockSelect = $hasBatches
-        ? "COALESCE(stock.total_stock, 0) AS stock_level, stock.nearest_expiry,"
-        : "0 AS stock_level, NULL AS nearest_expiry,";
+        ? "COALESCE(stock.available_stock, 0) AS stock_level,
+           COALESCE(stock.on_hand_stock, 0) AS on_hand_stock,
+           stock.nearest_expiry,"
+        : "0 AS stock_level, 0 AS on_hand_stock, NULL AS nearest_expiry,";
     $stockStatusSelect = $hasBatches
         ? "CASE
-                WHEN COALESCE(stock.total_stock, 0) <= 0 THEN 'out_of_stock'
-                WHEN COALESCE(stock.total_stock, 0) <= ii.reorder_level THEN 'low_stock'
-                WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry < ? THEN 'expired'
-                WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry <= DATE_ADD(?, INTERVAL ii.expiry_warning_days DAY) THEN 'near_expiry'
-                ELSE 'ok'
-            END AS stock_status"
-        : "'unknown' AS stock_status";
+               WHEN COALESCE(stock.available_stock, 0) <= 0 THEN 'out_of_stock'
+               WHEN COALESCE(stock.available_stock, 0) <= ii.reorder_level THEN 'low_stock'
+               ELSE 'ok'
+            END AS stock_status,
+            CASE
+               WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry < ? THEN 'expired'
+               WHEN stock.nearest_expiry IS NOT NULL AND stock.nearest_expiry <= DATE_ADD(?, INTERVAL ii.expiry_warning_days DAY) THEN 'near_expiry'
+               ELSE 'ok'
+            END AS expiry_status"
+        : "'unknown' AS stock_status, 'unknown' AS expiry_status";
 
     $where = ['ii.status = ?'];
     $params = ['active'];
@@ -2186,14 +2268,30 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
     }
 
     if (!empty($filters['stock_status'])) {
-        $rows = array_values(array_filter($rows, static fn($row) => $row['stock_status'] === $filters['stock_status']));
+        $rows = array_values(array_filter($rows, static fn($row) => (
+            ($row['stock_status'] ?? '') === $filters['stock_status']
+            || ($row['expiry_status'] ?? '') === $filters['stock_status']
+        )));
     }
 
     $counts = ['low_stock' => 0, 'out_of_stock' => 0, 'near_expiry' => 0, 'expired' => 0, 'ok' => 0];
     foreach ($rows as &$row) {
         $row['stock_level'] = reports_int($row['stock_level']);
+        $row['on_hand_stock'] = reports_int($row['on_hand_stock']);
         $row['reorder_level'] = reports_int($row['reorder_level']);
-        $counts[$row['stock_status']] = ($counts[$row['stock_status']] ?? 0) + 1;
+        $attentionStatuses = array_values(array_filter([
+            ($row['stock_status'] ?? '') !== 'ok' ? ($row['stock_status'] ?? '') : null,
+            in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true) ? $row['expiry_status'] : null,
+        ]));
+        $row['attention_status'] = $attentionStatuses ? implode(', ', $attentionStatuses) : 'ok';
+        if (($row['stock_status'] ?? '') !== 'ok') {
+            $counts[$row['stock_status']] = ($counts[$row['stock_status']] ?? 0) + 1;
+        } else {
+            $counts['ok']++;
+        }
+        if (in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true)) {
+            $counts[$row['expiry_status']] = ($counts[$row['expiry_status']] ?? 0) + 1;
+        }
     }
     unset($row);
 
@@ -2204,10 +2302,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
             ['key' => 'item_name', 'label' => 'Item'],
             ['key' => 'category', 'label' => 'Category'],
             ['key' => 'sku', 'label' => 'SKU'],
-            ['key' => 'stock_level', 'label' => 'Stock'],
+            ['key' => 'stock_level', 'label' => 'Usable Stock'],
+            ['key' => 'on_hand_stock', 'label' => 'On Hand'],
             ['key' => 'reorder_level', 'label' => 'Reorder Level'],
             ['key' => 'nearest_expiry', 'label' => 'Nearest Expiry'],
             ['key' => 'stock_status', 'label' => 'Status'],
+            ['key' => 'expiry_status', 'label' => 'Expiry Status'],
         ],
         'rows' => $rows,
         'totals' => [
@@ -2221,11 +2321,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
             'text' => "Inventory has " . count($rows) . " active items; low stock " . ($counts['low_stock'] ?? 0) . ', out of stock ' . ($counts['out_of_stock'] ?? 0) . ', near expiry ' . ($counts['near_expiry'] ?? 0) . '.',
             'bullets' => [],
         ],
-        'chart' => reports_doughnut_chart(
-            ['Low Stock', 'Out of Stock', 'Near Expiry', 'Expired'],
-            [$counts['low_stock'] ?? 0, $counts['out_of_stock'] ?? 0, $counts['near_expiry'] ?? 0, $counts['expired'] ?? 0],
-            'Inventory Alerts'
-        ),
+        'chart' => reports_bar_chart([
+            ['status' => 'Low Stock', 'count' => $counts['low_stock'] ?? 0],
+            ['status' => 'Out of Stock', 'count' => $counts['out_of_stock'] ?? 0],
+            ['status' => 'Near Expiry', 'count' => $counts['near_expiry'] ?? 0],
+            ['status' => 'Expired', 'count' => $counts['expired'] ?? 0],
+        ], 'status', 'count', 'Inventory Alerts'),
         'missing_data' => $missing,
     ];
 }
@@ -2855,72 +2956,6 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
     ];
 }
 
-function reports_categorized_pet_cases_report(PDO $pdo, array $range, array $filters): array
-{
-    $missing = [];
-    if (!reports_has_tables($pdo, ['vet_diagnoses', 'pets_information'], $missing)) {
-        return reports_blank_report('categorized_pet_cases', $missing);
-    }
-
-    $bookingJoin = reports_table_exists($pdo, 'bookings') ? 'LEFT JOIN bookings b ON b.booking_id = vd.booking_id' : '';
-    $queueJoin = reports_table_exists($pdo, 'queues') ? 'LEFT JOIN queues case_queue ON case_queue.queue_id = vd.queue_id' : '';
-    $bookingService = reports_table_exists($pdo, 'bookings') ? "COALESCE(vd.service_name, b.service_type, 'Uncategorized')" : "COALESCE(vd.service_name, 'Uncategorized')";
-    $where = ['COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?'];
-    $params = [$range['start_datetime'], $range['end_datetime']];
-    if (!empty($filters['pet_type'])) {
-        $where[] = 'p.pet_species = ?';
-        $params[] = $filters['pet_type'];
-    }
-    if ((int)($filters['branch_id'] ?? 0) > 0 && reports_table_exists($pdo, 'bookings') && reports_table_exists($pdo, 'queues')) {
-        $where[] = 'COALESCE(b.branch_id, case_queue.branch_id) = ?';
-        $params[] = (int)$filters['branch_id'];
-    }
-
-    $rows = reports_fetch_all($pdo, "
-        SELECT
-            {$bookingService} AS case_category,
-            p.pet_species AS animal_type,
-            COUNT(*) AS visit_frequency,
-            COUNT(DISTINCT vd.pet_id) AS unique_pets,
-            GROUP_CONCAT(DISTINCT COALESCE(vd.service_name, 'Unspecified') ORDER BY vd.service_name SEPARATOR ', ') AS service_type
-        FROM vet_diagnoses vd
-        JOIN pets_information p ON p.pet_id = vd.pet_id
-        {$bookingJoin}
-        {$queueJoin}
-        WHERE " . implode(' AND ', $where) . "
-        GROUP BY {$bookingService}, p.pet_species
-        ORDER BY visit_frequency DESC
-    ", $params, $missing, 'Categorized case data could not be loaded.');
-
-    foreach ($rows as &$row) {
-        $row['visit_frequency'] = reports_int($row['visit_frequency']);
-        $row['unique_pets'] = reports_int($row['unique_pets']);
-    }
-
-    return [
-        'type' => 'categorized_pet_cases',
-        'title' => 'Categorized Pet Cases Report',
-        'columns' => [
-            ['key' => 'case_category', 'label' => 'Case Category'],
-            ['key' => 'animal_type', 'label' => 'Animal Type'],
-            ['key' => 'visit_frequency', 'label' => 'Visit Frequency'],
-            ['key' => 'unique_pets', 'label' => 'Unique Pets'],
-            ['key' => 'service_type', 'label' => 'Service Type'],
-        ],
-        'rows' => $rows,
-        'totals' => [
-            'total_cases' => array_sum(array_column($rows, 'visit_frequency')),
-            'unique_categories' => count($rows),
-        ],
-        'summary' => [
-            'text' => "Case categories total " . count($rows) . ' groups in the selected period.',
-            'bullets' => [],
-        ],
-        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'case_category', 'visit_frequency', 'Cases'),
-        'missing_data' => $missing,
-    ];
-}
-
 function reports_veterinarian_activity_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
@@ -3082,6 +3117,28 @@ function reports_humanize_value($value): string
     return ucwords(trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $text))));
 }
 
+function reports_payment_method_labels($value): string
+{
+    $labels = [];
+    $knownLabels = [
+        'cash' => 'Cash',
+        'gcash' => 'GCash',
+        'maya' => 'Maya',
+        'paymaya' => 'Maya',
+        'bank_transfer' => 'Bank Transfer',
+        'credit_card' => 'Credit Card',
+        'debit_card' => 'Debit Card',
+    ];
+
+    foreach (array_filter(array_map('trim', explode(',', (string)$value))) as $method) {
+        $key = strtolower(str_replace([' ', '-'], '_', $method));
+        $labels[] = $knownLabels[$key] ?? reports_humanize_value($method);
+    }
+
+    $labels = array_values(array_unique($labels));
+    return empty($labels) ? 'No verified payment' : implode(', ', $labels);
+}
+
 function reports_currency_label($value): string
 {
     $amount = reports_money($value);
@@ -3221,11 +3278,6 @@ function reports_report_profile(string $type): array
             'purpose' => 'Tracks consent templates and signed, pending, released, or cancelled consent records tied to clinic workflows.',
             'use' => 'Use this report to verify documentation readiness for services, diagnosis, queue, and boarding flows.',
             'metrics' => ['total_records', 'total_files', 'signed', 'pending', 'released', 'cancelled'],
-        ],
-        'categorized_pet_cases' => [
-            'purpose' => 'Groups clinical cases by category and animal type to show service demand and patient mix.',
-            'use' => 'Use this report for clinical service planning and case-volume review.',
-            'metrics' => ['total_cases', 'unique_categories'],
         ],
         'veterinarian_activity' => [
             'purpose' => 'Relates veterinarian workload to face-to-face consultations, online consultations, follow-ups, and completed cases.',
@@ -3404,8 +3456,6 @@ function reports_management_actions(string $type, array $totals, array $rows, ar
         $actions[] = 'Review active stays for room assignment, monitoring notes, task completion, and checkout readiness.';
     } elseif ($type === 'veterinarian_activity') {
         $actions[] = 'Use completed-case and follow-up counts to balance veterinarian workload and schedule coverage.';
-    } elseif ($type === 'categorized_pet_cases') {
-        $actions[] = 'Use high-frequency case categories to plan service capacity, inventory, and clinical staffing.';
     } else {
         $actions[] = 'Review the detailed records below before filing or sharing the printed report.';
     }
@@ -3510,9 +3560,20 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
     $rangeLabel = $range['label'] ?? ($range['start_date'] . ' to ' . $range['end_date']);
     $baseSummary = trim((string)($report['summary']['text'] ?? ''));
     $filterSummary = reports_filter_summary($filters);
+    $includesAllPaymentMethods = in_array($type, ['sales', 'billing', 'invoice_receipt'], true);
     $filterText = empty($filterSummary)
         ? 'No extra filters were applied.'
         : 'Filters applied: ' . implode('; ', array_map(static fn($filter) => $filter['label'] . ' = ' . $filter['value'], $filterSummary)) . '.';
+    if ($includesAllPaymentMethods) {
+        $filterSummary[] = [
+            'label' => 'Payment Methods',
+            'value' => 'All payment methods',
+        ];
+        $filterText .= ' All payment methods are included.';
+    }
+    $existingBreakdowns = is_array($report['summary']['breakdowns'] ?? null)
+        ? $report['summary']['breakdowns']
+        : [];
 
     $report['summary'] = array_merge($report['summary'] ?? [], [
         'purpose' => $profile['purpose'],
@@ -3523,7 +3584,7 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
         'operational_context' => $baseSummary !== ''
             ? "{$baseSummary} {$profile['use']}"
             : $profile['use'],
-        'breakdowns' => reports_key_breakdowns($type, $totals),
+        'breakdowns' => array_merge(reports_key_breakdowns($type, $totals), $existingBreakdowns),
         'management_actions' => reports_management_actions($type, $totals, $rows, $missing),
     ]);
 
@@ -3532,6 +3593,10 @@ function reports_enrich_report(array $report, array $range, array $filters): arr
 
 function reports_build_report(PDO $pdo, string $type, array $range, array $filters = [], bool $includeComparison = false): array
 {
+    // Ignore stale client filters in both query execution and the exported scope.
+    unset($filters['payment_method']);
+    $reportFilters = $filters;
+    unset($reportFilters['include_chart_details']);
     $reportType = reports_allowed_type($type);
     if (!$reportType) {
         reports_json([
@@ -3555,7 +3620,6 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
         'medicine_product_sales' => reports_medicine_product_sales_report($pdo, $range, $filters),
         'confinement_pet_hotel' => reports_confinement_pet_hotel_report($pdo, $range, $filters),
         'consent_form' => reports_consent_form_report($pdo, $range, $filters),
-        'categorized_pet_cases' => reports_categorized_pet_cases_report($pdo, $range, $filters),
         'veterinarian_activity' => reports_veterinarian_activity_report($pdo, $range, $filters),
         default => reports_blank_report($reportType, ['Report type is not implemented.']),
     };
@@ -3567,12 +3631,12 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
     ];
     $report['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone(REPORTS_TIMEZONE)))->format('Y-m-d H:i:s');
 
-    $report = reports_enrich_report($report, $range, $filters);
+    $report = reports_enrich_report($report, $range, $reportFilters);
 
     if ($includeComparison) {
         $comparisonRange = reports_previous_comparison_range($range);
         if ($comparisonRange) {
-            $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $filters, false);
+            $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $reportFilters, false);
             $report['comparison'] = reports_comparison_summary($report, $previousReport, $comparisonRange);
             $report['summary']['comparison_text'] = $report['comparison']['text'];
         }
@@ -3654,7 +3718,7 @@ function reports_inventory_material_type_overview(array $rows): array
 
 function reports_dashboard(PDO $pdo, array $range): array
 {
-    $sales = reports_build_report($pdo, 'sales', $range);
+    $sales = reports_build_report($pdo, 'sales', $range, ['include_chart_details' => true]);
     $billing = reports_build_report($pdo, 'billing', $range);
     $appointments = reports_build_report($pdo, 'appointment', $range);
     $queue = reports_build_report($pdo, 'queue', $range);
@@ -3730,6 +3794,12 @@ function reports_dashboard(PDO $pdo, array $range): array
             'title' => 'Revenue Breakdown',
             'summary' => 'Service revenue compared with medicine and product revenue over the selected period.',
             'chart' => $revenueBreakdownTrend,
+        ],
+        [
+            'id' => 'billing_mix',
+            'title' => 'Paid and Outstanding Billing',
+            'summary' => 'Paid amounts and remaining balances in the selected period.',
+            'chart' => $billing['chart'],
         ],
         [
             'id' => 'service_utilization',
@@ -3820,9 +3890,12 @@ function reports_dashboard(PDO $pdo, array $range): array
                 'title' => 'Inventory Attention',
                 'columns' => [
                     ['key' => 'item_name', 'label' => 'Name'],
-                    ['key' => 'stock_status', 'label' => 'Stock Status'],
+                    ['key' => 'attention_status', 'label' => 'Stock Status'],
                 ],
-                'rows' => array_values(array_slice(array_filter($inventory['rows'], static fn($row) => in_array($row['stock_status'] ?? '', ['low_stock', 'out_of_stock', 'near_expiry', 'expired'], true)), 0, 6)),
+                'rows' => array_values(array_slice(array_filter($inventory['rows'], static fn($row) => (
+                    in_array($row['stock_status'] ?? '', ['low_stock', 'out_of_stock'], true)
+                    || in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true)
+                )), 0, 6)),
             ],
         ],
         'missing_data' => array_values(array_unique(array_merge($missing, $dashboardMissing))),

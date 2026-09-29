@@ -24,6 +24,8 @@ import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 
+const GROOMING_SIZE_LABELS = { small: 'Small', medium: 'Medium', large: 'Large', xl: 'XL' };
+
 export default function Grooming() {
   const navigate = useNavigate();
   const { config: priceProjectionConfig, saveConfig: savePriceProjectionConfig } = useBookingPriceProjections();
@@ -33,6 +35,7 @@ export default function Grooming() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedGroomingOption, setSelectedGroomingOption] = useState(null);
   const [formData, setFormData] = useState(() => {
     const prefill = readBookingAvailabilitySelection('grooming');
     return ({
@@ -87,6 +90,9 @@ export default function Grooming() {
       branchFieldId: 'branch-grooming',
       today: clinicTodayDate(),
     });
+    if (!selectedGroomingOption) {
+      validationErrors.push({ fieldId: 'grooming-price-selection', label: 'Grooming service', type: 'selection', message: 'Choose a grooming service and pet size from the price table.' });
+    }
     if (reportBookingFormErrors(validationErrors)) {
       return;
     }
@@ -120,13 +126,16 @@ export default function Grooming() {
             if (uploadedUrl) {
               uploadedFileUrls.push(uploadedUrl);
             }
-          } catch (uploadError) {
-            console.error("Document upload failed:", uploadError);
+            } catch (uploadError) {
+              throw new Error(uploadError.message || 'A grooming photo could not be uploaded. Retry or remove the file before submitting.');
           }
         }
       }
 
       // 2. Prepare booking data
+      const selectedPreference = selectedGroomingOption
+        ? `Requested grooming: ${selectedGroomingOption.service} · ${selectedGroomingOption.sizeLabel} · ${selectedGroomingOption.price}`
+        : '';
       const bookingPayload = {
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
@@ -134,7 +143,7 @@ export default function Grooming() {
         branch_id: Number(formData.branchId),
         booking_date: formData.date,
         booking_time: formData.time,
-        notes: formData.notes,
+        notes: [selectedPreference, formData.notes.trim()].filter(Boolean).join('\n'),
         Image_Booking_Concern_Path: uploadedFileUrls.join(','),
         registered_status: isNewPet ? 'Not Registered' : 'Registered',
         petType: isNewPet ? formData.newPetSpecies : (selectedRegisteredPet?.species || ''),
@@ -336,8 +345,19 @@ export default function Grooming() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Grooming Preferences</Label>
+              <div id="grooming-price-selection" className="space-y-2" tabIndex={-1}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="notes">Grooming Preferences</Label>
+                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">Grooming booking</span>
+                </div>
+                {selectedGroomingOption ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+                    <span><strong>{selectedGroomingOption.service}</strong> · {selectedGroomingOption.sizeLabel} · {selectedGroomingOption.price}</span>
+                    <button type="button" className="font-semibold underline underline-offset-2 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onClick={() => setSelectedGroomingOption(null)}>Remove</button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Choose a service price from the table to add it to this booking.</p>
+                )}
                 <Textarea
                   id="notes"
                   placeholder="Grooming requests"
@@ -412,15 +432,25 @@ export default function Grooming() {
                       {groomingMatrix.map((row) => (
                         <tr key={row.service}>
                           <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700 dark:text-slate-200">{row.service}</td>
-                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.small}</td>
-                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.medium}</td>
-                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.large}</td>
-                          <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{row.xl}</td>
+                          {Object.entries(GROOMING_SIZE_LABELS).map(([size, sizeLabel]) => {
+                            const selected = selectedGroomingOption?.service === row.service && selectedGroomingOption?.size === size;
+                            return <td key={size} className="px-1.5 py-1.5 text-right">
+                              <button
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => setSelectedGroomingOption({ service: row.service, size, sizeLabel, price: row[size] })}
+                                className={`min-h-8 w-full whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'bg-[#155dfc] text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-800 dark:text-slate-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200'}`}
+                              >
+                                {row[size]}
+                              </button>
+                            </td>;
+                          })}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <p className="mt-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">Click a price to request that service and pet size. Clinic staff confirm the official Service Catalog item before grooming starts.</p>
               </ServiceProjectionDetails>
           </ServiceSummaryCard>
 

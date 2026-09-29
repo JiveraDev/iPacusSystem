@@ -1,6 +1,5 @@
-export const REGISTRATION_TERMS_VERSION = '0.2';
-export const REGISTRATION_TERMS_EFFECTIVE_DATE = '28 July 2026';
-export const REGISTRATION_TERMS_DOCUMENT_ID = 'ipawcus-registration-terms-and-privacy-v0.2-2026-07-28';
+export const REGISTRATION_TERMS_LAST_UPDATED = '22 September 2026';
+export const REGISTRATION_TERMS_DOCUMENT_ID = 'ipawcus-registration-terms-and-privacy-2026-09-22';
 
 const DOCUMENT_BLOCKS = [
     {
@@ -32,7 +31,7 @@ const DOCUMENT_BLOCKS = [
     },
     {
         "type":  "paragraph",
-        "text":  "By selecting the required registration checkbox and creating an account, the user confirms that the user has read, understood, and agrees to these Terms of Use. The Privacy Notice in Part II explains how personal data is processed. Any optional processing, such as direct marketing or promotional use of photographs, requires a separate choice and is not a condition of registration."
+        "text":  "By selecting I accept after reviewing this document and creating an account, the user confirms that the user has read, understood, and agrees to these Terms of Use. The Privacy Notice in Part II explains how personal data is processed. Any optional processing, such as direct marketing or promotional use of photographs, requires a separate choice and is not a condition of registration."
     },
     {
         "type":  "section",
@@ -559,11 +558,11 @@ const DOCUMENT_BLOCKS = [
     },
     {
         "type":  "paragraph",
-        "text":  "The Clinic may revise these Terms when the system, services, law, or Clinic policies change. The system should display the effective date and material changes. Where required, the user will be asked to accept a new version before continuing to use affected services."
+        "text":  "The Clinic may revise these Terms when the system, services, law, or Clinic policies change. The system should display the last-updated date and material changes. Where required, the user will be asked to accept the updated terms before continuing to use affected services."
     },
     {
         "type":  "paragraph",
-        "text":  "The Clinic should preserve evidence of the accepted document version, user, affirmative action, and timestamp."
+        "text":  "The Clinic should preserve evidence of the accepted document and its last-updated date, user, affirmative action, and timestamp."
     },
     {
         "type":  "part",
@@ -985,7 +984,7 @@ const DOCUMENT_BLOCKS = [
     },
     {
         "type":  "paragraph",
-        "text":  "The effective date and current version will be displayed. Material changes will be communicated through iPawcus or an appropriate registered channel. New consent will be requested when a change introduces processing that legally requires consent."
+        "text":  "The last-updated date will be displayed. Material changes will be communicated through iPawcus or an appropriate registered channel. New consent will be requested when a change introduces processing that legally requires consent."
     },
     {
         "type":  "part",
@@ -1001,15 +1000,15 @@ const DOCUMENT_BLOCKS = [
     },
     {
         "type":  "section",
-        "text":  "B. Required Terms checkbox"
+        "text":  "B. Required Terms acceptance"
     },
     {
         "type":  "paragraph",
-        "text":  "☐ I have read and agree to the iPawcus Terms of Use and General Service Conditions, Version 0.2, effective 28 July 2026."
+        "text":  "I have read and agree to the iPawcus Terms of Use and General Service Conditions and Privacy Notice. Last updated 22 September 2026."
     },
     {
         "type":  "paragraph",
-        "text":  "The words Terms of Use and General Service Conditions should open the full document."
+        "text":  "Selecting the agreement control opens the full document. I accept becomes available after scrolling to the end."
     },
     {
         "type":  "part",
@@ -1236,6 +1235,11 @@ function DocumentBlock({ block, index }) {
     }
 }
 
+const REGISTRATION_POLICY_BLOCKS = DOCUMENT_BLOCKS.slice(
+    0,
+    DOCUMENT_BLOCKS.findIndex((block) => block.type === 'part' && block.text.startsWith('Part III'))
+);
+
 export default function RegistrationTermsPreview() {
     return (
         <article className="space-y-4">
@@ -1248,10 +1252,7 @@ export default function RegistrationTermsPreview() {
                 <p className="text-sm font-semibold text-blue-100">Lucena City, Quezon, Philippines</p>
                 <div className="mt-5 flex flex-wrap gap-2 text-xs font-black uppercase tracking-wide">
                     <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5">
-                        Version {REGISTRATION_TERMS_VERSION}
-                    </span>
-                    <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5">
-                        Draft/effective date for review: {REGISTRATION_TERMS_EFFECTIVE_DATE}
+                        Last updated: {REGISTRATION_TERMS_LAST_UPDATED}
                     </span>
                 </div>
             </header>
@@ -1262,10 +1263,13 @@ export default function RegistrationTermsPreview() {
             </div>
 
             <div className="space-y-4">
-                {DOCUMENT_BLOCKS.map((block, index) => (
+                {REGISTRATION_POLICY_BLOCKS.map((block, index) => (
                     <DocumentBlock key={`${block.type}-${index}`} block={block} index={index} />
                 ))}
             </div>
+            <p className="border-t border-slate-200 pt-4 text-sm font-semibold text-slate-600">
+                Last updated: {REGISTRATION_TERMS_LAST_UPDATED}
+            </p>
         </article>
     );
 }

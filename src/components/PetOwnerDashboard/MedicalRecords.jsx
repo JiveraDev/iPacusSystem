@@ -11,7 +11,6 @@ import {
     Eye,
     FileText,
     Loader2,
-    Mail,
     Pill,
     Printer,
     Stethoscope,
@@ -29,7 +28,7 @@ import { downloadConsentDocument, openProtectedDocument } from '../../hooks/useC
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
-import { emailPetMedicalRecords, fetchPetMedicalRecords } from '../../services/petService';
+import { fetchPetMedicalRecords } from '../../services/petService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import ServicePetPeek from '../shared/ServicePetPeek.jsx';
 
@@ -185,7 +184,6 @@ export default function MedicalRecords() {
     const { petId } = useParams();
     const [records, setRecords] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isEmailing, setIsEmailing] = useState(false);
     const [viewer, setViewer] = useState(null);
     const [searchFocus, setSearchFocus] = useState(null);
     const [highlightedTarget, setHighlightedTarget] = useState('');
@@ -284,27 +282,6 @@ export default function MedicalRecords() {
         window.clearTimeout(searchHighlightTimerRef.current);
     }, []);
 
-    const handleRecordAction = async (action) => {
-        if (action === 'print') {
-            window.print();
-            return;
-        }
-
-        if (action !== 'email') {
-            return;
-        }
-
-        setIsEmailing(true);
-        try {
-            const response = await emailPetMedicalRecords(petId);
-            toast.success(response.message || 'Medical record copy sent.');
-        } catch (error) {
-            toast.error(error.message || 'Could not send the medical record copy.');
-        } finally {
-            setIsEmailing(false);
-        }
-    };
-
     if (isLoading) {
         return (
             <div className="flex min-h-[400px] flex-col items-center justify-center">
@@ -336,22 +313,80 @@ export default function MedicalRecords() {
             <style>
                 {`
                     @media print {
+                        @page {
+                            size: A4 portrait;
+                            margin: 10mm;
+                        }
+
+                        html,
+                        body,
+                        #root {
+                            width: 100% !important;
+                            min-width: 0 !important;
+                            max-width: none !important;
+                            height: auto !important;
+                            min-height: 0 !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            overflow: visible !important;
+                            background: #ffffff !important;
+                        }
+
+                        body {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+
                         body * {
-                            visibility: hidden;
+                            visibility: hidden !important;
+                        }
+
+                        [data-slot="dashboard-mobile-header"],
+                        [data-slot="dashboard-sidebar"] {
+                            display: none !important;
+                        }
+
+                        [data-slot="dashboard-shell"],
+                        [data-slot="dashboard-shell"] > div:last-of-type,
+                        [data-slot="dashboard-shell"] > div:last-of-type > div:last-child,
+                        [data-dashboard-content],
+                        .medical-records-page {
+                            display: block !important;
+                            position: static !important;
+                            width: 100% !important;
+                            min-width: 0 !important;
+                            max-width: none !important;
+                            height: auto !important;
+                            min-height: 0 !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            overflow: visible !important;
+                            transform: none !important;
+                            background: #ffffff !important;
                         }
 
                         .medical-print-area,
                         .medical-print-area * {
-                            visibility: visible;
+                            visibility: visible !important;
+                            box-sizing: border-box !important;
                         }
 
                         .medical-print-area {
-                            position: absolute;
-                            inset: 0;
-                            width: 100%;
-                            padding: 0.45in;
-                            background: white;
-                            color: #111827;
+                            display: block !important;
+                            position: static !important;
+                            inset: auto !important;
+                            width: 100% !important;
+                            min-width: 0 !important;
+                            max-width: none !important;
+                            height: auto !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            overflow: visible !important;
+                            transform: none !important;
+                            background: #ffffff !important;
+                            color: #111827 !important;
+                            font-size: 9pt !important;
+                            line-height: 1.4 !important;
                         }
 
                         .medical-print-area::before {
@@ -368,8 +403,53 @@ export default function MedicalRecords() {
                         }
 
                         .medical-print-area > * {
-                            position: relative;
-                            z-index: 1;
+                            position: relative !important;
+                            z-index: 1 !important;
+                            width: 100% !important;
+                            min-width: 0 !important;
+                            max-width: 100% !important;
+                        }
+
+                        .medical-print-area section,
+                        .medical-print-area article,
+                        .medical-print-area header,
+                        .medical-print-area div,
+                        .medical-print-area p,
+                        .medical-print-area span {
+                            min-width: 0 !important;
+                            max-width: 100% !important;
+                            overflow-wrap: anywhere !important;
+                            word-break: break-word !important;
+                        }
+
+                        .medical-print-area [class*="overflow-hidden"],
+                        .medical-print-area [class*="overflow-x-auto"],
+                        .medical-print-area [class*="overflow-y-auto"] {
+                            overflow: visible !important;
+                        }
+
+                        .medical-print-area [class*="shadow"] {
+                            box-shadow: none !important;
+                        }
+
+                        .medical-print-area .line-clamp-2,
+                        .medical-print-area .line-clamp-3 {
+                            display: block !important;
+                            overflow: visible !important;
+                            -webkit-box-orient: initial !important;
+                            -webkit-line-clamp: unset !important;
+                        }
+
+                        .medical-print-area #medical-clinical-history,
+                        .medical-print-area [id^="medical-group-"] {
+                            break-inside: auto !important;
+                            page-break-inside: auto !important;
+                        }
+
+                        .medical-print-area [id^="medical-service-"],
+                        .medical-print-area [id^="medical-item-"] {
+                            break-inside: avoid-page !important;
+                            page-break-inside: avoid !important;
                         }
 
                         .no-print {
@@ -377,7 +457,8 @@ export default function MedicalRecords() {
                         }
 
                         .print-break-inside {
-                            break-inside: avoid;
+                            break-inside: avoid-page;
+                            page-break-inside: avoid;
                         }
                     }
                 `}
@@ -388,24 +469,14 @@ export default function MedicalRecords() {
                     <ArrowLeft className="mr-2 size-4" />
                     Back to Profile
                 </Button>
-                <div className="grid w-full grid-cols-2 overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm sm:flex sm:w-auto">
+                <div className="w-full overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm sm:w-auto">
                     <Button
                         type="button"
-                        onClick={() => handleRecordAction('print')}
-                        className="h-11 rounded-none border-0 bg-[#155dfc] px-4 text-white hover:bg-[#0d4acf] sm:min-w-36"
+                        onClick={() => window.print()}
+                        className="h-11 w-full rounded-none border-0 bg-[#155dfc] px-4 text-white hover:bg-[#0d4acf] sm:min-w-36"
                     >
                         <Printer className="size-4" />
                         Print
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => handleRecordAction('email')}
-                        disabled={isEmailing}
-                        className="h-11 rounded-none border-l border-blue-100 px-4 font-bold text-[#155dfc] hover:bg-blue-50 hover:text-[#0d4acf] sm:min-w-40"
-                    >
-                        {isEmailing ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
-                        {isEmailing ? 'Sending...' : 'Send copy'}
                     </Button>
                 </div>
             </div>
@@ -425,7 +496,9 @@ export default function MedicalRecords() {
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest text-[#155dfc]">Vetfocus Animal Care Clinic</p>
-                            <h1 className="mt-1 text-2xl font-black text-slate-950">Organized Medical Record</h1>
+                            <h1 className="mt-1 text-2xl font-black text-slate-950">
+                                {pet.name || pet.petName || 'Pet'} Medical Record
+                            </h1>
                             <p className="mt-2 text-sm font-semibold text-slate-500">
                                 Curated clinical summary for owner reference and printing.
                             </p>

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
     Building2,
-    CheckCircle,
     Clock,
     FileText,
     Loader2,
     RefreshCw,
+    Scissors,
     Search,
     Stethoscope,
     Undo2,
@@ -41,6 +41,7 @@ import {
 import { uploadDataUrlImage } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import GroomingWorkspace from '../shared/GroomingWorkspace.jsx';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -145,6 +146,14 @@ export default function VetMyList() {
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [consentDialogOpen, setConsentDialogOpen] = useState(false);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+    const [groomingReviewsOpen, setGroomingReviewsOpen] = useState(false);
+
+    useEffect(() => {
+        if (sessionStorage.getItem('ipawcus-open-grooming-reviews') === '1') {
+            sessionStorage.removeItem('ipawcus-open-grooming-reviews');
+            setGroomingReviewsOpen(true);
+        }
+    }, []);
     const [selectedConsentId, setSelectedConsentId] = useState('');
     const [signerName, setSignerName] = useState('');
     const [signatureImage, setSignatureImage] = useState(null);
@@ -283,7 +292,6 @@ export default function VetMyList() {
         () => filterItems(completedItems, searchQuery, branchFilter),
         [branchFilter, completedItems, searchQuery]
     );
-    const urgentCount = receivedItems.filter(item => normalize(item.priority) === 'urgent').length;
 
     const selectedConsent = consentForms.find(form => String(form.file_id) === selectedConsentId);
 
@@ -400,7 +408,7 @@ export default function VetMyList() {
             );
             toast.success(status === 'completed' ? 'Patient marked done.' : 'Patient returned to received list.');
         } catch (error) {
-            toast.error(error.message || 'Failed to update patient.');
+            toast.error(error.message || 'The patient status could not be updated. Refresh My List and try again.');
         } finally {
             setUpdatingQueueId(null);
         }
@@ -408,7 +416,7 @@ export default function VetMyList() {
 
     const returnToApprovedList = async (queueId) => {
         if (!veterinarianUserId) {
-            toast.error('Could not identify the current veterinarian account.');
+            toast.error('Your veterinarian session could not be identified. Log in again before returning this patient.');
             return;
         }
 
@@ -447,7 +455,7 @@ export default function VetMyList() {
                         : 'Patient returned to the approved queue list.'
             );
         } catch (error) {
-            toast.error(error.message || 'Failed to return patient.');
+            toast.error(error.message || 'The patient could not be returned to the approved queue. Refresh My List and try again.');
         } finally {
             setUpdatingQueueId(null);
         }
@@ -553,12 +561,12 @@ export default function VetMyList() {
             setSelectedPatient(null);
             setSignatureImage(null);
             if (recordWarning) {
-                toast.error(`Signed consent PDF saved, but report tracking failed: ${recordWarning}`);
+                toast.warning('The signed consent was saved, but report tracking was not updated. Refresh Reports later or contact an administrator.');
             } else {
                 toast.success('Signed consent document saved and tracked for reports.');
             }
         } catch (error) {
-            toast.error(error.message || 'Failed to save signed consent.');
+            toast.error(error.message || 'The signed consent could not be saved. Check the signature and try again.');
         } finally {
             setIsSavingConsent(false);
         }
@@ -623,12 +631,12 @@ export default function VetMyList() {
             setUploadedFileName('');
             setPreviewUrl('');
             if (recordWarning) {
-                toast.error(`Physical consent saved, but report tracking failed: ${recordWarning}`);
+                toast.warning('The physical consent was uploaded, but report tracking was not updated. Refresh Reports later or contact an administrator.');
             } else {
                 toast.success('Physical consent uploaded and tracked for reports.');
             }
         } catch (error) {
-            toast.error(error.message || 'Failed to upload physical consent.');
+            toast.error(error.message || 'The physical consent could not be uploaded. Check the image and try again.');
         } finally {
             setIsSavingConsent(false);
         }
@@ -736,30 +744,22 @@ export default function VetMyList() {
                 title="My List"
                 description="Received queue patients assigned to veterinarian handling."
                 layout="stacked"
-                toolbar={(
-                    <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                loadQueue();
-                                loadConsentForms();
-                            }}
-                            disabled={isLoading}
-                            className="gap-2"
-                        >
-                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                            <span>Refresh</span>
-                        </Button>
-                    </div>
+                actions={(
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            loadQueue();
+                            loadConsentForms();
+                        }}
+                        disabled={isLoading}
+                        className="gap-2"
+                    >
+                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                        <span>Refresh</span>
+                    </Button>
                 )}
             />
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <StatCard icon={Clock} label="In Progress" value={receivedItems.length} tone="blue" />
-                <StatCard icon={CheckCircle} label="Done" value={completedItems.length} tone="green" />
-                <StatCard icon={AlertTriangle} label="Urgent" value={urgentCount} tone="red" />
-            </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div>
@@ -857,6 +857,25 @@ export default function VetMyList() {
                     />
                 )}
             </section>
+
+            <Button
+                type="button"
+                onClick={() => setGroomingReviewsOpen(true)}
+                className="fixed bottom-5 right-5 z-40 h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf] sm:bottom-7 sm:right-7"
+            >
+                <Scissors className="size-5" />
+                <span>Grooming reviews</span>
+            </Button>
+
+            <Dialog open={groomingReviewsOpen} onOpenChange={setGroomingReviewsOpen}>
+                <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Grooming reviews</DialogTitle>
+                        <DialogDescription>Review grooming concerns assigned to you and record your assessment.</DialogDescription>
+                    </DialogHeader>
+                    <GroomingWorkspace mode="vet" />
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={consentDialogOpen} onOpenChange={setConsentDialogOpen}>
                 <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto p-0">
@@ -1056,29 +1075,6 @@ function filterItems(items, searchQuery, branchFilter = 'all') {
 
         return normalize(searchableText).includes(query);
     });
-}
-
-function StatCard({ icon, label, value, tone }) {
-    const Icon = icon;
-    const toneClasses = {
-        blue: 'bg-blue-50 text-blue-700',
-        green: 'bg-green-50 text-green-700',
-        red: 'bg-red-50 text-red-700'
-    };
-
-    return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-                <div className={`flex size-11 items-center justify-center rounded-lg ${toneClasses[tone]}`}>
-                    <Icon className="size-5" />
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-slate-500">{label}</p>
-                    <p className="text-3xl font-black leading-tight text-slate-900">{value}</p>
-                </div>
-            </div>
-        </div>
-    );
 }
 
 function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConsent, onStartDiagnosis, onReturnToApproved }) {

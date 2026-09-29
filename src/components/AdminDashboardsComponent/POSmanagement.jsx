@@ -555,7 +555,7 @@ function normalizeInventoryItems(data) {
       brand: item.brand || '',
       supplier: item.supplier || '',
       category,
-      stock: Number(item.quantity || item.stock || 0),
+      stock: Number(item.availableQuantity ?? item.available_quantity ?? item.quantity ?? item.stock ?? 0),
       unit: item.unit || 'pcs',
       cost: costPrice,
       sellingPrice,
@@ -1657,7 +1657,8 @@ export default function ServicePOS() {
   const canPreviewInvoice = !invoiceBlockReason && !isPostingPayment;
   const canPostPayment = !paymentBlockReason && !isPostingPayment;
   const createAndUploadInvoiceDocument = async (postedInvoiceNumber, amountPaid) => {
-    const invoicePdf = createInvoicePdfFile({
+    const invoicePdf = await createInvoicePdfFile({
+      logoUrl: ipawcusLogo,
       invoiceNumber: postedInvoiceNumber,
       invoiceDate: new Date().toLocaleString('en-PH', {
         year: 'numeric',

@@ -359,6 +359,7 @@ function isPublicRequestPath(path) {
         '/status-display',
         '/tv-status',
         '/booking-availability',
+        '/vet-presence',
         '/notifications/reminders/run'
     ].includes(normalizedPath) || normalizedPath.startsWith('/auth/');
 }
@@ -614,9 +615,9 @@ async function performApiRequest(path, options = {}) {
             const data = await readJsonResponse(response);
 
             if (!response.ok) {
-                const fallbackMessage = response.status >= 500
-                    ? SERVER_UNAVAILABLE_MESSAGE
-                    : DEFAULT_ERROR_MESSAGE;
+                const fallbackMessage = data.code === 'database_unavailable'
+                    ? DATABASE_UNAVAILABLE_MESSAGE
+                    : getHttpErrorMessage(response.status, DEFAULT_ERROR_MESSAGE);
                 const error = new ApiError(data.message || data.error || fallbackMessage, {
                     status: response.status,
                     data,

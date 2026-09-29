@@ -8,6 +8,7 @@ import {
     Clock,
     Loader2,
     RefreshCw,
+    Scissors,
     Search,
     Stethoscope,
     XCircle
@@ -85,6 +86,10 @@ function isApprovedQueue(item) {
     return normalize(item.status) === 'in-progress';
 }
 
+function isGroomingQueue(item) {
+    return ['grooming', 'pet grooming'].includes(normalize(item?.service_name));
+}
+
 function isCompletedQueue(item) {
     const status = normalize(item.status);
     return status === 'completed' || status === 'done' || normalize(item.assignment_status) === 'completed';
@@ -152,11 +157,16 @@ function isHomeServiceBooking(booking) {
     return Boolean(booking.isHomeService) || type === 'home-service' || type === 'home_service' || service.includes('home service');
 }
 
+function isGroomingBooking(booking) {
+    return [booking.type, booking.service].some((value) => ['grooming', 'pet grooming'].includes(normalize(value)));
+}
+
 function isNormalPhysicalBooking(booking) {
     return isConfirmedBooking(booking)
         && !booking.isOnlineConsultation
         && !isHomeServiceBooking(booking)
         && !isBoardingBooking(booking)
+        && !isGroomingBooking(booking)
         && !isSpecialServiceBooking(booking);
 }
 
@@ -164,6 +174,7 @@ function isApprovedClinicOrHomeServiceBooking(booking) {
     return isConfirmedBooking(booking)
         && !booking.isOnlineConsultation
         && !isBoardingBooking(booking)
+        && !isGroomingBooking(booking)
         && !isSpecialServiceBooking(booking);
 }
 
@@ -291,6 +302,7 @@ export default function VetQueueList() {
     const approvedQueue = useMemo(() => {
         return queueOnly
             .filter(isApprovedQueue)
+            .filter(item => !isGroomingQueue(item))
             .filter(item => !hasActiveVetAssignment(item))
             .sort((a, b) => Number(a.queue_number || 0) - Number(b.queue_number || 0));
     }, [queueOnly]);
@@ -449,7 +461,7 @@ export default function VetQueueList() {
 
     const receiveQueue = async (queueId) => {
         if (!veterinarianUserId) {
-            toast.error('Could not identify the current veterinarian account.');
+            toast.error('Your veterinarian session could not be identified. Log in again before receiving a patient.');
             return;
         }
 
@@ -463,7 +475,7 @@ export default function VetQueueList() {
             });
 
             if (!data.success) {
-                throw new Error(data.error || data.message || 'Failed to receive queue patient.');
+                throw new Error(data.error || data.message || 'The queue patient could not be received.');
             }
 
             const assignment = data.assignment || {};
@@ -490,7 +502,7 @@ export default function VetQueueList() {
             toast.success('Patient received and moved to My List.');
             navigate('/dashboard/vet/my-list');
         } catch (error) {
-            toast.error(error.message || 'Failed to receive queue patient.');
+            toast.error(error.message || 'The queue patient could not be received. Refresh the queue and try again.');
         } finally {
             setUpdatingQueueId(null);
         }
@@ -550,7 +562,7 @@ export default function VetQueueList() {
             );
             toast.success(`${booking.bookingNumber} rescheduled to today's ${selectedSlot.label || selectedSlot.time} slot.`);
         } catch (error) {
-            toast.error(error.message || 'Failed to reschedule booking for today.');
+            toast.error(error.message || 'The booking could not be moved to today. Choose another available slot or use Booking Management.');
         } finally {
             setUpdatingBookingId(null);
         }
@@ -558,7 +570,7 @@ export default function VetQueueList() {
 
     const receiveBooking = async (booking) => {
         if (!veterinarianUserId) {
-            toast.error('Could not identify the current veterinarian account.');
+            toast.error('Your veterinarian session could not be identified. Log in again before receiving this booking.');
             return;
         }
 
@@ -583,7 +595,7 @@ export default function VetQueueList() {
             });
 
             if (!data.success) {
-                throw new Error(data.message || data.error || 'Failed to receive booking.');
+                throw new Error(data.message || data.error || 'The booking could not be received.');
             }
 
             upsertQueueItem(data.queue);
@@ -592,7 +604,7 @@ export default function VetQueueList() {
             toast.success('Booking received and moved to My List.');
             navigate('/dashboard/vet/my-list');
         } catch (error) {
-            toast.error(error.message || 'Failed to receive booking.');
+            toast.error(error.message || 'The booking could not be received. Refresh the approved list and try again.');
         } finally {
             setUpdatingBookingId(null);
         }
@@ -1013,18 +1025,32 @@ export default function VetQueueList() {
                     </TableBody>
                 </Table>
             </div>
-            <Button
-                type="button"
-                onClick={() => document.getElementById('approved-booking-sections')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="fixed bottom-5 right-5 z-40 h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf] sm:bottom-7 sm:right-7"
-                aria-label="Jump to confirmed and rescheduled bookings"
-            >
-                <CalendarClock className="size-5" />
-                <span>Bookings</span>
-                <Badge className="border-0 bg-white/20 text-white">
-                    {filteredConfirmedBookings.length + filteredMissedBookings.length}
-                </Badge>
-            </Button>
+            <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-2 sm:bottom-7 sm:right-7">
+                <Button
+                    type="button"
+                    onClick={() => {
+                        sessionStorage.setItem('ipawcus-open-grooming-reviews', '1');
+                        navigate('/dashboard/vet/my-list');
+                    }}
+                    variant="outline"
+                    className="h-12 gap-2 rounded-full border-blue-200 bg-white px-4 text-blue-800 shadow-lg hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-200 dark:hover:bg-slate-800"
+                >
+                    <Scissors className="size-5" />
+                    <span>Grooming reviews</span>
+                </Button>
+                <Button
+                    type="button"
+                    onClick={() => document.getElementById('approved-booking-sections')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf]"
+                    aria-label="Jump to confirmed and rescheduled bookings"
+                >
+                    <CalendarClock className="size-5" />
+                    <span>Bookings</span>
+                    <Badge className="border-0 bg-white/20 text-white">
+                        {filteredConfirmedBookings.length + filteredMissedBookings.length}
+                    </Badge>
+                </Button>
+            </div>
             </div>
         </div>
     );

@@ -328,7 +328,7 @@ function BookingAttachmentCard({ path, alt, onPreview }) {
         try {
             await openProtectedDocument(path);
         } catch (error) {
-            toast.error(error.message || 'Could not open the booking file.');
+            toast.error(error.message || 'The booking file could not be opened. Check your browser settings and try again.');
         } finally {
             setIsOpening(false);
         }
@@ -340,7 +340,7 @@ function BookingAttachmentCard({ path, alt, onPreview }) {
         try {
             await downloadConsentDocument(path, fileName);
         } catch (error) {
-            toast.error(error.message || 'Could not download the booking file.');
+            toast.error(error.message || 'The booking file could not be downloaded. Check your connection and try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -458,7 +458,7 @@ function BookingConsentCard({ form, booking, onPreview }) {
         try {
             await downloadConsentDocument(source, `${booking.bookingNumber || `booking-${booking.id}`}-${form.title}`);
         } catch (error) {
-            toast.error(error.message || 'Could not download the complete consent form.');
+            toast.error(error.message || 'The completed consent form could not be downloaded. Check your connection and try again.');
         } finally {
             setIsDownloading(false);
         }
@@ -679,7 +679,7 @@ export default function BookingsManagement() {
                 : item));
             toast.success(result.message || 'Booking location updated.');
         } catch (error) {
-            toast.error(error.message || 'Failed to relocate booking.');
+            toast.error(error.message || 'The booking location could not be changed. Check the selected clinic and try again.');
         } finally {
             setRelocatingBookingId(null);
         }
@@ -717,7 +717,7 @@ export default function BookingsManagement() {
             return true;
         } catch (error) {
             console.error('Error updating status:', error);
-            toast.error(error.message || 'Failed to update booking status.');
+            toast.error(error.message || 'The booking status could not be updated. Refresh the booking and try again.');
             return false;
         }
     };
@@ -732,7 +732,7 @@ export default function BookingsManagement() {
                 setBookingPets(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error('Error loading pets for booking:', error);
-                toast.error(error.message || 'Failed to load pets for booking.');
+                toast.error(error.message || 'Registered pets could not be loaded. Refresh the booking form and try again.');
             } finally {
                 setIsLoadingBookingPets(false);
             }
@@ -747,7 +747,7 @@ export default function BookingsManagement() {
                     : []);
             } catch (error) {
                 console.error('Error loading veterinarians for booking:', error);
-                toast.error(error.message || 'Failed to load veterinarians.');
+                toast.error(error.message || 'The veterinarian list could not be loaded. Refresh before assigning this booking.');
             } finally {
                 setIsLoadingVeterinarians(false);
             }
@@ -999,7 +999,7 @@ export default function BookingsManagement() {
             toast.success(`Refund of ${formatPhpCurrency(amount)} recorded for ${booking.bookingNumber}.`);
             await fetchBookings();
         } catch (error) {
-            toast.error(error.message || 'Failed to record booking payment refund.');
+            toast.error(error.message || 'The refund could not be recorded. Verify the amount and payment details, then try again.');
         } finally {
             setIsSubmittingBookingRefund(false);
         }
@@ -1093,7 +1093,7 @@ export default function BookingsManagement() {
             }
         } catch (error) {
             console.error('Error creating admin booking:', error);
-            toast.error(error.message || 'Failed to create booking.');
+            toast.error(error.message || 'The booking could not be created. Review the pet, schedule, and service details, then try again.');
         } finally {
             setIsCreatingBooking(false);
         }
@@ -1168,7 +1168,7 @@ export default function BookingsManagement() {
             const updated = await updateBookingStatus(booking.id, 'confirmed', reviewPayload);
 
             if (updated) {
-                toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed successfully.`);
+                toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed.`);
             }
         } finally {
             setConfirmingBookingId(null);
@@ -1250,7 +1250,7 @@ export default function BookingsManagement() {
             fetchBookings();
         } catch (error) {
             console.error('Error requesting cancellation:', error);
-            toast.error(error.message || 'Failed to request cancellation.');
+            toast.error(error.message || 'The cancellation request could not be recorded. Review the return details and try again.');
         }
     };
 
@@ -1287,7 +1287,7 @@ export default function BookingsManagement() {
             setNewTime('');
         } catch (error) {
             console.error('Error rescheduling booking:', error);
-            toast.error(error.message || 'Failed to reschedule booking.');
+            toast.error(error.message || 'The booking could not be rescheduled. Choose another available date or time.');
         } finally {
             setIsRescheduling(false);
         }
@@ -1339,13 +1339,13 @@ export default function BookingsManagement() {
             // After registration, update the booking to link to the new pet and mark as registered
             // In a real app, you might have an endpoint to link a booking to a pet
             // For now, let's just update the local state and inform the user
-            toast.success(`${registrationData.petName} registered and linked to ${registrationData.tempOwnerName} successfully!`);
+            toast.success(`${registrationData.petName} was registered and linked to ${registrationData.tempOwnerName}.`);
             
             // Re-fetch bookings to show updated status
             fetchBookings();
             setIsRegisterModalOpen(false);
         } catch (error) {
-            toast.error('Failed to register pet: ' + error.message);
+            toast.error(error?.message || 'The pet could not be registered. Review the required details and try again.');
         } finally {
             setIsRegistering(false);
         }
@@ -1548,21 +1548,6 @@ export default function BookingsManagement() {
                     </div>
                 )}
             />
-
-            <div className="flex flex-wrap gap-3 sm:gap-6">
-                <div className="flex items-center gap-2">
-                    <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Total Bookings:</span>
-                    <span className="bg-[#eff6ff] text-[#155dfc] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-                        {summaryBookings.length}
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">Confirmed:</span>
-                    <span className="bg-[#e0f2e9] text-[#0c6a3c] font-['Arimo:Bold',sans-serif] font-bold text-[14px] px-2 py-1 rounded-[8px]">
-                        {summaryBookings.filter(item => item.status === 'confirmed').length}
-                    </span>
-                </div>
-            </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div data-filter-bar className={`grid gap-4 sm:grid-cols-2 ${branchFilterLocked ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>

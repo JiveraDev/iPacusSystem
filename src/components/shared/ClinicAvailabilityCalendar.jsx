@@ -404,7 +404,7 @@ export default function ClinicAvailabilityCalendar({
                                                     </span>
                                                 </span>
                                                 <span className={`shrink-0 text-xs font-bold ${slot.available ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                                                    {slot.available ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
+                                                    {slot.available ? 'Available' : slot.status === 'lunch' ? 'Lunch period' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
                                                 </span>
                                             </button>
                                         );

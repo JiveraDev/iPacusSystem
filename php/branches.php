@@ -19,7 +19,11 @@ try {
     if (filter_var($_GET['assigned'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
         $role = ipawcus_guard_role($currentUser);
         if ($role !== 'super_admin' && $role !== 'pet_owner' && $role !== 'veterinarian') {
-            $allowedBranchIds = branch_user_ids($pdo, ipawcus_guard_user_id($currentUser));
+            $userId = ipawcus_guard_user_id($currentUser);
+            $assignedBranchIds = branch_user_ids($pdo, $userId);
+            $allowedBranchIds = $role === 'admin'
+                ? array_slice($assignedBranchIds, 0, 1)
+                : $assignedBranchIds;
             $branches = array_values(array_filter(
                 $branches,
                 fn(array $branch): bool => in_array((int)$branch['id'], $allowedBranchIds, true)

@@ -1,14 +1,23 @@
-<Files ".env">
+  <Files ".env">
       Require all denied
   </Files>
+
+  <FilesMatch "^composer\.(json|lock)$">
+      Require all denied
+  </FilesMatch>
 
   <IfModule mod_mime.c>
       AddType application/manifest+json .webmanifest
   </IfModule>
 
+  <IfModule mod_headers.c>
+      Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  </IfModule>
+
   <IfModule mod_rewrite.c>
       RewriteEngine On
 
+      RewriteRule ^vendor(?:/|$) - [F,L]
       RewriteRule ^php/ - [L]
       RewriteRule ^api/?(.*)$ php/index.php/api/$1 [QSA,L]
 

@@ -309,6 +309,18 @@ function getPetIcon(species) {
     return PawPrint;
 }
 
+function getConfinementSourceLabel(record = {}) {
+    if (record.sourceDiagnosisId) return `Diagnosis #${record.sourceDiagnosisId}`;
+    if (record.sourceGroomingBookingId) return `Grooming #${record.sourceGroomingBookingId}`;
+    return 'Clinical referral';
+}
+
+function getApprovalStatusLabel(status) {
+    return String(status || 'pending').toLowerCase() === 'approved'
+        ? 'Owner approved'
+        : 'Approval pending';
+}
+
 function PetSpeciesIcon({ species, className }) {
     const normalized = String(species || '').toLowerCase();
 
@@ -385,7 +397,14 @@ function normalizeInventoryItemsResponse(response) {
 
     return items.map((item) => {
         const itemId = Number(item.itemId || item.item_id || item.id || 0);
-        const quantity = Number(item.quantity ?? item.stock ?? item.total_quantity ?? 0);
+        const quantity = Number(
+            item.availableQuantity
+            ?? item.available_quantity
+            ?? item.quantity
+            ?? item.stock
+            ?? item.total_quantity
+            ?? 0
+        );
         const costPrice = Number(item.costPrice ?? item.cost_price ?? item.unitCost ?? item.unit_cost ?? item.sellingPrice ?? 0);
         const sellingPrice = Number(item.sellingPrice ?? item.selling_price ?? item.unitPrice ?? item.unit_price ?? costPrice);
 
@@ -474,6 +493,7 @@ function getCatalogServiceLabel(service) {
 
 function buildPaymentPrefill(unit, materialLines = []) {
     const assignment = unit.assignment || {};
+    const isClinicalConfinement = assignment.admissionType === 'confinement';
     const checkInDate = assignment.actualCheckInAt || assignment.checkInDate;
     const checkOutDate = assignment.desiredCheckOutDate || assignment.checkOutDate;
     const stayDays = countStayDays(checkInDate, checkOutDate);
@@ -496,16 +516,14 @@ function buildPaymentPrefill(unit, materialLines = []) {
             classificationId: isMedication ? 'medications' : 'products'
         };
     });
-    const charges = [
-        {
+    const charges = isClinicalConfinement ? [] : [{
             name: `${unit.roomLabel} stay`,
             group: 'Boarding',
             quantity: 1,
             price: linePrice,
             receiptType: 'SERVICE',
             classificationId: 'services'
-        }
-    ];
+        }];
 
     if (overdueDays > 0) {
         charges.push({
@@ -525,6 +543,7 @@ function buildPaymentPrefill(unit, materialLines = []) {
         sourceId: assignment.bookingId,
         visit: {
             id: assignment.bookingNumber || `BOARD-${assignment.bookingId || Date.now()}`,
+            visitId: assignment.sourceVisitId || null,
             bookingId: assignment.bookingId || null,
             petId: assignment.petId || null,
             ownerUserId: assignment.ownerUserId || null,
@@ -539,7 +558,9 @@ function buildPaymentPrefill(unit, materialLines = []) {
             status: 'Ready for payment'
         },
         charges,
-        message: overdueDays > 0 || materialCharges.length > 0
+        message: isClinicalConfinement
+            ? 'Clinical Confinement uses the originating visit invoice. The existing stay charge and any new materials were loaded together.'
+            : overdueDays > 0 || materialCharges.length > 0
             ? 'Boarding checkout loaded with stay charge, overdue days, and recorded materials.'
             : 'Boarding checkout loaded. Review the invoice before posting payment.',
         summary: {
@@ -1168,7 +1189,17 @@ export default function PetBoardingManagement() {
     }, [facilityView, searchQuery, units]);
 
     const activeUnits = useMemo(() => (
-        filteredUnits.filter((unit) => unit.status === 'occupied' || unit.status === 'reserved')
+        filteredUnits.filter((unit) => (
+            (unit.status === 'occupied' || unit.status === 'reserved')
+            && unit.assignment?.admissionType !== 'confinement'
+        ))
+    ), [filteredUnits]);
+
+    const confinementUnits = useMemo(() => (
+        filteredUnits.filter((unit) => (
+            (unit.status === 'occupied' || unit.status === 'reserved')
+            && unit.assignment?.admissionType === 'confinement'
+        ))
     ), [filteredUnits]);
 
     const activeAssignments = useMemo(() => (
@@ -1238,7 +1269,7 @@ export default function PetBoardingManagement() {
         return subjects;
     }, [activeAssignments, boardingBookings, branchId]);
 
-    const visibleBoardingBookings = useMemo(() => (
+    const facilityBoardingBookings = useMemo(() => (
         boardingBookings
             .filter((booking) => String(booking.branchId || '') === String(branchId || ''))
             .filter((booking) => booking.type === 'boarding' && booking.hotelBoardingType)
@@ -1249,6 +1280,31 @@ export default function PetBoardingManagement() {
                 return (statusOrder[a.status] || 9) - (statusOrder[b.status] || 9);
             })
     ), [boardingBookings, branchId, facilityView]);
+
+    const visibleBoardingBookings = useMemo(() => (
+        facilityBoardingBookings.filter((booking) => booking.admissionType !== 'confinement')
+    ), [facilityBoardingBookings]);
+
+    const confinementBookings = useMemo(() => (
+        facilityBoardingBookings.filter((booking) => booking.admissionType === 'confinement')
+    ), [facilityBoardingBookings]);
+
+    const pendingConfinementBookings = useMemo(() => (
+        confinementBookings.filter((booking) => !booking.boardingAssignment)
+    ), [confinementBookings]);
+
+    const confinementAssignmentIds = useMemo(() => new Set(
+        confinementUnits
+            .map((unit) => String(unit.assignment?.assignmentId || ''))
+            .filter(Boolean)
+    ), [confinementUnits]);
+
+    const confinementCareTaskCount = useMemo(() => (
+        tasks.filter((task) => (
+            confinementAssignmentIds.has(String(task.assignmentId || ''))
+            && task.status !== 'completed'
+        )).length
+    ), [confinementAssignmentIds, tasks]);
 
     const pendingReservationCount = useMemo(() => (
         visibleBoardingBookings.filter((booking) => !booking.boardingAssignment).length
@@ -2177,6 +2233,10 @@ export default function PetBoardingManagement() {
             toast.error('Wait for locally staged boarding materials to synchronize before opening payment.');
             return;
         }
+        if (unit?.assignment?.admissionType === 'confinement' && !unit.assignment.sourceVisitId) {
+            toast.error('This Clinical Confinement admission is missing its originating visit. Refresh the stay or contact support before posting payment.');
+            return;
+        }
         localStorage.setItem('ipawcus-pos-prefill', JSON.stringify(buildPaymentPrefill(unit, materialLines)));
         navigate('/dashboard/pos');
     };
@@ -2242,10 +2302,15 @@ export default function PetBoardingManagement() {
                                 <p className="mt-0.5 text-2xl font-black text-[#101828]">{getRoomCode(unit)}</p>
                             </div>
                         </div>
-                        <Badge className={`${statusMeta.badge} shrink-0`}>
-                            <StatusIcon className="mr-1 size-3" />
-                            {statusMeta.label}
-                        </Badge>
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                            {assignment.admissionType === 'confinement' && (
+                                <Badge className="bg-violet-50 text-violet-700">Clinical</Badge>
+                            )}
+                            <Badge className={statusMeta.badge}>
+                                <StatusIcon className="mr-1 size-3" />
+                                {statusMeta.label}
+                            </Badge>
+                        </div>
                     </div>
 
                     <div className="mt-4 min-h-[72px] border-t border-slate-100 pt-3">
@@ -2411,6 +2476,9 @@ export default function PetBoardingManagement() {
                                         {assignment.bookingNumber && (
                                             <p className="text-xs font-semibold text-slate-500">{assignment.bookingNumber}</p>
                                         )}
+                                        {assignment.admissionType === 'confinement' && (
+                                            <Badge className="mt-1 bg-violet-50 text-violet-700">Clinical Confinement</Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <p className="max-w-44 truncate font-semibold text-slate-700">{assignment.ownerName || '-'}</p>
@@ -2567,9 +2635,33 @@ export default function PetBoardingManagement() {
                 </div>
             )}
 
+            {pendingConfinementBookings.length > 0 && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="flex items-start gap-3">
+                            <ShieldCheck className="mt-0.5 size-5 shrink-0" />
+                            <span>
+                                <span className="font-black">
+                                    {pendingConfinementBookings.length} clinical admission{pendingConfinementBookings.length === 1 ? '' : 's'} awaiting placement
+                                </span>
+                                <span className="mt-0.5 block font-semibold text-violet-700">
+                                    Review the owner approval and care plan before assigning a kennel or hotel room.
+                                </span>
+                            </span>
+                        </span>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setActiveTab('confinement')}>
+                            Review Admissions
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full max-w-xl grid-cols-3">
+                <TabsList className="grid w-full max-w-3xl grid-cols-2 sm:grid-cols-4">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="confinement">
+                        Confinement ({pendingConfinementBookings.length + confinementUnits.length})
+                    </TabsTrigger>
                     <TabsTrigger value="rooms">Rooms</TabsTrigger>
                     <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
                 </TabsList>
@@ -2715,7 +2807,9 @@ export default function PetBoardingManagement() {
                                                             <p className="truncate text-sm font-semibold text-slate-500">{assignment.ownerName}</p>
                                                         </div>
                                                     </div>
-                                                    <Badge className={statusMeta.badge}>{statusMeta.label}</Badge>
+                                                    <div className="flex flex-wrap justify-end gap-2">
+                                                        <Badge className={statusMeta.badge}>{statusMeta.label}</Badge>
+                                                    </div>
                                                 </div>
                                                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                                                     <InfoPanel label="In" value={formatDate(assignment.actualCheckInAt || assignment.checkInDate)} compact />
@@ -2728,6 +2822,250 @@ export default function PetBoardingManagement() {
                             )}
                         </section>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="confinement" className="space-y-6">
+                    <section className="overflow-hidden rounded-lg border border-violet-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-4 border-b border-violet-100 bg-violet-50/60 p-5 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex items-start gap-3">
+                                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+                                    <ShieldCheck className="size-5" />
+                                </span>
+                                <div>
+                                    <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">Clinical Confinement</h3>
+                                    <p className="mt-1 max-w-3xl text-sm font-semibold text-slate-600">
+                                        Vet-directed admissions from Diagnosis or Grooming. Owner approval, placement, care records, and checkout remain linked to the originating clinical visit.
+                                    </p>
+                                </div>
+                            </div>
+                            <Badge className="w-fit bg-white text-violet-700">{FACILITY_LABELS[facilityView]}</Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 p-5 lg:grid-cols-4">
+                            {[
+                                {
+                                    label: 'Approval Pending',
+                                    value: pendingConfinementBookings.filter((booking) => booking.ownerApprovalStatus !== 'approved').length,
+                                    icon: Clock,
+                                    className: 'bg-amber-50 text-amber-700'
+                                },
+                                {
+                                    label: 'Awaiting Room',
+                                    value: pendingConfinementBookings.length,
+                                    icon: Hotel,
+                                    className: 'bg-violet-50 text-violet-700'
+                                },
+                                {
+                                    label: 'Active Placements',
+                                    value: confinementUnits.length,
+                                    icon: PawPrint,
+                                    className: 'bg-blue-50 text-blue-700'
+                                },
+                                {
+                                    label: 'Open Care Tasks',
+                                    value: confinementCareTaskCount,
+                                    icon: ClipboardList,
+                                    className: confinementCareTaskCount > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                                }
+                            ].map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className={`flex size-10 items-center justify-center rounded-lg ${item.className}`}>
+                                                <Icon className="size-5" />
+                                            </span>
+                                            <p className="text-2xl font-black text-[#101828]">{item.value}</p>
+                                        </div>
+                                        <p className="mt-3 text-sm font-black text-slate-700">{item.label}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-2 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h4 className="font-black text-[#101828]">Admissions Awaiting Placement</h4>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">Confirm consent, then assign the room selected by the veterinary team.</p>
+                            </div>
+                            <Badge className="w-fit bg-amber-50 text-amber-700">{pendingConfinementBookings.length} pending</Badge>
+                        </div>
+
+                        {pendingConfinementBookings.length === 0 ? (
+                            <div className="flex min-h-44 flex-col items-center justify-center px-5 text-center text-slate-500">
+                                <CheckCircle className="mb-3 size-9 text-green-600" />
+                                <p className="font-semibold">No clinical admissions are waiting for a room.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <Table className="min-w-[1080px]">
+                                    <TableHeader>
+                                        <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                            <TableHead>Patient</TableHead>
+                                            <TableHead>Clinical Referral</TableHead>
+                                            <TableHead>Requested Placement</TableHead>
+                                            <TableHead>Care Plan</TableHead>
+                                            <TableHead>Owner Approval</TableHead>
+                                            <TableHead className="text-right">Action</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pendingConfinementBookings.map((booking) => (
+                                            <TableRow key={booking.id}>
+                                                <TableCell className="align-top">
+                                                    <p className="font-black text-[#101828]">{booking.petName || 'Pet'}</p>
+                                                    <p className="mt-0.5 text-sm font-semibold text-slate-600">{booking.ownerName || 'Owner'}</p>
+                                                    <p className="mt-1 text-xs font-semibold text-slate-400">{booking.bookingNumber}</p>
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    <p className="font-semibold text-slate-800">{getConfinementSourceLabel(booking)}</p>
+                                                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                        {booking.sourceVisitId ? `Visit #${booking.sourceVisitId}` : 'Visit reference missing'}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-slate-500">Billing uses this clinical visit.</p>
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    <p className="font-semibold text-slate-800">{FACILITY_LABELS[booking.hotelBoardingType]}</p>
+                                                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                        {ROOM_SIZE_LABELS[booking.roomSize] || booking.roomSize} / {formatDate(booking.checkInDate)} to {formatDate(booking.checkOutDate)}
+                                                    </p>
+                                                </TableCell>
+                                                <TableCell className="max-w-sm align-top">
+                                                    <p className="line-clamp-2 whitespace-pre-wrap text-sm font-semibold text-slate-800">
+                                                        {booking.confinementReason || 'No reason recorded'}
+                                                    </p>
+                                                    <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-slate-500">
+                                                        {booking.careInstructions || 'No special care instructions recorded'}
+                                                    </p>
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    <Badge className={booking.ownerApprovalStatus === 'approved'
+                                                        ? 'bg-green-50 text-green-700'
+                                                        : 'bg-amber-50 text-amber-700'}
+                                                    >
+                                                        {getApprovalStatusLabel(booking.ownerApprovalStatus)}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right align-top">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() => openReservationConsent(booking)}
+                                                        disabled={actionLoading === `reserve-${booking.id}`}
+                                                        className="bg-[#155dfc] hover:bg-[#0d4acf]"
+                                                    >
+                                                        {actionLoading === `reserve-${booking.id}`
+                                                            ? <Loader2 className="size-4 animate-spin" />
+                                                            : <ShieldCheck className="size-4" />}
+                                                        Review & Reserve
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="flex flex-col gap-2 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h4 className="font-black text-[#101828]">Active Clinical Placements</h4>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">Reserved and checked-in confinement patients in the selected facility.</p>
+                            </div>
+                            <Badge className="w-fit bg-blue-50 text-blue-700">{confinementUnits.length} active</Badge>
+                        </div>
+
+                        {isLoading ? (
+                            <div className="flex min-h-44 items-center justify-center text-slate-500">
+                                <Loader2 className="mr-2 size-5 animate-spin" />
+                                Loading clinical placements...
+                            </div>
+                        ) : confinementUnits.length === 0 ? (
+                            <div className="flex min-h-44 flex-col items-center justify-center px-5 text-center text-slate-500">
+                                <ShieldCheck className="mb-3 size-9" />
+                                <p className="font-semibold">No active clinical placements in this facility.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <Table className="min-w-[1040px]">
+                                    <TableHeader>
+                                        <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                            <TableHead>Patient</TableHead>
+                                            <TableHead>Placement</TableHead>
+                                            <TableHead>Clinical Referral</TableHead>
+                                            <TableHead>Care Plan</TableHead>
+                                            <TableHead>Monitoring</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Action</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {confinementUnits.map((unit) => {
+                                            const assignment = unit.assignment;
+                                            const statusMeta = getRoomStatusMeta(unit.status);
+                                            const openTasks = tasks.filter((task) => (
+                                                String(task.assignmentId || '') === String(assignment.assignmentId || '')
+                                                && task.status !== 'completed'
+                                            )).length;
+
+                                            return (
+                                                <TableRow key={unit.id}>
+                                                    <TableCell className="align-top">
+                                                        <p className="font-black text-[#101828]">{assignment.petName}</p>
+                                                        <p className="mt-0.5 text-sm font-semibold text-slate-600">{assignment.ownerName}</p>
+                                                        <p className="mt-1 text-xs font-semibold text-slate-400">{assignment.bookingNumber}</p>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <p className="font-black text-slate-800">{getRoomCode(unit)}</p>
+                                                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                            {ROOM_SIZE_LABELS[unit.roomSize]} / {FACILITY_LABELS[unit.hotelBoardingType]}
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <p className="font-semibold text-slate-800">{getConfinementSourceLabel(assignment)}</p>
+                                                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                            {assignment.sourceVisitId ? `Visit #${assignment.sourceVisitId}` : 'Visit reference missing'}
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell className="max-w-sm align-top">
+                                                        <p className="line-clamp-2 whitespace-pre-wrap text-sm font-semibold text-slate-800">
+                                                            {assignment.confinementReason || 'No reason recorded'}
+                                                        </p>
+                                                        <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-slate-500">
+                                                            {assignment.careInstructions || 'No special care instructions recorded'}
+                                                        </p>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <Badge className={openTasks > 0 ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}>
+                                                            {openTasks} open task{openTasks === 1 ? '' : 's'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <div className="flex flex-col items-start gap-1.5">
+                                                            <Badge className={statusMeta.badge}>{statusMeta.label}</Badge>
+                                                            <span className="text-xs font-semibold text-slate-500">
+                                                                {getApprovalStatusLabel(assignment.ownerApprovalStatus)}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right align-top">
+                                                        <Button type="button" variant="outline" size="sm" onClick={() => openUnitDetails(unit)}>
+                                                            <Eye className="size-4" />
+                                                            View Stay
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </section>
                 </TabsContent>
 
                 <TabsContent value="rooms" className="space-y-6">
@@ -3124,6 +3462,34 @@ export default function PetBoardingManagement() {
                                         <InfoPanel label="Stay Status" value={getRoomStatusMeta(selectedUnit.assignment.status).label} />
                                     </div>
                                 </div>
+                            )}
+
+                            {selectedUnit.assignment?.admissionType === 'confinement' && (
+                                <section className="rounded-lg border border-violet-200 bg-violet-50/50 p-4">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <h4 className="font-black text-[#101828]">Clinical Confinement</h4>
+                                            <p className="mt-1 text-sm font-semibold text-slate-600">
+                                                Clinical instructions remain connected to the originating visit and its invoice.
+                                            </p>
+                                        </div>
+                                        <Badge className={selectedUnit.assignment.ownerApprovalStatus === 'approved'
+                                            ? 'bg-green-50 text-green-700'
+                                            : 'bg-amber-50 text-amber-700'}
+                                        >
+                                            {getApprovalStatusLabel(selectedUnit.assignment.ownerApprovalStatus)}
+                                        </Badge>
+                                    </div>
+                                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                        <InfoPanel label="Referral" value={getConfinementSourceLabel(selectedUnit.assignment)} />
+                                        <InfoPanel label="Originating Visit" value={selectedUnit.assignment.sourceVisitId ? `Visit #${selectedUnit.assignment.sourceVisitId}` : 'Missing visit reference'} />
+                                        <InfoPanel label="Placement" value={`${FACILITY_LABELS[selectedUnit.hotelBoardingType]} / ${selectedUnit.roomLabel}`} />
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                        <InfoPanel label="Reason for Confinement" value={selectedUnit.assignment.confinementReason || 'No reason recorded'} />
+                                        <InfoPanel label="Care Instructions" value={selectedUnit.assignment.careInstructions || 'No special instructions recorded'} />
+                                    </div>
+                                </section>
                             )}
 
                             {selectedUnit.assignment && (

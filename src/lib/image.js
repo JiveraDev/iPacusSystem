@@ -1,6 +1,7 @@
 import { API_BASE_URL, getApiUrl, getStoredAuthToken } from '../services/apiClient';
 
 const RUNTIME_UPLOAD_DIRECTORIES = new Set([
+  'grooming_photos',
   'boarding_documents',
   'concerns',
   'diagnosis',
@@ -15,6 +16,7 @@ const RUNTIME_UPLOAD_DIRECTORIES = new Set([
 ]);
 
 const PROTECTED_RUNTIME_UPLOAD_DIRECTORIES = new Set([
+  'grooming_photos',
   'boarding_documents',
   'concerns',
   'diagnosis',
@@ -82,7 +84,7 @@ export const resolveImageUrl = (profileImage) => {
   const uploadPath = runtimeUploadPath(cleanPath);
   const uploadDirectory = uploadPath.split('/')[0];
 
-  if (API_BASE_URL && uploadPath && PROTECTED_RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
+  if ((API_BASE_URL || uploadDirectory === 'grooming_photos') && uploadPath && PROTECTED_RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
     return getApiUrl(`/uploads/media/${uploadPath}`);
   }
 
@@ -101,7 +103,7 @@ export async function fetchProtectedImageObjectUrl(profileImage) {
   }
 
   const uploadPath = runtimeUploadPath(normalizePublicPath(profileImage));
-  if (!API_BASE_URL || !uploadPath) {
+  if ((!API_BASE_URL && !uploadPath.startsWith('grooming_photos/')) || !uploadPath) {
     return resolvedUrl;
   }
 

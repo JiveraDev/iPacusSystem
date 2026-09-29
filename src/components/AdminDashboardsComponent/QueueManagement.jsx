@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
-import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2, ListChecks } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2, ListChecks, Scissors } from 'lucide-react';
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -29,8 +29,14 @@ import {
 } from '../../services/queueService';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import { useNavigate } from '../dashboardRouter.jsx';
+
+function isGroomingQueue(item) {
+    return ['grooming', 'pet grooming'].includes(String(item?.service_name || '').trim().toLowerCase());
+}
 
 export default function QueueManagement() {
+    const navigate = useNavigate();
     const dashboardUser = useMemo(() => storedDashboardUser(), []);
     const lockedBranchId = assignedBranchId(dashboardUser);
     const branchFilterLocked = isBranchSelectionLocked(dashboardUser);
@@ -120,6 +126,20 @@ export default function QueueManagement() {
         }
     };
 
+    const openGroomingQueue = async (item) => {
+        if (item.status === 'waiting') {
+            const updated = await updateStatus(item.queue_id, 'in-progress');
+            if (!updated) return;
+        }
+
+        if (item.booking_id) {
+            sessionStorage.setItem('ipawcus-open-grooming-booking-id', String(item.booking_id));
+        } else {
+            toast.warning('This older grooming queue is not linked to a booking. Grooming Management will open to its work list.');
+        }
+        navigate('/dashboard/grooming');
+    };
+
     const updateStatus = async (id, newStatus, reason = '') => {
         setUpdatingQueueId(id);
 
@@ -130,7 +150,7 @@ export default function QueueManagement() {
                 reason
             });
             if (!data.success) {
-                throw new Error(data.error || data.message || 'Failed to update queue status.');
+                throw new Error(data.error || data.message || 'The queue status could not be updated.');
             }
 
             setQueue(items =>
@@ -141,7 +161,7 @@ export default function QueueManagement() {
             return true;
         } catch (error) {
             console.error('Error updating status:', error);
-            toast.error(error.message || 'Failed to update queue status.');
+            toast.error(error.message || 'The queue status could not be updated. Refresh the queue and try again.');
             return false;
         } finally {
             setUpdatingQueueId(null);
@@ -200,7 +220,7 @@ export default function QueueManagement() {
             });
 
             if (!data.success) {
-                throw new Error(data.error || data.message || 'Failed to assign veterinarian.');
+                throw new Error(data.error || data.message || 'The veterinarian could not be assigned to this queue.');
             }
 
             const assignment = data.assignment || {};
@@ -222,7 +242,7 @@ export default function QueueManagement() {
             );
             toast.success('Queue assigned and moved to the veterinarian My List.');
         } catch (error) {
-            toast.error(error.message || 'Failed to assign veterinarian.');
+            toast.error(error.message || 'The veterinarian could not be assigned to this queue. Check their availability and try again.');
         } finally {
             setAssigningQueueId(null);
         }
@@ -456,7 +476,29 @@ export default function QueueManagement() {
                                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                                         <TableCell className="text-right pr-4" onClick={(event) => event.stopPropagation()}>
                                             <div className="flex flex-wrap justify-end gap-1.5">
-                                                {item.status === 'waiting' ? (
+                                                {isGroomingQueue(item) ? (
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => openGroomingQueue(item)}
+                                                            disabled={updatingQueueId === item.queue_id}
+                                                            className="h-8 px-2 text-[11px] font-bold"
+                                                        >
+                                                            {updatingQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Scissors className="mr-1 size-3" />}
+                                                            {item.status === 'waiting' ? 'Send to Grooming' : 'Open Grooming'}
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => setQueueToCancel(item)}
+                                                            disabled={updatingQueueId === item.queue_id}
+                                                            className="h-8 px-2 text-[11px] font-bold"
+                                                        >
+                                                            <XCircle className="mr-1 size-3" />
+                                                            Cancel
+                                                        </Button>
+                                                    </>
+                                                ) : item.status === 'waiting' ? (
                                                     <>
                                                         <Button 
                                                             size="sm" 
@@ -529,7 +571,7 @@ export default function QueueManagement() {
                                                             <DetailItem label="Contact" value={item.contactNumber} />
                                                             <DetailItem label="Address" value={item.address} isFullWidth />
                                                             <DetailItem label="Source" value={getSourceBadge(item.queue_source)} />
-                                                            <DetailItem label="Assigned Veterinarian" value={item.veterinarian_name || 'Unassigned'} />
+                                                            <DetailItem label={isGroomingQueue(item) ? 'Workflow' : 'Assigned Veterinarian'} value={isGroomingQueue(item) ? 'Grooming Management' : item.veterinarian_name || 'Unassigned'} />
                                                             <DetailItem label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
                                                             <DetailItem label="Registration Time" value={formatDateTime(item.timestamp)} />
                                                         </div>

@@ -159,7 +159,7 @@ Implementation note: the dashboard shell currently uses normal role arrays while
 | --- | --- | --- | --- |
 | `/dashboard` for super admin | `SuperAdminReportsDashboard.jsx` | Super Admin landing dashboard | KPI cards, Chart.js visualizations, staff/activity monitoring, operational attention tables |
 | `/dashboard/reports` | `SuperAdminReportsDashboard.jsx` | Reports dashboard route | Same dashboard surface for direct route access |
-| `/dashboard/reports/export` | `SuperAdminReportCenter.jsx` | Report export and print center | Select report type/date/filter, preview tables, print, export CSV |
+| `/dashboard/reports/export` | `SuperAdminReportCenter.jsx` | Report export and print center | Select report type/date/filter, preview tables, print, export PDF or Excel |
 | `/dashboard/pet-media-monitoring` | `PetMediaMonitoring.jsx` | Pet media monitoring | Filter/preview consent, booking, queue, diagnosis, and boarding images |
 | `/dashboard/accounts` | `AccountManagement.jsx` | User/staff account management | List accounts, create account, activate/deactivate admin accounts |
 | `/dashboard/pet-owner-accounts` | `PetOwnerAccountsManagement.jsx` | Pet owner account control | Search owners, inspect linked pets/activity, deactivate/reactivate where DB supports it, remove ownership links |
@@ -705,7 +705,7 @@ Subdomain deployment notes are in `docs/tv_status_display_deployment.md`.
 - Inventory item, stock receipt, stock out, low stock, expiry, disposal reports work.
 - POS charges consume linked inventory items/materials and reverse stock when charges are replaced.
 - Super Admin reports dashboard loads KPI cards, charts, monitoring tables, and missing-data notes.
-- Report center can generate each report type, print the preview, and export CSV.
+- Report center can generate each report type, print the preview, and export PDF or Excel files.
 - Pet owner account screen can search owners, inspect linked pets, remove an ownership link, and show required SQL if status columns are missing.
 - Deactivated pet owner login is blocked using the June 22 owner-status columns.
 - Consent records save with the complete intended audit columns on both a clean database and a June 18-upgraded database.

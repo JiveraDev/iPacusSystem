@@ -14,6 +14,8 @@ import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 import InventoryLocationFields from './InventoryLocationFields.jsx';
 import { DEFAULT_STORAGE_AREA } from './inventoryLocationUtils.js';
+import InventoryBranchScope from './InventoryBranchScope.jsx';
+import { useInventoryBranchScope } from '../../hooks/useInventoryBranchScope.js';
 
 const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -62,6 +64,8 @@ function formatFileSize(size) {
 
 export default function StockInPage() {
   const navigate = useNavigate();
+  const branchScope = useInventoryBranchScope();
+  const { branchId } = branchScope;
   const [items, setItems] = useState([emptyStockInItem()]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -81,7 +85,10 @@ export default function StockInPage() {
     }
 
     try {
-      const [itemsData, metaData] = await Promise.all([fetchInventoryItems(), fetchInventoryMeta()]);
+      const [itemsData, metaData] = await Promise.all([
+        fetchInventoryItems({ branchId }),
+        fetchInventoryMeta({ branchId })
+      ]);
       setInventoryItems(itemsData.items || []);
       setSuppliers(metaData.suppliers || []);
       setLocations(metaData.locations || []);
@@ -92,7 +99,18 @@ export default function StockInPage() {
     }
   };
 
-  useAutoRefresh(loadStockInData);
+  useAutoRefresh(loadStockInData, {
+    enabled: Boolean(branchId),
+    refreshKey: `inventory-stock-in-${branchId || 'unassigned'}`
+  });
+
+  useEffect(() => {
+    setItems([emptyStockInItem()]);
+    setInventoryItems([]);
+    setSuppliers([]);
+    setLocations([]);
+    setIsResponsibilityOpen(false);
+  }, [branchId]);
 
   useEffect(() => () => {
     if (receiptFile?.previewUrl) {
@@ -202,6 +220,9 @@ export default function StockInPage() {
     setErrorMessage('');
 
     try {
+      if (!branchId) {
+        throw new Error('Select an inventory branch before recording stock in.');
+      }
       const incompleteIndex = items.findIndex((item) => (
         !item.productId ||
         (!item.supplier && !item.supplierName) ||
@@ -243,6 +264,7 @@ export default function StockInPage() {
 
       await createStockReceipt({
         user_id: currentUser?.id || currentUser?.user_id,
+        branch_id: Number(branchId),
         receiving_date: receivingDate,
         delivery_note_number: deliveryNote,
         proof_image_path: proofImagePath,
@@ -252,6 +274,7 @@ export default function StockInPage() {
           const selectedItem = inventoryItems.find((inventoryItem) => String(inventoryItem.itemId) === String(item.productId));
           return {
             item_id: item.productId,
+            item_name: selectedItem?.name || item.productName,
             supplier_id: isNewSupplierValue(item.supplier) ? null : item.supplier,
             supplier_name: item.supplierName || null,
             location_id: item.locationId || null,
@@ -302,6 +325,16 @@ export default function StockInPage() {
             Back to inventory
           </Button>
         )}
+      />
+
+      <InventoryBranchScope
+        branches={branchScope.branches}
+        branchId={branchScope.branchId}
+        selectedBranch={branchScope.selectedBranch}
+        canSelectBranch={branchScope.canSelectBranch}
+        isLoading={branchScope.isLoadingBranches}
+        error={branchScope.branchError}
+        onBranchChange={branchScope.setBranchId}
       />
 
       {errorMessage && (

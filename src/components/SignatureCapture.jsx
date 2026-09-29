@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, LockKeyhole, PenLine } from 'lucide-react';
+import { CheckCircle2, LockKeyhole, PenLine, RotateCcw } from 'lucide-react';
 
 const INK_COLOR = '#0f172a';
 const INK_WIDTH = 2.5;
@@ -166,6 +166,26 @@ export default function SignatureCapture({ onSignatureChange, signature, disable
         onSignatureChange?.(dataUrl);
     };
 
+    const redoSignature = () => {
+        if (disabled) {
+            return;
+        }
+
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const context = configureContext(canvas);
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            context.clearRect(0, 0, canvas.width / ratio, canvas.height / ratio);
+            canvas.focus();
+        }
+
+        drawingRef.current = false;
+        movedRef.current = false;
+        signatureRef.current = '';
+        setIsDrawing(false);
+        onSignatureChange?.('');
+    };
+
     return (
         <div className="w-full">
             <div
@@ -215,10 +235,22 @@ export default function SignatureCapture({ onSignatureChange, signature, disable
                 )}
 
                 {hasInk && !disabled && (
-                    <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 shadow-sm">
+                    <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 shadow-sm">
                         <CheckCircle2 className="size-3.5" aria-hidden="true" />
                         Signature captured
                     </div>
+                )}
+
+                {signature && !disabled && (
+                    <button
+                        type="button"
+                        onClick={redoSignature}
+                        className="absolute right-3 top-3 z-10 flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/60 dark:hover:text-blue-300"
+                        aria-label="Clear and redo signature"
+                    >
+                        <RotateCcw className="size-3.5" aria-hidden="true" />
+                        Redo
+                    </button>
                 )}
 
                 <div className="pointer-events-none absolute inset-x-6 bottom-5 border-b border-slate-200" aria-hidden="true" />

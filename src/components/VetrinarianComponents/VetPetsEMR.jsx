@@ -7,10 +7,9 @@ import {
     Download,
     Eye,
     FileText,
+    FolderOpen,
     GripVertical,
     Loader2,
-    PanelRightClose,
-    PanelRightOpen,
     PawPrint,
     Pencil,
     Pill,
@@ -28,7 +27,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { PhotoViewer } from '../../ui/photo-viewer';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -53,6 +51,7 @@ import {
 } from '../../services/petService';
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
+import EditPetInformationDialog from '../shared/EditPetInformationDialog.jsx';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -249,13 +248,15 @@ export default function VetPetsEMR() {
     const [editingItem, setEditingItem] = useState(null);
     const [itemDraft, setItemDraft] = useState({ title: '', summary: '', revisionNotes: '' });
     const [itemAutosaveStatus, setItemAutosaveStatus] = useState('idle');
-    const [isPetPreviewOpen, setIsPetPreviewOpen] = useState(true);
-    const [isServiceRecordsOpen, setIsServiceRecordsOpen] = useState(true);
+    const [sourceSearch, setSourceSearch] = useState('');
+    const [showIncludedSources, setShowIncludedSources] = useState(false);
+    const [addingRecordKey, setAddingRecordKey] = useState('');
     const [viewer, setViewer] = useState(null);
     const [previewRecord, setPreviewRecord] = useState(null);
     const [recordUpdateContext] = useState(readRecordUpdateContext);
     const [highlightedRequest, setHighlightedRequest] = useState(null);
     const [isCompletingRequest, setIsCompletingRequest] = useState(false);
+    const [isPetInformationEditorOpen, setIsPetInformationEditorOpen] = useState(false);
     const groupAutosaveTimerRef = useRef(null);
     const itemAutosaveTimerRef = useRef(null);
     const groupSavedSignatureRef = useRef('');
@@ -447,6 +448,25 @@ export default function VetPetsEMR() {
     const selectedPet = recordsData?.pet || pets.find(pet => String(pet.db_id || pet.id) === String(selectedPetId));
     const selectedGroup = groups.find(group => String(group.groupId) === String(selectedGroupId));
     const visiblePetOptions = filteredPets.slice(0, 8);
+    const sourceRecords = [
+        ...serviceHistory,
+        ...vaccinations.map(vaccinationSourceRecord)
+    ].sort((left, right) => String(right.serviceDate || '').localeCompare(String(left.serviceDate || '')));
+    const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
+    const visibleSourceRecords = sourceRecords.filter((record) => {
+        const isIncluded = selectedGroupId && addedToGroup(record, selectedGroupId);
+        if (!showIncludedSources && isIncluded) return false;
+        if (!normalizedSourceSearch) return true;
+
+        return [
+            record.title,
+            record.summary,
+            record.serviceDate,
+            record.veterinarianName,
+            sourceLabel(record)
+        ].join(' ').toLowerCase().includes(normalizedSourceSearch);
+    });
+    const availableSourceCount = sourceRecords.filter(record => !selectedGroupId || !addedToGroup(record, selectedGroupId)).length;
 
     useEffect(() => {
         if (groupAutosaveTimerRef.current) {
@@ -571,6 +591,9 @@ export default function VetPetsEMR() {
             setEditingGroupId('');
             setEditingItem(null);
             setPreviewRecord(null);
+            setSourceSearch('');
+            setShowIncludedSources(false);
+            setAddingRecordKey('');
             setGroupAutosaveStatus('idle');
             setItemAutosaveStatus('idle');
             groupSavedSignatureRef.current = '';
@@ -682,17 +705,21 @@ export default function VetPetsEMR() {
     const copyRecordToGroup = async (record, targetGroupId = selectedGroupId) => {
         if (!targetGroupId) {
             toast.error('Create or select an organized record first.');
-            return;
+            return false;
         }
         if (!record?.sourceType || !record?.sourceId) {
             toast.error('This record cannot be added to an organized summary.');
-            return;
+            return false;
         }
         if (addedToGroup(record, targetGroupId)) {
-            toast.success('That record is already in this organized summary.');
-            return;
+            toast.info('That record is already included in this organized summary.');
+            return false;
         }
 
+        const pendingKey = `${recordKey(record)}:${targetGroupId}`;
+        if (addingRecordKey === pendingKey) return false;
+
+        setAddingRecordKey(pendingKey);
         try {
             await addPetMedicalRecordGroupItem(selectedPetId, {
                 groupId: targetGroupId,
@@ -706,9 +733,13 @@ export default function VetPetsEMR() {
                 ? 'Vaccination copied into the organized summary.'
                 : 'Service record added to the organized summary.');
             await loadRecords({ isAutoRefresh: true });
+            return true;
         } catch (error) {
             console.error('Failed to add a medical record to an organized summary:', error);
             toast.error('The record could not be added to the organized summary. Please try again.');
+            return false;
+        } finally {
+            setAddingRecordKey('');
         }
     };
 
@@ -790,12 +821,13 @@ export default function VetPetsEMR() {
             />
 
             <section className="space-y-4">
-                <Card petHover={false} className="relative z-40 overflow-visible border-slate-200">
+                <Card petHover={false} className="relative z-40 overflow-visible border-slate-200 dark:border-slate-700 dark:bg-slate-900">
                     <CardContent className="p-4">
-                        <div className="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-center">
+                        <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-center">
                             <div>
-                                <h3 className="text-base font-black text-slate-950">Find Pet</h3>
-                                <p className="mt-1 text-xs font-semibold text-slate-500">Search by name, pet ID, breed, or owner.</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#155dfc]">Step 1</p>
+                                <h3 className="mt-1 text-base font-black text-slate-950 dark:text-white">Choose a patient</h3>
+                                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Search by name, pet ID, breed, or owner.</p>
                             </div>
 
                             <div
@@ -813,7 +845,7 @@ export default function VetPetsEMR() {
                                         setIsPetSearchOpen(true);
                                     }}
                                     onFocus={() => setIsPetSearchOpen(true)}
-                                    placeholder="Type to search pets"
+                                    placeholder="Search the patient directory"
                                     className="h-11 text-base"
                                     leftIcon={<Search className="size-4" />}
                                 />
@@ -850,11 +882,11 @@ export default function VetPetsEMR() {
                                                             selectPet(pet);
                                                         }}
                                                         className={`flex w-full items-start justify-between gap-3 rounded-md p-3 text-left transition ${
-                                                            isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                                                            isSelected ? 'bg-blue-50 dark:bg-blue-950/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                                         }`}
                                                     >
                                                         <span className="min-w-0">
-                                                            <span className="block truncate text-sm font-black text-slate-950">
+                                                            <span className="block truncate text-sm font-black text-slate-950 dark:text-white">
                                                                 {pet.petName || pet.name || 'Unnamed pet'}
                                                             </span>
                                                             {meta && (
@@ -898,12 +930,12 @@ export default function VetPetsEMR() {
                     />
                 )}
 
-                <div className={isPetPreviewOpen ? '' : 'xl:hidden'}>
+                {selectedPetId && selectedPet && (
                     <PetPreviewCard
                         pet={selectedPet}
-                        onCollapse={() => setIsPetPreviewOpen(false)}
+                        onEdit={() => setIsPetInformationEditorOpen(true)}
                     />
-                </div>
+                )}
             </section>
 
             {!selectedPetId ? (
@@ -912,23 +944,194 @@ export default function VetPetsEMR() {
                     title="No pet selected"
                     message="Search and select a pet to view or edit medical records."
                 />
-            ) : !isPetPreviewOpen && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsPetPreviewOpen(true)}
-                    aria-label="Show pet information"
-                    aria-expanded={isPetPreviewOpen}
-                    className="fixed right-3 top-28 z-40 hidden size-14 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:flex"
-                >
-                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
-                </Button>
-            )}
+            ) : null}
 
             {selectedPetId && recordsData?.schemaReady === false && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
                     Medical records are temporarily unavailable. Try again later or contact support.
                 </div>
+            )}
+
+            {selectedPetId && (
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <header className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-900/80 sm:px-5">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
+                                    <ClipboardList className="size-5" />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#155dfc]">Clinical workspace</p>
+                                    <h2 className="mt-0.5 text-lg font-black text-slate-950 dark:text-white">Build the owner-ready medical summary</h2>
+                                    <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                        Select one summary, then add the relevant service or vaccination records.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-white text-center dark:border-slate-700 dark:bg-slate-950">
+                                <WorkflowStat label="Summaries" value={groups.length} />
+                                <WorkflowStat label="In target" value={asArray(selectedGroup?.items).length} />
+                                <WorkflowStat label="Available" value={availableSourceCount} />
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="grid min-h-[36rem] lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_22rem]">
+                        <aside className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40 lg:border-b-0 lg:border-r">
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Step 2</p>
+                                    <h3 className="mt-1 font-black text-slate-950 dark:text-white">Choose summary</h3>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openCreateGroup}
+                                    disabled={!selectedPetId || isSavingGroup}
+                                    aria-label="Create a new organized summary"
+                                    className="size-9 shrink-0 bg-[#155dfc] p-0 text-white hover:bg-[#0d4acf]"
+                                >
+                                    {isSavingGroup ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                                </Button>
+                            </div>
+
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1" aria-label="Organized medical summaries">
+                                {groups.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                                        Create the first owner-ready summary.
+                                    </div>
+                                ) : groups.map((group) => {
+                                    const isSelected = String(group.groupId) === String(selectedGroupId);
+                                    const itemCount = asArray(group.items).length;
+
+                                    return (
+                                        <button
+                                            key={group.groupId}
+                                            type="button"
+                                            onClick={() => setSelectedGroupId(String(group.groupId))}
+                                            className={`w-full rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 ${
+                                                isSelected
+                                                    ? 'border-blue-300 bg-blue-50 shadow-sm dark:border-blue-700 dark:bg-blue-950/50'
+                                                    : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800'
+                                            }`}
+                                        >
+                                            <span className="flex items-start gap-2">
+                                                <FolderOpen className={`mt-0.5 size-4 shrink-0 ${isSelected ? 'text-[#155dfc]' : 'text-slate-400'}`} />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block break-words text-sm font-black text-slate-900 dark:text-white">{group.title}</span>
+                                                    <span className="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                                        {itemCount} record{itemCount === 1 ? '' : 's'} · {group.visibleToOwner === false ? 'Internal' : 'Owner visible'}
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </aside>
+
+                        <main className="min-w-0 bg-white p-4 dark:bg-slate-900 sm:p-5">
+                            <div className="mb-4">
+                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Active summary</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                    Edit the owner-facing overview and review the records included below.
+                                </p>
+                            </div>
+
+                            {isLoadingRecords ? (
+                                <LoadingPanel />
+                            ) : groups.length === 0 ? (
+                                <EmptyPanel
+                                    icon={ClipboardList}
+                                    title="Start an organized summary"
+                                    message="Create a summary from the left panel before adding source records."
+                                />
+                            ) : selectedGroup ? (
+                                <RecordGroup
+                                    key={selectedGroup.groupId}
+                                    group={selectedGroup}
+                                    onDrop={(event) => handleDropOnGroup(event, selectedGroup)}
+                                    onEdit={() => openEditGroup(selectedGroup)}
+                                    onDelete={() => removeGroup(selectedGroup)}
+                                    isEditing={String(editingGroupId) === String(selectedGroup.groupId)}
+                                    draft={groupDraft}
+                                    onDraftChange={setGroupDraft}
+                                    onSaveEdit={() => saveGroup(selectedGroup.groupId)}
+                                    onCancelEdit={cancelGroupEdit}
+                                    isSaving={isSavingGroup}
+                                    autosaveStatus={groupAutosaveStatus}
+                                    onEditItem={openEditItem}
+                                    onRemoveItem={removeItem}
+                                    onPreview={setViewer}
+                                />
+                            ) : (
+                                <EmptyPanel
+                                    icon={FolderOpen}
+                                    title="Choose a summary"
+                                    message="Select an organized summary from the left panel to continue."
+                                />
+                            )}
+                        </main>
+
+                        <aside className="min-w-0 border-t border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-950/40 lg:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0">
+                            <div className="border-b border-slate-200 p-4 dark:border-slate-700">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Step 3</p>
+                                        <h3 className="mt-1 font-black text-slate-950 dark:text-white">Add source records</h3>
+                                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Use Add, or drag a card into the active summary.</p>
+                                    </div>
+                                    <Badge className="border-0 bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{sourceRecords.length}</Badge>
+                                </div>
+
+                                <div className="mt-4 space-y-3">
+                                    <Input
+                                        value={sourceSearch}
+                                        onChange={(event) => setSourceSearch(event.target.value)}
+                                        placeholder="Search source records"
+                                        leftIcon={<Search className="size-4" />}
+                                        aria-label="Search service and vaccination records"
+                                    />
+                                    <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                        <Checkbox checked={showIncludedSources} onCheckedChange={(checked) => setShowIncludedSources(checked === true)} />
+                                        Show records already included in this summary
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="grid max-h-[38rem] gap-3 overflow-y-auto p-4 sm:grid-cols-2 xl:max-h-[calc(100vh-19rem)] xl:grid-cols-1">
+                                {!selectedGroupId ? (
+                                    <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                                        Choose or create a summary before adding records.
+                                    </p>
+                                ) : visibleSourceRecords.length === 0 ? (
+                                    <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                                        {sourceRecords.length === 0
+                                            ? 'No paid, finished, or vaccination records are available for this pet.'
+                                            : 'No source records match the current filters.'}
+                                    </p>
+                                ) : (
+                                    visibleSourceRecords.map((record) => {
+                                        const isIncluded = addedToGroup(record, selectedGroupId);
+                                        const pendingKey = `${recordKey(record)}:${selectedGroupId}`;
+
+                                        return (
+                                            <ServiceRecordCard
+                                                key={recordKey(record)}
+                                                record={record}
+                                                onOpenPreview={() => setPreviewRecord(record)}
+                                                onPreview={setViewer}
+                                                onAdd={() => copyRecordToGroup(record)}
+                                                isAddedToTarget={isIncluded}
+                                                isAdding={addingRecordKey === pendingKey}
+                                            />
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </aside>
+                    </div>
+                </section>
             )}
 
             {selectedPetId && (
@@ -939,150 +1142,6 @@ export default function VetPetsEMR() {
                     veterinarian={veterinarianIdentity}
                     onSaved={() => loadRecords({ isAutoRefresh: true })}
                 />
-            )}
-
-            {selectedPetId && (
-            <section className={`grid min-h-[38rem] gap-5 ${isServiceRecordsOpen ? 'xl:grid-cols-[minmax(0,1fr)_24rem]' : 'xl:grid-cols-1'}`}>
-                <main className="min-w-0 space-y-4">
-                    <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-700 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
-                                <ClipboardList className="size-5" />
-                            </span>
-                            <div className="min-w-0">
-                            <h3 className="text-lg font-black text-slate-950 dark:text-white">Organized Medical Records</h3>
-                            {selectedPet && (
-                                <p className="truncate text-sm font-semibold text-slate-500 dark:text-slate-300">
-                                    {selectedPet.name || selectedPet.petName} - {selectedPet.species || 'Pet'} {selectedPet.ownerName ? `- ${selectedPet.ownerName}` : ''}
-                                </p>
-                            )}
-                            </div>
-                        </div>
-                        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:justify-end">
-                            {groups.length > 0 && (
-                                <Select value={String(selectedGroupId)} onValueChange={setSelectedGroupId}>
-                                    <SelectTrigger className="w-full sm:w-72">
-                                        <SelectValue placeholder="Select organized record" displayValue={selectedGroup?.title} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {groups.map((group) => (
-                                            <SelectItem key={group.groupId} value={String(group.groupId)}>
-                                                {group.title}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            <Button
-                                type="button"
-                                onClick={openCreateGroup}
-                                disabled={!selectedPetId || isSavingGroup}
-                                aria-label="Create a new organized summary"
-                                className="shrink-0 gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]"
-                            >
-                                {isSavingGroup ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                                <span>New Organized Summary</span>
-                            </Button>
-                        </div>
-                    </div>
-
-                    {isLoadingRecords ? (
-                        <LoadingPanel />
-                    ) : groups.length === 0 ? (
-                        <EmptyPanel
-                            icon={ClipboardList}
-                            title="No organized records"
-                            message="Create an organized summary, then drop service or vaccination records into it."
-                        />
-                    ) : (
-                        <div className="space-y-4">
-                            {groups.map((group) => (
-                                <RecordGroup
-                                    key={group.groupId}
-                                    group={group}
-                                    selected={String(group.groupId) === String(selectedGroupId)}
-                                    onSelect={() => setSelectedGroupId(String(group.groupId))}
-                                    onDrop={(event) => handleDropOnGroup(event, group)}
-                                    onEdit={() => openEditGroup(group)}
-                                    onDelete={() => removeGroup(group)}
-                                    isEditing={String(editingGroupId) === String(group.groupId)}
-                                    draft={groupDraft}
-                                    onDraftChange={setGroupDraft}
-                                    onSaveEdit={() => saveGroup(group.groupId)}
-                                    onCancelEdit={cancelGroupEdit}
-                                    isSaving={isSavingGroup}
-                                    autosaveStatus={groupAutosaveStatus}
-                                    onEditItem={openEditItem}
-                                    onRemoveItem={removeItem}
-                                    onPreview={setViewer}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </main>
-
-                <aside className={`relative min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm xl:sticky xl:top-6 xl:self-start ${isServiceRecordsOpen ? '' : 'xl:hidden'}`}>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsServiceRecordsOpen(false)}
-                            aria-label="Hide service records"
-                            aria-expanded={isServiceRecordsOpen}
-                            className="absolute -left-5 top-5 z-10 hidden size-10 rounded-full border-blue-200 bg-white p-0 text-[#155dfc] shadow-lg ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
-                        >
-                            <PanelRightClose className="size-5" strokeWidth={2.4} />
-                        </Button>
-
-                        <div className="border-b border-slate-100 p-4 pl-6">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <h3 className="flex items-center gap-2 font-black text-slate-950">
-                                        <ClipboardList className="size-5 text-[#155dfc]" />
-                                        Service Records
-                                    </h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Drag into a group summary.</p>
-                                </div>
-                                <Badge className="border-0 bg-slate-100 text-slate-700">{serviceHistory.length}</Badge>
-                            </div>
-                        </div>
-
-                        <div className="max-h-[34rem] space-y-3 overflow-y-auto p-4">
-                            {serviceHistory.length === 0 ? (
-                                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-400">
-                                    No paid or finished service records found for this pet.
-                                </p>
-                            ) : (
-                                serviceHistory.map((record) => (
-                                    <ServiceRecordCard
-                                        key={recordKey(record)}
-                                        record={record}
-                                        onOpenPreview={() => setPreviewRecord(record)}
-                                        onPreview={setViewer}
-                                    />
-                                ))
-                            )}
-                        </div>
-                    </aside>
-            </section>
-            )}
-
-            {selectedPetId && !isServiceRecordsOpen && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsServiceRecordsOpen(true)}
-                    aria-label="Show service records"
-                    aria-expanded={isServiceRecordsOpen}
-                    className="fixed right-3 top-48 z-40 hidden size-14 items-center justify-center rounded-full border border-blue-200 bg-white p-0 text-[#155dfc] shadow-xl ring-2 ring-white transition hover:border-blue-300 hover:bg-blue-50 xl:flex"
-                >
-                    <PanelRightOpen className="size-5" strokeWidth={2.4} />
-                    {serviceHistory.length > 0 && (
-                        <span className="absolute -left-2 -top-2 flex size-6 items-center justify-center rounded-full bg-red-600 text-xs font-black text-white shadow-md">
-                            {serviceHistory.length}
-                        </span>
-                    )}
-                </Button>
             )}
 
             <Dialog open={Boolean(previewRecord)} onOpenChange={(open) => !open && setPreviewRecord(null)}>
@@ -1097,11 +1156,22 @@ export default function VetPetsEMR() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setPreviewRecord(null)}>Close</Button>
                         <Button
-                            onClick={() => previewRecord && copyRecordToGroup(previewRecord)}
-                            disabled={!selectedGroupId || (previewRecord && addedToGroup(previewRecord, selectedGroupId))}
-                            className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                            onClick={async () => {
+                                if (!previewRecord) return;
+                                const wasAdded = await copyRecordToGroup(previewRecord);
+                                if (wasAdded) setPreviewRecord(null);
+                            }}
+                            disabled={
+                                !selectedGroupId
+                                || (previewRecord && addedToGroup(previewRecord, selectedGroupId))
+                                || (previewRecord && addingRecordKey === `${recordKey(previewRecord)}:${selectedGroupId}`)
+                            }
+                            className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                         >
-                            Add to Target Summary
+                            {previewRecord && addingRecordKey === `${recordKey(previewRecord)}:${selectedGroupId}`
+                                ? <Loader2 className="size-4 animate-spin" />
+                                : <Plus className="size-4" />}
+                            Add to {selectedGroup?.title || 'active summary'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1178,20 +1248,39 @@ export default function VetPetsEMR() {
                 alt={viewer?.alt || 'Medical record image'}
                 onOpenChange={(open) => !open && setViewer(null)}
             />
+            {isPetInformationEditorOpen && selectedPet && (
+                <EditPetInformationDialog
+                    petId={selectedPet.id || selectedPet.db_id || selectedPetId}
+                    onClose={() => setIsPetInformationEditorOpen(false)}
+                    onSaved={(updatedPet) => {
+                        setPets((current) => current.map((pet) => String(pet.db_id || pet.id) === String(selectedPetId) ? { ...pet, ...updatedPet } : pet));
+                        setRecordsData((current) => current ? { ...current, pet: { ...current.pet, ...updatedPet } } : current);
+                    }}
+                />
+            )}
         </div>
     );
 }
 
-function PetPreviewCard({ pet, onCollapse }) {
+function WorkflowStat({ label, value }) {
+    return (
+        <div className="min-w-20 border-r border-slate-200 px-3 py-2 last:border-r-0 dark:border-slate-700">
+            <p className="text-base font-black text-slate-950 dark:text-white">{value}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+        </div>
+    );
+}
+
+function PetPreviewCard({ pet, onEdit }) {
     const imageSrc = pet?.profileImage || pet?.setpetImage_url || '';
     const petName = pet?.name || pet?.petName || 'No pet selected';
     const petId = pet?.id || pet?.pet_sharable_ID || pet?.dbId || pet?.db_id || 'N/A';
 
     return (
-        <Card className="overflow-hidden border-slate-200">
-            <div className="flex flex-col gap-4 border-b border-slate-100 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="overflow-hidden border-slate-200 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-4 border-b border-slate-100 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                         {imageSrc ? (
                             <ProtectedImage
                                 src={imageSrc}
@@ -1205,29 +1294,24 @@ function PetPreviewCard({ pet, onCollapse }) {
                     </div>
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="break-words text-lg font-black text-slate-950">{petName}</h3>
+                            <h3 className="break-words text-lg font-black text-slate-950 dark:text-white">{petName}</h3>
                             <Badge className="border-0 bg-blue-50 text-[#155dfc]">
                                 {pet?.status || 'Active'}
                             </Badge>
                         </div>
-                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                        <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
                             {[pet?.species, pet?.breed].filter(Boolean).join(' - ') || 'Species not set'}
                         </p>
                         <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400">Pet Information</p>
                     </div>
                 </div>
 
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={onCollapse}
-                    aria-label="Hide pet information"
-                    className="hidden h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 xl:inline-flex"
-                >
-                    <PanelRightClose className="size-4" strokeWidth={2.4} />
-                    Hide
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={onEdit} className="h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 dark:border-blue-900 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/50">
+                        <Pencil className="size-4" strokeWidth={2.4} />
+                        Edit pet information
+                    </Button>
+                </div>
             </div>
 
             <CardContent className="p-4">
@@ -1484,17 +1568,17 @@ function VaccineCell({ label, value, strong = false, highlight = false }) {
 
 function PreviewInfo({ label, value }) {
     return (
-        <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-2">
+        <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className="mt-1 truncate text-xs font-bold text-slate-800">{value || 'N/A'}</p>
+            <p className="mt-1 truncate text-xs font-bold text-slate-800 dark:text-slate-100">{value || 'N/A'}</p>
         </div>
     );
 }
 
 function LoadingPanel() {
     return (
-        <div className="flex min-h-80 items-center justify-center rounded-xl border border-slate-200 bg-white">
-            <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+        <div className="flex min-h-80 items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
                 <Loader2 className="size-5 animate-spin text-[#155dfc]" />
                 Loading medical records...
             </div>
@@ -1504,21 +1588,19 @@ function LoadingPanel() {
 
 function EmptyPanel({ icon, title, message }) {
     return (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
             {createElement(icon, { className: 'mx-auto mb-4 size-12 text-slate-300' })}
-            <h3 className="text-lg font-black text-slate-900">{title}</h3>
-            <p className="mt-2 text-sm font-semibold text-slate-500">{message}</p>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">{title}</h3>
+            <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">{message}</p>
         </div>
     );
 }
 
 function RecordGroup({
     group,
-    selected,
     isEditing,
     draft,
     isSaving,
-    onSelect,
     onDrop,
     onEdit,
     onDelete,
@@ -1537,9 +1619,9 @@ function RecordGroup({
                 event.dataTransfer.dropEffect = 'copy';
             }}
             onDrop={onDrop}
-            className={`overflow-hidden rounded-xl border bg-white shadow-sm transition ${selected ? 'border-[#155dfc] ring-2 ring-blue-100' : 'border-slate-200'}`}
+            className="overflow-hidden rounded-xl border border-blue-300 bg-white shadow-sm ring-2 ring-blue-100 transition dark:border-blue-800 dark:bg-slate-900 dark:ring-blue-950"
         >
-            <header className="border-b border-slate-100 bg-slate-50 p-4">
+            <header className="border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
                 {isEditing ? (
                     <div className="space-y-3">
                         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
@@ -1594,19 +1676,19 @@ function RecordGroup({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <button type="button" onClick={onSelect} className="min-w-0 text-left">
+                        <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-lg font-black text-slate-950">{group.title}</h3>
-                                {selected && <Badge className="border-0 bg-blue-50 text-[#155dfc]">Target</Badge>}
+                                <h3 className="text-lg font-black text-slate-950 dark:text-white">{group.title}</h3>
+                                <Badge className="border-0 bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">Active</Badge>
                                 {!group.visibleToOwner && <Badge className="border-0 bg-amber-50 text-amber-700">Internal</Badge>}
                             </div>
-                            {group.summary && <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600">{group.summary}</p>}
+                            {group.summary && <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600 dark:text-slate-300">{group.summary}</p>}
                             {group.updatedByName && (
                                 <p className="mt-2 text-xs font-black uppercase tracking-widest text-slate-400">
                                     Edited by {editorLabel(group.updatedByName)}
                                 </p>
                             )}
-                        </button>
+                        </div>
                         <div className="flex shrink-0 gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={onEdit} className="gap-1">
                                 <Pencil className="size-3" />
@@ -1621,10 +1703,14 @@ function RecordGroup({
                 )}
             </header>
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
                 {asArray(group.items).length === 0 ? (
-                    <div className="p-5 text-sm font-semibold text-slate-400">
-                        Drop service records or vaccination rows here.
+                    <div className="m-4 rounded-lg border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center dark:border-blue-900 dark:bg-blue-950/20">
+                        <FolderOpen className="mx-auto size-8 text-blue-300 dark:text-blue-700" />
+                        <p className="mt-3 text-sm font-black text-slate-700 dark:text-slate-200">This summary is ready for records</p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                            Use Add in the source panel, or drag a service or vaccination record here.
+                        </p>
                     </div>
                 ) : (
                     group.items.map((item) => (
@@ -1678,7 +1764,7 @@ function GroupedItem({ item, onEdit, onRemove, onPreview }) {
     );
 }
 
-function ServiceRecordCard({ record, onOpenPreview, onPreview }) {
+function ServiceRecordCard({ record, onOpenPreview, onPreview, onAdd, isAddedToTarget, isAdding }) {
     const attachments = [...asArray(record.attachments), ...asArray(record.sourceUploads)];
     const openPreview = () => {
         onOpenPreview?.();
@@ -1686,45 +1772,38 @@ function ServiceRecordCard({ record, onOpenPreview, onPreview }) {
 
     return (
         <article
-            role="button"
-            tabIndex={0}
             draggable
-            onClick={openPreview}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    openPreview();
-                }
-            }}
             onDragStart={(event) => {
                 event.dataTransfer.setData(MEDICAL_RECORD_DRAG_TYPE, dragPayload('service', record));
                 event.dataTransfer.setData('application/json', JSON.stringify(record));
                 event.dataTransfer.setData('text/plain', record.title || 'Service record');
                 event.dataTransfer.effectAllowed = 'copy';
             }}
-            className="cursor-grab rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-200 hover:shadow active:cursor-grabbing"
+            className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-200 hover:shadow dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-800"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <Badge className="border-0 bg-slate-100 text-slate-700">{sourceLabel(record)}</Badge>
-                        {record.isAddedToOrganizedRecord && (
+                        <Badge className="border-0 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{sourceLabel(record)}</Badge>
+                        {isAddedToTarget && (
                             <Badge className="gap-1 border-0 bg-green-50 text-green-700">
                                 <CheckCircle2 className="size-3" />
-                                Added
+                                Included
                             </Badge>
                         )}
                     </div>
-                    <h4 className="break-words text-sm font-black text-slate-950">{record.title || 'Service record'}</h4>
+                    <button type="button" onClick={openPreview} className="break-words text-left text-sm font-black text-slate-950 hover:text-[#155dfc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-white dark:hover:text-blue-300">
+                        {record.title || 'Service record'}
+                    </button>
                     <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-500">
                         <CalendarDays className="size-3" />
                         {formatDisplayDate(record.serviceDate)}
                     </p>
                 </div>
-                <GripVertical className="mt-1 size-4 shrink-0 text-slate-300" />
+                <GripVertical className="mt-1 size-4 shrink-0 cursor-grab text-slate-300 active:cursor-grabbing" aria-hidden="true" />
             </div>
             {record.summary && (
-                <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-xs font-semibold leading-5 text-slate-600">{record.summary}</p>
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300">{record.summary}</p>
             )}
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
                 {record.billingStatus && <span>Billing: {record.billingStatus}</span>}
@@ -1732,6 +1811,22 @@ function ServiceRecordCard({ record, onOpenPreview, onPreview }) {
                 {attachments.length > 0 && <span>{attachments.length} file{attachments.length === 1 ? '' : 's'}</span>}
             </div>
             {attachments.length > 0 && <AttachmentStrip attachments={attachments.slice(0, 4)} onPreview={onPreview} compact />}
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+                <Button type="button" size="sm" variant="outline" onClick={openPreview} className="gap-1.5">
+                    <Eye className="size-3.5" />
+                    Details
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    onClick={onAdd}
+                    disabled={isAddedToTarget || isAdding}
+                    className="gap-1.5 bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                >
+                    {isAdding ? <Loader2 className="size-3.5 animate-spin" /> : isAddedToTarget ? <CheckCircle2 className="size-3.5" /> : <Plus className="size-3.5" />}
+                    {isAdding ? 'Adding' : isAddedToTarget ? 'Included' : 'Add'}
+                </Button>
+            </div>
         </article>
     );
 }

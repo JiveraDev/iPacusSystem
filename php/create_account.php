@@ -80,6 +80,12 @@ $specialization = $input['specialization'] ?? 'General Practice';
 $position = $role === 'Super Admin' ? 'Super Admin' : ($input['position'] ?? 'Staff');
 $employmentStatus = $input['employmentStatus'] ?? 'full-time';
 
+if ($role === 'Admin' && !in_array($position, ['Assistant Vet', 'Secretary', 'Staff', 'HR'], true)) {
+    http_response_code(422);
+    echo json_encode(['message' => 'Select a valid Admin position.']);
+    exit;
+}
+
 if (!$firstName || !$lastName || !$email || !$password || !$role) {
     http_response_code(400);
     echo json_encode(['message' => 'Missing required fields for account creation.']);

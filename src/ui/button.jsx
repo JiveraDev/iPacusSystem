@@ -34,22 +34,115 @@ function buttonText(children) {
   }).filter(Boolean).join(" ");
 }
 
+function wrapButtonLabels(children) {
+  return React.Children.map(children, (child) => {
+    if (typeof child === "string" || typeof child === "number") {
+      return String(child).trim() === ""
+        ? child
+        : <span data-slot="button-label">{child}</span>;
+    }
+
+    if (React.isValidElement(child) && child.type === React.Fragment) {
+      return React.cloneElement(child, undefined, wrapButtonLabels(child.props.children));
+    }
+
+    if (React.isValidElement(child) && child.type === "span" && buttonText(child.props.children)) {
+      return React.cloneElement(child, {
+        ...child.props,
+        "data-slot": child.props["data-slot"] || "button-label",
+      });
+    }
+
+    return child;
+  });
+}
+
 const Button = React.forwardRef(({ className, variant, size, children, ...props }, ref) => {
   const childArray = React.Children.toArray(children);
   const hasIcon = childArray.some((child) => React.isValidElement(child));
   const label = buttonText(children);
   const hasIconLabel = Boolean(hasIcon && label);
+  const internalRef = React.useRef(null);
+  const requiredWidthRef = React.useRef(0);
+  const renderedChildren = wrapButtonLabels(children);
+  const setButtonRef = React.useCallback((node) => {
+    internalRef.current = node;
+    if (typeof ref === "function") {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  }, [ref]);
+
+  React.useLayoutEffect(() => {
+    const button = internalRef.current;
+    if (!button || typeof window === "undefined") return undefined;
+
+    let animationFrame = 0;
+    const measure = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const labels = Array.from(button.querySelectorAll('[data-slot="button-label"]'));
+        const icons = Array.from(button.querySelectorAll('svg'));
+        if (labels.length === 0 || icons.length === 0) {
+          delete button.dataset.iconOnly;
+          requiredWidthRef.current = 0;
+          return;
+        }
+
+        const styles = window.getComputedStyle(button);
+        const horizontalPadding = (Number.parseFloat(styles.paddingLeft) || 0)
+          + (Number.parseFloat(styles.paddingRight) || 0);
+        const borderWidth = (Number.parseFloat(styles.borderLeftWidth) || 0)
+          + (Number.parseFloat(styles.borderRightWidth) || 0);
+        const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0;
+        const labelWidth = labels.reduce((total, element) => total + element.scrollWidth, 0);
+        const iconWidth = icons.reduce((total, element) => total + element.getBoundingClientRect().width, 0);
+        const requiredWidth = Math.ceil(horizontalPadding + borderWidth + labelWidth + iconWidth + gap);
+
+        requiredWidthRef.current = requiredWidth;
+        button.dataset.iconOnly = button.getBoundingClientRect().width + 1 < requiredWidthRef.current
+          ? "true"
+          : "false";
+      });
+    };
+
+    const probeAvailableWidth = () => {
+      delete button.dataset.iconOnly;
+      measure();
+    };
+
+    probeAvailableWidth();
+    const buttonObserver = typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          if (button.dataset.iconOnly !== "true") measure();
+        })
+      : null;
+    const parentObserver = typeof ResizeObserver === "function" && button.parentElement
+      ? new ResizeObserver(probeAvailableWidth)
+      : null;
+    buttonObserver?.observe(button);
+    parentObserver?.observe(button.parentElement);
+    window.addEventListener("resize", probeAvailableWidth);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      buttonObserver?.disconnect();
+      parentObserver?.disconnect();
+      window.removeEventListener("resize", probeAvailableWidth);
+    };
+  }, [children]);
 
   return (
     <button
-      ref={ref}
+      ref={setButtonRef}
       data-slot="button"
       aria-label={props["aria-label"] || (hasIconLabel ? label : undefined)}
       title={props.title || (hasIconLabel ? label : undefined)}
       className={buttonVariants({ variant, size, className })}
       {...props}
     >
-      {children}
+      {renderedChildren}
     </button>
   );
 });

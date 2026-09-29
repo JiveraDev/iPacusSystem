@@ -45,11 +45,28 @@ if (empty($routeAccessPolicy['public'])) {
     require_once __DIR__ . '/db.php';
     $pdo = ipawcus_get_pdo();
     ipawcus_enforce_route_access($pdo, $path, $_SERVER['REQUEST_METHOD']);
+
+    require_once __DIR__ . '/staff_activity_helpers.php';
+    staff_activity_register_mutation($pdo, $GLOBALS['ipawcus_current_api_user'], $path, $_SERVER['REQUEST_METHOD']);
 }
 
 switch ($path) {
     case '/login':
         require_once __DIR__ . '/login.php';
+        break;
+    case '/auth/google':
+        require_once __DIR__ . '/auth_google.php';
+        break;
+    case '/auth/google/complete':
+        require_once __DIR__ . '/auth_google_complete.php';
+        break;
+    case '/account/google':
+        require_once __DIR__ . '/account_google.php';
+        break;
+    case '/activity':
+    case '/activity/options':
+    case '/activity/view':
+        require_once __DIR__ . '/staff_activity.php';
         break;
     case '/auth/verify-email':
         require_once __DIR__ . '/auth_verify_email.php';
@@ -146,6 +163,9 @@ switch ($path) {
     case '/lifecycle/recovery-report':
         require_once __DIR__ . '/lifecycle_recovery_report.php';
         break;
+    case '/system-backups':
+        require_once __DIR__ . '/system_backups.php';
+        break;
     case '/reports/dashboard':
         require_once __DIR__ . '/reports_dashboard.php';
         break;
@@ -164,6 +184,9 @@ switch ($path) {
     case '/service-display-settings':
         require_once __DIR__ . '/service_display_settings.php';
         break;
+    case '/vet-presence':
+        require_once __DIR__ . '/vet_presence.php';
+        break;
     case '/branches':
         require_once __DIR__ . '/branches.php';
         break;
@@ -175,6 +198,9 @@ switch ($path) {
         break;
     case '/rooms/availability':
         require_once __DIR__ . '/get_room_availability.php';
+        break;
+    case '/grooming':
+        require_once __DIR__ . '/grooming.php';
         break;
     case '/boarding/rooms':
         $_GET['action'] = 'rooms';

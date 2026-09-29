@@ -16,6 +16,7 @@ export const ADMIN_FEATURE_GROUPS = [
         description: 'Daily queues, boarding, sales, and stock workflows.',
         features: [
             { key: 'boarding', label: 'Boarding', description: 'Manage kennel rooms, stays, care, and availability.' },
+            { key: 'grooming', label: 'Grooming', description: 'Manage grooming intake, staff, vet reviews, and pickup.' },
             { key: 'queue', label: 'Queue', description: 'Manage clinic queues and patient assignments.' },
             { key: 'pos', label: 'Point of Sale', description: 'Create clinic sales and manage visit billing.' },
             { key: 'inventory', label: 'Inventory', description: 'Add, receive, transfer, adjust, and archive stock.' },
@@ -63,6 +64,7 @@ export function getAdminFeatureForDashboardPath(path) {
     if (normalized.startsWith('/dashboard/record-requests')) return 'record_requests';
     if (normalized.startsWith('/dashboard/bookings')) return 'bookings';
     if (normalized.startsWith('/dashboard/boarding')) return 'boarding';
+    if (normalized.startsWith('/dashboard/grooming')) return 'grooming';
     if (normalized.startsWith('/dashboard/queue')) return 'queue';
     if (normalized.startsWith('/dashboard/pos')) return 'pos';
     if (normalized.startsWith('/dashboard/inventory')) return 'inventory';

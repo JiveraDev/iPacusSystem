@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -12,6 +12,8 @@ import {
     CheckCircle2,
     ListTodo,
     Camera,
+    ChevronLeft,
+    ChevronRight,
     Loader2,
     Link2,
 } from 'lucide-react';
@@ -33,6 +35,86 @@ import { fetchAllPets, updatePetStatus } from '../../services/petService';
 import { uploadImageFile } from '../../services/uploadService';
 
 const QUEUE_REGISTRATION_HANDOFF_KEY = 'ipawcus-queue-registration-handoff';
+const REGISTERED_PETS_PAGE_SIZE = 10;
+
+const DEFAULT_PET_BREEDS = {
+    Dog: [
+        'Aspin (Askal)',
+        'Beagle',
+        'Chihuahua',
+        'Dachshund',
+        'French Bulldog',
+        'German Shepherd',
+        'Golden Retriever',
+        'Labrador Retriever',
+        'Pomeranian',
+        'Poodle',
+        'Pug',
+        'Shih Tzu',
+        'Siberian Husky',
+        'Mixed Breed',
+    ],
+    Cat: [
+        'Domestic Shorthair',
+        'Domestic Longhair',
+        'Persian',
+        'Siamese',
+        'British Shorthair',
+        'Maine Coon',
+        'Ragdoll',
+        'Bengal',
+        'Mixed Breed',
+    ],
+    Bird: ['Budgerigar', 'Cockatiel', 'Lovebird', 'Parrot', 'Canary', 'Finch', 'Mixed Breed'],
+    Rabbit: ['Holland Lop', 'Mini Rex', 'Lionhead', 'Netherland Dwarf', 'New Zealand', 'Mixed Breed'],
+    Hamster: ['Syrian', 'Dwarf Campbell', 'Winter White', 'Roborovski', 'Chinese Hamster'],
+    'Guinea Pig': ['American', 'Abyssinian', 'Peruvian', 'Teddy', 'Mixed Breed'],
+    Reptile: ['Ball Python', 'Bearded Dragon', 'Leopard Gecko', 'Red-eared Slider', 'Tortoise', 'Mixed Breed'],
+    Other: ['Mixed Breed'],
+};
+
+const DEFAULT_PET_SPECIES = Object.keys(DEFAULT_PET_BREEDS);
+
+function cleanOption(value) {
+    return String(value || '').trim();
+}
+
+function uniqueOptions(values) {
+    const options = new Map();
+    values.forEach((value) => {
+        const label = cleanOption(value);
+        if (label) {
+            const key = label.toLocaleLowerCase();
+            if (!options.has(key)) options.set(key, label);
+        }
+    });
+    return [...options.values()].sort((left, right) => left.localeCompare(right));
+}
+
+function petSpecies(pet) {
+    return cleanOption(pet?.species || pet?.petSpecies || pet?.pet_species);
+}
+
+function petBreed(pet) {
+    return cleanOption(pet?.breed || pet?.petBreed || pet?.pet_breed);
+}
+
+function localTodayValue() {
+    const today = new Date();
+    const localDate = new Date(today.getTime() - (today.getTimezoneOffset() * 60_000));
+    return localDate.toISOString().slice(0, 10);
+}
+
+function paginationItems(totalPages, currentPage) {
+    const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
+        .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1);
+    return pages.flatMap((page, index) => {
+        if (index === 0) return [page];
+        const gap = page - pages[index - 1];
+        if (gap === 2) return [page - 1, page];
+        return gap > 2 ? ['ellipsis', page] : [page];
+    });
+}
 
 const emptyPetProfile = {
     id: '',
@@ -64,6 +146,26 @@ export default function PetRegister() {
     const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [registeredPetsOpen, setRegisteredPetsOpen] = useState(false);
+    const [registeredPetsPage, setRegisteredPetsPage] = useState(1);
+    const todayValue = useMemo(localTodayValue, []);
+
+    const speciesOptions = useMemo(() => uniqueOptions([
+        ...DEFAULT_PET_SPECIES,
+        ...registeredPets.map(petSpecies),
+        formData.species,
+    ]), [formData.species, registeredPets]);
+
+    const breedOptions = useMemo(() => {
+        const selectedSpecies = cleanOption(formData.species).toLocaleLowerCase();
+        const defaultBreeds = Object.entries(DEFAULT_PET_BREEDS)
+            .find(([species]) => species.toLocaleLowerCase() === selectedSpecies)?.[1] || [];
+        const registeredBreeds = registeredPets
+            .filter((pet) => petSpecies(pet).toLocaleLowerCase() === selectedSpecies)
+            .map(petBreed);
+
+        return uniqueOptions([...defaultBreeds, ...registeredBreeds, formData.breed]);
+    }, [formData.breed, formData.species, registeredPets]);
 
     // Dialog and Pet ID states
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -112,6 +214,17 @@ export default function PetRegister() {
             console.error('Failed to update status:', error);
             toast.error('The pet status could not be updated. Please try again.');
         }
+    };
+
+    const handleSpeciesChange = (value) => {
+        const nextSpecies = cleanOption(value);
+        setFormData((previous) => ({
+            ...previous,
+            species: nextSpecies,
+            breed: previous.species.toLocaleLowerCase() === nextSpecies.toLocaleLowerCase()
+                ? previous.breed
+                : '',
+        }));
     };
 
     const openPetDirectoryProfile = (petId) => {
@@ -256,68 +369,66 @@ export default function PetRegister() {
 
         return matchesSearch && matchesStatus;
     });
+    const registeredPetsPageCount = Math.max(1, Math.ceil(filteredRegisteredPets.length / REGISTERED_PETS_PAGE_SIZE));
+    const currentRegisteredPetsPage = Math.min(registeredPetsPage, registeredPetsPageCount);
+    const firstRegisteredPetIndex = (currentRegisteredPetsPage - 1) * REGISTERED_PETS_PAGE_SIZE;
+    const paginatedRegisteredPets = filteredRegisteredPets.slice(firstRegisteredPetIndex, firstRegisteredPetIndex + REGISTERED_PETS_PAGE_SIZE);
 
     return (
-        <div className="space-y-6">
+        <div className="mx-auto max-w-[1600px] space-y-5 pb-20 sm:space-y-6">
             <DashboardPageHeader
                 icon={PawPrint}
                 title="Register New Pet"
-                description="Complete pet profiling and registration."
+                description="Create a patient profile and record the details needed for future visits."
                 petHover
                 petKind="bunny"
                 petAccent="sun"
             />
 
             {/* Registration Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <form onSubmit={handleSubmit} className="space-y-5 dark:[&_label]:text-slate-200 sm:space-y-6">
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(340px,5fr)] xl:items-start">
                     {/* Left Column */}
-                    <div className="min-w-0 space-y-6">
+                    <div className="min-w-0 space-y-5">
                         {/* Pet Information Section */}
-                        <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <PawPrint className="size-5 text-[#155dfc]" />
-                                <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#0a0a0a]">
-                                    Pet Information
-                                </h3>
+                        <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+                            <div className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300"><PawPrint className="size-5" /></span>
+                                <div>
+                                    <h2 className="text-base font-bold text-slate-950 dark:text-white">Pet information</h2>
+                                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Identity and physical details</p>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div className="flex flex-col items-center justify-center mb-4 pt-2 sm:col-span-2">
-                                    <Label className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#0a0a0a] mb-4 w-full">
-                                        Pet Profile Picture
-                                    </Label>
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center transition-all group-hover:border-[#155dfc]">
+                                <div className="flex items-center gap-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60 sm:col-span-2">
+                                    <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900">
                                             {formData.imagePreview ? (
                                                 <img 
                                                     src={formData.imagePreview} 
-                                                    alt="Preview" 
-                                                    className="w-full h-full object-cover"
+                                                    alt="Pet profile preview"
+                                                    className="size-full object-cover"
                                                 />
                                             ) : (
-                                                <PawPrint className="size-12 text-slate-300" />
+                                                <Camera className="size-7 text-slate-400" />
                                             )}
-                                        </div>
-                                        <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl">
-                                            <div className="flex flex-col items-center text-white text-xs gap-1">
-                                                <Camera className="size-6" />
-                                                <span>{formData.imagePreview ? "Change" : "Upload"}</span>
-                                            </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Profile photo <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span></p>
+                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Helps staff identify the pet at a glance.</p>
+                                        <Label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700 focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                                            <Camera className="size-3.5" />
+                                            {formData.imagePreview ? 'Change photo' : 'Choose photo'}
                                             <input 
                                                 type="file" 
-                                                className="hidden" 
+                                                className="sr-only"
                                                 accept="image/*" 
                                                 onChange={handleImageChange}
+                                                aria-label="Choose pet profile photo"
                                             />
-                                        </label>
+                                        </Label>
+                                        {isUploading && <p className="mt-1 flex items-center gap-1 text-xs text-blue-700 dark:text-blue-300"><Loader2 className="size-3 animate-spin" />Uploading image...</p>}
                                     </div>
-                                    {isUploading && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-[#155dfc]">
-                                            <Loader2 className="size-3 animate-spin" />
-                                            <span>Uploading image...</span>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div className="sm:col-span-2">
@@ -338,19 +449,21 @@ export default function PetRegister() {
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Species *
                                     </label>
-                                    <Select value={formData.species} onValueChange={(value) => handleInputChange('species', value)}>
+                                    <Select
+                                        value={formData.species}
+                                        onValueChange={handleSpeciesChange}
+                                        searchPlaceholder="Search or type a species"
+                                        allowCustom
+                                        customOptionLabel={(value) => `Add species "${value}"`}
+                                        onCreateOption={handleSpeciesChange}
+                                    >
                                         <SelectTrigger className="h-[40px]">
                                             <SelectValue placeholder="Select species" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Dog">Dog</SelectItem>
-                                            <SelectItem value="Cat">Cat</SelectItem>
-                                            <SelectItem value="Bird">Bird</SelectItem>
-                                            <SelectItem value="Rabbit">Rabbit</SelectItem>
-                                            <SelectItem value="Hamster">Hamster</SelectItem>
-                                            <SelectItem value="Guinea Pig">Guinea Pig</SelectItem>
-                                            <SelectItem value="Reptile">Reptile</SelectItem>
-                                            <SelectItem value="Other">Other</SelectItem>
+                                            {speciesOptions.map((species) => (
+                                                <SelectItem key={species} value={species}>{species}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -359,14 +472,24 @@ export default function PetRegister() {
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Breed *
                                     </label>
-                                    <Input
+                                    <Select
                                         value={formData.breed}
-                                        onChange={(e) => handleInputChange('breed', e.target.value)}
-                                        placeholder="Enter breed"
-                                        restriction="name"
-                                        className="h-[40px]"
-                                        required
-                                    />
+                                        onValueChange={(value) => handleInputChange('breed', value)}
+                                        disabled={!formData.species}
+                                        searchPlaceholder="Search or type a breed"
+                                        allowCustom
+                                        customOptionLabel={(value) => `Add breed "${value}"`}
+                                        onCreateOption={(value) => handleInputChange('breed', cleanOption(value))}
+                                    >
+                                        <SelectTrigger className="h-[40px]">
+                                            <SelectValue placeholder={formData.species ? 'Select breed' : 'Select species first'} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {breedOptions.map((breed) => (
+                                                <SelectItem key={breed} value={breed}>{breed}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div>
@@ -377,6 +500,7 @@ export default function PetRegister() {
                                         type="date"
                                         value={formData.birthDate}
                                         onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                                        max={todayValue}
                                         className="h-[40px]"
                                         required
                                     />
@@ -386,13 +510,9 @@ export default function PetRegister() {
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Age
                                     </label>
-                                    <Input
-                                        value={formData.age}
-                                        onChange={(e) => handleInputChange('age', e.target.value)}
-                                        placeholder="e.g., 5"
-                                        restriction="integer"
-                                        className="h-[40px]"
-                                    />
+                                    <div className="flex min-h-[40px] items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                                        {formData.age || <span className="font-normal text-slate-500 dark:text-slate-400">Calculated from birth date</span>}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -474,12 +594,13 @@ export default function PetRegister() {
                         </div>
 
                         {/* Owner Section */}
-                        <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <PawPrint className="size-5 text-[#155dfc]" />
-                                <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#0a0a0a]">
-                                    Owner
-                                </h3>
+                        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+                            <div className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300"><PawPrint className="size-5" /></span>
+                                <div>
+                                    <h2 className="text-base font-bold text-slate-950 dark:text-white">Owner</h2>
+                                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Enter a name now; link an account later.</p>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -503,14 +624,15 @@ export default function PetRegister() {
                     </div>
 
                     {/* Right Column */}
-                    <div className="min-w-0 space-y-6">
+                    <div className="min-w-0 space-y-5">
                         {/* Medical Information Section */}
-                        <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-6 space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <FileText className="size-5 text-[#155dfc]" />
-                                <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#0a0a0a]">
-                                    Medical Information
-                                </h3>
+                        <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+                            <div className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300"><FileText className="size-5" /></span>
+                                <div>
+                                    <h2 className="text-base font-bold text-slate-950 dark:text-white">Medical information</h2>
+                                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Optional history for the clinical team</p>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -551,7 +673,7 @@ export default function PetRegister() {
                                 </div>
 
 
-<hr className="border-[#000]" />
+                                <hr className="border-slate-200 dark:border-slate-700" />
                                 <div>
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Last Visit Date
@@ -568,7 +690,7 @@ export default function PetRegister() {
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Veterinary Notes
                                         <span className="font-['Arimo:Regular',sans-serif] text-[14px]  text-[gray] block ">
-                                            &nbsp; (Optional coming form other veterinarian)
+                                            &nbsp;(optional notes from another veterinarian)
                                         </span>
                                     </label>
                                     <Textarea
@@ -584,7 +706,7 @@ export default function PetRegister() {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+                <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-700 sm:flex-row sm:flex-wrap sm:justify-end">
                     <Button
                         type="button"
                         variant="outline"
@@ -595,6 +717,7 @@ export default function PetRegister() {
                     </Button>
                     <Button
                         type="submit"
+                        disabled={isUploading}
                         className="h-[40px] w-full bg-[#155dfc] hover:bg-[#0d4acf] sm:w-[180px]"
                     >
                         <Plus className="size-4 mr-2" />
@@ -602,25 +725,40 @@ export default function PetRegister() {
                     </Button>
                 </div>
             </form>
-            {/* Registered Pets List */}
-            <div className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[14px] p-4 space-y-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <Button
+                type="button"
+                onClick={() => setRegisteredPetsOpen(true)}
+                className="fixed bottom-5 right-5 z-40 h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf] sm:bottom-7 sm:right-7"
+            >
+                <ListTodo className="size-5" />
+                <span>Registered Pets List</span>
+            </Button>
+
+            <Dialog open={registeredPetsOpen} onOpenChange={setRegisteredPetsOpen}>
+                <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto p-0">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Registered Pets List</DialogTitle>
+                        <DialogDescription>Search, filter, and open registered pet profiles.</DialogDescription>
+                    </DialogHeader>
+            <div className="space-y-4 p-4 sm:p-6">
+                <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-700 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex items-center gap-2">
                         <ListTodo className="size-5 text-[#155dfc]" />
-                        <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#0a0a0a]">
+                        <h3 className="text-lg font-bold text-slate-950 dark:text-white">
                             Registered Pets List
                         </h3>
                     </div>
                     
-                    <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-[minmax(180px,250px)_140px_auto] sm:items-center">
+                    <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(180px,1fr)_160px_auto] sm:items-center lg:w-auto">
                         <Input
                             placeholder="Search pet name or ID..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => { setSearchTerm(e.target.value); setRegisteredPetsPage(1); }}
+                            aria-label="Search registered pets"
                             className="h-[36px] w-full"
                         />
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="h-[36px] w-full">
+                        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setRegisteredPetsPage(1); }}>
+                            <SelectTrigger className="h-[36px] w-full" aria-label="Filter registered pets by status">
                                 <SelectValue placeholder="All Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -630,7 +768,7 @@ export default function PetRegister() {
                                 <SelectItem value="Deceased">Deceased</SelectItem>
                             </SelectContent>
                         </Select>
-                        <span className="justify-self-start bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap sm:justify-self-auto">
+                        <span className="justify-self-start whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400 sm:justify-self-auto">
                             Total: {registeredPets.length}
                         </span>
                     </div>
@@ -638,11 +776,11 @@ export default function PetRegister() {
 
                 <div className="space-y-3 sm:hidden">
                     {isLoading ? (
-                        <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
                             Loading pets...
                         </div>
                     ) : filteredRegisteredPets.length > 0 ? (
-                        filteredRegisteredPets.map((pet) => (
+                        paginatedRegisteredPets.map((pet) => (
                             <div
                                 key={pet.id}
                                 role="button"
@@ -650,12 +788,12 @@ export default function PetRegister() {
                                 title="Open pet directory profile"
                                 onClick={() => openPetDirectoryProfile(pet.id)}
                                 onKeyDown={(event) => handlePetShortcutKeyDown(event, pet.id)}
-                                className={`cursor-pointer rounded-[12px] border p-4 transition hover:shadow-md ${
+                                className={`cursor-pointer rounded-xl border p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                                     pet.status === 'Emergency'
-                                        ? 'border-red-100 bg-red-50 hover:bg-red-100'
+                                        ? 'border-red-100 bg-red-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40'
                                         : pet.status === 'Deceased'
-                                        ? 'border-slate-200 bg-slate-100 opacity-75 hover:bg-slate-200'
-                                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                                        ? 'border-slate-200 bg-slate-100 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800'
+                                        : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
                                 }`}
                             >
                                 <div className="flex items-start justify-between gap-3">
@@ -663,7 +801,7 @@ export default function PetRegister() {
                                         <code className="inline-block max-w-full truncate rounded bg-slate-100 px-2 py-1 font-mono text-xs text-[#155dfc]">
                                             {pet.id}
                                         </code>
-                                        <p className="mt-2 truncate font-semibold text-slate-900">{pet.petName}</p>
+                                        <p className="mt-2 truncate font-semibold text-slate-900 dark:text-white">{pet.petName}</p>
                                     </div>
                                     <div className={`mt-1 size-2 rounded-full shrink-0 ${
                                         pet.status === 'Emergency' ? 'bg-red-500 animate-pulse' :
@@ -696,8 +834,8 @@ export default function PetRegister() {
                             </div>
                         ))
                     ) : (
-                        <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-6 text-center text-sm text-slate-400">
-                            No pets registered yet.
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+                            No pets match your search or filter.
                         </div>
                     )}
                 </div>
@@ -713,7 +851,7 @@ export default function PetRegister() {
                             <col className="w-[160px]" />
                         </colgroup>
                         <thead>
-                            <tr className="border-b border-slate-100">
+                            <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Pet ID</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500">Pet Name</th>
                                 <th className="py-3 px-4 font-['Arimo:Bold',sans-serif] text-[14px] text-slate-500 hidden lg:table-cell">Species/Breed</th>
@@ -730,7 +868,7 @@ export default function PetRegister() {
                                     </td>
                                 </tr>
                             ) : filteredRegisteredPets.length > 0 ? (
-                                filteredRegisteredPets
+                                paginatedRegisteredPets
                                     .map((pet) => (
                                         <tr 
                                             key={pet.id} 
@@ -739,12 +877,12 @@ export default function PetRegister() {
                                             title="Open pet directory profile"
                                             onClick={() => openPetDirectoryProfile(pet.id)}
                                             onKeyDown={(event) => handlePetShortcutKeyDown(event, pet.id)}
-                                            className={`cursor-pointer border-b transition ${
+                                            className={`cursor-pointer border-b transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
                                                 pet.status === 'Emergency' 
-                                                    ? 'bg-red-50 hover:bg-red-100 border-red-100' 
+                                                    ? 'border-red-100 bg-red-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40'
                                                     : pet.status === 'Deceased'
-                                                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 opacity-75'
-                                                    : 'border-slate-50 hover:bg-slate-50'
+                                                    ? 'border-slate-200 bg-slate-100 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800'
+                                                    : 'border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800'
                                             }`}
                                         >
                                         <td className="py-3 px-4">
@@ -753,7 +891,7 @@ export default function PetRegister() {
                                             </code>
                                         </td>
                                         <td className="py-3 px-4">
-                                            <p className="truncate font-semibold text-slate-900">{pet.petName}</p>
+                                            <p className="truncate font-semibold text-slate-900 dark:text-white">{pet.petName}</p>
                                         </td>
                                         <td className="py-3 px-4 hidden lg:table-cell">
                                             <p className="truncate text-sm text-slate-600">{pet.species}</p>
@@ -799,14 +937,40 @@ export default function PetRegister() {
                             ) : (
                                 <tr>
                                     <td colSpan="6" className="py-10 text-center text-slate-400">
-                                        No pets registered yet.
+                                        No pets match your search or filter.
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+                {!isLoading && filteredRegisteredPets.length > 0 ? (
+                    <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                            Showing {firstRegisteredPetIndex + 1}-{Math.min(firstRegisteredPetIndex + REGISTERED_PETS_PAGE_SIZE, filteredRegisteredPets.length)} of {filteredRegisteredPets.length} pets
+                        </p>
+                        <nav className="flex flex-wrap items-center gap-1" aria-label="Registered pets pages">
+                            <Button type="button" variant="outline" size="icon" disabled={currentRegisteredPetsPage === 1} onClick={() => setRegisteredPetsPage(currentRegisteredPetsPage - 1)} aria-label="Previous page">
+                                <ChevronLeft className="size-4" />
+                            </Button>
+                            {paginationItems(registeredPetsPageCount, currentRegisteredPetsPage).map((page, index) => (
+                                page === 'ellipsis' ? (
+                                    <span key={`ellipsis-${index}`} className="px-2 text-slate-500" aria-hidden="true">...</span>
+                                ) : (
+                                    <Button key={page} type="button" variant={page === currentRegisteredPetsPage ? 'default' : 'outline'} size="icon" onClick={() => setRegisteredPetsPage(page)} aria-label={`Page ${page}`} aria-current={page === currentRegisteredPetsPage ? 'page' : undefined}>
+                                        {page}
+                                    </Button>
+                                )
+                            ))}
+                            <Button type="button" variant="outline" size="icon" disabled={currentRegisteredPetsPage === registeredPetsPageCount} onClick={() => setRegisteredPetsPage(currentRegisteredPetsPage + 1)} aria-label="Next page">
+                                <ChevronRight className="size-4" />
+                            </Button>
+                        </nav>
+                    </div>
+                ) : null}
             </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Success Dialog */}
             <Dialog

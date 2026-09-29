@@ -258,7 +258,7 @@ Run SQL only against the intended deployed database, preferably after a backup.
 If queued email is enabled, configure Hostinger Cron or server cron to run:
 
 ```bash
-php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/php/mail_queue_worker.php --limit=50
+php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=50
 ```
 
 Run every 1 minute.

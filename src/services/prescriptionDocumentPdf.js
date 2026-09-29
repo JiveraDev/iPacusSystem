@@ -1,5 +1,11 @@
-const PAGE_MARGIN = 48;
-const FOOTER_LIMIT = 782;
+const PAPER_WIDTHS_MM = {
+    '58mm': 58,
+    '80mm': 80
+};
+
+const DEFAULT_PAPER_WIDTH = '58mm';
+const MIN_PAGE_HEIGHT_MM = 150;
+const MAX_PAGE_HEIGHT_MM = 1200;
 
 function text(value, fallback = '') {
     return String(value || fallback)
@@ -16,6 +22,13 @@ function text(value, fallback = '') {
         .map(line => line.replace(/[^\x20-\x7e]/g, '?'))
         .join('\n')
         .trim();
+}
+
+function safeFilePart(value, fallback = 'patient') {
+    return text(value, fallback)
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60) || fallback;
 }
 
 function displayDate(value = new Date()) {
@@ -47,187 +60,257 @@ function prescriptionDetails(prescription = {}) {
         schedule ? `Schedule: ${schedule}` : '',
         duration ? `Duration: ${duration}` : '',
         prescription.quantity ? `Quantity: ${prescription.quantity}` : ''
-    ].filter(Boolean).join('  |  '));
+    ].filter(Boolean).join(' | '));
 }
 
-function addHeader(doc, title, continued = false) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    doc.setFillColor(21, 93, 252);
-    doc.rect(0, 0, pageWidth, continued ? 66 : 104, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(continued ? 15 : 19);
-    doc.text('Vetfocus Animal Care Clinic', PAGE_MARGIN, continued ? 31 : 42);
-    doc.setFontSize(continued ? 9 : 11);
-    doc.setFont('helvetica', 'normal');
-    doc.text(continued ? `${title} - continued` : title, PAGE_MARGIN, continued ? 48 : 65);
-    if (!continued) {
-        doc.setFontSize(9);
-        doc.text('Official prescription record', pageWidth - PAGE_MARGIN, 43, { align: 'right' });
-        doc.text(displayDate(), pageWidth - PAGE_MARGIN, 62, { align: 'right' });
-    }
+function drawRule(doc, y, left, right, render, dashed = false) {
+    if (!render) return;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.2);
+    doc.setLineDashPattern(dashed ? [1.2, 1.2] : [], 0);
+    doc.line(left, y, right, y);
+    doc.setLineDashPattern([], 0);
 }
 
-function addFooters(doc) {
-    const pages = doc.getNumberOfPages();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    for (let page = 1; page <= pages; page += 1) {
-        doc.setPage(page);
-        doc.setDrawColor(226, 232, 240);
-        doc.line(PAGE_MARGIN, 802, pageWidth - PAGE_MARGIN, 802);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text('Generated from the finalized diagnosis record.', PAGE_MARGIN, 818);
-        doc.text(`Page ${page} of ${pages}`, pageWidth - PAGE_MARGIN, 818, { align: 'right' });
-    }
-}
-
-export async function createPrescriptionDocumentPdfBlob({
-    context = {},
-    veterinarianName,
-    veterinarianLicense,
-    diagnosisText,
-    notes,
-    rows = []
-}) {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const contentWidth = pageWidth - (PAGE_MARGIN * 2);
-    const title = 'Prescription Record';
-
-    doc.setProperties({
-        title: `${text(context.petName, 'Patient')} - Prescription`,
-        subject: 'Veterinary prescription record',
-        author: text(veterinarianName, 'Vetfocus Animal Care Clinic'),
-        creator: 'iPawcus'
-    });
-
-    addHeader(doc, title);
-    let y = 132;
-    const nextPage = () => {
-        doc.addPage();
-        addHeader(doc, title, true);
-        y = 92;
-    };
-    const ensureSpace = (height) => {
-        if (y + height > FOOTER_LIMIT) nextPage();
-    };
-    const addLabelValue = (label, value, x, lineY, maxWidth) => {
+function drawMetaRow(doc, y, left, right, label, value, render) {
+    const valueLines = doc.splitTextToSize(text(value, '-'), right - left - 18);
+    if (render) {
         doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.2);
         doc.setTextColor(71, 85, 105);
-        doc.text(label, x, lineY);
+        doc.text(label.toUpperCase(), left, y);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(15, 23, 42);
-        doc.text(doc.splitTextToSize(text(value, 'Not recorded'), maxWidth), x, lineY + 15);
-    };
+        doc.text(valueLines, right, y, { align: 'right' });
+    }
 
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(PAGE_MARGIN, y, contentWidth, 104, 5, 5, 'FD');
-    doc.setFontSize(9);
-    const columnWidth = (contentWidth - 32) / 2;
-    addLabelValue('PATIENT', context.petName || context.patientName, PAGE_MARGIN + 16, y + 20, columnWidth);
-    addLabelValue('OWNER', context.ownerName, PAGE_MARGIN + 16, y + 64, columnWidth);
-    addLabelValue('SERVICE', context.serviceName || 'Diagnosis', PAGE_MARGIN + 32 + columnWidth, y + 20, columnWidth);
-    addLabelValue('VETERINARIAN', veterinarianLicense
-        ? `${text(veterinarianName, 'Clinic veterinarian')} - License ${veterinarianLicense}`
-        : text(veterinarianName, 'Clinic veterinarian'), PAGE_MARGIN + 32 + columnWidth, y + 64, columnWidth);
-    y += 132;
+    return Math.max(4.2, valueLines.length * 3.2);
+}
 
-    const writeSection = (heading, value) => {
-        const cleanValue = text(value);
-        if (!cleanValue) return;
-        const lines = doc.splitTextToSize(cleanValue, contentWidth);
-        ensureSpace(34 + (lines.length * 14));
+function drawSection(doc, y, left, right, heading, value, render) {
+    const cleanValue = text(value);
+    if (!cleanValue) return y;
+
+    const contentWidth = right - left;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.6);
+    const lines = doc.splitTextToSize(cleanValue, contentWidth);
+
+    if (render) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
+        doc.setFontSize(7.2);
         doc.setTextColor(15, 23, 42);
-        doc.text(heading, PAGE_MARGIN, y);
-        y += 20;
+        doc.text(heading.toUpperCase(), left, y);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.5);
+        doc.setFontSize(6.6);
         doc.setTextColor(51, 65, 85);
-        lines.forEach((line) => {
-            if (y + 14 > FOOTER_LIMIT) nextPage();
-            doc.text(line, PAGE_MARGIN, y);
-            y += 14;
-        });
-        y += 14;
-    };
+        doc.text(lines, left, y + 4);
+    }
 
-    writeSection('Diagnosis summary', diagnosisText);
+    return y + 6 + (lines.length * 3.2);
+}
 
-    ensureSpace(34);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Prescriptions', PAGE_MARGIN, y);
-    y += 22;
+function renderPrescription(doc, input, paperWidth, render = true) {
+    const left = 5;
+    const right = paperWidth - 5;
+    const contentWidth = right - left;
+    const rows = Array.isArray(input.rows) ? input.rows : [];
+    const context = input.context || {};
+    let y = 0;
+
+    if (render) {
+        doc.setFillColor(21, 93, 252);
+        doc.rect(0, 0, paperWidth, 24, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(paperWidth <= 58 ? 12 : 15);
+        doc.text('IPAWCUS', paperWidth / 2, 9, { align: 'center' });
+        doc.setFontSize(7.5);
+        doc.text('VETERINARY CLINIC', paperWidth / 2, 14, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text('OFFICIAL PRESCRIPTION RECORD', paperWidth / 2, 19, { align: 'center' });
+    }
+    y = 31;
+
+    if (render) {
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('PRESCRIPTION', paperWidth / 2, y, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text(displayDate(input.createdAt), paperWidth / 2, y + 5, { align: 'center' });
+    }
+    y += 10;
+    drawRule(doc, y, left, right, render, true);
+    y += 5;
+
+    y += drawMetaRow(doc, y, left, right, 'Patient', context.petName || context.patientName, render);
+    y += drawMetaRow(doc, y, left, right, 'Owner', context.ownerName, render);
+    y += drawMetaRow(
+        doc,
+        y,
+        left,
+        right,
+        'Pet',
+        [context.petSpecies, context.petBreed].filter(Boolean).join(' / ') || 'Not recorded',
+        render
+    );
+    y += drawMetaRow(doc, y, left, right, 'Service', context.serviceName || 'Diagnosis', render);
+    y += drawMetaRow(doc, y, left, right, 'Veterinarian', input.veterinarianName || 'Clinic veterinarian', render);
+    y += drawMetaRow(doc, y, left, right, 'License', input.veterinarianLicense || 'Not recorded', render);
+    y += 1;
+    drawRule(doc, y, left, right, render, true);
+    y += 5;
+
+    y = drawSection(doc, y, left, right, 'Diagnosis Summary', input.diagnosisText, render);
+    if (text(input.diagnosisText)) {
+        drawRule(doc, y, left, right, render, true);
+        y += 5;
+    }
+
+    if (render) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.2);
+        doc.setTextColor(15, 23, 42);
+        doc.text('PRESCRIPTIONS', left, y);
+    }
+    y += 5;
 
     rows.forEach((row, index) => {
         const medication = prescriptionTitle(row.prescription);
         const details = prescriptionDetails(row.prescription);
         const instructions = text(row.prescription?.instructions);
-        const section = text(row.section, 'Diagnosis');
-        const medicationLines = doc.splitTextToSize(medication, contentWidth - 42);
-        const detailLines = details ? doc.splitTextToSize(details, contentWidth - 42) : [];
-        const instructionLines = instructions ? doc.splitTextToSize(`Instructions: ${instructions}`, contentWidth - 42) : [];
-        const bodyLines = [
-            ...medicationLines.map(line => ({ line, kind: 'medicine' })),
-            ...detailLines.map(line => ({ line, kind: 'detail' })),
-            ...instructionLines.map(line => ({ line, kind: 'detail' }))
-        ];
-        let lineIndex = 0;
-        let continued = false;
+        const section = text(row.section, 'Diagnosis').toUpperCase();
 
-        while (lineIndex < bodyLines.length) {
-            ensureSpace(72);
-            const blockTop = y;
-            doc.setFillColor(248, 250, 252);
-            doc.rect(PAGE_MARGIN, blockTop, contentWidth, 38, 'F');
-            doc.setFillColor(21, 93, 252);
-            doc.rect(PAGE_MARGIN, blockTop, 3, 38, 'F');
-            doc.circle(PAGE_MARGIN + 18, blockTop + 19, 9, 'F');
-            doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.4);
+        const medicationLines = doc.splitTextToSize(medication, contentWidth);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.4);
+        const detailLines = details ? doc.splitTextToSize(details, contentWidth) : [];
+        const instructionLines = instructions
+            ? doc.splitTextToSize(`Instructions: ${instructions}`, contentWidth)
+            : [];
+
+        if (render) {
+            doc.setFillColor(239, 246, 255);
+            doc.roundedRect(left, y, contentWidth, 7, 1.5, 1.5, 'F');
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text(String(index + 1), PAGE_MARGIN + 18, blockTop + 22, { align: 'center' });
+            doc.setFontSize(6.2);
             doc.setTextColor(21, 93, 252);
-            doc.text(`${section.toUpperCase()}${continued ? ' - CONTINUED' : ''}`, PAGE_MARGIN + 36, blockTop + 22);
-            y += 50;
-
-            while (lineIndex < bodyLines.length) {
-                const entry = bodyLines[lineIndex];
-                const lineHeight = entry.kind === 'medicine' ? 15 : 13;
-                if (y + lineHeight > FOOTER_LIMIT) break;
-
-                doc.setFont('helvetica', entry.kind === 'medicine' ? 'bold' : 'normal');
-                doc.setFontSize(entry.kind === 'medicine' ? 10.5 : 8.8);
-                doc.setTextColor(...(entry.kind === 'medicine' ? [15, 23, 42] : [71, 85, 105]));
-                doc.text(entry.line, PAGE_MARGIN + 18, y);
-                y += lineHeight;
-                lineIndex += 1;
-            }
-
-            doc.setDrawColor(226, 232, 240);
-            doc.line(PAGE_MARGIN, y + 3, pageWidth - PAGE_MARGIN, y + 3);
-            y += 15;
-
-            if (lineIndex < bodyLines.length) {
-                nextPage();
-                continued = true;
-            }
+            doc.text(`${String(index + 1).padStart(2, '0')} / ${section}`, left + 2, y + 4.5);
         }
+        y += 10;
+
+        if (render) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.4);
+            doc.setTextColor(15, 23, 42);
+            doc.text(medicationLines, left, y);
+        }
+        y += medicationLines.length * 3.5;
+
+        if (detailLines.length > 0) {
+            if (render) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(6.4);
+                doc.setTextColor(71, 85, 105);
+                doc.text(detailLines, left, y);
+            }
+            y += detailLines.length * 3.1;
+        }
+
+        if (instructionLines.length > 0) {
+            if (render) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(6.2);
+                doc.setTextColor(51, 65, 85);
+                doc.text(instructionLines, left, y);
+            }
+            y += instructionLines.length * 3.1;
+        }
+
+        y += 2;
+        drawRule(doc, y, left, right, render, true);
+        y += 4;
     });
 
-    writeSection('Notes', notes);
-    addFooters(doc);
+    y = drawSection(doc, y, left, right, 'Notes', input.notes, render);
+    if (text(input.notes)) y += 2;
+
+    y += 9;
+    drawRule(doc, y, left, right, render);
+    if (render) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Veterinarian signature', paperWidth / 2, y + 3.5, { align: 'center' });
+    }
+    y += 13;
+    drawRule(doc, y, left, right, render);
+    if (render) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        doc.setTextColor(71, 85, 105);
+        doc.text("Owner's electronic signature over printed name", paperWidth / 2, y + 3.5, {
+            align: 'center',
+            maxWidth: contentWidth
+        });
+    }
+    y += 10;
+    drawRule(doc, y, left, right, render, true);
+    y += 5;
+
+    if (render) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Keep this prescription for your records.', paperWidth / 2, y, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.6);
+        doc.text('Generated by iPawcus from the finalized diagnosis record.', paperWidth / 2, y + 3.5, {
+            align: 'center',
+            maxWidth: contentWidth
+        });
+    }
+
+    return y + 9;
+}
+
+export async function createPrescriptionDocumentPdfBlob(input = {}) {
+    const { jsPDF } = await import('jspdf');
+    const paperWidthKey = input.paperWidth || DEFAULT_PAPER_WIDTH;
+    const paperWidth = PAPER_WIDTHS_MM[paperWidthKey] || PAPER_WIDTHS_MM[DEFAULT_PAPER_WIDTH];
+    const sizingDocument = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [paperWidth, 200] });
+    const requiredHeight = renderPrescription(sizingDocument, input, paperWidth, false);
+    const pageHeight = Math.min(MAX_PAGE_HEIGHT_MM, Math.max(MIN_PAGE_HEIGHT_MM, Math.ceil(requiredHeight)));
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [paperWidth, pageHeight],
+        compress: true,
+        putOnlyUsedFonts: true
+    });
+
+    doc.setProperties({
+        title: `${text(input.context?.petName, 'Patient')} - Prescription`,
+        subject: 'Veterinary prescription record',
+        author: text(input.veterinarianName, 'Vetfocus Animal Care Clinic'),
+        creator: 'iPawcus'
+    });
+
+    renderPrescription(doc, input, paperWidth, true);
     return doc.output('blob');
 }
 
-export async function createPrescriptionDocumentPdfFile(payload) {
+export async function createPrescriptionDocumentPdfFile(payload = {}) {
     const blob = await createPrescriptionDocumentPdfBlob(payload);
-    return new File([blob], `prescription-${Date.now()}.pdf`, { type: 'application/pdf' });
+    const petName = safeFilePart(payload.context?.petName, 'patient');
+    return new File([blob], `prescription-${petName}-${Date.now()}.pdf`, {
+        type: 'application/pdf',
+        lastModified: Date.now()
+    });
 }

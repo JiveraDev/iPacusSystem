@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process'
 const DEFAULT_BRANCH = 'hostinger-deploy'
 const DEFAULT_REMOTE = 'origin'
 const WORKTREE_PREFIX = 'ipawcus-hostinger-deploy-'
+const COMPOSER_FILES = ['composer.json', 'composer.lock']
 const RUNTIME_MEDIA_DIRECTORIES = [
     'boarding_documents',
     'concerns',
@@ -205,6 +206,12 @@ function validateRepository(root, options) {
         fail('The php/ directory was not found.')
     }
 
+    for (const file of COMPOSER_FILES) {
+        if (!existsSync(join(root, file))) {
+            fail(`${file} was not found at the Git repository root.`)
+        }
+    }
+
     if (options.skipBuild && !existsSync(distDirectory)) {
         fail('dist/ does not exist. Remove --skip-build so the frontend can be built.')
     }
@@ -306,6 +313,9 @@ try {
 
     copyDirectoryContents(distDirectory, worktreePath)
     cpSync(phpDirectory, join(worktreePath, 'php'), { recursive: true, force: true })
+    for (const file of COMPOSER_FILES) {
+        cpSync(join(repositoryRoot, file), join(worktreePath, file), { force: true })
+    }
 
     // The same-domain Apache rules support /php and /api while preserving the SPA fallback.
     const rootHtaccess = join(repositoryRoot, '.htaccess')

@@ -1,354 +1,189 @@
-import { useState } from 'react';
-import { Clock, AlertTriangle, Package, Archive } from 'lucide-react';
+import { createElement, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Clock, Eye, Package } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { fetchInventoryItems } from '../../services/inventoryApi';
+import { useNavigate } from '../dashboardRouter.jsx';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import InventoryBranchScope from './InventoryBranchScope.jsx';
+import { useInventoryBranchScope } from '../../hooks/useInventoryBranchScope.js';
+
+const INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
 
 export default function NearExpiryPage() {
+  const navigate = useNavigate();
+  const branchScope = useInventoryBranchScope();
+  const { branchId } = branchScope;
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const filteredItems = mockExpiringItems.filter(item =>
-    urgencyFilter === 'all' || item.urgencyLevel === urgencyFilter
-  );
+  useAutoRefresh(async ({ isAutoRefresh = false } = {}) => {
+    if (!isAutoRefresh) setIsLoading(true);
+    try {
+      const response = await fetchInventoryItems({ branchId });
+      setInventoryItems(Array.isArray(response?.items) ? response.items : []);
+      setErrorMessage('');
+    } catch (error) {
+      if (!isAutoRefresh) setErrorMessage(error.message || 'Near-expiry inventory could not be loaded.');
+      throw error;
+    } finally {
+      if (!isAutoRefresh) setIsLoading(false);
+    }
+  }, {
+    enabled: Boolean(branchId),
+    refreshKey: `inventory-near-expiry-${branchId || 'unassigned'}`
+  });
 
-  const criticalCount = mockExpiringItems.filter(i => i.urgencyLevel === 'critical').length;
-  const highCount = mockExpiringItems.filter(i => i.urgencyLevel === 'high').length;
-  const totalValue = mockExpiringItems.reduce((sum, item) => sum + item.costValue, 0);
+  useEffect(() => {
+    setInventoryItems([]);
+  }, [branchId]);
+
+  const expiringItems = useMemo(() => inventoryItems.flatMap((item) => (
+    (item.batches || []).flatMap((batch) => {
+      const quantity = Number(batch.quantity || 0);
+      const daysRemaining = daysUntilExpiry(batch.expiryDate);
+      const warningDays = Number(item.expiryWarningDays || 90);
+      if (quantity <= 0 || daysRemaining === null || daysRemaining < 0 || daysRemaining > warningDays) return [];
+
+      return [{
+        id: `${item.itemId || item.id}-${batch.batchId || batch.id}`,
+        itemId: item.itemId || item.id,
+        name: item.name,
+        category: item.category,
+        batchNumber: batch.batchNumber || 'Unnumbered',
+        quantity,
+        unit: item.unit,
+        expiryDate: batch.expiryDate,
+        daysRemaining,
+        costValue: quantity * Number(batch.unitCost ?? item.costPrice ?? 0),
+        urgencyLevel: daysRemaining <= 30 ? 'critical' : daysRemaining <= 60 ? 'high' : 'medium'
+      }];
+    })
+  )), [inventoryItems]);
+
+  const filteredItems = expiringItems.filter((item) => urgencyFilter === 'all' || item.urgencyLevel === urgencyFilter);
+  const criticalCount = expiringItems.filter((item) => item.urgencyLevel === 'critical').length;
+  const highCount = expiringItems.filter((item) => item.urgencyLevel === 'high').length;
+  const totalValue = expiringItems.reduce((sum, item) => sum + item.costValue, 0);
+
+  const viewItem = (itemId) => {
+    sessionStorage.setItem(INVENTORY_SELECTION_KEY, JSON.stringify({ itemId }));
+    navigate('/dashboard/inventory');
+  };
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        icon={Clock}
-        title="Near Expiry Items"
-        description="Monitor and manage items approaching expiration."
+      <DashboardPageHeader icon={Clock} title="Near Expiry Items" description="Live batch-level expiry warnings for stock that is still on hand." />
+
+      <InventoryBranchScope
+        branches={branchScope.branches}
+        branchId={branchScope.branchId}
+        selectedBranch={branchScope.selectedBranch}
+        canSelectBranch={branchScope.canSelectBranch}
+        isLoading={branchScope.isLoadingBranches}
+        error={branchScope.branchError}
+        onBranchChange={branchScope.setBranchId}
       />
 
-      {/* Critical Alert Banner */}
       {criticalCount > 0 && (
-        <div className="bg-[#ffe6e6] border border-[#d92d20] rounded-[14px] p-4">
-          <div className="flex flex-col items-start gap-3 sm:flex-row">
-            <AlertTriangle className="size-6 text-[#d92d20] mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-1">
-                Urgent Action Required
-              </h3>
-              <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                {criticalCount} item{criticalCount > 1 ? 's' : ''} expiring within 30 days. Review and take action immediately to prevent losses.
-              </p>
-            </div>
-            <Button variant="destructive" size="sm" className="w-full sm:w-auto">
-              Review Now
-            </Button>
+        <div className="flex flex-col gap-3 rounded-[14px] border border-red-300 bg-red-50 p-4 sm:flex-row sm:items-center dark:border-red-900 dark:bg-red-950/30">
+          <AlertTriangle className="size-6 shrink-0 text-red-700 dark:text-red-300" />
+          <div className="flex-1">
+            <h3 className="font-bold text-slate-950 dark:text-slate-100">Urgent batch review required</h3>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{criticalCount} batch{criticalCount === 1 ? '' : 'es'} expire within 30 days.</p>
           </div>
+          <Button variant="destructive" size="sm" onClick={() => setUrgencyFilter('critical')}>Review critical</Button>
         </div>
       )}
 
-      {/* Statistics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-12 rounded-[10px] bg-[#fff4e6] flex items-center justify-center">
-              <Clock className="size-6 text-[#b54708]" />
-            </div>
-            <div>
-              <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#b54708]">
-                {mockExpiringItems.length}
-              </h3>
-              <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                Total Items
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-12 rounded-[10px] bg-[#ffe6e6] flex items-center justify-center">
-              <AlertTriangle className="size-6 text-[#d92d20]" />
-            </div>
-            <div>
-              <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#d92d20]">
-                {criticalCount}
-              </h3>
-              <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                Critical (≤30 days)
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-12 rounded-[10px] bg-[#fff4e6] flex items-center justify-center">
-              <Clock className="size-6 text-[#b54708]" />
-            </div>
-            <div>
-              <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#b54708]">
-                {highCount}
-              </h3>
-              <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                High (31-60 days)
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-12 rounded-[10px] bg-[#f9fafb] flex items-center justify-center">
-              <Package className="size-6 text-[#4a5565]" />
-            </div>
-            <div>
-              <h3 className="font-['Arimo:Bold',sans-serif] text-[28px] text-[#101828]">
-                {formatPhpCurrency(totalValue)}
-              </h3>
-              <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                Total Value at Risk
-              </p>
-            </div>
-          </div>
-        </div>
+        <SummaryCard icon={Clock} label="Expiring Batches" value={expiringItems.length} tone="amber" />
+        <SummaryCard icon={AlertTriangle} label="Critical (30 days)" value={criticalCount} tone="red" />
+        <SummaryCard icon={Clock} label="High (31–60 days)" value={highCount} tone="amber" />
+        <SummaryCard icon={Package} label="Value at Risk" value={formatPhpCurrency(totalValue)} tone="slate" />
       </div>
 
-      {/* Filter */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">
-            Filter by Urgency:
-          </span>
-          <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="All Items" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Items</SelectItem>
-              <SelectItem value="critical">Critical (≤30 days)</SelectItem>
-              <SelectItem value="high">High (31-60 days)</SelectItem>
-              <SelectItem value="medium">Medium (61-90 days)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex flex-col gap-3 rounded-[14px] border border-slate-200 bg-white p-4 sm:flex-row sm:items-center dark:border-slate-800 dark:bg-slate-950">
+        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Urgency</span>
+        <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+          <SelectTrigger className="w-full sm:w-[220px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All near-expiry batches</SelectItem>
+            <SelectItem value="critical">Critical (30 days)</SelectItem>
+            <SelectItem value="high">High (31–60 days)</SelectItem>
+            <SelectItem value="medium">Medium (61+ days)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Items Table */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Product Name</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Category</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Batch Number</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Quantity</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Expiry Date</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Days Remaining</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Cost Value</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Urgency</TableHead>
-              <TableHead className="font-['Arimo:Bold',sans-serif]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredItems.map((item) => (
-              <TableRow key={item.id} className="hover:bg-[#f9fafb]">
-                <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                  {item.name}
-                </TableCell>
-                <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                  {item.category}
-                </TableCell>
-                <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
-                  {item.batchNumber}
-                </TableCell>
-                <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                  {item.quantity} {item.unit}
-                </TableCell>
-                <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px]">
-                  {formatDisplayDate(item.expiryDate, { compact: true })}
-                </TableCell>
-                <TableCell>
-                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-[8px] ${
-                    item.urgencyLevel === 'critical'
-                      ? 'bg-[#ffe6e6]'
-                      : item.urgencyLevel === 'high'
-                      ? 'bg-[#fff4e6]'
-                      : 'bg-[#f9fafb]'
-                  }`}>
-                    <Clock className={`size-4 ${
-                      item.urgencyLevel === 'critical'
-                        ? 'text-[#d92d20]'
-                        : item.urgencyLevel === 'high'
-                        ? 'text-[#b54708]'
-                        : 'text-[#4a5565]'
-                    }`} />
-                    <span className={`font-['Arimo:Bold',sans-serif] text-[14px] ${
-                      item.urgencyLevel === 'critical'
-                        ? 'text-[#d92d20]'
-                        : item.urgencyLevel === 'high'
-                        ? 'text-[#b54708]'
-                        : 'text-[#4a5565]'
-                    }`}>
-                      {item.daysRemaining} days
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                  {formatPhpCurrency(item.costValue)}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={item.urgencyLevel === 'critical' ? 'destructive' : 'secondary'}
-                    className={
-                      item.urgencyLevel === 'high'
-                        ? 'bg-[#fff4e6] text-[#b54708] hover:bg-[#fff4e6]'
-                        : item.urgencyLevel === 'medium'
-                        ? 'bg-[#f3f3f5] text-[#4a5565] hover:bg-[#f3f3f5]'
-                        : ''
-                    }
-                  >
-                    {item.urgencyLevel.toUpperCase()}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button variant="outline" size="sm">
-                      <Archive className="size-4 mr-2" />
-                      Mark for Disposal
-                    </Button>
-                  </div>
-                </TableCell>
+      {errorMessage && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">{errorMessage}</div>}
+
+      <div className="overflow-hidden rounded-[14px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[980px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead><TableHead>Batch</TableHead><TableHead>Quantity</TableHead><TableHead>Expiry</TableHead>
+                <TableHead>Remaining</TableHead><TableHead>Value at Risk</TableHead><TableHead>Urgency</TableHead><TableHead className="text-right">Action</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Suggested Actions */}
-      <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-6">
-        <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-4">
-          Suggested Actions
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 p-4 bg-[#f9fafb] rounded-[10px]">
-            <div className="size-8 rounded-[8px] bg-[#eff6ff] flex items-center justify-center shrink-0">
-              <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">1</span>
-            </div>
-            <div>
-              <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-1">
-                Review Critical Items First
-              </p>
-              <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">
-                Prioritize items expiring within 30 days to prevent financial losses.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 p-4 bg-[#f9fafb] rounded-[10px]">
-            <div className="size-8 rounded-[8px] bg-[#eff6ff] flex items-center justify-center shrink-0">
-              <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">2</span>
-            </div>
-            <div>
-              <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-1">
-                Offer Discounts or Promotions
-              </p>
-              <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">
-                Consider discounting items with 60-90 days remaining to increase turnover.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 p-4 bg-[#f9fafb] rounded-[10px]">
-            <div className="size-8 rounded-[8px] bg-[#eff6ff] flex items-center justify-center shrink-0">
-              <span className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#155dfc]">3</span>
-            </div>
-            <div>
-              <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828] mb-1">
-                Document and Report Disposal
-              </p>
-              <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">
-                Properly log all expired items for regulatory compliance and inventory tracking.
-              </p>
-            </div>
-          </div>
+            </TableHeader>
+            <TableBody>
+              {!isLoading && filteredItems.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell><p className="font-bold text-slate-950 dark:text-slate-100">{item.name}</p><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.category}</p></TableCell>
+                  <TableCell><BatchLabel value={item.batchNumber} /></TableCell>
+                  <TableCell className="font-bold">{item.quantity} {item.unit}</TableCell>
+                  <TableCell>{formatDisplayDate(item.expiryDate, { compact: true })}</TableCell>
+                  <TableCell className={item.urgencyLevel === 'critical' ? 'font-bold text-red-700 dark:text-red-300' : 'font-bold text-amber-700 dark:text-amber-300'}>{item.daysRemaining} days</TableCell>
+                  <TableCell className="font-bold">{formatPhpCurrency(item.costValue)}</TableCell>
+                  <TableCell><UrgencyBadge urgency={item.urgencyLevel} /></TableCell>
+                  <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => viewItem(item.itemId)}><Eye className="size-4" />View item</Button></TableCell>
+                </TableRow>
+              ))}
+              {isLoading && <MessageRow message="Loading live expiry data…" />}
+              {!isLoading && filteredItems.length === 0 && <MessageRow message="No batches match this expiry range." />}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>
   );
 }
 
-const mockExpiringItems = [
-  {
-    id: '1',
-    name: 'Vitamin Supplement',
-    category: 'Medicines',
-    batchNumber: 'VIT-2024-03',
-    quantity: 65,
-    unit: 'bottles',
-    expiryDate: '2026-06-30',
-    daysRemaining: 15,
-    costValue: 18200,
-    urgencyLevel: 'critical'
-  },
-  {
-    id: '2',
-    name: 'Eye Drops',
-    category: 'Medicines',
-    batchNumber: 'OPT-2024-02',
-    quantity: 5,
-    unit: 'bottles',
-    expiryDate: '2026-06-30',
-    daysRemaining: 25,
-    costValue: 625,
-    urgencyLevel: 'critical'
-  },
-  {
-    id: '3',
-    name: 'Feline Leukemia Vaccine',
-    category: 'Vaccines',
-    batchNumber: 'FELV-2024-06',
-    quantity: 3,
-    unit: 'vials',
-    expiryDate: '2026-06-15',
-    daysRemaining: 30,
-    costValue: 1260,
-    urgencyLevel: 'critical'
-  },
-  {
-    id: '4',
-    name: 'Heartworm Prevention',
-    category: 'Medicines',
-    batchNumber: 'HG-2024-01',
-    quantity: 18,
-    unit: 'tabs',
-    expiryDate: '2026-07-15',
-    daysRemaining: 45,
-    costValue: 2556,
-    urgencyLevel: 'high'
-  },
-  {
-    id: '5',
-    name: 'Deworming Tablets',
-    category: 'Medicines',
-    batchNumber: 'DW-2024-05',
-    quantity: 42,
-    unit: 'pcs',
-    expiryDate: '2026-08-10',
-    daysRemaining: 55,
-    costValue: 1470,
-    urgencyLevel: 'high'
-  },
-  {
-    id: '6',
-    name: 'Antibiotic Cream',
-    category: 'Medicines',
-    batchNumber: 'NEO-2024-04',
-    quantity: 32,
-    unit: 'tubes',
-    expiryDate: '2026-09-15',
-    daysRemaining: 85,
-    costValue: 3040,
-    urgencyLevel: 'medium'
-  }
-];
+function daysUntilExpiry(value) {
+  if (!value || value === 'No expiry') return null;
+  const expiry = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (Number.isNaN(expiry.getTime())) return null;
+  return Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+}
+
+function SummaryCard({ icon, label, value, tone }) {
+  const tones = {
+    amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    red: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    slate: 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
+  };
+  return <div className="rounded-[14px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center gap-3"><span className={`flex size-10 items-center justify-center rounded-lg ${tones[tone]}`}>{createElement(icon, { className: 'size-5' })}</span><div><p className="text-2xl font-black text-slate-950 dark:text-slate-100">{value}</p><p className="text-sm text-slate-500 dark:text-slate-400">{label}</p></div></div></div>;
+}
+
+function BatchLabel({ value }) {
+  return <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">{value}</span>;
+}
+
+function UrgencyBadge({ urgency }) {
+  const styles = urgency === 'critical' ? 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-200' : urgency === 'high' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300';
+  return <Badge className={styles}>{urgency}</Badge>;
+}
+
+function MessageRow({ message }) {
+  return <TableRow><TableCell colSpan={8} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">{message}</TableCell></TableRow>;
+}

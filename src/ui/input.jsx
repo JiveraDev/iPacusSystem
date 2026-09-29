@@ -181,6 +181,7 @@ const Input = React.forwardRef(({
         placeholder={placeholder || "MM/DD/YYYY"}
         dateParser={parseManualDateValue}
         valueFormat="MM/DD/YYYY"
+        firstDayOfWeek={0}
         minDate={normalizeDateValue(min) || undefined}
         maxDate={normalizeDateValue(max) || undefined}
         disabled={disabled}

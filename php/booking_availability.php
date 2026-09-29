@@ -234,12 +234,14 @@ function booking_availability_slots_for_date(
             $specialServiceId
         );
         $isPast = $slotTimestamp === false || $slotTimestamp <= $nowTimestamp;
-        $status = $isPast ? 'unavailable' : ($conflict ? 'booked' : 'available');
+        $isLunch = booking_slot_overlaps_lunch($serviceKey, $time);
+        $status = $isLunch ? 'lunch' : ($isPast ? 'unavailable' : ($conflict ? 'booked' : 'available'));
         $slots[] = [
             'time' => substr($time, 0, 5),
             'label' => date('g:i A', strtotime('1970-01-01 ' . $time)),
             'status' => $status,
             'available' => $status === 'available',
+            'reason' => $isLunch ? 'Lunch period: 12:00–1:00 PM. Appointments cannot overlap lunch.' : null,
             'veterinarianId' => $visit ? (int)$visit['veterinarian_user_id'] : $veterinarianId,
             'veterinarianName' => $visit ? trim((string)$visit['veterinarian_name']) : $veterinarianName,
         ];

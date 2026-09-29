@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
+    Building2,
+    CalendarDays,
+    ChevronDown,
+    ClipboardCheck,
     Download,
     Eye,
     FileText,
     Loader2,
     PanelRightOpen,
+    PawPrint,
     Pill,
     Plus,
     Printer,
@@ -36,6 +41,7 @@ import ProtectedImage from '../shared/ProtectedImage.jsx';
 import UploadImagePreview from '../shared/UploadImagePreview.jsx';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { reportBookingFormErrors } from '../../lib/bookingFormValidation';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { fetchBoardingDocuments } from '../../services/boardingService';
 import { createConsentDocumentPdfFile } from '../../services/consentDocumentPdf';
@@ -95,6 +101,15 @@ const emptyVaccinationRecord = {
     veterinarianName: '',
     veterinarianLicense: '',
     notes: ''
+};
+
+const emptyConfinementPlan = {
+    requested: false,
+    facilityType: 'boarding',
+    roomSize: 'small',
+    expectedDischarge: '',
+    reason: '',
+    careInstructions: ''
 };
 
 function createId() {
@@ -748,8 +763,17 @@ export default function VetDiagnosis() {
     const [visitCharges, setVisitCharges] = useState(() => (
         Array.isArray(initialDraft?.visitCharges) ? initialDraft.visitCharges : []
     ));
+    const [confinementPlan, setConfinementPlan] = useState(() => ({
+        ...emptyConfinementPlan,
+        ...(initialDraft?.confinementPlan || {})
+    }));
     const [billingSchemaMessage, setBillingSchemaMessage] = useState('');
     const [isDraftReady, setIsDraftReady] = useState(() => Boolean(initialDraft));
+    const [showAdditionalRecords, setShowAdditionalRecords] = useState(() => contextIsVaccination);
+
+    useEffect(() => {
+        if (contextIsVaccination) setShowAdditionalRecords(true);
+    }, [contextIsVaccination]);
 
     const hydrateDiagnosisRecord = useCallback((record) => {
         setLoadedDiagnosisId(record.diagnosisId || record.id || null);
@@ -1098,13 +1122,15 @@ export default function VetDiagnosis() {
             vaccinationRecord,
             selectedServiceId,
             selectedCustomServiceId,
-            visitCharges
+            visitCharges,
+            confinementPlan
         };
 
         persistDiagnosisDraft(draftStorageKey, draft);
     }, [
         additionalConsents,
         consentDraft,
+        confinementPlan,
         context,
         currentPrescription,
         customFields,
@@ -1612,18 +1638,34 @@ export default function VetDiagnosis() {
 
     const handleSaveDiagnosis = async ({ printAfterSave = false, stayAfterSave = false } = {}) => {
         if (!veterinarianUserId) {
-            toast.error('Could not identify the current veterinarian account.');
+            toast.error('Your veterinarian session could not be identified. Log in again before saving this diagnosis.');
             return false;
         }
 
         if (!context.petId) {
-            toast.error('Missing pet information for this diagnosis.');
+            toast.warning('Pet information is missing from this diagnosis. Return to My List and reopen the patient.');
             return false;
         }
 
         if (diagnosisType === 'general' && !formData.diagnosis.trim()) {
-            toast.error('Please enter a diagnosis before saving.');
+            reportBookingFormErrors([{
+                fieldId: 'vet-diagnosis-primary',
+                label: 'Diagnosis',
+                type: 'missing',
+                message: 'Enter the primary diagnosis before saving.'
+            }]);
             return false;
+        }
+
+        if (confinementPlan.requested) {
+            const confinementErrors = [];
+            if (!confinementPlan.expectedDischarge) {
+                confinementErrors.push({ fieldId: 'vet-confinement-discharge', label: 'Expected discharge', type: 'missing', message: 'Choose the expected discharge date.' });
+            }
+            if (!confinementPlan.reason.trim()) {
+                confinementErrors.push({ fieldId: 'vet-confinement-reason', label: 'Clinical reason', type: 'missing', message: 'Enter why the pet needs confinement.' });
+            }
+            if (reportBookingFormErrors(confinementErrors)) return false;
         }
 
         const autoAddedCustomSection = diagnosisType === 'custom' && selectedCustomService
@@ -1645,18 +1687,38 @@ export default function VetDiagnosis() {
         );
 
         if (diagnosisType === 'custom' && !hasCustomDetails) {
-            toast.error('Please enter at least one custom diagnosis service.');
+            reportBookingFormErrors([{
+                fieldId: 'vet-custom-diagnosis-service',
+                label: 'Custom diagnosis service',
+                type: 'selection',
+                message: 'Select at least one custom diagnosis service.'
+            }]);
             return false;
         }
 
         const hasVaccinationDetails = hasVaccinationRecordContent(vaccinationRecord);
         const shouldSaveVaccinationRecord = shouldRecordVaccination && hasVaccinationDetails;
         if (shouldRecordVaccination && hasVaccinationDetails && (!vaccinationRecord.vaccineName.trim() || !vaccinationRecord.dateAdministered || !vaccinationRecord.nextDueDate)) {
-            toast.error('Vaccine name, date administered, and next due date are required for vaccination records.');
+            const vaccinationErrors = [];
+            if (!vaccinationRecord.vaccineName.trim()) {
+                vaccinationErrors.push({ fieldId: 'vet-vaccination-name', label: 'Vaccine name', type: 'missing', message: 'Enter the vaccine name.' });
+            }
+            if (!vaccinationRecord.dateAdministered) {
+                vaccinationErrors.push({ fieldId: 'vet-vaccination-date-administered', label: 'Date administered', type: 'missing', message: 'Select the date administered.' });
+            }
+            if (!vaccinationRecord.nextDueDate) {
+                vaccinationErrors.push({ fieldId: 'vet-vaccination-next-due-date', label: 'Next due date', type: 'missing', message: 'Select the next due date.' });
+            }
+            reportBookingFormErrors(vaccinationErrors);
             return false;
         }
         if (shouldSaveVaccinationRecord && vaccinationRecord.nextDueDate < vaccinationRecord.dateAdministered) {
-            toast.error('Next due date cannot be earlier than the date administered.');
+            reportBookingFormErrors([{
+                fieldId: 'vet-vaccination-next-due-date',
+                label: 'Next due date',
+                type: 'range',
+                message: 'Next due date cannot be earlier than the date administered.'
+            }]);
             return false;
         }
 
@@ -1719,6 +1781,16 @@ export default function VetDiagnosis() {
                 attachments: diagnosisAttachments,
                 source_uploads: allSourceUploads,
                 visit_charges: visitChargesPayload,
+                confinement: confinementPlan.requested
+                    ? {
+                        requested: true,
+                        facility_type: confinementPlan.facilityType,
+                        room_size: confinementPlan.roomSize,
+                        expected_discharge: confinementPlan.expectedDischarge,
+                        reason: confinementPlan.reason,
+                        care_instructions: confinementPlan.careInstructions
+                    }
+                    : { requested: false },
                 vaccination_record: shouldSaveVaccinationRecord
                     ? {
                         ...vaccinationRecord,
@@ -1738,7 +1810,9 @@ export default function VetDiagnosis() {
 
             skipNextDraftPersistRef.current = true;
             clearDiagnosisDraft(draftStorageKey);
-            toast.success('Diagnosis saved and patient marked done.');
+            toast.success(data.confinement
+                ? 'Diagnosis saved. Clinical Confinement is pending owner approval and room assignment in Boarding.'
+                : 'Diagnosis saved and patient marked done.');
             if (printAfterSave) {
                 printPrescriptionFromCurrentForm();
             }
@@ -1748,7 +1822,7 @@ export default function VetDiagnosis() {
             return true;
         } catch (error) {
             console.error('Failed to save the diagnosis:', error);
-            toast.error('The diagnosis could not be saved. Review the details and try again.');
+            toast.error(error.message || 'The diagnosis could not be saved. Review the details and try again.');
             return false;
         } finally {
             setIsSaving(false);
@@ -1772,13 +1846,13 @@ export default function VetDiagnosis() {
     };
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6">
+        <div className="mx-auto max-w-7xl space-y-4">
             <DashboardPageHeader
                 icon={Stethoscope}
-                title="Diagnosis Form"
-                description={`${context.petName} - Owner: ${context.ownerName}`}
+                title="Diagnosis"
+                description="Record the examination, assessment, treatment, prescription, and follow-up in one clinical workflow."
                 meta={loadedDiagnosisId ? (
-                    <Badge className="border-0 bg-green-50 text-green-700">Saved clinical record</Badge>
+                    <Badge className="border-0 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300">Saved clinical record</Badge>
                 ) : null}
                 navigation={(
                     <Button type="button" variant="ghost" size="sm" onClick={goBackToMyList} className="-ml-2 w-fit gap-2">
@@ -1786,58 +1860,59 @@ export default function VetDiagnosis() {
                         Back to My List
                     </Button>
                 )}
-                actions={(
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-                        {context.serviceName}
-                    </div>
-                    <DiagnosisContextSidebar
-                        context={context}
-                        sourceUploads={sourceUploads}
-                        consentUploads={consentUploads}
-                        additionalConsents={additionalConsents}
-                        consentForms={consentFormsForDisplay}
-                        boardingDocumentUploads={boardingDocumentUploads}
-                        onPreview={setPreviewImage}
-                    />
-                    </div>
-                )}
+            />
+
+            <PatientVisitSummary
+                context={context}
+                sourceUploads={sourceUploads}
+                consentUploads={consentUploads}
+                additionalConsents={additionalConsents}
+                consentForms={consentFormsForDisplay}
+                boardingDocumentUploads={boardingDocumentUploads}
+                onPreview={setPreviewImage}
             />
 
             {schemaWarning && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
                     {schemaWarning}
                 </div>
             )}
 
             {isLoadingRecord && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                     <Loader2 className="mr-2 inline size-4 animate-spin text-[#155dfc]" />
                     Loading saved diagnosis details...
                 </div>
             )}
 
             {isLoadingContext && (
-                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-700">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
                     <Loader2 className="mr-2 inline size-4 animate-spin" />
                     Loading latest pet, booking, and upload details...
                 </div>
             )}
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <Label className="mb-3 block text-sm font-bold text-slate-900">Diagnosis Module</Label>
-                <div className="grid gap-3 md:grid-cols-2">
+            <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Form type</Label>
+                    <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        {diagnosisType === 'general'
+                            ? 'Standard medical or surgical examination.'
+                            : 'Service-specific diagnosis blocks and records.'}
+                    </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Diagnosis form type">
                     <DiagnosisTypeButton
                         active={diagnosisType === 'general'}
                         icon={Stethoscope}
-                        title="General Medical / Surgery"
+                        title="General diagnosis"
                         description="Use standard exam fields, vital signs, diagnosis, treatment, and prescription."
                         onClick={() => setDiagnosisType('general')}
                     />
                     <DiagnosisTypeButton
                         active={diagnosisType === 'custom'}
                         icon={FileText}
-                        title="Custom Diagnosis Services"
+                        title="Custom service"
                         description="Add one or more service-specific diagnosis blocks with symptoms, prescription, and uploads."
                         onClick={() => setDiagnosisType('custom')}
                     />
@@ -1845,15 +1920,18 @@ export default function VetDiagnosis() {
             </section>
 
             {diagnosisType === 'general' ? (
-                <GeneralDiagnosisForm
-                    formData={formData}
-                    currentPrescription={currentPrescription}
-                    setCurrentPrescription={setCurrentPrescription}
-                    updateForm={updateForm}
-                    updateVitalSign={updateVitalSign}
-                    addPrescription={addPrescription}
-                    removePrescription={removePrescription}
-                />
+                <>
+                    <DiagnosisProgress formData={formData} />
+                    <GeneralDiagnosisForm
+                        formData={formData}
+                        currentPrescription={currentPrescription}
+                        setCurrentPrescription={setCurrentPrescription}
+                        updateForm={updateForm}
+                        updateVitalSign={updateVitalSign}
+                        addPrescription={addPrescription}
+                        removePrescription={removePrescription}
+                    />
+                </>
             ) : (
                 <CustomDiagnosisForm
                     customFields={customFields}
@@ -1873,47 +1951,83 @@ export default function VetDiagnosis() {
                 />
             )}
 
-            <VaccinationRecordSection
-                enabled={shouldRecordVaccination}
-                setEnabled={setShouldRecordVaccination}
-                record={vaccinationRecord}
-                setRecord={setVaccinationRecord}
-                suggested={contextIsVaccination}
+            <ConfinementDispositionSection
+                plan={confinementPlan}
+                setPlan={setConfinementPlan}
             />
 
-            <AdditionalConsentSection
-                consentTemplates={consentTemplates}
-                isLoading={isLoadingConsentTemplates}
-                draft={consentDraft}
-                setDraft={setConsentDraft}
-                selectedTemplate={selectedConsentTemplate}
-                additionalConsents={additionalConsents}
-                consentForms={consentFormsForDisplay}
-                addAdditionalConsent={addAdditionalConsent}
-                removeAdditionalConsent={removeAdditionalConsent}
-                ownerName={context.ownerName}
-                onPreview={setPreviewImage}
-            />
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-slate-800/70"
+                    onClick={() => setShowAdditionalRecords(current => !current)}
+                    aria-expanded={showAdditionalRecords}
+                    aria-controls="diagnosis-additional-records"
+                >
+                    <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/50 dark:text-blue-300">
+                            <ClipboardCheck className="size-5" />
+                        </span>
+                        <span>
+                            <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">Additional records</span>
+                            <span className="mt-0.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                Vaccination, consent, charges, uploads, and reference documents.
+                            </span>
+                        </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                        {contextIsVaccination && (
+                            <Badge className="hidden border-0 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 sm:inline-flex">
+                                Vaccination visit
+                            </Badge>
+                        )}
+                        <ChevronDown className={`size-5 text-slate-400 transition-transform ${showAdditionalRecords ? 'rotate-180' : ''}`} />
+                    </span>
+                </button>
 
-            <VisitChargesSection
-                serviceCatalog={serviceCatalog}
-                selectedServiceId={selectedServiceId}
-                setSelectedServiceId={setSelectedServiceId}
-                addServiceVisitCharge={addServiceVisitCharge}
-                visitCharges={visitCharges}
-                updateVisitCharge={updateVisitCharge}
-                removeVisitCharge={removeVisitCharge}
-                total={visitChargesTotal}
-                schemaMessage={billingSchemaMessage}
-            />
+                {showAdditionalRecords && (
+                    <div id="diagnosis-additional-records" className="space-y-4 border-t border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/30">
+                        <VaccinationRecordSection
+                            enabled={shouldRecordVaccination}
+                            setEnabled={setShouldRecordVaccination}
+                            record={vaccinationRecord}
+                            setRecord={setVaccinationRecord}
+                            suggested={contextIsVaccination}
+                        />
 
-            {diagnosisType === 'general' && (
-                <>
-                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <AdditionalConsentSection
+                            consentTemplates={consentTemplates}
+                            isLoading={isLoadingConsentTemplates}
+                            draft={consentDraft}
+                            setDraft={setConsentDraft}
+                            selectedTemplate={selectedConsentTemplate}
+                            additionalConsents={additionalConsents}
+                            consentForms={consentFormsForDisplay}
+                            addAdditionalConsent={addAdditionalConsent}
+                            removeAdditionalConsent={removeAdditionalConsent}
+                            ownerName={context.ownerName}
+                            onPreview={setPreviewImage}
+                        />
+
+                        <VisitChargesSection
+                            serviceCatalog={serviceCatalog}
+                            selectedServiceId={selectedServiceId}
+                            setSelectedServiceId={setSelectedServiceId}
+                            addServiceVisitCharge={addServiceVisitCharge}
+                            visitCharges={visitCharges}
+                            updateVisitCharge={updateVisitCharge}
+                            removeVisitCharge={removeVisitCharge}
+                            total={visitChargesTotal}
+                            schemaMessage={billingSchemaMessage}
+                        />
+
+                        {diagnosisType === 'general' && (
+                            <>
+                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <Label className="text-sm font-bold text-slate-900">Diagnosis Uploads</Label>
-                                <p className="mt-1 text-sm font-medium text-slate-500">
+                                <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Diagnosis Uploads</Label>
+                                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
                                     Attach lab reports, X-rays, wound photos, or other files created during diagnosis.
                                 </p>
                             </div>
@@ -1939,11 +2053,11 @@ export default function VetDiagnosis() {
                         />
                     </section>
 
-                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <Label className="text-sm font-bold text-slate-900">Reference Documents</Label>
-                                <p className="mt-1 text-sm font-medium text-slate-500">
+                                <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Reference Documents</Label>
+                                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
                                     Attach boarding reports, monitoring documents, PDFs, or external clinic references.
                                 </p>
                             </div>
@@ -1968,33 +2082,38 @@ export default function VetDiagnosis() {
                             onPreview={setPreviewImage}
                         />
                     </section>
-                </>
-            )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </section>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
+            <div className="flex flex-col-reverse gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:flex-row sm:justify-between lg:sticky lg:bottom-4 lg:z-20">
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving} className="sm:w-auto">
                     Cancel
                 </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleSaveAndPrintPrescription}
-                    disabled={isSaving || isLoadingRecord || !hasPrintablePrescriptions}
-                    title={!hasPrintablePrescriptions ? 'Add at least one prescription before printing.' : undefined}
-                    className="gap-2"
-                >
-                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
-                    {loadedDiagnosisId ? 'Update & Print Prescription' : 'Save & Print Prescription'}
-                </Button>
-                <Button
-                    type="button"
-                    onClick={() => handleSaveDiagnosis()}
-                    disabled={isSaving || isLoadingRecord}
-                    className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
-                >
-                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                    {loadedDiagnosisId ? 'Update Diagnosis' : 'Save Diagnosis'}
-                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSaveAndPrintPrescription}
+                        disabled={isSaving || isLoadingRecord || !hasPrintablePrescriptions}
+                        title={!hasPrintablePrescriptions ? 'Add at least one prescription before printing.' : undefined}
+                        className="gap-2"
+                    >
+                        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+                        {loadedDiagnosisId ? 'Update & Print Prescription' : 'Save & Print Prescription'}
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={() => handleSaveDiagnosis()}
+                        disabled={isSaving || isLoadingRecord}
+                        className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                    >
+                        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                        {loadedDiagnosisId ? 'Update Diagnosis' : 'Save Diagnosis'}
+                    </Button>
+                </div>
             </div>
 
             <PhotoViewer
@@ -2042,19 +2161,25 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
             {enabled && (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <InputBlock
+                        id="vet-vaccination-name"
                         label="Vaccine Name"
+                        required
                         value={record.vaccineName}
                         placeholder="Example: Rabies, 5-in-1, DHPP"
                         onChange={(value) => updateRecord('vaccineName', value)}
                     />
                     <InputBlock
+                        id="vet-vaccination-date-administered"
                         label="Date Administered"
+                        required
                         type="date"
                         value={record.dateAdministered}
                         onChange={(value) => updateRecord('dateAdministered', value)}
                     />
                     <InputBlock
+                        id="vet-vaccination-next-due-date"
                         label="Next Due Date"
+                        required
                         type="date"
                         value={record.nextDueDate}
                         min={record.dateAdministered || undefined}
@@ -2511,13 +2636,153 @@ function VisitChargesSection({
     );
 }
 
+function PatientVisitSummary({
+    context,
+    sourceUploads,
+    consentUploads,
+    additionalConsents,
+    consentForms,
+    boardingDocumentUploads,
+    onPreview
+}) {
+    const weight = context.petWeight
+        ? `${context.petWeight}${String(context.petWeight).toLowerCase().includes('kg') ? '' : ' kg'}`
+        : '';
+    const patientFacts = [context.petSpecies, context.petBreed, context.petGender, context.petAge, weight].filter(Boolean);
+    const hasQueueReference = Boolean(context.queueReference || context.queueNumber);
+    const visitReference = context.queueReference
+        || (context.queueNumber ? formatQueueReference({ queueNumber: context.queueNumber }) : '')
+        || context.bookingNumber
+        || 'Not assigned';
+
+    return (
+        <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="flex min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-center">
+                <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                    {context.petProfileImage ? (
+                        <ProtectedImage
+                            src={resolveFileUrl(context.petProfileImage)}
+                            alt={context.petName}
+                            className="h-full w-full object-cover"
+                            fallbackClassName="h-full w-full"
+                        />
+                    ) : (
+                        <PawPrint className="size-8 text-slate-400" aria-hidden="true" />
+                    )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-xl font-bold text-slate-950 dark:text-slate-50">{context.petName}</h2>
+                        <Badge className="border-0 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">Patient</Badge>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                        {patientFacts.length > 0 ? patientFacts.join(' · ') : 'Patient details are not available'}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">Owner:</span> {context.ownerName}
+                        {context.ownerPhone ? <span className="text-slate-400"> · {context.ownerPhone}</span> : null}
+                    </p>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40 lg:border-l lg:border-t-0">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="flex items-start gap-3">
+                        <CalendarDays className="mt-0.5 size-4 shrink-0 text-[#155dfc]" aria-hidden="true" />
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Visit type</p>
+                            <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{context.serviceName}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <FileText className="mt-0.5 size-4 shrink-0 text-[#155dfc]" aria-hidden="true" />
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                {hasQueueReference ? 'Queue reference' : 'Booking reference'}
+                            </p>
+                            <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{visitReference}</p>
+                        </div>
+                    </div>
+                </div>
+                <DiagnosisContextSidebar
+                    context={context}
+                    sourceUploads={sourceUploads}
+                    consentUploads={consentUploads}
+                    additionalConsents={additionalConsents}
+                    consentForms={consentForms}
+                    boardingDocumentUploads={boardingDocumentUploads}
+                    onPreview={onPreview}
+                />
+            </div>
+        </section>
+    );
+}
+
+function DiagnosisProgress({ formData }) {
+    const hasText = value => String(value || '').trim().length > 0;
+    const hasVitalSign = Object.values(formData.vitalSigns || {}).some(hasText);
+    const steps = [
+        {
+            id: 'diagnosis-examination',
+            label: 'Examination',
+            hasContent: hasVitalSign || ['chiefComplaint', 'majorSymptoms', 'symptoms', 'physicalExam'].some(key => hasText(formData[key]))
+        },
+        {
+            id: 'diagnosis-assessment',
+            label: 'Assessment',
+            hasContent: hasText(formData.diagnosis) || hasText(formData.labResults)
+        },
+        { id: 'diagnosis-treatment', label: 'Treatment', hasContent: hasText(formData.treatment) },
+        { id: 'diagnosis-prescription', label: 'Prescription', hasContent: (formData.prescription || []).length > 0 },
+        { id: 'diagnosis-follow-up', label: 'Follow-up', hasContent: hasText(formData.followUp) || hasText(formData.notes) }
+    ];
+    const activeIndex = steps.reduce((furthest, step, index) => (step.hasContent ? index : furthest), 0);
+
+    return (
+        <nav className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Diagnosis sections">
+            <div className="mx-auto flex min-w-[620px] max-w-4xl items-start">
+                {steps.map((step, index) => {
+                    const reached = index <= activeIndex;
+                    const active = index === activeIndex;
+
+                    return (
+                        <div key={step.id} className="contents">
+                            <button
+                                type="button"
+                                onClick={() => document.getElementById(step.id)?.scrollIntoView({ block: 'start' })}
+                                className="group flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-md px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                aria-current={active ? 'step' : undefined}
+                            >
+                                <span className={`flex size-7 items-center justify-center rounded-full border text-xs font-bold ${
+                                    reached
+                                        ? 'border-[#155dfc] bg-[#155dfc] text-white'
+                                        : 'border-slate-300 bg-white text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400'
+                                }`}>
+                                    {index + 1}
+                                </span>
+                                <span className={`text-xs font-semibold ${active ? 'text-[#155dfc]' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {step.label}
+                                </span>
+                            </button>
+                            {index < steps.length - 1 && (
+                                <span className={`mt-4 h-px min-w-6 flex-1 ${index < activeIndex ? 'bg-[#155dfc]' : 'bg-slate-200 dark:bg-slate-700'}`} aria-hidden="true" />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </nav>
+    );
+}
+
 function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, additionalConsents, consentForms, boardingDocumentUploads, onPreview }) {
     const visibleConsentForms = consentForms || additionalConsents;
 
     return (
         <Sheet>
             <SheetTrigger asChild>
-                <Button type="button" variant="outline" className="gap-2">
+                <Button type="button" variant="outline" className="mt-4 w-full gap-2">
                     <PanelRightOpen className="size-4" />
                     Pet Details & Uploads
                 </Button>
@@ -2689,14 +2954,130 @@ function DiagnosisTypeButton({ active, icon, title, description, onClick }) {
         <button
             type="button"
             onClick={onClick}
-            className={`rounded-xl border-2 p-4 text-left transition ${
-                active ? 'border-[#155dfc] bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-200'
+            aria-pressed={active}
+            title={description}
+            className={`flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                active
+                    ? 'border-[#155dfc] bg-blue-50 text-[#155dfc] dark:bg-blue-950/50 dark:text-blue-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-800 dark:hover:text-slate-100'
             }`}
         >
-            <Icon className={`mb-3 size-7 ${active ? 'text-[#155dfc]' : 'text-slate-500'}`} />
-            <h3 className="font-bold text-slate-900">{title}</h3>
-            <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500">{description}</p>
+            <Icon className="size-4" aria-hidden="true" />
+            <span>{title}</span>
+            <span className="sr-only">{description}</span>
         </button>
+    );
+}
+
+function DiagnosisSection({ id, number, icon, title, description, children }) {
+    const Icon = icon;
+
+    return (
+        <section id={id} className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <header className="flex items-start gap-3 border-b border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30 sm:px-5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc] shadow-sm ring-1 ring-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-900/60">
+                    <Icon className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{number}. {title}</h3>
+                    <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{description}</p>
+                </div>
+            </header>
+            <div className="space-y-5 p-4 sm:p-5">{children}</div>
+        </section>
+    );
+}
+
+function ConfinementDispositionSection({ plan, setPlan }) {
+    const updatePlan = (field, value) => {
+        setPlan(current => ({ ...current, [field]: value }));
+    };
+    const disposition = plan.requested ? 'confinement' : 'home';
+
+    return (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <header className="flex items-start gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                    <Building2 className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Visit disposition</h3>
+                    <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">Choose whether the pet goes home or needs monitored confinement in Boarding.</p>
+                </div>
+            </header>
+            <div className="space-y-4 p-4 sm:p-5">
+                <Field id="vet-visit-disposition" label="After this visit">
+                    <Select value={disposition} onValueChange={(value) => updatePlan('requested', value === 'confinement')}>
+                        <SelectTrigger id="vet-visit-disposition">
+                            <SelectValue displayValue={disposition === 'confinement' ? 'Admit to clinical confinement' : 'Send home / outpatient care'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="home">Send home / outpatient care</SelectItem>
+                            <SelectItem value="confinement">Admit to clinical confinement</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </Field>
+
+                {plan.requested && (
+                    <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50/50 p-4 dark:border-violet-900/60 dark:bg-violet-950/20">
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Field id="vet-confinement-placement" label="Placement" required>
+                                <Select value={plan.facilityType} onValueChange={(value) => updatePlan('facilityType', value)}>
+                                    <SelectTrigger id="vet-confinement-placement"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="boarding">Kennel</SelectItem>
+                                        <SelectItem value="hotel">Pet Hotel</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            <Field id="vet-confinement-room-size" label="Room size" required>
+                                <Select value={plan.roomSize} onValueChange={(value) => updatePlan('roomSize', value)}>
+                                    <SelectTrigger id="vet-confinement-room-size"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="small">Small</SelectItem>
+                                        <SelectItem value="medium">Medium</SelectItem>
+                                        <SelectItem value="large">Large</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            <InputBlock
+                                id="vet-confinement-discharge"
+                                label="Expected discharge"
+                                required
+                                type="date"
+                                value={plan.expectedDischarge}
+                                onChange={(value) => updatePlan('expectedDischarge', value)}
+                            />
+                        </div>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Field id="vet-confinement-reason" label="Clinical reason" required>
+                                <Textarea
+                                    id="vet-confinement-reason"
+                                    value={plan.reason}
+                                    onChange={(event) => updatePlan('reason', event.target.value)}
+                                    placeholder="Why does the pet need monitored confinement?"
+                                    className="min-h-24"
+                                    maxLength={5000}
+                                />
+                            </Field>
+                            <Field id="vet-confinement-care" label="Boarding care instructions">
+                                <Textarea
+                                    id="vet-confinement-care"
+                                    value={plan.careInstructions}
+                                    onChange={(event) => updatePlan('careInstructions', event.target.value)}
+                                    placeholder="Monitoring, feeding, medication, or handling instructions"
+                                    className="min-h-24"
+                                    maxLength={5000}
+                                />
+                            </Field>
+                        </div>
+                        <p className="text-xs font-medium leading-5 text-violet-800 dark:text-violet-200">
+                            Saving creates a pending Clinical Confinement admission in Boarding and adds the stay to this visit’s invoice. Boarding staff must capture owner consent before assigning a room.
+                        </p>
+                    </div>
+                )}
+            </div>
+        </section>
     );
 }
 
@@ -2710,139 +3091,195 @@ function GeneralDiagnosisForm({
     removePrescription
 }) {
     return (
-        <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Medical Examination</h3>
-
-            <Field label="Chief Complaint">
-                <Textarea
-                    value={formData.chiefComplaint}
-                    onChange={(event) => updateForm('chiefComplaint', event.target.value)}
-                    placeholder="Main reason for visit"
-                    className="min-h-20"
-                />
-            </Field>
-
-            <MajorSymptomsContainer
-                value={formData.majorSymptoms}
-                onChange={(value) => updateForm('majorSymptoms', value)}
-            />
-
-            <Field label="Symptoms & Clinical Signs">
-                <Textarea
-                    value={formData.symptoms}
-                    onChange={(event) => updateForm('symptoms', event.target.value)}
-                                placeholder="Symptoms and signs"
-                    className="min-h-20"
-                />
-            </Field>
-
-            <div className="space-y-3">
-                <Label className="text-sm font-bold text-slate-900">Vital Signs</Label>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <InputBlock
-                        label="Temperature (C)"
-                        value={formData.vitalSigns.temperature}
-                        placeholder="38.5"
-                        restriction="decimal"
-                        onChange={(value) => updateVitalSign('temperature', value)}
-                    />
-                    <InputBlock
-                        label="Heart Rate (bpm)"
-                        value={formData.vitalSigns.heartRate}
-                        placeholder="120"
-                        restriction="integer"
-                        onChange={(value) => updateVitalSign('heartRate', value)}
-                    />
-                    <InputBlock
-                        label="Respiratory Rate"
-                        value={formData.vitalSigns.respiratoryRate}
-                        placeholder="30"
-                        restriction="integer"
-                        onChange={(value) => updateVitalSign('respiratoryRate', value)}
-                    />
-                    <InputBlock
-                        label="Weight (kg)"
-                        value={formData.vitalSigns.weight}
-                        placeholder="12.5"
-                        restriction="decimal"
-                        onChange={(value) => updateVitalSign('weight', value)}
-                    />
+        <div className="space-y-4">
+            <DiagnosisSection
+                id="diagnosis-examination"
+                number="1"
+                icon={Stethoscope}
+                title="Patient Examination"
+                description="Record the reason for the visit, clinical signs, vital signs, and examination findings."
+            >
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Field id="vet-chief-complaint" label="Chief Complaint">
+                        <Textarea
+                            id="vet-chief-complaint"
+                            value={formData.chiefComplaint}
+                            onChange={(event) => updateForm('chiefComplaint', event.target.value)}
+                            placeholder="Enter the main reason for the visit"
+                            className="min-h-24"
+                        />
+                    </Field>
+                    <Field id="vet-clinical-signs" label="Symptoms & Clinical Signs">
+                        <Textarea
+                            id="vet-clinical-signs"
+                            value={formData.symptoms}
+                            onChange={(event) => updateForm('symptoms', event.target.value)}
+                            placeholder="Enter observed or reported symptoms"
+                            className="min-h-24"
+                        />
+                    </Field>
                 </div>
-            </div>
 
-            <Field label="Physical Examination Findings">
-                <Textarea
-                    value={formData.physicalExam}
-                    onChange={(event) => updateForm('physicalExam', event.target.value)}
-                                placeholder="Physical exam findings"
-                    className="min-h-24"
+                <MajorSymptomsContainer
+                    value={formData.majorSymptoms}
+                    onChange={(value) => updateForm('majorSymptoms', value)}
                 />
-            </Field>
 
-            <Field label="Diagnosis" required>
-                <Textarea
-                    value={formData.diagnosis}
-                    onChange={(event) => updateForm('diagnosis', event.target.value)}
-                                placeholder="Primary diagnosis"
-                    className="min-h-20"
-                />
-            </Field>
+                <div className="space-y-3">
+                    <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Vital Signs</Label>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <InputBlock
+                            id="vet-temperature"
+                            label="Temperature (°C)"
+                            value={formData.vitalSigns.temperature}
+                            placeholder="38.5"
+                            restriction="decimal"
+                            onChange={(value) => updateVitalSign('temperature', value)}
+                        />
+                        <InputBlock
+                            id="vet-heart-rate"
+                            label="Heart Rate (BPM)"
+                            value={formData.vitalSigns.heartRate}
+                            placeholder="120"
+                            restriction="integer"
+                            onChange={(value) => updateVitalSign('heartRate', value)}
+                        />
+                        <InputBlock
+                            id="vet-respiratory-rate"
+                            label="Respiratory Rate"
+                            value={formData.vitalSigns.respiratoryRate}
+                            placeholder="30"
+                            restriction="integer"
+                            onChange={(value) => updateVitalSign('respiratoryRate', value)}
+                        />
+                        <InputBlock
+                            id="vet-weight"
+                            label="Weight (kg)"
+                            value={formData.vitalSigns.weight}
+                            placeholder="12.5"
+                            restriction="decimal"
+                            onChange={(value) => updateVitalSign('weight', value)}
+                        />
+                    </div>
+                </div>
 
-            <Field label="Treatment Plan">
-                <Textarea
-                    value={formData.treatment}
-                    onChange={(event) => updateForm('treatment', event.target.value)}
-                                placeholder="Recommended treatment"
-                    className="min-h-20"
-                />
-            </Field>
-
-            <PrescriptionEditor
-                currentPrescription={currentPrescription}
-                setCurrentPrescription={setCurrentPrescription}
-                prescriptions={formData.prescription}
-                addPrescription={addPrescription}
-                removePrescription={removePrescription}
-            />
-
-            <Field label="Lab Results">
-                <Textarea
-                    value={formData.labResults}
-                    onChange={(event) => updateForm('labResults', event.target.value)}
-                    placeholder="Summary of lab findings"
-                    className="min-h-20"
-                />
-            </Field>
-
-            <div className="grid gap-4 md:grid-cols-2">
-                <InputBlock
-                    label="Follow-up Date"
-                    type="date"
-                    value={formData.followUp}
-                    onChange={(value) => updateForm('followUp', value)}
-                />
-                <Field label="Notes">
+                <Field id="vet-physical-exam" label="Physical Examination Findings">
                     <Textarea
-                        value={formData.notes}
-                        onChange={(event) => updateForm('notes', event.target.value)}
-                        placeholder="Additional notes"
-                        className="min-h-20"
+                        id="vet-physical-exam"
+                        value={formData.physicalExam}
+                        onChange={(event) => updateForm('physicalExam', event.target.value)}
+                        placeholder="Enter physical examination findings"
+                        className="min-h-24"
                     />
                 </Field>
-            </div>
-        </section>
+            </DiagnosisSection>
+
+            <DiagnosisSection
+                id="diagnosis-assessment"
+                number="2"
+                icon={ClipboardCheck}
+                title="Assessment & Diagnosis"
+                description="Document the primary assessment and any supporting diagnostic results."
+            >
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Field id="vet-diagnosis-primary" label="Primary Diagnosis" required>
+                        <Textarea
+                            id="vet-diagnosis-primary"
+                            value={formData.diagnosis}
+                            onChange={(event) => updateForm('diagnosis', event.target.value)}
+                            placeholder="Enter the primary diagnosis"
+                            className="min-h-28"
+                        />
+                    </Field>
+                    <Field id="vet-lab-results" label="Lab & Diagnostic Results">
+                        <Textarea
+                            id="vet-lab-results"
+                            value={formData.labResults}
+                            onChange={(event) => updateForm('labResults', event.target.value)}
+                            placeholder="Summarize laboratory or diagnostic findings"
+                            className="min-h-28"
+                        />
+                    </Field>
+                </div>
+            </DiagnosisSection>
+
+            <DiagnosisSection
+                id="diagnosis-treatment"
+                number="3"
+                icon={FileText}
+                title="Treatment Plan"
+                description="Record treatment, procedures, and care instructions for this visit."
+            >
+                <Field id="vet-treatment-plan" label="Treatment / Procedure">
+                    <Textarea
+                        id="vet-treatment-plan"
+                        value={formData.treatment}
+                        onChange={(event) => updateForm('treatment', event.target.value)}
+                        placeholder="Enter treatment, procedure, or care instructions"
+                        className="min-h-28"
+                    />
+                </Field>
+            </DiagnosisSection>
+
+            <DiagnosisSection
+                id="diagnosis-prescription"
+                number="4"
+                icon={Pill}
+                title="Prescription & Medications"
+                description="Add prescribed items, frequency, duration, and instructions."
+            >
+                <PrescriptionEditor
+                    currentPrescription={currentPrescription}
+                    setCurrentPrescription={setCurrentPrescription}
+                    prescriptions={formData.prescription}
+                    addPrescription={addPrescription}
+                    removePrescription={removePrescription}
+                    embedded
+                />
+            </DiagnosisSection>
+
+            <DiagnosisSection
+                id="diagnosis-follow-up"
+                number="5"
+                icon={CalendarDays}
+                title="Follow-up"
+                description="Set the next visit date and record reminders or additional instructions."
+            >
+                <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
+                    <InputBlock
+                        id="vet-follow-up-date"
+                        label="Follow-up Date"
+                        type="date"
+                        value={formData.followUp}
+                        onChange={(value) => updateForm('followUp', value)}
+                    />
+                    <Field id="vet-follow-up-notes" label="Follow-up Notes">
+                        <Textarea
+                            id="vet-follow-up-notes"
+                            value={formData.notes}
+                            onChange={(event) => updateForm('notes', event.target.value)}
+                            placeholder="Enter follow-up details or reminders"
+                            className="min-h-20"
+                        />
+                    </Field>
+                </div>
+            </DiagnosisSection>
+        </div>
     );
 }
 
 function MajorSymptomsContainer({ value, onChange }) {
     return (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <Label className="text-sm font-black uppercase tracking-widest text-amber-700">Major Symptoms</Label>
+        <div className="space-y-2">
+            <Label htmlFor="vet-major-symptoms" className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Major / Urgent Symptoms
+            </Label>
             <Textarea
+                id="vet-major-symptoms"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                                        placeholder="Urgent symptoms"
-                className="mt-3 min-h-24 border-amber-200 bg-white"
+                placeholder="Record urgent symptoms that need close attention"
+                className="min-h-20 border-amber-200 bg-amber-50/40 focus-visible:ring-amber-500 dark:border-amber-900/60 dark:bg-amber-950/20"
             />
         </div>
     );
@@ -2902,15 +3339,12 @@ function printHtmlDocument(html) {
 
 function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLicense, diagnosisText, notes, rows }) {
     const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    const prescriptionRows = rows.map((row, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(row.section)}</td>
-            <td>
-                <strong>${escapeHtml(formatPrescriptionLine(row.prescription))}</strong>
-                ${row.prescription.instructions ? `<p class="instructions">${escapeHtml(row.prescription.instructions)}</p>` : ''}
-            </td>
-        </tr>
+    const prescriptionItems = rows.map((row, index) => `
+        <article class="prescription-item">
+            <div class="prescription-label">${String(index + 1).padStart(2, '0')} / ${escapeHtml(row.section)}</div>
+            <strong>${escapeHtml(formatPrescriptionLine(row.prescription))}</strong>
+            ${row.prescription.instructions ? `<p class="instructions">Instructions: ${escapeHtml(row.prescription.instructions)}</p>` : ''}
+        </article>
     `).join('');
 
     return `<!doctype html>
@@ -2919,46 +3353,55 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
     <meta charset="utf-8" />
     <title>Prescription - ${escapeHtml(context.petName || 'Patient')}</title>
     <style>
-        @page { size: A4; margin: 14mm; }
+        @page { size: 58mm 297mm; margin: 0; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: #111827; font-family: Arial, sans-serif; background: #fff; }
-        .sheet { width: 100%; }
-        .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #155dfc; padding-bottom: 18px; }
-        .brand { color: #155dfc; font-size: 28px; font-weight: 800; line-height: 1; }
-        .clinic { margin-top: 6px; color: #475569; font-size: 14px; font-weight: 700; }
-        .title { text-align: right; }
-        .title h1 { margin: 0; font-size: 22px; }
-        .title p { margin: 6px 0 0; color: #475569; font-size: 13px; font-weight: 700; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 20px 0; }
-        .field { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
-        .label { display: block; color: #64748b; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-        .value { display: block; margin-top: 4px; color: #111827; font-size: 14px; font-weight: 700; }
-        .section { margin-top: 20px; }
-        .section h2 { margin: 0 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: #155dfc; }
-        .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; min-height: 56px; white-space: pre-wrap; line-height: 1.5; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
-        th { background: #eff6ff; color: #1d4ed8; text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-        th, td { border: 1px solid #dbe3ef; padding: 10px; vertical-align: top; }
-        td:first-child { width: 42px; text-align: center; font-weight: 800; }
-        td:nth-child(2) { width: 160px; font-weight: 700; color: #334155; }
-        .instructions { margin: 6px 0 0; color: #475569; white-space: pre-wrap; line-height: 1.45; }
-        .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 42px; }
-        .line { border-top: 1px solid #111827; padding-top: 8px; text-align: center; font-size: 12px; font-weight: 700; }
-        .footer { margin-top: 28px; color: #64748b; font-size: 11px; text-align: center; }
+        html, body { width: 58mm; min-width: 58mm; margin: 0; padding: 0; background: #fff; }
+        body {
+            color: #0f172a;
+            font-family: Arial, sans-serif;
+            font-size: 7pt;
+            line-height: 1.35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .sheet { width: 58mm; margin: 0; padding: 0 5mm 5mm; overflow: hidden; }
+        .header { margin: 0 -5mm; padding: 5mm 5mm 4mm; background: #155dfc; color: #fff; text-align: center; }
+        .brand { font-size: 12pt; font-weight: 800; line-height: 1; letter-spacing: .04em; }
+        .clinic { margin-top: 1.2mm; font-size: 7.5pt; font-weight: 800; }
+        .document-type { margin-top: 1mm; font-size: 6pt; letter-spacing: .08em; }
+        .title { padding: 5mm 0 3mm; text-align: center; }
+        .title h1 { margin: 0; font-size: 10pt; }
+        .title p { margin: 1.5mm 0 0; color: #475569; font-size: 6.5pt; font-weight: 700; }
+        .rule { border: 0; border-top: .2mm dashed #94a3b8; margin: 0 0 3mm; }
+        .grid { margin-bottom: 3mm; }
+        .field { display: flex; align-items: flex-start; justify-content: space-between; gap: 3mm; padding: 1mm 0; }
+        .label { flex: 0 0 auto; color: #475569; font-size: 6.4pt; font-weight: 800; text-transform: uppercase; }
+        .value { min-width: 0; text-align: right; color: #0f172a; font-size: 6.4pt; overflow-wrap: anywhere; }
+        .section { margin-top: 3mm; }
+        .section h2 { margin: 0 0 2mm; font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; }
+        .box { color: #334155; white-space: pre-wrap; line-height: 1.45; overflow-wrap: anywhere; }
+        .prescription-item { border-top: .2mm dashed #94a3b8; padding: 2.5mm 0; break-inside: avoid; }
+        .prescription-label { margin-bottom: 1.4mm; border-radius: 1mm; background: #eff6ff; padding: 1.2mm 1.5mm; color: #155dfc; font-size: 6pt; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
+        .prescription-item strong { display: block; font-size: 7pt; line-height: 1.4; overflow-wrap: anywhere; }
+        .instructions { margin: 1.2mm 0 0; color: #475569; font-size: 6.3pt; white-space: pre-wrap; line-height: 1.45; overflow-wrap: anywhere; }
+        .signature { margin-top: 8mm; }
+        .line { margin-top: 8mm; border-top: .2mm solid #111827; padding-top: 1.5mm; text-align: center; color: #475569; font-size: 5.8pt; font-weight: 700; }
+        .footer { margin-top: 5mm; border-top: .2mm dashed #94a3b8; padding-top: 3mm; color: #64748b; font-size: 5.7pt; line-height: 1.45; text-align: center; }
     </style>
 </head>
 <body>
     <main class="sheet">
         <header class="header">
-            <div>
-                <div class="brand">iPawcus</div>
-                <div class="clinic">Vetfocus Animal Care Clinic</div>
-            </div>
-            <div class="title">
-                <h1>Prescription</h1>
-                <p>${escapeHtml(today)}</p>
-            </div>
+            <div class="brand">IPAWCUS</div>
+            <div class="clinic">VETERINARY CLINIC</div>
+            <div class="document-type">OFFICIAL PRESCRIPTION RECORD</div>
         </header>
+
+        <div class="title">
+            <h1>PRESCRIPTION</h1>
+            <p>${escapeHtml(today)}</p>
+        </div>
+        <hr class="rule" />
 
         <section class="grid">
             <div class="field"><span class="label">Patient</span><span class="value">${escapeHtml(context.petName || 'Patient')}</span></div>
@@ -2968,6 +3411,7 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
             <div class="field"><span class="label">Species / Breed</span><span class="value">${escapeHtml([context.petSpecies, context.petBreed].filter(Boolean).join(' / ') || 'N/A')}</span></div>
             <div class="field"><span class="label">License</span><span class="value">${escapeHtml(veterinarianLicense || 'N/A')}</span></div>
         </section>
+        <hr class="rule" />
 
         ${diagnosisText ? `<section class="section">
             <h2>Diagnosis Summary</h2>
@@ -2975,17 +3419,8 @@ function buildPrescriptionPrintHtml({ context, veterinarianName, veterinarianLic
         </section>` : ''}
 
         <section class="section">
-            <h2>Prescription Details</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Section</th>
-                        <th>Medication and Instructions</th>
-                    </tr>
-                </thead>
-                <tbody>${prescriptionRows}</tbody>
-            </table>
+            <h2>Prescriptions</h2>
+            ${prescriptionItems}
         </section>
 
         ${notes ? `<section class="section"><h2>Notes</h2><div class="box">${escapeHtml(notes)}</div></section>` : ''}
@@ -3043,88 +3478,113 @@ function PrescriptionEditor({
     setCurrentPrescription,
     prescriptions,
     addPrescription,
-    removePrescription
+    removePrescription,
+    embedded = false
 }) {
     const updatePrescriptionInput = (field, value) => {
         setCurrentPrescription(current => ({ ...current, [field]: value }));
     };
 
     return (
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <Label className="text-sm font-bold text-slate-900">{title}</Label>
-            <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_90px_130px_90px_130px_auto]">
-                <Input
-                    value={currentPrescription.medicine}
-                    onChange={(event) => updatePrescriptionInput('medicine', event.target.value)}
-                    placeholder="Medicine / item"
-                    className="bg-white"
-                />
-                <Input
-                    type="number"
-                    min="0"
-                    value={currentPrescription.times}
-                    onChange={(event) => updatePrescriptionInput('times', parseNonNegativeNumber(event.target.value, 1))}
-                    placeholder="Times"
-                    className="bg-white"
-                />
-                <Select
-                    value={currentPrescription.frequency}
-                    onValueChange={(value) => updatePrescriptionInput('frequency', value)}
-                >
-                    <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {PRESCRIPTION_FREQUENCIES.map(option => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <Input
-                    type="number"
-                    min="0"
-                    value={currentPrescription.durationNumber}
-                    onChange={(event) => updatePrescriptionInput('durationNumber', parseNonNegativeNumber(event.target.value, 0))}
-                    placeholder="Duration"
-                    className="bg-white"
-                />
-                <Select
-                    value={currentPrescription.durationUnit}
-                    onValueChange={(value) => updatePrescriptionInput('durationUnit', value)}
-                >
-                    <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {PRESCRIPTION_DURATION_UNITS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <Button type="button" onClick={addPrescription} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                    <Plus className="size-4" />
-                    Add
-                </Button>
+        <div className={`space-y-4 ${embedded ? '' : 'rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40'}`}>
+            {!embedded && <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</Label>}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(190px,1.5fr)_90px_150px_90px_140px]">
+                <div className="space-y-2 sm:col-span-2 xl:col-span-1">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Medicine / Item</Label>
+                    <Input
+                        value={currentPrescription.medicine}
+                        onChange={(event) => updatePrescriptionInput('medicine', event.target.value)}
+                        placeholder="e.g. Amoxicillin 500mg"
+                        aria-label="Medicine or item"
+                        className="bg-white dark:bg-slate-900"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Times</Label>
+                    <Input
+                        type="number"
+                        min="0"
+                        value={currentPrescription.times}
+                        onChange={(event) => updatePrescriptionInput('times', parseNonNegativeNumber(event.target.value, 1))}
+                        placeholder="1"
+                        aria-label="Number of times"
+                        className="bg-white dark:bg-slate-900"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Frequency</Label>
+                    <Select
+                        value={currentPrescription.frequency}
+                        onValueChange={(value) => updatePrescriptionInput('frequency', value)}
+                    >
+                        <SelectTrigger className="bg-white dark:bg-slate-900" aria-label="Prescription frequency">
+                            <SelectValue placeholder="Frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {PRESCRIPTION_FREQUENCIES.map(option => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration</Label>
+                    <Input
+                        type="number"
+                        min="0"
+                        value={currentPrescription.durationNumber}
+                        onChange={(event) => updatePrescriptionInput('durationNumber', parseNonNegativeNumber(event.target.value, 0))}
+                        placeholder="1"
+                        aria-label="Prescription duration"
+                        className="bg-white dark:bg-slate-900"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration Unit</Label>
+                    <Select
+                        value={currentPrescription.durationUnit}
+                        onValueChange={(value) => updatePrescriptionInput('durationUnit', value)}
+                    >
+                        <SelectTrigger className="bg-white dark:bg-slate-900" aria-label="Prescription duration unit">
+                            <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {PRESCRIPTION_DURATION_UNITS.map(option => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
-            <Textarea
-                value={currentPrescription.instructions}
-                onChange={(event) => updatePrescriptionInput('instructions', event.target.value)}
-                                            placeholder="Prescription notes"
-                className="min-h-16 bg-white"
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1 space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Instructions / Notes</Label>
+                    <Textarea
+                        value={currentPrescription.instructions}
+                        onChange={(event) => updatePrescriptionInput('instructions', event.target.value)}
+                        placeholder="Enter dosage instructions or notes for the owner"
+                        aria-label="Prescription instructions or notes"
+                        className="min-h-20 bg-white dark:bg-slate-900"
+                    />
+                </div>
+                <Button type="button" onClick={addPrescription} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:mb-0.5">
+                    <Plus className="size-4" />
+                    Add Medication
+                </Button>
+            </div>
 
             {prescriptions.length > 0 && (
                 <div className="space-y-2">
                     {prescriptions.map(prescription => (
-                        <div key={prescription.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={prescription.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-700">
+                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                                     <Pill className="mr-1 inline size-4 text-slate-400" />
                                     {formatPrescriptionLine(prescription)}
                                 </p>
                                 {prescription.instructions && (
-                                    <p className="mt-1 text-xs font-medium text-slate-500">{prescription.instructions}</p>
+                                    <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{prescription.instructions}</p>
                                 )}
                             </div>
                             <Button
@@ -3178,7 +3638,7 @@ function CustomDiagnosisForm({
                         onValueChange={setSelectedCustomServiceId}
                         disabled={serviceCatalog.length === 0 || Boolean(schemaMessage)}
                     >
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger id="vet-custom-diagnosis-service" className="bg-white" aria-label="Custom diagnosis service">
                             <SelectValue
                                 placeholder="Select service"
                                 displayValue={selectedService ? `${selectedService.serviceName} - ${formatPhpCurrency(selectedService.basePrice)}` : undefined}
@@ -3439,10 +3899,10 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
     );
 }
 
-function Field({ label, required = false, children }) {
+function Field({ id, label, required = false, children }) {
     return (
         <div className="space-y-2">
-            <Label className="text-sm font-bold text-slate-900">
+            <Label htmlFor={id} className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {label}{required ? <span className="text-red-600"> *</span> : null}
             </Label>
             {children}
@@ -3450,19 +3910,23 @@ function Field({ label, required = false, children }) {
     );
 }
 
-function InputBlock({ label, value, onChange, placeholder = '', type = 'text', restriction, min, max }) {
+function InputBlock({ id, label, value, onChange, placeholder = '', type = 'text', restriction, min, max, required = false }) {
     return (
         <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</Label>
+            <Label htmlFor={id} className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {label}{required ? <span className="text-red-600"> *</span> : null}
+            </Label>
             <Input
+                id={id}
                 type={type}
+                required={required}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
                 restriction={restriction}
                 min={min}
                 max={max}
-                className="bg-white"
+                className="bg-white dark:bg-slate-900"
             />
         </div>
     );

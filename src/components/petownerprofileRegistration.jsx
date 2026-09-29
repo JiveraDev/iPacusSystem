@@ -4,7 +4,6 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Checkbox } from '../ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -13,11 +12,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '../ui/dialog';
-import { ArrowLeft, User, Mail, Phone, MapPin, Dog, Loader2 } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, MapPin, Dog, Loader2, Check } from 'lucide-react';
 import RegistrationTermsPreview, {
     REGISTRATION_TERMS_DOCUMENT_ID,
-    REGISTRATION_TERMS_EFFECTIVE_DATE,
-    REGISTRATION_TERMS_VERSION,
+    REGISTRATION_TERMS_LAST_UPDATED,
 } from './shared/RegistrationTermsPreview.jsx';
 import { searchAddresses } from "../services/addressAutocomplete.js";
 import { getUserFacingErrorMessage } from "../lib/errorPresentation.js";
@@ -39,17 +37,17 @@ function getNameError(value, label) {
         return `${label} is required`;
     }
 
-    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(text)) {
+    if (!/^[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*$/u.test(text)) {
         return `${label} can only use letters and single spaces`;
     }
 
     return '';
 }
 
-export function PetOwnerProfileForm({ email, onBack, onComplete }) {
+export function PetOwnerProfileForm({ email, initialValues, onBack, onComplete }) {
     const [formData, setFormData] = useState({
-        firstName:'',
-        lastName:'',
+        firstName: normalizeNameInput(initialValues?.firstName ?? ''),
+        lastName: normalizeNameInput(initialValues?.lastName ?? ''),
         address: '',
         phoneNumber: normalizePhilippinePhoneInput(''),
         emergencyContact: normalizePhilippinePhoneInput(''),
@@ -63,6 +61,7 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
     const [selectedAddressLocation, setSelectedAddressLocation] = useState(null)
     const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false)
     const [isTermsPreviewOpen, setIsTermsPreviewOpen] = useState(false)
+    const [hasReachedTermsEnd, setHasReachedTermsEnd] = useState(false)
     const blurTimeoutRef = useRef(null)
     const {
         clearLocationFeedback,
@@ -171,6 +170,26 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
         setAddressLookupError("")
         setIsAddressMenuOpen(false)
         setSelectedAddressLocation(suggestion)
+    }
+
+    const openTermsPreview = () => {
+        setHasReachedTermsEnd(false)
+        setIsTermsPreviewOpen(true)
+    }
+
+    const handleTermsScroll = (event) => {
+        const { scrollTop, clientHeight, scrollHeight } = event.currentTarget
+        if (scrollTop + clientHeight >= scrollHeight - 8) {
+            setHasReachedTermsEnd(true)
+        }
+    }
+
+    const handleAcceptTerms = () => {
+        if (!hasReachedTermsEnd) return
+
+        setHasAcceptedTerms(true)
+        setErrors((currentErrors) => ({ ...currentErrors, terms: "" }))
+        setIsTermsPreviewOpen(false)
     }
 
     const handleSubmit = e => {
@@ -494,44 +513,42 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
                                 authorize surgery, anesthesia, euthanasia, or other future procedures; separate
                                 informed consent will be required when applicable.
                             </p>
-                            <div className="flex items-start gap-3">
-                                <Checkbox
-                                    id="termsOfUse"
-                                    checked={hasAcceptedTerms}
-                                    onCheckedChange={(checked) => {
-                                        setHasAcceptedTerms(checked)
-                                        if (checked) {
-                                            setErrors((currentErrors) => ({
-                                                ...currentErrors,
-                                                terms: "",
-                                            }))
-                                        }
-                                    }}
-                                    className="mt-1"
-                                    aria-describedby={errors.terms ? "termsOfUseError" : undefined}
-                                />
-                                <div className="min-w-0 text-sm leading-6">
-                                    <p className="font-medium text-gray-700">
-                                        <label htmlFor="termsOfUse">I have read and agree to the iPawcus </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsTermsPreviewOpen(true)}
-                                            className="font-semibold text-[#155dfc] underline underline-offset-2 hover:text-[#0d4acf] focus:outline-none focus:ring-2 focus:ring-[#155dfc] focus:ring-offset-2"
-                                        >
+                            <button
+                                id="termsOfUse"
+                                type="button"
+                                role="checkbox"
+                                aria-checked={hasAcceptedTerms}
+                                aria-describedby={errors.terms ? "termsReadHint termsOfUseError" : "termsReadHint"}
+                                onClick={openTermsPreview}
+                                className="group flex w-full cursor-pointer items-start gap-3 rounded-md text-left hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2"
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={`mt-1 flex size-5 shrink-0 items-center justify-center rounded border ${hasAcceptedTerms ? "border-[#155dfc] bg-[#155dfc] text-white" : "border-gray-400 bg-white group-hover:border-[#155dfc]"}`}
+                                >
+                                    {hasAcceptedTerms && <Check className="size-4" strokeWidth={3} />}
+                                </span>
+                                <span className="min-w-0 text-sm leading-6">
+                                    <span className="block font-medium text-gray-700">
+                                        I have read and agree to the iPawcus{' '}
+                                        <span className="font-semibold text-[#155dfc] underline underline-offset-2">
                                             Terms of Use and General Service Conditions
-                                        </button>
-                                        {`, Version ${REGISTRATION_TERMS_VERSION}, effective ${REGISTRATION_TERMS_EFFECTIVE_DATE}.`}
-                                    </p>
-                                    <p className="mt-1 text-xs font-medium text-gray-500">
-                                        Registration does not replace separate consent forms for high-risk services or procedures.
-                                    </p>
-                                    {errors.terms && (
-                                        <p id="termsOfUseError" className="mt-2 text-xs font-semibold text-red-600">
-                                            {errors.terms}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+                                        </span>
+                                        {` and Privacy Notice. Last updated ${REGISTRATION_TERMS_LAST_UPDATED}.`}
+                                    </span>
+                                    <span id="termsReadHint" className="mt-1 block text-xs font-medium text-gray-500">
+                                        Open the document and scroll to the end to accept.
+                                    </span>
+                                </span>
+                            </button>
+                            {errors.terms && (
+                                <p id="termsOfUseError" className="mt-2 text-xs font-semibold text-red-600">
+                                    {errors.terms}
+                                </p>
+                            )}
+                            <p className="mt-2 text-xs font-medium text-gray-500">
+                                Registration does not replace separate consent forms for high-risk services or procedures.
+                            </p>
                         </div>
 
                         {/* Profile Preview */}
@@ -611,17 +628,31 @@ export function PetOwnerProfileForm({ email, onBack, onComplete }) {
             </div>
 
             <Dialog open={isTermsPreviewOpen} onOpenChange={setIsTermsPreviewOpen}>
-                <DialogContent className="max-w-4xl">
-                    <DialogHeader>
+                <DialogContent className="theme-static-light flex h-[90dvh] max-h-[52rem] max-w-4xl flex-col overflow-hidden">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>Registration Terms and Privacy Notice</DialogTitle>
                         <DialogDescription>
-                            Review Version {REGISTRATION_TERMS_VERSION}, effective {REGISTRATION_TERMS_EFFECTIVE_DATE}, before completing registration.
+                            Last updated {REGISTRATION_TERMS_LAST_UPDATED}. Scroll to the end to enable acceptance.
                         </DialogDescription>
                     </DialogHeader>
-                    <RegistrationTermsPreview />
-                    <DialogFooter>
-                        <Button type="button" onClick={() => setIsTermsPreviewOpen(false)}>
+                    <div
+                        className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] sm:p-4"
+                        role="region"
+                        aria-label="Terms of Use and Privacy Notice"
+                        tabIndex={0}
+                        onScroll={handleTermsScroll}
+                    >
+                        <RegistrationTermsPreview />
+                    </div>
+                    <DialogFooter className="shrink-0 items-center border-t border-slate-200 pt-4">
+                        <p className="text-xs text-slate-600 sm:mr-auto" aria-live="polite">
+                            {hasReachedTermsEnd ? "You can now accept the terms." : "Scroll to the end to enable I accept."}
+                        </p>
+                        <Button type="button" variant="outline" onClick={() => setIsTermsPreviewOpen(false)}>
                             Close
+                        </Button>
+                        <Button type="button" disabled={!hasReachedTermsEnd} onClick={handleAcceptTerms}>
+                            I accept
                         </Button>
                     </DialogFooter>
                 </DialogContent>

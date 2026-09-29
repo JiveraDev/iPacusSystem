@@ -5,7 +5,8 @@ import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download, RotateCw } from "lucide-react";
+import navigationLogo from "../../assets/circular_logo.png";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
 import { calculateAge, formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../../lib/date";
@@ -21,9 +22,11 @@ import {
   openProtectedDocument,
   useConsentDocumentSource,
 } from "../../hooks/useConsentDocumentSource";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../ui/sheet";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
+import EditPetInformationDialog from "../shared/EditPetInformationDialog.jsx";
+import { canEditPetInformation } from "../../lib/petInformation";
 
 import { findPetService } from "../../services/findPet";
 import { updateBookingStatus } from "../../services/bookingService";
@@ -85,6 +88,10 @@ export default function PetProfile() {
   const [isSavingTempOwner, setIsSavingTempOwner] = useState(false);
   const [tempOwnerDraft, setTempOwnerDraft] = useState("");
   const [activeRecordUpdateRequest, setActiveRecordUpdateRequest] = useState(null);
+  const [isPetInformationEditorOpen, setIsPetInformationEditorOpen] = useState(false);
+  const [isIdentityCardFlipped, setIsIdentityCardFlipped] = useState(false);
+  const [isConsentPanelOpen, setIsConsentPanelOpen] = useState(false);
+  const [isBookingsPanelOpen, setIsBookingsPanelOpen] = useState(false);
 
   const backTargetLabel = useMemo(() => {
     try {
@@ -114,6 +121,13 @@ export default function PetProfile() {
     try {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
       return isTemporaryOwnerManagerRole(currentUser.role);
+    } catch {
+      return false;
+    }
+  }, []);
+  const canEditBasicPetInformation = useMemo(() => {
+    try {
+      return canEditPetInformation(JSON.parse(localStorage.getItem("currentUser") || "{}").role);
     } catch {
       return false;
     }
@@ -233,6 +247,27 @@ export default function PetProfile() {
       toast.error(error.message || "Could not update owner name.");
     } finally {
       setIsSavingTempOwner(false);
+    }
+  };
+
+  const handlePetPhotoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('type', 'pet');
+
+    try {
+      const result = await uploadFormData(formData);
+      await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
+      setPet((current) => ({ ...current, profileImage: result.relative_url }));
+      toast.success("Profile picture updated!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Upload failed.");
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -637,132 +672,47 @@ export default function PetProfile() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl min-w-0 space-y-6 pb-12 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="w-fit hover:bg-slate-100">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to {backTargetLabel}
-        </Button>
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 shadow-sm sm:w-auto sm:px-4">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registration ID</span>
-          <code className="min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm font-bold text-[#155dfc]">
-            {pet.id}
-          </code>
-          <Button variant="ghost" size="sm" onClick={copyToClipboard} className="h-8 w-8 p-0 hover:bg-white rounded-lg transition-colors">
-            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-slate-400" />}
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl min-w-0 space-y-6 pb-24 animate-in fade-in duration-500 sm:pb-28">
+      <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="w-fit hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+        <ArrowLeft className="mr-2 size-4" />
+        Back to {backTargetLabel}
+      </Button>
 
-      {/* Main Profile Header */}
-      <Card
-        petHover="always"
-        petKind={String(pet.species || '').toLowerCase().includes('cat') ? 'cat' : 'dog'}
-        petAccent="mint"
-        petPosition="bottom-left"
-        className="overflow-hidden border-none shadow-xl rounded-2xl bg-white"
-      >
-        <div className="h-40 bg-gradient-to-r from-[#155dfc] via-blue-600 to-indigo-700 relative">
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
-        </div>
-        <CardContent className="relative px-4 pb-6 pt-0 sm:px-8 sm:pb-8">
-          <div className="-mt-16 flex flex-col items-center gap-6 md:flex-row md:items-end md:gap-8">
-            <div className="relative">
-                {/* Pet Image with Upload Option */}
-              <div className="relative group">
-                <div className="h-32 w-32 overflow-hidden rounded-3xl border-[6px] border-white bg-slate-100 shadow-2xl ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
-                  {pet.profileImage ? (
-                      <ProtectedImage
-                        src={pet.profileImage}
-                        alt={pet.name}
-                        className="h-full w-full object-cover"
-                        fallbackClassName="h-full w-full"
-                      />
-                  ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-                          <PawPrint className="h-20 w-20 text-blue-200" />
-                      </div>
-                  )}
-                </div>
+      <PetIdentityCard
+        pet={pet}
+        copied={copied}
+        flipped={isIdentityCardFlipped}
+        canEdit={canEditBasicPetInformation}
+        canChangeOwner={canEditTemporaryOwner}
+        queueRecord={canViewPetOwnerActivity ? displayedQueue : null}
+        queueLoading={canViewPetOwnerActivity && isActivityLoading}
+        onCopy={copyToClipboard}
+        onEdit={() => setIsPetInformationEditorOpen(true)}
+        onChangeOwner={() => {
+          setTempOwnerDraft(pet.tempOwnerName || '');
+          setIsEditingTempOwner(true);
+        }}
+        onPhotoChange={handlePetPhotoUpload}
+        onFlip={() => setIsIdentityCardFlipped((current) => !current)}
+        onOpenQueue={() => displayedQueue && openRecordDetails("queue", displayedQueue)}
+      />
 
-                {/* Status Badge at Top-Left */}
-                <Badge className={`absolute -top-3 -left-3 px-4 py-1.5 shadow-xl border-2 border-white rounded-full text-xs font-black uppercase tracking-widest ${
-                  pet.status === 'Healthy' 
-                    ? 'bg-green-500 hover:bg-green-600' 
-                    : pet.status === 'Emergency'
-                    ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                    : 'bg-amber-500 hover:bg-amber-600 text-white'
-                }`}>
-                  {pet.status}
-                </Badge>
+      <PetProfileActionDock
+        canRequestRecordUpdate={canRequestRecordUpdate}
+        activeRecordUpdateRequest={activeRecordUpdateRequest}
+        consentCount={consentRecords.length}
+        documentCount={pet.prescriptionDocuments?.length || 0}
+        bookingCount={visibleBookingRecords.length}
+        canViewBookings={canViewPetOwnerActivity}
+        onRequestUpdate={() => navigate(`/dashboard/my-pets/${petId}/request-update`)}
+        onOpenHistory={handlePrint}
+        onOpenConsent={() => setIsConsentPanelOpen(true)}
+        onOpenBookings={() => setIsBookingsPanelOpen(true)}
+      />
 
-                {/* Upload Button at Bottom-Right */}
-                <input
-                    type="file"
-                    id="pet-pic-upload"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append('image', file);
-                        formData.append('type', 'pet');
-
-                        try {
-                            const result = await uploadFormData(formData);
-                            
-                            // Update the pet with the new URL
-                            await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
-                            toast.success("Profile picture updated!");
-                            setPet(prev => ({ ...prev, profileImage: result.relative_url }));
-                        } catch (err) {
-                            console.error(err);
-                            toast.error("Upload failed.");
-                        }
-                    }}
-                />
-                <label 
-                  htmlFor="pet-pic-upload" 
-                  className="absolute bottom-2 right-2 p-2 bg-blue-600 rounded-full text-white shadow-lg cursor-pointer hover:bg-blue-700 transition-colors"
-                >
-                  <Camera className="h-5 w-5" />
-                </label>
-              </div>
-            </div>
-            
-            <div className="min-w-0 flex-1 space-y-2 pb-2 text-center md:text-left">
-              <h1 className="break-words text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{pet.name}</h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <span className="text-lg text-slate-500 font-medium">{pet.species}</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                <span className="text-lg text-slate-500 font-medium">{pet.breed}</span>
-              </div>
-            </div>
-
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Left Column: Details & Stats */}
+      <div className="hidden" aria-hidden="true">
+        {/* Supporting pet details */}
         <div className="lg:col-span-1 space-y-8">
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100">
-              <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                Biological Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 p-4 sm:p-6">
-              <PetInfoRow label="Primary Breed" value={pet.breed || 'N/A'} />
-              <PetInfoRow label="Estimated Age" value={calculateAge(pet.birthDate) || pet.age || 'N/A'} />
-              <PetInfoRow label="Sex / Gender" value={pet.gender || 'N/A'} />
-              <PetInfoRow label="Body Weight" value={pet.weight ? `${pet.weight} kg` : 'N/A'} highlight />
-              <PetInfoRow label="Coloration" value={pet.color || 'N/A'} />
-            </CardContent>
-          </Card>
-
           {pet.hasOwnership && (
             <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/50">
@@ -924,77 +874,10 @@ export default function PetProfile() {
             </CardContent>
           </Card>
 
-          <ConsentImagesPanel
-            records={consentRecords}
-            onPreview={(record) => setConsentViewer({ src: record.url, alt: record.identifier })}
-          />
         </div>
 
-        {/* Right Column: Vaccinations & Actions */}
+        {/* Clinical activity */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Pet record actions */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <button
-              type="button"
-              disabled={!canRequestRecordUpdate || Boolean(activeRecordUpdateRequest)}
-              onClick={() => navigate(`/dashboard/my-pets/${petId}/request-update`)}
-              className={`group flex min-h-[6.5rem] w-full items-center gap-4 rounded-2xl border p-4 text-left shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 motion-reduce:transition-none sm:p-5 ${
-                activeRecordUpdateRequest
-                  ? "cursor-not-allowed border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20"
-                  : canRequestRecordUpdate
-                    ? "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20"
-                    : "cursor-not-allowed border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60"
-              }`}
-              aria-label={activeRecordUpdateRequest ? "Record update request is in progress" : "Request a pet record update"}
-            >
-              <span className={`flex size-12 shrink-0 items-center justify-center rounded-xl border ${
-                activeRecordUpdateRequest
-                  ? "border-amber-200 bg-white text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                  : canRequestRecordUpdate
-                    ? "border-blue-100 bg-blue-50 text-[#155dfc] dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300"
-                    : "border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-800"
-              }`}>
-                <ClipboardPenLine className="size-6" strokeWidth={2.25} aria-hidden="true" />
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="block text-base font-black tracking-tight text-slate-950 dark:text-white">Update Record</span>
-                {activeRecordUpdateRequest ? (
-                  <span className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-bold">
-                    <span className="text-slate-600 dark:text-slate-300">
-                      {activeRecordUpdateRequest.shortRequestNumber || `RUR-${String(activeRecordUpdateRequest.requestId || 0).padStart(5, "0")}`}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-1 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
-                      <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-                      In progress
-                    </span>
-                  </span>
-                ) : (
-                  <span className="mt-1 block text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {canRequestRecordUpdate ? "Request a correction" : "Pet owner access only"}
-                  </span>
-                )}
-              </span>
-
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="group flex min-h-[6.5rem] w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 dark:focus-visible:ring-offset-slate-950 motion-reduce:transition-none sm:p-5"
-              aria-label="Open pet health history"
-            >
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[#155dfc] dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
-                <HeartPulse className="size-6" strokeWidth={2.25} aria-hidden="true" />
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="block text-base font-black tracking-tight text-slate-950 dark:text-white">Health History</span>
-              </span>
-            </button>
-          </div>
-
-          <VaccinationRecordsPanel vaccinations={pet.vaccinations || []} />
           <PrescriptionDocumentsPanel
             documents={pet.prescriptionDocuments || []}
             onPreview={(document) => setConsentViewer(document)}
@@ -1127,6 +1010,64 @@ export default function PetProfile() {
           )}
         </div>
       </div>
+
+      <ConsentImagesPanel
+        records={consentRecords}
+        documents={pet.prescriptionDocuments || []}
+        isLoading={isActivityLoading}
+        open={isConsentPanelOpen}
+        onOpenChange={setIsConsentPanelOpen}
+        onPreview={(record) => setConsentViewer({
+          src: record.src || record.url || record.relativeUrl,
+          alt: record.alt || record.identifier || record.name || 'Pet file'
+        })}
+      />
+
+      <PetBookingsDialog
+        open={isBookingsPanelOpen}
+        onOpenChange={setIsBookingsPanelOpen}
+        isLoading={isActivityLoading}
+        bookings={displayedBookingRecords}
+        totalCount={visibleBookingRecords.length}
+        remainingCount={remainingBookingCount}
+        getStatusBadge={getBookingStatusBadge}
+        onView={(booking) => {
+          setIsBookingsPanelOpen(false);
+          openRecordDetails("booking", booking);
+        }}
+        onCancel={(booking) => {
+          setIsBookingsPanelOpen(false);
+          openBookingCancelDialog(booking);
+        }}
+        onLoadMore={() => setBookingPage((current) => ({
+          petId,
+          limit: (current.petId === petId ? current.limit : BOOKING_PAGE_SIZE) + BOOKING_PAGE_SIZE
+        }))}
+      />
+
+      <Dialog open={isEditingTempOwner} onOpenChange={(open) => !isSavingTempOwner && setIsEditingTempOwner(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change temporary owner</DialogTitle>
+            <DialogDescription>Update the owner name shown on this pet ID.</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={tempOwnerDraft}
+            onChange={(event) => setTempOwnerDraft(event.target.value)}
+            restriction="name"
+            placeholder="Owner name"
+            disabled={isSavingTempOwner}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsEditingTempOwner(false)} disabled={isSavingTempOwner}>Cancel</Button>
+            <Button type="button" onClick={handleSaveTemporaryOwner} disabled={isSavingTempOwner} className="bg-[#155dfc] text-white hover:bg-blue-700">
+              {isSavingTempOwner ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+              Save owner
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={!!confirmAction}
         onOpenChange={(open) => {
@@ -1198,6 +1139,13 @@ export default function PetProfile() {
         alt={consentViewer?.alt || "Consent document"}
         onOpenChange={(open) => !open && setConsentViewer(null)}
       />
+      {isPetInformationEditorOpen && (
+        <EditPetInformationDialog
+          petId={pet.id || pet.db_id}
+          onClose={() => setIsPetInformationEditorOpen(false)}
+          onSaved={(updatedPet) => setPet(updatedPet)}
+        />
+      )}
     </div>
   );
 }
@@ -1472,55 +1420,375 @@ function buildConsentRecords(bookings, queues) {
   return records;
 }
 
-function ConsentImagesPanel({ records, onPreview }) {
+function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueRecord, queueLoading, onCopy, onEdit, onChangeOwner, onPhotoChange, onFlip, onOpenQueue }) {
+  const vaccinations = Array.isArray(pet.vaccinations) ? pet.vaccinations : [];
+  const ownerName = pet.hasOwnership
+    ? (pet.primaryOwner?.name || pet.ownerName || 'Pet owner')
+    : (pet.tempOwnerName || 'Not assigned');
+  const status = pet.status || 'Registered';
+  const normalizedStatus = status.toLowerCase();
+  const statusClass = normalizedStatus === 'healthy'
+    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+    : normalizedStatus === 'emergency'
+      ? 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300'
+      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300';
+  const details = [
+    ['Species', pet.species || 'N/A'],
+    ['Primary breed', pet.breed || 'N/A'],
+    ['Birth date', formatDisplayDate(pet.birthDate)],
+    ['Estimated age', calculateAge(pet.birthDate) || pet.age || 'N/A'],
+    ['Sex / gender', pet.gender || 'N/A'],
+    ['Body weight', pet.weight ? `${pet.weight} kg` : 'N/A'],
+    ['Coloration', pet.color || 'N/A'],
+    ['Registered owner', `${ownerName}${pet.coParents?.length ? ` + ${pet.coParents.length} co-parent${pet.coParents.length === 1 ? '' : 's'}` : ''}`],
+  ];
+  const allergyNames = Array.isArray(pet.allergies)
+    ? pet.allergies.map((allergy) => allergy?.allergen).filter(Boolean)
+    : [];
+
   return (
-    <Sheet>
-      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-        <CardHeader className="border-b border-blue-100 bg-blue-50/50">
-          <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#155dfc]">
-            <ShieldCheck className="h-4 w-4" />
-            Consent Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-2xl font-black text-slate-900">{records.length}</p>
-              <p className="text-sm font-semibold text-slate-500">Consent files linked to this pet</p>
+    <section className="pet-id-entrance" aria-label={`${pet.name} pet identification card`}>
+      <div className="pet-id-flip-shell">
+        <div className={`pet-id-flip-card ${flipped ? 'is-flipped' : ''}`}>
+          <article
+            className={`pet-id-face pet-id-face--front min-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 ${flipped ? 'pointer-events-none' : ''}`}
+            aria-hidden={flipped}
+          >
+            <div className="h-1.5 bg-[#155dfc]" />
+            <div className="flex flex-col gap-5 p-4 sm:p-6">
+              <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3">
+                  <img src={navigationLogo} alt="iPawcus logo" className="size-10 shrink-0 object-contain" />
+                  <div className="min-w-0">
+                    <p className="text-lg font-black tracking-tight text-[#155dfc] dark:text-blue-300">iPawcus</p>
+                    <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">VetFocus Care</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-start justify-end gap-2">
+                  <div className="min-w-0 text-right">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Registration ID</p>
+                    <div className="mt-1 flex items-center justify-end gap-1">
+                      <code className="max-w-[7rem] truncate font-mono text-xs font-black text-slate-950 dark:text-white sm:max-w-none sm:text-sm">{pet.id}</code>
+                      <Button type="button" variant="ghost" size="icon" onClick={onCopy} tabIndex={flipped ? -1 : 0} className="size-7 rounded-md active:scale-[0.96]" aria-label="Copy pet registration ID">
+                        {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5 text-slate-400" />}
+                      </Button>
+                    </div>
+                  </div>
+                  {(queueLoading || queueRecord) ? (
+                    <button
+                      type="button"
+                      onClick={onOpenQueue}
+                      disabled={!queueRecord}
+                      tabIndex={flipped ? -1 : 0}
+                      className="pet-queue-stamp min-w-[5.25rem] rounded-lg border-2 border-blue-300 bg-blue-50 px-2.5 py-1.5 text-center text-[#155dfc] outline-none transition-[background-color,border-color,transform] duration-200 hover:border-blue-400 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 disabled:cursor-wait dark:border-blue-700 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-950"
+                      aria-label={queueRecord ? `Open queue ${formatQueueReference(queueRecord)} details` : 'Loading queue status'}
+                    >
+                      <span className="block text-[9px] font-black uppercase tracking-[0.18em]">Queue</span>
+                      <span className="mt-0.5 block whitespace-nowrap font-mono text-xs font-black sm:text-sm">
+                        {queueLoading && !queueRecord ? '...' : formatQueueReference(queueRecord)}
+                      </span>
+                    </button>
+                  ) : null}
+                  </div>
+              </header>
+
+              <div className="grid grid-cols-[104px_minmax(0,1fr)] items-stretch gap-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-5">
+                <div className="flex items-center justify-center sm:justify-start">
+                  <div className="relative">
+                    <div className="size-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 sm:size-32">
+                      {pet.profileImage ? (
+                        <ProtectedImage src={pet.profileImage} alt={pet.name} className="h-full w-full object-cover" fallbackClassName="h-full w-full" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-slate-50 dark:bg-slate-800">
+                          <PawPrint className="size-14 text-blue-200 dark:text-blue-800" />
+                        </div>
+                      )}
+                    </div>
+                    <input id="pet-profile-image-upload" type="file" className="hidden" accept="image/*" onChange={onPhotoChange} />
+                    <Button
+                      type="button"
+                      size="icon"
+                      onClick={() => document.getElementById('pet-profile-image-upload')?.click()}
+                      tabIndex={flipped ? -1 : 0}
+                      className="absolute -bottom-2 -right-2 size-9 rounded-full bg-[#155dfc] text-white shadow-md hover:bg-blue-700 active:scale-[0.96]"
+                      aria-label="Change pet profile photo"
+                    >
+                      <Camera className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex h-full min-h-24 flex-wrap content-center items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800 sm:min-h-32 sm:px-5">
+                    <span className="basis-full text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Pet profile</span>
+                    <h1 className="min-w-0 break-words text-xl font-black tracking-tight text-slate-950 dark:text-white sm:text-2xl">{pet.name}</h1>
+                    <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${statusClass}`}>
+                      {status}
+                    </span>
+                    {canEdit ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={onEdit} tabIndex={flipped ? -1 : 0} className="ml-auto h-8 shrink-0 gap-1.5 px-2.5 text-xs font-black text-[#155dfc] active:scale-[0.97] dark:text-blue-300">
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <section className="col-span-2 min-w-0 border-t border-slate-100 pt-4 dark:border-slate-800" aria-labelledby="pet-personal-information-heading">
+                  <h2 id="pet-personal-information-heading" className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Personal information</h2>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 lg:grid-cols-4">
+                    {details.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</dt>
+                        <dd className="mt-1 break-words text-sm font-bold text-slate-800 dark:text-slate-100">{value || 'N/A'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className={`mt-4 flex items-start gap-2 rounded-lg border px-3 py-2 ${allergyNames.length ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    <p className="min-w-0 break-words text-xs font-bold">
+                      {allergyNames.length ? `Known allergies: ${allergyNames.join(', ')}` : 'No known clinical allergies recorded.'}
+                    </p>
+                  </div>
+                </section>
+              </div>
+
+              <footer className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Microchip ID</p>
+                  <p className="mt-1 truncate font-mono text-xs font-bold text-slate-700 dark:text-slate-200">{pet.microchipId || 'Not recorded'}</p>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {canChangeOwner ? (
+                    <Button type="button" variant="ghost" onClick={onChangeOwner} tabIndex={flipped ? -1 : 0} className="gap-2 text-slate-600 active:scale-[0.97] dark:text-slate-300">
+                      <UserPlus className="size-4" />
+                      Change owner
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="outline" onClick={onFlip} tabIndex={flipped ? -1 : 0} className="gap-2 border-blue-200 text-[#155dfc] active:scale-[0.97] dark:border-blue-800 dark:text-blue-300" aria-label="Show vaccination records on the back of the pet ID">
+                    <Syringe className="size-4" />
+                    Vaccinations
+                  </Button>
+                </div>
+              </footer>
             </div>
-          </div>
+          </article>
 
-          <SheetTrigger asChild>
-            <Button type="button" variant="outline" className="w-full gap-2" disabled={records.length === 0}>
-              <Eye className="h-4 w-4" />
-              View Documents
-            </Button>
-          </SheetTrigger>
+          <article
+            className={`pet-id-face pet-id-face--back min-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 ${flipped ? '' : 'pointer-events-none'}`}
+            aria-hidden={!flipped}
+          >
+            <div className="h-1.5 bg-[#155dfc]" />
+            <div className="flex min-h-[438px] flex-col p-4 sm:p-6">
+              <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
+                    <Syringe className="size-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-black text-slate-950 dark:text-white">Vaccination records</h2>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{vaccinations.length} saved {vaccinations.length === 1 ? 'record' : 'records'}</p>
+                  </div>
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Pet ID</p>
+                  <code className="mt-1 block max-w-[9rem] truncate font-mono text-xs font-black text-slate-950 dark:text-white sm:max-w-none">{pet.id}</code>
+                </div>
+              </header>
 
-          {records.length === 0 && (
-            <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-400">
-              No signed consent document has been recorded for this pet yet.
-            </p>
+              {vaccinations.length ? (
+                <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="hidden grid-cols-[minmax(0,1.2fr)_0.9fr_0.9fr_1fr_0.8fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 md:grid">
+                    <span>Vaccine</span>
+                    <span>Date given</span>
+                    <span>Next due</span>
+                    <span>Veterinarian</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="max-h-[250px] overflow-y-auto overscroll-contain">
+                    {vaccinations.map((vaccination, index) => (
+                      <VaccinationRow key={vaccination.id || index} vax={vaccination} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="my-auto flex flex-1 flex-col items-center justify-center py-10 text-center">
+                  <Syringe className="size-10 text-slate-200 dark:text-slate-700" />
+                  <p className="mt-3 text-sm font-black text-slate-800 dark:text-slate-100">No vaccination records yet</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Clinic-recorded vaccines will appear here.</p>
+                </div>
+              )}
+
+              <footer className="mt-4 flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
+                <Button type="button" variant="outline" onClick={onFlip} tabIndex={flipped ? 0 : -1} className="gap-2 border-blue-200 text-[#155dfc] active:scale-[0.97] dark:border-blue-800 dark:text-blue-300" aria-label="Show personal information on the front of the pet ID">
+                  <RotateCw className="size-4" />
+                  View personal information
+                </Button>
+              </footer>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateRequest, consentCount, documentCount, bookingCount, canViewBookings, onRequestUpdate, onOpenHistory, onOpenConsent, onOpenBookings }) {
+  const requestDisabled = !canRequestRecordUpdate || Boolean(activeRecordUpdateRequest);
+  const linkedFileCount = consentCount + documentCount;
+
+  return (
+    <div className="pet-action-dock-anchor pointer-events-none fixed inset-x-0 z-40 px-3 sm:px-5">
+    <nav className="pet-action-dock pointer-events-auto mx-auto grid w-full max-w-2xl grid-cols-4 gap-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900" aria-label="Pet profile actions">
+      <button
+        type="button"
+        disabled={requestDisabled}
+        onClick={onRequestUpdate}
+        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600"
+        aria-label={activeRecordUpdateRequest ? 'Record update request is in progress' : 'Request a pet record update'}
+      >
+        <ClipboardPenLine className="size-4" aria-hidden="true" />
+        <span className="truncate text-[11px] font-black sm:text-xs">Update Record</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{activeRecordUpdateRequest ? 'In progress' : canRequestRecordUpdate ? 'Request correction' : 'Owner access only'}</span>
+      </button>
+      <button
+        type="button"
+        onClick={onOpenHistory}
+        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+        aria-label="Open pet health history"
+      >
+        <HeartPulse className="size-4" aria-hidden="true" />
+        <span className="truncate text-[11px] font-black sm:text-xs">Health History</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">Clinical timeline</span>
+      </button>
+      <button
+        type="button"
+        onClick={onOpenConsent}
+        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+        aria-label={`Open consent and pet files (${linkedFileCount})`}
+      >
+        <ShieldCheck className="size-4" aria-hidden="true" />
+        <span className="truncate text-[11px] font-black sm:text-xs">Consent Files</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{linkedFileCount} linked</span>
+      </button>
+      <button
+        type="button"
+        disabled={!canViewBookings}
+        onClick={onOpenBookings}
+        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600"
+        aria-label={`Open ${bookingCount} pet ${bookingCount === 1 ? 'booking' : 'bookings'}`}
+      >
+        <CalendarClock className="size-4" aria-hidden="true" />
+        <span className="truncate text-[11px] font-black sm:text-xs">Bookings</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{canViewBookings ? `${bookingCount} records` : 'Owner access only'}</span>
+      </button>
+    </nav>
+    </div>
+  );
+}
+
+function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount, remainingCount, getStatusBadge, onView, onCancel, onLoadMore }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b border-slate-200 px-5 pb-4 pt-5 dark:border-slate-700">
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarClock className="size-5 text-[#155dfc]" />
+            Pet Bookings
+          </DialogTitle>
+          <DialogDescription>{totalCount} booking {totalCount === 1 ? 'record' : 'records'} linked to this pet.</DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-5">
+          {isLoading ? (
+            <div className="flex min-h-48 items-center justify-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+              <Loader2 className="size-5 animate-spin text-[#155dfc]" />
+              Loading bookings...
+            </div>
+          ) : bookings.length ? (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {bookings.map((booking) => {
+                const canCancel = booking.status !== 'completed' && booking.status !== 'cancelled';
+
+                return (
+                  <article key={booking.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center">
+                    <button type="button" onClick={() => onView(booking)} className="min-w-0 flex-1 rounded-lg p-2 text-left outline-none transition-colors duration-150 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:hover:bg-slate-800">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-slate-950 dark:text-white">{booking.bookingNumber}</p>
+                        {getStatusBadge(booking.status)}
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">{getServiceDisplayName(booking.service)}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{formatDisplayDateTime(booking.date, booking.time)}</p>
+                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => onView(booking)} className="flex-1 gap-1.5 sm:flex-none">
+                        <Eye className="size-3.5" />
+                        View
+                      </Button>
+                      {canCancel ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => onCancel(booking)} className="flex-1 border-red-200 text-red-600 hover:bg-red-50 sm:flex-none dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40">
+                          Cancel
+                        </Button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+              {remainingCount > 0 ? (
+                <div className="py-4">
+                  <Button type="button" variant="outline" onClick={onLoadMore} className="w-full">Load more bookings ({remainingCount})</Button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex min-h-48 flex-col items-center justify-center text-center">
+              <CalendarClock className="size-9 text-slate-300 dark:text-slate-700" />
+              <p className="mt-3 text-sm font-black text-slate-900 dark:text-white">No bookings recorded</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">New and completed bookings will appear here.</p>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      <SheetContent side="right" className="sm:max-w-xl">
+function ConsentImagesPanel({ records, documents, isLoading, open, onOpenChange, onPreview }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
         <div className="p-5 sm:p-6">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+            <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950 dark:text-white">
               <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
-              Consent Documents
+              Consent & Pet Files
             </SheetTitle>
             <SheetDescription>
-              Review or download consent files linked to this pet.
+              Review consent forms and prescription documents without leaving the pet ID.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-5 space-y-3">
-            {records.map((record) => (
-              <ConsentRecordCard key={`${record.source}-${record.sourceId}-${record.formId || record.url}`} record={record} onPreview={onPreview} />
-            ))}
+          <div className="mt-6 space-y-6">
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Consent documents</h3>
+                <Badge className="border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{records.length}</Badge>
+              </div>
+              {isLoading ? (
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  <Loader2 className="size-4 animate-spin text-[#155dfc]" />
+                  Loading consent documents...
+                </div>
+              ) : records.length ? (
+                <div className="space-y-3">
+                  {records.map((record) => (
+                    <ConsentRecordCard key={`${record.source}-${record.sourceId}-${record.formId || record.url}`} record={record} onPreview={onPreview} />
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">No signed consent document has been recorded yet.</p>
+              )}
+            </section>
+            <PrescriptionDocumentsPanel documents={documents} onPreview={onPreview} />
           </div>
         </div>
       </SheetContent>
@@ -1761,7 +2029,7 @@ function PetPrescriptionDocumentCard({ document, onPreview }) {
 
 function VaccinationRow({ vax }) {
   return (
-    <div className="grid gap-3 border-b border-slate-100 px-4 py-4 text-sm last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_0.9fr_0.9fr_1fr_0.8fr] md:items-center md:px-5">
+    <div className="grid gap-3 border-b border-slate-100 px-4 py-4 text-sm last:border-b-0 dark:border-slate-800 md:grid-cols-[minmax(0,1.2fr)_0.9fr_0.9fr_1fr_0.8fr] md:items-center">
       <VaccinationCell label="Vaccine" value={vax.name || 'Unnamed vaccine'} strong />
       <VaccinationCell label="Date Given" value={formatDisplayDate(vax.date)} />
       <VaccinationCell label="Next Due" value={formatDisplayDate(vax.nextDue)} highlight />
@@ -1769,7 +2037,7 @@ function VaccinationRow({ vax }) {
       <div className="flex items-center justify-between gap-3 md:block">
         <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
         <Badge className={`w-fit border-0 ${
-          vax.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+          vax.status === 'completed' ? 'bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
         }`}>
           {vax.status || 'completed'}
         </Badge>
@@ -1782,7 +2050,7 @@ function VaccinationCell({ label, value, strong = false, highlight = false }) {
   return (
     <div className="flex items-start justify-between gap-3 md:block">
       <span className="shrink-0 text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">{label}</span>
-      <span className={`min-w-0 break-words text-right md:text-left ${strong ? 'font-black text-slate-900' : 'font-semibold'} ${highlight ? 'text-[#155dfc]' : 'text-slate-700'}`}>
+      <span className={`min-w-0 break-words text-right md:text-left ${strong ? 'font-black text-slate-900 dark:text-white' : 'font-semibold'} ${highlight ? 'text-[#155dfc] dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
         {value || 'N/A'}
       </span>
     </div>

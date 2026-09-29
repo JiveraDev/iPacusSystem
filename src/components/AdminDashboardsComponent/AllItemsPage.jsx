@@ -21,6 +21,8 @@ import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import InventoryLocationFields from './InventoryLocationFields.jsx';
 import { DEFAULT_STORAGE_AREA, matchingLocation } from './inventoryLocationUtils.js';
+import InventoryBranchScope from './InventoryBranchScope.jsx';
+import { useInventoryBranchScope } from '../../hooks/useInventoryBranchScope.js';
 
 const REPORT_INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
 const INVENTORY_PAGE_SIZE = 20;
@@ -46,9 +48,11 @@ function createEditItemForm(item = {}) {
 
 export default function AllItemsPage() {
   const navigate = useNavigate();
+  const branchScope = useInventoryBranchScope();
+  const { branchId } = branchScope;
   const [inventoryItems, setInventoryItems] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Select Categories');
@@ -61,7 +65,7 @@ export default function AllItemsPage() {
   const [stockOutItem, setStockOutItem] = useState(null);
   const [stockOutBatchId, setStockOutBatchId] = useState('');
   const [stockOutQuantity, setStockOutQuantity] = useState('');
-  const [batchSort, setBatchSort] = useState('newest');
+  const [batchSort, setBatchSort] = useState('expiry');
   const [isEditingItem, setIsEditingItem] = useState(false);
   const [editItemForm, setEditItemForm] = useState(createEditItemForm());
   const [transferItem, setTransferItem] = useState(null);
@@ -78,8 +82,8 @@ export default function AllItemsPage() {
     }
     try {
       const [itemsData, metaData] = await Promise.all([
-        fetchInventoryItems(),
-        fetchInventoryMeta()
+        fetchInventoryItems({ branchId }),
+        fetchInventoryMeta({ branchId })
       ]);
       const loadedItems = itemsData.items || [];
       setInventoryItems(loadedItems);
@@ -95,12 +99,27 @@ export default function AllItemsPage() {
     }
   };
 
-  useAutoRefresh(loadInventory);
+  useAutoRefresh(loadInventory, {
+    enabled: Boolean(branchId),
+    refreshKey: `inventory-items-${branchId || 'unassigned'}`
+  });
+
+  useEffect(() => {
+    setInventoryItems([]);
+    setLocations([]);
+    setSelectedItem(null);
+    setIsDetailModalOpen(false);
+    setStockOutItem(null);
+    setTransferItem(null);
+    setInventoryConfirmation(null);
+    setCurrentPage(1);
+  }, [branchId]);
 
   const openItemDetails = (item) => {
     setSelectedItem(item);
     setEditItemForm(createEditItemForm(item));
     setIsEditingItem(false);
+    setBatchSort('expiry');
     setIsDetailModalOpen(true);
   };
 
@@ -177,6 +196,8 @@ export default function AllItemsPage() {
       itemName: stockOutItem.name,
       payload: {
         item_id: stockOutItem.itemId || stockOutItem.id,
+        item_name: stockOutItem.name,
+        branch_id: Number(branchId),
         batch_id: stockOutBatchId,
         quantity: quantityToRemove
       },
@@ -265,6 +286,7 @@ export default function AllItemsPage() {
       itemName: selectedItem.name,
       payload: {
         item_id: selectedItem.itemId || selectedItem.id,
+        branch_id: Number(branchId),
         item_name: editItemForm.itemName.trim(),
         generic_name: editItemForm.genericName.trim() || null,
         description: editItemForm.description.trim() || null,
@@ -318,6 +340,8 @@ export default function AllItemsPage() {
       itemName: transferItem.name,
       payload: {
         item_id: transferItem.itemId || transferItem.id,
+        item_name: transferItem.name,
+        branch_id: Number(branchId),
         batch_id: sourceBatch.id,
         destination_location_id: destination.id,
         quantity
@@ -338,13 +362,17 @@ export default function AllItemsPage() {
     setInventoryConfirmation({
       type: 'delete',
       title: 'Permanently delete product',
-      description: 'This permanently removes the product, its stock entries, and its inventory receipt lines. This action cannot be undone.',
+      description: 'This permanently removes the product, its stock entries, and its inventory receipt lines. Existing invoices, payments, and billed amounts are kept. Deleted stock cannot be restored automatically. This action cannot be undone.',
       requiresReason: true,
       destructive: true,
       confirmLabel: 'Delete permanently',
       itemId: selectedItem.itemId || selectedItem.id,
       itemName: selectedItem.name,
-      payload: { item_id: selectedItem.itemId || selectedItem.id },
+      payload: {
+        item_id: selectedItem.itemId || selectedItem.id,
+        item_name: selectedItem.name,
+        branch_id: Number(branchId)
+      },
       summary: [
         { label: 'Product', value: selectedItem.name },
         { label: 'Current stock', value: `${selectedItem.quantity} ${selectedItem.unit}` },
@@ -390,7 +418,7 @@ export default function AllItemsPage() {
         edit: `${action.itemName} inventory details updated.`,
         'stock-out': `${action.itemName} stock-out recorded.`,
         transfer: `${action.itemName} stock transferred.`,
-        delete: `${action.itemName} permanently deleted.`
+        delete: `${action.itemName} permanently deleted. Existing invoices were kept.`
       };
       toast.success(messages[action.type]);
     } catch (error) {
@@ -417,7 +445,10 @@ export default function AllItemsPage() {
     const matchesLocation = locationFilter === 'Select Location'
       || String(item.locationId) === String(locationFilter)
       || (item.batches || []).some((batch) => String(batch.locationId) === String(locationFilter));
-    const matchesStatus = statusFilter === 'Select Status' || item.status === statusFilter;
+    const matchesStatus = statusFilter === 'Select Status'
+      || item.status === statusFilter
+      || item.stockStatus === statusFilter
+      || item.expiryStatus === statusFilter;
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
   });
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
@@ -446,8 +477,8 @@ export default function AllItemsPage() {
   }, [currentPage, totalPages]);
 
   const activeInventoryItems = inventoryItems;
-  const lowStockCount = activeInventoryItems.filter(item => item.status === 'low-stock').length;
-  const nearExpiryCount = activeInventoryItems.filter(item => item.status === 'near-expiry').length;
+  const lowStockCount = activeInventoryItems.filter(item => (item.stockStatus || item.status) === 'low-stock').length;
+  const nearExpiryCount = activeInventoryItems.filter(item => (item.expiryStatus || item.status) === 'near-expiry').length;
 
   const getCategoryIcon = (category) => {
     switch (category) {
@@ -468,6 +499,7 @@ export default function AllItemsPage() {
   const selectedTransferBatch = transferBatches.find((batch) => String(batch.id) === String(transferBatchId));
   const transferDestinations = locations.filter((location) => String(location.id) !== String(selectedTransferBatch?.locationId));
   const selectedItemBatches = selectedItem ? getItemBatches(selectedItem, batchSort) : [];
+  const selectedItemExpiryBatch = selectedItem ? getNearestExpiringBatch(selectedItem) : null;
 
   return (
     <div className="space-y-6">
@@ -480,7 +512,12 @@ export default function AllItemsPage() {
         petAccent="blue"
         layout="stacked"
         toolbar={(
-          <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 dark:text-slate-300" aria-label="Inventory summary">
+              <span><strong className="font-bold text-slate-950 dark:text-white">{activeInventoryItems.length}</strong> total products</span>
+              <span><strong className="font-bold text-amber-700 dark:text-amber-300">{lowStockCount}</strong> low stock</span>
+              <span><strong className="font-bold text-red-700 dark:text-red-300">{nearExpiryCount}</strong> near expiry</span>
+            </div>
             <Button
               className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]"
               size="sm"
@@ -491,6 +528,16 @@ export default function AllItemsPage() {
             </Button>
           </div>
         )}
+      />
+
+      <InventoryBranchScope
+        branches={branchScope.branches}
+        branchId={branchScope.branchId}
+        selectedBranch={branchScope.selectedBranch}
+        canSelectBranch={branchScope.canSelectBranch}
+        isLoading={branchScope.isLoadingBranches}
+        error={branchScope.branchError}
+        onBranchChange={branchScope.setBranchId}
       />
 
       {/* Filters Section */}
@@ -553,36 +600,6 @@ export default function AllItemsPage() {
             </SelectContent>
           </Select>
 
-        </div>
-      </div>
-
-      {/* Inventory Summary */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
-              Total Products
-            </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#101828]">
-              {activeInventoryItems.length}
-            </p>
-          </div>
-          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
-              Low Stock
-            </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#b54708]">
-              {lowStockCount}
-            </p>
-          </div>
-          <div className="bg-white rounded-[12px] border border-[rgba(0,0,0,0.1)] p-3 min-w-0">
-            <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565] mb-1">
-              Near Expiry
-            </p>
-            <p className="font-['Arimo:Bold',sans-serif] text-[22px] text-[#d92d20]">
-              {nearExpiryCount}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -649,11 +666,21 @@ export default function AllItemsPage() {
                     <TableCell className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                       {item.location}
                     </TableCell>
-                    <TableCell className="font-['Arimo:Bold',sans-serif] text-[14px]">
-                      {item.quantity} {item.unit}
+                    <TableCell className="text-[14px]">
+                      <p className="font-['Arimo:Bold',sans-serif] text-[#101828]">
+                        {item.availableQuantity ?? item.quantity} {item.unit} usable
+                      </p>
+                      {Number(item.availableQuantity ?? item.quantity) !== Number(item.quantity) && (
+                        <p className="mt-0.5 text-[11px] font-semibold text-[#4a5565]">
+                          {item.quantity} {item.unit} on hand
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <InventoryStatusBadge status={item.status} />
+                      <div className="flex flex-wrap gap-1.5">
+                        <InventoryStatusBadge status={item.stockStatus || item.status} />
+                        {item.expiryStatus && <InventoryStatusBadge status={item.expiryStatus} />}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                       <Button variant="ghost" size="sm" onClick={() => openItemDetails(item)} className="gap-2"><Eye className="size-4" />View</Button>
@@ -735,7 +762,7 @@ export default function AllItemsPage() {
                     Available:
                   </span>
                   <span className="font-['Arimo:Bold',sans-serif] text-[12px] text-[#101828]">
-                    {item.quantity} {item.unit}
+                    {item.availableQuantity ?? item.quantity} {item.unit} usable
                   </span>
                 </div>
 
@@ -795,7 +822,10 @@ export default function AllItemsPage() {
 
               {/* Status */}
               <div className="flex items-center justify-between">
-                <InventoryStatusBadge status={item.status} />
+                <div className="flex flex-wrap gap-1.5">
+                  <InventoryStatusBadge status={item.stockStatus || item.status} />
+                  {item.expiryStatus && <InventoryStatusBadge status={item.expiryStatus} />}
+                </div>
                 <Button variant="ghost" size="sm">
                   <Eye className="size-4 mr-2" />
                   Details
@@ -860,7 +890,16 @@ export default function AllItemsPage() {
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{selectedItem.category}</Badge>
-                  <InventoryStatusBadge status={selectedItem.status} />
+                  <InventoryStatusBadge status={selectedItem.stockStatus || selectedItem.status} />
+                  {selectedItem.expiryStatus && <InventoryStatusBadge status={selectedItem.expiryStatus} />}
+                  {(selectedItem.expiryStatus || selectedItem.status) === 'near-expiry' && selectedItemExpiryBatch && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-300 bg-amber-50 text-[11px] font-bold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                    >
+                      Batch {selectedItemExpiryBatch.batchNumber || 'Unnumbered'}
+                    </Badge>
+                  )}
                   {selectedItem.isControlled && (
                     <Badge className="bg-[#ffe6e6] text-[#d92d20] hover:bg-[#ffe6e6]">
                       Controlled
@@ -1006,11 +1045,24 @@ export default function AllItemsPage() {
                     </h4>
                     <div className="space-y-3">
                       <div>
-                        <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Quantity Available</p>
+                        <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Usable Quantity</p>
                         <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">
-                          {selectedItem.quantity} {selectedItem.unit}
+                          {selectedItem.availableQuantity ?? selectedItem.quantity} {selectedItem.unit}
                         </p>
                       </div>
+                      {Number(selectedItem.availableQuantity ?? selectedItem.quantity) !== Number(selectedItem.quantity) && (
+                        <div>
+                          <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Total On Hand</p>
+                          <p className="font-['Arimo:Bold',sans-serif] text-[15px] text-[#101828]">
+                            {selectedItem.quantity} {selectedItem.unit}
+                            {Number(selectedItem.expiredQuantity || 0) > 0 && (
+                              <span className="ml-2 text-[12px] text-red-700 dark:text-red-300">
+                                ({selectedItem.expiredQuantity} expired)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
                       {selectedItem.variant && (
                         <div>
                           <p className="font-['Arimo:Regular',sans-serif] text-[13px] text-[#4a5565]">Variant</p>
@@ -1049,22 +1101,41 @@ export default function AllItemsPage() {
                     </div>
                   </div>
                   <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
-                    {selectedItemBatches.map((batch) => (
-                      <div key={batch.id} className="grid grid-cols-1 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3 sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-950">
-                        <div>
-                          <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Quantity</p>
-                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.quantity} {selectedItem.unit}</p>
+                    {selectedItemBatches.map((batch) => {
+                      const expiryStatus = getBatchExpiryStatus(batch, selectedItem.expiryWarningDays);
+
+                      return (
+                        <div key={batch.id} className="grid grid-cols-1 gap-3 rounded-[8px] bg-white border border-[rgba(0,0,0,0.08)] p-3 sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-950">
+                          <div className="flex flex-wrap items-center gap-2 sm:col-span-3">
+                            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                              Batch {batch.batchNumber || 'Unnumbered'}
+                            </span>
+                            {expiryStatus === 'near-expiry' && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
+                                Near expiry
+                              </span>
+                            )}
+                            {expiryStatus === 'expired' && (
+                              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800 dark:bg-red-950/60 dark:text-red-200">
+                                Expired
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Quantity</p>
+                            <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.quantity} {selectedItem.unit}</p>
+                          </div>
+                          <div>
+                            <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Expiry</p>
+                            <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{formatInventoryDate(batch.expiryDate)}</p>
+                          </div>
+                          <div>
+                            <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Location</p>
+                            <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.location || selectedItem.location}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Expiry</p>
-                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{formatInventoryDate(batch.expiryDate)}</p>
-                        </div>
-                        <div>
-                          <p className="font-['Arimo:Regular',sans-serif] text-[12px] text-[#4a5565]">Location</p>
-                          <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#101828]">{batch.location || selectedItem.location}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {selectedItemBatches.length === 0 && (
                       <p className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#4a5565]">
                         No available stock entries
@@ -1364,6 +1435,27 @@ function getDateTime(value, fallback) {
 
 function formatBatchOption(batch, unit) {
   return `${batch.quantity} ${unit} · ${batch.location || 'Saved location'} · expires ${formatInventoryDate(batch.expiryDate, { compact: true })}`;
+}
+
+function getNearestExpiringBatch(item) {
+  return getItemBatches(item, 'expiry').find((batch) => (
+    batch.expiryDate && batch.expiryDate !== 'No expiry'
+  )) || null;
+}
+
+function getBatchExpiryStatus(batch, warningDays = 90) {
+  if (!batch?.expiryDate || batch.expiryDate === 'No expiry' || Number(batch.quantity || 0) <= 0) {
+    return null;
+  }
+
+  const expiry = new Date(`${String(batch.expiryDate).slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (Number.isNaN(expiry.getTime())) return null;
+  if (expiry < today) return 'expired';
+
+  const daysRemaining = Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+  return daysRemaining <= Number(warningDays || 90) ? 'near-expiry' : null;
 }
 
 function formatInventoryDate(value, options = {}) {

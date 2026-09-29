@@ -23,6 +23,7 @@ import {
   NotebookTabs,
   PawPrint,
   ScanLine,
+  Scissors,
   Video,
   X,
   Stethoscope,
@@ -129,6 +130,7 @@ const TodosScreen = lazy(() => import("./PetOwnerDashboard/Todos.jsx"));
 const BookingManagement = lazy(() => import("./AdminDashboardsComponent/BookingManagement.jsx"));
 const RecordUpdateRequestsManagement = lazy(() => import("./AdminDashboardsComponent/RecordUpdateRequestsManagement.jsx"));
 const PetBoardingManagement = lazy(() => import("./AdminDashboardsComponent/PetBoardingManagement.jsx"));
+const GroomingManagement = lazy(() => import("./AdminDashboardsComponent/GroomingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
 const POSManagement = lazy(() => import("./AdminDashboardsComponent/POSmanagement.jsx"));
 const ServiceCatalogManagement = lazy(() => import("./AdminDashboardsComponent/ServiceCatalogManagement.jsx"));
@@ -139,6 +141,7 @@ const AccountManagement = lazy(() => import("./SuperAdminDashboardComponent/Acco
 const PaymentMethodsManagement = lazy(() => import("./SuperAdminDashboardComponent/PaymentMethodsManagement.jsx"));
 const SuperAdminReportsDashboard = lazy(() => import("./SuperAdminDashboardComponent/SuperAdminReportsDashboard.jsx"));
 const SuperAdminReportCenter = lazy(() => import("./SuperAdminDashboardComponent/SuperAdminReportCenter.jsx"));
+const SuperAdminActivityLog = lazy(() => import("./SuperAdminDashboardComponent/SuperAdminActivityLog.jsx"));
 const PetOwnerAccountsManagement = lazy(() => import("./SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx"));
 const PetMediaMonitoring = lazy(() => import("./SuperAdminDashboardComponent/PetMediaMonitoring.jsx"));
 const QueueDashboard = lazy(() => import("./PetOwnerDashboard/Self-Service_QUEUE.jsx"));
@@ -232,6 +235,7 @@ const navItems = [
   { id: "bookings", featureKey: "bookings", label: "Bookings", icon: CalendarCheck2, path: "/dashboard/bookings", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "record-requests", featureKey: "record_requests", label: "Record Requests", icon: ClipboardPenLine, path: "/dashboard/record-requests", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "boarding", featureKey: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "grooming", featureKey: "grooming", label: "Grooming", icon: Scissors, path: "/dashboard/grooming", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "queue", featureKey: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "pos", featureKey: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "service-catalog", featureKey: "service_catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
@@ -256,6 +260,7 @@ const navItems = [
   { id: "vet-record-requests", label: "Record Requests", icon: FileClock, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-online-consults", label: "Online Consults", icon: Video, path: "/dashboard/vet/online-consultations", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-histories", label: "Histories", icon: History, path: "/dashboard/vet/histories", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
+  { id: "activity-log", label: "Activity Log", icon: History, path: "/dashboard/activity-log", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
   { id: "pet-media-monitoring", label: "Pet Media Monitoring", icon: Images, path: "/dashboard/pet-media-monitoring", roles: MEDIA_MONITORING_ROLES, navGroup: "superadmin" },
   { id: "accounts", label: "Accounts", icon: UserCog, path: "/dashboard/accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
   { id: "pet-owner-accounts", label: "Pet Owners", icon: UserRoundCheck, path: "/dashboard/pet-owner-accounts", roles: SUPERADMIN_ROLES, navGroup: "superadmin" },
@@ -301,6 +306,7 @@ const screenMap = {
   "/dashboard/bookings": BookingManagement,
   "/dashboard/record-requests": RecordUpdateRequestsManagement,
   "/dashboard/boarding": PetBoardingManagement,
+  "/dashboard/grooming": GroomingManagement,
   "/dashboard/queue": QueueManagement,
   "/dashboard/pos": POSManagement,
   "/dashboard/service-catalog": ServiceCatalogManagement,
@@ -315,6 +321,7 @@ const screenMap = {
   "/dashboard/vet/online-consultations": ApprovedOnlineConsultation,
   "/dashboard/reports": SuperAdminReportsDashboard,
   "/dashboard/reports/export": SuperAdminReportCenter,
+  "/dashboard/activity-log": SuperAdminActivityLog,
   "/dashboard/pet-media-monitoring": PetMediaMonitoring,
   "/dashboard/accounts": AccountManagement,
   "/dashboard/pet-owner-accounts": PetOwnerAccountsManagement,
@@ -371,6 +378,7 @@ const dashboardRouteRoles = {
   "/dashboard/bookings": ADMIN_ROLES,
   "/dashboard/record-requests": ADMIN_ROLES,
   "/dashboard/boarding": ADMIN_ROLES,
+  "/dashboard/grooming": ADMIN_ROLES,
   "/dashboard/queue": ADMIN_ROLES,
   "/dashboard/pos": ADMIN_ROLES,
   "/dashboard/service-catalog": ADMIN_ROLES,
@@ -385,6 +393,7 @@ const dashboardRouteRoles = {
   "/dashboard/vet/online-consultations": VETERINARIAN_ROLES,
   "/dashboard/reports": SUPERADMIN_ROLES,
   "/dashboard/reports/export": SUPERADMIN_ROLES,
+  "/dashboard/activity-log": SUPERADMIN_ROLES,
   "/dashboard/pet-media-monitoring": MEDIA_MONITORING_ROLES,
   "/dashboard/accounts": SUPERADMIN_ROLES,
   "/dashboard/pet-owner-accounts": SUPERADMIN_ROLES,
@@ -436,7 +445,6 @@ function isSuperAdminRole(role) {
 
 function roleIsAllowed(userRole, allowedRoles = ALL_ROLES) {
   const normalizedUserRole = normalizeRole(userRole);
-
   return allowedRoles.some((role) => normalizeRole(role) === normalizedUserRole);
 }
 
@@ -516,6 +524,7 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/boarding")) {
     return "boarding";
   }
+  if (path.startsWith("/dashboard/grooming")) return "grooming";
   if (path.startsWith("/dashboard/queue")) {
     return "queue";
   }
@@ -557,6 +566,9 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/reports")) {
     return "home";
+  }
+  if (path.startsWith("/dashboard/activity-log")) {
+    return "activity-log";
   }
   if (path.startsWith("/dashboard/pet-media-monitoring")) {
     return "pet-media-monitoring";

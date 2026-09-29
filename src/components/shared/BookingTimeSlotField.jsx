@@ -142,7 +142,7 @@ export default function BookingTimeSlotField({
                     )}
                     {slots.map((slot) => (
                         <SelectItem key={slot.time} value={normalizeTime(slot.time)} disabled={!slot.available}>
-                            {slot.label} — {slot.available ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
+                            {slot.label} — {slot.available ? 'Available' : slot.status === 'lunch' ? 'Lunch period' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
                         </SelectItem>
                     ))}
                 </SelectContent>
@@ -153,6 +153,7 @@ export default function BookingTimeSlotField({
             >
                 {helperMessage}
             </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{['grooming', 'pet grooming'].includes(String(service || '').trim().toLowerCase()) ? 'Grooming is also bookable from 12:00–1:00 PM, subject to available slots.' : 'Lunch period: 12:00–1:00 PM. Choose a time that does not overlap lunch.'}</p>
         </div>
     );
 }

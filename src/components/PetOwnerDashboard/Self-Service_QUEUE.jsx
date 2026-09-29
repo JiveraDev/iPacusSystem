@@ -118,7 +118,6 @@ export default function QueueDashboard() {
     const [pets, setPets] = useState([]);
     const [isAccessLoading, setIsAccessLoading] = useState(true);
     const [isAccessAllowed, setIsAccessAllowed] = useState(false);
-    const [accessDebug, setAccessDebug] = useState({ client_ip: "", allowed_rules: [] });
     const [publicWanIp, setPublicWanIp] = useState("");
     const [selectedPet, setSelectedPet] = useState(null);
     const [selectedService, setSelectedService] = useState("");
@@ -144,10 +143,6 @@ export default function QueueDashboard() {
                 }
 
                 const data = await checkSelfServiceAccess(wanIp);
-                setAccessDebug({
-                    client_ip: data.client_ip || "",
-                    allowed_rules: Array.isArray(data.allowed_rules) ? data.allowed_rules : []
-                });
                 if (data.ok && data.allowed) {
                     setIsAccessAllowed(true);
                 } else {
@@ -410,23 +405,18 @@ export default function QueueDashboard() {
     if (!isAccessAllowed) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center px-4">
-                <Card className="w-full max-w-xl border-red-200 dark:border-red-900/70" petHover={false}>
-                    <CardHeader className="border-b border-red-100 dark:border-red-900/50">
-                        <div className="flex items-start gap-3">
-                            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300">
-                                <Wifi className="size-5" aria-hidden="true" />
-                            </span>
-                            <div>
-                                <CardTitle className="text-red-700 dark:text-red-300">Clinic network required</CardTitle>
-                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Connect to the clinic Wi-Fi before joining the self-service queue.</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-5">
-                        <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
-                            <p>Detected IP: <span className="font-mono text-slate-700 dark:text-slate-200">{accessDebug.client_ip || "unknown"}</span></p>
-                            <p>Detected WAN IP: <span className="font-mono text-slate-700 dark:text-slate-200">{publicWanIp || "unknown"}</span></p>
-                            <p>Allowed rules: <span className="font-mono text-slate-700 dark:text-slate-200">{accessDebug.allowed_rules.join(", ") || "none"}</span></p>
+                <Card className="w-full max-w-2xl border-red-200 dark:border-red-900/70" petHover={false}>
+                    <CardContent className="flex flex-col items-center px-6 py-12 text-center sm:px-10 sm:py-16">
+                        <span className="flex size-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 sm:size-20">
+                            <Wifi className="size-8 sm:size-10" aria-hidden="true" />
+                        </span>
+                        <div className="mt-6 max-w-xl">
+                            <h1 className="text-2xl font-black tracking-tight text-red-700 dark:text-red-300 sm:text-3xl">
+                                Clinic network required
+                            </h1>
+                            <p className="mt-3 text-base font-semibold leading-relaxed text-slate-600 dark:text-slate-300 sm:text-lg">
+                                Connect to the clinic Wi-Fi before joining the self-service queue.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>

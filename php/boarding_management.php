@@ -754,6 +754,9 @@ function assignment_response(PDO $pdo, int $bookingId): array
     $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'b.boarding_overstay_daily_rate'
         : 'NULL AS boarding_overstay_daily_rate';
+    $confinementSelect = boarding_column_exists($pdo, 'bookings', 'admission_type')
+        ? 'b.admission_type, b.source_visit_id, b.source_diagnosis_id, b.source_grooming_booking_id, b.confinement_reason, b.care_instructions, b.owner_approval_status,'
+        : "'regular' AS admission_type, NULL AS source_visit_id, NULL AS source_diagnosis_id, NULL AS source_grooming_booking_id, NULL AS confinement_reason, NULL AS care_instructions, NULL AS owner_approval_status,";
     $stmt = $pdo->prepare("
         SELECT
             ba.*,
@@ -767,6 +770,7 @@ function assignment_response(PDO $pdo, int $bookingId): array
             b.hotel_boarding_type,
             b.room_size,
             b.add_ons,
+            {$confinementSelect}
             {$overstayRateSelect},
             b.status AS booking_status,
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
@@ -814,6 +818,13 @@ function assignment_response(PDO $pdo, int $bookingId): array
         'petSpecies' => $row['pet_species'],
         'ownerName' => $row['owner_name'],
         'bookingStatus' => $row['booking_status'],
+        'admissionType' => $row['admission_type'] ?? 'regular',
+        'sourceVisitId' => $row['source_visit_id'] !== null ? (int)$row['source_visit_id'] : null,
+        'sourceDiagnosisId' => $row['source_diagnosis_id'] !== null ? (int)$row['source_diagnosis_id'] : null,
+        'sourceGroomingBookingId' => $row['source_grooming_booking_id'] !== null ? (int)$row['source_grooming_booking_id'] : null,
+        'confinementReason' => $row['confinement_reason'] ?? null,
+        'careInstructions' => $row['care_instructions'] ?? null,
+        'ownerApprovalStatus' => $row['owner_approval_status'] ?? null,
     ];
 }
 
@@ -1445,7 +1456,10 @@ function assign_room_action(PDO $pdo): void
 
         upsert_assignment($pdo, $booking, $roomType, $roomNumber, 'reserved');
 
-        $stmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed' WHERE booking_id = ?");
+        $approvalSql = boarding_column_exists($pdo, 'bookings', 'owner_approval_status')
+            ? ", owner_approval_status = CASE WHEN admission_type = 'confinement' THEN 'approved' ELSE owner_approval_status END, owner_approved_at = CASE WHEN admission_type = 'confinement' THEN NOW() ELSE owner_approved_at END"
+            : '';
+        $stmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed'{$approvalSql} WHERE booking_id = ?");
         $stmt->execute([$bookingId]);
 
         $pdo->commit();
@@ -1547,7 +1561,10 @@ function check_in_action(PDO $pdo): void
         ");
         $stmt->execute([$checkOut, (int)$assignment['assignment_id']]);
 
-        $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed' WHERE booking_id = ?");
+        $approvalSql = boarding_column_exists($pdo, 'bookings', 'owner_approval_status')
+            ? ", owner_approval_status = CASE WHEN admission_type = 'confinement' THEN 'approved' ELSE owner_approval_status END, owner_approved_at = CASE WHEN admission_type = 'confinement' THEN NOW() ELSE owner_approved_at END"
+            : '';
+        $bookingStmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed'{$approvalSql} WHERE booking_id = ?");
         $bookingStmt->execute([$bookingId]);
 
         $pdo->commit();
@@ -1682,15 +1699,18 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
         );
     }
 
+    $sourceVisitSelect = boarding_column_exists($pdo, 'bookings', 'source_visit_id')
+        ? '(SELECT source_visit_id FROM bookings WHERE booking_id = ?)'
+        : 'NULL';
     $visitStmt = $pdo->prepare("
         SELECT visit_id, billing_status
         FROM visits
-        WHERE booking_id = ?
+        WHERE (booking_id = ? OR visit_id = {$sourceVisitSelect})
           AND visit_status <> 'cancelled'
         ORDER BY visit_id ASC
         FOR UPDATE
     ");
-    $visitStmt->execute([$bookingId]);
+    $visitStmt->execute(boarding_column_exists($pdo, 'bookings', 'source_visit_id') ? [$bookingId, $bookingId] : [$bookingId]);
     $visitRows = $visitStmt->fetchAll(PDO::FETCH_ASSOC);
     $visitIds = array_map(
         fn(array $visit): int => (int)$visit['visit_id'],
@@ -1711,7 +1731,10 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
           ON vc.boarding_material_usage_id = bmu.usage_id
         LEFT JOIN visits v
           ON v.visit_id = vc.visit_id
-         AND v.booking_id = bmu.booking_id
+         AND (
+             v.booking_id = bmu.booking_id
+             " . (boarding_column_exists($pdo, 'bookings', 'source_visit_id') ? "OR v.visit_id = (SELECT source_visit_id FROM bookings source_booking WHERE source_booking.booking_id = bmu.booking_id)" : '') . "
+         )
          AND v.visit_status <> 'cancelled'
         WHERE bmu.booking_id = ?
           AND bmu.status = 'recorded'
@@ -1838,7 +1861,7 @@ function check_out_action(PDO $pdo): void
 
     $pdo->beginTransaction();
     try {
-        fetch_boarding_booking($pdo, $bookingId, true);
+        $checkoutBooking = fetch_boarding_booking($pdo, $bookingId, true);
         $assignment = fetch_active_assignment($pdo, $bookingId, true);
         if (!$assignment) {
             boarding_error(404, 'Room assignment not found.');
@@ -1863,14 +1886,17 @@ function check_out_action(PDO $pdo): void
         $bookingStmt->execute([$bookingId]);
 
         if (boarding_table_exists($pdo, 'visits')) {
+            $sourceVisitId = boarding_column_exists($pdo, 'bookings', 'source_visit_id')
+                ? (int)($checkoutBooking['source_visit_id'] ?? 0)
+                : 0;
             $visitStmt = $pdo->prepare("
                 UPDATE visits
                 SET visit_status = 'completed',
                     updated_at = CURRENT_TIMESTAMP
-                WHERE booking_id = ?
+                WHERE (booking_id = ? OR visit_id = ?)
                   AND visit_status <> 'cancelled'
             ");
-            $visitStmt->execute([$bookingId]);
+            $visitStmt->execute([$bookingId, $sourceVisitId]);
         }
 
         $pdo->commit();
@@ -1911,6 +1937,9 @@ function get_active_assignments_by_room(PDO $pdo, int $branchId): array
     $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'b.boarding_overstay_daily_rate'
         : 'NULL AS boarding_overstay_daily_rate';
+    $confinementSelect = boarding_column_exists($pdo, 'bookings', 'admission_type')
+        ? 'b.admission_type, b.source_visit_id, b.source_diagnosis_id, b.source_grooming_booking_id, b.confinement_reason, b.care_instructions, b.owner_approval_status,'
+        : "'regular' AS admission_type, NULL AS source_visit_id, NULL AS source_diagnosis_id, NULL AS source_grooming_booking_id, NULL AS confinement_reason, NULL AS care_instructions, NULL AS owner_approval_status,";
     $stmt = $pdo->prepare("
         SELECT
             ba.*,
@@ -1924,6 +1953,7 @@ function get_active_assignments_by_room(PDO $pdo, int $branchId): array
             b.hotel_boarding_type,
             b.room_size,
             b.add_ons,
+            {$confinementSelect}
             {$overstayRateSelect},
             b.status AS booking_status,
             COALESCE({$multiPetExpression}, p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
@@ -2043,6 +2073,13 @@ function rooms_action(PDO $pdo): void
                         'price' => $assignment['price'],
                         'overstayDailyRate' => boarding_calculate_overstay_daily_rate($assignment),
                         'bookingStatus' => $assignment['booking_status'],
+                        'admissionType' => $assignment['admission_type'] ?? 'regular',
+                        'sourceVisitId' => $assignment['source_visit_id'] !== null ? (int)$assignment['source_visit_id'] : null,
+                        'sourceDiagnosisId' => $assignment['source_diagnosis_id'] !== null ? (int)$assignment['source_diagnosis_id'] : null,
+                        'sourceGroomingBookingId' => $assignment['source_grooming_booking_id'] !== null ? (int)$assignment['source_grooming_booking_id'] : null,
+                        'confinementReason' => $assignment['confinement_reason'] ?? null,
+                        'careInstructions' => $assignment['care_instructions'] ?? null,
+                        'ownerApprovalStatus' => $assignment['owner_approval_status'] ?? null,
                     ];
                 }
 
@@ -3383,30 +3420,36 @@ function boarding_lock_visits_and_assert_materials_mutable(PDO $pdo, int $bookin
         }
     }
 
+    $sourceVisitSql = boarding_column_exists($pdo, 'bookings', 'source_visit_id')
+        ? 'OR visit_id = (SELECT source_visit_id FROM bookings WHERE booking_id = ?)'
+        : '';
     $visitLockStmt = $pdo->prepare("
         SELECT visit_id
         FROM visits
-        WHERE booking_id = ?
+        WHERE booking_id = ? {$sourceVisitSql}
         ORDER BY visit_id ASC
         FOR UPDATE
     ");
-    $visitLockStmt->execute([$bookingId]);
+    $visitLockStmt->execute($sourceVisitSql ? [$bookingId, $bookingId] : [$bookingId]);
     $visitLockStmt->fetchAll(PDO::FETCH_COLUMN);
 
     // A verified payment settles only the invoice lines that existed when it
     // was recorded. An active booked stay may still incur new material usage;
     // POS appends that usage as a new immutable charge and collects only the
     // resulting outstanding balance. Refunded billing remains locked.
+    $paymentSourceSql = boarding_column_exists($pdo, 'bookings', 'source_visit_id')
+        ? 'OR v.visit_id = (SELECT source_visit_id FROM bookings WHERE booking_id = ?)'
+        : '';
     $paymentStmt = $pdo->prepare("
         SELECT vp.payment_status
         FROM visit_payments vp
         JOIN visits v ON v.visit_id = vp.visit_id
-        WHERE v.booking_id = ?
+        WHERE (v.booking_id = ? {$paymentSourceSql})
           AND vp.payment_status = 'refunded'
         ORDER BY vp.payment_id ASC
         LIMIT 1
     ");
-    $paymentStmt->execute([$bookingId]);
+    $paymentStmt->execute($paymentSourceSql ? [$bookingId, $bookingId] : [$bookingId]);
     $lockedPaymentStatus = (string)($paymentStmt->fetchColumn() ?: '');
     if ($lockedPaymentStatus !== '') {
         boarding_error(
@@ -3504,12 +3547,15 @@ function boarding_fetch_material_usages(PDO $pdo, array $filters = []): array
 
     $lockedPaymentSelectSql = '0 AS has_locked_payment';
     if (boarding_table_exists($pdo, 'visits') && boarding_table_exists($pdo, 'visit_payments')) {
+        $clinicalPaymentSql = boarding_column_exists($pdo, 'bookings', 'source_visit_id')
+            ? 'OR payment_visit.visit_id = b.source_visit_id'
+            : '';
         $lockedPaymentSelectSql = "
             EXISTS (
                 SELECT 1
                 FROM visits payment_visit
                 JOIN visit_payments vp ON vp.visit_id = payment_visit.visit_id
-                WHERE payment_visit.booking_id = bmu.booking_id
+                WHERE (payment_visit.booking_id = bmu.booking_id {$clinicalPaymentSql})
                   AND vp.payment_status = 'refunded'
             ) AS has_locked_payment
         ";

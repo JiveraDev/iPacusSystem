@@ -6,6 +6,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/clinical_record_helpers.php';
+require_once __DIR__ . '/clinical_confinement_helpers.php';
 
 if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
     define('VISIT_BILLING_HELPERS_ONLY', true);
@@ -1047,6 +1048,25 @@ try {
         'charges' => vetDiagnosisChargesFromInput($input),
     ]);
 
+    $clinicalConfinement = null;
+    $confinementInput = is_array($input['confinement'] ?? null) ? $input['confinement'] : [];
+    if (($confinementInput['requested'] ?? $confinementInput['enabled'] ?? false) === true) {
+        $sourceBooking = $bookingId ? vetDiagnosisFetchBooking($pdo, $bookingId) : null;
+        $sourceBranchId = (int)($sourceBooking['branch_id'] ?? $queue['branch_id'] ?? 0);
+        $clinicalConfinement = clinical_confinement_save($pdo, [
+            'visit_id' => (int)$visitBilling['visitId'],
+            'diagnosis_id' => $diagnosisId,
+            'pet_id' => $petId,
+            'veterinarian_user_id' => $veterinarianUserId,
+            'branch_id' => $sourceBranchId,
+            'facility_type' => $confinementInput['facility_type'] ?? $confinementInput['facilityType'] ?? 'boarding',
+            'room_size' => $confinementInput['room_size'] ?? $confinementInput['roomSize'] ?? 'small',
+            'expected_discharge' => $confinementInput['expected_discharge'] ?? $confinementInput['expectedDischarge'] ?? null,
+            'reason' => $confinementInput['reason'] ?? '',
+            'care_instructions' => $confinementInput['care_instructions'] ?? $confinementInput['careInstructions'] ?? '',
+        ]);
+    }
+
     vetDiagnosisCompleteQueue($pdo, $queueId, $assignmentId);
     vetDiagnosisCompleteBooking($pdo, $bookingId);
 
@@ -1081,6 +1101,7 @@ try {
             : 'Diagnosis saved and visit billing prepared.',
         'diagnosis' => vetDiagnosisFetchFormattedById($pdo, $diagnosisId),
         'visit' => $visitBilling['visit'] ?? null,
+        'confinement' => $clinicalConfinement,
         'reopened' => $isReopenedDiagnosis,
     ]);
 } catch (Exception $e) {

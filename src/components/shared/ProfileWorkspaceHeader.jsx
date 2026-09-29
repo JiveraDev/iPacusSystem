@@ -5,6 +5,7 @@ import {
     ShieldCheck,
     User,
     UserRound,
+    History,
 } from 'lucide-react';
 
 import { TabsList, TabsTrigger } from '../../ui/tabs';
@@ -25,9 +26,11 @@ export default function ProfileWorkspaceHeader({
     secondaryLabel = '',
     imageSrc = '',
     imageUnavailable = false,
+    showActivityTab = false,
     isEditing = false,
     onImageChange,
     onImageError,
+    labelAction = null,
     action = null,
 }) {
     return (
@@ -37,10 +40,15 @@ export default function ProfileWorkspaceHeader({
             <span className="pointer-events-none absolute -bottom-24 left-1/4 size-56 rounded-full bg-sky-400/10 blur-3xl" aria-hidden="true" />
 
             <div className="relative z-20 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6 lg:px-8">
-                <div className="flex items-center">
+                <div className="flex min-w-0 items-center justify-between gap-3">
                     <p className="inline-flex w-fit rounded-full border border-blue-400/25 bg-blue-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.1em] text-blue-200">
                         {accountLabel}
                     </p>
+                    {labelAction ? (
+                        <div className="flex min-w-0 shrink-0 items-center justify-end">
+                            {labelAction}
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="mt-4 flex min-w-0 items-center gap-3 border-t border-white/10 pt-4 sm:gap-4">
@@ -85,7 +93,7 @@ export default function ProfileWorkspaceHeader({
 
                 <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
                     <TabsList className="flex h-auto min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.06] p-1.5 scrollbar-hide">
-                        {PROFILE_TABS.map((tab) => {
+                        {(showActivityTab ? [...PROFILE_TABS, { value: 'activity', label: 'Activity Log', icon: History }] : PROFILE_TABS).map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.value;
 

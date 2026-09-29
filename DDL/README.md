@@ -21,6 +21,7 @@ php DDL/export_database_ddl.php --include-views
 
 ## Manual Migrations
 
+- `20260923_01_clinical_confinement.sql` adds Clinical Confinement as a medically referred Boarding admission. It links Diagnosis or Grooming Vet Review to one Boarding booking and the originating visit invoice, while keeping owner approval in the existing boarding-consent and room-assignment flow.
 - `20260819_01_invoice_pdf_documents.sql` adds immutable Point-Of-Sale invoice PDF records linked to the visit, verified payment, and pet. Run it after the visit billing/payment schema is installed and before enabling POS invoice posting in this build.
 - `20260809_02_archiving_payment_storage.sql` adds recoverable account/pet archiving, configurable encrypted payment details, dynamic payment ledger keys, and branch/location/storage-area inventory identity. Run it after `20260808_01_payment_integrity.sql`, then set `PAYMENT_DETAILS_KEY` before saving payment settings.
 - `20260809_01_sunday_closure.sql` applies Monday-Saturday 8:00 AM-6:00 PM hours and closes all configured branches on Sunday.

@@ -14,6 +14,8 @@ import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import InventoryResponsibilityDialog from './InventoryResponsibilityDialog.jsx';
 import InventoryLocationFields from './InventoryLocationFields.jsx';
 import { DEFAULT_STORAGE_AREA } from './inventoryLocationUtils.js';
+import InventoryBranchScope from './InventoryBranchScope.jsx';
+import { useInventoryBranchScope } from '../../hooks/useInventoryBranchScope.js';
 
 const DEFAULT_UNITS = ['pcs', 'boxes', 'bottles', 'vials', 'bags', 'kg', 'liters'];
 const INVENTORY_CATEGORIES = ['Medicines', 'Vaccines', 'Medical Supplies', 'Retail Products', 'Equipment', 'Consumables'];
@@ -54,6 +56,8 @@ function formatFileSize(size) {
 
 export default function AddNewItemPage() {
     const navigate = useNavigate();
+    const branchScope = useInventoryBranchScope();
+    const { branchId } = branchScope;
     const [meta, setMeta] = useState({ locations: [], brands: [], units: [] });
     const [category, setCategory] = useState('');
     const [brand, setBrand] = useState('');
@@ -67,14 +71,26 @@ export default function AddNewItemPage() {
     const [isResponsibilityOpen, setIsResponsibilityOpen] = useState(false);
 
     useEffect(() => {
-        fetchInventoryMeta()
-            .then((data) => setMeta({
-                locations: data.locations || [],
-                brands: data.brands || [],
-                units: data.units || [],
-            }))
-            .catch((error) => setErrorMessage(error.message || 'Failed to load inventory options.'));
-    }, []);
+        if (!branchId) return undefined;
+        let cancelled = false;
+        setMeta({ locations: [], brands: [], units: [] });
+        setLocation({ locationName: '', storageArea: DEFAULT_STORAGE_AREA });
+        setPendingItem(null);
+        fetchInventoryMeta({ branchId })
+            .then((data) => {
+                if (!cancelled) {
+                    setMeta({
+                        locations: data.locations || [],
+                        brands: data.brands || [],
+                        units: data.units || [],
+                    });
+                }
+            })
+            .catch((error) => {
+                if (!cancelled) setErrorMessage(error.message || 'Failed to load inventory options.');
+            });
+        return () => { cancelled = true; };
+    }, [branchId]);
 
     useEffect(() => () => {
         if (productImage?.previewUrl) URL.revokeObjectURL(productImage.previewUrl);
@@ -114,6 +130,7 @@ export default function AddNewItemPage() {
         event.preventDefault();
         setErrorMessage('');
         try {
+            if (!branchId) throw new Error('Select an inventory branch before adding an item.');
             const formData = new FormData(event.currentTarget);
             const currentUser = getCurrentUser();
             const productName = cleanText(formData.get('productName'));
@@ -138,6 +155,7 @@ export default function AddNewItemPage() {
 
             const payload = {
                 user_id: currentUser?.id || currentUser?.user_id,
+                branch_id: Number(branchId),
                 item_name: productName,
                 description: description || null,
                 category,
@@ -210,6 +228,16 @@ export default function AddNewItemPage() {
                         Back to inventory
                     </Button>
                 )}
+            />
+
+            <InventoryBranchScope
+                branches={branchScope.branches}
+                branchId={branchScope.branchId}
+                selectedBranch={branchScope.selectedBranch}
+                canSelectBranch={branchScope.canSelectBranch}
+                isLoading={branchScope.isLoadingBranches}
+                error={branchScope.branchError}
+                onBranchChange={branchScope.setBranchId}
             />
 
             {errorMessage && (

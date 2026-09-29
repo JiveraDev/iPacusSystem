@@ -1,0 +1,13 @@
+{
+    "name": "ipawcus/clinic-portal",
+    "description": "Server-side dependencies for the iPawcus clinic portal.",
+    "type": "project",
+    "require": {
+        "php": "^8.1",
+        "google/apiclient": "^2.19.4"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

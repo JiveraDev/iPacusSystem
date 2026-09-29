@@ -446,6 +446,15 @@ try {
 
     ipawcus_guard_validate_booking_transition((string)$booking['status'], (string)$effectiveStatus, false);
 
+    if ($effectiveStatus === 'cancelled' && ipawcus_guard_table_exists($pdo, 'grooming_jobs')) {
+        $groomingStmt = $pdo->prepare('SELECT status FROM grooming_jobs WHERE booking_id = ? FOR UPDATE');
+        $groomingStmt->execute([(int)$bookingId]);
+        $groomingStatus = $groomingStmt->fetchColumn();
+        if ($groomingStatus && !in_array($groomingStatus, ['scheduled', 'cancelled', 'no_show'], true)) {
+            ipawcus_guard_error(409, 'Grooming has already checked in this pet. Ask the admin to stop the job in Grooming Management.');
+        }
+    }
+
     if (!$currentApiIsAdmin) {
         if ($status !== 'cancelled' || $effectiveStatus !== 'cancelled') {
             ipawcus_guard_error(403, 'Only authorized admin users can confirm bookings or change non-cancellation statuses.');

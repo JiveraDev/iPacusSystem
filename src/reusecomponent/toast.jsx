@@ -12,7 +12,7 @@ const EXIT_ANIMATION_MS = 260;
 const MAX_VISIBLE_TOASTS = 4;
 const MIN_DURATION_MS = 3500;
 const MAX_DURATION_MS = 12000;
-const REVIEW_MESSAGE_PATTERN = /^(?:please\s|select\s|enter\s|choose\s|add at least\s|provide\s|review\s|keep at least\s|validation failed\b|bad request\b)|\b(?:is|are) required\b|\b(?:cannot|must|do not|does not|needs your attention)\b/i;
+const REVIEW_MESSAGE_PATTERN = /^(?:select\s|enter\s|choose\s|add at least\s|provide\s|review\s|keep at least\s|validation failed\b|bad request\b)|\b(?:is|are) required\b|\bneeds your attention\b/i;
 
 const TYPE_DETAILS = {
   success: {
@@ -168,6 +168,8 @@ function makeSentence(value, type) {
 
 function resolveToastType(type, input, options = {}) {
   if (type !== 'error' || options.keepErrorStyle) return type;
+  const status = Number(options.status ?? input?.status ?? input?.response?.status);
+  if (status >= 400 && status !== 400 && status !== 422) return type;
 
   const structuredInput = input && typeof input === 'object' && !(input instanceof Error)
     ? input

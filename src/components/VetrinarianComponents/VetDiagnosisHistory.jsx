@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-    CalendarClock,
     Download,
     Eye,
     FileText,
@@ -370,11 +369,6 @@ export default function VetDiagnosisHistory() {
         });
     }, [records, searchQuery, sourceFilter]);
 
-    const clinicCount = records.filter(record => record.source === 'clinic').length;
-    const onlineCount = records.filter(record => record.source === 'online').length;
-    const boardingCount = records.filter(record => record.source === 'boarding').length;
-    const latestRecordDate = records[0]?.date;
-
     if (!veterinarianUserId) {
         return (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
@@ -410,19 +404,6 @@ export default function VetDiagnosisHistory() {
                     </Button>
                 )}
             />
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <StatCard icon={History} label="Total Records" value={records.length} tone="blue" />
-                <StatCard icon={Stethoscope} label="Clinic Diagnoses" value={clinicCount} tone="green" />
-                <StatCard icon={Video} label="Online Diagnoses" value={onlineCount} tone="purple" />
-                <StatCard icon={Hotel} label="Boarding Stays" value={boardingCount} tone="amber" />
-                <StatCard
-                    icon={CalendarClock}
-                    label="Latest Review"
-                    value={latestRecordDate ? formatDisplayDate(latestRecordDate, { compact: true }) : 'None'}
-                    tone="slate"
-                />
-            </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
@@ -537,31 +518,6 @@ export default function VetDiagnosisHistory() {
                     if (!open) setPreviewImage(null);
                 }}
             />
-        </div>
-    );
-}
-
-function StatCard({ icon, label, value, tone }) {
-    const Icon = icon;
-    const toneClasses = {
-        blue: 'bg-blue-50 text-blue-700',
-        green: 'bg-green-50 text-green-700',
-        amber: 'bg-amber-50 text-amber-700',
-        purple: 'bg-violet-50 text-violet-700',
-        slate: 'bg-slate-100 text-slate-700'
-    };
-
-    return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-                <div className={`flex size-11 items-center justify-center rounded-lg ${toneClasses[tone]}`}>
-                    <Icon className="size-5" />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-500">{label}</p>
-                    <p className="truncate text-2xl font-black leading-tight text-slate-900">{value}</p>
-                </div>
-            </div>
         </div>
     );
 }

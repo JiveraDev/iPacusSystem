@@ -5,7 +5,10 @@ export function fetchUserPets(userId) {
 }
 
 export function fetchAllPets(options = {}) {
-    const suffix = options.includeArchived ? '?includeArchived=1' : '';
+    const query = new URLSearchParams();
+    if (options.includeArchived) query.set('includeArchived', '1');
+    if (options.includeWalkInSales) query.set('includeWalkInSales', '1');
+    const suffix = query.size ? `?${query.toString()}` : '';
     return apiRequest(`/pet_information${suffix}`, { apiPrefix: true });
 }
 

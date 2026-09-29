@@ -23,6 +23,7 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { formatDisplayDateTime } from '../../lib/date';
+import { reportBookingFormErrors } from '../../lib/bookingFormValidation';
 import { useVideoCall } from '../../context/VideoCallProvider.jsx';
 import {
     endOnlineConsultation,
@@ -218,7 +219,7 @@ export default function VetOnlineConsultDiagnosis() {
                 setLastAutosavedAt(savedDraft?.savedAt || '');
             } catch (error) {
                 console.error('Failed to load online consultation:', error);
-                toast.error(error.message || 'Failed to load online consultation');
+                toast.error(error.message || 'The online consultation could not be loaded. Return to the consultation list and try again.');
             } finally {
                 setIsLoading(false);
             }
@@ -275,7 +276,7 @@ export default function VetOnlineConsultDiagnosis() {
             toast.success('Consultation started. Waiting for the pet owner to join.');
         } catch (error) {
             console.error('Failed to start consultation:', error);
-            toast.error(error.message || 'Failed to start consultation');
+            toast.error(error.message || 'The consultation could not be started. Check its status and try again.');
         } finally {
             setIsStarting(false);
         }
@@ -285,9 +286,14 @@ export default function VetOnlineConsultDiagnosis() {
         if (!consultation) return;
 
         if (!diagnosisForm.diagnosis.trim()) {
-            setDiagnosisError('Enter the primary diagnosis before completing the consultation.');
-            toast.error('Diagnosis is required.');
-            window.requestAnimationFrame(() => document.getElementById('online-consult-diagnosis')?.focus());
+            const message = 'Enter the primary diagnosis before completing the consultation.';
+            setDiagnosisError(message);
+            reportBookingFormErrors([{
+                fieldId: 'online-consult-diagnosis',
+                label: 'Primary diagnosis',
+                type: 'missing',
+                message
+            }]);
             return;
         }
 
@@ -302,7 +308,7 @@ export default function VetOnlineConsultDiagnosis() {
             navigate('/dashboard/vet/online-consultations');
         } catch (error) {
             console.error('Failed to save diagnosis:', error);
-            toast.error(error.message || 'Failed to save diagnosis');
+            toast.error(error.message || 'The diagnosis could not be saved. Keep this page open, review the details, and try again.');
         } finally {
             setIsSaving(false);
         }
@@ -317,10 +323,10 @@ export default function VetOnlineConsultDiagnosis() {
 
             setConsultation(updated);
             endCall();
-            toast.success('Call ended. Save the diagnosis to complete the consultation.');
+            toast.info('The call ended. Save the diagnosis to complete the consultation.');
         } catch (error) {
             console.error('Failed to end consultation:', error);
-            toast.error(error.message || 'Failed to end consultation');
+            toast.error(error.message || 'The call could not be ended on the server. Check the consultation status and try again.');
         } finally {
             setIsSaving(false);
         }

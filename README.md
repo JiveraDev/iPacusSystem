@@ -1,4 +1,4 @@
-# iPawcus - Pet Electronic Medical Record (EMR) & Management System
+# iPawcus - Pet Electronic Medical R1ecord (EMR) & Management System
 
 iPawcus is a comprehensive management system designed for veterinary clinics and pet owners. It facilitates pet registration, medical record management, appointment bookings, and real-time queue tracking.
 

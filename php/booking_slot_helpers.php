@@ -78,6 +78,18 @@ function booking_slot_normalize_time(?string $value): ?string
     return null;
 }
 
+function booking_slot_overlaps_lunch(string $serviceKey, string $bookingTime): bool
+{
+    $normalized = booking_slot_normalize_time($bookingTime);
+    if ($normalized === null || in_array($serviceKey, ['boarding', 'grooming'], true)) {
+        return false;
+    }
+    [$hour, $minute, $second] = array_map('intval', explode(':', $normalized));
+    $start = $hour * 3600 + $minute * 60 + $second;
+    $end = $start + booking_slot_duration_minutes($serviceKey) * 60;
+    return $start < 13 * 3600 && $end > 12 * 3600;
+}
+
 function booking_slot_assert_aligned(string $serviceKey, string $bookingTime): string
 {
     $normalized = booking_slot_normalize_time($bookingTime);
@@ -96,6 +108,10 @@ function booking_slot_assert_aligned(string $serviceKey, string $bookingTime): s
                 ? 'Home service must start on an available one-hour time slot.'
                 : 'Bookings must start on an available 30-minute time slot.'
         );
+    }
+
+    if (booking_slot_overlaps_lunch($serviceKey, $normalized)) {
+        throw new InvalidArgumentException('Lunch period is 12:00–1:00 PM. Choose an appointment that finishes by 12:00 PM or starts at 1:00 PM or later.');
     }
 
     return sprintf('%02d:%02d:00', $hour, $minute);

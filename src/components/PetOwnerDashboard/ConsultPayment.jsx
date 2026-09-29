@@ -222,6 +222,7 @@ export default function ConsultPayment() {
         service_type: "consultation",
         booking_date: bookingData.date,
         booking_time: bookingData.time,
+        branch_id: bookingData.branchId || null,
         notes: [
           `[Topic: ${bookingData.discussionTopic}]`,
           bookingData.notes ? bookingData.notes : "",

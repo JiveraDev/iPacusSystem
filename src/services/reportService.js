@@ -69,7 +69,6 @@ export const REPORT_TYPES = [
     { value: 'medicine_product_sales', label: 'Medicine/Product Sales Report' },
     { value: 'confinement_pet_hotel', label: 'Confinement and Pet Hotel Report' },
     { value: 'consent_form', label: 'Consent Form Report' },
-    { value: 'categorized_pet_cases', label: 'Categorized Pet Cases Report' },
     { value: 'veterinarian_activity', label: 'Veterinarian Activity Report' }
 ];
 

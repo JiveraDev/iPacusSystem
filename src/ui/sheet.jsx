@@ -6,8 +6,19 @@ import { cn } from './utils';
 
 const SheetContext = React.createContext(null);
 
-const Sheet = ({ children }) => {
-  const [open, setOpen] = useState(false);
+const Sheet = ({ children, open: controlledOpen, defaultOpen = false, onOpenChange }) => {
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? Boolean(controlledOpen) : internalOpen;
+  const setOpen = React.useCallback((nextOpen) => {
+    const nextValue = typeof nextOpen === 'function' ? Boolean(nextOpen(open)) : Boolean(nextOpen);
+
+    if (!isControlled) {
+      setInternalOpen(nextValue);
+    }
+    onOpenChange?.(nextValue);
+  }, [isControlled, onOpenChange, open]);
+
   return (
     <SheetContext.Provider value={{ open, setOpen }}>
       {children}

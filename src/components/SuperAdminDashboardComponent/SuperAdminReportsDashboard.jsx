@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { AlertTriangle, CalendarClock, FileText, Loader2, PackageSearch, ReceiptText, RefreshCw, Users } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarClock, ChevronLeft, ChevronRight, FileText, Loader2, PackageSearch, RefreshCw } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -21,18 +21,24 @@ gsap.registerPlugin(useGSAP);
 
 const GENERAL_CHART_IDS = [
     'revenue_diagnosis_trend',
+    'sales_trend',
+    'revenue_breakdown',
     'queue_booking_trend',
+    'appointment_status',
     'online_appointment_trend',
+    'consultation_type',
     'boarding_trend',
     'service_utilization',
+    'medicine_product_sales',
+    'veterinarian_activity',
     'animal_distribution',
-    'revenue_breakdown',
+    'billing_mix',
     'inventory_alerts'
 ];
+const CHART_ROTATION_MS = 15000;
 
 const KPI_CHART_TARGETS = {
     'Total Sales': 'revenue_diagnosis_trend',
-    'Total Paid Amount': 'revenue_breakdown',
     'Total Appointments': 'queue_booking_trend',
     'Completed Appointments': 'queue_booking_trend',
     'Missed / Rescheduled': 'queue_booking_trend',
@@ -43,9 +49,12 @@ const KPI_CHART_TARGETS = {
 };
 
 const KPI_TABLE_TARGETS = {
-    'Total Unpaid Balance': 'report-table-billing-attention',
     'Restocking Needed': 'report-table-inventory-attention',
     'Near Expiry Items': 'report-table-inventory-attention'
+};
+
+const KPI_ROUTE_TARGETS = {
+    'Consent Forms': '/dashboard/consent'
 };
 
 function normalizeRole(role) {
@@ -59,6 +68,25 @@ function isSuperAdmin(user) {
 function isPieChartItem(chartItem) {
     const chartType = String(chartItem?.chart?.type || '').trim().toLowerCase();
     return chartType === 'pie' || chartType === 'doughnut';
+}
+
+function adjacentChartId(ids, currentId, direction) {
+    if (!ids.length) return currentId;
+    const index = ids.indexOf(currentId);
+    return ids[((index < 0 ? 0 : index) + direction + ids.length) % ids.length];
+}
+
+function ChartNavigation({ label, onPrevious, onNext, disabled = false }) {
+    return (
+        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-800" aria-label={`${label} navigation`}>
+            <Button type="button" variant="ghost" size="icon" className="size-8 rounded-md active:scale-[0.96] dark:text-slate-100 dark:hover:bg-slate-700" onClick={onPrevious} disabled={disabled} aria-label={`Previous ${label}`}>
+                <ChevronLeft className="size-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="size-8 rounded-md active:scale-[0.96] dark:text-slate-100 dark:hover:bg-slate-700" onClick={onNext} disabled={disabled} aria-label={`Next ${label}`}>
+                <ChevronRight className="size-4" />
+            </Button>
+        </div>
+    );
 }
 
 function dateInputValue(date) {
@@ -101,9 +129,7 @@ function quickRangeDates(value) {
     let end = new Date(today);
 
     if (value === 'this_week') {
-        const weekday = today.getDay();
-        const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
-        start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+        start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
         end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
     } else if (value === 'this_quarter') {
         const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
@@ -164,15 +190,15 @@ function tableTargetForKpi(label) {
     return KPI_TABLE_TARGETS[String(label || '').trim()] || '';
 }
 
+function routeTargetForKpi(label) {
+    return KPI_ROUTE_TARGETS[String(label || '').trim()] || '';
+}
+
 function attentionTableTargetId(title) {
     const normalizedTitle = String(title || '').toLowerCase();
 
     if (normalizedTitle.includes('inventory')) {
         return 'report-table-inventory-attention';
-    }
-
-    if (normalizedTitle.includes('billing')) {
-        return 'report-table-billing-attention';
     }
 
     return 'report-table-operational-attention';
@@ -205,23 +231,12 @@ function queueInventoryItemSelection(row) {
 function getAttentionConfig(title) {
     const normalizedTitle = String(title || '').toLowerCase();
 
-    if (normalizedTitle.includes('billing')) {
-        return {
-            icon: ReceiptText,
-            label: 'Billing',
-            accentClass: 'border-l-amber-400',
-            iconClass: 'bg-amber-50 text-amber-700',
-            emptyTitle: 'No pending billing',
-            emptyText: 'All visible visits are paid or outside the selected date range.'
-        };
-    }
-
     if (normalizedTitle.includes('inventory')) {
         return {
             icon: PackageSearch,
             label: 'Stock',
             accentClass: 'border-l-red-400',
-            iconClass: 'bg-red-50 text-red-700',
+            iconClass: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-200',
             emptyTitle: 'Inventory is clear',
             emptyText: 'No low-stock, out-of-stock, expired, or near-expiry items are in this range.'
         };
@@ -231,7 +246,7 @@ function getAttentionConfig(title) {
         icon: CalendarClock,
         label: 'Follow-up',
         accentClass: 'border-l-blue-400',
-        iconClass: 'bg-blue-50 text-blue-700',
+        iconClass: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200',
         emptyTitle: 'No follow-ups due',
         emptyText: 'There are no follow-up records needing attention for this date range.'
     };
@@ -259,18 +274,18 @@ function statusBadgeClass(value) {
     const status = String(value || '').toLowerCase();
 
     if (['out_of_stock', 'expired', 'cancelled', 'failed', 'overdue'].includes(status)) {
-        return 'border-red-200 bg-red-50 text-red-700';
+        return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-500/15 dark:text-red-200';
     }
 
     if (['near_expiry', 'low_stock', 'partial', 'pending', 'unpaid'].includes(status)) {
-        return 'border-amber-200 bg-amber-50 text-amber-800';
+        return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-500/15 dark:text-amber-200';
     }
 
     if (['paid', 'completed', 'done', 'ok', 'sent'].includes(status)) {
-        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/15 dark:text-emerald-200';
     }
 
-    return 'border-slate-200 bg-slate-50 text-slate-700';
+    return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
 }
 
 function formatAttentionValue(value, column) {
@@ -305,6 +320,7 @@ export default function SuperAdminReportsDashboard() {
     const user = useDashboardUser();
     const navigate = useNavigate();
     const rootRef = useRef(null);
+    const kpiRailRef = useRef(null);
     const highlightTimerRef = useRef(null);
     const [range, setRange] = useState('this_month');
     const [customStart, setCustomStart] = useState(defaultMonthStart);
@@ -313,6 +329,12 @@ export default function SuperAdminReportsDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [highlightedTargetId, setHighlightedTargetId] = useState('');
+    const [selectedKpiLabel, setSelectedKpiLabel] = useState('Total Sales');
+    const [selectedTrendId, setSelectedTrendId] = useState('revenue_diagnosis_trend');
+    const [selectedMixId, setSelectedMixId] = useState('animal_distribution');
+    const [kpiRailEdges, setKpiRailEdges] = useState({ atStart: true, atEnd: true });
+    const [trendRotationReset, setTrendRotationReset] = useState(0);
+    const [mixRotationReset, setMixRotationReset] = useState(0);
 
     const selectedRangeLabel = useMemo(() => (
         REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
@@ -378,22 +400,37 @@ export default function SuperAdminReportsDashboard() {
         if (!dashboard) return;
 
         const items = gsap.utils.toArray('.report-motion-item');
+        const kpiItems = gsap.utils.toArray('[data-report-kpi-item]');
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            gsap.set(items, { autoAlpha: 1, clearProps: 'transform' });
+            gsap.set([...items, ...kpiItems], { autoAlpha: 1, clearProps: 'transform' });
             return;
         }
 
-        gsap.fromTo(items, {
+        const entrance = gsap.timeline();
+        entrance.fromTo(items, {
             autoAlpha: 0,
-            y: 18,
+            y: 8,
         }, {
             autoAlpha: 1,
             y: 0,
-            duration: 0.42,
-            stagger: 0.035,
+            duration: 0.24,
+            stagger: 0.03,
             ease: 'power3.out',
-            clearProps: 'transform',
+            clearProps: 'transform,opacity,visibility',
         });
+        entrance.fromTo(kpiItems, {
+            autoAlpha: 0,
+            y: 6,
+            scale: 0.985,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.22,
+            stagger: 0.02,
+            ease: 'power3.out',
+            clearProps: 'transform,opacity,visibility',
+        }, 0.05);
     }, { scope: rootRef, dependencies: [Boolean(dashboard)], revertOnUpdate: true });
 
     const charts = useMemo(() => {
@@ -404,7 +441,65 @@ export default function SuperAdminReportsDashboard() {
     }, [dashboard]);
     const fullWidthCharts = useMemo(() => charts.filter(chartItem => !isPieChartItem(chartItem)), [charts]);
     const pieCharts = useMemo(() => charts.filter(isPieChartItem), [charts]);
+    const trendChartIdsKey = fullWidthCharts.map((chartItem) => chartItem.id).join('|');
+    const mixChartIdsKey = pieCharts.map((chartItem) => chartItem.id).join('|');
     const chartById = useMemo(() => new Map(charts.map(chartItem => [chartItem.id, chartItem])), [charts]);
+    const activeTrendChart = fullWidthCharts.find((chartItem) => chartItem.id === selectedTrendId) || fullWidthCharts[0];
+    const activeMixChart = pieCharts.find((chartItem) => chartItem.id === selectedMixId) || pieCharts[0];
+    const attentionTables = (dashboard?.summary_tables || []).filter((table) => !String(table?.title || '').toLowerCase().includes('billing'));
+    const visibleKpis = useMemo(() => (dashboard?.kpis || []).filter((kpi) => {
+        if (kpi.label === 'Total Paid Amount' || kpi.label === 'Total Unpaid Balance') return false;
+        if (kpi.label === 'Near Expiry Items') return Number(kpi.value || 0) !== 0;
+        return true;
+    }), [dashboard]);
+    const visibleKpiCount = visibleKpis.length;
+    const updateKpiRailEdges = useCallback(() => {
+        const rail = kpiRailRef.current;
+        if (!rail) return;
+        const next = {
+            atStart: rail.scrollLeft <= 2,
+            atEnd: rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2
+        };
+        setKpiRailEdges((current) => current.atStart === next.atStart && current.atEnd === next.atEnd ? current : next);
+    }, []);
+
+    useEffect(() => {
+        const rail = kpiRailRef.current;
+        if (!rail) return undefined;
+        updateKpiRailEdges();
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateKpiRailEdges) : null;
+        observer?.observe(rail);
+        window.addEventListener('resize', updateKpiRailEdges);
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener('resize', updateKpiRailEdges);
+        };
+    }, [updateKpiRailEdges, visibleKpiCount]);
+    useEffect(() => {
+        const ids = trendChartIdsKey ? trendChartIdsKey.split('|') : [];
+        if (ids.length < 2) return undefined;
+
+        const timer = window.setInterval(() => {
+            if (document.hidden) return;
+            setSelectedTrendId((currentId) => ids[(ids.indexOf(currentId) + 1) % ids.length]);
+            setSelectedKpiLabel((currentLabel) => ids.includes(KPI_CHART_TARGETS[currentLabel]) ? '' : currentLabel);
+        }, CHART_ROTATION_MS);
+
+        return () => window.clearInterval(timer);
+    }, [selectedTrendId, trendChartIdsKey, trendRotationReset]);
+
+    useEffect(() => {
+        const ids = mixChartIdsKey ? mixChartIdsKey.split('|') : [];
+        if (ids.length < 2) return undefined;
+
+        const timer = window.setInterval(() => {
+            if (document.hidden) return;
+            setSelectedMixId((currentId) => ids[(ids.indexOf(currentId) + 1) % ids.length]);
+            setSelectedKpiLabel((currentLabel) => ids.includes(KPI_CHART_TARGETS[currentLabel]) ? '' : currentLabel);
+        }, CHART_ROTATION_MS);
+
+        return () => window.clearInterval(timer);
+    }, [mixChartIdsKey, mixRotationReset, selectedMixId]);
     const scrollToTarget = useCallback((targetId) => {
         const target = document.getElementById(targetId);
         if (!target) {
@@ -417,7 +512,7 @@ export default function SuperAdminReportsDashboard() {
         const top = target.getBoundingClientRect().top + window.scrollY - headerOffset;
         window.scrollTo({
             top: Math.max(top, 0),
-            behavior: 'smooth'
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
         });
 
         if (highlightTimerRef.current) {
@@ -429,6 +524,44 @@ export default function SuperAdminReportsDashboard() {
             highlightTimerRef.current = null;
         }, 1600);
     }, []);
+    const selectChart = (chartItem, kpiLabel) => {
+        if (!chartItem) return;
+        setSelectedKpiLabel(kpiLabel);
+        const isMix = isPieChartItem(chartItem);
+        if (isMix) {
+            setSelectedMixId(chartItem.id);
+            setMixRotationReset((count) => count + 1);
+        } else {
+            setSelectedTrendId(chartItem.id);
+            setTrendRotationReset((count) => count + 1);
+        }
+    };
+    const moveChart = (kind, direction) => {
+        const isMix = kind === 'mix';
+        const ids = (isMix ? mixChartIdsKey : trendChartIdsKey).split('|').filter(Boolean);
+        if (ids.length < 2) return;
+        if (isMix) {
+            setSelectedMixId((currentId) => adjacentChartId(ids, currentId, direction));
+            setMixRotationReset((count) => count + 1);
+        } else {
+            setSelectedTrendId((currentId) => adjacentChartId(ids, currentId, direction));
+            setTrendRotationReset((count) => count + 1);
+        }
+        setSelectedKpiLabel('');
+    };
+    const scrollKpiRail = (direction) => {
+        const rail = kpiRailRef.current;
+        if (!rail) return;
+        const firstItem = rail.querySelector('[data-report-kpi-item]');
+        const step = (firstItem?.getBoundingClientRect().width || 220) + 8;
+        const railStyle = window.getComputedStyle(rail);
+        const innerWidth = rail.clientWidth - Number.parseFloat(railStyle.paddingLeft) - Number.parseFloat(railStyle.paddingRight);
+        const visibleItems = Math.max(1, Math.floor((innerWidth + 8) / step));
+        rail.scrollBy({
+            left: direction * step * visibleItems,
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+        });
+    };
 
     if (!isSuperAdmin(user)) {
         return (
@@ -440,191 +573,185 @@ export default function SuperAdminReportsDashboard() {
     }
 
     return (
-        <div ref={rootRef} className="space-y-6">
+        <div ref={rootRef} className="mx-auto max-w-[1800px] space-y-4">
             <div className="report-motion-item">
                 <DashboardPageHeader
                     title="Reports Dashboard"
-                    description="A focused view of clinic performance, patient activity, billing, inventory, and service demand."
+                    description="Track clinic performance, patient activity, service demand, and inventory health."
+                    icon={BarChart3}
                     layout="stacked"
-                    className="h-full overflow-hidden border-blue-100 bg-[radial-gradient(circle_at_90%_0%,rgba(147,197,253,0.16),transparent_34%),white] dark:border-blue-900/50 dark:bg-none dark:bg-slate-900"
+                    petHover={false}
+                    className="h-full overflow-hidden"
                     toolbar={(
-                        <div className="flex w-full flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50/65 p-3 dark:border-slate-700 dark:bg-slate-950/60 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)]">
-                            <div className="min-w-0">
-                                <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
-                                <Select value={range} onValueChange={setRange}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue displayValue={selectedRangeLabel} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {REPORT_QUICK_RANGES.map(item => (
-                                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        <div className="flex w-full flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 lg:flex-row lg:items-end lg:justify-between">
+                            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-3 lg:grid-cols-[minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)]">
+                                <div className="min-w-0">
+                                    <Label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-300">Date Range</Label>
+                                    <Select value={range} onValueChange={setRange}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue displayValue={selectedRangeLabel} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {REPORT_QUICK_RANGES.map(item => (
+                                                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <ReportDateInput
+                                    label="Start"
+                                    value={visibleDateRange.start}
+                                    onChange={handleCustomStartChange}
+                                />
+                                <ReportDateInput
+                                    label="End"
+                                    value={visibleDateRange.end}
+                                    onChange={handleCustomEndChange}
+                                />
                             </div>
-                            <ReportDateInput
-                                label="Start"
-                                value={visibleDateRange.start}
-                                onChange={handleCustomStartChange}
-                            />
-                            <ReportDateInput
-                                label="End"
-                                value={visibleDateRange.end}
-                                onChange={handleCustomEndChange}
-                            />
+                            <div className="flex shrink-0 items-end justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => loadDashboard()}
+                                    disabled={isLoading}
+                                    className="size-10 shrink-0 active:scale-[0.96] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                    aria-label="Refresh reports dashboard"
+                                    title="Refresh reports dashboard"
+                                >
+                                    {isLoading ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> : <RefreshCw className="size-4" />}
+                                </Button>
+                                <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 flex-1 justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white active:scale-[0.97] hover:bg-[#0d4acf] sm:flex-none">
+                                    <FileText className="size-4" />
+                                    Report Center
+                                </Button>
+                            </div>
                         </div>
-                        <div className="flex shrink-0 items-end justify-end gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() => loadDashboard()}
-                                disabled={isLoading}
-                                className="size-10 shrink-0"
-                                aria-label="Refresh reports dashboard"
-                                title="Refresh reports dashboard"
-                            >
-                                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                            </Button>
-                            <Button type="button" onClick={() => navigate('/dashboard/reports/export')} className="h-10 justify-center gap-2 whitespace-nowrap bg-[#155dfc] px-3 text-white hover:bg-[#0d4acf]">
-                                <FileText className="size-4" />
-                                Report Center
-                            </Button>
-                        </div>
-                    </div>
                     )}
                 />
             </div>
 
             {error ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800 dark:border-red-900/70 dark:bg-red-950/35 dark:text-red-200">{error}</div>
             ) : null}
 
             {isLoading && !dashboard ? (
-                <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                    <Loader2 className="size-8 animate-spin text-blue-700" />
+                <div role="status" aria-label="Loading reports dashboard" className="flex min-h-[22rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                    <Loader2 className="size-8 animate-spin text-blue-700 motion-reduce:animate-none dark:text-blue-300" />
                 </div>
             ) : (
                 <>
-                    <div className="report-motion-item grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {(dashboard?.kpis || []).map(kpi => {
+                    <div className="report-motion-item relative min-w-0" aria-label="Report KPI carousel">
+                        {!kpiRailEdges.atStart ? (
+                            <Button type="button" variant="outline" size="icon" className="absolute left-1 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/95 shadow-sm backdrop-blur-sm duration-150 active:scale-[0.96] dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800" onClick={() => scrollKpiRail(-1)} aria-label="Previous KPIs">
+                                <ChevronLeft className="size-4" />
+                            </Button>
+                        ) : null}
+                        <div ref={kpiRailRef} role="list" aria-label="Report key metrics" tabIndex={0} onScroll={updateKpiRailEdges} className="flex min-w-0 w-full snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl scrollbar-hide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        {visibleKpis.map(kpi => {
                             const targetChartId = chartTargetForKpi(kpi.label, chartById);
                             const targetChart = targetChartId ? chartById.get(targetChartId) : null;
                             const targetTableId = tableTargetForKpi(kpi.label);
-                            const targetId = targetChart ? `report-chart-${targetChart.id}` : targetTableId;
-                            const targetTitle = targetChart?.title || (
-                                targetTableId === 'report-table-billing-attention'
-                                    ? 'Pending Billing'
-                                    : targetTableId ? 'Inventory Attention' : undefined
-                            );
+                            const targetRoute = routeTargetForKpi(kpi.label);
+                            const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : targetRoute ? 'Consent Files' : undefined);
 
                             return (
-                                <ReportKpiCard
-                                    key={kpi.label}
-                                    {...kpi}
-                                    targetTitle={targetTitle}
-                                    onSelectChart={targetId ? () => scrollToTarget(targetId) : undefined}
-                                />
+                                <div key={kpi.label} role="listitem" data-report-kpi-item className="w-[210px] shrink-0 snap-start sm:w-[228px] lg:w-[244px]">
+                                    <ReportKpiCard
+                                        {...kpi}
+                                        compact
+                                        isSelected={selectedKpiLabel === kpi.label}
+                                        targetTitle={targetTitle}
+                                        onSelectChart={targetChart
+                                            ? () => selectChart(targetChart, kpi.label)
+                                            : targetTableId
+                                                ? () => { setSelectedKpiLabel(kpi.label); scrollToTarget(targetTableId); }
+                                                : targetRoute
+                                                    ? () => navigate(targetRoute)
+                                                    : undefined}
+                                    />
+                                </div>
                             );
                         })}
+                        </div>
+                        {!kpiRailEdges.atEnd ? (
+                            <Button type="button" variant="outline" size="icon" className="absolute right-1 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/95 shadow-sm backdrop-blur-sm duration-150 active:scale-[0.96] dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800" onClick={() => scrollKpiRail(1)} aria-label="Next KPIs">
+                                <ChevronRight className="size-4" />
+                            </Button>
+                        ) : null}
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
-                        <Card className="report-motion-item border-amber-200 bg-amber-50 shadow-none">
-                            <CardContent className="flex gap-3 p-4 text-sm font-semibold leading-6 text-amber-900">
-                                <AlertTriangle className="mt-0.5 size-5 shrink-0" />
-                                <div>
+                        <Card petHover={false} className="report-motion-item border-amber-200 bg-amber-50 shadow-none dark:border-amber-900/70 dark:bg-amber-950/30">
+                            <CardContent className="flex gap-3 p-4 text-sm font-semibold leading-6 text-amber-900 dark:text-amber-100">
+                                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
+                                <div className="min-w-0">
+                                    <p className="font-black">Some report data is unavailable</p>
                                     {dashboard.missing_data.slice(0, 4).map((note, index) => (
-                                        <p key={`${note}-${index}`}>{note}</p>
+                                        <p key={`${note}-${index}`} className="font-semibold text-amber-800 dark:text-amber-200">{note}</p>
                                     ))}
                                 </div>
                             </CardContent>
                         </Card>
                     ) : null}
 
-                    {fullWidthCharts.length ? (
-                        <section className="report-motion-item space-y-4">
-                            <div>
-                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Movement, Revenue, and Utilization</h2>
-                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Compact paired charts reduce page length while preserving readable axes and labels.</p>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                                {fullWidthCharts.map(chartItem => (
-                                    <div
-                                        key={chartItem.id}
-                                        id={`report-chart-${chartItem.id}`}
-                                        className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
-                                            highlightedTargetId === `report-chart-${chartItem.id}`
-                                                ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
-                                                : ''
-                                        }`}
-                                    >
-                                        <ReportChartCard
-                                            title={chartItem.title}
-                                            summary={chartItem.summary}
-                                            chart={chartItem.chart}
-                                            compact
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    ) : null}
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)] xl:items-stretch">
+                        {activeTrendChart ? (
+                            <section id="report-chart-trend" className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${highlightedTargetId === 'report-chart-trend' ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''}`} aria-label="Trend charts">
+                                <div key={`${activeTrendChart.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`} className="report-chart-switch">
+                                    <ReportChartCard
+                                        title={activeTrendChart.title}
+                                        chart={activeTrendChart.chart}
+                                        compact
+                                        stableHeight
+                                        eyebrow="Trends & performance"
+                                        actions={<ChartNavigation label="trend graph" onPrevious={() => moveChart('trend', -1)} onNext={() => moveChart('trend', 1)} disabled={fullWidthCharts.length < 2} />}
+                                    />
+                                </div>
+                            </section>
+                        ) : null}
 
-                    {pieCharts.length ? (
-                        <section className="report-motion-item space-y-4">
-                            <div>
-                                <h2 className="text-lg font-black text-slate-950 dark:text-white">Service Mix and Clinic Resources</h2>
-                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Pie and doughnut charts are grouped two per row on wider screens.</p>
-                            </div>
-                            <div className="grid gap-4 xl:grid-cols-2">
-                                {pieCharts.map(chartItem => (
-                                    <div
-                                        key={chartItem.id}
-                                        id={`report-chart-${chartItem.id}`}
-                                        className={`h-full scroll-mt-24 rounded-xl transition duration-700 ${
-                                            highlightedTargetId === `report-chart-${chartItem.id}`
-                                                ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
-                                                : ''
-                                        }`}
-                                    >
-                                        <ReportChartCard
-                                            title={chartItem.title}
-                                            summary={chartItem.summary}
-                                            chart={chartItem.chart}
-                                            compact
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    ) : null}
+                        {activeMixChart ? (
+                            <section id="report-chart-mix" className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${highlightedTargetId === 'report-chart-mix' ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''}`} aria-label="Distribution charts">
+                                <div key={`${activeMixChart.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`} className="report-chart-switch">
+                                    <ReportChartCard
+                                        title={activeMixChart.title}
+                                        chart={activeMixChart.chart}
+                                        compact
+                                        stableHeight
+                                        eyebrow="Distribution & mix"
+                                        actions={<ChartNavigation label="distribution graph" onPrevious={() => moveChart('mix', -1)} onNext={() => moveChart('mix', 1)} disabled={pieCharts.length < 2} />}
+                                    />
+                                </div>
+                            </section>
+                        ) : null}
+                    </div>
 
-                    <section className="report-motion-item space-y-4">
+                    <section className="report-motion-item space-y-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
-                                    <Users className="size-5" />
+                                <div className="flex size-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
+                                    <PackageSearch className="size-4" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-slate-950 dark:text-white">Operational Attention</h2>
-                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Billing and stock items that need review in the selected date range.</p>
+                                    <h2 className="text-base font-black text-slate-950 dark:text-white">Operational attention</h2>
+                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Stock records that need review.</p>
                                 </div>
                             </div>
                             <Badge className="border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                                {pluralize((dashboard?.summary_tables || []).reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
+                                {pluralize(attentionTables.reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
                             </Badge>
                         </div>
-                        <div className="grid gap-4 xl:grid-cols-2">
-                            {(dashboard?.summary_tables || []).map(table => {
+                        <div className="grid gap-4">
+                            {attentionTables.map(table => {
                                 const targetId = attentionTableTargetId(table?.title);
 
                                 return (
                                     <div
                                         key={table.title}
                                         id={targetId}
-                                        className={`scroll-mt-24 rounded-xl transition duration-700 ${
+                                        className={`scroll-mt-24 rounded-xl transition-shadow duration-200 ${
                                             highlightedTargetId === targetId
                                                 ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
                                                 : ''
@@ -676,7 +803,7 @@ function OperationalAttentionCard({ table }) {
                         </p>
                     </div>
                 </div>
-                <Badge className={rows.length ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}>
+                <Badge className={rows.length ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-500/15 dark:text-amber-200' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/15 dark:text-emerald-200'}>
                     {allRows.length ? pluralize(allRows.length, 'item') : 'Clear'}
                 </Badge>
             </div>
@@ -700,7 +827,7 @@ function OperationalAttentionCard({ table }) {
                                 return (
                                 <tr
                                     key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
-                                    className={`h-12 align-middle hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
+                                    className={`h-12 align-middle transition-colors duration-150 hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
                                     role={isInteractiveRow ? 'button' : undefined}
                                     tabIndex={isInteractiveRow ? 0 : undefined}
                                     onClick={() => openInventoryRow(row)}

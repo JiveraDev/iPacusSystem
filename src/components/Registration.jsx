@@ -8,8 +8,17 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import PasswordInput from './shared/PasswordInput.jsx';
 import PasswordRequirements from './shared/PasswordRequirements.jsx';
 import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
+import GoogleContinueButton from './shared/GoogleContinueButton.jsx';
 
-export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = false, initialValues }) {
+export function RegistrationForm({
+    onBackHome,
+    onLogin,
+    onContinue,
+    onGoogleAuthenticated,
+    onGoogleOnboarding,
+    embedded = false,
+    initialValues,
+}) {
     const [email, setEmail] = useState(initialValues?.email ?? '');
     const [password, setPassword] = useState(initialValues?.password ?? '');
     const [confirmPassword, setConfirmPassword] = useState(initialValues?.confirmPassword ?? '');
@@ -52,11 +61,10 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
         <div className="w-full max-w-[672px]">
             {/* Header */}
             <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="flex items-center justify-center gap-3">
                 <img src={imgImageVfcLogo} alt="iPawcus" className="w-14 h-14 object-contain" />
                 <h1 className="text-3xl font-bold text-[#155dfc]">iPawcus</h1>
             </div>
-            <p className="text-gray-600">Create your account to get started</p>
         </div>
 
             {/* Form Card */}
@@ -67,6 +75,19 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="mx-auto w-full max-w-sm">
+                        <GoogleContinueButton
+                            onAuthenticated={onGoogleAuthenticated}
+                            onOnboarding={onGoogleOnboarding}
+                        />
+                    </div>
+
+                    <div className="mx-auto flex w-full max-w-sm items-center gap-3" aria-hidden="true">
+                        <span className="h-px flex-1 bg-slate-200" />
+                        <span className="whitespace-nowrap text-xs font-medium text-slate-400">or create with email</span>
+                        <span className="h-px flex-1 bg-slate-200" />
+                    </div>
+
                     {/* Email Address */}
                     <div>
                         <Label htmlFor="email" className="text-gray-900 mb-2 block">
@@ -115,7 +136,7 @@ export function RegistrationForm({ onBackHome, onLogin, onContinue, embedded = f
                     </div>
 
                     {/* Submit Button */}
-                    <Button type="submit" className="w-full bg-[#030213] hover:bg-[#030213]/90 text-white py-6 text-base">
+                    <Button type="submit" className="mx-auto flex min-h-10 w-full max-w-sm bg-[#030213] px-4 py-2.5 text-sm text-white hover:bg-[#030213]/90">
                         Continue to Personal Information
                     </Button>
 

@@ -18,6 +18,40 @@ function vet_visit_normalize_services($value): array
     ), static fn($item) => in_array($item, $allowed, true))));
 }
 
+function vet_visit_parse_date(string $value): ?DateTimeImmutable
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', trim($value));
+    $errors = DateTimeImmutable::getLastErrors();
+    $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+
+    return $date && !$hasErrors && $date->format('Y-m-d') === trim($value) ? $date : null;
+}
+
+function vet_visit_range_occurrences(
+    DateTimeImmutable $startDate,
+    DateTimeImmutable $endDate,
+    string $dailyStartTime,
+    string $dailyEndTime
+): array {
+    $occurrences = [];
+    $skippedSundays = 0;
+
+    for ($date = $startDate; $date <= $endDate; $date = $date->modify('+1 day')) {
+        if ((int)$date->format('N') === 7) {
+            $skippedSundays++;
+            continue;
+        }
+
+        $dateValue = $date->format('Y-m-d');
+        $occurrences[] = [
+            'startsAt' => $dateValue . ' ' . $dailyStartTime,
+            'endsAt' => $dateValue . ' ' . $dailyEndTime,
+        ];
+    }
+
+    return ['occurrences' => $occurrences, 'skippedSundays' => $skippedSundays];
+}
+
 try {
     branch_require_schema($pdo);
     $currentUser = ipawcus_guard_current_user($pdo);
@@ -123,12 +157,17 @@ try {
         ? max(1, (int)$input['appointmentCapacity'])
         : ($existing['appointment_capacity'] ?? null);
     $notes = trim((string)($input['notes'] ?? ($existing['notes'] ?? '')));
+    $rangeStartInput = trim((string)($input['rangeStartDate'] ?? ''));
+    $rangeEndInput = trim((string)($input['rangeEndDate'] ?? ''));
+    $rangeRequested = $rangeStartInput !== '' || $rangeEndInput !== '';
 
     $branch = branch_fetch($pdo, $branchId);
     if (!$branch || $branch['branch_type'] !== 'pet_corner') {
         throw new InvalidArgumentException('Select an active VFC Pet Corner for the veterinarian visit.');
     }
-    if ($veterinarianId <= 0 || strtotime($startsAt) === false || strtotime($endsAt) === false || strtotime($endsAt) <= strtotime($startsAt)) {
+    $startsAtTimestamp = strtotime($startsAt);
+    $endsAtTimestamp = strtotime($endsAt);
+    if ($veterinarianId <= 0 || $startsAtTimestamp === false || $endsAtTimestamp === false || $endsAtTimestamp <= $startsAtTimestamp) {
         throw new InvalidArgumentException('Veterinarian, start time, and a later end time are required.');
     }
     $vetAccountStmt = $pdo->prepare("
@@ -147,17 +186,61 @@ try {
     ) {
         throw new InvalidArgumentException('Select an active veterinarian for this branch visit.');
     }
-    if (date('Y-m-d', strtotime($startsAt)) !== date('Y-m-d', strtotime($endsAt))) {
-        throw new InvalidArgumentException('A branch visit must start and end on the same day.');
+    $dailyStartTime = date('H:i:s', $startsAtTimestamp);
+    $dailyEndTime = date('H:i:s', $endsAtTimestamp);
+    if ($dailyEndTime <= $dailyStartTime) {
+        throw new InvalidArgumentException('The daily visit end time must be later than the daily start time.');
     }
-    if ((int)date('N', strtotime($startsAt)) === 7) {
-        throw new InvalidArgumentException('Veterinarian branch visits cannot be scheduled on Sunday because all clinic locations are closed.');
-    }
-    if (date('H:i:s', strtotime($startsAt)) < '08:00:00' || date('H:i:s', strtotime($endsAt)) > '18:00:00') {
+    if ($dailyStartTime < '08:00:00' || $dailyEndTime > '18:00:00') {
         throw new InvalidArgumentException('Veterinarian visits must be scheduled between 8:00 AM and 6:00 PM.');
     }
-    if ($status === 'published' && strtotime($endsAt) <= time()) {
-        throw new InvalidArgumentException('A published veterinarian visit must end in the future.');
+
+    $rangeStartDate = null;
+    $rangeEndDate = null;
+    $skippedSundays = 0;
+    if ($rangeRequested) {
+        if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+            throw new InvalidArgumentException('Existing visit occurrences must be updated individually.');
+        }
+        if ($rangeStartInput === '' || $rangeEndInput === '') {
+            throw new InvalidArgumentException('Both range start date and range end date are required.');
+        }
+
+        $rangeStartDate = vet_visit_parse_date($rangeStartInput);
+        $rangeEndDate = vet_visit_parse_date($rangeEndInput);
+        if (!$rangeStartDate || !$rangeEndDate) {
+            throw new InvalidArgumentException('Use valid YYYY-MM-DD dates for the visit range.');
+        }
+        if ($rangeEndDate < $rangeStartDate) {
+            throw new InvalidArgumentException('Visit range end date cannot be earlier than the start date.');
+        }
+        $rangeDayCount = (int)$rangeStartDate->diff($rangeEndDate)->format('%a') + 1;
+        if ($rangeDayCount > 31) {
+            throw new InvalidArgumentException('A Pet Corner visit range cannot exceed 31 calendar days.');
+        }
+
+        $rangeResult = vet_visit_range_occurrences($rangeStartDate, $rangeEndDate, $dailyStartTime, $dailyEndTime);
+        $occurrences = $rangeResult['occurrences'];
+        $skippedSundays = (int)$rangeResult['skippedSundays'];
+        if (!$occurrences) {
+            throw new InvalidArgumentException('The selected range contains no open clinic days. Sundays are closed.');
+        }
+    } else {
+        if (date('Y-m-d', $startsAtTimestamp) !== date('Y-m-d', $endsAtTimestamp)) {
+            throw new InvalidArgumentException('Use a visit date range when publishing more than one day.');
+        }
+        if ((int)date('N', $startsAtTimestamp) === 7) {
+            throw new InvalidArgumentException('Veterinarian branch visits cannot be scheduled on Sunday because all clinic locations are closed.');
+        }
+        $occurrences = [['startsAt' => $startsAt, 'endsAt' => $endsAt]];
+    }
+
+    if ($status === 'published') {
+        foreach ($occurrences as $occurrence) {
+            if (strtotime($occurrence['endsAt']) <= time()) {
+                throw new InvalidArgumentException('Published veterinarian visits must start today or later and end in the future.');
+            }
+        }
     }
     if (!$serviceKeys) {
         $serviceKeys = ['vaccination', 'lab-testing', 'parasite-control'];
@@ -171,13 +254,26 @@ try {
           AND visit_schedule_id <> ?
         LIMIT 1
     ");
-    $overlapStmt->execute([$veterinarianId, $endsAt, $startsAt, $scheduleId ?: 0]);
-    if ($status === 'published' && $overlapStmt->fetchColumn()) {
-        http_response_code(409);
-        echo json_encode(['message' => 'This veterinarian already has an overlapping branch visit.']);
-        exit;
+    if ($status === 'published') {
+        foreach ($occurrences as $occurrence) {
+            $overlapStmt->execute([
+                $veterinarianId,
+                $occurrence['endsAt'],
+                $occurrence['startsAt'],
+                $scheduleId ?: 0,
+            ]);
+            if ($overlapStmt->fetchColumn()) {
+                http_response_code(409);
+                echo json_encode([
+                    'message' => 'This veterinarian already has an overlapping branch visit on '
+                        . date('M j, Y', strtotime($occurrence['startsAt'])) . '.',
+                ]);
+                exit;
+            }
+        }
     }
 
+    $scheduleIds = [];
     if ($scheduleId) {
         $stmt = $pdo->prepare("
             UPDATE veterinarian_branch_schedules
@@ -186,6 +282,7 @@ try {
             WHERE visit_schedule_id = ?
         ");
         $stmt->execute([$branchId, $startsAt, $endsAt, json_encode($serviceKeys), $capacity, $notes ?: null, $status, $scheduleId]);
+        $scheduleIds[] = $scheduleId;
     } else {
         $stmt = $pdo->prepare("
             INSERT INTO veterinarian_branch_schedules
@@ -193,14 +290,52 @@ try {
                  appointment_capacity, notes, status, created_by_user_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$veterinarianId, $branchId, $startsAt, $endsAt, json_encode($serviceKeys), $capacity, $notes ?: null, $status, $currentUserId]);
-        $scheduleId = (int)$pdo->lastInsertId();
+        $ownsTransaction = !$pdo->inTransaction();
+        if ($ownsTransaction) {
+            $pdo->beginTransaction();
+        }
+
+        try {
+            foreach ($occurrences as $occurrence) {
+                $stmt->execute([
+                    $veterinarianId,
+                    $branchId,
+                    $occurrence['startsAt'],
+                    $occurrence['endsAt'],
+                    json_encode($serviceKeys),
+                    $capacity,
+                    $notes ?: null,
+                    $status,
+                    $currentUserId,
+                ]);
+                $scheduleIds[] = (int)$pdo->lastInsertId();
+            }
+
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        $scheduleId = $scheduleIds[0] ?? 0;
     }
 
     $vetStmt = $pdo->prepare("SELECT CONCAT(first_Name, ' ', last_Name) FROM users WHERE user_id = ?");
     $vetStmt->execute([$veterinarianId]);
     $vetName = trim((string)$vetStmt->fetchColumn()) ?: 'A veterinarian';
-    $scheduleLabel = date('M j, Y g:i A', strtotime($startsAt)) . ' - ' . date('g:i A', strtotime($endsAt));
+    if ($rangeRequested && $rangeStartDate && $rangeEndDate) {
+        $scheduleLabel = $rangeStartDate->format('M j, Y')
+            . ' to ' . $rangeEndDate->format('M j, Y')
+            . ', daily ' . date('g:i A', strtotime($dailyStartTime))
+            . ' - ' . date('g:i A', strtotime($dailyEndTime))
+            . ($skippedSundays > 0 ? ' (Sundays excluded)' : '');
+    } else {
+        $scheduleLabel = date('M j, Y g:i A', strtotime($startsAt)) . ' - ' . date('g:i A', strtotime($endsAt));
+    }
     $eventLabel = $status === 'cancelled' ? 'cancelled' : ($wasExisting ? 'updated' : 'published');
     foreach (branch_admin_recipient_ids($pdo, $branchId, false) as $adminUserId) {
         notification_create_event($pdo, [
@@ -217,7 +352,21 @@ try {
         ]);
     }
 
-    echo json_encode(['success' => true, 'id' => $scheduleId, 'message' => 'Veterinarian visit schedule saved and branch admins notified.']);
+    $createdCount = count($scheduleIds);
+    $responseMessage = $rangeRequested
+        ? 'Pet Corner visit range published for ' . $createdCount . ' open day' . ($createdCount === 1 ? '' : 's')
+            . ($skippedSundays > 0 ? '; ' . $skippedSundays . ' Sunday' . ($skippedSundays === 1 ? ' was' : 's were') . ' excluded' : '')
+            . '. Branch admins were notified.'
+        : 'Veterinarian visit schedule saved and branch admins notified.';
+
+    echo json_encode([
+        'success' => true,
+        'id' => $scheduleId,
+        'ids' => $scheduleIds,
+        'createdCount' => $createdCount,
+        'skippedSundays' => $skippedSundays,
+        'message' => $responseMessage,
+    ]);
 } catch (Throwable $e) {
     http_response_code($e instanceof InvalidArgumentException ? 422 : 500);
     echo json_encode(['message' => $e->getMessage()]);

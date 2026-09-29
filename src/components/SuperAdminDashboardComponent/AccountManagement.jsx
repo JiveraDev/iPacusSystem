@@ -24,12 +24,10 @@ import { ADMIN_FEATURE_GROUPS, defaultAdminFeaturePermissions, normalizeAdminFea
 import { fetchAdminFeatureAccess, saveAdminFeatureAccess } from '../../services/adminFeatureAccessService.js';
 
 const PERSONNEL_POSITION_OPTIONS = [
-    { value: 'Nurse', label: 'Senior Nurse' },
-    { value: 'Staff', label: 'Clinic Staff' },
-    { value: 'Receptionist', label: 'Receptionist' },
-    { value: 'Assistant', label: 'Assistant' },
-    { value: 'Clinic Administrator', label: 'Clinic Administrator' },
-    { value: 'Administrative Staff', label: 'Administrative Staff' }
+    { value: 'Assistant Vet', label: 'Assistant Vet' },
+    { value: 'Secretary', label: 'Secretary' },
+    { value: 'Staff', label: 'Staff' },
+    { value: 'HR', label: 'HR' }
 ];
 
 const EMPLOYMENT_STATUS_OPTIONS = [
@@ -217,7 +215,7 @@ export default function AccountManagement() {
         hireDate: new Date().toISOString().split('T')[0],
         licenseNumber: '',
         specialization: '',
-        position: 'Nurse',
+        position: 'Staff',
         employmentStatus: 'full-time',
         masterKey: ''
     });
@@ -261,7 +259,7 @@ export default function AccountManagement() {
             setSelectedUser((currentUser) => syncSelectedAccount(currentUser, nextAccounts));
         } catch (error) {
             console.error("Error fetching accounts:", error);
-            toast.error("Failed to load accounts");
+            toast.error('Accounts could not be loaded. Refresh the page or try again.');
         } finally {
             setIsLoading(false);
         }
@@ -338,7 +336,7 @@ export default function AccountManagement() {
         setCreateForm((currentForm) => ({
             ...currentForm,
             role,
-            position: currentForm.position === 'Super Admin' ? 'Nurse' : currentForm.position
+            position: currentForm.position === 'Super Admin' ? 'Staff' : currentForm.position
         }));
     };
 
@@ -353,7 +351,7 @@ export default function AccountManagement() {
         setIsSubmitting(true);
         try {
             await createAccount(createForm);
-            toast.success(`${createForm.role} account created successfully!`);
+            toast.success(`${createForm.role} account created.`);
             setShowCreateAccount(false);
             fetchAccounts();
             setCreateForm({
@@ -361,7 +359,7 @@ export default function AccountManagement() {
                 role: 'Veterinarian', hireDate: new Date().toISOString().split('T')[0],
                 branchId: String((branches.find((branch) => branch.isMain) || branches[0])?.id || ''),
                 licenseNumber: '', specialization: '',
-                position: 'Nurse', employmentStatus: 'full-time', masterKey: ''
+                position: 'Staff', employmentStatus: 'full-time', masterKey: ''
             });
         } catch (error) {
             console.error("Creation error:", error);
@@ -542,8 +540,8 @@ export default function AccountManagement() {
         const licenseNumber = personnelForm.licenseNumber.trim();
         const isVeterinarian = selectedUser.type === 'vet';
 
-        if (!isVeterinarian && !position) {
-            toast.error('Position is required.');
+        if (!isVeterinarian && !PERSONNEL_POSITION_OPTIONS.some((option) => option.value === position)) {
+            toast.error('Select a valid position.');
             return;
         }
 
@@ -599,7 +597,7 @@ export default function AccountManagement() {
                 ))
             }));
             setIsEditingPersonnel(false);
-            toast.success(`${isVeterinarian ? 'Professional' : 'Personnel'} details and assigned branch updated successfully.`);
+            toast.success(`${isVeterinarian ? 'Professional' : 'Personnel'} details and assigned branch updated.`);
             fetchAccounts({ isAutoRefresh: true });
         } catch (error) {
             console.error('Personnel update error:', error);
@@ -1105,7 +1103,6 @@ export default function AccountManagement() {
                                                 disabled={isSavingPersonnel}
                                                 onChange={(value) => setPersonnelForm((current) => ({ ...current, position: value }))}
                                                 accent="text-purple-700"
-                                                allowCustom
                                             />
                                             <EditableProfileSelectField
                                                 icon={CheckCircle}
@@ -1121,19 +1118,14 @@ export default function AccountManagement() {
                                                 <>
                                                     <ProfileField icon={Calendar} label="Hire Date" value={selectedUser.hire_date ? formatDisplayDate(selectedUser.hire_date) : ''} />
                                                     <ProfileField icon={Briefcase} label="Years of Experience" value={selectedUser.years_of_experience} />
-                                                    <ProfileField icon={ShieldCheck} label="SSS Number" value={selectedUser.sss_number} />
-                                                    <ProfileField icon={ShieldCheck} label="PhilHealth Number" value={selectedUser.philhealth_number} />
-                                                    <ProfileField icon={ShieldCheck} label="TIN Number" value={selectedUser.tin_number} />
-                                                    <ProfileField icon={ShieldCheck} label="Pag-IBIG Number" value={selectedUser.pagibig_number} />
                                                 </>
                                             )}
                                         </div>
                                     )}
                                 </div>
 
-                                {!isEditingPersonnel && (
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <HistoryBlock title="Education History" value={selectedUser.education_history} />
+                                {selectedUser.type === 'vet' && !isEditingPersonnel && (
+                                    <div>
                                         <HistoryBlock title="Experience History" value={selectedUser.experience_history} />
                                     </div>
                                 )}
@@ -1591,10 +1583,9 @@ export default function AccountManagement() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Nurse">Senior Nurse</SelectItem>
-                                            <SelectItem value="Staff">Clinic Staff</SelectItem>
-                                            <SelectItem value="Receptionist">Receptionist</SelectItem>
-                                            <SelectItem value="Assistant">Assistant</SelectItem>
+                                            {PERSONNEL_POSITION_OPTIONS.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

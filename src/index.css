@@ -2299,6 +2299,100 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
   transform-origin: center;
 }
 
+@keyframes pet-id-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pet-action-dock-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.pet-id-flip-shell {
+  perspective: 1400px;
+}
+
+.pet-action-dock-anchor {
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 960px) {
+  .pl-72 .pet-action-dock-anchor {
+    left: 18rem;
+  }
+
+  .pl-20 .pet-action-dock-anchor {
+    left: 5rem;
+  }
+}
+
+.pet-id-flip-card {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 420ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.pet-id-flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.pet-id-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  transform: rotateY(0deg);
+}
+
+.pet-id-face--back {
+  transform: rotateY(180deg);
+}
+
+.pet-queue-stamp {
+  transform: rotate(-1deg);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .pet-queue-stamp:hover {
+    transform: rotate(0deg) translate3d(0, -1px, 0);
+  }
+
+  .pet-action-dock button:hover svg {
+    transform: translate3d(0, -1px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pet-id-entrance {
+    animation: pet-id-enter 300ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  .pet-action-dock {
+    animation: pet-action-dock-enter 260ms 70ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  .pet-action-dock button:active {
+    transform: scale(0.975);
+  }
+
+  .pet-action-dock button svg {
+    transition: transform 140ms cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
 .ipawcus-motion-surface {
   transition:
     transform var(--ipawcus-motion-standard) var(--ipawcus-motion-ease),
@@ -2454,4 +2548,24 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
     animation: none !important;
     transform: none !important;
   }
+}
+/* Icon-labelled actions remain readable until their actual rendered width can
+   no longer hold the label. The shared Button then keeps the accessible name
+   and native title while presenting the icon without compressed text. */
+[data-slot="button"] [data-slot="button-label"] {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+[data-slot="button"][data-icon-only="true"] {
+  flex-shrink: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+[data-slot="button"][data-icon-only="true"] [data-slot="button-label"] {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
 }

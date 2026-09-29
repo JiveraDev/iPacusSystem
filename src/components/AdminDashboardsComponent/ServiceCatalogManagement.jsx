@@ -22,6 +22,7 @@ import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
+import { getUserFacingErrorMessage } from '../../lib/errorPresentation';
 import { fetchInventoryItems } from '../../services/inventoryApi';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import {
@@ -108,6 +109,8 @@ export default function ServiceCatalogManagement() {
     const [materials, setMaterials] = useState([]);
     const [materialDraft, setMaterialDraft] = useState(emptyMaterialDraft);
     const [searchQuery, setSearchQuery] = useState('');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [schemaMessage, setSchemaMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -126,13 +129,15 @@ export default function ServiceCatalogManagement() {
                 if (!isAutoRefresh) {
                     console.error('Service catalog is unavailable:', data.message || data);
                 }
-                setSchemaMessage('Service catalog tools are temporarily unavailable. Try again later or contact support.');
+                setSchemaMessage(getUserFacingErrorMessage(data.message, 'Service catalog storage needs repair. Contact the administrator.'));
                 setServices([]);
                 return [];
             }
 
             const nextServices = Array.isArray(data.services) ? data.services : [];
-            setSchemaMessage('');
+            setSchemaMessage(data.readOnly || data.materialsReady === false
+                ? getUserFacingErrorMessage(data.message, 'Material presets are unavailable. The catalog is read-only until the database is repaired.')
+                : '');
             setServices(nextServices);
 
             setSelectedServiceId((currentId) => {
@@ -145,7 +150,7 @@ export default function ServiceCatalogManagement() {
                     }
                     return currentId;
                 }
-                return 'new';
+                return isServiceModalOpen || isSaving ? currentId : 'new';
             });
 
             return nextServices;
@@ -174,15 +179,13 @@ export default function ServiceCatalogManagement() {
 
     const filteredServices = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return services;
-
-        return services.filter((service) => [
-            service.serviceName,
-            service.serviceCode,
-            service.serviceType,
-            service.description
-        ].join(' ').toLowerCase().includes(query));
-    }, [searchQuery, services]);
+        return services.filter((service) => (
+            (typeFilter === 'all' || service.serviceType === typeFilter)
+            && (statusFilter === 'all' || (statusFilter === 'active' ? service.isActive : !service.isActive))
+            && (!query || [service.serviceName, service.serviceCode, service.serviceType, service.description]
+                .join(' ').toLowerCase().includes(query))
+        ));
+    }, [searchQuery, services, statusFilter, typeFilter]);
 
     const materialNameQuery = materialDraft.materialName.trim();
     const selectedService = useMemo(
@@ -243,8 +246,13 @@ export default function ServiceCatalogManagement() {
             return;
         }
 
+        if (matchedItem && !Number.isInteger(qtyUsed)) {
+            toast.warning('Use a whole-number quantity for materials linked to inventory.');
+            return;
+        }
+
         if (materials.some((material) => normalizeText(material.materialName || material.itemName) === normalizeText(materialName))) {
-            toast.error('This material is already attached to the service.');
+            toast.info('This material is already attached. Remove its existing entry before adding it with a different quantity.');
             return;
         }
 
@@ -296,6 +304,7 @@ export default function ServiceCatalogManagement() {
     };
 
     const saveService = async ({ skipDeactivationConfirmation = false } = {}) => {
+        if (schemaMessage) { toast.error(schemaMessage); return; }
         if (!serviceForm.serviceName.trim()) {
             toast.error('Service name is required.');
             return;
@@ -321,6 +330,7 @@ export default function ServiceCatalogManagement() {
             return;
         }
 
+        let serviceDetailsSaved = false;
         setIsSaving(true);
         try {
             const isNew = selectedServiceId === 'new';
@@ -340,6 +350,9 @@ export default function ServiceCatalogManagement() {
             }
 
             const serviceId = serviceData.serviceId || selectedServiceId;
+            // Keep the created ID even if materials fail, so a retry updates this service.
+            setSelectedServiceId(String(serviceId));
+            serviceDetailsSaved = true;
             const materialData = await updateServiceCatalogMaterials(serviceId, {
                 materials: materials.map((material) => ({
                     itemId: material.itemId || null,
@@ -360,7 +373,12 @@ export default function ServiceCatalogManagement() {
             setIsServiceModalOpen(false);
         } catch (error) {
             console.error('Failed to save the service catalog:', error);
-            toast.error('The service could not be saved. Review the details and try again.');
+            const reason = getUserFacingErrorMessage(error, 'Review the details and try again.');
+            if (serviceDetailsSaved) {
+                toast.warning(`Service details were saved, but the materials could not be confirmed. ${reason} Keep this form open, review the materials, and save again.`);
+            } else {
+                toast.error(reason);
+            }
         } finally {
             setIsSaving(false);
         }
@@ -384,7 +402,7 @@ export default function ServiceCatalogManagement() {
             loadCatalog();
         } catch (error) {
             console.error('Failed to deactivate the service:', error);
-            toast.error('The service could not be deactivated. Please try again.');
+            toast.error(getUserFacingErrorMessage(error, 'The service could not be deactivated. Please try again.'));
         } finally {
             setIsSaving(false);
         }
@@ -408,7 +426,7 @@ export default function ServiceCatalogManagement() {
             loadCatalog();
         } catch (error) {
             console.error('Failed to delete the service:', error);
-            toast.error('The service could not be deleted. Please try again.');
+            toast.error(getUserFacingErrorMessage(error, 'The service could not be deleted. Please try again.'));
         } finally {
             setIsSaving(false);
         }
@@ -439,7 +457,7 @@ export default function ServiceCatalogManagement() {
             await loadCatalog();
         } catch (error) {
             console.error('Failed to activate the service:', error);
-            toast.error('The service could not be activated. Please try again.');
+            toast.error(getUserFacingErrorMessage(error, 'The service could not be activated. Please try again.'));
         } finally {
             setIsSaving(false);
         }
@@ -462,7 +480,7 @@ export default function ServiceCatalogManagement() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="mx-auto max-w-[1600px] space-y-6">
             <DashboardPageHeader
                 icon={ClipboardList}
                 title="Service Catalog"
@@ -479,7 +497,7 @@ export default function ServiceCatalogManagement() {
                             {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                             Refresh
                         </Button>
-                        <Button type="button" onClick={selectNewService} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                        <Button type="button" onClick={selectNewService} disabled={isLoading || Boolean(schemaMessage)} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
                             <Plus className="size-4" />
                             Add Service
                         </Button>
@@ -488,58 +506,84 @@ export default function ServiceCatalogManagement() {
             />
 
             {schemaMessage && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                     {schemaMessage}
                 </div>
             )}
 
-            <div className="grid gap-6">
-                <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-100 p-4">
-                        <div>
+            <div className="grid gap-5">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Services">
+                    <div className="space-y-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:p-5">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-base font-bold text-slate-950 dark:text-white">Services</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Browse prices and material presets. Select a service to edit it.</p>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{filteredServices.length} shown</p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_160px]">
                             <Input
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
-                                placeholder="Search service"
+                                placeholder="Search name, code, or description"
+                                aria-label="Search services"
                                 leftIcon={<Search className="size-4" />}
                             />
+                            <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                <SelectTrigger aria-label="Filter by service type"><SelectValue placeholder="All types" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All types</SelectItem>
+                                    {SERVICE_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger aria-label="Filter by status"><SelectValue placeholder="All statuses" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All statuses</SelectItem>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="inactive">Inactive</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
-                    <div className="max-h-[720px] overflow-y-auto">
+                    <div className="max-h-[calc(100vh-330px)] min-h-40 overflow-y-auto">
                         {isLoading ? (
-                            <div className="flex min-h-40 items-center justify-center text-slate-500">
+                            <div className="flex min-h-40 items-center justify-center text-slate-500 dark:text-slate-400">
                                 <Loader2 className="mr-2 size-5 animate-spin" />
                                 Loading services...
                             </div>
                         ) : filteredServices.length === 0 ? (
-                            <div className="flex min-h-40 flex-col items-center justify-center px-5 text-center text-slate-500">
+                            <div className="flex min-h-48 flex-col items-center justify-center px-5 text-center text-slate-500 dark:text-slate-400">
                                 <ClipboardList className="mb-2 size-8" />
-                                <p className="font-semibold">No services found.</p>
+                                <p className="font-semibold">No matching services</p>
+                                <p className="mt-1 text-sm">Try another search or filter.</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-slate-100">
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <div className="hidden grid-cols-[minmax(0,2fr)_minmax(100px,1fr)_100px_100px_90px_56px] gap-4 bg-slate-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400 lg:grid">
+                                    <span>Service</span><span>Type</span><span className="text-right">Base price</span><span className="text-right">Materials</span><span>Status</span><span className="text-right">Edit</span>
+                                </div>
                                 {filteredServices.map((service) => (
                                     <button
                                         key={service.serviceId}
                                         type="button"
                                         onClick={() => selectService(service)}
-                                        className={`block w-full p-4 text-left transition hover:bg-slate-50 ${
-                                            String(selectedServiceId) === String(service.serviceId) ? 'bg-blue-50' : ''
+                                        aria-label={`Edit ${service.serviceName}`}
+                                        className={`grid w-full gap-x-4 gap-y-2 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-slate-800/70 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5 lg:grid-cols-[minmax(0,2fr)_minmax(100px,1fr)_100px_100px_90px_56px] ${
+                                            String(selectedServiceId) === String(service.serviceId) && isServiceModalOpen ? 'bg-blue-50 dark:bg-blue-950/30' : ''
                                         }`}
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="truncate font-black text-[#101828]">{service.serviceName}</p>
-                                                <p className="mt-1 text-xs font-semibold uppercase text-slate-500">{serviceTypeLabel(service.serviceType)}</p>
-                                            </div>
-                                            <Badge className={service.isActive ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'}>
-                                                {service.isActive ? 'Active' : 'Inactive'}
-                                            </Badge>
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-bold text-slate-950 dark:text-white">{service.serviceName}</p>
+                                            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{service.serviceCode || 'No code'}{service.description ? ` · ${service.description}` : ''}</p>
                                         </div>
-                                        <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                                            <span className="font-black text-[#155dfc]">{formatPhpCurrency(service.basePrice)}</span>
-                                            <span className="text-xs font-semibold text-slate-500">{service.materials?.length || 0} materials</span>
+                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:hidden lg:block">{serviceTypeLabel(service.serviceType)}</span>
+                                        <div className="flex items-center gap-3 sm:justify-end lg:contents">
+                                            <span className="text-sm font-bold tabular-nums text-slate-950 dark:text-white lg:text-right">{formatPhpCurrency(service.basePrice)}</span>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400 lg:text-right">{service.materials === null ? 'Unavailable' : `${service.materials?.length || 0} materials`}</span>
+                                            <Badge className={service.isActive ? 'w-fit bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'w-fit bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}>{service.isActive ? 'Active' : 'Inactive'}</Badge>
+                                            <span className="hidden text-right text-xs font-bold text-[#155dfc] dark:text-blue-300 lg:block">Edit</span>
                                         </div>
                                     </button>
                                 ))}
@@ -549,18 +593,18 @@ export default function ServiceCatalogManagement() {
                 </section>
 
                 <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
-                    <DialogContent className="max-w-5xl">
-                        <DialogHeader>
-                            <DialogTitle>{selectedServiceId === 'new' ? 'Add Service' : 'Edit Service'}</DialogTitle>
-                            <DialogDescription>Set the service details and preset materials used for diagnosis and billing.</DialogDescription>
+                    <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
+                        <DialogHeader className="border-b border-slate-200 px-4 py-5 dark:border-slate-700 sm:px-6">
+                            <DialogTitle className="text-xl font-bold text-slate-950 dark:text-white">{schemaMessage ? 'View Service' : selectedServiceId === 'new' ? 'Add Service' : 'Edit Service'}</DialogTitle>
+                            <DialogDescription className="text-slate-600 dark:text-slate-300">{schemaMessage || 'Set the service details and preset materials used for diagnosis and billing.'}</DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-5">
+                        <fieldset disabled={Boolean(schemaMessage)} className="min-w-0 space-y-5 px-4 pb-5 dark:[&_h3]:text-white dark:[&_h4]:text-white dark:[&_label]:text-slate-200 sm:px-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h3 className="text-lg font-black text-[#101828]">
+                            <h3 className="text-base font-bold text-slate-950 dark:text-white">
                                 {selectedServiceId === 'new' ? 'New Service' : serviceForm.serviceName || 'Service Details'}
                             </h3>
-                            <p className="text-sm font-semibold text-slate-500">Catalog details and preset materials.</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Catalog details and preset materials.</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {selectedServiceId !== 'new' && (
@@ -634,7 +678,7 @@ export default function ServiceCatalogManagement() {
                                 rows={3}
                             />
                         </Field>
-                        <label className={`flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold md:col-span-2 ${
+                        <label className={`flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-800/60 md:col-span-2 ${
                             serviceForm.serviceType === 'other' ? 'text-slate-400' : 'text-slate-700'
                         }`}>
                             <Checkbox
@@ -644,7 +688,7 @@ export default function ServiceCatalogManagement() {
                             />
                             Major service for this service type
                         </label>
-                        <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 md:col-span-2">
+                        <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 md:col-span-2">
                             <Checkbox
                                 checked={serviceForm.isActive}
                                 onCheckedChange={(checked) => updateServiceForm('isActive', checked)}
@@ -653,7 +697,7 @@ export default function ServiceCatalogManagement() {
                         </label>
                     </div>
 
-                    <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h4 className="font-black text-[#101828]">Preset Materials</h4>
@@ -719,7 +763,7 @@ export default function ServiceCatalogManagement() {
                         <div className="mt-4 space-y-2">
                             {materials.length === 0 ? (
                                 <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
-                                    No preset materials.
+                                    {schemaMessage ? 'Material presets are unavailable until database repair is complete.' : 'No preset materials.'}
                                 </p>
                             ) : (
                                 materials.map((material) => (
@@ -751,7 +795,7 @@ export default function ServiceCatalogManagement() {
                             )}
                         </div>
                     </section>
-                        </div>
+                        </fieldset>
                     </DialogContent>
                 </Dialog>
 
@@ -784,7 +828,7 @@ export default function ServiceCatalogManagement() {
                                     <Button type="button" variant="outline" onClick={closeDeactivationConfirmation} disabled={isSaving}>
                                         Cancel
                                     </Button>
-                                    <Button type="button" onClick={confirmServiceDeactivation} disabled={isSaving} className={pendingDeactivationAction.mode === 'delete' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-amber-600 text-white hover:bg-amber-700'}>
+                                    <Button type="button" onClick={confirmServiceDeactivation} disabled={isSaving || Boolean(schemaMessage)} className={pendingDeactivationAction.mode === 'delete' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-amber-600 text-white hover:bg-amber-700'}>
                                         {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                                         {pendingDeactivationAction.mode === 'delete' ? 'Delete Service' : 'Deactivate Service'}
                                     </Button>

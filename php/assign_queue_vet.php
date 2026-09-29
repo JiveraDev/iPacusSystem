@@ -40,7 +40,7 @@ try {
 
     $pdo->beginTransaction();
 
-    $queueStmt = $pdo->prepare("SELECT queue_id, branch_id, status FROM queues WHERE queue_id = ? FOR UPDATE");
+    $queueStmt = $pdo->prepare("SELECT queue_id, branch_id, status, service_name FROM queues WHERE queue_id = ? FOR UPDATE");
     $queueStmt->execute([$queueId]);
     $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -48,6 +48,13 @@ try {
         $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Queue item not found.']);
+        exit;
+    }
+
+    if (in_array(strtolower(trim((string)($queue['service_name'] ?? ''))), ['grooming', 'pet grooming'], true)) {
+        $pdo->rollBack();
+        http_response_code(409);
+        echo json_encode(['error' => 'Grooming queues go to Grooming Management and cannot be assigned to a veterinarian.']);
         exit;
     }
 

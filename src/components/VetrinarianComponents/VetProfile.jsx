@@ -25,10 +25,12 @@ import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePh
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useDashboardUser, useUserUpdate } from '../dashboardRouter.jsx';
 import PasswordChangeCard from '../shared/PasswordChangeCard.jsx';
+import GoogleAccountLinkControl from '../shared/GoogleAccountLinkControl.jsx';
 import ProfileHistoryEditor from '../shared/ProfileHistoryEditor.jsx';
 import ThemeToggle from '../shared/ThemeToggle.jsx';
 import NotificationPreferencesCard from '../shared/NotificationPreferencesCard.jsx';
 import ProfileWorkspaceHeader from '../shared/ProfileWorkspaceHeader.jsx';
+import StaffActivityHistory from '../shared/StaffActivityHistory.jsx';
 import UnsavedProfileChangesDialog from '../shared/UnsavedProfileChangesDialog.jsx';
 import {
     PROFILE_DISPLAY_VALUE_CLASS,
@@ -67,7 +69,6 @@ const emptyProfile = {
     isActive: false,
     profileImage: '',
     yearsOfExperience: '',
-    educationHistory: [],
     experienceHistory: []
 };
 
@@ -166,7 +167,6 @@ export default function VetProfile({ onForgotPassword }) {
                     isActive: Number(data.is_active) === 1 || data.is_active === true,
                     profileImage: data.setProfilePic_url || '',
                     yearsOfExperience: data.years_of_experience ?? '',
-                    educationHistory: parseProfileHistory(data.education_history, data.education ? 'Education' : ''),
                     experienceHistory: parseProfileHistory(data.experience_history)
                 };
 
@@ -175,7 +175,7 @@ export default function VetProfile({ onForgotPassword }) {
                 setImageError(false);
             } catch (error) {
                 console.error('Failed to load profile:', error);
-                toast.error(error.message || 'Failed to load profile');
+                toast.error(error.message || 'Your veterinarian profile could not be loaded. Refresh the page or try again.');
             } finally {
                 setIsLoading(false);
             }
@@ -220,7 +220,7 @@ export default function VetProfile({ onForgotPassword }) {
 
     const handleSaveAvailability = async () => {
         if (!userId) {
-            toast.error('Session error. Please log in again.');
+            toast.error('Your session has expired. Log in again to update availability.');
             return false;
         }
 
@@ -243,11 +243,11 @@ export default function VetProfile({ onForgotPassword }) {
 
             setSavedAvailability(cloneAvailability(availability));
             setIsEditingAvailability(false);
-            toast.success('Online consultation availability updated');
+            toast.success('Online consultation availability updated.');
             return true;
         } catch (error) {
             console.error('Failed to update schedule:', error);
-            toast.error('Some availability changes could not be saved. Your schedule has been refreshed.');
+            toast.warning('Some availability changes were not saved. Your schedule was refreshed; review it before trying again.');
 
             try {
                 const data = await fetchVetSchedules(userId);
@@ -277,7 +277,7 @@ export default function VetProfile({ onForgotPassword }) {
 
     const handleSave = async () => {
         if (!userId) {
-            toast.error('Session error. Please log in again.');
+            toast.error('Your session has expired. Log in again to update your profile.');
             return false;
         }
 
@@ -306,7 +306,6 @@ export default function VetProfile({ onForgotPassword }) {
                 phoneNumber: normalizedPhone,
                 address: profileData.address,
                 profileImage: finalImageUrl,
-                educationHistory: cleanProfileHistory(profileData.educationHistory),
                 experienceHistory: cleanProfileHistory(profileData.experienceHistory)
             };
 
@@ -316,7 +315,6 @@ export default function VetProfile({ onForgotPassword }) {
                 ...profileData,
                 phone: normalizedPhone,
                 profileImage: finalImageUrl,
-                educationHistory: cleanProfileHistory(profileData.educationHistory),
                 experienceHistory: cleanProfileHistory(profileData.experienceHistory)
             };
 
@@ -343,11 +341,11 @@ export default function VetProfile({ onForgotPassword }) {
             setImageFile(null);
             setImageError(false);
             setIsEditing(false);
-            toast.success('Profile updated successfully!');
+            toast.success('Veterinarian profile updated.');
             return true;
         } catch (error) {
             console.error('Save profile error:', error);
-            toast.error(error.message || 'Failed to save profile');
+            toast.error(error.message || 'Your veterinarian profile could not be saved. Review the details and try again.');
             return false;
         } finally {
             setIsSaving(false);
@@ -410,6 +408,7 @@ export default function VetProfile({ onForgotPassword }) {
             >
                 <ProfileWorkspaceHeader
                     activeTab={activeTab}
+                    showActivityTab
                     accountLabel="Veterinarian Account"
                     displayName={getFullName(profileData)}
                     secondaryLabel={`License: ${profileData.licenseNumber || 'Not set'}`}
@@ -438,7 +437,7 @@ export default function VetProfile({ onForgotPassword }) {
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <ProfileInput label="First Name" icon={User} value={profileData.firstName} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, firstName: value })} />
                                     <ProfileInput label="Last Name" icon={User} value={profileData.lastName} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, lastName: value })} />
-                                    <ProfileInput label="Email Address" icon={Mail} type="email" value={profileData.email} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, email: value })} />
+                                    <ProfileInput label="Email Address" icon={Mail} labelAction={<GoogleAccountLinkControl />} type="email" value={profileData.email} disabled={!isEditing || isSaving} onChange={(value) => setProfileData({ ...profileData, email: value })} />
                                     <ProfileInput
                                         label="Phone Number"
                                         icon={Phone}
@@ -500,17 +499,6 @@ export default function VetProfile({ onForgotPassword }) {
 
                             <section className="space-y-8 border-t border-slate-100 pt-8">
                                 <ProfileHistoryEditor
-                                    title="Education"
-                                    helperText="Add school, degree, major, description, and year range."
-                                    items={profileData.educationHistory}
-                                    onChange={(items) => setProfileData({ ...profileData, educationHistory: items })}
-                                    isEditing={isEditing && !isSaving}
-                                    titlePlaceholder="School or degree title"
-                                    descriptionPlaceholder="Major or license training"
-                                    yearsPlaceholder="e.g., 2018 - 2022"
-                                    emptyText="No education entries yet."
-                                />
-                                <ProfileHistoryEditor
                                     title="Professional Experience"
                                     helperText="Add role titles, clinic names, responsibilities, and years."
                                     items={profileData.experienceHistory}
@@ -569,6 +557,9 @@ export default function VetProfile({ onForgotPassword }) {
 
                 <TabsContent value="appearance" className="m-0 bg-slate-50/70 p-4 dark:bg-slate-950/40 sm:p-6">
                     <ThemeToggle />
+                </TabsContent>
+                <TabsContent value="activity" className="m-0 bg-white p-4 dark:bg-slate-900 sm:p-6">
+                    {activeTab === 'activity' && <StaffActivityHistory />}
                 </TabsContent>
             </Tabs>
 
@@ -823,15 +814,18 @@ function AvailabilityEditor({
     );
 }
 
-function ProfileInput({ label, icon, value, onChange, disabled, type = 'text', className = '', inputMode, maxLength, placeholder = '', error = '' }) {
+function ProfileInput({ label, icon, labelAction, value, onChange, disabled, type = 'text', className = '', inputMode, maxLength, placeholder = '', error = '' }) {
     const iconElement = icon ? createElement(icon, { className: 'size-4' }) : null;
 
     return (
         <div className={`space-y-2 ${className}`}>
-            <Label className={profileLabelClass()}>
-                {iconElement}
-                {label}
-            </Label>
+            <div className="flex min-h-7 items-center justify-between gap-2">
+                <Label className={profileLabelClass()}>
+                    {iconElement}
+                    {label}
+                </Label>
+                {labelAction}
+            </div>
             <Input
                 type={type}
                 value={value}

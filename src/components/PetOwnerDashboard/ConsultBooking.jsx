@@ -103,6 +103,7 @@ function parseDateInput(value) {
 export default function ConsultBooking() {
   const navigate = useNavigate();
   const availabilityPrefill = readBookingAvailabilitySelection('online-consultation');
+  const [bookingBranchId] = useState(availabilityPrefill?.branchId || null);
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { instructions, servicePrices } = priceProjectionConfig;
   const [pets, setPets] = useState([]);
@@ -320,6 +321,7 @@ export default function ConsultBooking() {
       date: format(selectedDate, "yyyy-MM-dd"),
       time: selectedTime,
       veterinarianId: selectedVet,
+      branchId: bookingBranchId,
       veterinarian: selectedVetData?.name,
       veterinarianName: selectedVetData?.name,
       veterinarianLicense: selectedVetData?.licenseNumber || selectedVetData?.prcLicenseNumber || selectedVetData?.prc_license_number || '',
@@ -600,6 +602,7 @@ export default function ConsultBooking() {
               id="online-consultation-time"
               service="online-consultation"
               date={selectedDate}
+              branchId={bookingBranchId}
               veterinarianId={selectedVet}
               value={selectedTime}
               onChange={setSelectedTime}

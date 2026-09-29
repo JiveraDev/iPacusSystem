@@ -140,6 +140,13 @@ function AppMotionSystem({ children }) {
                 const title = screen.querySelector('[data-slot="dashboard-page-header"] h1, h1, h2');
                 if (!title) return;
 
+                const plainHeading = title.closest('[data-dashboard-heading-plain]');
+                if (plainHeading) {
+                    title.classList.remove('ipawcus-dashboard-title');
+                    plainHeading.classList.remove('ipawcus-dashboard-heading', 'ipawcus-dashboard-heading--legacy');
+                    return;
+                }
+
                 title.classList.add('ipawcus-dashboard-title');
                 const heading = title.closest('[data-slot="dashboard-page-header"]') || title.parentElement;
                 if (heading && dashboardContent.contains(heading)) {

@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import { Calendar, dayjsLocalizer, Views } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import {
@@ -38,6 +39,9 @@ import { useNavigate } from '../dashboardRouter.jsx';
 import { fetchBranches, fetchVeterinarianBranchSchedules, getBranchDisplayName, saveVeterinarianBranchSchedule } from '../../services/branchService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import ServicePetPeek from '../shared/ServicePetPeek.jsx';
+
+dayjs.extend(updateLocale);
+dayjs.updateLocale('en', { weekStart: 0 });
 
 const calendarLocalizer = dayjsLocalizer(dayjs);
 const TodoCalendarEventsContext = createContext([]);
@@ -321,7 +325,7 @@ export default function Todos({ user }) {
     const [branches, setBranches] = useState([]);
     const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
     const [visitForm, setVisitForm] = useState({
-        branchId: '', date: dateInputValue(new Date()), startsAt: '09:00', endsAt: '12:00',
+        branchId: '', startDate: dateInputValue(new Date()), endDate: dateInputValue(new Date()), startsAt: '09:00', endsAt: '12:00',
         serviceKeys: ['vaccination', 'lab-testing', 'parasite-control'], notes: ''
     });
 
@@ -399,20 +403,36 @@ export default function Todos({ user }) {
     }, { enabled: isVeterinarian, intervalMs: 30000, refreshKey: `vet-visit-branches-${userId}` });
 
     const saveBranchVisit = async () => {
-        if (!visitForm.branchId || !visitForm.date || !visitForm.startsAt || !visitForm.endsAt) {
-            toast.error('Branch, date, start time, and end time are required.');
+        if (!visitForm.branchId || !visitForm.startDate || !visitForm.endDate || !visitForm.startsAt || !visitForm.endsAt) {
+            toast.error('Branch, start date, end date, and daily visit times are required.');
+            return;
+        }
+        if (visitForm.endDate < visitForm.startDate) {
+            toast.error('End date cannot be earlier than the start date.');
+            return;
+        }
+        const visitStartDate = parseTaskDate(visitForm.startDate);
+        const visitEndDate = parseTaskDate(visitForm.endDate);
+        if (!visitStartDate || !visitEndDate || visitEndDate > addDays(visitStartDate, 30)) {
+            toast.error('Pet Corner visit ranges can cover up to 31 calendar days.');
+            return;
+        }
+        if (visitForm.endsAt <= visitForm.startsAt) {
+            toast.error('Daily end time must be later than the daily start time.');
             return;
         }
         setIsSaving(true);
         try {
-            await saveVeterinarianBranchSchedule({
+            const response = await saveVeterinarianBranchSchedule({
                 branchId: Number(visitForm.branchId),
-                startsAt: combineDateTime(visitForm.date, visitForm.startsAt),
-                endsAt: combineDateTime(visitForm.date, visitForm.endsAt),
+                startsAt: combineDateTime(visitForm.startDate, visitForm.startsAt),
+                endsAt: combineDateTime(visitForm.startDate, visitForm.endsAt),
+                rangeStartDate: visitForm.startDate,
+                rangeEndDate: visitForm.endDate,
                 serviceKeys: visitForm.serviceKeys,
                 notes: visitForm.notes
             });
-            toast.success('Branch visit published. Branch admins were notified.');
+            toast.success(response.message || 'Branch visit range published. Branch admins were notified.');
             setIsVisitDialogOpen(false);
             await loadTasks();
         } catch (error) {
@@ -936,7 +956,7 @@ export default function Todos({ user }) {
                 <DialogContent className="max-w-xl">
                     <DialogHeader>
                         <DialogTitle>Schedule Pet Corner Visit</DialogTitle>
-                        <DialogDescription>Publishing is immediate and notifies the selected branch Admins by system notification and push.</DialogDescription>
+                        <DialogDescription>Publish a daily visit window across a date range. The selected branch Admins receive one system and push notification.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">
@@ -953,20 +973,52 @@ export default function Todos({ user }) {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div className="space-y-2 sm:col-span-1">
-                                <Label>Date</Label>
-                                <Input type="date" min={dateInputValue(new Date())} value={visitForm.date} onChange={(event) => setVisitForm((current) => ({ ...current, date: event.target.value }))} />
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="visit-start-date">Start date</Label>
+                                <Input
+                                    id="visit-start-date"
+                                    type="date"
+                                    min={dateInputValue(new Date())}
+                                    value={visitForm.startDate}
+                                    onChange={(event) => setVisitForm((current) => {
+                                        const startDate = event.target.value;
+                                        const parsedStartDate = parseTaskDate(startDate);
+                                        const maximumEndDate = parsedStartDate ? dateInputValue(addDays(parsedStartDate, 30)) : startDate;
+                                        const endDate = !current.endDate || current.endDate < startDate
+                                            ? startDate
+                                            : current.endDate > maximumEndDate ? maximumEndDate : current.endDate;
+                                        return {
+                                            ...current,
+                                            startDate,
+                                            endDate
+                                        };
+                                    })}
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label>Start</Label>
-                                <Input type="time" min="08:00" max="18:00" value={visitForm.startsAt} onChange={(event) => setVisitForm((current) => ({ ...current, startsAt: event.target.value }))} />
+                                <Label htmlFor="visit-end-date">End date</Label>
+                                <Input
+                                    id="visit-end-date"
+                                    type="date"
+                                    min={visitForm.startDate || dateInputValue(new Date())}
+                                    max={visitForm.startDate ? dateInputValue(addDays(parseTaskDate(visitForm.startDate), 30)) : undefined}
+                                    value={visitForm.endDate}
+                                    onChange={(event) => setVisitForm((current) => ({ ...current, endDate: event.target.value }))}
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label>End</Label>
-                                <Input type="time" min="08:00" max="18:00" value={visitForm.endsAt} onChange={(event) => setVisitForm((current) => ({ ...current, endsAt: event.target.value }))} />
+                                <Label htmlFor="visit-daily-start">Daily start</Label>
+                                <Input id="visit-daily-start" type="time" min="08:00" max="18:00" value={visitForm.startsAt} onChange={(event) => setVisitForm((current) => ({ ...current, startsAt: event.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="visit-daily-end">Daily end</Label>
+                                <Input id="visit-daily-end" type="time" min="08:00" max="18:00" value={visitForm.endsAt} onChange={(event) => setVisitForm((current) => ({ ...current, endsAt: event.target.value }))} />
                             </div>
                         </div>
+                        <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-800">
+                            The same daily time window is published for every date in the range. Sundays are excluded because clinic locations are closed. Maximum range: 31 days.
+                        </p>
                         <div className="space-y-2">
                             <Label>Available clinical services</Label>
                             <div className="grid gap-2 sm:grid-cols-3">

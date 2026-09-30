@@ -2,7 +2,6 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
-require_once __DIR__ . '/inventory_invoice_helpers.php';
 
 $inventoryCurrentUser = ipawcus_guard_current_user($pdo);
 
@@ -42,7 +41,7 @@ function inventoryAssertItemMutationAccess(PDO $pdo, int $itemId, int $primaryLo
     global $inventoryCurrentUser;
     inventoryAssertLocationAccess($pdo, $primaryLocationId);
 
-    // Product metadata and permanent deletion affect every batch for the item.
+    // Product metadata and archival affect every batch for the item.
     // An Admin may therefore mutate the product only when every existing batch
     // belongs to a branch assigned to that Admin. Super Admin retains full scope.
     $stmt = $pdo->prepare('SELECT DISTINCT location.branch_id
@@ -1197,29 +1196,47 @@ function deleteInventoryItem(PDO $pdo): void
 {
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'delete_item', true);
-    $itemId = (int)($input['item_id'] ?? 0);
-    if ($itemId <= 0) {
-        ipawcus_guard_error(422, 'Select an inventory item to delete.');
+    $itemIds = [];
+    foreach ((array)($input['item_ids'] ?? []) as $candidateId) {
+        if (is_numeric($candidateId) && (int)$candidateId > 0) {
+            $itemIds[] = (int)$candidateId;
+        }
+    }
+    $singleItemId = (int)($input['item_id'] ?? 0);
+    if ($singleItemId > 0) {
+        $itemIds[] = $singleItemId;
+    }
+    $itemIds = array_values(array_unique($itemIds));
+    if (!$itemIds) {
+        ipawcus_guard_error(422, 'Select at least one inventory product to remove.');
+    }
+    if (count($itemIds) > 500) {
+        ipawcus_guard_error(422, 'Remove no more than 500 inventory products at one time.');
     }
 
     $pdo->beginTransaction();
     try {
+        $placeholders = implode(', ', array_fill(0, count($itemIds), '?'));
         $itemStmt = $pdo->prepare("
             SELECT item_id, item_name, sku, status, location_id
             FROM inventory_items
-            WHERE item_id = ?
-            LIMIT 1
+            WHERE item_id IN ({$placeholders})
+            ORDER BY item_id
             FOR UPDATE
         ");
-        $itemStmt->execute([$itemId]);
-        $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$item) {
-            throw new InvalidArgumentException('Inventory item was not found.');
+        $itemStmt->execute($itemIds);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($items) !== count($itemIds)) {
+            throw new InvalidArgumentException('One or more selected inventory products were not found. Refresh the list and try again.');
         }
-        inventoryAssertItemMutationAccess($pdo, $itemId, (int)$item['location_id']);
-        $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
-        $quantityStmt->execute([$itemId]);
-        $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
+        $itemsById = [];
+        foreach ($items as $item) {
+            $itemsById[(int)$item['item_id']] = $item;
+            if ((string)$item['status'] !== 'active') {
+                throw new InvalidArgumentException($item['item_name'] . ' is no longer active. Refresh the list and try again.');
+            }
+            inventoryAssertItemMutationAccess($pdo, (int)$item['item_id'], (int)$item['location_id']);
+        }
 
         $protectedReferences = [
             'service_materials' => 'service definitions',
@@ -1228,47 +1245,59 @@ function deleteInventoryItem(PDO $pdo): void
             if (!ipawcus_guard_table_exists($pdo, $tableName) || !inventoryColumnExists($pdo, $tableName, 'item_id')) {
                 continue;
             }
-            $referenceStmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE item_id = ?");
-            $referenceStmt->execute([$itemId]);
-            if ((int)$referenceStmt->fetchColumn() > 0) {
-                throw new InvalidArgumentException('This product is still configured as a service material. Replace or remove it in Service Catalog before deleting it.');
+            $referenceStmt = $pdo->prepare("SELECT item_id FROM {$tableName} WHERE item_id IN ({$placeholders}) LIMIT 1");
+            $referenceStmt->execute($itemIds);
+            $referencedItemId = (int)$referenceStmt->fetchColumn();
+            if ($referencedItemId > 0) {
+                $referencedItem = $itemsById[$referencedItemId] ?? null;
+                $referencedName = trim((string)($referencedItem['item_name'] ?? 'This product'));
+                throw new InvalidArgumentException($referencedName . ' is still configured as a service material. Replace or remove it in Service Catalog before removing the selected products.');
             }
         }
 
-        $preservedInvoiceChargeIds = [];
-        if (ipawcus_guard_table_exists($pdo, 'visit_charges') && inventoryColumnExists($pdo, 'visit_charges', 'item_id')) {
-            $preservedInvoiceChargeIds = inventoryDetachInvoiceReferences($pdo, $itemId, (string)$item['item_name']);
+        $quantityStmt = $pdo->prepare("
+            SELECT item_id, quantity
+            FROM inventory_batches
+            WHERE item_id IN ({$placeholders})
+            ORDER BY item_id, batch_id
+            FOR UPDATE
+        ");
+        $quantityStmt->execute($itemIds);
+        $quantityByItem = [];
+        foreach ($quantityStmt->fetchAll(PDO::FETCH_ASSOC) as $quantityRow) {
+            $quantityItemId = (int)$quantityRow['item_id'];
+            $quantityByItem[$quantityItemId] = ($quantityByItem[$quantityItemId] ?? 0) + (int)$quantityRow['quantity'];
         }
 
-        inventoryWriteAudit(
-            $pdo,
-            $confirmation,
-            $itemId,
-            null,
-            (int)$item['location_id'],
-            array_merge($item, ['quantity' => $quantity, 'preserved_invoice_charge_ids' => $preservedInvoiceChargeIds]),
-            null
-        );
+        $archiveItems = $pdo->prepare("UPDATE inventory_items SET status = 'inactive' WHERE item_id IN ({$placeholders})");
+        $archiveItems->execute($itemIds);
 
-        if (ipawcus_guard_table_exists($pdo, 'inventory_transfer_items')) {
-            $deleteTransferItems = $pdo->prepare('DELETE FROM inventory_transfer_items WHERE item_id = ?');
-            $deleteTransferItems->execute([$itemId]);
+        foreach ($items as $item) {
+            $itemId = (int)$item['item_id'];
+            inventoryWriteAudit(
+                $pdo,
+                $confirmation,
+                $itemId,
+                null,
+                (int)$item['location_id'],
+                array_merge($item, ['quantity' => $quantityByItem[$itemId] ?? 0]),
+                [
+                    'item_id' => $itemId,
+                    'item_name' => $item['item_name'],
+                    'status' => 'inactive',
+                    'historical_records_preserved' => true,
+                ]
+            );
         }
-        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_receipt_items')) {
-            $deleteReceiptItems = $pdo->prepare('DELETE FROM inventory_stock_receipt_items WHERE item_id = ?');
-            $deleteReceiptItems->execute([$itemId]);
-        }
-        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_movements')) {
-            $deleteMovements = $pdo->prepare('DELETE FROM inventory_stock_movements WHERE item_id = ?');
-            $deleteMovements->execute([$itemId]);
-        }
-        $deleteBatches = $pdo->prepare('DELETE FROM inventory_batches WHERE item_id = ?');
-        $deleteBatches->execute([$itemId]);
-        $deleteItem = $pdo->prepare('DELETE FROM inventory_items WHERE item_id = ?');
-        $deleteItem->execute([$itemId]);
 
         $pdo->commit();
-        echo json_encode(['message' => 'Inventory item permanently deleted. Existing invoice records were preserved.']);
+        $count = count($items);
+        echo json_encode([
+            'message' => $count === 1
+                ? 'Inventory product removed from active inventory. Historical reports were preserved.'
+                : "{$count} inventory products were removed from active inventory. Historical reports were preserved.",
+            'archived_count' => $count,
+        ]);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $error instanceof InvalidArgumentException ? 409 : 500;

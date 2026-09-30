@@ -104,6 +104,11 @@ function staff_activity_enrich_inventory_input(PDO $pdo, string $path, array $in
     if ($topLevelItemId > 0) {
         $itemIds[] = $topLevelItemId;
     }
+    foreach ((array)($input['item_ids'] ?? []) as $itemId) {
+        if (is_numeric($itemId) && (int)$itemId > 0) {
+            $itemIds[] = (int)$itemId;
+        }
+    }
     foreach (($input['items'] ?? []) as $item) {
         if (!is_array($item)) continue;
         $itemId = staff_activity_input_number($item, ['item_id', 'itemId']);
@@ -124,8 +129,8 @@ function staff_activity_enrich_inventory_input(PDO $pdo, string $path, array $in
     }
 
     if ($topLevelItemId > 0 && isset($itemNamesById[$topLevelItemId])) {
-        // Capture the database name before the mutation. This remains available
-        // in the activity record even when the product is permanently deleted.
+        // Capture the database name before the mutation so the activity entry
+        // remains readable even if product visibility changes.
         $input['item_name'] = $itemNamesById[$topLevelItemId];
     }
 
@@ -142,6 +147,12 @@ function staff_activity_enrich_inventory_input(PDO $pdo, string $path, array $in
     }
     if ($itemNames) {
         $input['item_names'] = array_values(array_unique($itemNames));
+    }
+    if (!$itemNames && isset($input['item_ids']) && is_array($input['item_ids'])) {
+        $input['item_names'] = array_values(array_filter(array_map(
+            static fn(int $itemId): string => $itemNamesById[$itemId] ?? '',
+            $itemIds
+        )));
     }
 
     return $input;

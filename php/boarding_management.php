@@ -3213,6 +3213,181 @@ function monitoring_action(PDO $pdo): void
     ]);
 }
 
+function owner_stays_action(PDO $pdo): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        boarding_error(405, 'Method not allowed.');
+    }
+
+    $currentUser = ipawcus_guard_current_user($pdo);
+    $ownerUserId = ipawcus_guard_user_id($currentUser);
+    if ($ownerUserId <= 0) {
+        boarding_error(401, 'Please log in again to view your pet hotel stay.');
+    }
+
+    $multiPetExpression = 'NULL';
+    $multiPetJoin = '';
+    if (boarding_table_exists($pdo, 'booking_pets')) {
+        $multiPetExpression = 'multi.pet_names';
+        $multiPetJoin = "
+            LEFT JOIN (
+                SELECT
+                    bp.booking_id,
+                    GROUP_CONCAT(p2.pet_name ORDER BY p2.pet_name SEPARATOR ', ') AS pet_names
+                FROM booking_pets bp
+                JOIN pets_information p2 ON p2.pet_id = bp.pet_id
+                GROUP BY bp.booking_id
+            ) multi ON multi.booking_id = b.booking_id
+        ";
+    }
+
+    $staysStmt = $pdo->prepare("
+        SELECT
+            ba.assignment_id,
+            ba.booking_id,
+            ba.room_type,
+            ba.room_number,
+            ba.status,
+            ba.actual_check_in_at,
+            ba.desired_check_out_date,
+            b.booking_number,
+            b.pet_id,
+            b.check_in_date,
+            b.check_out_date,
+            b.room_size,
+            b.status AS booking_status,
+            branch.branch_name,
+            COALESCE({$multiPetExpression}, p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_names,
+            COALESCE(p.pet_species, b.petType, 'Pet') AS pet_species
+        FROM boarding_assignments ba
+        JOIN bookings b ON b.booking_id = ba.booking_id
+        JOIN branches branch ON branch.branch_id = b.branch_id
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        {$multiPetJoin}
+        WHERE b.user_id = ?
+          AND LOWER(TRIM(COALESCE(b.hotel_boarding_type, ''))) = 'hotel'
+          AND ba.status IN ('reserved', 'occupied')
+          AND LOWER(TRIM(COALESCE(b.status, ''))) <> 'cancelled'
+        ORDER BY FIELD(ba.status, 'occupied', 'reserved'), ba.assignment_id DESC
+    ");
+    $staysStmt->execute([$ownerUserId]);
+    $stayRows = $staysStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$stayRows) {
+        echo json_encode(['stays' => []]);
+        return;
+    }
+
+    $assignmentIds = array_map(static fn(array $row): int => (int)$row['assignment_id'], $stayRows);
+    $placeholders = implode(',', array_fill(0, count($assignmentIds), '?'));
+    $tasksByAssignment = [];
+    $observationsByAssignment = [];
+
+    $tasksStmt = $pdo->prepare("
+        SELECT task_id, assignment_id, task_type, due_at, status, assigned_to, notes, completed_at, created_at
+        FROM boarding_tasks
+        WHERE assignment_id IN ({$placeholders})
+          AND status <> 'cancelled'
+        ORDER BY
+            CASE
+                WHEN status = 'pending' AND due_at < NOW() THEN 0
+                WHEN status = 'pending' THEN 1
+                ELSE 2
+            END,
+            due_at ASC,
+            task_id DESC
+        LIMIT 200
+    ");
+    $tasksStmt->execute($assignmentIds);
+    foreach ($tasksStmt->fetchAll(PDO::FETCH_ASSOC) as $task) {
+        $status = (string)$task['status'];
+        if ($status === 'pending' && strtotime((string)$task['due_at']) < time()) {
+            $status = 'overdue';
+        }
+        $assignmentId = (int)$task['assignment_id'];
+        $tasksByAssignment[$assignmentId][] = [
+            'taskId' => (int)$task['task_id'],
+            'taskType' => $task['task_type'],
+            'dueAt' => $task['due_at'],
+            'status' => $status,
+            'assignedTo' => $task['assigned_to'],
+            'notes' => $task['notes'],
+            'completedAt' => $task['completed_at'],
+            'createdAt' => $task['created_at'],
+        ];
+    }
+
+    $observationsStmt = $pdo->prepare("
+        SELECT
+            observation_id,
+            assignment_id,
+            observation_type,
+            notes,
+            observed_at,
+            appetite_status,
+            water_intake_status,
+            elimination_status,
+            behavior_status,
+            temperature_c,
+            weight_kg,
+            condition_severity,
+            requires_vet_review,
+            created_at
+        FROM boarding_observations
+        WHERE assignment_id IN ({$placeholders})
+        ORDER BY observed_at DESC, observation_id DESC
+        LIMIT 200
+    ");
+    $observationsStmt->execute($assignmentIds);
+    foreach ($observationsStmt->fetchAll(PDO::FETCH_ASSOC) as $observation) {
+        $assignmentId = (int)$observation['assignment_id'];
+        $observationsByAssignment[$assignmentId][] = [
+            'observationId' => (int)$observation['observation_id'],
+            'observationType' => $observation['observation_type'],
+            'notes' => $observation['notes'],
+            'observedAt' => $observation['observed_at'],
+            'appetiteStatus' => $observation['appetite_status'],
+            'waterIntakeStatus' => $observation['water_intake_status'],
+            'eliminationStatus' => $observation['elimination_status'],
+            'behaviorStatus' => $observation['behavior_status'],
+            'temperatureC' => $observation['temperature_c'] !== null ? (float)$observation['temperature_c'] : null,
+            'weightKg' => $observation['weight_kg'] !== null ? (float)$observation['weight_kg'] : null,
+            'conditionSeverity' => $observation['condition_severity'],
+            'requiresVetReview' => $observation['requires_vet_review'] !== null ? (bool)$observation['requires_vet_review'] : null,
+            'createdAt' => $observation['created_at'],
+        ];
+    }
+
+    $stays = array_map(static function (array $stay) use ($tasksByAssignment, $observationsByAssignment): array {
+        $assignmentId = (int)$stay['assignment_id'];
+        $roomParts = split_room_type((string)$stay['room_type']);
+        return [
+            'assignmentId' => $assignmentId,
+            'bookingId' => (int)$stay['booking_id'],
+            'bookingNumber' => $stay['booking_number'],
+            'petId' => $stay['pet_id'] !== null ? (int)$stay['pet_id'] : null,
+            'petName' => $stay['pet_names'],
+            'petNames' => $stay['pet_names'],
+            'petSpecies' => $stay['pet_species'],
+            'roomType' => $stay['room_type'],
+            'roomSize' => $roomParts['room_size'] ?: $stay['room_size'],
+            'roomNumber' => (int)$stay['room_number'],
+            'roomLabel' => room_type_label((string)$stay['room_type']) . ' #' . $stay['room_number'],
+            'status' => $stay['status'],
+            'bookingStatus' => $stay['booking_status'],
+            'branchName' => $stay['branch_name'],
+            'actualCheckInAt' => $stay['actual_check_in_at'],
+            'checkInDate' => $stay['check_in_date'],
+            'checkOutDate' => $stay['check_out_date'],
+            'desiredCheckOutDate' => $stay['desired_check_out_date'] ?: $stay['check_out_date'],
+            'tasks' => $tasksByAssignment[$assignmentId] ?? [],
+            'observations' => $observationsByAssignment[$assignmentId] ?? [],
+        ];
+    }, $stayRows);
+
+    echo json_encode(['stays' => $stays]);
+}
+
 function observation_action(PDO $pdo): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -4090,6 +4265,9 @@ try {
             break;
         case 'monitoring':
             monitoring_action($pdo);
+            break;
+        case 'owner-stays':
+            owner_stays_action($pdo);
             break;
         case 'documents':
             boarding_documents_action($pdo);

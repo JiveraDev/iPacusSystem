@@ -230,6 +230,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => $method === 'GET' ? ipawcus_roles('clinic') : ipawcus_roles('admin')];
     }
 
+    if ($path === '/boarding/owner-stays') {
+        return ['roles' => ipawcus_roles('owner')];
+    }
+
     if (preg_match('#^/(inventory|boarding)(/|$)#', $path)) {
         return ['roles' => ipawcus_roles('admin')];
     }

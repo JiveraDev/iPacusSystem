@@ -214,6 +214,10 @@ switch ($path) {
         $_GET['action'] = 'monitoring';
         require_once __DIR__ . '/boarding_management.php';
         break;
+    case '/boarding/owner-stays':
+        $_GET['action'] = 'owner-stays';
+        require_once __DIR__ . '/boarding_management.php';
+        break;
     case '/boarding/observations':
         $_GET['action'] = 'observation';
         require_once __DIR__ . '/boarding_management.php';

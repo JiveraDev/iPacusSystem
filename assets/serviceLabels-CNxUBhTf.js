@@ -1,1 +1,0 @@
-var e={"General Check-up":`General Check-up`,"general-checkup":`General Check-up`,"general check-up":`General Check-up`,"general checkup":`General Check-up`};function t(t,n=`Service`){let r=String(t||``).trim();return r?e[r.toLowerCase()]||r:n}export{t};

@@ -24,7 +24,7 @@ function booking_availability_services(): array
         ['key' => 'online-consultation', 'label' => 'Online Consultation', 'serviceType' => 'consultation', 'intervalMinutes' => 30, 'requiresVeterinarian' => true],
         ['key' => 'home-service', 'label' => 'Home Service', 'serviceType' => 'home-service', 'intervalMinutes' => 60],
         ['key' => 'special-services', 'label' => 'Special Services', 'serviceType' => 'special services', 'intervalMinutes' => 30],
-        ['key' => 'boarding', 'label' => 'Pet Hotel and Boarding', 'serviceType' => 'boarding', 'mode' => 'rooms'],
+        ['key' => 'boarding', 'label' => 'Pet Hotel Boarding', 'serviceType' => 'boarding', 'mode' => 'rooms'],
     ];
 }
 
@@ -417,6 +417,13 @@ try {
     $selectedRooms = [];
     if ($service['key'] === 'boarding') {
         $configuration = booking_availability_room_configuration($pdo, $branchId);
+        $requestedBoardingType = strtolower(trim((string)($_GET['hotel_boarding_type'] ?? '')));
+        if (in_array($requestedBoardingType, ['hotel', 'boarding'], true)) {
+            $configuration = array_values(array_filter(
+                $configuration,
+                static fn(array $room): bool => str_starts_with(strtolower((string)($room['room_type'] ?? '')), $requestedBoardingType . '-')
+            ));
+        }
         $boardingReservations = booking_availability_boarding_reservations($pdo, $branchId, $rangeStart, $rangeEnd);
         for ($cursor = $rangeStartObject; $cursor->format('Y-m-d') <= $rangeEnd; $cursor = $cursor->modify('+1 day')) {
             $date = $cursor->format('Y-m-d');

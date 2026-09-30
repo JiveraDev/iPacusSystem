@@ -51,7 +51,7 @@ function clinical_confinement_service(PDO $pdo, string $facility): array
     } else {
         foreach ($services as $service) {
             $search = strtolower(($service['service_code'] ?? '') . ' ' . ($service['service_name'] ?? ''));
-            if (str_contains($search, 'kennel')) return $service;
+            if (str_contains($search, 'confinement') || str_contains($search, 'kennel')) return $service;
         }
         foreach ($services as $service) {
             $search = strtolower(($service['service_code'] ?? '') . ' ' . ($service['service_name'] ?? ''));
@@ -90,7 +90,7 @@ function clinical_confinement_save(PDO $pdo, array $input): array
     }
 
     $facility = strtolower(trim((string)($input['facility_type'] ?? 'boarding')));
-    if (!in_array($facility, ['boarding', 'hotel'], true)) throw new InvalidArgumentException('Choose Kennel or Pet Hotel placement.');
+    if (!in_array($facility, ['boarding', 'hotel'], true)) throw new InvalidArgumentException('Choose Confinement or Pet Hotel placement.');
     $roomSize = strtolower(trim((string)($input['room_size'] ?? 'small')));
     if (!in_array($roomSize, ['small', 'medium', 'large'], true)) throw new InvalidArgumentException('Choose a valid room size.');
     $reason = clinical_confinement_text($input['reason'] ?? '', 5000, 'Confinement reason');
@@ -110,7 +110,7 @@ function clinical_confinement_save(PDO $pdo, array $input): array
     $days = clinical_confinement_stay_days($checkIn, $checkOut);
     $unitPrice = round((float)$service['base_price'], 2);
     $total = round($days * $unitPrice, 2);
-    $description = 'Clinical confinement - ' . ($facility === 'hotel' ? 'Pet Hotel' : 'Kennel') . ' (' . $days . ' day' . ($days === 1 ? '' : 's') . ')';
+    $description = 'Clinical confinement - ' . ($facility === 'hotel' ? 'Pet Hotel' : 'Confinement') . ' (' . $days . ' day' . ($days === 1 ? '' : 's') . ')';
 
     $sourceWhere = $diagnosisId > 0 ? 'source_diagnosis_id = ?' : 'source_grooming_booking_id = ?';
     $sourceId = $diagnosisId > 0 ? $diagnosisId : $groomingBookingId;

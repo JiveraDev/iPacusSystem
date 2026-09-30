@@ -169,7 +169,7 @@ function pet_owner_todos_service_label(array $booking): string
     }
 
     if ($type === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
     }
 
     return ucwords(str_replace(['_', '-'], ' ', $type));

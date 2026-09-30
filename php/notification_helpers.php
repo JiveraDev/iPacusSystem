@@ -1246,7 +1246,7 @@ function notification_service_name(array $booking): string
     }
 
     if ($service === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
     }
 
     return ucwords(str_replace(['_', '-'], ' ', $service));

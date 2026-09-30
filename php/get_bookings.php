@@ -309,7 +309,7 @@ try {
             $assignmentFacility = $roomParts[0] ?? ($b['hotel_boarding_type'] ?? null);
             $assignmentSize = $roomParts[1] ?? ($b['room_size'] ?? null);
             $roomNumber = (int)$b['boarding_room_number'];
-            $roomLabel = trim(ucfirst((string)$assignmentSize) . ' ' . ($assignmentFacility === 'hotel' ? 'Room' : 'Kennel') . ' #' . $roomNumber);
+            $roomLabel = trim(ucfirst((string)$assignmentSize) . ' ' . ($assignmentFacility === 'hotel' ? 'Room' : 'Confinement Unit') . ' #' . $roomNumber);
 
             $boardingAssignment = [
                 'assignmentId' => (int)$b['boarding_assignment_id'],
@@ -329,10 +329,10 @@ try {
         // Extract services/topics from notes
         $serviceName = $b['service_type'];
         if ($b['service_type'] === 'boarding' && !empty($b['hotel_boarding_type'])) {
-            $serviceName = $b['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+            $serviceName = $b['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
             if (!empty($b['room_size'])) {
                 $roomLabel = ucfirst($b['room_size']);
-                $serviceName .= ' - ' . $roomLabel . ($b['hotel_boarding_type'] === 'hotel' ? ' Room' : ' Kennel');
+                $serviceName .= ' - ' . $roomLabel . ($b['hotel_boarding_type'] === 'hotel' ? ' Room' : ' Confinement Unit');
             }
         } elseif ($b['service_type'] === 'special services' && !empty($specialServiceItems)) {
             $serviceName = implode(' + ', array_map(function ($item) {

@@ -729,7 +729,7 @@ function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
     $records = [];
     foreach ($bookings as $booking) {
         $bookingId = (int)$booking['booking_id'];
-        $facility = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        $facility = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
         $roomLabel = trim((string)($booking['room_type'] ?? ''));
         if (!empty($booking['room_number'])) {
             $roomLabel .= ' #' . $booking['room_number'];
@@ -740,7 +740,7 @@ function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
         $observations = $activity['observations'];
         $summaryParts = [
             'Stay: ' . trim(($booking['check_in_date'] ?: 'N/A') . ' to ' . ($booking['check_out_date'] ?: 'N/A')),
-            $roomLabel ? 'Room/Kennel: ' . $roomLabel : '',
+            $roomLabel ? 'Room/Confinement Unit: ' . $roomLabel : '',
             count($tasks) > 0 ? 'Care tasks completed: ' . count($completedTasks) . ' of ' . count($tasks) : '',
             count($observations) > 0 ? 'Monitoring notes: ' . count($observations) : '',
             trim((string)($booking['assignment_notes'] ?: $booking['notes'] ?: '')),

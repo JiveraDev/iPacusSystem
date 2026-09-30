@@ -320,7 +320,6 @@ export default function SuperAdminReportsDashboard() {
     const user = useDashboardUser();
     const navigate = useNavigate();
     const rootRef = useRef(null);
-    const kpiRailRef = useRef(null);
     const highlightTimerRef = useRef(null);
     const [range, setRange] = useState('this_month');
     const [customStart, setCustomStart] = useState(defaultMonthStart);
@@ -332,7 +331,6 @@ export default function SuperAdminReportsDashboard() {
     const [selectedKpiLabel, setSelectedKpiLabel] = useState('Total Sales');
     const [selectedTrendId, setSelectedTrendId] = useState('revenue_diagnosis_trend');
     const [selectedMixId, setSelectedMixId] = useState('animal_distribution');
-    const [kpiRailEdges, setKpiRailEdges] = useState({ atStart: true, atEnd: true });
     const [trendRotationReset, setTrendRotationReset] = useState(0);
     const [mixRotationReset, setMixRotationReset] = useState(0);
 
@@ -447,34 +445,10 @@ export default function SuperAdminReportsDashboard() {
     const activeTrendChart = fullWidthCharts.find((chartItem) => chartItem.id === selectedTrendId) || fullWidthCharts[0];
     const activeMixChart = pieCharts.find((chartItem) => chartItem.id === selectedMixId) || pieCharts[0];
     const attentionTables = (dashboard?.summary_tables || []).filter((table) => !String(table?.title || '').toLowerCase().includes('billing'));
-    const visibleKpis = useMemo(() => (dashboard?.kpis || []).filter((kpi) => {
-        if (kpi.label === 'Total Paid Amount' || kpi.label === 'Total Unpaid Balance') return false;
-        if (kpi.label === 'Near Expiry Items') return Number(kpi.value || 0) !== 0;
-        return true;
-    }), [dashboard]);
-    const visibleKpiCount = visibleKpis.length;
-    const updateKpiRailEdges = useCallback(() => {
-        const rail = kpiRailRef.current;
-        if (!rail) return;
-        const next = {
-            atStart: rail.scrollLeft <= 2,
-            atEnd: rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2
-        };
-        setKpiRailEdges((current) => current.atStart === next.atStart && current.atEnd === next.atEnd ? current : next);
-    }, []);
-
-    useEffect(() => {
-        const rail = kpiRailRef.current;
-        if (!rail) return undefined;
-        updateKpiRailEdges();
-        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateKpiRailEdges) : null;
-        observer?.observe(rail);
-        window.addEventListener('resize', updateKpiRailEdges);
-        return () => {
-            observer?.disconnect();
-            window.removeEventListener('resize', updateKpiRailEdges);
-        };
-    }, [updateKpiRailEdges, visibleKpiCount]);
+    const openAttentionCount = attentionTables.reduce(
+        (count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0),
+        0
+    );
     useEffect(() => {
         const ids = trendChartIdsKey ? trendChartIdsKey.split('|') : [];
         if (ids.length < 2) return undefined;
@@ -549,20 +523,6 @@ export default function SuperAdminReportsDashboard() {
         }
         setSelectedKpiLabel('');
     };
-    const scrollKpiRail = (direction) => {
-        const rail = kpiRailRef.current;
-        if (!rail) return;
-        const firstItem = rail.querySelector('[data-report-kpi-item]');
-        const step = (firstItem?.getBoundingClientRect().width || 220) + 8;
-        const railStyle = window.getComputedStyle(rail);
-        const innerWidth = rail.clientWidth - Number.parseFloat(railStyle.paddingLeft) - Number.parseFloat(railStyle.paddingRight);
-        const visibleItems = Math.max(1, Math.floor((innerWidth + 8) / step));
-        rail.scrollBy({
-            left: direction * step * visibleItems,
-            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-        });
-    };
-
     if (!isSuperAdmin(user)) {
         return (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6">
@@ -642,14 +602,12 @@ export default function SuperAdminReportsDashboard() {
                 </div>
             ) : (
                 <>
-                    <div className="report-motion-item relative min-w-0" aria-label="Report KPI carousel">
-                        {!kpiRailEdges.atStart ? (
-                            <Button type="button" variant="outline" size="icon" className="absolute left-1 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/95 shadow-sm backdrop-blur-sm duration-150 active:scale-[0.96] dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800" onClick={() => scrollKpiRail(-1)} aria-label="Previous KPIs">
-                                <ChevronLeft className="size-4" />
-                            </Button>
-                        ) : null}
-                        <div ref={kpiRailRef} role="list" aria-label="Report key metrics" tabIndex={0} onScroll={updateKpiRailEdges} className="flex min-w-0 w-full snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl scrollbar-hide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        {visibleKpis.map(kpi => {
+                    <div
+                        role="list"
+                        aria-label="Report key metrics"
+                        className="report-motion-item grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                    >
+                        {(dashboard?.kpis || []).map(kpi => {
                             const targetChartId = chartTargetForKpi(kpi.label, chartById);
                             const targetChart = targetChartId ? chartById.get(targetChartId) : null;
                             const targetTableId = tableTargetForKpi(kpi.label);
@@ -657,10 +615,9 @@ export default function SuperAdminReportsDashboard() {
                             const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : targetRoute ? 'Consent Files' : undefined);
 
                             return (
-                                <div key={kpi.label} role="listitem" data-report-kpi-item className="w-[210px] shrink-0 snap-start sm:w-[228px] lg:w-[244px]">
+                                <div key={kpi.label} role="listitem" data-report-kpi-item className="min-w-0">
                                     <ReportKpiCard
                                         {...kpi}
-                                        compact
                                         isSelected={selectedKpiLabel === kpi.label}
                                         targetTitle={targetTitle}
                                         onSelectChart={targetChart
@@ -674,12 +631,6 @@ export default function SuperAdminReportsDashboard() {
                                 </div>
                             );
                         })}
-                        </div>
-                        {!kpiRailEdges.atEnd ? (
-                            <Button type="button" variant="outline" size="icon" className="absolute right-1 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/95 shadow-sm backdrop-blur-sm duration-150 active:scale-[0.96] dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800" onClick={() => scrollKpiRail(1)} aria-label="Next KPIs">
-                                <ChevronRight className="size-4" />
-                            </Button>
-                        ) : null}
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
@@ -729,18 +680,19 @@ export default function SuperAdminReportsDashboard() {
                     </div>
 
                     <section className="report-motion-item space-y-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex size-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
                                     <PackageSearch className="size-4" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <h2 className="text-base font-black text-slate-950 dark:text-white">Operational attention</h2>
-                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Stock records that need review.</p>
+                                    <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-500 dark:text-slate-300">Stock records that need review.</p>
                                 </div>
                             </div>
-                            <Badge className="border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                                {pluralize(attentionTables.reduce((count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0), 0), 'open item')}
+                            <Badge className="shrink-0 border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                <span className="sm:hidden">{openAttentionCount} open</span>
+                                <span className="hidden sm:inline">{pluralize(openAttentionCount, 'open item')}</span>
                             </Badge>
                         </div>
                         <div className="grid gap-4">
@@ -777,6 +729,9 @@ function OperationalAttentionCard({ table }) {
     const config = getAttentionConfig(table?.title);
     const Icon = config.icon;
     const canOpenInventoryRows = isInventoryAttentionTable(table?.title);
+    const primaryColumn = columns.find(column => !isStatusColumn(column)) || columns[0];
+    const supportingColumns = columns.filter(column => column.key !== primaryColumn?.key && !isStatusColumn(column));
+    const statusColumns = columns.filter(isStatusColumn);
 
     const openInventoryRow = (row) => {
         if (!canOpenInventoryRows || !queueInventoryItemSelection(row)) {
@@ -788,79 +743,127 @@ function OperationalAttentionCard({ table }) {
 
     return (
         <div className={`overflow-hidden rounded-xl border border-slate-200 border-l-4 ${config.accentClass} bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900`}>
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                     <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${config.iconClass}`}>
                         <Icon className="size-4" />
                     </div>
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-base font-black text-slate-950 dark:text-white">{table?.title}</h3>
+                            <h3 className="break-words text-base font-black text-slate-950 dark:text-white">{table?.title}</h3>
                             <Badge className="border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">{config.label}</Badge>
                         </div>
                         <p className="mt-1 text-sm font-semibold leading-5 text-slate-500 dark:text-slate-300">
-                    {rows.length ? 'Review these records before closing the operating day.' : config.emptyText}
+                            {rows.length ? 'Review these records before closing the operating day.' : config.emptyText}
                         </p>
                     </div>
                 </div>
-                <Badge className={rows.length ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-500/15 dark:text-amber-200' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/15 dark:text-emerald-200'}>
+                <Badge className={`${rows.length ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-500/15 dark:text-amber-200' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/15 dark:text-emerald-200'} self-start shrink-0 sm:self-auto`}>
                     {allRows.length ? pluralize(allRows.length, 'item') : 'Clear'}
                 </Badge>
             </div>
 
             {rows.length && columns.length ? (
-                <div className="max-h-[23.5rem] overflow-auto">
-                    <table className="min-w-full text-left text-sm">
-                        <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgb(226_232_240)] dark:bg-slate-800 dark:text-slate-300 dark:shadow-[0_1px_0_0_rgb(51_65_85)]">
-                            <tr>
-                                {columns.map(column => (
-                                    <th key={column.key} className="whitespace-nowrap px-3 py-3 font-black">
-                                        {column.label}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {rows.map((row, rowIndex) => {
-                                const isInteractiveRow = canOpenInventoryRows && Boolean(row.item_id || row.itemId || row.id);
+                <>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 sm:hidden">
+                        {rows.map((row, rowIndex) => {
+                            const isInteractiveRow = canOpenInventoryRows && Boolean(row.item_id || row.itemId || row.id);
+                            const MobileRow = isInteractiveRow ? 'button' : 'div';
+                            const rowKey = row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`;
+                            const primaryValue = formatAttentionValue(row[primaryColumn?.key], primaryColumn);
 
-                                return (
-                                <tr
-                                    key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
-                                    className={`h-12 align-middle transition-colors duration-150 hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
-                                    role={isInteractiveRow ? 'button' : undefined}
-                                    tabIndex={isInteractiveRow ? 0 : undefined}
-                                    onClick={() => openInventoryRow(row)}
-                                    onKeyDown={(event) => {
-                                        if (!isInteractiveRow) {
-                                            return;
-                                        }
-
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            openInventoryRow(row);
-                                        }
-                                    }}
+                            return (
+                                <MobileRow
+                                    key={rowKey}
+                                    type={isInteractiveRow ? 'button' : undefined}
+                                    onClick={isInteractiveRow ? () => openInventoryRow(row) : undefined}
+                                    aria-label={isInteractiveRow ? `Open ${primaryValue} in inventory` : undefined}
+                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left ${isInteractiveRow ? 'transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-slate-800/70' : ''}`}
                                 >
-                                    {columns.map(column => (
-                                        <td key={column.key} className="max-w-[14rem] px-3 py-2 text-slate-700 dark:text-slate-200">
-                                            {isStatusColumn(column) ? (
-                                                <Badge className={`${statusBadgeClass(row[column.key])} max-w-full`}>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 dark:text-slate-500">{primaryColumn?.label || 'Record'}</p>
+                                        <p className={`${isCurrencyColumn(primaryColumn) ? 'font-black' : 'font-bold'} mt-1 break-words text-sm leading-5 text-slate-950 dark:text-white`}>
+                                            {primaryValue}
+                                        </p>
+                                        {supportingColumns.length ? (
+                                            <dl className="mt-2 grid gap-2">
+                                                {supportingColumns.map(column => (
+                                                    <div key={column.key} className="min-w-0">
+                                                        <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{column.label}</dt>
+                                                        <dd className="mt-0.5 break-words text-xs font-semibold text-slate-600 dark:text-slate-300">{formatAttentionValue(row[column.key], column)}</dd>
+                                                    </div>
+                                                ))}
+                                            </dl>
+                                        ) : null}
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            {statusColumns.map(column => (
+                                                <Badge key={column.key} className={`${statusBadgeClass(row[column.key])} max-w-[9rem]`}>
                                                     <span className="truncate">{humanizeValue(row[column.key] || 'N/A')}</span>
                                                 </Badge>
-                                            ) : (
-                                                <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950 dark:text-white' : ''} block truncate`}>
-                                                    {formatAttentionValue(row[column.key], column)}
-                                                </span>
-                                            )}
-                                        </td>
+                                            ))}
+                                        </div>
+                                        {isInteractiveRow ? <ChevronRight className="size-4 text-slate-400" aria-hidden="true" /> : null}
+                                    </div>
+                                </MobileRow>
+                            );
+                        })}
+                    </div>
+
+                    <div className="hidden max-h-[23.5rem] overflow-auto sm:block">
+                        <table className="min-w-full text-left text-sm">
+                            <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgb(226_232_240)] dark:bg-slate-800 dark:text-slate-300 dark:shadow-[0_1px_0_0_rgb(51_65_85)]">
+                                <tr>
+                                    {columns.map(column => (
+                                        <th key={column.key} className="whitespace-nowrap px-3 py-3 font-black">
+                                            {column.label}
+                                        </th>
                                     ))}
                                 </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {rows.map((row, rowIndex) => {
+                                    const isInteractiveRow = canOpenInventoryRows && Boolean(row.item_id || row.itemId || row.id);
+
+                                    return (
+                                        <tr
+                                            key={row.id || row.visit_id || row.item_id || row.request_id || `${table?.title}-${rowIndex}`}
+                                            className={`h-12 align-middle transition-colors duration-150 hover:bg-slate-50/70 dark:hover:bg-slate-800/70 ${isInteractiveRow ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-within:bg-blue-50 dark:focus-within:bg-slate-800' : ''}`}
+                                            role={isInteractiveRow ? 'button' : undefined}
+                                            tabIndex={isInteractiveRow ? 0 : undefined}
+                                            onClick={() => openInventoryRow(row)}
+                                            onKeyDown={(event) => {
+                                                if (!isInteractiveRow) {
+                                                    return;
+                                                }
+
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    openInventoryRow(row);
+                                                }
+                                            }}
+                                        >
+                                            {columns.map(column => (
+                                                <td key={column.key} className="max-w-[14rem] px-3 py-2 text-slate-700 dark:text-slate-200">
+                                                    {isStatusColumn(column) ? (
+                                                        <Badge className={`${statusBadgeClass(row[column.key])} max-w-full`}>
+                                                            <span className="truncate">{humanizeValue(row[column.key] || 'N/A')}</span>
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className={`${isCurrencyColumn(column) ? 'font-black text-slate-950 dark:text-white' : ''} block truncate`}>
+                                                            {formatAttentionValue(row[column.key], column)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             ) : (
                 <div className="flex min-h-36 items-center justify-center p-6 text-center">
                     <div>

@@ -27,7 +27,7 @@ const DASHBOARD_PAGE_TITLES = Object.freeze({
     '/dashboard/services/dental-checkup': 'Dental Check-up',
     '/dashboard/services/home-services': 'Home Services',
     '/dashboard/consult/confirmation/home-service': 'Home Service Consent',
-    '/dashboard/services/pet-hotel': 'Pet Hotel and Boarding',
+    '/dashboard/services/pet-hotel': 'Pet Hotel Boarding',
     '/dashboard/services/special-services': 'Special Services',
     '/dashboard/my-pets': 'My Pets',
     '/dashboard/my-pets/add': 'Add Pet',

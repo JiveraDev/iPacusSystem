@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Search, Filter, Plus, Trash2, Eye, Package, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X, ArrowRightLeft } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, Eye, Package, Pill, Syringe, Thermometer, FileText, MinusCircle, Pencil, Save, X, ArrowRightLeft, ListChecks } from 'lucide-react';
 import { useNavigate } from '../dashboardRouter.jsx';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Button } from '../../ui/button';
+import { Checkbox } from '../../ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
@@ -74,6 +75,8 @@ export default function AllItemsPage() {
   const [transferQuantity, setTransferQuantity] = useState('');
   const [inventoryConfirmation, setInventoryConfirmation] = useState(null);
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedInventoryItemIds, setSelectedInventoryItemIds] = useState([]);
 
   const loadInventory = async ({ isAutoRefresh = false } = {}) => {
     if (!isAutoRefresh) {
@@ -112,8 +115,18 @@ export default function AllItemsPage() {
     setStockOutItem(null);
     setTransferItem(null);
     setInventoryConfirmation(null);
+    setIsSelectionMode(false);
+    setSelectedInventoryItemIds([]);
     setCurrentPage(1);
   }, [branchId]);
+
+  useEffect(() => {
+    const availableIds = new Set(inventoryItems.map((item) => String(item.itemId || item.id)));
+    setSelectedInventoryItemIds((currentIds) => {
+      const retainedIds = currentIds.filter((itemId) => availableIds.has(itemId));
+      return retainedIds.length === currentIds.length ? currentIds : retainedIds;
+    });
+  }, [inventoryItems]);
 
   const openItemDetails = (item) => {
     setSelectedItem(item);
@@ -359,13 +372,14 @@ export default function AllItemsPage() {
 
   const handleDeleteReview = () => {
     if (!selectedItem) return;
+    const clinicName = branchScope.selectedBranch?.name || 'this clinic';
     setInventoryConfirmation({
       type: 'delete',
-      title: 'Permanently delete product',
-      description: 'This permanently removes the product, its stock entries, and its inventory receipt lines. Existing invoices, payments, and billed amounts are kept. Deleted stock cannot be restored automatically. This action cannot be undone.',
+      title: `Remove product from ${clinicName}`,
+      description: `This product will no longer appear or be available for stock operations at ${clinicName}. Other clinics are not affected. Batches, receipts, stock movements, invoices, payments, refunds, and audit history remain available for reporting.`,
       requiresReason: true,
       destructive: true,
-      confirmLabel: 'Delete permanently',
+      confirmLabel: 'Remove product',
       itemId: selectedItem.itemId || selectedItem.id,
       itemName: selectedItem.name,
       payload: {
@@ -377,7 +391,66 @@ export default function AllItemsPage() {
         { label: 'Product', value: selectedItem.name },
         { label: 'Current stock', value: `${selectedItem.quantity} ${selectedItem.unit}` },
         { label: 'Location', value: selectedItem.location },
-        { label: 'Result', value: 'Permanently removed from inventory' }
+        { label: 'Clinic inventory', value: `Removed from ${clinicName} only` },
+        { label: 'Other clinics', value: 'Unchanged' },
+        { label: 'Historical reports', value: 'Preserved' }
+      ]
+    });
+  };
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((currentValue) => {
+      if (currentValue) setSelectedInventoryItemIds([]);
+      return !currentValue;
+    });
+  };
+
+  const toggleInventoryItemSelection = (item) => {
+    const itemId = String(item.itemId || item.id);
+    setSelectedInventoryItemIds((currentIds) => (
+      currentIds.includes(itemId)
+        ? currentIds.filter((currentId) => currentId !== itemId)
+        : [...currentIds, itemId]
+    ));
+  };
+
+  const setAllFilteredItemsSelected = (checked) => {
+    const filteredIds = filteredItems.map((item) => String(item.itemId || item.id));
+    setSelectedInventoryItemIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      filteredIds.forEach((itemId) => {
+        if (checked) nextIds.add(itemId);
+        else nextIds.delete(itemId);
+      });
+      return Array.from(nextIds);
+    });
+  };
+
+  const handleBulkDeleteReview = () => {
+    const selectedItems = inventoryItems.filter((item) => (
+      selectedInventoryItemIds.includes(String(item.itemId || item.id))
+    ));
+    if (selectedItems.length === 0) return;
+    const clinicName = branchScope.selectedBranch?.name || 'this clinic';
+
+    setInventoryConfirmation({
+      type: 'bulk-delete',
+      title: `Remove ${selectedItems.length} products from ${clinicName}`,
+      description: `The selected products will no longer appear or be available for stock operations at ${clinicName}. Other clinics are not affected. Product records, batches, receipts, stock movements, invoices, payments, refunds, and audit history remain available for reporting.`,
+      requiresReason: true,
+      destructive: true,
+      confirmLabel: `Remove ${selectedItems.length} products`,
+      itemName: `${selectedItems.length} selected products`,
+      payload: {
+        item_ids: selectedItems.map((item) => Number(item.itemId || item.id)),
+        branch_id: Number(branchId)
+      },
+      summary: [
+        { label: 'Selected products', value: selectedItems.length },
+        { label: 'Clinic inventory', value: `Removed from ${clinicName} only` },
+        { label: 'Other clinics', value: 'Unchanged' },
+        { label: 'Historical reports', value: 'Preserved' },
+        { label: 'Selection', value: summarizeSelectedInventoryItems(selectedItems) }
       ]
     });
   };
@@ -399,6 +472,7 @@ export default function AllItemsPage() {
       if (action.type === 'stock-out') await createStockOut(payload);
       if (action.type === 'transfer') await transferInventoryStock(payload);
       if (action.type === 'delete') await deleteInventoryItem(payload);
+      if (action.type === 'bulk-delete') await deleteInventoryItem(payload);
 
       const updatedItems = await loadInventory();
       const updatedItem = updatedItems.find((item) => String(item.itemId || item.id) === String(action.itemId));
@@ -406,9 +480,13 @@ export default function AllItemsPage() {
         setSelectedItem(updatedItem);
         setEditItemForm(createEditItemForm(updatedItem));
       }
-      if (action.type === 'delete') {
+      if (action.type === 'delete' || action.type === 'bulk-delete') {
         setSelectedItem(null);
         setIsDetailModalOpen(false);
+      }
+      if (action.type === 'bulk-delete') {
+        setIsSelectionMode(false);
+        setSelectedInventoryItemIds([]);
       }
       if (action.type === 'edit') setIsEditingItem(false);
       setStockOutQuantity('');
@@ -418,7 +496,8 @@ export default function AllItemsPage() {
         edit: `${action.itemName} inventory details updated.`,
         'stock-out': `${action.itemName} stock-out recorded.`,
         transfer: `${action.itemName} stock transferred.`,
-        delete: `${action.itemName} permanently deleted. Existing invoices were kept.`
+        delete: `${action.itemName} removed from this clinic. Other clinics were not changed.`,
+        'bulk-delete': `${action.itemName} removed from this clinic. Other clinics were not changed.`
       };
       toast.success(messages[action.type]);
     } catch (error) {
@@ -451,6 +530,12 @@ export default function AllItemsPage() {
       || item.expiryStatus === statusFilter;
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
   });
+  const allFilteredItemsSelected = filteredItems.length > 0 && filteredItems.every((item) => (
+    selectedInventoryItemIds.includes(String(item.itemId || item.id))
+  ));
+  const selectedInventoryItems = inventoryItems.filter((item) => (
+    selectedInventoryItemIds.includes(String(item.itemId || item.id))
+  ));
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
   const firstItemIndex = (activePage - 1) * INVENTORY_PAGE_SIZE;
@@ -544,13 +629,24 @@ export default function AllItemsPage() {
       <div data-filter-bar data-session-persist="off" className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {/* Search */}
-          <div className="md:col-span-2">
+          <div className="flex min-w-0 gap-2 md:col-span-2">
             <Input
+              containerClassName="min-w-0 flex-1"
               placeholder="Search product, generic name, or brand"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               leftIcon={<Search className="size-4" />}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 gap-2"
+              onClick={toggleSelectionMode}
+              aria-pressed={isSelectionMode}
+            >
+              {isSelectionMode ? <X className="size-4" /> : <ListChecks className="size-4" />}
+              {isSelectionMode ? 'Cancel' : 'Select'}
+            </Button>
           </div>
 
           {/* Category Filter */}
@@ -603,6 +699,43 @@ export default function AllItemsPage() {
         </div>
       </div>
 
+      {isSelectionMode && (
+        <div className="flex flex-col gap-3 rounded-[12px] border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/30 sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex min-w-0 cursor-pointer items-center gap-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <Checkbox
+              checked={allFilteredItemsSelected}
+              onCheckedChange={setAllFilteredItemsSelected}
+              disabled={filteredItems.length === 0}
+              aria-label={`Select all ${filteredItems.length} matching inventory products`}
+            />
+            <span className="truncate">
+              Select all {filteredItems.length} matching {filteredItems.length === 1 ? 'product' : 'products'}
+            </span>
+          </label>
+          <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+            <span className="text-sm text-slate-600 dark:text-slate-300">
+              <strong className="text-slate-950 dark:text-white">{selectedInventoryItems.length}</strong> selected
+            </span>
+          </div>
+        </div>
+      )}
+
+      {isSelectionMode && selectedInventoryItems.length > 0 && (
+        <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-end sm:inset-x-auto sm:bottom-6 sm:right-6 lg:right-8">
+          <Button
+            type="button"
+            variant="destructive"
+            className="pointer-events-auto h-12 w-full gap-2 rounded-full px-5 font-bold shadow-[0_12px_30px_rgba(185,28,28,0.3)] sm:w-auto"
+            onClick={handleBulkDeleteReview}
+            aria-label={selectedInventoryItems.length === 1 ? 'Delete selected inventory item' : `Delete ${selectedInventoryItems.length} selected inventory items`}
+          >
+            <Trash2 className="size-4" />
+            {selectedInventoryItems.length === 1 ? 'Delete item' : 'Delete items'}
+            {selectedInventoryItems.length > 0 && <span>({selectedInventoryItems.length})</span>}
+          </Button>
+        </div>
+      )}
+
       {errorMessage && (
         <div className="rounded-[10px] border border-[#fecdca] bg-[#fffbfa] p-4 font-['Arimo:Regular',sans-serif] text-[14px] text-[#b42318]">
           {errorMessage}
@@ -620,26 +753,48 @@ export default function AllItemsPage() {
       {!isLoading && viewMode === 'list' && (
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] overflow-hidden">
           <div className="overflow-x-auto">
-            <Table className="min-w-[1040px]">
+            <Table className="min-w-[950px]">
               <TableHeader>
                 <TableRow>
+                  {isSelectionMode && (
+                    <TableHead className="w-12 px-0 text-center sm:px-0">
+                      <div className="flex w-full items-center justify-center">
+                        <Checkbox
+                          checked={allFilteredItemsSelected}
+                          onCheckedChange={setAllFilteredItemsSelected}
+                          disabled={filteredItems.length === 0}
+                          aria-label={`Select all ${filteredItems.length} matching inventory products`}
+                        />
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[80px]">Image</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Product Name</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Category</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Brand</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Location</TableHead>
                   <TableHead className="font-['Arimo:Bold',sans-serif]">Quantity</TableHead>
-                  <TableHead className="font-['Arimo:Bold',sans-serif]">Status</TableHead>
-                  <TableHead className="w-[90px] text-right font-['Arimo:Bold',sans-serif]">Action</TableHead>
+                  <TableHead className="whitespace-nowrap font-['Arimo:Bold',sans-serif]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedItems.map((item) => (
                   <TableRow
                     key={item.id}
-                    className="hover:bg-[#f9fafb] cursor-pointer"
-                    onClick={() => handleItemClick(item)}
+                    className={`${selectedInventoryItemIds.includes(String(item.itemId || item.id)) ? 'bg-blue-50/70 dark:bg-blue-950/20' : ''} cursor-pointer hover:bg-[#f9fafb] dark:hover:bg-slate-900`}
+                    onClick={() => (isSelectionMode ? toggleInventoryItemSelection(item) : handleItemClick(item))}
                   >
+                    {isSelectionMode && (
+                      <TableCell className="w-12 px-0 text-center sm:px-0" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex w-full items-center justify-center">
+                          <Checkbox
+                            checked={selectedInventoryItemIds.includes(String(item.itemId || item.id))}
+                            onCheckedChange={() => toggleInventoryItemSelection(item)}
+                            aria-label={`Select ${item.name}`}
+                          />
+                        </div>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="size-[50px] rounded-[8px] bg-[#f9fafb] border border-[rgba(0,0,0,0.1)] flex items-center justify-center overflow-hidden">
                         {item.image ? (
@@ -676,20 +831,17 @@ export default function AllItemsPage() {
                         </p>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1.5">
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex flex-nowrap gap-1.5">
                         <InventoryStatusBadge status={item.stockStatus || item.status} />
                         {item.expiryStatus && <InventoryStatusBadge status={item.expiryStatus} />}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => openItemDetails(item)} className="gap-2"><Eye className="size-4" />View</Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {paginatedItems.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-48 text-center">
+                    <TableCell colSpan={isSelectionMode ? 8 : 7} className="h-48 text-center">
                       <Package className="mx-auto mb-3 size-8 text-slate-400" />
                       <p className="font-bold text-slate-800 dark:text-slate-100">No inventory products found</p>
                       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try clearing the filters or add a new item.</p>
@@ -1218,7 +1370,7 @@ export default function AllItemsPage() {
                   </Button>
                   <Button variant="destructive" onClick={handleDeleteReview}>
                     <Trash2 className="size-4 mr-2" />
-                    Delete permanently
+                    Remove product
                   </Button>
                 </div>
               </div>
@@ -1441,6 +1593,12 @@ function getNearestExpiringBatch(item) {
   return getItemBatches(item, 'expiry').find((batch) => (
     batch.expiryDate && batch.expiryDate !== 'No expiry'
   )) || null;
+}
+
+function summarizeSelectedInventoryItems(items) {
+  const visibleNames = items.slice(0, 3).map((item) => item.name);
+  const remainingCount = items.length - visibleNames.length;
+  return `${visibleNames.join(', ')}${remainingCount > 0 ? ` and ${remainingCount} more` : ''}`;
 }
 
 function getBatchExpiryStatus(batch, warningDays = 90) {

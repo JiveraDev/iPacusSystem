@@ -153,7 +153,7 @@ function boardingFacilityName(booking) {
     }
 
     if (booking?.hotelBoardingType === 'boarding') {
-        return 'Kennel Boarding';
+        return 'Confinement Boarding';
     }
 
     return booking?.service || 'Boarding Stay';
@@ -695,7 +695,7 @@ function BoardingDetails({ booking, onPreview }) {
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <Detail label="Facility" value={boardingFacilityName(booking)} />
-                    <Detail label="Room/Kennel" value={assignment.roomLabel || booking.roomSize} />
+                    <Detail label="Room/Confinement Unit" value={assignment.roomLabel || booking.roomSize} />
                     <Detail label="Check-in" value={formatDisplayDate(assignment.actualCheckInAt || booking.checkInDate || booking.date)} />
                     <Detail label="Check-out" value={formatDisplayDate(assignment.actualCheckOutAt || booking.checkOutDate)} />
                     <Detail label="Assignment Status" value={assignment.status} />

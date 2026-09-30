@@ -1172,8 +1172,12 @@ function visit_billing_consume_inventory_item(
         return;
     }
 
-    if (!visit_billing_table_exists($pdo, 'inventory_batches') || !visit_billing_table_exists($pdo, 'inventory_stock_movements')) {
-        visit_billing_error(409, 'Inventory batch and movement schema is required before inventory-linked charges can be saved.');
+    if (
+        !visit_billing_table_exists($pdo, 'inventory_batches')
+        || !visit_billing_table_exists($pdo, 'inventory_stock_movements')
+        || !visit_billing_table_exists($pdo, 'inventory_branch_items')
+    ) {
+        visit_billing_error(409, 'Branch inventory catalog, batch, and movement schema is required before inventory-linked charges can be saved.');
     }
 
     $item = visit_billing_fetch_inventory_item($pdo, $itemId, $chargeType);
@@ -1190,6 +1194,10 @@ function visit_billing_consume_inventory_item(
         SELECT batch.batch_id, batch.quantity, batch.location_id
         FROM inventory_batches batch
         JOIN inventory_locations location ON location.location_id = batch.location_id
+        JOIN inventory_branch_items branch_inventory
+          ON branch_inventory.item_id = batch.item_id
+         AND branch_inventory.branch_id = location.branch_id
+         AND branch_inventory.status = 'active'
         JOIN visit_charges charge ON charge.charge_id = ?
         JOIN visits visit ON visit.visit_id = charge.visit_id AND visit.branch_id = location.branch_id
         WHERE batch.item_id = ?

@@ -108,6 +108,11 @@ function dismiss(id) {
   removalTimers.set(id, timer);
 }
 
+function dismissAll() {
+  currentToasts.forEach((toastItem) => removeToast(toastItem.id, false));
+  emit();
+}
+
 function pauseToast(id, reason = 'interaction') {
   const reasons = pauseReasons.get(id) || new Set();
   reasons.add(reason);
@@ -260,6 +265,7 @@ const toast = {
     return showToast('warning', input, options);
   },
   dismiss,
+  dismissAll,
 };
 
 function ToastCard({ toastItem }) {

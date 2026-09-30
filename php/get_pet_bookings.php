@@ -45,7 +45,7 @@ function normalizeServiceName(array $booking, array $specialServiceItems = []): 
 {
     $serviceName = $booking['service_type'] ?? '';
     if (($booking['service_type'] ?? '') === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        $serviceName = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        $serviceName = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
         if (!empty($booking['room_size'])) {
             $serviceName .= ' - ' . ucfirst($booking['room_size']);
         }

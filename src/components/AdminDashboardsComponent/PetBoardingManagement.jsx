@@ -77,7 +77,7 @@ import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 
 const FACILITY_LABELS = {
-    boarding: 'Kennel Boarding',
+    boarding: 'Confinement Boarding',
     hotel: 'Pet Hotel Boarding'
 };
 
@@ -273,9 +273,9 @@ function getFacilityMeta(facilityType) {
     }
 
     return {
-        title: 'Kennel Boarding',
-        unitLabel: 'Kennels',
-        unitSingular: 'Kennel',
+        title: 'Confinement Boarding',
+        unitLabel: 'Confinement Units',
+        unitSingular: 'Confinement Unit',
         Icon: Home,
         accent: 'border-l-green-600',
         surface: 'bg-green-50',
@@ -284,7 +284,7 @@ function getFacilityMeta(facilityType) {
 }
 
 function getRoomCode(unit) {
-    const facilityPrefix = unit.hotelBoardingType === 'hotel' ? 'H' : 'K';
+    const facilityPrefix = unit.hotelBoardingType === 'hotel' ? 'H' : 'C';
     const sizePrefix = unit.roomSize === 'small' ? 'S' : unit.roomSize === 'medium' ? 'M' : 'L';
 
     return `${facilityPrefix}-${sizePrefix}${String(unit.roomNumber).padStart(2, '0')}`;
@@ -552,7 +552,7 @@ function buildPaymentPrefill(unit, materialLines = []) {
             petName: assignment.petName || 'Boarding Pet',
             ownerName: assignment.ownerName || 'Pet Owner',
             species: assignment.petSpecies || 'Pet',
-            visitType: unit.hotelBoardingType === 'hotel' ? 'Pet Hotel Boarding Stay' : 'Kennel Boarding Stay',
+            visitType: unit.hotelBoardingType === 'hotel' ? 'Pet Hotel Boarding Stay' : 'Confinement Boarding Stay',
             veterinarian: 'Boarding Team',
             complaint: `${unit.roomLabel} from ${formatDate(checkInDate)} to ${formatDate(checkOutDate)}`,
             status: 'Ready for payment'
@@ -2259,7 +2259,7 @@ export default function PetBoardingManagement() {
                 }`}
             >
                 <Home className="size-4" />
-                Kennel Boarding
+                Confinement Boarding
             </button>
             <button
                 type="button"
@@ -2558,8 +2558,8 @@ export default function PetBoardingManagement() {
         <div className="space-y-6">
             <DashboardPageHeader
                 icon={CurrentFacilityIcon}
-                title="Pet Hotel & Kennel Boarding Management"
-                description="Manage kennel and hotel units, active stays, daily care, and boarding availability."
+                title="Pet Hotel & Confinement Boarding Management"
+                description="Manage confinement and hotel units, active stays, daily care, and boarding availability."
                 petHover
                 petKind="dog"
                 petAccent="mint"
@@ -2645,7 +2645,7 @@ export default function PetBoardingManagement() {
                                     {pendingConfinementBookings.length} clinical admission{pendingConfinementBookings.length === 1 ? '' : 's'} awaiting placement
                                 </span>
                                 <span className="mt-0.5 block font-semibold text-violet-700">
-                                    Review the owner approval and care plan before assigning a kennel or hotel room.
+                                    Review the owner approval and care plan before assigning a confinement unit or hotel room.
                                 </span>
                             </span>
                         </span>
@@ -3742,7 +3742,7 @@ export default function PetBoardingManagement() {
                 <DialogContent className="max-w-xl">
                     <DialogHeader>
                         <DialogTitle>Add Rooms</DialogTitle>
-                        <DialogDescription>Increase capacity for a pet hotel room or kennel boarding category.</DialogDescription>
+                        <DialogDescription>Increase capacity for a pet hotel room or confinement boarding category.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2 sm:col-span-2">
@@ -3775,7 +3775,7 @@ export default function PetBoardingManagement() {
                             displayValue={FACILITY_LABELS[addRoomForm.type]}
                             onChange={(value) => setAddRoomForm({ ...addRoomForm, type: value })}
                             options={[
-                                { value: 'boarding', label: 'Kennel Boarding' },
+                                { value: 'boarding', label: 'Confinement Boarding' },
                                 { value: 'hotel', label: 'Pet Hotel Boarding' }
                             ]}
                         />
@@ -3899,7 +3899,7 @@ export default function PetBoardingManagement() {
                             displayValue={FACILITY_LABELS[directCheckInForm.type]}
                             onChange={(value) => setDirectCheckInForm({ ...directCheckInForm, type: value, roomNumber: '' })}
                             options={[
-                                { value: 'boarding', label: 'Kennel Boarding' },
+                                { value: 'boarding', label: 'Confinement Boarding' },
                                 { value: 'hotel', label: 'Pet Hotel Boarding' }
                             ]}
                         />

@@ -368,11 +368,11 @@ function normalize_room_type(?string $facilityType, ?string $roomSize): string
     $size = strtolower(trim((string)$roomSize));
 
     if (!in_array($type, ['hotel', 'boarding'], true)) {
-        boarding_error(400, 'Invalid hotel or boarding type.');
+        boarding_error(400, 'Invalid Pet Hotel or Confinement Boarding type.');
     }
 
     if (!in_array($size, ['small', 'medium', 'large'], true)) {
-        boarding_error(400, 'Invalid room or kennel size.');
+        boarding_error(400, 'Invalid room or confinement size.');
     }
 
     return $type . '-' . $size;
@@ -391,7 +391,7 @@ function split_room_type(string $roomType): array
 function room_type_label(string $roomType): string
 {
     $parts = split_room_type($roomType);
-    $facility = $parts['hotel_boarding_type'] === 'hotel' ? 'Hotel Room' : 'Kennel';
+    $facility = $parts['hotel_boarding_type'] === 'hotel' ? 'Hotel Room' : 'Confinement Unit';
 
     return ucfirst($parts['room_size']) . ' ' . $facility;
 }
@@ -527,7 +527,7 @@ function fetch_boarding_booking(PDO $pdo, int $bookingId, bool $forUpdate = fals
     }
 
     if (($booking['service_type'] ?? '') !== 'boarding') {
-        boarding_error(400, 'This action is only available for pet hotel or boarding bookings.');
+        boarding_error(400, 'This action is only available for Pet Hotel or Confinement Boarding bookings.');
     }
 
     if (($booking['status'] ?? '') === 'cancelled') {
@@ -1057,7 +1057,7 @@ function boarding_secure_existing_template(PDO $pdo, array $form, array $records
     $template = boarding_secure_template_by_id($pdo, $fileId, true);
     $formDeclaresBoarding = in_array(
         strtolower(trim((string)($form['serviceType'] ?? $form['service_type'] ?? $form['category'] ?? ''))),
-        ['boarding', 'pet boarding', 'pet hotel & boarding'],
+        ['boarding', 'pet boarding', 'pet hotel & boarding', 'confinement boarding', 'kennel boarding'],
         true
     );
     $hasBoardingRecord = false;
@@ -1451,7 +1451,7 @@ function assign_room_action(PDO $pdo): void
         $roomNumber = $requestedRoom ?: ($availableRooms[0] ?? 0);
 
         if ($roomNumber <= 0 || !in_array($roomNumber, $availableRooms, true)) {
-            boarding_error(409, 'Selected room or kennel is not available for this stay.');
+            boarding_error(409, 'Selected room or confinement unit is not available for this stay.');
         }
 
         upsert_assignment($pdo, $booking, $roomType, $roomNumber, 'reserved');
@@ -1536,7 +1536,7 @@ function check_in_action(PDO $pdo): void
             $availableRooms = get_available_room_numbers($pdo, $roomType, $checkIn, $checkOut, $bookingId, $branchId);
             $roomNumber = $availableRooms[0] ?? 0;
             if ($roomNumber <= 0) {
-                boarding_error(409, 'No room or kennel is available for this stay.');
+                boarding_error(409, 'No hotel room or confinement unit is available for this stay.');
             }
             upsert_assignment($pdo, $booking, $roomType, $roomNumber, 'reserved');
             $assignment = fetch_active_assignment($pdo, $bookingId, true);
@@ -1548,7 +1548,7 @@ function check_in_action(PDO $pdo): void
 
         $maintenanceRooms = get_maintenance_room_numbers($pdo, (string)$assignment['room_type'], $branchId);
         if (in_array((int)$assignment['room_number'], $maintenanceRooms, true)) {
-            boarding_error(409, 'This room or kennel is under maintenance.');
+            boarding_error(409, 'This room or confinement unit is under maintenance.');
         }
 
         $stmt = $pdo->prepare("
@@ -2185,7 +2185,7 @@ function rooms_action(PDO $pdo): void
         }
 
         if ($roomNumber > get_room_capacity($pdo, $roomType, $branchId)) {
-            boarding_error(404, 'Room or kennel not found.');
+            boarding_error(404, 'Room or confinement unit not found.');
         }
 
         if (in_array($status, ['maintenance', 'retired'], true)) {
@@ -2448,7 +2448,7 @@ function direct_check_in_action(PDO $pdo): void
         $availableRooms = get_available_room_numbers($pdo, $roomType, $today, (string)$checkOut, 0, $branchId);
         $roomNumber = $requestedRoom ?: ($availableRooms[0] ?? 0);
         if ($roomNumber <= 0 || !in_array($roomNumber, $availableRooms, true)) {
-            boarding_error(409, 'Selected room or kennel is not available.');
+            boarding_error(409, 'Selected room or confinement unit is not available.');
         }
 
         $parts = split_room_type($roomType);
@@ -2535,7 +2535,7 @@ function direct_check_in_action(PDO $pdo): void
 
         try {
             notification_send_boarding_event($pdo, $bookingId, 'checked_in', [
-                'room_label' => $roomType . ' #' . $roomNumber,
+                'room_label' => room_type_label($roomType) . ' #' . $roomNumber,
             ]);
         } catch (Throwable $notificationError) {
             error_log('Walk-in boarding check-in notification failed: ' . $notificationError->getMessage());
@@ -3737,6 +3737,9 @@ function boarding_materials_action(PDO $pdo): void
         if ($assignmentBranchId <= 0) {
             boarding_error(409, 'The boarding assignment has no valid branch for inventory deduction.');
         }
+        if (!boarding_table_exists($pdo, 'inventory_branch_items')) {
+            boarding_error(409, 'Run the branch inventory catalog migration before recording boarding materials.');
+        }
         $reservedQuantity = 0.0;
         if (boarding_material_billing_trace_ready($pdo)) {
             $reservedStmt = $pdo->prepare("
@@ -3763,6 +3766,10 @@ function boarding_materials_action(PDO $pdo): void
             SELECT batch.quantity
             FROM inventory_batches batch
             JOIN inventory_locations location ON location.location_id = batch.location_id
+            JOIN inventory_branch_items branch_inventory
+              ON branch_inventory.item_id = batch.item_id
+             AND branch_inventory.branch_id = location.branch_id
+             AND branch_inventory.status = 'active'
             WHERE batch.item_id = ?
               AND location.branch_id = ?
               AND location.status = 'active'

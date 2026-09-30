@@ -1410,7 +1410,7 @@ export default function BookingsManagement() {
             'kapon': 'Kapon / Special Surgery',
             'lab-testing': 'Lab Testing',
             'parasite-control': 'Parasite Control',
-            'boarding': 'Pet Hotel & Kennel Boarding',
+            'boarding': 'Pet Hotel & Confinement Boarding',
             'special services': 'Special Services'
         };
 
@@ -1419,7 +1419,7 @@ export default function BookingsManagement() {
     };
 
     const getBoardingStayLabel = (type) => (
-        type === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+        type === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding'
     );
 
     const getBookingServiceName = (booking) => (
@@ -1890,7 +1890,7 @@ export default function BookingsManagement() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                                                    Room/Kennel Size
+                                                                    Room/Confinement Size
                                                                 </p>
                                                                 <p className="font-['Arimo:Regular',sans-serif] text-[16px] capitalize">
                                                                     {booking.roomSize || 'Not set'}
@@ -1898,7 +1898,7 @@ export default function BookingsManagement() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">
-                                                                    Reserved Room/Kennel
+                                                                    Reserved Room/Confinement Unit
                                                                 </p>
                                                                 {booking.boardingAssignment ? (
                                                                     <div className="flex flex-wrap items-center gap-2">

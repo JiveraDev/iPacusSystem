@@ -3,6 +3,7 @@
 require_once __DIR__ . '/mail_helpers.php';
 require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/runtime_media.php';
 
 function notification_column_exists(PDO $pdo, string $tableName, string $columnName): bool
 {
@@ -501,7 +502,7 @@ function notification_email_template(string $title, string $intro, array $rows =
     ";
 }
 
-function notification_send_email_if_enabled(PDO $pdo, int $userId, string $category, string $subject, string $html, string $text, ?int $notificationId = null, bool $force = false): array
+function notification_send_email_if_enabled(PDO $pdo, int $userId, string $category, string $subject, string $html, string $text, ?int $notificationId = null, bool $force = false, array $attachments = []): array
 {
     $preferences = notification_fetch_preferences($pdo, $userId);
 
@@ -529,6 +530,7 @@ function notification_send_email_if_enabled(PDO $pdo, int $userId, string $categ
             $result = mail_queue_email($pdo, $email, $subject, $html, $text, [
                 'toName' => notification_user_name($user),
                 'notificationId' => $notificationId,
+                'attachments' => $attachments,
             ]);
 
             if ($notificationId) {
@@ -545,7 +547,10 @@ function notification_send_email_if_enabled(PDO $pdo, int $userId, string $categ
             return $result;
         }
 
-        $result = send_smtp_email($email, $subject, $html, $text, ['toName' => notification_user_name($user)]);
+        $result = send_smtp_email($email, $subject, $html, $text, [
+            'toName' => notification_user_name($user),
+            'attachments' => $attachments,
+        ]);
 
         if ($notificationId) {
             $stmt = $pdo->prepare("
@@ -1204,7 +1209,8 @@ function notification_create_event(PDO $pdo, array $payload): ?int
             (string)$payload['email_html'],
             (string)($payload['email_text'] ?? ''),
             $effectiveNotificationId,
-            $forceEmail
+            $forceEmail,
+            is_array($payload['email_attachments'] ?? null) ? $payload['email_attachments'] : []
         );
     }
 
@@ -1246,7 +1252,7 @@ function notification_service_name(array $booking): string
     }
 
     if ($service === 'boarding' && !empty($booking['hotel_boarding_type'])) {
-        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        return $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
     }
 
     return ucwords(str_replace(['_', '-'], ' ', $service));
@@ -2576,6 +2582,57 @@ function notification_visit_purchase_summary(PDO $pdo, int $visitId): string
     return implode("\n", $lines);
 }
 
+function notification_visit_receipt(PDO $pdo, int $paymentId): ?array
+{
+    if ($paymentId <= 0 || !notification_table_exists($pdo, 'visit_invoice_documents')) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT invoice_number, file_path, file_name, mime_type
+        FROM visit_invoice_documents
+        WHERE payment_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$paymentId]);
+    $receipt = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$receipt) {
+        return null;
+    }
+
+    try {
+        $relativePath = trim((string)($receipt['file_path'] ?? ''));
+        $absolutePath = realpath(ipawcus_runtime_media_path($relativePath));
+        $invoiceDirectory = realpath(ipawcus_runtime_media_directory('invoices'));
+        if (
+            $absolutePath === false
+            || $invoiceDirectory === false
+            || strpos($absolutePath, $invoiceDirectory . DIRECTORY_SEPARATOR) !== 0
+            || !is_file($absolutePath)
+            || !is_readable($absolutePath)
+        ) {
+            throw new RuntimeException('The saved receipt PDF is missing or unreadable.');
+        }
+
+        $mimeType = mime_content_type($absolutePath) ?: '';
+        if ($mimeType !== 'application/pdf') {
+            throw new RuntimeException('The saved receipt is not a valid PDF document.');
+        }
+
+        return [
+            'invoiceNumber' => trim((string)($receipt['invoice_number'] ?? '')),
+            'attachment' => [
+                'path' => $absolutePath,
+                'fileName' => basename((string)($receipt['file_name'] ?? 'receipt.pdf')),
+                'mimeType' => 'application/pdf',
+            ],
+        ];
+    } catch (Throwable $e) {
+        error_log('Payment receipt attachment unavailable: ' . $e->getMessage());
+        return null;
+    }
+}
+
 function notification_send_visit_event(PDO $pdo, int $visitId, string $event, array $context = []): void
 {
     $visit = notification_fetch_visit_summary($pdo, $visitId);
@@ -2598,12 +2655,16 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
 
     if ($event === 'payment_received') {
         $amount = (float)($context['amount'] ?? 0);
-        $invoice = trim((string)($context['reference_number'] ?? ''));
+        $paymentReference = trim((string)($context['reference_number'] ?? ''));
+        $receipt = notification_visit_receipt($pdo, (int)($context['payment_id'] ?? 0));
+        $invoice = trim((string)($receipt['invoiceNumber'] ?? ''));
+        $emailAttachments = $receipt ? [$receipt['attachment']] : [];
         $purchaseSummary = notification_visit_purchase_summary($pdo, $visitId);
-        $title = 'Purchase summary';
+        $title = 'Payment receipt';
         $message = notification_money($amount) . " payment was recorded for {$petName}.";
-        $subject = "Purchase summary for {$petName}";
-        $intro = "Hello " . notification_user_name($visit) . ", your payment has been recorded by the clinic. Here is the purchase summary for this visit.";
+        $subject = "Payment receipt for {$petName}";
+        $intro = "Hello " . notification_user_name($visit) . ", your payment has been recorded by the clinic."
+            . ($receipt ? ' A PDF copy of your official receipt is attached for your records.' : ' Here is the purchase summary for this visit.');
         $reason = 'A clinic staff member recorded a payment for this visit.';
         $rows = [
             'Reason' => $reason,
@@ -2611,7 +2672,8 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
             'Reference' => $reference,
             'Purchase Summary' => $purchaseSummary,
             'Payment Amount' => notification_money($amount),
-            'Invoice / Receipt' => $invoice,
+            'Receipt Number' => $invoice,
+            'Transaction Reference' => $paymentReference,
             'Remaining Balance' => notification_money($balance),
         ];
         $dedupeKey = !empty($context['payment_id']) ? 'visit-payment-' . (int)$context['payment_id'] : null;
@@ -2659,6 +2721,8 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
         $type = 'invoice_ready';
     }
 
+    $emailAttachments = $emailAttachments ?? [];
+
     $emailSummary = "Pet: {$petName} | Reference: {$reference} | Reason: {$reason}";
     $emailHtml = $hasEmailReceiver ? notification_email_template($title, $intro, $rows, null, $emailSummary) : '';
     $emailText = $hasEmailReceiver ? trim($intro . "\n\nSummary: {$emailSummary}\n\n" . implode("\n", array_map(
@@ -2678,6 +2742,7 @@ function notification_send_visit_event(PDO $pdo, int $visitId, string $event, ar
         'email_subject' => $hasEmailReceiver ? $subject : '',
         'email_html' => $emailHtml,
         'email_text' => $emailText,
+        'email_attachments' => $emailAttachments,
     ]);
 
 }

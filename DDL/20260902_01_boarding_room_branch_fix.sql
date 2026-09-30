@@ -1,4 +1,4 @@
--- Repair branch-scoped Pet Hotel and Kennel room storage.
+-- Repair branch-scoped Pet Hotel and Confinement Boarding room storage.
 -- This migration avoids CREATE PROCEDURE so it can run on shared Hostinger
 -- databases that do not grant CREATE ROUTINE privileges.
 -- It is safe to run again after a successful execution.

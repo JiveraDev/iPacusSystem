@@ -430,7 +430,7 @@ export function PetHotelContentEditor({ config, onSave }) {
     const saveChanges = async () => {
         const allRooms = Object.values(draftRooms).flat();
         if (allRooms.some((room) => !room.name.trim() || !room.capacity.trim() || !Number.isFinite(Number(room.pricePerDay)) || Number(room.pricePerDay) < 0 || room.features.length === 0)) {
-            toast.error('Complete every room or kennel name, capacity, price, and feature list.');
+            toast.error('Complete every hotel room or confinement unit name, capacity, price, and feature list.');
             return;
         }
         if (draftAddOns.some((addOn) => !addOn.name.trim() || !Number.isFinite(Number(addOn.price)) || Number(addOn.price) < 0)) {
@@ -459,7 +459,7 @@ export function PetHotelContentEditor({ config, onSave }) {
                 }))
             });
             setIsEditing(false);
-            toast.success('Pet Hotel and boarding content updated.');
+            toast.success('Pet Hotel and Confinement Boarding content updated.');
         } catch (error) {
             console.error('Pet Hotel content could not be saved:', error);
             toast.error(error?.message || 'Pet Hotel content could not be saved. Please try again.');
@@ -479,8 +479,8 @@ export function PetHotelContentEditor({ config, onSave }) {
                                 <ShieldCheck className="size-5" aria-hidden="true" />
                             </span>
                             <div>
-                                <DialogTitle className="dark:text-white">Edit Pet Hotel and boarding</DialogTitle>
-                                <DialogDescription className="mt-1 dark:text-slate-300">Update the room, kennel, feature, and add-on content shown to pet owners.</DialogDescription>
+                                <DialogTitle className="dark:text-white">Edit Pet Hotel and Confinement Boarding</DialogTitle>
+                                <DialogDescription className="mt-1 dark:text-slate-300">Update the hotel room, confinement unit, feature, and add-on content.</DialogDescription>
                             </div>
                         </div>
                     </DialogHeader>
@@ -489,7 +489,7 @@ export function PetHotelContentEditor({ config, onSave }) {
 
                 {Object.entries(draftRooms).map(([type, rooms]) => (
                     <div key={type} className="space-y-3">
-                        <h5 className="text-sm font-black capitalize text-slate-950 dark:text-white">{type === 'hotel' ? 'Pet Hotel rooms' : 'Boarding kennels'}</h5>
+                        <h5 className="text-sm font-black capitalize text-slate-950 dark:text-white">{type === 'hotel' ? 'Pet Hotel rooms' : 'Confinement units'}</h5>
                         <div className="grid gap-3 lg:grid-cols-3">
                             {rooms.map((room, index) => (
                                 <div key={`${type}-${room.id}`} className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">

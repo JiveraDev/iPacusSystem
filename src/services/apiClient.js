@@ -308,6 +308,8 @@ export function clearStoredAuthSession() {
     window.localStorage.removeItem('authToken');
     window.localStorage.removeItem(AUTH_EXPIRES_AT_KEY);
     window.localStorage.removeItem('currentUser');
+    window.sessionStorage.removeItem(AUTH_MESSAGE_KEY);
+    window.sessionStorage.removeItem(AUTH_EMAIL_KEY);
 }
 
 export function isStoredAuthTokenExpired() {
@@ -345,6 +347,12 @@ function applyCurrentUserHeaders(headers) {
 
 function getUserEmail(user) {
     return String(user?.email || user?.mail_Address || '').trim();
+}
+
+function getAuthTokenFromHeaders(headers) {
+    return String(new Headers(headers || {}).get('Authorization') || '')
+        .replace(/^Bearer\s+/i, '')
+        .trim();
 }
 
 function isPublicRequestPath(path) {
@@ -408,8 +416,16 @@ function enforceStoredAuthExpiration(path) {
     });
 }
 
-function handleAuthRequired(data = {}) {
+function handleAuthRequired(data = {}, requestAuthToken = '') {
     if (data.code !== AUTH_REQUIRED_CODE) {
+        return;
+    }
+
+    const activeAuthToken = getStoredAuthToken();
+
+    // A request can finish after a manual logout, or even after another account
+    // has logged in. Only the session that started the request may be expired.
+    if (!activeAuthToken || (requestAuthToken && requestAuthToken !== activeAuthToken)) {
         return;
     }
 
@@ -487,6 +503,7 @@ export async function apiFetch(path, options = {}) {
 
     enforceStoredAuthExpiration(path);
     applyCurrentUserHeaders(requestHeaders);
+    const requestAuthToken = getAuthTokenFromHeaders(requestHeaders);
 
     if (timeoutController) {
         if (signal?.aborted) {
@@ -539,7 +556,7 @@ export async function apiFetch(path, options = {}) {
 
         if (response.status === 401) {
             const authData = await readJsonResponse(response.clone(), {});
-            handleAuthRequired(authData);
+            handleAuthRequired(authData, requestAuthToken);
         }
 
         return response;
@@ -599,6 +616,7 @@ async function performApiRequest(path, options = {}) {
         ...requestOptions
     } = options;
     const method = getApiRequestMethod(requestOptions);
+    const requestAuthToken = getAuthTokenFromHeaders(requestOptions.headers) || getStoredAuthToken();
     const retryCount = method === 'GET'
         ? (Number.isFinite(Number(transientRetryCount))
             ? Math.max(0, Number(transientRetryCount))
@@ -633,7 +651,7 @@ async function performApiRequest(path, options = {}) {
                     });
                 }
 
-                handleAuthRequired(data);
+                handleAuthRequired(data, requestAuthToken);
 
                 throw error;
             }

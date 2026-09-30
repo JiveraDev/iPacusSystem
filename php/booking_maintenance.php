@@ -153,6 +153,7 @@ function maintenance_is_booking_reschedule_excluded(array $booking): bool
 
     return str_contains($serviceType, 'boarding')
         || str_contains($serviceType, 'hotel')
+        || str_contains($serviceType, 'confinement')
         || str_contains($serviceType, 'kennel')
         || str_contains($serviceType, 'special');
 }

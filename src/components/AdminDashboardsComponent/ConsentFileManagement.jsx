@@ -68,7 +68,7 @@ export default function ConsentFilesManagement() {
         { value: 'dental', label: 'Dental Check-up (legacy)' },
         { value: 'kapon', label: 'Kapon / Special Surgery' },
         { value: 'parasite-control', label: 'Parasite Control' },
-        { value: 'boarding', label: 'Pet Hotel & Boarding' },
+        { value: 'boarding', label: 'Pet Hotel & Confinement Boarding' },
         { value: 'consultation', label: 'Consultation' },
         { value: 'online-consultation', label: 'Online Consultation' },
         { value: 'home-service', label: 'Home Service' },

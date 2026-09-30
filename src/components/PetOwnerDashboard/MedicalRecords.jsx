@@ -25,6 +25,7 @@ import { PhotoViewer } from '../../ui/photo-viewer';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { downloadConsentDocument, openProtectedDocument } from '../../hooks/useConsentDocumentSource';
+import { formatPhpCurrency } from '../../lib/currency';
 import { formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
@@ -39,13 +40,119 @@ function asArray(value) {
 }
 
 function imageUrl(attachment) {
-    return resolveImageUrl(attachment?.url || attachment?.relativeUrl || '');
+    return resolveImageUrl(attachment?.preview || attachment?.url || attachment?.relativeUrl || '');
 }
 
 function isImage(attachment) {
     const mime = String(attachment?.mimeType || '').toLowerCase();
     const url = String(attachment?.url || attachment?.relativeUrl || '').toLowerCase();
     return mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(url);
+}
+
+function pathFileName(path) {
+    const cleanPath = String(path || '').split(/[?#]/)[0].replace(/\\/g, '/');
+    return cleanPath.split('/').filter(Boolean).pop() || '';
+}
+
+function humanizeKey(value) {
+    return String(value || '')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function attachmentCategoryLabel(attachment) {
+    const category = attachment?.category || attachment?.attachmentCategory || attachment?.contextLabel || 'medical_attachment';
+    const labels = {
+        additional_consent: 'Signed consent form',
+        prescription_document: 'Prescription document',
+        reference_document: 'Clinical reference',
+        diagnosis_upload: 'Diagnosis upload',
+        boarding_document: 'Confinement document'
+    };
+
+    return labels[category] || humanizeKey(category) || 'Medical attachment';
+}
+
+function attachmentDisplayName(attachment, index = 0) {
+    const storedName = attachment?.storedFileName
+        || attachment?.stored_file_name
+        || pathFileName(attachment?.url || attachment?.relativeUrl || attachment?.preview);
+    const preferredName = attachment?.displayName
+        || attachment?.display_name
+        || attachment?.name
+        || attachment?.originalName
+        || attachment?.original_name;
+    const isOpaqueName = /^\d{14}[_-][a-f0-9]{16,}\.[a-z0-9]+$/i.test(preferredName || storedName);
+
+    if (preferredName && !isOpaqueName) return preferredName;
+
+    const extension = pathFileName(preferredName || storedName).split('.').pop();
+    const hasExtension = extension && extension !== preferredName && extension !== storedName;
+    return `${attachmentCategoryLabel(attachment)} ${index + 1}${hasExtension ? `.${extension}` : ''}`;
+}
+
+function collectRecordAttachments(record) {
+    const nested = asArray(record?.customSections).flatMap((section) => (
+        [...asArray(section?.attachments), ...asArray(section?.uploads)].map(attachment => ({
+            ...attachment,
+            contextLabel: attachment?.contextLabel || section?.label || section?.title || 'Custom clinical section'
+        }))
+    ));
+    const seen = new Set();
+
+    return [
+        ...asArray(record?.attachments),
+        ...asArray(record?.sourceUploads),
+        ...nested
+    ].filter((attachment, index) => {
+        const key = attachment?.url
+            || attachment?.relativeUrl
+            || attachment?.preview
+            || attachment?.id
+            || `${attachmentDisplayName(attachment, index)}-${index}`;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function collectRecordPrescriptions(record) {
+    return [
+        ...asArray(record?.prescriptions),
+        ...asArray(record?.customSections).flatMap(section => asArray(section?.prescriptions || section?.prescription))
+    ];
+}
+
+function recordReferenceRows(record) {
+    return [
+        ['Record type', humanizeKey(record?.sourceType)],
+        ['Record ID', record?.sourceId || record?.diagnosisId || record?.visitId],
+        ['Queue reference', record?.queueReference || record?.queueNumber],
+        ['Booking reference', record?.bookingNumber || record?.bookingId],
+        ['Status', humanizeKey(record?.status)],
+        ['Billing status', humanizeKey(record?.billingStatus)]
+    ].map(([label, value]) => ({ label, value: compactText(value) })).filter(row => row.value);
+}
+
+function vitalSignRows(vitalSigns) {
+    const unitByKey = {
+        temperature: '°C',
+        heartRate: 'bpm',
+        heart_rate: 'bpm',
+        respiratoryRate: 'breaths/min',
+        respiratory_rate: 'breaths/min',
+        weight: 'kg'
+    };
+
+    return Object.entries(vitalSigns && typeof vitalSigns === 'object' ? vitalSigns : {})
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+        .map(([key, value]) => ({
+            label: humanizeKey(key),
+            value: `${value}${unitByKey[key] ? ` ${unitByKey[key]}` : ''}`
+        }));
 }
 
 function prescriptionLabel(prescription) {
@@ -452,6 +559,20 @@ export default function MedicalRecords() {
                             page-break-inside: avoid !important;
                         }
 
+                        .medical-record-details {
+                            display: block !important;
+                        }
+
+                        .medical-record-attachment-card {
+                            break-inside: avoid-page !important;
+                            page-break-inside: avoid !important;
+                        }
+
+                        .medical-record-attachment-card img {
+                            max-height: 48mm !important;
+                            object-fit: contain !important;
+                        }
+
                         .no-print {
                             display: none !important;
                         }
@@ -509,14 +630,31 @@ export default function MedicalRecords() {
                         </div>
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <PetInfo label="Pet" value={pet.name || pet.petName} strong />
-                        <PetInfo label="Species / Breed" value={[pet.species, pet.breed].filter(Boolean).join(' / ') || 'N/A'} />
-                        <PetInfo label="Sex" value={pet.gender || 'N/A'} />
-                        <PetInfo label="Pet ID" value={pet.id || pet.dbId} />
-                        <PetInfo label="Weight" value={pet.weight ? `${pet.weight} kg` : 'N/A'} />
-                        <PetInfo label="Microchip" value={pet.microchipId || 'N/A'} />
-                        <PetInfo label="Source Records" value={`${serviceHistoryCount} service record${serviceHistoryCount === 1 ? '' : 's'}`} />
+                    <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start">
+                        {pet.profileImage && (
+                            <div className="size-28 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                <ProtectedImage
+                                    src={pet.profileImage}
+                                    alt={`${pet.name || pet.petName || 'Pet'} profile`}
+                                    className="h-full w-full object-cover"
+                                    fallbackClassName="h-full w-full"
+                                />
+                            </div>
+                        )}
+                        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <PetInfo label="Pet" value={pet.name || pet.petName} strong />
+                            <PetInfo label="Owner" value={pet.ownerName || 'N/A'} />
+                            <PetInfo label="Species / Breed" value={[pet.species, pet.breed].filter(Boolean).join(' / ') || 'N/A'} />
+                            <PetInfo label="Sex" value={pet.gender || 'N/A'} />
+                            <PetInfo label="Birth Date" value={formatDisplayDate(pet.birthDate)} />
+                            <PetInfo label="Age" value={pet.age || 'N/A'} />
+                            <PetInfo label="Pet ID" value={pet.id || pet.dbId} />
+                            <PetInfo label="Weight" value={pet.weight ? `${pet.weight} kg` : 'N/A'} />
+                            <PetInfo label="Color / Markings" value={pet.color || 'N/A'} />
+                            <PetInfo label="Microchip" value={pet.microchipId || 'N/A'} />
+                            <PetInfo label="Status" value={humanizeKey(pet.status) || 'N/A'} />
+                            <PetInfo label="Source Records" value={`${serviceHistoryCount} service record${serviceHistoryCount === 1 ? '' : 's'}`} />
+                        </div>
                     </div>
 
                     {asArray(records.allergies).length > 0 && (
@@ -530,8 +668,10 @@ export default function MedicalRecords() {
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {records.allergies.map((allergy, index) => (
-                                    <Badge key={allergy.id || index} className="border border-red-200 bg-white text-red-700">
-                                        {allergy.allergen} {allergy.severity ? `- ${allergy.severity}` : ''}
+                                    <Badge key={allergy.id || index} className="h-auto max-w-full whitespace-normal border border-red-200 bg-white text-left text-red-700">
+                                        {allergy.allergen}
+                                        {allergy.severity ? ` - ${allergy.severity}` : ''}
+                                        {allergy.reaction ? ` | Reaction: ${allergy.reaction}` : ''}
                                     </Badge>
                                 ))}
                             </div>
@@ -626,17 +766,8 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                         const targetId = medicalRecordTargetId(record);
                         const isExpanded = expandedIds.has(recordId) || targetId === highlightedTarget;
                         const doctorNotes = doctorNoteRows(record);
-                        const seenAttachments = new Set();
-                        const attachments = [
-                            ...asArray(record.attachments),
-                            ...asArray(record.sourceUploads)
-                        ].filter((attachment) => {
-                            const key = attachment.id || attachment.url || attachment.relativeUrl;
-                            if (!key || seenAttachments.has(key)) return false;
-                            seenAttachments.add(key);
-                            return true;
-                        });
-                        const prescriptions = asArray(record.prescriptions);
+                        const attachments = collectRecordAttachments(record);
+                        const prescriptions = collectRecordPrescriptions(record);
                         const summary = compactText(
                             record.summary
                             || record.diagnosis
@@ -677,8 +808,9 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                                         : <ChevronDown className="mt-1 size-4 shrink-0 text-slate-400" />}
                                 </button>
 
-                                {isExpanded && (
-                                    <div className="ml-0 mt-4 space-y-4 sm:ml-12">
+                                <div className={`medical-record-details ml-0 mt-4 space-y-4 sm:ml-12 ${isExpanded ? '' : 'hidden'}`}>
+                                        <MedicalRecordDataSections record={record} />
+
                                         {doctorNotes.length > 0 && (
                                             <div className="grid gap-3 md:grid-cols-2">
                                                 {doctorNotes.map((row, index) => (
@@ -710,7 +842,7 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                                         )}
 
                                         {attachments.length > 0 && (
-                                            <div className="no-print">
+                                            <div>
                                                 <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
                                                     <Camera className="size-4" />
                                                     Images and Documents
@@ -720,6 +852,7 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                                                         <MedicalRecordAttachmentCard
                                                             key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
                                                             attachment={attachment}
+                                                            index={index}
                                                             onPreview={onPreview}
                                                         />
                                                     ))}
@@ -727,7 +860,6 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                                             </div>
                                         )}
                                     </div>
-                                )}
                             </article>
                         );
                     })}
@@ -759,18 +891,26 @@ function VaccinationSection({ vaccinations }) {
                     {vaccinations.map((vaccine, index) => (
                         <div
                             key={vaccine.id || index}
-                            className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.7fr] md:items-center"
+                            className="px-5 py-4 text-sm"
                         >
-                            <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
-                            <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
-                            <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
-                            <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
-                            <div className="flex items-center justify-between gap-3 md:block">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
-                                <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
-                                    {vaccine.status || 'completed'}
-                                </Badge>
+                            <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_1fr_0.7fr] md:items-center">
+                                <VaccineCell label="Vaccine" value={vaccine.name || 'Unnamed vaccine'} strong />
+                                <VaccineCell label="Date Given" value={formatDisplayDate(vaccine.date)} />
+                                <VaccineCell label="Next Due" value={formatDisplayDate(vaccine.nextDue)} highlight />
+                                <VaccineCell label="Veterinarian" value={vaccine.applicator || vaccine.veterinarianName || 'N/A'} />
+                                <div className="flex items-center justify-between gap-3 md:block">
+                                    <span className="text-xs font-black uppercase tracking-widest text-slate-400 md:hidden">Status</span>
+                                    <Badge className={`w-fit border-0 ${vaccine.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+                                        {vaccine.status || 'completed'}
+                                    </Badge>
+                                </div>
                             </div>
+                            {(vaccine.veterinarianLicense || vaccine.notes) && (
+                                <div className="mt-3 grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:grid-cols-2">
+                                    {vaccine.veterinarianLicense && <PetInfo label="Veterinarian License" value={vaccine.veterinarianLicense} />}
+                                    {vaccine.notes && <PetInfo label="Vaccination Notes" value={vaccine.notes} />}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -923,6 +1063,116 @@ function PetInfo({ label, value, strong = false }) {
     );
 }
 
+function RecordField({ label, value }) {
+    return (
+        <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-700">{value || 'N/A'}</p>
+        </div>
+    );
+}
+
+function MedicalRecordDataSections({ record }) {
+    const references = recordReferenceRows(record);
+    const vitals = vitalSignRows(record?.vitalSigns);
+    const charges = asArray(record?.charges);
+    const totals = record?.totals || {};
+    const boarding = record?.boarding && typeof record.boarding === 'object' ? record.boarding : null;
+    const boardingTasks = asArray(boarding?.tasks);
+    const boardingObservations = asArray(boarding?.observations);
+    const hasBilling = charges.length > 0 || Number(totals.charges || totals.paid || totals.balance) > 0;
+
+    if (references.length === 0 && vitals.length === 0 && !hasBilling && !boarding) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-3">
+            {(references.length > 0 || vitals.length > 0) && (
+                <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2">
+                    {references.length > 0 && (
+                        <div>
+                            <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">Record References</p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {references.map(row => <RecordField key={row.label} label={row.label} value={row.value} />)}
+                            </div>
+                        </div>
+                    )}
+                    {vitals.length > 0 && (
+                        <div>
+                            <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">Vital Signs</p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {vitals.map(row => <RecordField key={row.label} label={row.label} value={row.value} />)}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {hasBilling && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">Visit Charges and Payment Summary</p>
+                    {charges.length > 0 && (
+                        <div className="space-y-2">
+                            {charges.map((charge, index) => (
+                                <div key={charge.chargeId || index} className="grid gap-1 rounded-md bg-slate-50 p-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                                    <span className="font-semibold text-slate-700">{charge.description || charge.serviceName || charge.itemName || humanizeKey(charge.chargeType)}</span>
+                                    <span className="text-xs font-semibold text-slate-500">{charge.quantity || 1} × {formatPhpCurrency(charge.unitPrice || 0)}</span>
+                                    <span className="font-black text-slate-800">{formatPhpCurrency(charge.subtotal || 0)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-3">
+                        <RecordField label="Total Charges" value={formatPhpCurrency(totals.charges || 0)} />
+                        <RecordField label="Paid" value={formatPhpCurrency(totals.paid || 0)} />
+                        <RecordField label="Balance" value={formatPhpCurrency(totals.balance || 0)} />
+                    </div>
+                </div>
+            )}
+
+            {boarding && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">Confinement / Boarding Details</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <RecordField label="Facility" value={humanizeKey(boarding.facility)} />
+                        <RecordField label="Room / Unit" value={boarding.roomLabel || boarding.roomSize} />
+                        <RecordField label="Check In" value={formatDisplayDateTime(boarding.actualCheckInAt || boarding.checkInDate)} />
+                        <RecordField label="Check Out" value={formatDisplayDateTime(boarding.actualCheckOutAt || boarding.checkOutDate)} />
+                    </div>
+                    {boardingObservations.length > 0 && (
+                        <div className="mt-4">
+                            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Monitoring Observations</p>
+                            <div className="space-y-2">
+                                {boardingObservations.map((observation, index) => (
+                                    <p key={observation.observation_id || observation.id || index} className="whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-sm font-semibold text-slate-700">
+                                        {[observation.type || observation.observation_type, observation.notes, formatDisplayDateTime(observation.observed_at || observation.created_at)].filter(Boolean).join(' | ')}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {boardingTasks.length > 0 && (
+                        <div className="mt-4">
+                            <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Care Tasks</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {boardingTasks.map((task, index) => (
+                                    <div key={task.task_id || task.id || index} className="rounded-md bg-slate-50 p-2">
+                                        <p className="text-sm font-bold text-slate-800">{humanizeKey(task.type || task.task_type) || `Task ${index + 1}`}</p>
+                                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                                            {[humanizeKey(task.status), task.notes, formatDisplayDateTime(task.completed_at || task.scheduled_at)].filter(Boolean).join(' | ')}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function OrganizedGroup({ group, onPreview, highlightedTarget }) {
     const targetId = `medical-group-${group.groupId}`;
 
@@ -972,14 +1222,8 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
     const source = item.sourceSnapshot || {};
     const targetId = `medical-item-${item.itemId}`;
     const doctorNotes = doctorNoteRows(source);
-    const attachments = [
-        ...asArray(source.attachments),
-        ...asArray(source.sourceUploads)
-    ];
-    const prescriptions = [
-        ...asArray(source.prescriptions),
-        ...asArray(source.customSections).flatMap(section => asArray(section.prescriptions || section.prescription))
-    ];
+    const attachments = collectRecordAttachments(source);
+    const prescriptions = collectRecordPrescriptions(source);
 
     return (
         <section
@@ -1019,6 +1263,10 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
                 </div>
             )}
 
+            <div className="mt-4">
+                <MedicalRecordDataSections record={source} />
+            </div>
+
             {doctorNotes.length > 0 && (
                 <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
@@ -1056,7 +1304,7 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
             )}
 
             {attachments.length > 0 && (
-                <div className="mt-4 no-print">
+                <div className="mt-4">
                     <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
                         <Camera className="size-4" />
                         Images and Documents
@@ -1066,6 +1314,7 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
                             <MedicalRecordAttachmentCard
                                 key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
                                 attachment={attachment}
+                                index={index}
                                 onPreview={onPreview}
                             />
                         ))}

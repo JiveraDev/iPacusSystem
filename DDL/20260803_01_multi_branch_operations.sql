@@ -268,7 +268,7 @@ FROM branches b
 JOIN (
     SELECT 'vaccination' AS service_key, 'Vaccination' AS service_label
     UNION ALL SELECT 'grooming', 'Grooming'
-    UNION ALL SELECT 'boarding', 'Pet Hotel and Kennel Boarding'
+    UNION ALL SELECT 'boarding', 'Pet Hotel and Confinement Boarding'
     UNION ALL SELECT 'lab-testing', 'Laboratory Testing'
     UNION ALL SELECT 'parasite-control', 'Parasite Control'
 ) service
@@ -496,7 +496,7 @@ CALL ipawcus_mb_add_constraint('room_unit_statuses', 'room_unit_status_branch_fk
     'FOREIGN KEY (`branch_id`) REFERENCES `branches` (`branch_id`)');
 
 INSERT INTO room_unit_statuses (branch_id, room_type, room_number, status, notes)
-SELECT r.branch_id, r.room_type, numbers.room_number, 'available', 'Initial branch room/kennel unit'
+SELECT r.branch_id, r.room_type, numbers.room_number, 'available', 'Initial branch hotel/confinement unit'
 FROM rooms r
 JOIN (SELECT 1 AS room_number) numbers
 WHERE r.total_capacity >= numbers.room_number

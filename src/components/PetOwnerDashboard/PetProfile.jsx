@@ -276,7 +276,7 @@ export default function PetProfile() {
   };
 
   const getBoardingStayLabel = (type) => {
-    return type === "hotel" ? "Pet Hotel Boarding" : "Kennel Boarding";
+    return type === "hotel" ? "Pet Hotel Boarding" : "Confinement Boarding";
   };
 
   const getQueueStatusBadge = (status) => {
@@ -494,7 +494,7 @@ export default function PetProfile() {
                 <p className="font-semibold">{getBoardingStayLabel(booking.hotelBoardingType)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Room / Kennel Size</p>
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Room / Confinement Size</p>
                 <p className="font-semibold capitalize">{booking.roomSize || "Not set"}</p>
               </div>
               <div>

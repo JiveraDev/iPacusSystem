@@ -75,10 +75,10 @@ If submission fails, return to every highlighted field. The error toast names th
 
 Payment method selection is required for Special Services and is validated by both the page and the server.
 
-### 5. Book Pet Hotel or Kennel Boarding
+### 5. Book Pet Hotel Boarding
 
 1. Open **Services**, then select **Pet Hotel**.
-2. Choose the pet and the appropriate kennel or hotel option.
+2. Choose the pet and an available Pet Hotel room.
 3. Select the intended check-in and check-out dates.
 4. Complete care instructions, feeding details, medication details, emergency information, and required uploads.
 5. Review and sign the boarding consent.
@@ -159,9 +159,9 @@ Past calendar dates display as **Closed**. **Full** is reserved for dates whose 
 
 ### 4. Manage Boarding Operations
 
-1. Open **Pet Hotel & Kennel Boarding Management**.
+1. Open **Pet Hotel & Confinement Boarding Management**.
 2. Confirm the branch shown in the grouped page header.
-3. Switch between **Kennel Boarding** and **Pet Hotel Boarding**.
+3. Switch between **Confinement Boarding** and **Pet Hotel Boarding**.
 4. Review available, reserved, occupied, and maintenance units.
 5. Assign a confirmed booking to an appropriate unit.
 6. Complete check-in and verify consent, owner contact details, pet care instructions, and desired check-out.
@@ -367,4 +367,3 @@ Pet Owner submits request, proof, and transaction number → Admin reviews image
 - If an online call cannot be opened, confirm that the booking is confirmed and the veterinarian has started the room.
 - If the call is completed, return to the consultation list; closed rooms cannot be reopened.
 - On mobile consultation pages, scroll within the page to reach the remaining controls.
-

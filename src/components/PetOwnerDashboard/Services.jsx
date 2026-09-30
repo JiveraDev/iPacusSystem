@@ -86,7 +86,7 @@ const services = [
     },
     {
         id: 'pet-hotel',
-        title: 'Pet Hotel & Boarding',
+        title: 'Pet Hotel Boarding',
         description: 'Supervised accommodation and daily care for your pet.',
         icon: Hotel,
         pet: 'bunny',

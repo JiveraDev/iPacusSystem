@@ -40,7 +40,6 @@ import {
 import logo from "../assets/circular_logo.png";
 import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboardRouter.jsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { toast } from "../reusecomponent/toast.jsx";
 import NotificationBell from "./shared/NotificationBell.jsx";
 import ProtectedImage from "./shared/ProtectedImage.jsx";
 import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
@@ -786,7 +785,6 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
   const confirmLogout = () => {
     setIsLogoutDialogOpen(false);
     clearSessionFormDraftsForUser(user);
-    toast.success("Logged out successfully.");
     onLogout?.();
   };
 

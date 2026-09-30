@@ -35,7 +35,7 @@ export default function InventoryStatusBadge({ status, count }) {
   const config = variants[status];
 
   return (
-    <Badge className={config.className}>
+    <Badge className={`${config.className} whitespace-nowrap`}>
       {config.text}
       {count !== undefined && ` (${count})`}
     </Badge>

@@ -2,7 +2,6 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
-require_once __DIR__ . '/inventory_invoice_helpers.php';
 
 $inventoryCurrentUser = ipawcus_guard_current_user($pdo);
 
@@ -42,7 +41,7 @@ function inventoryAssertItemMutationAccess(PDO $pdo, int $itemId, int $primaryLo
     global $inventoryCurrentUser;
     inventoryAssertLocationAccess($pdo, $primaryLocationId);
 
-    // Product metadata and permanent deletion affect every batch for the item.
+    // Product metadata and archival affect every batch for the item.
     // An Admin may therefore mutate the product only when every existing batch
     // belongs to a branch assigned to that Admin. Super Admin retains full scope.
     $stmt = $pdo->prepare('SELECT DISTINCT location.branch_id
@@ -81,6 +80,84 @@ function inventoryColumnExists(PDO $pdo, string $tableName, string $columnName):
     $cache[$cacheKey] = (int)$stmt->fetchColumn() > 0;
 
     return $cache[$cacheKey];
+}
+
+function inventoryBranchCatalogReady(PDO $pdo): bool
+{
+    if (!ipawcus_guard_table_exists($pdo, 'inventory_branch_items')) {
+        return false;
+    }
+
+    foreach ([
+        'branch_id',
+        'item_id',
+        'primary_location_id',
+        'status',
+        'removed_at',
+        'removed_by_user_id',
+        'removal_reason',
+    ] as $columnName) {
+        if (!inventoryColumnExists($pdo, 'inventory_branch_items', $columnName)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function inventoryRequireBranchCatalog(PDO $pdo): void
+{
+    if (!inventoryBranchCatalogReady($pdo)) {
+        ipawcus_guard_error(
+            409,
+            'Run DDL/20260930_01_inventory_branch_catalog.sql before using branch inventory.'
+        );
+    }
+}
+
+function inventoryActivateBranchItem(PDO $pdo, int $itemId, int $locationId): int
+{
+    inventoryRequireBranchCatalog($pdo);
+    $branchId = inventoryAssertLocationAccess($pdo, $locationId);
+    $stmt = $pdo->prepare("
+        INSERT INTO inventory_branch_items (
+            branch_id,
+            item_id,
+            primary_location_id,
+            status,
+            removed_at,
+            removed_by_user_id,
+            removal_reason
+        ) VALUES (?, ?, ?, 'active', NULL, NULL, NULL)
+        ON DUPLICATE KEY UPDATE
+            primary_location_id = VALUES(primary_location_id),
+            status = 'active',
+            removed_at = NULL,
+            removed_by_user_id = NULL,
+            removal_reason = NULL
+    ");
+    $stmt->execute([$branchId, $itemId, $locationId]);
+
+    return $branchId;
+}
+
+function inventoryAssertBranchItemActive(PDO $pdo, int $itemId, int $branchId, bool $forUpdate = false): array
+{
+    inventoryRequireBranchCatalog($pdo);
+    $stmt = $pdo->prepare("
+        SELECT branch_id, item_id, primary_location_id, status
+        FROM inventory_branch_items
+        WHERE branch_id = ? AND item_id = ?
+        LIMIT 1
+        " . ($forUpdate ? 'FOR UPDATE' : '')
+    );
+    $stmt->execute([$branchId, $itemId]);
+    $branchItem = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$branchItem || (string)$branchItem['status'] !== 'active') {
+        throw new InvalidArgumentException('This product is not active at the selected clinic. Refresh the inventory list and try again.');
+    }
+
+    return $branchItem;
 }
 
 function inventoryUser(PDO $pdo, $userId): array
@@ -370,12 +447,16 @@ function inventoryResolveSupplierId(PDO $pdo, array $input): int
 
 function getInventoryItems(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $branchId = inventoryRequestedBranchId($pdo);
     $stockedOnly = filter_var($_GET['stockedOnly'] ?? $_GET['stocked_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $includeArchived = filter_var($_GET['includeArchived'] ?? $_GET['include_archived'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $itemStatusCondition = $includeArchived
         ? "i.status IN ('active', 'inactive')"
         : "i.status = 'active'";
+    $branchItemStatusCondition = $includeArchived
+        ? "branch_item.status IN ('active', 'inactive')"
+        : "branch_item.status = 'active'";
     $stockedOnlyCondition = $stockedOnly
         ? " AND EXISTS (
                 SELECT 1
@@ -391,6 +472,7 @@ function getInventoryItems(PDO $pdo): void
     $stmt = $pdo->prepare("
         SELECT
             i.*,
+            branch_item.status AS branch_item_status,
             branch.branch_name,
             item_location.location_id AS scoped_location_id,
             item_location.location_name AS item_location_name,
@@ -439,37 +521,25 @@ function getInventoryItems(PDO $pdo): void
                 SELECT s.supplier_name
                 FROM inventory_stock_receipt_items sri
                 JOIN inventory_suppliers s ON s.supplier_id = sri.supplier_id
+                JOIN inventory_locations supplier_location ON supplier_location.location_id = sri.location_id
                 WHERE sri.item_id = i.item_id
+                  AND supplier_location.branch_id = ?
                 ORDER BY sri.receipt_item_id DESC
                 LIMIT 1
             ) AS last_supplier
         FROM inventory_items i
-        JOIN branches branch ON branch.branch_id = ?
+        JOIN inventory_branch_items branch_item
+          ON branch_item.item_id = i.item_id
+         AND branch_item.branch_id = ?
+         AND {$branchItemStatusCondition}
+        JOIN branches branch ON branch.branch_id = branch_item.branch_id
         LEFT JOIN inventory_locations item_location
-          ON item_location.location_id = COALESCE(
-              (
-                  SELECT scoped_batch.location_id
-                  FROM inventory_batches scoped_batch
-                  JOIN inventory_locations scoped_location
-                    ON scoped_location.location_id = scoped_batch.location_id
-                  WHERE scoped_batch.item_id = i.item_id
-                    AND scoped_location.branch_id = ?
-                  ORDER BY (scoped_batch.quantity > 0) DESC, scoped_batch.batch_id DESC
-                  LIMIT 1
-              ),
-              (
-                  SELECT fallback_location.location_id
-                  FROM inventory_locations fallback_location
-                  WHERE fallback_location.branch_id = ?
-                    AND fallback_location.status = 'active'
-                  ORDER BY fallback_location.location_id
-                  LIMIT 1
-              )
-          )
+          ON item_location.location_id = branch_item.primary_location_id
+         AND item_location.branch_id = branch_item.branch_id
         WHERE {$itemStatusCondition}{$stockedOnlyCondition}
         ORDER BY i.item_name ASC
     ");
-    $params = [$branchId, $branchId, $branchId, $branchId, $branchId, $branchId, $branchId];
+    $params = [$branchId, $branchId, $branchId, $branchId, $branchId, $branchId];
     if ($stockedOnly) $params[] = $branchId;
     $stmt->execute($params);
     $items = $stmt->fetchAll();
@@ -516,8 +586,8 @@ function getInventoryItems(PDO $pdo): void
         return [
             'id' => (string)$itemId,
             'itemId' => $itemId,
-            'recordStatus' => $item['status'],
-            'isArchived' => strtolower((string)$item['status']) === 'inactive',
+            'recordStatus' => $item['branch_item_status'],
+            'isArchived' => strtolower((string)$item['branch_item_status']) === 'inactive',
             'image' => $item['profile_image_path'] ? '/' . ltrim($item['profile_image_path'], '/') : '',
             'name' => $item['item_name'],
             'genericName' => $item['generic_name'],
@@ -607,6 +677,7 @@ function getInventoryMeta(PDO $pdo): void
 
 function createInventoryItem(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'create_item');
     $user = $confirmation;
@@ -684,6 +755,7 @@ function createInventoryItem(PDO $pdo): void
         $stmt->execute($itemValues);
 
         $itemId = (int)$pdo->lastInsertId();
+        inventoryActivateBranchItem($pdo, $itemId, $locationId);
         $quantity = (int)($input['quantity'] ?? 0);
         if ($quantity < 0) {
             throw new Exception('Initial quantity cannot be negative.');
@@ -770,6 +842,7 @@ function createInventoryItem(PDO $pdo): void
 
 function createStockIn(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'stock_in');
     $user = $confirmation;
@@ -839,6 +912,7 @@ function createStockIn(PDO $pdo): void
             if (!$itemName) {
                 throw new InvalidArgumentException('A selected inventory product is no longer active.');
             }
+            inventoryActivateBranchItem($pdo, $itemId, $locationId);
             $batchNumber = inventoryOptionalText($line['batch_number'] ?? null)
                 ?: inventoryGenerateBatchNumber($pdo, $itemId, (string)$itemName);
 
@@ -971,6 +1045,7 @@ function createStockIn(PDO $pdo): void
 
 function createStockOut(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'stock_out', true);
     $user = $confirmation;
@@ -1004,7 +1079,8 @@ function createStockOut(PDO $pdo): void
             throw new Exception('Batch was not found.');
         }
         $locationId = (int)$batch['location_id'];
-        inventoryAssertLocationAccess($pdo, $locationId);
+        $branchId = inventoryAssertLocationAccess($pdo, $locationId);
+        inventoryAssertBranchItemActive($pdo, (int)$input['item_id'], $branchId, true);
 
         $before = (int)$batch['quantity'];
         if ($quantity > $before) {
@@ -1055,6 +1131,7 @@ function createStockOut(PDO $pdo): void
 
 function updateInventoryItem(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'update_item');
 
@@ -1064,9 +1141,11 @@ function updateInventoryItem(PDO $pdo): void
         echo json_encode(['message' => 'item_id is required.']);
         return;
     }
+    $branchId = inventoryRequestedBranchId($pdo);
 
     $fields = [];
     $values = [];
+    $branchLocationId = null;
 
     $textFields = [
         'item_name' => ['column' => 'item_name', 'required' => true, 'max' => 180],
@@ -1133,12 +1212,13 @@ function updateInventoryItem(PDO $pdo): void
     }
 
     if (array_key_exists('location_id', $input) || inventoryOptionalText($input['location_name'] ?? null)) {
-        $locationId = inventoryResolveLocationId($pdo, $input);
-        $fields[] = 'location_id = ?';
-        $values[] = $locationId;
+        $branchLocationId = inventoryResolveLocationId($pdo, $input);
+        if (inventoryAssertLocationAccess($pdo, $branchLocationId) !== $branchId) {
+            ipawcus_guard_error(409, 'The selected inventory location does not belong to this clinic.');
+        }
     }
 
-    if (empty($fields)) {
+    if (empty($fields) && $branchLocationId === null) {
         http_response_code(400);
         echo json_encode(['message' => 'Nothing to update.']);
         return;
@@ -1159,12 +1239,28 @@ function updateInventoryItem(PDO $pdo): void
         $pdo->rollBack();
         ipawcus_guard_error(404, 'Inventory item was not found.');
     }
-    inventoryAssertItemMutationAccess($pdo, $itemId, (int)$before['location_id']);
+    $branchItemBefore = inventoryAssertBranchItemActive($pdo, $itemId, $branchId, true);
+    if (!empty($fields)) {
+        inventoryAssertItemMutationAccess($pdo, $itemId, (int)$before['location_id']);
+    }
 
     try {
-        $values[] = $itemId;
-        $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $fields) . " WHERE item_id = ?");
-        $stmt->execute($values);
+        if (!empty($fields)) {
+            $values[] = $itemId;
+            $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $fields) . " WHERE item_id = ?");
+            $stmt->execute($values);
+        }
+        if ($branchLocationId !== null) {
+            $locationStmt = $pdo->prepare("
+                UPDATE inventory_branch_items
+                SET primary_location_id = ?
+                WHERE branch_id = ? AND item_id = ? AND status = 'active'
+            ");
+            $locationStmt->execute([$branchLocationId, $branchId, $itemId]);
+            if ($locationStmt->rowCount() > 1) {
+                throw new RuntimeException('The clinic inventory location could not be updated safely.');
+            }
+        }
 
         $afterStmt = $pdo->prepare("
             SELECT item_id, item_name, generic_name, barcode, description, category, brand, unit,
@@ -1175,14 +1271,21 @@ function updateInventoryItem(PDO $pdo): void
         ");
         $afterStmt->execute([$itemId]);
         $after = $afterStmt->fetch(PDO::FETCH_ASSOC);
+        $effectiveBranchLocationId = $branchLocationId ?? (int)$branchItemBefore['primary_location_id'];
         inventoryWriteAudit(
             $pdo,
             $confirmation,
             $itemId,
             null,
-            (int)($after['location_id'] ?? $before['location_id']),
-            $before,
-            $after
+            $effectiveBranchLocationId,
+            array_merge($before, [
+                'branch_id' => $branchId,
+                'branch_location_id' => (int)$branchItemBefore['primary_location_id'],
+            ]),
+            array_merge($after, [
+                'branch_id' => $branchId,
+                'branch_location_id' => $effectiveBranchLocationId,
+            ])
         );
         $pdo->commit();
         echo json_encode(['message' => 'Inventory item updated.']);
@@ -1195,80 +1298,140 @@ function updateInventoryItem(PDO $pdo): void
 
 function deleteInventoryItem(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'delete_item', true);
-    $itemId = (int)($input['item_id'] ?? 0);
-    if ($itemId <= 0) {
-        ipawcus_guard_error(422, 'Select an inventory item to delete.');
+    $branchId = inventoryRequestedBranchId($pdo);
+    $itemIds = [];
+    foreach ((array)($input['item_ids'] ?? []) as $candidateId) {
+        if (is_numeric($candidateId) && (int)$candidateId > 0) {
+            $itemIds[] = (int)$candidateId;
+        }
+    }
+    $singleItemId = (int)($input['item_id'] ?? 0);
+    if ($singleItemId > 0) {
+        $itemIds[] = $singleItemId;
+    }
+    $itemIds = array_values(array_unique($itemIds));
+    if (!$itemIds) {
+        ipawcus_guard_error(422, 'Select at least one inventory product to remove.');
+    }
+    if (count($itemIds) > 500) {
+        ipawcus_guard_error(422, 'Remove no more than 500 inventory products at one time.');
     }
 
     $pdo->beginTransaction();
     try {
+        $placeholders = implode(', ', array_fill(0, count($itemIds), '?'));
         $itemStmt = $pdo->prepare("
             SELECT item_id, item_name, sku, status, location_id
             FROM inventory_items
-            WHERE item_id = ?
-            LIMIT 1
+            WHERE item_id IN ({$placeholders})
+            ORDER BY item_id
             FOR UPDATE
         ");
-        $itemStmt->execute([$itemId]);
-        $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$item) {
-            throw new InvalidArgumentException('Inventory item was not found.');
+        $itemStmt->execute($itemIds);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($items) !== count($itemIds)) {
+            throw new InvalidArgumentException('One or more selected inventory products were not found. Refresh the list and try again.');
         }
-        inventoryAssertItemMutationAccess($pdo, $itemId, (int)$item['location_id']);
-        $quantityStmt = $pdo->prepare('SELECT quantity FROM inventory_batches WHERE item_id = ? FOR UPDATE');
-        $quantityStmt->execute([$itemId]);
-        $quantity = array_sum(array_map('intval', $quantityStmt->fetchAll(PDO::FETCH_COLUMN)));
-
-        $protectedReferences = [
-            'service_materials' => 'service definitions',
-        ];
-        foreach ($protectedReferences as $tableName => $description) {
-            if (!ipawcus_guard_table_exists($pdo, $tableName) || !inventoryColumnExists($pdo, $tableName, 'item_id')) {
-                continue;
-            }
-            $referenceStmt = $pdo->prepare("SELECT COUNT(*) FROM {$tableName} WHERE item_id = ?");
-            $referenceStmt->execute([$itemId]);
-            if ((int)$referenceStmt->fetchColumn() > 0) {
-                throw new InvalidArgumentException('This product is still configured as a service material. Replace or remove it in Service Catalog before deleting it.');
+        foreach ($items as $item) {
+            if ((string)$item['status'] !== 'active') {
+                throw new InvalidArgumentException($item['item_name'] . ' is no longer active. Refresh the list and try again.');
             }
         }
 
-        $preservedInvoiceChargeIds = [];
-        if (ipawcus_guard_table_exists($pdo, 'visit_charges') && inventoryColumnExists($pdo, 'visit_charges', 'item_id')) {
-            $preservedInvoiceChargeIds = inventoryDetachInvoiceReferences($pdo, $itemId, (string)$item['item_name']);
+        $branchItemStmt = $pdo->prepare("
+            SELECT item_id, primary_location_id, status
+            FROM inventory_branch_items
+            WHERE branch_id = ?
+              AND item_id IN ({$placeholders})
+            ORDER BY item_id
+            FOR UPDATE
+        ");
+        $branchItemStmt->execute(array_merge([$branchId], $itemIds));
+        $branchItems = $branchItemStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($branchItems) !== count($itemIds)) {
+            throw new InvalidArgumentException('One or more selected products do not belong to this clinic inventory. Refresh the list and try again.');
+        }
+        $branchItemsById = [];
+        foreach ($branchItems as $branchItem) {
+            if ((string)$branchItem['status'] !== 'active') {
+                throw new InvalidArgumentException('One or more selected products are already removed from this clinic inventory. Refresh the list and try again.');
+            }
+            $branchItemsById[(int)$branchItem['item_id']] = $branchItem;
         }
 
-        inventoryWriteAudit(
-            $pdo,
-            $confirmation,
-            $itemId,
-            null,
-            (int)$item['location_id'],
-            array_merge($item, ['quantity' => $quantity, 'preserved_invoice_charge_ids' => $preservedInvoiceChargeIds]),
-            null
-        );
+        $quantityStmt = $pdo->prepare("
+            SELECT batch.item_id, batch.quantity
+            FROM inventory_batches batch
+            JOIN inventory_locations location ON location.location_id = batch.location_id
+            WHERE batch.item_id IN ({$placeholders})
+              AND location.branch_id = ?
+            ORDER BY batch.item_id, batch.batch_id
+            FOR UPDATE
+        ");
+        $quantityStmt->execute(array_merge($itemIds, [$branchId]));
+        $quantityByItem = [];
+        foreach ($quantityStmt->fetchAll(PDO::FETCH_ASSOC) as $quantityRow) {
+            $quantityItemId = (int)$quantityRow['item_id'];
+            $quantityByItem[$quantityItemId] = ($quantityByItem[$quantityItemId] ?? 0) + (int)$quantityRow['quantity'];
+        }
 
-        if (ipawcus_guard_table_exists($pdo, 'inventory_transfer_items')) {
-            $deleteTransferItems = $pdo->prepare('DELETE FROM inventory_transfer_items WHERE item_id = ?');
-            $deleteTransferItems->execute([$itemId]);
+        $removeItems = $pdo->prepare("
+            UPDATE inventory_branch_items
+            SET status = 'inactive',
+                removed_at = NOW(),
+                removed_by_user_id = ?,
+                removal_reason = ?
+            WHERE branch_id = ?
+              AND item_id IN ({$placeholders})
+              AND status = 'active'
+        ");
+        $removeItems->execute(array_merge([
+            (int)$confirmation['user_id'],
+            $confirmation['reason'],
+            $branchId,
+        ], $itemIds));
+        if ($removeItems->rowCount() !== count($itemIds)) {
+            throw new RuntimeException('The clinic inventory changed while the products were being removed. Refresh the list and try again.');
         }
-        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_receipt_items')) {
-            $deleteReceiptItems = $pdo->prepare('DELETE FROM inventory_stock_receipt_items WHERE item_id = ?');
-            $deleteReceiptItems->execute([$itemId]);
+
+        foreach ($items as $item) {
+            $itemId = (int)$item['item_id'];
+            $branchItem = $branchItemsById[$itemId];
+            inventoryWriteAudit(
+                $pdo,
+                $confirmation,
+                $itemId,
+                null,
+                (int)$branchItem['primary_location_id'],
+                array_merge($item, [
+                    'branch_id' => $branchId,
+                    'branch_status' => 'active',
+                    'quantity' => $quantityByItem[$itemId] ?? 0,
+                ]),
+                [
+                    'item_id' => $itemId,
+                    'item_name' => $item['item_name'],
+                    'branch_id' => $branchId,
+                    'branch_status' => 'inactive',
+                    'other_clinics_unchanged' => true,
+                    'historical_records_preserved' => true,
+                ]
+            );
         }
-        if (ipawcus_guard_table_exists($pdo, 'inventory_stock_movements')) {
-            $deleteMovements = $pdo->prepare('DELETE FROM inventory_stock_movements WHERE item_id = ?');
-            $deleteMovements->execute([$itemId]);
-        }
-        $deleteBatches = $pdo->prepare('DELETE FROM inventory_batches WHERE item_id = ?');
-        $deleteBatches->execute([$itemId]);
-        $deleteItem = $pdo->prepare('DELETE FROM inventory_items WHERE item_id = ?');
-        $deleteItem->execute([$itemId]);
 
         $pdo->commit();
-        echo json_encode(['message' => 'Inventory item permanently deleted. Existing invoice records were preserved.']);
+        $count = count($items);
+        echo json_encode([
+            'message' => $count === 1
+                ? 'Inventory product removed from this clinic only. Other clinics and historical records were preserved.'
+                : "{$count} inventory products were removed from this clinic only. Other clinics and historical records were preserved.",
+            'archived_count' => $count,
+            'removed_count' => $count,
+            'branch_id' => $branchId,
+        ]);
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $error instanceof InvalidArgumentException ? 409 : 500;
@@ -1279,6 +1442,7 @@ function deleteInventoryItem(PDO $pdo): void
 
 function transferInventoryStock(PDO $pdo): void
 {
+    inventoryRequireBranchCatalog($pdo);
     $input = inventoryInput();
     $confirmation = inventoryConfirmResponsibility($pdo, $input, 'transfer_stock', true);
     $itemId = (int)($input['item_id'] ?? 0);
@@ -1312,6 +1476,7 @@ function transferInventoryStock(PDO $pdo): void
 
         $sourceLocationId = (int)$source['location_id'];
         $sourceBranchId = inventoryAssertLocationAccess($pdo, $sourceLocationId);
+        inventoryAssertBranchItemActive($pdo, $itemId, $sourceBranchId, true);
         $destinationBranchId = inventoryAssertLocationAccess($pdo, $destinationLocationId);
         if ($sourceLocationId === $destinationLocationId) {
             throw new InvalidArgumentException('Choose a different destination location.');

@@ -36,7 +36,11 @@ export async function uploadDocumentFile(file, type, options = {}) {
     if (returnMetadata) {
         return {
             path,
-            uploadReceipt: data.upload_receipt || null
+            uploadReceipt: data.upload_receipt || null,
+            originalName: data.original_name || file.name || '',
+            displayName: data.display_name || file.name || '',
+            storedFileName: data.stored_file_name || '',
+            mimeType: data.mime_type || file.type || ''
         };
     }
 

@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Input } from '../../ui/input';
-import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2, ListChecks, Scissors } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Search, ImageIcon, UserCheck, Loader2, ListChecks, Scissors, ChevronRight } from 'lucide-react';
 import AddQueueDialog from './AddQueueDialog';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
@@ -33,6 +33,52 @@ import { useNavigate } from '../dashboardRouter.jsx';
 
 function isGroomingQueue(item) {
     return ['grooming', 'pet grooming'].includes(String(item?.service_name || '').trim().toLowerCase());
+}
+
+function getQueueOwnerName(item) {
+    const registeredOwnerName = [item?.first_Name, item?.last_Name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    return item?.owner_name || registeredOwnerName || 'Owner not provided';
+}
+
+function getQueueSourceLabel(sourceValue) {
+    const source = String(sourceValue || 'admin').toLowerCase();
+
+    if (source === 'self_service') return 'Self service';
+    if (source === 'register') return 'On registration';
+    if (source === 'booking_management') return 'Booking';
+    return 'Admin entry';
+}
+
+function getQueueTime(value) {
+    if (!value) return 'Time not available';
+
+    const date = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return 'Time not available';
+
+    return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+}
+
+function getQueueAge(value) {
+    if (!value) return 'Wait time unavailable';
+
+    const date = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return 'Wait time unavailable';
+
+    const totalMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (totalMinutes < 1) return 'Just arrived';
+    if (totalMinutes < 60) return `${totalMinutes} min waiting`;
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes > 0 ? `${hours} hr ${minutes} min waiting` : `${hours} hr waiting`;
 }
 
 export default function QueueManagement() {
@@ -108,15 +154,6 @@ export default function QueueManagement() {
             }
             return newSet;
         });
-    };
-
-    const handleRowToggleKeyDown = (event, queueId) => {
-        if (event.key !== 'Enter' && event.key !== ' ') {
-            return;
-        }
-
-        event.preventDefault();
-        toggleRow(queueId);
     };
 
     const handleApprove = async (id) => {
@@ -256,7 +293,7 @@ export default function QueueManagement() {
                 value={value}
                 onValueChange={(nextValue) => setSelectedVetByQueue(current => ({ ...current, [String(item.queue_id)]: nextValue }))}
             >
-                <SelectTrigger className="h-8 min-w-[150px] bg-white text-xs">
+                <SelectTrigger className="h-8 min-w-[170px] bg-white text-xs dark:bg-slate-900">
                     <SelectValue
                         placeholder="Select vet"
                         displayValue={value ? getVetName(veterinarians.find(vet => getVetId(vet) === String(value)) || { veterinarian_name: item.veterinarian_name }) : ''}
@@ -320,18 +357,27 @@ export default function QueueManagement() {
         all: 'All Priorities',
     }[priorityFilter] || getQueuePriorityLabel(priorityFilter);
     const serviceFilterLabel = serviceFilter === 'all' ? 'All Services' : getServiceDisplayName(serviceFilter);
+    const hasActiveFilters = Boolean(
+        searchTerm.trim()
+        || priorityFilter !== 'all'
+        || serviceFilter !== 'all'
+        || (!branchFilterLocked && branchFilter !== 'all')
+    );
 
     const getStatusBadge = (status) => {
         const variants = {
-            'waiting': { variant: 'outline', icon: Clock, text: 'Waiting' },
-            'in-progress': { variant: 'default', icon: AlertCircle, text: 'In Progress' },
-            'completed': { variant: 'success', icon: CheckCircle2, text: 'Completed' },
-            'done': { variant: 'success', icon: CheckCircle2, text: 'Done' },
-            'cancelled': { variant: 'destructive', icon: XCircle, text: 'Cancelled' }
+            'waiting': { variant: 'outline', icon: Clock, text: 'Waiting', darkClassName: 'dark:border-slate-600 dark:text-slate-200' },
+            'in-progress': { variant: 'default', icon: AlertCircle, text: 'In Progress', darkClassName: 'dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-200' },
+            'completed': { variant: 'success', icon: CheckCircle2, text: 'Completed', darkClassName: 'dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' },
+            'done': { variant: 'success', icon: CheckCircle2, text: 'Done', darkClassName: 'dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' },
+            'cancelled': { variant: 'destructive', icon: XCircle, text: 'Cancelled', darkClassName: 'dark:border-red-900 dark:bg-red-950/60 dark:text-red-200' }
         };
-        const { variant, icon: Icon, text } = variants[status] || variants['waiting'];
+        const { variant, icon: Icon, text, darkClassName } = variants[status] || variants['waiting'];
         return (
-            <Badge variant={variant} className="flex items-center gap-1">
+            <Badge
+                variant={variant}
+                className={`inline-flex whitespace-nowrap ${darkClassName}`}
+            >
                 <Icon className="size-3" />
                 {text}
             </Badge>
@@ -341,22 +387,14 @@ export default function QueueManagement() {
     const getPriorityBadge = (priority) => {
         const normalizedPriority = normalizeQueuePriority(priority);
         if (normalizedPriority === 'urgent') return (
-            <Badge variant="destructive">Urgent</Badge>
+            <Badge variant="destructive" className="whitespace-nowrap dark:border-red-900 dark:bg-red-950/60 dark:text-red-200">Urgent</Badge>
         );
         // if (normalizedPriority === 'low-test') return (
         //     <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
         //         Low-test
         //     </Badge>
         // );
-        return <Badge variant="secondary">Normal</Badge>;
-    };
-
-    const getSourceBadge = (sourceValue) => {
-        const source = (sourceValue || 'admin').toLowerCase();
-        if (source === 'self_service') return <Badge variant="outline">Self Service</Badge>;
-        if (source === 'register') return <Badge variant="outline">On Register</Badge>;
-        if (source === 'booking_management') return <Badge variant="default" className="bg-[#155dfc]">Booking</Badge>;
-        return <Badge variant="secondary">Admin</Badge>;
+        return <Badge variant="secondary" className="whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Normal</Badge>;
     };
 
     const formatDateTime = (value) => formatDisplayDateTime(value);
@@ -365,8 +403,8 @@ export default function QueueManagement() {
         <div className="space-y-6 max-w-full overflow-hidden">
             <DashboardPageHeader
                 icon={ListChecks}
-                title="Current Queue"
-                description="Manage and track all patients in the queue."
+                title="Queue Management"
+                description="Review today's arrivals, assign care, and move patients through the queue."
                 layout="stacked"
                 meta={(
                     <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -430,209 +468,302 @@ export default function QueueManagement() {
                 )}
             />
 
-            {/* Active Table */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="w-full">
-                    <Table className="w-full table-auto">
-                        <TableHeader className="bg-slate-50/50">
+            <section
+                aria-labelledby="active-queue-heading"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+                <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div>
+                        <h2 id="active-queue-heading" className="text-sm font-bold text-slate-900 dark:text-white">Active queue</h2>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Today's patients waiting for approval or currently in service.</p>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        {activeQueue.length} {activeQueue.length === 1 ? 'patient' : 'patients'}
+                    </span>
+                </div>
+
+                <Table className="min-w-[1180px] table-fixed">
+                    <colgroup>
+                        <col className="w-[150px]" />
+                        <col className="w-[180px]" />
+                        <col className="w-[190px]" />
+                        <col className="w-[145px]" />
+                        <col className="w-[100px]" />
+                        <col className="w-[225px]" />
+                        <col className="w-[240px]" />
+                    </colgroup>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Queue</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead>Visit</TableHead>
+                            <TableHead>Arrived</TableHead>
+                            <TableHead>Priority</TableHead>
+                            <TableHead>Status / assignment</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
                             <TableRow>
-                                <TableHead className="w-10 text-center px-1">#</TableHead>
-                                <TableHead className="font-bold text-slate-900">Pet</TableHead>
-                                <TableHead className="hidden md:table-cell">Service</TableHead>
-                                <TableHead className="hidden lg:table-cell">Time</TableHead>
-                                <TableHead className="w-20">Priority</TableHead>
-                                <TableHead className="w-24">Status</TableHead>
-                                <TableHead className="text-right pr-4">Actions</TableHead>
+                                <TableCell colSpan={7} className="py-14 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-slate-500 dark:text-slate-400" role="status">
+                                        <Loader2 className="size-5 animate-spin text-blue-600" />
+                                        <span className="text-sm font-medium">Loading today's queue...</span>
+                                    </div>
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow><TableCell colSpan={7} className="text-center py-10">Loading queue data...</TableCell></TableRow>
-                            ) : activeQueue.length === 0 ? (
-                                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">No active queue entries</TableCell></TableRow>
-                            ) : activeQueue.flatMap(item => {
-                                const isExpanded = expandedRows.has(item.queue_id);
-                                return [
-                                    <TableRow
-                                        key={item.queue_id}
-                                        role="button"
-                                        tabIndex={0}
-                                        aria-expanded={isExpanded}
-                                        onClick={() => toggleRow(item.queue_id)}
-                                        onKeyDown={(event) => handleRowToggleKeyDown(event, item.queue_id)}
-                                        className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#155dfc] ${isExpanded ? "bg-blue-50/30" : "hover:bg-slate-50/50"}`}
-                                    >
-                                        <TableCell className="text-center font-bold text-slate-600 px-1">{formatQueueReference(item)}</TableCell>
-                                        <TableCell className="font-semibold text-slate-900">
-                                            <div className="truncate max-w-[80px] sm:max-w-none">{item.pet_name}</div>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-slate-600 text-sm truncate max-w-[120px]">
-                                            {getServiceDisplayName(item.service_name)}
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell text-slate-500 text-xs">
-                                            {formatDateTime(item.timestamp)}
-                                        </TableCell>
-                                        <TableCell>{getPriorityBadge(item.priority)}</TableCell>
-                                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                                        <TableCell className="text-right pr-4" onClick={(event) => event.stopPropagation()}>
-                                            <div className="flex flex-wrap justify-end gap-1.5">
-                                                {isGroomingQueue(item) ? (
-                                                    <>
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => openGroomingQueue(item)}
-                                                            disabled={updatingQueueId === item.queue_id}
-                                                            className="h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            {updatingQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Scissors className="mr-1 size-3" />}
-                                                            {item.status === 'waiting' ? 'Send to Grooming' : 'Open Grooming'}
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            onClick={() => setQueueToCancel(item)}
-                                                            disabled={updatingQueueId === item.queue_id}
-                                                            className="h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            <XCircle className="mr-1 size-3" />
-                                                            Cancel
-                                                        </Button>
-                                                    </>
-                                                ) : item.status === 'waiting' ? (
-                                                    <>
-                                                        <Button 
-                                                            size="sm" 
-                                                            onClick={() => handleApprove(item.queue_id)} 
-                                                            disabled={updatingQueueId === item.queue_id}
-                                                            className="bg-blue-600 hover:bg-blue-700 h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            {updatingQueueId === item.queue_id
-                                                                ? <Loader2 className="mr-1 size-3 animate-spin" />
-                                                                : <UserCheck className="mr-1 size-3" />}
-                                                            Approve
-                                                        </Button>
-                                                        <Button 
-                                                            size="sm" 
-                                                            variant="destructive" 
-                                                            onClick={() => setQueueToCancel(item)}
-                                                            disabled={updatingQueueId === item.queue_id}
-                                                            className="h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            <XCircle className="mr-1 size-3" />
-                                                            Cancel
-                                                        </Button>
-                                                    </>
-                                                ) : item.status === 'in-progress' && (
-                                                    <>
-                                                        {renderVetSelect(item)}
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                const selectedVetId = getSelectedVetId(item.queue_id, item);
-                                                                if (!selectedVetId) {
-                                                                    toast.error('Select a veterinarian before assigning this queue.');
-                                                                    return;
-                                                                }
-                                                                assignQueueToVet(item.queue_id, selectedVetId, 'Reassigned by admin from queue management');
-                                                            }}
-                                                            disabled={assigningQueueId === item.queue_id}
-                                                            className="h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            {assigningQueueId === item.queue_id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <UserCheck className="mr-1 size-3" />}
-                                                            {item.has_active_assignment ? 'Reassign' : 'Assign'}
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            onClick={() => setQueueToCancel(item)}
-                                                            disabled={
-                                                                assigningQueueId === item.queue_id
-                                                                || updatingQueueId === item.queue_id
+                        ) : activeQueue.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-14 text-center">
+                                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                                        <div className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                                            <ListChecks className="size-5" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                            {hasActiveFilters ? 'No queue entries match these filters' : 'No active queue entries'}
+                                        </p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            {hasActiveFilters ? 'Try changing the search or filter selections.' : 'New arrivals will appear here automatically.'}
+                                        </p>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : activeQueue.flatMap(item => {
+                            const isExpanded = expandedRows.has(item.queue_id);
+                            const detailsId = `queue-${item.queue_id}-details`;
+
+                            return [
+                                <TableRow key={item.queue_id} data-state={isExpanded ? 'selected' : undefined}>
+                                    <TableCell>
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <button
+                                                type="button"
+                                                aria-expanded={isExpanded}
+                                                aria-controls={detailsId}
+                                                aria-label={`${isExpanded ? 'Hide' : 'Show'} details for ${formatQueueReference(item)}`}
+                                                onClick={() => toggleRow(item.queue_id)}
+                                                className="flex size-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                                            >
+                                                <ChevronRight
+                                                    className={`size-4 transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-90' : ''}`}
+                                                />
+                                            </button>
+                                            <div className="min-w-0">
+                                                <p className="truncate font-bold text-slate-900 dark:text-white">{formatQueueReference(item)}</p>
+                                                <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{getQueueSourceLabel(item.queue_source)}</p>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="truncate font-semibold text-slate-900 dark:text-white" title={item.pet_name || ''}>{item.pet_name || 'Unnamed pet'}</p>
+                                        <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400" title={getQueueOwnerName(item)}>{getQueueOwnerName(item)}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="truncate font-medium text-slate-800 dark:text-slate-100" title={getServiceDisplayName(item.service_name)}>{getServiceDisplayName(item.service_name)}</p>
+                                        <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400" title={item.branch_name || 'Main Clinic'}>{item.branch_name || 'Main Clinic'}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="whitespace-nowrap font-medium text-slate-800 dark:text-slate-100">{getQueueTime(item.timestamp)}</p>
+                                        <p className="mt-0.5 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">{getQueueAge(item.timestamp)}</p>
+                                    </TableCell>
+                                    <TableCell>{getPriorityBadge(item.priority)}</TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col items-start gap-2">
+                                            {getStatusBadge(item.status)}
+                                            {item.status === 'in-progress' && !isGroomingQueue(item) ? renderVetSelect(item) : null}
+                                            {isGroomingQueue(item) ? (
+                                                <span className="text-xs text-slate-500 dark:text-slate-400">Grooming workflow</span>
+                                            ) : item.status === 'waiting' ? (
+                                                <span className="text-xs text-slate-500 dark:text-slate-400">Pending approval</span>
+                                            ) : null}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            {isGroomingQueue(item) ? (
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => openGroomingQueue(item)}
+                                                        disabled={updatingQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px]"
+                                                    >
+                                                        {updatingQueueId === item.queue_id ? <Loader2 className="size-3 animate-spin" /> : <Scissors className="size-3" />}
+                                                        {item.status === 'waiting' ? 'Send to Grooming' : 'Open Grooming'}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => setQueueToCancel(item)}
+                                                        disabled={updatingQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px]"
+                                                    >
+                                                        <XCircle className="size-3" />
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            ) : item.status === 'waiting' ? (
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleApprove(item.queue_id)}
+                                                        disabled={updatingQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px]"
+                                                    >
+                                                        {updatingQueueId === item.queue_id
+                                                            ? <Loader2 className="size-3 animate-spin" />
+                                                            : <UserCheck className="size-3" />}
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => setQueueToCancel(item)}
+                                                        disabled={updatingQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px]"
+                                                    >
+                                                        <XCircle className="size-3" />
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            ) : item.status === 'in-progress' ? (
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            const selectedVetId = getSelectedVetId(item.queue_id, item);
+                                                            if (!selectedVetId) {
+                                                                toast.error('Select a veterinarian before assigning this queue.');
+                                                                return;
                                                             }
-                                                            className="h-8 px-2 text-[11px] font-bold"
-                                                        >
-                                                            <XCircle className="mr-1 size-3" />
-                                                            Cancel
-                                                        </Button>
-                                                    </>
-                                                )}
+                                                            assignQueueToVet(item.queue_id, selectedVetId, 'Reassigned by admin from queue management');
+                                                        }}
+                                                        disabled={assigningQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                                    >
+                                                        {assigningQueueId === item.queue_id ? <Loader2 className="size-3 animate-spin" /> : <UserCheck className="size-3" />}
+                                                        {item.has_active_assignment ? 'Reassign' : 'Assign'}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => setQueueToCancel(item)}
+                                                        disabled={assigningQueueId === item.queue_id || updatingQueueId === item.queue_id}
+                                                        className="h-8 px-2.5 text-[11px]"
+                                                    >
+                                                        <XCircle className="size-3" />
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>,
+                                isExpanded && (
+                                    <TableRow key={`${item.queue_id}-details`} id={detailsId} className="bg-slate-50/80 hover:bg-slate-50/80 dark:bg-slate-950/50 dark:hover:bg-slate-950/50">
+                                        <TableCell colSpan={7} className="border-l-2 border-l-blue-600 p-0">
+                                            <div className="w-full max-w-full overflow-hidden p-4 sm:p-5">
+                                                <div className="flex flex-col gap-6 lg:flex-row">
+                                                    <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                                                        <DetailItem label="Complaint" value={item.complaint} isFullWidth />
+                                                        <DetailItem label="Pet Owner" value={item.owner_status ? `${getQueueOwnerName(item)} (${item.owner_status})` : getQueueOwnerName(item)} />
+                                                        <DetailItem label="Contact" value={item.contactNumber} />
+                                                        <DetailItem label="Address" value={item.address} isFullWidth />
+                                                        <DetailItem label="Source" value={getQueueSourceLabel(item.queue_source)} />
+                                                        <DetailItem label={isGroomingQueue(item) ? 'Workflow' : 'Assigned Veterinarian'} value={isGroomingQueue(item) ? 'Grooming Management' : item.veterinarian_name || 'Unassigned'} />
+                                                        <DetailItem label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
+                                                        <DetailItem label="Registration Time" value={formatDateTime(item.timestamp)} />
+                                                    </div>
+                                                    {item.image_path ? (
+                                                        <div className="shrink-0">
+                                                            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Issue Image</p>
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`View issue image for ${item.pet_name || 'this pet'}`}
+                                                                className="group relative size-32 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:bg-slate-900 sm:size-40"
+                                                                onClick={() => setViewingImage({ src: resolveImageUrl(item.image_path), alt: item.pet_name })}
+                                                            >
+                                                                <ProtectedImage src={item.image_path} className="size-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" alt="Concern" />
+                                                                <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+                                                                    <ImageIcon className="size-5 text-white" />
+                                                                </span>
+                                                            </button>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </TableCell>
-                                    </TableRow>,
-                                    isExpanded && (
-                                        <TableRow key={`${item.queue_id}-details`} className="bg-slate-50/50 border-b">
-                                            <TableCell colSpan={7} className="p-0">
-                                                <div className="p-4 sm:p-6 w-full max-w-full overflow-hidden">
-                                                    <div className="flex flex-col lg:flex-row gap-6">
-                                                        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-                                                            <DetailItem label="Complaint" value={item.complaint} isFullWidth />
-                                                            <DetailItem label="Pet Owner" value={item.owner_name ? `${item.owner_name} (${item.owner_status})` : `${item.first_Name} ${item.last_Name}`} />
-                                                            <DetailItem label="Contact" value={item.contactNumber} />
-                                                            <DetailItem label="Address" value={item.address} isFullWidth />
-                                                            <DetailItem label="Source" value={getSourceBadge(item.queue_source)} />
-                                                            <DetailItem label={isGroomingQueue(item) ? 'Workflow' : 'Assigned Veterinarian'} value={isGroomingQueue(item) ? 'Grooming Management' : item.veterinarian_name || 'Unassigned'} />
-                                                            <DetailItem label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
-                                                            <DetailItem label="Registration Time" value={formatDateTime(item.timestamp)} />
-                                                        </div>
-                                                        {item.image_path && (
-                                                            <div className="shrink-0">
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Issue Image</p>
-                                                                <div 
-                                                                    className="relative group w-32 h-32 sm:w-40 sm:h-40 rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm cursor-pointer"
-                                                                    onClick={() => setViewingImage({ src: resolveImageUrl(item.image_path), alt: item.pet_name })}
-                                                                >
-                                                                    <ProtectedImage src={item.image_path} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Concern" />
-                                                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                        <ImageIcon className="text-white size-5" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                ];
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
-
-            {/* Completed Section */}
-            {completedQueue.length > 0 && (
-                <div className="space-y-3">
-                    <h3 className="text-base font-bold text-slate-800 px-1">Completed Today</h3>
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <Table className="w-full table-auto">
-                            <TableHeader className="bg-slate-50/50">
-                                <TableRow>
-                                    <TableHead className="w-24 text-center px-1">Queue ID</TableHead>
-                                    <TableHead className="font-bold text-slate-900">Pet</TableHead>
-                                    <TableHead className="hidden sm:table-cell">Service</TableHead>
-                                    <TableHead className="hidden md:table-cell">Time</TableHead>
-                                    <TableHead className="text-right pr-4">Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {completedQueue.map(item => (
-                                    <TableRow key={item.queue_id} className="hover:bg-slate-50/50">
-                                        <TableCell className="text-center font-bold text-slate-500 px-1">{formatQueueReference(item)}</TableCell>
-                                        <TableCell className="font-semibold text-slate-900">{item.pet_name}</TableCell>
-                                        <TableCell className="hidden sm:table-cell text-slate-600 text-sm">{getServiceDisplayName(item.service_name)}</TableCell>
-                                        <TableCell className="hidden md:table-cell text-slate-500 text-xs">{formatDateTime(item.timestamp)}</TableCell>
-                                        <TableCell className="text-right pr-4">
-                                            <Badge className="bg-emerald-600 text-[10px] h-5 px-1.5 py-0">Completed</Badge>
-                                        </TableCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                )
+                            ];
+                        })}
+                    </TableBody>
+                </Table>
+            </section>
+
+            <section
+                aria-labelledby="completed-queue-heading"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+                <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div>
+                        <h2 id="completed-queue-heading" className="text-sm font-bold text-slate-900 dark:text-white">Completed today</h2>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Patients whose queue workflow has been finished today.</p>
                     </div>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        {completedQueue.length} completed
+                    </span>
                 </div>
-            )}
+
+                <Table className="min-w-[820px] table-fixed">
+                    <colgroup>
+                        <col className="w-[150px]" />
+                        <col className="w-[190px]" />
+                        <col className="w-[220px]" />
+                        <col className="w-[170px]" />
+                        <col className="w-[130px]" />
+                    </colgroup>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Queue</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead>Visit</TableHead>
+                            <TableHead>Registered</TableHead>
+                            <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {completedQueue.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                                    No completed queue entries yet today.
+                                </TableCell>
+                            </TableRow>
+                        ) : completedQueue.map(item => (
+                            <TableRow key={item.queue_id}>
+                                <TableCell>
+                                    <p className="truncate font-bold text-slate-900 dark:text-white">{formatQueueReference(item)}</p>
+                                    <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{getQueueSourceLabel(item.queue_source)}</p>
+                                </TableCell>
+                                <TableCell>
+                                    <p className="truncate font-semibold text-slate-900 dark:text-white" title={item.pet_name || ''}>{item.pet_name || 'Unnamed pet'}</p>
+                                    <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400" title={getQueueOwnerName(item)}>{getQueueOwnerName(item)}</p>
+                                </TableCell>
+                                <TableCell>
+                                    <p className="truncate font-medium text-slate-800 dark:text-slate-100">{getServiceDisplayName(item.service_name)}</p>
+                                    <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{item.branch_name || 'Main Clinic'}</p>
+                                </TableCell>
+                                <TableCell>
+                                    <p className="text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-200">{formatDateTime(item.timestamp)}</p>
+                                </TableCell>
+                                <TableCell className="text-right">{getStatusBadge(item.status)}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </section>
 
             <Dialog
                 open={Boolean(queueToCancel)}
@@ -703,8 +834,8 @@ function DetailItem({ label, value, isFullWidth = false }) {
     return (
         <div className={`space-y-1 ${isFullWidth ? "sm:col-span-2" : ""}`}>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-            <div className="text-sm text-slate-700 break-words leading-relaxed min-h-[1.25rem]">
-                {value || <span className="text-slate-300">N/A</span>}
+            <div className="min-h-[1.25rem] break-words text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                {value || <span className="text-slate-300 dark:text-slate-600">N/A</span>}
             </div>
         </div>
     );

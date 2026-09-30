@@ -7,6 +7,67 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/upload_receipt_helpers.php';
 require_once __DIR__ . '/runtime_media.php';
 
+function ipawcus_upload_name_token($value, string $fallback = '', int $maxLength = 48): string
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return $fallback;
+    }
+
+    if (function_exists('iconv')) {
+        $asciiValue = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if ($asciiValue !== false) {
+            $value = $asciiValue;
+        }
+    }
+
+    $value = strtolower($value);
+    $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+    $value = trim($value, '-');
+    $value = substr($value, 0, $maxLength);
+
+    return trim($value, '-') ?: $fallback;
+}
+
+function ipawcus_upload_readable_file_name(array $file, string $type, string $extension): string
+{
+    $originalName = (string)($file['name'] ?? 'file');
+    $originalBaseName = pathinfo($originalName, PATHINFO_FILENAME);
+    $petName = $_POST['pet_name'] ?? $_POST['petName'] ?? '';
+    $petId = $_POST['pet_id'] ?? $_POST['petId'] ?? '';
+    $recordLabel = $_POST['record_label'] ?? $_POST['recordLabel'] ?? $_POST['service_name'] ?? $_POST['serviceName'] ?? '';
+    $category = $_POST['attachment_category'] ?? $_POST['attachmentCategory'] ?? '';
+
+    $parts = [];
+    $petToken = ipawcus_upload_name_token($petName, '', 36);
+    if ($petToken === '' && trim((string)$petId) !== '') {
+        $petToken = 'pet-' . ipawcus_upload_name_token($petId, '', 20);
+    }
+    if ($petToken !== '') {
+        $parts[] = $petToken;
+    }
+
+    $recordToken = ipawcus_upload_name_token($recordLabel, '', 40);
+    if ($recordToken !== '') {
+        $parts[] = $recordToken;
+    }
+
+    $categoryToken = ipawcus_upload_name_token($category ?: $type, 'file', 32);
+    if (!in_array($categoryToken, $parts, true)) {
+        $parts[] = $categoryToken;
+    }
+
+    $originalToken = ipawcus_upload_name_token($originalBaseName, 'file', 56);
+    if (!in_array($originalToken, $parts, true)) {
+        $parts[] = $originalToken;
+    }
+
+    $parts[] = date('Ymd-His');
+    $parts[] = bin2hex(random_bytes(4));
+
+    return implode('-', array_filter($parts)) . '.' . $extension;
+}
+
 $pdo = ipawcus_get_pdo();
 $currentUser = ipawcus_guard_current_user($pdo);
 $currentRole = ipawcus_guard_role($currentUser);
@@ -121,7 +182,7 @@ try {
     exit;
 }
 
-$mixedDocumentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern'];
+$mixedDocumentUploadTypes = ['boarding_document', 'inventory_receipt', 'booking_payment', 'booking_concern', 'diagnosis'];
 $pdfOnlyUploadTypes = ['consent_document', 'prescription_document', 'invoice_document'];
 $allowedExtensions = in_array($type, $pdfOnlyUploadTypes, true)
     ? ['pdf']
@@ -158,7 +219,7 @@ if ($targetRoot === false) {
     exit;
 }
 
-$fileName = date('YmdHis') . '_' . bin2hex(random_bytes(12)) . '.' . $extension;
+$fileName = ipawcus_upload_readable_file_name($file, $type, $extension);
 $targetFile = $targetDir . $fileName;
 $uploadReceipt = null;
 
@@ -198,7 +259,11 @@ if (move_uploaded_file($file['tmp_name'], $targetFile)) {
         'url' => $protectedUrl,
         'relative_url' => $relativeUrl,
         'protected_url' => $protectedUrl,
-        'full_url' => $protocol . "://" . $host . $protectedUrl
+        'full_url' => $protocol . "://" . $host . $protectedUrl,
+        'original_name' => $originalName,
+        'display_name' => $fileName,
+        'stored_file_name' => $fileName,
+        'mime_type' => $mimeType,
     ];
     if (is_array($uploadReceipt)) {
         $response['upload_receipt'] = $uploadReceipt['receipt'];

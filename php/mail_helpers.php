@@ -91,6 +91,57 @@ function mail_text_from_html(string $html): string
     return trim(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 }
 
+function mail_normalize_attachments(array $attachments): array
+{
+    $normalized = [];
+    $totalBytes = 0;
+    $maxAttachmentBytes = max(1, (int)mail_env_value('MAIL_ATTACHMENT_MAX_BYTES', '10485760'));
+    $maxTotalBytes = max($maxAttachmentBytes, (int)mail_env_value('MAIL_ATTACHMENTS_MAX_TOTAL_BYTES', '15728640'));
+
+    foreach ($attachments as $attachment) {
+        if (!is_array($attachment)) {
+            throw new InvalidArgumentException('Email attachments must be provided as file details.');
+        }
+
+        $path = trim((string)($attachment['path'] ?? ''));
+        $resolvedPath = $path !== '' ? realpath($path) : false;
+        if ($resolvedPath === false || !is_file($resolvedPath) || !is_readable($resolvedPath)) {
+            throw new RuntimeException('An email attachment is missing or unreadable.');
+        }
+
+        $size = filesize($resolvedPath);
+        if ($size === false || $size <= 0) {
+            throw new RuntimeException('An email attachment is empty or its size could not be read.');
+        }
+        if ($size > $maxAttachmentBytes) {
+            throw new RuntimeException('An email attachment exceeds the configured size limit.');
+        }
+
+        $totalBytes += $size;
+        if ($totalBytes > $maxTotalBytes) {
+            throw new RuntimeException('The email attachments exceed the configured total size limit.');
+        }
+
+        $fileName = basename(str_replace('\\', '/', trim((string)(
+            $attachment['fileName'] ?? $attachment['name'] ?? basename($resolvedPath)
+        ))));
+        $fileName = preg_replace('/[\x00-\x1F\x7F"\\\\]/u', '_', $fileName) ?: 'attachment';
+        $mimeType = strtolower(trim((string)($attachment['mimeType'] ?? $attachment['mime_type'] ?? '')));
+        if (!preg_match('#^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$#i', $mimeType)) {
+            $mimeType = mime_content_type($resolvedPath) ?: 'application/octet-stream';
+        }
+
+        $normalized[] = [
+            'path' => $resolvedPath,
+            'fileName' => $fileName,
+            'mimeType' => $mimeType,
+            'size' => $size,
+        ];
+    }
+
+    return $normalized;
+}
+
 function mail_queue_enabled(): bool
 {
     return mail_env_bool('MAIL_QUEUE_ENABLED', true);
@@ -181,6 +232,13 @@ function mail_queue_options(array $options): array
         if (isset($options[$key]) && trim((string)$options[$key]) !== '') {
             $filtered[$key] = trim((string)$options[$key]);
         }
+    }
+
+    if (!empty($options['attachments'])) {
+        if (!is_array($options['attachments'])) {
+            throw new InvalidArgumentException('Email attachments must be provided as a list.');
+        }
+        $filtered['attachments'] = mail_normalize_attachments($options['attachments']);
     }
 
     return $filtered;
@@ -414,7 +472,11 @@ function mail_build_mime_message(
     $toName = $options['toName'] ?? '';
     $replyTo = $options['replyTo'] ?? $config['replyTo'];
     $domain = mail_domain_from_address($fromAddress);
-    $boundary = 'ipawcus_' . bin2hex(random_bytes(12));
+    $attachments = mail_normalize_attachments(
+        is_array($options['attachments'] ?? null) ? $options['attachments'] : []
+    );
+    $alternativeBoundary = 'ipawcus_alt_' . bin2hex(random_bytes(12));
+    $mixedBoundary = 'ipawcus_mixed_' . bin2hex(random_bytes(12));
 
     $headers = [
         'Date: ' . date(DATE_RFC2822),
@@ -423,7 +485,9 @@ function mail_build_mime_message(
         'Subject: ' . mail_encode_header($subject),
         'Message-ID: <' . bin2hex(random_bytes(16)) . '@' . $domain . '>',
         'MIME-Version: 1.0',
-        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+        'Content-Type: ' . (empty($attachments)
+            ? 'multipart/alternative; boundary="' . $alternativeBoundary . '"'
+            : 'multipart/mixed; boundary="' . $mixedBoundary . '"'),
         'X-Mailer: iPawcus Mailer',
     ];
 
@@ -431,22 +495,53 @@ function mail_build_mime_message(
         $headers[] = 'Reply-To: ' . mail_format_address($replyTo);
     }
 
-    $body = [
-        'This is a multi-part message in MIME format.',
-        '',
-        '--' . $boundary,
+    $alternativeBody = [
+        '--' . $alternativeBoundary,
         'Content-Type: text/plain; charset=UTF-8',
         'Content-Transfer-Encoding: base64',
         '',
         chunk_split(base64_encode($text)),
-        '--' . $boundary,
+        '--' . $alternativeBoundary,
         'Content-Type: text/html; charset=UTF-8',
         'Content-Transfer-Encoding: base64',
         '',
         chunk_split(base64_encode($html)),
-        '--' . $boundary . '--',
+        '--' . $alternativeBoundary . '--',
         '',
     ];
+
+    if (empty($attachments)) {
+        $body = array_merge([
+            'This is a multi-part message in MIME format.',
+            '',
+        ], $alternativeBody);
+    } else {
+        $body = [
+            'This is a multi-part message in MIME format.',
+            '',
+            '--' . $mixedBoundary,
+            'Content-Type: multipart/alternative; boundary="' . $alternativeBoundary . '"',
+            '',
+            ...$alternativeBody,
+        ];
+
+        foreach ($attachments as $attachment) {
+            $contents = file_get_contents($attachment['path']);
+            if ($contents === false) {
+                throw new RuntimeException('An email attachment could not be read.');
+            }
+
+            $body[] = '--' . $mixedBoundary;
+            $body[] = 'Content-Type: ' . $attachment['mimeType'] . '; name="' . $attachment['fileName'] . '"';
+            $body[] = 'Content-Transfer-Encoding: base64';
+            $body[] = 'Content-Disposition: attachment; filename="' . $attachment['fileName'] . '"';
+            $body[] = '';
+            $body[] = chunk_split(base64_encode($contents));
+        }
+
+        $body[] = '--' . $mixedBoundary . '--';
+        $body[] = '';
+    }
 
     return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $body);
 }

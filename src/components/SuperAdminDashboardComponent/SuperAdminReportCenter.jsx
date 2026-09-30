@@ -24,7 +24,7 @@ const SERVICE_TYPES = [
     { value: 'kapon', label: 'Kapon' },
     { value: 'lab-testing', label: 'Lab Testing' },
     { value: 'parasite-control', label: 'Parasite Control' },
-    { value: 'boarding', label: 'Boarding / Pet Hotel' },
+    { value: 'boarding', label: 'Confinement Boarding / Pet Hotel' },
     { value: 'home-service', label: 'Home Service' },
     { value: 'special services', label: 'Special Service' }
 ];

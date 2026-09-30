@@ -919,7 +919,7 @@ function createPrefillVisit(prefill) {
     species: visit.species || 'Pet',
     visitType: visit.visitType || 'Pet Boarding Stay',
     veterinarian: visit.veterinarian || 'Boarding Team',
-    complaint: visit.complaint || 'Pet hotel or boarding payment',
+    complaint: visit.complaint || 'Pet Hotel or Confinement Boarding payment',
     status: visit.status || 'Ready for payment',
     billingStatus: visit.billingStatus || visit.billing_status || 'unbilled',
     total: Number(visit.total || 0),

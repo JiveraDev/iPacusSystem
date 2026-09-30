@@ -15,7 +15,7 @@ export const ADMIN_FEATURE_GROUPS = [
         label: 'Clinic operations',
         description: 'Daily queues, boarding, sales, and stock workflows.',
         features: [
-            { key: 'boarding', label: 'Boarding', description: 'Manage kennel rooms, stays, care, and availability.' },
+            { key: 'boarding', label: 'Boarding', description: 'Manage confinement units, stays, care, and availability.' },
             { key: 'grooming', label: 'Grooming', description: 'Manage grooming intake, staff, vet reviews, and pickup.' },
             { key: 'queue', label: 'Queue', description: 'Manage clinic queues and patient assignments.' },
             { key: 'pos', label: 'Point of Sale', description: 'Create clinic sales and manage visit billing.' },

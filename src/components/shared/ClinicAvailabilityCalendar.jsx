@@ -35,7 +35,7 @@ const FALLBACK_SERVICES = [
     { key: 'online-consultation', label: 'Online Consultation' },
     { key: 'home-service', label: 'Home Service' },
     { key: 'special-services', label: 'Special Services' },
-    { key: 'boarding', label: 'Pet Hotel and Boarding', mode: 'rooms' },
+    { key: 'boarding', label: 'Pet Hotel Boarding', mode: 'rooms' },
 ];
 
 function localDateKey(date) {
@@ -132,6 +132,7 @@ export default function ClinicAvailabilityCalendar({
                 date: selectedDate,
                 branchId: lockedBranchId || branchId,
                 veterinarianId,
+                hotel_boarding_type: service === 'boarding' ? 'hotel' : undefined,
             });
             setAvailability(response);
 

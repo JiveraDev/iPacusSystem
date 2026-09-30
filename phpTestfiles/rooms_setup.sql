@@ -1,4 +1,4 @@
--- Run this once before using Pet Hotel and Pet Boarding availability.
+-- Run this once before using Pet Hotel and Confinement Boarding availability.
 -- Your bookings table already has the needed stay columns:
 -- check_in_date, check_out_date, room_size, add_ons, emergency_contact, hotel_boarding_type.
 
@@ -23,15 +23,15 @@ SELECT 'hotel-large', 2, 'Large Hotel Rooms'
 WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE room_type = 'hotel-large');
 
 INSERT INTO rooms (room_type, total_capacity, description)
-SELECT 'boarding-small', 10, 'Small Kennels'
+SELECT 'boarding-small', 10, 'Small Confinement Units'
 WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE room_type = 'boarding-small');
 
 INSERT INTO rooms (room_type, total_capacity, description)
-SELECT 'boarding-medium', 8, 'Medium Kennels'
+SELECT 'boarding-medium', 8, 'Medium Confinement Units'
 WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE room_type = 'boarding-medium');
 
 INSERT INTO rooms (room_type, total_capacity, description)
-SELECT 'boarding-large', 5, 'Large Kennels'
+SELECT 'boarding-large', 5, 'Large Confinement Units'
 WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE room_type = 'boarding-large');
 
 CREATE TABLE IF NOT EXISTS booking_pets (

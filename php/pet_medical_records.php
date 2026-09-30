@@ -432,14 +432,54 @@ function pet_medical_normalize_attachments($value): array
         }
 
         $url = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? $attachment['preview'] ?? ''));
+        $storedFileName = trim((string)(
+            $attachment['storedFileName']
+            ?? $attachment['stored_file_name']
+            ?? basename(parse_url($url, PHP_URL_PATH) ?: '')
+        ));
+        $originalName = trim((string)(
+            $attachment['originalName']
+            ?? $attachment['original_name']
+            ?? ''
+        ));
+        $displayName = trim((string)(
+            $attachment['displayName']
+            ?? $attachment['display_name']
+            ?? $attachment['name']
+            ?? $originalName
+            ?? ''
+        ));
+        $isOpaqueName = (bool)preg_match('/^\d{14}[_-][a-f0-9]{16,}\.[a-z0-9]+$/i', $displayName ?: $storedFileName);
+        $category = $attachment['category'] ?? $attachment['attachmentCategory'] ?? 'diagnosis_upload';
+        if ($displayName === '' || $isOpaqueName) {
+            if ($originalName !== '') {
+                $displayName = $originalName;
+            } else {
+                $extension = strtolower(pathinfo($storedFileName, PATHINFO_EXTENSION));
+                $categoryLabel = ucwords(str_replace(['_', '-'], ' ', (string)$category));
+                $displayName = trim($categoryLabel ?: 'Medical Attachment') . ' ' . ($index + 1);
+                if ($extension !== '') {
+                    $displayName .= '.' . $extension;
+                }
+            }
+        }
         $normalized[] = [
             'id' => $attachment['id'] ?? ('attachment-' . $index),
-            'name' => $attachment['name'] ?? basename(parse_url($url, PHP_URL_PATH) ?: 'Attachment'),
+            'name' => $displayName,
+            'originalName' => $originalName,
+            'storedFileName' => $storedFileName,
             'url' => $url,
             'relativeUrl' => trim((string)($attachment['relativeUrl'] ?? $url)),
             'mimeType' => $attachment['mimeType'] ?? $attachment['type'] ?? '',
-            'category' => $attachment['category'] ?? $attachment['attachmentCategory'] ?? 'diagnosis_upload',
+            'category' => $category,
             'uploadedAt' => $attachment['uploadedAt'] ?? null,
+            'title' => $attachment['title'] ?? null,
+            'label' => $attachment['label'] ?? null,
+            'description' => $attachment['description'] ?? null,
+            'source' => $attachment['source'] ?? null,
+            'bookingNumber' => $attachment['bookingNumber'] ?? null,
+            'signerName' => $attachment['signerName'] ?? null,
+            'signedAt' => $attachment['signedAt'] ?? null,
         ];
     }
 
@@ -729,7 +769,7 @@ function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
     $records = [];
     foreach ($bookings as $booking) {
         $bookingId = (int)$booking['booking_id'];
-        $facility = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding';
+        $facility = $booking['hotel_boarding_type'] === 'hotel' ? 'Pet Hotel Boarding' : 'Confinement Boarding';
         $roomLabel = trim((string)($booking['room_type'] ?? ''));
         if (!empty($booking['room_number'])) {
             $roomLabel .= ' #' . $booking['room_number'];
@@ -740,7 +780,7 @@ function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
         $observations = $activity['observations'];
         $summaryParts = [
             'Stay: ' . trim(($booking['check_in_date'] ?: 'N/A') . ' to ' . ($booking['check_out_date'] ?: 'N/A')),
-            $roomLabel ? 'Room/Kennel: ' . $roomLabel : '',
+            $roomLabel ? 'Room/Confinement Unit: ' . $roomLabel : '',
             count($tasks) > 0 ? 'Care tasks completed: ' . count($completedTasks) . ' of ' . count($tasks) : '',
             count($observations) > 0 ? 'Monitoring notes: ' . count($observations) : '',
             trim((string)($booking['assignment_notes'] ?: $booking['notes'] ?: '')),

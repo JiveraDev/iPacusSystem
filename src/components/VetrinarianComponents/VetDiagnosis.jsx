@@ -72,7 +72,7 @@ const PRESCRIPTION_DURATION_UNITS = [
     { value: 'as needed', label: 'As needed' }
 ];
 
-const DOCUMENT_UPLOAD_ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt';
+const DOCUMENT_UPLOAD_ACCEPT = 'image/*,.pdf';
 const ADDITIONAL_CONSENT_CATEGORY = 'additional_consent';
 
 const emptyDiagnosisForm = {
@@ -447,12 +447,23 @@ function cleanPrescription(prescription) {
 function normalizeSavedAttachment(attachment) {
     return {
         id: attachment.id || createId(),
-        name: attachment.name || pathFileName(attachment.url || attachment.relativeUrl),
+        name: attachment.displayName || attachment.display_name || attachment.name || pathFileName(attachment.url || attachment.relativeUrl),
+        originalName: attachment.originalName || attachment.original_name || attachment.name || '',
+        storedFileName: attachment.storedFileName || attachment.stored_file_name || pathFileName(attachment.url || attachment.relativeUrl),
         url: attachment.url || attachment.relativeUrl || '',
         relativeUrl: attachment.relativeUrl || attachment.url || '',
         mimeType: attachment.mimeType || attachment.type || '',
         uploadedAt: attachment.uploadedAt || '',
         category: attachment.category || attachment.attachmentCategory || 'diagnosis_upload'
+    };
+}
+
+function medicalUploadFormFields(context, category) {
+    return {
+        pet_id: context.petId || '',
+        pet_name: context.petName || '',
+        record_label: context.serviceName || 'Medical record',
+        attachment_category: category || 'medical-file'
     };
 }
 
@@ -573,6 +584,8 @@ function serializeAttachmentForDraft(attachment) {
     return {
         id: attachment.id || createId(),
         name: attachment.name || pathFileName(url),
+        originalName: attachment.originalName || attachment.original_name || attachment.name || '',
+        storedFileName: attachment.storedFileName || attachment.stored_file_name || pathFileName(url),
         url,
         relativeUrl: attachment.relativeUrl || attachment.url || '',
         mimeType: attachment.mimeType || attachment.type || '',
@@ -1244,6 +1257,7 @@ export default function VetDiagnosis() {
         return files.map(file => ({
             id: createId(),
             name: file.name,
+            originalName: file.name,
             file,
             mimeType: file.type,
             preview: URL.createObjectURL(file),
@@ -1319,15 +1333,20 @@ export default function VetDiagnosis() {
         const formDataUpload = new FormData();
         formDataUpload.append('image', attachment.file);
         formDataUpload.append('type', 'diagnosis');
+        Object.entries(medicalUploadFormFields(context, attachment.category)).forEach(([key, value]) => {
+            if (value) formDataUpload.append(key, String(value));
+        });
 
         const result = await uploadFormData(formDataUpload);
 
         return {
             id: attachment.id,
-            name: attachment.name,
+            name: result.display_name || attachment.name,
+            originalName: result.original_name || attachment.originalName || attachment.name,
+            storedFileName: result.stored_file_name || pathFileName(result.relative_url || result.url),
             url: result.relative_url || result.url || '',
             relativeUrl: result.relative_url || result.url || '',
-            mimeType: attachment.mimeType || '',
+            mimeType: result.mime_type || attachment.mimeType || '',
             uploadedAt: new Date().toISOString(),
             category: attachment.category || 'diagnosis_upload'
         };
@@ -1354,9 +1373,13 @@ export default function VetDiagnosis() {
                 });
             }
             const existingDocumentUrl = consent.url || consent.relativeUrl || '';
-            const documentUrl = documentFile
-                ? await uploadDocumentFile(documentFile, 'consent_document')
-                : existingDocumentUrl;
+            const documentUpload = documentFile
+                ? await uploadDocumentFile(documentFile, 'consent_document', {
+                    returnMetadata: true,
+                    formFields: medicalUploadFormFields(context, ADDITIONAL_CONSENT_CATEGORY)
+                })
+                : null;
+            const documentUrl = documentUpload?.path || existingDocumentUrl;
 
             if (!documentUrl) {
                 throw new Error('The complete signed consent form could not be uploaded.');
@@ -1364,7 +1387,9 @@ export default function VetDiagnosis() {
 
             uploaded.push({
                 id: consent.id || createId(),
-                name: consent.name || `Signed consent - ${consent.title || 'Consent Form'}.pdf`,
+                name: documentUpload?.displayName || consent.name || `Signed consent - ${consent.title || 'Consent Form'}.pdf`,
+                originalName: documentUpload?.originalName || consent.originalName || consent.name || '',
+                storedFileName: documentUpload?.storedFileName || consent.storedFileName || pathFileName(documentUrl),
                 url: documentUrl,
                 relativeUrl: documentUrl,
                 mimeType: 'application/pdf',
@@ -3025,7 +3050,7 @@ function ConfinementDispositionSection({ plan, setPlan }) {
                                 <Select value={plan.facilityType} onValueChange={(value) => updatePlan('facilityType', value)}>
                                     <SelectTrigger id="vet-confinement-placement"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="boarding">Kennel</SelectItem>
+                                        <SelectItem value="boarding">Confinement</SelectItem>
                                         <SelectItem value="hotel">Pet Hotel</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -3459,11 +3484,17 @@ async function uploadPrescriptionDocument(payload) {
     }
 
     const file = await createPrescriptionDocumentPdfFile({ ...payload, rows });
-    const documentUrl = await uploadDocumentFile(file, 'prescription_document');
+    const documentUpload = await uploadDocumentFile(file, 'prescription_document', {
+        returnMetadata: true,
+        formFields: medicalUploadFormFields(payload.context || {}, 'prescription_document')
+    });
+    const documentUrl = documentUpload.path;
 
     return {
         id: createId(),
-        name: file.name,
+        name: documentUpload.displayName || file.name,
+        originalName: documentUpload.originalName || file.name,
+        storedFileName: documentUpload.storedFileName || pathFileName(documentUrl),
         url: documentUrl,
         relativeUrl: documentUrl,
         mimeType: 'application/pdf',

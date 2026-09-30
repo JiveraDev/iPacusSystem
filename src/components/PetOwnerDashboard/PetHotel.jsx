@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { Check, Home, Hotel, PawPrint } from "lucide-react";
+import { Check, Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
@@ -54,24 +54,24 @@ const ROOM_OPTIONS = {
   boarding: [
     {
       id: "small",
-      name: "Small Kennel",
+      name: "Small Confinement Unit",
       capacity: "1 pet",
       pricePerDay: 400,
-      features: ["Secure kennel", "Basic bedding", "2 meals/day", "Outdoor time"]
+      features: ["Secure confinement unit", "Basic bedding", "2 meals/day", "Outdoor time"]
     },
     {
       id: "medium",
-      name: "Medium Kennel",
+      name: "Medium Confinement Unit",
       capacity: "1-2 pets",
       pricePerDay: 800,
-      features: ["Spacious kennel", "Comfortable bedding", "3 meals/day", "Extended outdoor time"]
+      features: ["Spacious confinement unit", "Comfortable bedding", "3 meals/day", "Extended outdoor time"]
     },
     {
       id: "large",
-      name: "Large Kennel",
+      name: "Large Confinement Unit",
       capacity: "2-3 pets",
       pricePerDay: 1400,
-      features: ["Extra large kennel", "Premium meals", "Extended play sessions", "Training activities"]
+      features: ["Extra large confinement unit", "Premium meals", "Extended play sessions", "Training activities"]
     }
   ]
 };
@@ -148,10 +148,10 @@ export default function PetHotel() {
   if (prefilledCheckOut) prefilledCheckOut.setDate(prefilledCheckOut.getDate() + 1);
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
   const [pets, setPets] = useState([]);
-  const [serviceType, setServiceType] = useState(prefilledRoomParts[0] === 'boarding' ? 'boarding' : 'hotel');
+  const serviceType = 'hotel';
   const [branchId, setBranchId] = useState(availabilityPrefill?.branchId ? String(availabilityPrefill.branchId) : "");
   const [selectedPets, setSelectedPets] = useState([]);
-  const [roomSize, setRoomSize] = useState(['small', 'medium', 'large'].includes(prefilledRoomParts[1]) ? prefilledRoomParts[1] : "");
+  const [roomSize, setRoomSize] = useState(prefilledRoomParts[0] === 'hotel' && ['small', 'medium', 'large'].includes(prefilledRoomParts[1]) ? prefilledRoomParts[1] : "");
   const [checkInDate, setCheckInDate] = useState(availabilityPrefill?.date || "");
   const [checkOutDate, setCheckOutDate] = useState(prefilledCheckOut ? prefilledCheckOut.toISOString().slice(0, 10) : "");
   const [addOns, setAddOns] = useState([]);
@@ -195,7 +195,7 @@ export default function PetHotel() {
     petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
     petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
     petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
-    serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding'
+    serviceName: 'Pet Hotel Boarding'
   };
 
   const selectedAddOnItems = useMemo(() => {
@@ -355,7 +355,7 @@ export default function PetHotel() {
       const maxAllowed = Math.min(maxBySpecies, maxByRoom);
 
       if (current.length >= maxAllowed) {
-        toast.error(`Maximum ${maxAllowed} ${getSpeciesLabel(nextSpecies)} allowed for this room or kennel.`);
+        toast.error(`Maximum ${maxAllowed} ${getSpeciesLabel(nextSpecies)} allowed for this pet hotel room.`);
         return current;
       }
 
@@ -367,7 +367,7 @@ export default function PetHotel() {
     const roomLimit = getRoomPetLimit(nextRoomSize);
 
     if (selectedPets.length > roomLimit) {
-      toast.error(`This room or kennel allows only ${roomLimit} selected pet${roomLimit === 1 ? "" : "s"}.`);
+      toast.error(`This pet hotel room allows only ${roomLimit} selected pet${roomLimit === 1 ? "" : "s"}.`);
       return;
     }
 
@@ -404,10 +404,10 @@ export default function PetHotel() {
     const selectedSpeciesName = selectedPetData[0] ? normalizeSpecies(selectedPetData[0].species) : "";
     const maxBySpecies = getSpeciesPetLimit(selectedSpeciesName);
     if (selectedPets.length > maxBySpecies) validationErrors.push({ fieldId: 'boarding-pets', label: 'Selected pets', type: 'range', message: `Maximum ${maxBySpecies} ${getSpeciesLabel(selectedSpeciesName)} allowed.` });
-    if (!roomSize) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room or kennel', type: 'selection', message: 'Select an available room or kennel.' });
+    if (!roomSize) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room', type: 'selection', message: 'Select an available pet hotel room.' });
 
     const maxByRoom = getRoomPetLimit(roomSize);
-    if (roomSize && selectedPets.length > maxByRoom) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room capacity', type: 'range', message: `The selected room or kennel allows only ${maxByRoom} pet${maxByRoom === 1 ? "" : "s"}.` });
+    if (roomSize && selectedPets.length > maxByRoom) validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room capacity', type: 'range', message: `The selected pet hotel room allows only ${maxByRoom} pet${maxByRoom === 1 ? "" : "s"}.` });
 
     const emergencyContactError = getPhilippinePhoneError(emergencyContact, {
       requiredMessage: "Please provide an emergency contact number."
@@ -423,7 +423,7 @@ export default function PetHotel() {
 
     const selectedAvailability = getAvailabilityForRoom(roomSize);
     if (selectedAvailability && !selectedAvailability.available) {
-      validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room or kennel', type: 'unavailable', message: 'The selected room or kennel is no longer available.' });
+      validationErrors.push({ fieldId: 'boarding-rooms', label: 'Room', type: 'unavailable', message: 'The selected pet hotel room is no longer available.' });
     }
     if (reportBookingFormErrors(validationErrors)) return;
     const normalizedEmergencyContact = normalizePhilippinePhoneForSubmit(emergencyContact, { optional: true });
@@ -444,7 +444,7 @@ export default function PetHotel() {
         billing: addOn.billing
       }));
       const notes = [
-        `[Stay: ${serviceType === "hotel" ? "Pet Hotel Boarding" : "Kennel Boarding"}]`,
+        '[Stay: Pet Hotel Boarding]',
         `[Room: ${selectedRoomLabel}]`,
         `[Pets: ${selectedPetData.map((pet) => pet.name).join(", ")}]`,
         specialRequests.trim() ? `Special requests: ${specialRequests.trim()}` : ""
@@ -463,7 +463,7 @@ export default function PetHotel() {
           petName: selectedPetData.map((pet) => pet.name || pet.pet_name).filter(Boolean).join(', '),
           petSpecies: selectedPetData.map((pet) => pet.species || pet.pet_species).filter(Boolean).join(', '),
           petBreed: selectedPetData.map((pet) => pet.breed || pet.pet_breed).filter(Boolean).join(', '),
-          serviceName: serviceType === 'hotel' ? 'Pet Hotel Boarding' : 'Kennel Boarding',
+          serviceName: 'Pet Hotel Boarding',
           branchName: selectedAvailability?.branchName || selectedAvailability?.branch_name || ''
         }
       }, "boarding_consent");
@@ -479,7 +479,7 @@ export default function PetHotel() {
         signedAt,
         documentPath: signedConsentDocumentPath,
         signaturePath: signedConsentDocumentPath,
-        serviceType: serviceType === "hotel" ? "Pet Hotel Boarding" : "Kennel Boarding"
+        serviceType: 'Pet Hotel Boarding'
       }];
 
       await createBooking({
@@ -504,7 +504,7 @@ export default function PetHotel() {
         consent_status: "signed"
       });
 
-      toast.success(`${serviceType === "hotel" ? "Pet hotel boarding" : "Kennel boarding"} booking submitted for admin approval.`);
+      toast.success('Pet hotel boarding booking submitted for admin approval.');
       navigate("/dashboard/services");
     } catch (error) {
       console.error("Failed to submit hotel booking:", error);
@@ -523,8 +523,8 @@ export default function PetHotel() {
     <ServicePageShell>
       <ServicePageHeader
         icon={Hotel}
-        title="Pet Hotel & Kennel Boarding"
-        description="Rooms and kennels are checked against live availability."
+        title="Pet Hotel Boarding"
+        description="Pet hotel rooms are checked against live availability."
         onBack={() => navigate("/dashboard/services")}
       />
 
@@ -539,37 +539,6 @@ export default function PetHotel() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-7">
-            <div className="space-y-3">
-              <Label>Service Type *</Label>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {[
-                  { id: "hotel", title: "Pet Hotel Boarding", description: "Premium rooms with comfort amenities", icon: Hotel },
-                  { id: "boarding", title: "Kennel Boarding", description: "Secure kennels with daily care", icon: Home }
-                ].map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = serviceType === option.id;
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => {
-                        setServiceType(option.id);
-                        setRoomSize("");
-                      }}
-                      className={`rounded-lg border-2 p-4 text-left transition-all ${
-                        isSelected ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <Icon className={`mb-2 h-8 w-8 ${isSelected ? "text-blue-600" : "text-gray-600"}`} />
-                      <h4 className="font-bold text-gray-900">{option.title}</h4>
-                      <p className="text-sm text-gray-600">{option.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <BranchBookingSelect
               service="boarding"
               date={checkInDate}
@@ -672,7 +641,7 @@ export default function PetHotel() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <Label>Select Room/Kennel Size *</Label>
+                <Label>Select Pet Hotel Room Size *</Label>
                 {isLoadingAvailability && <span className="text-xs text-gray-500">Checking availability...</span>}
               </div>
               <div id="boarding-rooms" tabIndex={-1} className="grid gap-4 rounded-xl md:grid-cols-3">

@@ -840,13 +840,14 @@ $transportFee = 0;
 $isOnlineConsultation = $input['is_online_consultation'] ?? 0;
 $veterinarianId = $input['veterinarian_id'] ?? null;
 
-$hotelBoardingType = $input['hotel_boarding_type'] ?? null;
+$hotelBoardingType = strtolower(trim((string)($input['hotel_boarding_type'] ?? '')));
+$hotelBoardingType = $hotelBoardingType !== '' ? $hotelBoardingType : null;
 $checkInDate = $input['check_in_date'] ?? null;
 $checkOutDate = $input['check_out_date'] ?? null;
 $roomSize = $input['room_size'] ?? null;
 $addOns = $input['add_ons'] ?? null;
 $emergencyContact = $input['emergency_contact'] ?? null;
-$isHotelBoarding = $serviceType === 'boarding' && in_array($hotelBoardingType, ['hotel', 'boarding'], true);
+$isHotelBoarding = strtolower(trim((string)$serviceType)) === 'boarding' && in_array($hotelBoardingType, ['hotel', 'boarding'], true);
 
 if ($currentApiRole === 'pet_owner') {
     if ($submittedUserId !== null && $submittedUserId !== '' && (int)$submittedUserId !== $currentApiUserId) {
@@ -855,6 +856,11 @@ if ($currentApiRole === 'pet_owner') {
         exit;
     }
     $userId = $currentApiUserId;
+    if (strtolower(trim((string)$serviceType)) === 'boarding' && $hotelBoardingType !== 'hotel') {
+        http_response_code(422);
+        echo json_encode(['message' => 'Pet owners can book Pet Hotel Boarding only. Confinement Boarding is arranged by clinic staff.']);
+        exit;
+    }
 } elseif (ipawcus_guard_is_admin_role($currentApiRole)) {
     $userId = is_numeric($submittedUserId) ? (int)$submittedUserId : null;
 } else {
@@ -890,7 +896,7 @@ if ($isHotelBoarding) {
 
 if ($isHotelBoarding && !$hasCompleteConsentDocument) {
     http_response_code(400);
-    echo json_encode(['message' => 'Pet hotel and boarding bookings require the complete signed liability consent document before payment or activation.']);
+    echo json_encode(['message' => 'Pet Hotel and Confinement Boarding bookings require the complete signed liability consent document before payment or activation.']);
     exit;
 }
 
@@ -1094,13 +1100,13 @@ if ($serviceType === 'special services') {
 if ($isHotelBoarding) {
     if (empty($petIds)) {
         http_response_code(400);
-        echo json_encode(['message' => 'Please select at least one pet for hotel or boarding.']);
+        echo json_encode(['message' => 'Please select at least one pet for Pet Hotel or Confinement Boarding.']);
         exit;
     }
 
     if (!$checkInDate || !$checkOutDate || !$roomSize || !$emergencyContact) {
         http_response_code(400);
-        echo json_encode(['message' => 'Missing hotel or boarding stay details.']);
+        echo json_encode(['message' => 'Missing Pet Hotel or Confinement Boarding stay details.']);
         exit;
     }
 
@@ -1121,7 +1127,7 @@ if ($isHotelBoarding) {
     $roomPetLimit = getRoomPetLimit($roomSize);
     if (count($petIds) > $roomPetLimit) {
         http_response_code(400);
-        echo json_encode(['message' => "The selected room or kennel allows only {$roomPetLimit} pet" . ($roomPetLimit === 1 ? "." : "s.")]);
+        echo json_encode(['message' => "The selected room or confinement unit allows only {$roomPetLimit} pet" . ($roomPetLimit === 1 ? "." : "s.")]);
         exit;
     }
 
@@ -1146,7 +1152,7 @@ if ($isHotelBoarding) {
 
     if (count($selectedSpecies) > 1) {
         http_response_code(400);
-        echo json_encode(['message' => 'Pet hotel and boarding bookings must use pets of the same species only.']);
+        echo json_encode(['message' => 'Pet Hotel and Confinement Boarding bookings must use pets of the same species only.']);
         exit;
     }
 
@@ -1154,7 +1160,7 @@ if ($isHotelBoarding) {
     if (count($petIds) > $speciesLimit) {
         $speciesLabel = getSpeciesLabel($selectedSpecies[0] ?? 'unknown');
         http_response_code(400);
-        echo json_encode(['message' => "Maximum {$speciesLimit} {$speciesLabel} allowed per hotel or boarding booking."]);
+        echo json_encode(['message' => "Maximum {$speciesLimit} {$speciesLabel} allowed per Pet Hotel or Confinement Boarding booking."]);
         exit;
     }
 
@@ -1296,7 +1302,7 @@ try {
             booking_slot_release($pdo, $slotLockName);
             $slotLockName = null;
             http_response_code(409);
-            echo json_encode(['message' => 'Selected room or kennel type is not configured.']);
+            echo json_encode(['message' => 'Selected room or confinement type is not configured.']);
             exit;
         }
 
@@ -1319,7 +1325,7 @@ try {
             booking_slot_release($pdo, $slotLockName);
             $slotLockName = null;
             http_response_code(409);
-            echo json_encode(['message' => 'No rooms or kennels are available for the selected dates.']);
+            echo json_encode(['message' => 'No hotel rooms or confinement units are available for the selected dates.']);
             exit;
         }
     }

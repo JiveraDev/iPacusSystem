@@ -338,10 +338,12 @@ function App() {
   }, []);
 
   const handleLogout = useCallback(() => {
+    toast.dismissAll();
     clearPushContext().catch(() => {});
     clearStoredAuthSession();
     setCurrentUser(null);
     navigateTo(routes.landing);
+    toast.success('Logged out successfully.');
   }, [navigateTo]);
 
   const handleAuthenticatedForgotPassword = useCallback(() => {

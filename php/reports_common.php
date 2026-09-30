@@ -599,7 +599,7 @@ function reports_boarding_trend(PDO $pdo, array $range, array &$missing): array
         SELECT
             {$period['expression']} AS period_label,
             SUM(CASE WHEN b.hotel_boarding_type = 'hotel' THEN 1 ELSE 0 END) AS hotel_count,
-            SUM(CASE WHEN b.hotel_boarding_type = 'boarding' OR b.hotel_boarding_type IS NULL THEN 1 ELSE 0 END) AS kennel_count
+            SUM(CASE WHEN b.hotel_boarding_type = 'boarding' OR b.hotel_boarding_type IS NULL THEN 1 ELSE 0 END) AS confinement_count
         FROM bookings b
         WHERE b.service_type = 'boarding'
           AND COALESCE(b.check_in_date, b.booking_date) BETWEEN ? AND ?
@@ -608,15 +608,15 @@ function reports_boarding_trend(PDO $pdo, array $range, array &$missing): array
     ", [$range['start_date'], $range['end_date']], $missing, 'Boarding and pet hotel trend data could not be loaded.');
 
     $hotel = [];
-    $kennel = [];
+    $confinement = [];
     foreach ($rows as $row) {
         $hotel[(string)$row['period_label']] = reports_int($row['hotel_count']);
-        $kennel[(string)$row['period_label']] = reports_int($row['kennel_count']);
+        $confinement[(string)$row['period_label']] = reports_int($row['confinement_count']);
     }
 
     $merged = reports_merge_period_values([
         ['label' => 'Pet Hotel', 'values' => $hotel],
-        ['label' => 'Boarding / Kennel', 'values' => $kennel],
+        ['label' => 'Confinement Boarding', 'values' => $confinement],
     ]);
 
     return [
@@ -2195,7 +2195,7 @@ function reports_emr_request_report(PDO $pdo, array $range, array $filters): arr
 function reports_inventory_status_report(PDO $pdo, array $range, array $filters): array
 {
     $missing = [];
-    if (!reports_has_tables($pdo, ['inventory_items'], $missing)) {
+    if (!reports_has_tables($pdo, ['inventory_items', 'inventory_branch_items'], $missing)) {
         return reports_blank_report('inventory_status', $missing);
     }
 
@@ -2237,6 +2237,18 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
                ELSE 'ok'
             END AS expiry_status"
         : "'unknown' AS stock_status, 'unknown' AS expiry_status";
+    $branchCatalogJoin = $branchId > 0
+        ? "JOIN inventory_branch_items branch_inventory
+               ON branch_inventory.item_id = ii.item_id
+              AND branch_inventory.branch_id = ?
+              AND branch_inventory.status = 'active'"
+        : "JOIN (
+               SELECT item_id
+               FROM inventory_branch_items
+               WHERE status = 'active'
+               GROUP BY item_id
+           ) branch_inventory ON branch_inventory.item_id = ii.item_id";
+    $branchCatalogParams = $branchId > 0 ? [$branchId] : [];
 
     $where = ['ii.status = ?'];
     $params = ['active'];
@@ -2258,10 +2270,13 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
             {$stockSelect}
             {$stockStatusSelect}
         FROM inventory_items ii
+        {$branchCatalogJoin}
         {$stockJoin}
         WHERE " . implode(' AND ', $where) . "
         ORDER BY stock_status DESC, ii.item_name ASC
-    ", $hasBatches ? array_merge([$today, $today], $params) : $params, $missing, 'Inventory status data could not be loaded.');
+    ", $hasBatches
+        ? array_merge([$today, $today], $branchCatalogParams, $params)
+        : array_merge($branchCatalogParams, $params), $missing, 'Inventory status data could not be loaded.');
 
     if (!$hasBatches) {
         $missing[] = 'inventory_batches table is missing; stock and expiry status cannot be calculated.';
@@ -3839,8 +3854,8 @@ function reports_dashboard(PDO $pdo, array $range): array
         ],
         [
             'id' => 'boarding_trend',
-            'title' => 'Pet Hotel and Boarding/Kennel Trend',
-            'summary' => 'Tracks hotel and boarding/kennel check-ins by the selected period.',
+            'title' => 'Pet Hotel and Confinement Boarding Trend',
+            'summary' => 'Tracks pet hotel and confinement boarding check-ins by the selected period.',
             'chart' => $boardingTrend,
         ],
         [

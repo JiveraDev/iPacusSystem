@@ -52,9 +52,9 @@ export const BOARDING_ROOM_PROJECTIONS = Object.freeze({
         { id: 'large', name: 'Large Room', capacity: '2-3 pets', pricePerDay: 2000, features: ['Extra large space', 'Deluxe meals', 'Private play area', 'Daily grooming'] }
     ],
     boarding: [
-        { id: 'small', name: 'Small Kennel', capacity: '1 pet', pricePerDay: 400, features: ['Secure kennel', 'Basic bedding', '2 meals/day', 'Outdoor time'] },
-        { id: 'medium', name: 'Medium Kennel', capacity: '1-2 pets', pricePerDay: 800, features: ['Spacious kennel', 'Comfortable bedding', '3 meals/day', 'Extended outdoor time'] },
-        { id: 'large', name: 'Large Kennel', capacity: '2-3 pets', pricePerDay: 1400, features: ['Extra large kennel', 'Premium meals', 'Extended play sessions', 'Training activities'] }
+        { id: 'small', name: 'Small Confinement Unit', capacity: '1 pet', pricePerDay: 400, features: ['Secure confinement unit', 'Basic bedding', '2 meals/day', 'Outdoor time'] },
+        { id: 'medium', name: 'Medium Confinement Unit', capacity: '1-2 pets', pricePerDay: 800, features: ['Spacious confinement unit', 'Comfortable bedding', '3 meals/day', 'Extended outdoor time'] },
+        { id: 'large', name: 'Large Confinement Unit', capacity: '2-3 pets', pricePerDay: 1400, features: ['Extra large confinement unit', 'Premium meals', 'Extended play sessions', 'Training activities'] }
     ]
 });
 
@@ -188,6 +188,12 @@ function text(value, fallback = '') {
     return next.trim() === '' ? fallback : next;
 }
 
+function replaceLegacyKennelTerms(value) {
+    return String(value || '')
+        .replace(/\bkennels\b/gi, match => match[0] === match[0].toUpperCase() ? 'Confinement Units' : 'confinement units')
+        .replace(/\bkennel\b/gi, match => match[0] === match[0].toUpperCase() ? 'Confinement Unit' : 'confinement unit');
+}
+
 function cloneRows(rows) {
     return rows.map((row) => ({ ...row }));
 }
@@ -285,10 +291,10 @@ function mergeBoardingRooms(rooms) {
                 : [];
             return {
                 id: defaultRoom.id,
-                name: text(sourceRoom.name, defaultRoom.name),
+                name: replaceLegacyKennelTerms(text(sourceRoom.name, defaultRoom.name)),
                 capacity: text(sourceRoom.capacity, defaultRoom.capacity),
                 pricePerDay: finiteNumber(sourceRoom.pricePerDay, defaultRoom.pricePerDay),
-                features: features.length > 0 ? features : [...defaultRoom.features]
+                features: (features.length > 0 ? features : [...defaultRoom.features]).map(replaceLegacyKennelTerms)
             };
         })];
     }));

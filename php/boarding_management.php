@@ -3737,6 +3737,9 @@ function boarding_materials_action(PDO $pdo): void
         if ($assignmentBranchId <= 0) {
             boarding_error(409, 'The boarding assignment has no valid branch for inventory deduction.');
         }
+        if (!boarding_table_exists($pdo, 'inventory_branch_items')) {
+            boarding_error(409, 'Run the branch inventory catalog migration before recording boarding materials.');
+        }
         $reservedQuantity = 0.0;
         if (boarding_material_billing_trace_ready($pdo)) {
             $reservedStmt = $pdo->prepare("
@@ -3763,6 +3766,10 @@ function boarding_materials_action(PDO $pdo): void
             SELECT batch.quantity
             FROM inventory_batches batch
             JOIN inventory_locations location ON location.location_id = batch.location_id
+            JOIN inventory_branch_items branch_inventory
+              ON branch_inventory.item_id = batch.item_id
+             AND branch_inventory.branch_id = location.branch_id
+             AND branch_inventory.status = 'active'
             WHERE batch.item_id = ?
               AND location.branch_id = ?
               AND location.status = 'active'

@@ -654,27 +654,6 @@ function staff_activity_entries(PDO $pdo, ?int $userId = null): Generator
     }
 }
 
-function staff_activity_is_major_clinical_entry(array $entry): bool
-{
-    if (ipawcus_access_normalize_role((string)($entry['actor_role'] ?? '')) !== 'veterinarian') {
-        return false;
-    }
-
-    $key = (string)($entry['action_key'] ?? '');
-    if ($key === '') {
-        $key = strtoupper((string)($entry['request_method'] ?? '')) . ':' . (string)($entry['request_path'] ?? '');
-    }
-
-    return preg_match('#^(POST|PATCH):/vet-diagnoses(?:/:id)?$#', $key) === 1
-        || preg_match('#^POST:/online-consultations/:id/(start|end|diagnosis)$#', $key) === 1
-        || preg_match('#^POST:/queues/(receive|return|reenter|status)$#', $key) === 1
-        || $key === 'POST:/grooming'
-        || $key === 'POST:/boarding/observations'
-        || preg_match('#^(POST|PATCH):/record-update-requests(?:/:id)?$#', $key) === 1
-        || $key === 'POST:/visits'
-        || $key === 'POST:/pets/:id/medical';
-}
-
 function staff_activity_is_pos_billing_entry(array $entry): bool
 {
     $actorRole = ipawcus_access_normalize_role((string)($entry['actor_role'] ?? ''));
@@ -688,6 +667,20 @@ function staff_activity_is_pos_billing_entry(array $entry): bool
     }
 
     return preg_match('#^POST:/visits(?:/:id/(?:charges|payments|refunds))?$#', $key) === 1;
+}
+
+function staff_activity_action_key(array $entry): string
+{
+    $key = (string)($entry['action_key'] ?? '');
+    return $key !== ''
+        ? $key
+        : strtoupper((string)($entry['request_method'] ?? '')) . ':' . (string)($entry['request_path'] ?? '');
+}
+
+function staff_activity_is_medical_record_update_entry(array $entry): bool
+{
+    if ((string)($entry['target_type'] ?? '') === 'record-update-requests') return true;
+    return staff_activity_action_key($entry) === 'POST:/pets/:id/medical';
 }
 
 function staff_activity_reference_without_id(string $value, string $fallback): string
@@ -799,17 +792,22 @@ function staff_activity_list(PDO $pdo, array $filters, int $limit, int $offset):
         if (isset($filters['kind']) && ($entry['activity_kind'] ?? '') !== $filters['kind']) continue;
         if (isset($filters['module'])) {
             $targetType = (string)($entry['target_type'] ?? '');
-            $isMajorClinical = staff_activity_is_major_clinical_entry($entry);
             $isPosBilling = staff_activity_is_pos_billing_entry($entry);
+            $isQueue = $targetType === 'queues';
+            $isMedicalRecordUpdate = staff_activity_is_medical_record_update_entry($entry);
+            $isDiagnosis = $targetType === 'vet-diagnoses';
+            $isOnlineConsultation = $targetType === 'online-consultations';
             $matchesModule = match ($filters['module']) {
-                'major' => in_array($targetType, ['inventory', 'bookings'], true) || $isMajorClinical || $isPosBilling,
-                'operations' => in_array($targetType, ['inventory', 'bookings'], true),
+                'major' => in_array($targetType, ['inventory', 'bookings'], true)
+                    || $isQueue || $isPosBilling || $isMedicalRecordUpdate || $isDiagnosis || $isOnlineConsultation,
                 'inventory' => $targetType === 'inventory',
                 'bookings' => $targetType === 'bookings',
+                'queues' => $isQueue,
                 'pos' => $isPosBilling,
-                'grooming' => $targetType === 'grooming',
-                'clinical' => $isMajorClinical,
-                default => true,
+                'medical-records' => $isMedicalRecordUpdate,
+                'diagnosis' => $isDiagnosis,
+                'online-consultations' => $isOnlineConsultation,
+                default => false,
             };
             if (!$matchesModule) continue;
         }

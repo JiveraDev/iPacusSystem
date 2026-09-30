@@ -87,15 +87,15 @@ if ($method === 'GET') {
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($role === 'pet_owner') {
         if (!$job['published_at']) ipawcus_guard_error(404, 'The grooming summary has not been shared yet.');
-        $details = array_intersect_key($details, array_flip(['package', 'addOns', 'ownerSummary', 'tasks']));
-        // Checklist reasons may be internal; only the reviewed summary is shared.
-        unset($details['tasks']);
+        $details = array_intersect_key($details, array_flip(['package', 'addOns', 'ownerSummary']));
         $photos = array_values(array_filter($photos, fn($p) => $p['category'] !== 'concern' && (int)$p['share_with_owner'] === 1));
         $reviews = []; $events = [];
         unset($job['updated_by']);
         unset($job['performed_by'], $job['visit_id'], $job['version']);
     }
-    $references = $admin ? array_values(array_filter(array_map('trim', explode(',', $booking['Image_Booking_Concern_Path'] ?? '')))) : [];
+    $references = $role !== 'pet_owner'
+        ? array_values(array_filter(array_map('trim', explode(',', $booking['Image_Booking_Concern_Path'] ?? ''))))
+        : [];
     $eligibleVets = [];
     if ($admin) {
         $candidates = $pdo->query('SELECT u.user_id, u.role, u.first_Name, u.last_Name FROM users u JOIN veterinarian_profiles v ON v.user_id = u.user_id WHERE v.is_active = 1 ORDER BY u.last_Name, u.first_Name')->fetchAll(PDO::FETCH_ASSOC);
@@ -132,7 +132,13 @@ try {
     $performer = $job['performed_by'];
     $visitId = $job['visit_id'];
 
-    if ($action === 'save') {
+    if ($action === 'receive') {
+        if ($job['status'] !== 'scheduled') throw new InvalidArgumentException('This pet has already been received. Refresh the grooming list.');
+        $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+        if ($booking['booking_date'] !== $today) throw new InvalidArgumentException('Receive the pet on the booked date. Reschedule the booking first if needed.');
+        $nextStatus = 'checked_in';
+        $performer = trim((string)($job['performed_by'] ?? '')) ?: grooming_handler_name($user);
+    } elseif ($action === 'save') {
         $nextStatus = (string)($input['status'] ?? $job['status']);
         $submittedDetails = is_array($input['details'] ?? null) ? $input['details'] : [];
         // Grooming cannot override the official booking/catalog price.
@@ -146,6 +152,16 @@ try {
         if ($job['status'] === 'ready') {
             $nextDetails = array_merge($details, array_intersect_key($nextDetails, array_flip(['pickupPerson', 'pickupNote', 'pickupConfirmed'])));
             $performer = $job['performed_by'];
+        }
+        if ($job['status'] !== $nextStatus && in_array($nextStatus, ['in_progress', 'ready'], true)) {
+            $requiredPhotoCategory = $nextStatus === 'ready' ? 'after' : 'before';
+            $photoCheck = $pdo->prepare('SELECT 1 FROM grooming_photos WHERE booking_id = ? AND category = ? LIMIT 1');
+            $photoCheck->execute([$id, $requiredPhotoCategory]);
+            if (!$photoCheck->fetchColumn()) {
+                throw new InvalidArgumentException($requiredPhotoCategory === 'before'
+                    ? 'Add the before photo during initial receiving before starting grooming.'
+                    : 'Add the after photo before finishing grooming.');
+            }
         }
         grooming_assert_transition($job['status'], $nextStatus, $nextDetails, $performer, $latestReview['outcome'] ?? null);
         if (in_array(strtolower($booking['pet_status'] ?? ''), ['deceased', 'dead'], true) && !in_array($nextStatus, ['cancelled', 'no_show'], true)) throw new InvalidArgumentException('This pet is marked deceased. Review its record before proceeding.');
@@ -266,7 +282,12 @@ try {
     } catch (Throwable $notificationError) {
         error_log('Grooming notification failed: ' . $notificationError->getMessage());
     }
-    echo json_encode(['success' => true, 'message' => 'Grooming record updated.']);
+    echo json_encode([
+        'success' => true,
+        'message' => 'Grooming record updated.',
+        'status' => $nextStatus,
+        'visitId' => $visitId ?: null,
+    ]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     if ($error instanceof InvalidArgumentException) ipawcus_guard_error(422, $error->getMessage());

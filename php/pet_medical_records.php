@@ -432,18 +432,86 @@ function pet_medical_normalize_attachments($value): array
         }
 
         $url = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? $attachment['preview'] ?? ''));
+        $storedFileName = trim((string)(
+            $attachment['storedFileName']
+            ?? $attachment['stored_file_name']
+            ?? basename(parse_url($url, PHP_URL_PATH) ?: '')
+        ));
+        $originalName = trim((string)(
+            $attachment['originalName']
+            ?? $attachment['original_name']
+            ?? ''
+        ));
+        $displayName = trim((string)(
+            $attachment['displayName']
+            ?? $attachment['display_name']
+            ?? $attachment['name']
+            ?? $originalName
+            ?? ''
+        ));
+        $isOpaqueName = (bool)preg_match('/^\d{14}[_-][a-f0-9]{16,}\.[a-z0-9]+$/i', $displayName ?: $storedFileName);
+        $category = $attachment['category'] ?? $attachment['attachmentCategory'] ?? 'diagnosis_upload';
+        if ($displayName === '' || $isOpaqueName) {
+            if ($originalName !== '') {
+                $displayName = $originalName;
+            } else {
+                $extension = strtolower(pathinfo($storedFileName, PATHINFO_EXTENSION));
+                $categoryLabel = ucwords(str_replace(['_', '-'], ' ', (string)$category));
+                $displayName = trim($categoryLabel ?: 'Medical Attachment') . ' ' . ($index + 1);
+                if ($extension !== '') {
+                    $displayName .= '.' . $extension;
+                }
+            }
+        }
         $normalized[] = [
             'id' => $attachment['id'] ?? ('attachment-' . $index),
-            'name' => $attachment['name'] ?? basename(parse_url($url, PHP_URL_PATH) ?: 'Attachment'),
+            'name' => $displayName,
+            'originalName' => $originalName,
+            'storedFileName' => $storedFileName,
             'url' => $url,
             'relativeUrl' => trim((string)($attachment['relativeUrl'] ?? $url)),
             'mimeType' => $attachment['mimeType'] ?? $attachment['type'] ?? '',
-            'category' => $attachment['category'] ?? $attachment['attachmentCategory'] ?? 'diagnosis_upload',
+            'category' => $category,
             'uploadedAt' => $attachment['uploadedAt'] ?? null,
+            'title' => $attachment['title'] ?? null,
+            'label' => $attachment['label'] ?? null,
+            'description' => $attachment['description'] ?? null,
+            'source' => $attachment['source'] ?? null,
+            'bookingNumber' => $attachment['bookingNumber'] ?? null,
+            'signerName' => $attachment['signerName'] ?? null,
+            'signedAt' => $attachment['signedAt'] ?? null,
         ];
     }
 
     return $normalized;
+}
+
+function pet_medical_attachment_mime(string $path): string
+{
+    return match (strtolower(pathinfo((string)(parse_url($path, PHP_URL_PATH) ?: $path), PATHINFO_EXTENSION))) {
+        'jpg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'pdf' => 'application/pdf',
+        default => '',
+    };
+}
+
+function pet_medical_grooming_attachment(string $path, string $name, string $category, string $id): array
+{
+    $cleanPath = trim(str_replace('\\', '/', $path));
+    return [
+        'id' => $id,
+        'name' => $name,
+        'originalName' => basename((string)(parse_url($cleanPath, PHP_URL_PATH) ?: $cleanPath)),
+        'storedFileName' => basename((string)(parse_url($cleanPath, PHP_URL_PATH) ?: $cleanPath)),
+        'url' => preg_match('#^https?://#i', $cleanPath) ? $cleanPath : '/' . ltrim($cleanPath, '/'),
+        'relativeUrl' => ltrim($cleanPath, '/'),
+        'mimeType' => pet_medical_attachment_mime($cleanPath),
+        'category' => $category,
+        'source' => 'grooming',
+    ];
 }
 
 function pet_medical_diagnosis_summary(array $record): string
@@ -657,6 +725,129 @@ function pet_medical_fetch_boarding_activity(PDO $pdo, array $bookingIds, int $p
     }
 
     return $activity;
+}
+
+function pet_medical_fetch_grooming_history(PDO $pdo, int $petId): array
+{
+    if (!pet_medical_table_exists($pdo, 'bookings') || !pet_medical_table_exists($pdo, 'grooming_jobs')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.*,
+            j.status AS grooming_status,
+            j.performed_by,
+            j.details_json,
+            j.visit_id AS grooming_visit_id,
+            j.updated_at AS grooming_updated_at
+        FROM bookings b
+        JOIN grooming_jobs j ON j.booking_id = b.booking_id
+        WHERE b.pet_id = ?
+          AND LOWER(TRIM(b.service_type)) IN ('grooming', 'pet grooming')
+          AND j.status IN ('ready', 'released', 'transferred')
+        ORDER BY COALESCE(j.updated_at, b.booking_date, b.created_at) DESC, b.booking_id DESC
+    ");
+    $stmt->execute([$petId]);
+    $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!$bookings) return [];
+
+    $bookingIds = array_map(static fn($booking) => (int)$booking['booking_id'], $bookings);
+    $photosByBooking = [];
+    if (pet_medical_table_exists($pdo, 'grooming_photos')) {
+        $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+        $photoStmt = $pdo->prepare("
+            SELECT photo_id, booking_id, category, caption, file_path, created_at
+            FROM grooming_photos
+            WHERE booking_id IN ({$placeholders})
+            ORDER BY booking_id ASC, photo_id ASC
+        ");
+        $photoStmt->execute($bookingIds);
+        foreach ($photoStmt->fetchAll(PDO::FETCH_ASSOC) as $photo) {
+            $bookingId = (int)$photo['booking_id'];
+            $category = strtolower(trim((string)$photo['category']));
+            $categoryLabel = match ($category) {
+                'before' => 'Before grooming photo',
+                'after' => 'After grooming photo',
+                default => 'Grooming concern photo',
+            };
+            $photosByBooking[$bookingId][] = pet_medical_grooming_attachment(
+                (string)$photo['file_path'],
+                trim((string)$photo['caption']) ?: $categoryLabel,
+                'grooming_' . ($category ?: 'photo'),
+                'grooming-photo-' . (int)$photo['photo_id']
+            ) + ['uploadedAt' => $photo['created_at'] ?? null];
+        }
+    }
+
+    $records = [];
+    foreach ($bookings as $booking) {
+        $bookingId = (int)$booking['booking_id'];
+        $details = pet_medical_decode_json($booking['details_json'] ?? null) ?: [];
+        $attachments = [];
+        $concernPaths = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string)($booking['Image_Booking_Concern_Path'] ?? ''))
+        )));
+        foreach ($concernPaths as $index => $concernPath) {
+            $extension = strtolower(pathinfo((string)(parse_url($concernPath, PHP_URL_PATH) ?: $concernPath), PATHINFO_EXTENSION));
+            $name = 'Owner grooming concern' . (count($concernPaths) > 1 ? ' ' . ($index + 1) : '') . ($extension !== '' ? '.' . $extension : '');
+            $attachments[] = pet_medical_grooming_attachment(
+                $concernPath,
+                $name,
+                'grooming_owner_concern',
+                'grooming-concern-' . $bookingId . '-' . $index
+            );
+        }
+        $attachments = array_merge($attachments, $photosByBooking[$bookingId] ?? []);
+
+        $package = trim((string)($details['package'] ?? '')) ?: 'Grooming service';
+        $ownerSummary = trim((string)($details['ownerSummary'] ?? ''));
+        $ownerRequest = trim((string)($details['ownerRequest'] ?? $booking['notes'] ?? ''));
+        $addOns = trim((string)($details['addOns'] ?? $booking['add_ons'] ?? ''));
+        $summary = implode("\n", array_filter([
+            'Service: ' . $package,
+            $addOns !== '' ? 'Add-ons: ' . $addOns : '',
+            $ownerSummary,
+        ]));
+
+        $records[] = [
+            'id' => 'grooming-' . $bookingId,
+            'sourceType' => 'grooming',
+            'sourceId' => $bookingId,
+            'bookingId' => $bookingId,
+            'bookingNumber' => $booking['booking_number'] ?? null,
+            'visitId' => !empty($booking['grooming_visit_id']) ? (int)$booking['grooming_visit_id'] : null,
+            'title' => $package,
+            'serviceName' => 'Grooming',
+            'serviceDate' => $booking['grooming_updated_at'] ?: $booking['booking_date'] ?: $booking['created_at'],
+            'status' => $booking['grooming_status'],
+            'billingStatus' => null,
+            'veterinarianName' => trim((string)($booking['performed_by'] ?? '')),
+            'chiefComplaint' => $ownerRequest,
+            'majorSymptoms' => '',
+            'symptoms' => '',
+            'physicalExam' => '',
+            'diagnosis' => '',
+            'treatment' => $package . ($addOns !== '' ? "\nAdd-ons: " . $addOns : ''),
+            'labResults' => '',
+            'followUp' => '',
+            'notes' => $ownerSummary,
+            'summary' => $summary,
+            'vitalSigns' => [],
+            'prescriptions' => [],
+            'customSections' => array_values(array_filter([
+                $ownerRequest !== '' ? ['label' => 'Owner concern / request', 'value' => $ownerRequest] : null,
+                $ownerSummary !== '' ? ['label' => 'Grooming summary', 'value' => $ownerSummary] : null,
+            ])),
+            'attachments' => $attachments,
+            'sourceUploads' => [],
+            'charges' => [],
+            'totals' => ['charges' => 0, 'paid' => 0, 'balance' => 0],
+        ];
+    }
+
+    return $records;
 }
 
 function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
@@ -1054,7 +1245,11 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
         }
     }
 
-    $records = array_merge($records, pet_medical_fetch_boarding_history($pdo, $petId));
+    $records = array_merge(
+        $records,
+        pet_medical_fetch_grooming_history($pdo, $petId),
+        pet_medical_fetch_boarding_history($pdo, $petId)
+    );
 
     $sourceGroups = pet_medical_source_group_map($pdo, $petId);
     foreach ($records as &$record) {
@@ -1525,6 +1720,47 @@ function pet_medical_service_record_by_source(PDO $pdo, int $petId, string $sour
     }
 
     return null;
+}
+
+function pet_medical_merge_group_source_files(array $groups, array $serviceHistory): array
+{
+    $sources = [];
+    foreach ($serviceHistory as $record) {
+        $sourceType = trim((string)($record['sourceType'] ?? ''));
+        $sourceId = (int)($record['sourceId'] ?? 0);
+        if ($sourceType !== '' && $sourceId > 0) {
+            $sources[$sourceType . ':' . $sourceId] = $record;
+        }
+    }
+
+    foreach ($groups as &$group) {
+        foreach ($group['items'] as &$item) {
+            $key = (string)($item['sourceType'] ?? '') . ':' . (int)($item['sourceId'] ?? 0);
+            $currentSource = $sources[$key] ?? null;
+            if (!$currentSource) continue;
+
+            $snapshot = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : $currentSource;
+            foreach (['attachments', 'sourceUploads'] as $field) {
+                $files = array_merge(
+                    is_array($snapshot[$field] ?? null) ? $snapshot[$field] : [],
+                    is_array($currentSource[$field] ?? null) ? $currentSource[$field] : []
+                );
+                $seen = [];
+                $snapshot[$field] = array_values(array_filter($files, static function ($attachment) use (&$seen): bool {
+                    if (!is_array($attachment)) return false;
+                    $key = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? $attachment['id'] ?? ''));
+                    if ($key === '' || isset($seen[$key])) return false;
+                    $seen[$key] = true;
+                    return true;
+                }));
+            }
+            $item['sourceSnapshot'] = $snapshot;
+        }
+        unset($item);
+    }
+    unset($group);
+
+    return $groups;
 }
 
 function pet_medical_create_group(PDO $pdo, int $petId, array $input): void
@@ -2038,6 +2274,7 @@ try {
         $pet = pet_medical_pet_summary($pdo, $petNumericId);
         $serviceHistory = pet_medical_fetch_service_history($pdo, $petNumericId);
         $organizedRecords = pet_medical_fetch_groups($pdo, $petNumericId, $ownerVisibleOnly);
+        $organizedRecords = pet_medical_merge_group_source_files($organizedRecords, $serviceHistory);
 
         echo json_encode([
             'success' => true,

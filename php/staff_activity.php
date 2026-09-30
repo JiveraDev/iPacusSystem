@@ -45,9 +45,8 @@ if ($activityPath === '/activity' && $activityMethod === 'GET') {
 
     $filters = ['kind' => 'action'];
     $moduleFilter = (string)($_GET['module'] ?? 'major');
-    if (in_array($moduleFilter, ['major', 'operations', 'inventory', 'bookings', 'pos', 'grooming', 'clinical'], true)) {
-        $filters['module'] = $moduleFilter;
-    }
+    $allowedModules = ['major', 'inventory', 'bookings', 'queues', 'pos', 'medical-records', 'diagnosis', 'online-consultations'];
+    $filters['module'] = in_array($moduleFilter, $allowedModules, true) ? $moduleFilter : 'major';
     if (!$allUsers) {
         $filters['user_id'] = (int)$activityUser['user_id'];
     } elseif ($requestedUserId && $requestedUserId > 0) {

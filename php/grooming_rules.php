@@ -35,19 +35,9 @@ function grooming_validate_details(array $input): array
     $result['intakeConfirmed'] = ($input['intakeConfirmed'] ?? false) === true;
     $result['completionConfirmed'] = ($input['completionConfirmed'] ?? false) === true;
     $result['pickupConfirmed'] = ($input['pickupConfirmed'] ?? false) === true;
+    // The grooming checklist was intentionally removed. Completion is recorded
+    // by the explicit Finish grooming action and the before/after evidence.
     $result['tasks'] = [];
-    if (isset($input['tasks']) && !is_array($input['tasks'])) throw new InvalidArgumentException('Review the service checklist.');
-    foreach (['bath', 'dry', 'brush', 'trim', 'nails', 'cleanup'] as $task) {
-        $entry = $input['tasks'][$task] ?? [];
-        if (!is_array($entry)) throw new InvalidArgumentException('Review the service checklist.');
-        $status = $entry['status'] ?? 'not_started';
-        if (!in_array($status, ['not_started', 'done', 'skipped', 'stopped'], true)) throw new InvalidArgumentException('Choose a valid checklist status.');
-        if (isset($entry['reason']) && !is_string($entry['reason'])) throw new InvalidArgumentException('Enter text for the checklist reason.');
-        $reason = trim((string)($entry['reason'] ?? ''));
-        if (strlen($reason) > 500) throw new InvalidArgumentException('Keep checklist reasons under 500 characters.');
-        if (in_array($status, ['skipped', 'stopped'], true) && $reason === '') throw new InvalidArgumentException('Add a reason for each skipped or stopped task.');
-        $result['tasks'][$task] = ['status' => $status, 'reason' => $reason];
-    }
     return $result;
 }
 
@@ -70,13 +60,7 @@ function grooming_assert_transition(string $from, string $to, array $details, st
         if (empty($details['ownerApproved'])) throw new InvalidArgumentException('Confirm the owner agreed to the service before starting grooming.');
     }
     if ($from !== $to && in_array($to, ['in_progress', 'ready'], true) && ($details['coat'] ?? '') === 'review' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Request a vet review for the recorded coat concern before continuing grooming.');
-    if (in_array($to, ['ready', 'released'], true)) {
-        if (empty($details['completionConfirmed'])) {
-            foreach ($details['tasks'] as $task) {
-                if ($task['status'] === 'not_started') throw new InvalidArgumentException('Use Finish grooming to confirm the work is done.');
-            }
-        }
-    }
+    if (in_array($to, ['ready', 'released'], true) && empty($details['completionConfirmed'])) throw new InvalidArgumentException('Use Finish grooming to confirm the work is done.');
     if ($to === 'released' && (empty($details['pickupPerson']) || (empty($details['pickupConfirmed']) && empty($details['pickupNote'])))) throw new InvalidArgumentException('Enter who collected the pet, then confirm pickup.');
 }
 

@@ -82,7 +82,7 @@ function grooming_ensure_job(PDO $pdo, array $booking, int $actor): array
 function grooming_media_access(PDO $pdo, string $path, array $user): bool
 {
     if (!ipawcus_guard_table_exists($pdo, 'grooming_photos')) return false;
-    $stmt = $pdo->prepare('SELECT p.*, b.branch_id, b.user_id, j.published_at FROM grooming_photos p JOIN bookings b ON b.booking_id = p.booking_id JOIN grooming_jobs j ON j.booking_id = p.booking_id WHERE p.file_path = ?');
+    $stmt = $pdo->prepare('SELECT p.*, b.branch_id, b.user_id, j.status AS grooming_status, j.published_at FROM grooming_photos p JOIN bookings b ON b.booking_id = p.booking_id JOIN grooming_jobs j ON j.booking_id = p.booking_id WHERE p.file_path = ?');
     $stmt->execute([$path]);
     $photo = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$photo) return false;
@@ -90,6 +90,7 @@ function grooming_media_access(PDO $pdo, string $path, array $user): bool
     if ($role === 'pet_owner') return (int)$photo['user_id'] === ipawcus_guard_user_id($user) && $photo['published_at'] && (int)$photo['share_with_owner'] === 1 && $photo['category'] !== 'concern';
     if (!branch_user_can_access($pdo, $user, (int)$photo['branch_id'])) return false;
     if (ipawcus_guard_is_admin_role($role)) return $role === 'super_admin' || (ipawcus_admin_feature_permissions($pdo, ipawcus_guard_user_id($user))['grooming'] ?? true);
+    if ($role === 'veterinarian' && in_array((string)$photo['grooming_status'], ['ready', 'released', 'transferred'], true)) return true;
     $review = $pdo->prepare('SELECT 1 FROM grooming_reviews WHERE booking_id = ? AND veterinarian_id = ? LIMIT 1');
     $review->execute([(int)$photo['booking_id'], ipawcus_guard_user_id($user)]);
     return (bool)$review->fetchColumn();

@@ -20,6 +20,15 @@ function mail_queue_worker_limit(): int
     return max(1, min(100, $limit));
 }
 
+function mail_queue_worker_is_quiet(): bool
+{
+    global $argv;
+
+    return PHP_SAPI === 'cli'
+        && is_array($argv ?? null)
+        && in_array('--quiet', $argv, true);
+}
+
 function mail_queue_worker_web_authorized(): bool
 {
     $expectedKey = trim(mail_env_value('MAIL_QUEUE_WORKER_KEY'));
@@ -55,19 +64,6 @@ if (PHP_SAPI !== 'cli') {
 }
 
 try {
-    $bookingReminders = [];
-    try {
-        $bookingReminders = notification_run_booking_reminders($pdo);
-    } catch (Throwable $reminderError) {
-        error_log('Booking reminder generation failed: ' . $reminderError->getMessage());
-        $bookingReminders = [
-            'success' => false,
-            'message' => mail_env_bool('MAIL_DEBUG', false)
-                ? $reminderError->getMessage()
-                : 'Booking reminder generation failed.',
-        ];
-    }
-
     $todoReminders = [];
     try {
         $todoReminders = notification_run_todo_reminders($pdo);
@@ -78,6 +74,19 @@ try {
             'message' => mail_env_bool('MAIL_DEBUG', false)
                 ? $reminderError->getMessage()
                 : 'TODO reminder generation failed.',
+        ];
+    }
+
+    $bookingReminders = [];
+    try {
+        $bookingReminders = notification_run_booking_reminders($pdo);
+    } catch (Throwable $reminderError) {
+        error_log('Booking reminder generation failed: ' . $reminderError->getMessage());
+        $bookingReminders = [
+            'success' => false,
+            'message' => mail_env_bool('MAIL_DEBUG', false)
+                ? $reminderError->getMessage()
+                : 'Booking reminder generation failed.',
         ];
     }
 
@@ -93,15 +102,23 @@ try {
     $result = mail_process_queue($pdo, mail_queue_worker_limit());
     $result['reminders'] = $reminders;
 
-    if (PHP_SAPI === 'cli') {
+    if (PHP_SAPI === 'cli' && !mail_queue_worker_is_quiet()) {
         echo sprintf(
-            "Reminders: checked %d, processed %d | Mail queue: claimed %d, sent %d, failed %d\n",
+            "Reminders: checked %d, processed %d | Mail queue: claimed %d, sent %d, failed %d, pending %d, oldest %ds, max wait %ds, SMTP connections %d, duration %dms\n",
             (int)($reminders['checked'] ?? 0),
             (int)($reminders['processed'] ?? 0),
             (int)$result['claimed'],
             (int)$result['sent'],
-            (int)$result['failed']
+            (int)$result['failed'],
+            (int)($result['pending'] ?? 0),
+            (int)($result['oldestPendingSeconds'] ?? 0),
+            (int)($result['maxClaimedWaitSeconds'] ?? 0),
+            (int)($result['smtpConnections'] ?? 0),
+            (int)($result['durationMilliseconds'] ?? 0)
         );
+    }
+
+    if (PHP_SAPI === 'cli') {
         exit(0);
     }
 

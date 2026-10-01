@@ -530,7 +530,18 @@ function notification_email_template(string $title, string $intro, array $rows =
     ";
 }
 
-function notification_send_email_if_enabled(PDO $pdo, int $userId, string $category, string $subject, string $html, string $text, ?int $notificationId = null, bool $force = false, array $attachments = []): array
+function notification_send_email_if_enabled(
+    PDO $pdo,
+    int $userId,
+    string $category,
+    string $subject,
+    string $html,
+    string $text,
+    ?int $notificationId = null,
+    bool $force = false,
+    array $attachments = [],
+    int $priority = 0
+): array
 {
     $preferences = notification_fetch_preferences($pdo, $userId);
 
@@ -559,6 +570,7 @@ function notification_send_email_if_enabled(PDO $pdo, int $userId, string $categ
                 'toName' => notification_user_name($user),
                 'notificationId' => $notificationId,
                 'attachments' => $attachments,
+                'priority' => max(-9, min(9, $priority)),
             ]);
 
             if ($notificationId) {
@@ -1238,7 +1250,8 @@ function notification_create_event(PDO $pdo, array $payload): ?int
             (string)($payload['email_text'] ?? ''),
             $effectiveNotificationId,
             $forceEmail,
-            is_array($payload['email_attachments'] ?? null) ? $payload['email_attachments'] : []
+            is_array($payload['email_attachments'] ?? null) ? $payload['email_attachments'] : [],
+            (int)($payload['email_priority'] ?? 0)
         );
     }
 
@@ -1878,6 +1891,7 @@ function notification_send_todo_occurrence(PDO $pdo, array $task, array $slot): 
         'email_subject' => "{$slot['title']}: {$taskTitle}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,
+        'email_priority' => 9,
     ]);
 }
 
@@ -1935,6 +1949,7 @@ function notification_send_todo_reminder(PDO $pdo, array $task, array $slot, Dat
         'email_subject' => "{$slot['title']}: {$taskTitle}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,
+        'email_priority' => 7,
     ]);
 }
 
@@ -2323,6 +2338,7 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
         'email_subject' => "{$title} - {$bookingNumber}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,
+        'email_priority' => 7,
     ]);
 }
 

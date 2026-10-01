@@ -46,7 +46,14 @@ if ($method === 'GET' && $id <= 0) {
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
         $groomingDetails = json_decode((string)($item['grooming_details_json'] ?? ''), true);
         $item['grooming_service'] = trim((string)($groomingDetails['package'] ?? '')) ?: 'Grooming service';
-        $item['grooming_catalog_service_id'] = isset($groomingDetails['catalogServiceId']) ? (int)$groomingDetails['catalogServiceId'] : null;
+        $catalogServiceIds = is_array($groomingDetails['catalogServiceIds'] ?? null)
+            ? array_values(array_filter(array_map('intval', $groomingDetails['catalogServiceIds'])))
+            : [];
+        if (!$catalogServiceIds && !empty($groomingDetails['catalogServiceId'])) {
+            $catalogServiceIds = [(int)$groomingDetails['catalogServiceId']];
+        }
+        $item['grooming_catalog_service_ids'] = $catalogServiceIds;
+        $item['grooming_catalog_service_id'] = $catalogServiceIds[0] ?? null;
         unset($item['grooming_details_json']);
         if ($role === 'pet_owner') {
             if ((int)$item['user_id'] !== $actor || !$item['published_at']) continue;
@@ -73,7 +80,13 @@ if ($method === 'GET') {
     $job = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['booking_id' => $id, 'status' => 'scheduled', 'performed_by' => '', 'version' => 0, 'published_at' => null];
     if ($admin && empty($job['performed_by'])) $job['performed_by'] = grooming_handler_name($user);
     if ($booking['status'] === 'cancelled') $job['status'] = 'cancelled';
-    $details = isset($job['details_json']) ? json_decode($job['details_json'], true) : grooming_validate_details(['ownerRequest' => $booking['notes'] ?? '', 'allergies' => $booking['pet_allergies'] ?? '']);
+    $details = isset($job['details_json']) ? json_decode($job['details_json'], true) : null;
+    if (!is_array($details)) {
+        $details = grooming_validate_details(['ownerRequest' => $booking['notes'] ?? '', 'allergies' => $booking['pet_allergies'] ?? '']);
+    }
+    if ($admin && in_array((string)$job['status'], ['ready', 'released'], true) && empty($details['pickupPerson'])) {
+        $details['pickupPerson'] = grooming_default_pickup_person($booking, $user);
+    }
     unset($job['details_json']);
     $stmt = $pdo->prepare('SELECT r.*, CONCAT(u.first_Name, \' \', u.last_Name) AS veterinarian_name FROM grooming_reviews r JOIN users u ON u.user_id = r.veterinarian_id WHERE booking_id = ? ORDER BY review_id DESC');
     $stmt->execute([$id]);
@@ -152,6 +165,12 @@ try {
         if ($job['status'] === 'ready') {
             $nextDetails = array_merge($details, array_intersect_key($nextDetails, array_flip(['pickupPerson', 'pickupNote', 'pickupConfirmed'])));
             $performer = $job['performed_by'];
+        }
+        if (in_array($nextStatus, ['ready', 'released'], true)) {
+            // Pickup is attributed consistently without asking staff to retype
+            // a name. Prefer the booking owner, then the authenticated clinic
+            // administrator when the owner profile has no usable name.
+            $nextDetails['pickupPerson'] = grooming_default_pickup_person($booking, $user);
         }
         if ($job['status'] !== $nextStatus && in_array($nextStatus, ['in_progress', 'ready'], true)) {
             $requiredPhotoCategory = $nextStatus === 'ready' ? 'after' : 'before';

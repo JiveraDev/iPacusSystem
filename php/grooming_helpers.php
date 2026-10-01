@@ -12,7 +12,13 @@ function grooming_require_schema(PDO $pdo): void
 
 function grooming_booking(PDO $pdo, int $id, array $user, bool $lock = false): array
 {
-    $stmt = $pdo->prepare('SELECT b.*, COALESCE(p.pet_name, b.unregistered_pet_name) AS grooming_pet_name, p.pet_allergies, p.pet_status FROM bookings b LEFT JOIN pets_information p ON p.pet_id = b.pet_id WHERE b.booking_id = ?' . ($lock ? ' FOR UPDATE' : ''));
+    $stmt = $pdo->prepare("SELECT b.*, COALESCE(p.pet_name, b.unregistered_pet_name) AS grooming_pet_name,
+        p.pet_allergies, p.pet_status,
+        TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))) AS grooming_owner_name
+        FROM bookings b
+        LEFT JOIN pets_information p ON p.pet_id = b.pet_id
+        LEFT JOIN users owner ON owner.user_id = b.user_id
+        WHERE b.booking_id = ?" . ($lock ? ' FOR UPDATE' : ''));
     $stmt->execute([$id]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$booking || !grooming_is_service($booking['service_type'])) ipawcus_guard_error(404, 'This grooming booking could not be found.');
@@ -37,29 +43,48 @@ function grooming_apply_catalog_service(PDO $pdo, array $details): array
         throw new InvalidArgumentException('Service Catalog is unavailable. Ask an administrator to restore it before starting grooming.');
     }
 
-    $serviceId = (int)($details['catalogServiceId'] ?? 0);
-    if ($serviceId <= 0 && trim((string)($details['package'] ?? '')) !== '') {
+    $serviceIds = is_array($details['catalogServiceIds'] ?? null)
+        ? array_values(array_unique(array_map('intval', $details['catalogServiceIds'])))
+        : [];
+    $serviceIds = array_values(array_filter($serviceIds, static fn(int $serviceId): bool => $serviceId > 0));
+    $legacyServiceId = (int)($details['catalogServiceId'] ?? 0);
+    if (!$serviceIds && $legacyServiceId > 0) {
+        $serviceIds = [$legacyServiceId];
+    }
+    if (!$serviceIds && trim((string)($details['package'] ?? '')) !== '') {
         $match = $pdo->prepare("SELECT service_id FROM service_catalog WHERE service_type = 'grooming' AND is_active = 1 AND LOWER(TRIM(service_name)) = LOWER(TRIM(?)) ORDER BY service_id LIMIT 1");
         $match->execute([(string)$details['package']]);
-        $serviceId = (int)($match->fetchColumn() ?: 0);
+        $matchedServiceId = (int)($match->fetchColumn() ?: 0);
+        if ($matchedServiceId > 0) $serviceIds = [$matchedServiceId];
     }
 
-    if ($serviceId <= 0) {
+    if (!$serviceIds) {
         return $details;
     }
 
-    $stmt = $pdo->prepare("SELECT service_id, service_name, base_price FROM service_catalog WHERE service_id = ? AND service_type = 'grooming' AND is_active = 1 LIMIT 1");
-    $stmt->execute([$serviceId]);
-    $service = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$service) {
-        throw new InvalidArgumentException('The selected grooming service is inactive or no longer exists. Choose another Service Catalog item.');
+    $placeholders = implode(',', array_fill(0, count($serviceIds), '?'));
+    $stmt = $pdo->prepare("SELECT service_id, service_name, base_price FROM service_catalog WHERE service_id IN ({$placeholders}) AND service_type = 'grooming' AND is_active = 1");
+    $stmt->execute($serviceIds);
+    $servicesById = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $service) {
+        $servicesById[(int)$service['service_id']] = $service;
     }
-    if ((float)$service['base_price'] <= 0) {
-        throw new InvalidArgumentException('Set a price above PHP 0 for this grooming item in Service Catalog before assigning it.');
+    if (count($servicesById) !== count($serviceIds)) {
+        throw new InvalidArgumentException('One or more selected grooming services are inactive or no longer exist. Review the Service Catalog selections.');
     }
 
-    $details['catalogServiceId'] = (int)$service['service_id'];
-    $details['package'] = trim((string)$service['service_name']);
+    $serviceNames = [];
+    foreach ($serviceIds as $serviceId) {
+        $service = $servicesById[$serviceId];
+        if ((float)$service['base_price'] <= 0) {
+            throw new InvalidArgumentException('Set a price above PHP 0 for every selected grooming item in Service Catalog before assigning it.');
+        }
+        $serviceNames[] = trim((string)$service['service_name']);
+    }
+
+    $details['catalogServiceIds'] = $serviceIds;
+    $details['catalogServiceId'] = $serviceIds[0];
+    $details['package'] = implode(', ', $serviceNames);
     return $details;
 }
 

@@ -15,6 +15,13 @@ if (($file['size'] ?? 0) <= 0 || $file['size'] > 8 * 1024 * 1024) ipawcus_guard_
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
 $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 if (!isset($extensions[$mime]) || !@getimagesize($file['tmp_name'])) ipawcus_guard_error(422, 'Choose a JPG, PNG, or WebP photo.');
+$photoDirectory = null;
+try {
+    $photoDirectory = grooming_photo_directory(true);
+} catch (Throwable $error) {
+    error_log('Grooming photo storage setup failed: ' . $error->getMessage());
+    ipawcus_guard_error(409, 'Photo storage could not be prepared. Check that the server can write to the private grooming media directory.');
+}
 $target = null;
 $replacedPaths = [];
 try {
@@ -32,7 +39,7 @@ try {
     $petToken = trim(preg_replace('/[^a-z0-9]+/', '-', $petToken) ?? '', '-');
     $filename = ($petToken ?: 'pet') . '-' . $category . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $extensions[$mime];
     $path = 'grooming_photos/' . $filename;
-    $target = grooming_photo_directory(true) . DIRECTORY_SEPARATOR . $filename;
+    $target = $photoDirectory . DIRECTORY_SEPARATOR . $filename;
     if (!move_uploaded_file($file['tmp_name'], $target)) throw new RuntimeException('Photo storage failed.');
     if ($replacedPaths) {
         $pdo->prepare('DELETE FROM grooming_photos WHERE booking_id = ? AND category = ?')->execute([$id, $category]);

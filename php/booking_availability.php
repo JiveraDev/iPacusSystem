@@ -269,7 +269,10 @@ function booking_availability_room_configuration(PDO $pdo, int $branchId): array
 
 function booking_availability_boarding_reservations(PDO $pdo, int $branchId, string $monthStart, string $monthEnd): array
 {
-    $stmt = $pdo->prepare("\n        SELECT booking_id, hotel_boarding_type, room_size, check_in_date, check_out_date, status\n        FROM bookings\n        WHERE branch_id = ?\n          AND LOWER(TRIM(COALESCE(service_type, ''))) = 'boarding'\n          AND status IN ('pending', 'confirmed')\n          AND check_in_date < DATE_ADD(?, INTERVAL 1 DAY)\n          AND check_out_date > ?\n        ORDER BY check_in_date, booking_id\n    ");
+    $assignmentStatusSelect = booking_slot_table_exists($pdo, 'boarding_assignments')
+        ? "(\n            SELECT assignment_status.status\n            FROM boarding_assignments assignment_status\n            WHERE assignment_status.booking_id = bookings.booking_id\n            ORDER BY\n                CASE WHEN assignment_status.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END,\n                assignment_status.assignment_id DESC\n            LIMIT 1\n        ) AS assignment_status"
+        : 'NULL AS assignment_status';
+    $stmt = $pdo->prepare("\n        SELECT booking_id, hotel_boarding_type, room_size, check_in_date, check_out_date, status, {$assignmentStatusSelect}\n        FROM bookings\n        WHERE branch_id = ?\n          AND LOWER(TRIM(COALESCE(service_type, ''))) = 'boarding'\n          AND status IN ('pending', 'confirmed')\n          AND check_in_date < DATE_ADD(?, INTERVAL 1 DAY)\n          AND check_out_date > ?\n        ORDER BY check_in_date, booking_id\n    ");
     $stmt->execute([$branchId, $monthEnd, $monthStart]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -278,14 +281,21 @@ function booking_availability_rooms_for_date(array $configuration, array $reserv
 {
     $nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
     $isPast = strtotime($date . ' 23:59:59') < $nowTimestamp;
-    return array_map(static function (array $room) use ($reservations, $date, $nextDate, $isPast): array {
+    $isToday = $date === date('Y-m-d');
+    return array_map(static function (array $room) use ($reservations, $date, $nextDate, $isPast, $isToday): array {
         [$type, $size] = array_pad(explode('-', (string)$room['room_type'], 2), 2, '');
-        $booked = count(array_filter($reservations, static function (array $booking) use ($type, $size, $date, $nextDate): bool {
+        $matchingReservations = array_values(array_filter($reservations, static function (array $booking) use ($type, $size, $date, $nextDate): bool {
             return strtolower((string)$booking['hotel_boarding_type']) === $type
                 && strtolower((string)$booking['room_size']) === $size
                 && (string)$booking['check_in_date'] < $nextDate
                 && (string)$booking['check_out_date'] > $date;
         }));
+        $booked = count($matchingReservations);
+        $occupied = $isToday ? count(array_filter(
+            $matchingReservations,
+            static fn(array $booking): bool => strtolower((string)($booking['assignment_status'] ?? '')) === 'occupied'
+        )) : 0;
+        $reserved = max(0, $booked - $occupied);
         $total = max(0, (int)$room['total_capacity']);
         $available = $isPast ? 0 : max(0, $total - $booked);
         return [
@@ -295,6 +305,8 @@ function booking_availability_rooms_for_date(array $configuration, array $reserv
             'label' => ucfirst($type) . ' - ' . ucfirst($size),
             'total' => $total,
             'booked' => $booked,
+            'reserved' => $reserved,
+            'occupied' => $occupied,
             'available' => $available,
         ];
     }, $configuration);

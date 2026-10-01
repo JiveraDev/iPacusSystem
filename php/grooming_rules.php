@@ -23,14 +23,29 @@ function grooming_validate_details(array $input): array
     $quote = $input['agreedTotal'] ?? '';
     if ($quote !== '' && (!is_numeric($quote) || !is_finite((float)$quote) || (float)$quote < 0 || (float)$quote > 100000)) throw new InvalidArgumentException('Enter a valid agreed total from 0 to 100,000.');
     $result['agreedTotal'] = $quote === '' ? '' : round((float)$quote, 2);
-    $catalogServiceId = $input['catalogServiceId'] ?? null;
-    if ($catalogServiceId === '' || $catalogServiceId === null) {
-        $result['catalogServiceId'] = null;
-    } elseif (filter_var($catalogServiceId, FILTER_VALIDATE_INT) === false || (int)$catalogServiceId <= 0) {
-        throw new InvalidArgumentException('Choose a valid grooming service from Service Catalog.');
-    } else {
-        $result['catalogServiceId'] = (int)$catalogServiceId;
+    $submittedCatalogServiceIds = $input['catalogServiceIds'] ?? null;
+    if ($submittedCatalogServiceIds !== null && !is_array($submittedCatalogServiceIds)) {
+        throw new InvalidArgumentException('Choose valid grooming services from Service Catalog.');
     }
+    if ($submittedCatalogServiceIds === null) {
+        $legacyCatalogServiceId = $input['catalogServiceId'] ?? null;
+        $submittedCatalogServiceIds = ($legacyCatalogServiceId === '' || $legacyCatalogServiceId === null)
+            ? []
+            : [$legacyCatalogServiceId];
+    }
+    if (count($submittedCatalogServiceIds) > 20) {
+        throw new InvalidArgumentException('Choose no more than 20 grooming services for one job.');
+    }
+    $catalogServiceIds = [];
+    foreach ($submittedCatalogServiceIds as $catalogServiceId) {
+        if (filter_var($catalogServiceId, FILTER_VALIDATE_INT) === false || (int)$catalogServiceId <= 0) {
+            throw new InvalidArgumentException('Choose valid grooming services from Service Catalog.');
+        }
+        $catalogServiceIds[(int)$catalogServiceId] = (int)$catalogServiceId;
+    }
+    $result['catalogServiceIds'] = array_values($catalogServiceIds);
+    // Keep the first ID for older clients and historical reporting code.
+    $result['catalogServiceId'] = $result['catalogServiceIds'][0] ?? null;
     $result['ownerApproved'] = ($input['ownerApproved'] ?? false) === true;
     $result['intakeConfirmed'] = ($input['intakeConfirmed'] ?? false) === true;
     $result['completionConfirmed'] = ($input['completionConfirmed'] ?? false) === true;
@@ -54,7 +69,7 @@ function grooming_assert_transition(string $from, string $to, array $details, st
     if (!isset($transitions[$from]) || ($from !== $to && !in_array($to, $transitions[$from], true))) throw new InvalidArgumentException('This status change is not available. Refresh the job and review its progress.');
     if (in_array($from, ['released', 'cancelled', 'no_show', 'transferred'], true)) throw new InvalidArgumentException('This job is closed. Its recorded history cannot be overwritten.');
     if ($from === 'vet_review' && $to === 'in_progress' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Wait for the assigned vet to clear this grooming job before resuming.');
-    if ($from !== $to && $to === 'in_progress' && empty($details['catalogServiceId'])) throw new InvalidArgumentException('Select an active grooming service and price from Service Catalog before starting.');
+    if ($from !== $to && $to === 'in_progress' && empty($details['catalogServiceIds']) && empty($details['catalogServiceId'])) throw new InvalidArgumentException('Select at least one active grooming service and price from Service Catalog before starting.');
     if (in_array($to, ['in_progress', 'ready', 'released'], true)) {
         if ($performer === '' || empty($details['package']) || empty($details['intakeConfirmed'])) throw new InvalidArgumentException('Assign the staff member, select a package, and confirm the intake before starting.');
         if (empty($details['ownerApproved'])) throw new InvalidArgumentException('Confirm the owner agreed to the service before starting grooming.');
@@ -75,6 +90,12 @@ function grooming_handler_name(array $user): string
 {
     return trim((string)($user['first_Name'] ?? '') . ' ' . (string)($user['last_Name'] ?? ''))
         ?: 'Clinic staff #' . (int)($user['user_id'] ?? 0);
+}
+
+function grooming_default_pickup_person(array $booking, array $user): string
+{
+    $ownerName = trim((string)($booking['grooming_owner_name'] ?? ''));
+    return $ownerName !== '' ? $ownerName : grooming_handler_name($user);
 }
 
 function grooming_form_details(array $submitted, array $stored): array

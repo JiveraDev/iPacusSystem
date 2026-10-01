@@ -2355,21 +2355,48 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
     $catalogService = $isSpecialService
         ? null
         : visit_billing_booking_catalog_service($pdo, $catalogLookupType);
-    $selectedGroomingCatalogService = false;
+    $selectedGroomingCatalogServices = [];
     if ($serviceKey === 'grooming' && visit_billing_table_exists($pdo, 'grooming_jobs') && visit_billing_table_exists($pdo, 'service_catalog')) {
         $groomingStmt = $pdo->prepare('SELECT details_json FROM grooming_jobs WHERE booking_id = ? LIMIT 1');
         $groomingStmt->execute([(int)$booking['booking_id']]);
         $groomingDetails = json_decode((string)($groomingStmt->fetchColumn() ?: ''), true);
-        $groomingServiceId = (int)($groomingDetails['catalogServiceId'] ?? 0);
-        if ($groomingServiceId > 0) {
-            $catalogStmt = $pdo->prepare("SELECT service_id, service_code, service_name, service_type, base_price FROM service_catalog WHERE service_id = ? AND service_type = 'grooming' AND is_active = 1 LIMIT 1");
-            $catalogStmt->execute([$groomingServiceId]);
-            $selectedService = $catalogStmt->fetch(PDO::FETCH_ASSOC);
-            if ($selectedService) {
-                $catalogService = $selectedService;
-                $selectedGroomingCatalogService = true;
+        $groomingDetails = is_array($groomingDetails) ? $groomingDetails : [];
+        $groomingServiceIds = is_array($groomingDetails['catalogServiceIds'] ?? null)
+            ? array_values(array_unique(array_filter(array_map('intval', $groomingDetails['catalogServiceIds']))))
+            : [];
+        if (!$groomingServiceIds && (int)($groomingDetails['catalogServiceId'] ?? 0) > 0) {
+            $groomingServiceIds = [(int)$groomingDetails['catalogServiceId']];
+        }
+        if ($groomingServiceIds) {
+            $placeholders = implode(',', array_fill(0, count($groomingServiceIds), '?'));
+            $catalogStmt = $pdo->prepare("SELECT service_id, service_code, service_name, service_type, base_price FROM service_catalog WHERE service_id IN ({$placeholders}) AND service_type = 'grooming' AND is_active = 1");
+            $catalogStmt->execute($groomingServiceIds);
+            $servicesById = [];
+            foreach ($catalogStmt->fetchAll(PDO::FETCH_ASSOC) as $selectedService) {
+                $servicesById[(int)$selectedService['service_id']] = $selectedService;
+            }
+            if (count($servicesById) !== count($groomingServiceIds)) {
+                visit_billing_error(409, 'A selected grooming service is inactive or missing. Reopen Grooming Management and review the catalog selections.');
+            }
+            foreach ($groomingServiceIds as $groomingServiceId) {
+                if (isset($servicesById[$groomingServiceId])) {
+                    if ((float)$servicesById[$groomingServiceId]['base_price'] <= 0) {
+                        visit_billing_error(409, 'Every selected grooming service needs a price above PHP 0 before the invoice can be prepared.');
+                    }
+                    $selectedGroomingCatalogServices[] = $servicesById[$groomingServiceId];
+                }
             }
         }
+    }
+    if ($selectedGroomingCatalogServices) {
+        return array_map(static fn(array $service): array => [
+            'charge_type' => 'service',
+            'service_id' => (int)$service['service_id'],
+            'description' => trim((string)$service['service_name']),
+            'quantity' => 1,
+            'unit_price' => max(0.0, (float)$service['base_price']),
+            '_booking_charge_kind' => 'service',
+        ], $selectedGroomingCatalogServices);
     }
     $servicePrice = max(0.0, (float)($booking['price'] ?? 0));
     $transportFee = max(0.0, (float)($booking['transport_fee'] ?? 0));
@@ -2378,9 +2405,7 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
         ? max(0.0, (float)$specialService['base_price'])
         : null;
 
-    if ($selectedGroomingCatalogService) {
-        $servicePrice = $catalogPrice;
-    } elseif ($isHomeService && $servicePrice <= max(50.0, $transportFee)) {
+    if ($isHomeService && $servicePrice <= max(50.0, $transportFee)) {
         $servicePrice = $catalogPrice > 0 ? $catalogPrice : 1400.0;
     } elseif ($isSpecialService && $servicePrice <= 0 && $specialServicePrice !== null) {
         $servicePrice = $specialServicePrice;
@@ -2389,9 +2414,6 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
     }
 
     $serviceDescription = trim((string)($specialService['service_title'] ?? ''));
-    if ($selectedGroomingCatalogService) {
-        $serviceDescription = trim((string)($catalogService['service_name'] ?? ''));
-    }
     if ($serviceDescription === '') {
         $serviceDescription = visit_billing_booking_service_label($booking);
     }

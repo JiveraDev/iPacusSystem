@@ -1,1 +1,0 @@
-import{ht as e}from"./index-jct3KjE4.js";async function t(t){try{return await e(`/pet_information`,t,{apiPrefix:!0})}catch(e){throw console.error(`Error in addPetService:`,e),e}}export{t};

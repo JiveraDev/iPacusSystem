@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 function mail_queue_worker_limit(): int
 {
@@ -54,11 +55,49 @@ if (PHP_SAPI !== 'cli') {
 }
 
 try {
+    $bookingReminders = [];
+    try {
+        $bookingReminders = notification_run_booking_reminders($pdo);
+    } catch (Throwable $reminderError) {
+        error_log('Booking reminder generation failed: ' . $reminderError->getMessage());
+        $bookingReminders = [
+            'success' => false,
+            'message' => mail_env_bool('MAIL_DEBUG', false)
+                ? $reminderError->getMessage()
+                : 'Booking reminder generation failed.',
+        ];
+    }
+
+    $todoReminders = [];
+    try {
+        $todoReminders = notification_run_todo_reminders($pdo);
+    } catch (Throwable $reminderError) {
+        error_log('TODO reminder generation failed: ' . $reminderError->getMessage());
+        $todoReminders = [
+            'success' => false,
+            'message' => mail_env_bool('MAIL_DEBUG', false)
+                ? $reminderError->getMessage()
+                : 'TODO reminder generation failed.',
+        ];
+    }
+
+    $reminders = [
+        'success' => ($bookingReminders['success'] ?? true) !== false
+            && ($todoReminders['success'] ?? true) !== false,
+        'checked' => (int)($bookingReminders['checked'] ?? 0) + (int)($todoReminders['checked'] ?? 0),
+        'processed' => (int)($bookingReminders['processed'] ?? 0) + (int)($todoReminders['processed'] ?? 0),
+        'bookings' => $bookingReminders,
+        'todos' => $todoReminders,
+    ];
+
     $result = mail_process_queue($pdo, mail_queue_worker_limit());
+    $result['reminders'] = $reminders;
 
     if (PHP_SAPI === 'cli') {
         echo sprintf(
-            "Mail queue: claimed %d, sent %d, failed %d\n",
+            "Reminders: checked %d, processed %d | Mail queue: claimed %d, sent %d, failed %d\n",
+            (int)($reminders['checked'] ?? 0),
+            (int)($reminders['processed'] ?? 0),
             (int)$result['claimed'],
             (int)$result['sent'],
             (int)$result['failed']

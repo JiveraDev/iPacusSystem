@@ -10,7 +10,19 @@ $category = $_POST['category'] ?? '';
 $caption = trim((string)($_POST['caption'] ?? ''));
 if (!in_array($category, ['before', 'after'], true)) ipawcus_guard_error(422, 'Choose the before or after grooming photo. The concern photo comes from the owner booking.');
 if (strlen($caption) > 300) ipawcus_guard_error(422, 'Keep the photo caption under 300 characters.');
-if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) ipawcus_guard_error(422, 'The photo did not finish uploading. Select it again and retry.');
+$uploadError = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+if ($uploadError !== UPLOAD_ERR_OK) {
+    $uploadMessages = [
+        UPLOAD_ERR_INI_SIZE => 'The photo is larger than the server upload limit. Choose a photo no larger than 8 MB.',
+        UPLOAD_ERR_FORM_SIZE => 'The photo is larger than the allowed 8 MB limit.',
+        UPLOAD_ERR_PARTIAL => 'Only part of the photo reached the server. Check the connection and upload it again.',
+        UPLOAD_ERR_NO_FILE => 'Choose a grooming photo before saving.',
+        UPLOAD_ERR_NO_TMP_DIR => 'The server upload temporary directory is unavailable. Ask the administrator to repair PHP upload storage.',
+        UPLOAD_ERR_CANT_WRITE => 'The server could not write the incoming photo. Ask the administrator to check storage permissions.',
+        UPLOAD_ERR_EXTENSION => 'A server extension stopped the photo upload. Ask the administrator to check the PHP upload configuration.',
+    ];
+    ipawcus_guard_error(422, $uploadMessages[$uploadError] ?? 'The photo did not finish uploading. Select it again and retry.');
+}
 if (($file['size'] ?? 0) <= 0 || $file['size'] > 8 * 1024 * 1024) ipawcus_guard_error(422, 'Choose a photo smaller than 8 MB.');
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
 $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -35,9 +47,7 @@ try {
     $existing->execute([$id, $category]);
     $replacedPaths = array_column($existing->fetchAll(PDO::FETCH_ASSOC), 'file_path');
 
-    $petToken = strtolower(trim((string)($booking['grooming_pet_name'] ?? 'pet')));
-    $petToken = trim(preg_replace('/[^a-z0-9]+/', '-', $petToken) ?? '', '-');
-    $filename = ($petToken ?: 'pet') . '-' . $category . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $extensions[$mime];
+    $filename = grooming_photo_filename((string)($booking['grooming_pet_name'] ?? 'pet'), $category, $extensions[$mime]);
     $path = 'grooming_photos/' . $filename;
     $target = $photoDirectory . DIRECTORY_SEPARATOR . $filename;
     if (!move_uploaded_file($file['tmp_name'], $target)) throw new RuntimeException('Photo storage failed.');

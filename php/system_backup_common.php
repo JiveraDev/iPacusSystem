@@ -504,8 +504,7 @@ function ipawcus_backup_scan_media(): array
         }
     }
 
-    $groomingRootSetting = trim((string)(getenv('IPAWCUS_GROOMING_MEDIA_ROOT') ?: ''));
-    if ($groomingRootSetting !== '' && function_exists('grooming_photo_directory')) {
+    if (function_exists('grooming_photo_directory')) {
         $directoryPath = grooming_photo_directory(false);
         if (is_dir($directoryPath)) {
             $iterator = new RecursiveIteratorIterator(

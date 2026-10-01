@@ -1267,6 +1267,25 @@ function notification_create_event(PDO $pdo, array $payload): ?int
     return $notificationId;
 }
 
+function notification_dedupe_email_already_handled(PDO $pdo, int $userId, string $dedupeKey): bool
+{
+    if ($userId <= 0 || trim($dedupeKey) === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT email_status
+        FROM user_notifications
+        WHERE user_id = ?
+          AND dedupe_key = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$userId, $dedupeKey]);
+    $emailStatus = strtolower(trim((string)($stmt->fetchColumn() ?: '')));
+
+    return in_array($emailStatus, ['queued', 'sent', 'skipped'], true);
+}
+
 function notification_format_datetime(?string $date, ?string $time): string
 {
     $date = trim((string)$date);
@@ -1861,6 +1880,11 @@ function notification_send_todo_occurrence(PDO $pdo, array $task, array $slot): 
         return null;
     }
 
+    $dedupeKey = notification_todo_occurrence_dedupe_key($task, $slot);
+    if (notification_dedupe_email_already_handled($pdo, $userId, $dedupeKey)) {
+        return null;
+    }
+
     $taskTitle = trim((string)($task['title'] ?? 'Scheduled task')) ?: 'Scheduled task';
     $eventSchedule = $eventAt->format('F j, Y \a\t g:i A');
     $message = "{$taskTitle} {$slot['lead']} at {$eventSchedule}.";
@@ -1887,7 +1911,7 @@ function notification_send_todo_occurrence(PDO $pdo, array $task, array $slot): 
         'message' => $message,
         'push_message' => $message,
         'redirect_path' => trim((string)($task['redirect_path'] ?? '')) ?: '/dashboard/todos',
-        'dedupe_key' => notification_todo_occurrence_dedupe_key($task, $slot),
+        'dedupe_key' => $dedupeKey,
         'email_subject' => "{$slot['title']}: {$taskTitle}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,
@@ -1917,6 +1941,9 @@ function notification_send_todo_reminder(PDO $pdo, array $task, array $slot, Dat
     $sourceKey = $sourceId > 0 ? (string)$sourceId : substr(hash('sha256', $task['title'] . $task['start_at']), 0, 16);
     $timeKey = !empty($slot['daily']) ? $now->format('Ymd') : $scheduledAt->format('YmdHi');
     $dedupeKey = "todo-reminder-{$slot['slug']}-{$source}-{$sourceKey}-{$timeKey}";
+    if (notification_dedupe_email_already_handled($pdo, $ownerUserId, $dedupeKey)) {
+        return null;
+    }
     $taskTitle = trim((string)($task['title'] ?? 'Scheduled task')) ?: 'Scheduled task';
     $petName = trim((string)($task['pet_name'] ?? ''));
     $schedule = $scheduledAt->format('F j, Y \a\t g:i A');
@@ -2325,6 +2352,10 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
         array_keys($rows),
         array_values($rows)
     )));
+    $dedupeKey = "booking-reminder-{$slot['slug']}-{$bookingId}-" . $scheduledAt->format('YmdHi');
+    if (notification_dedupe_email_already_handled($pdo, $ownerUserId, $dedupeKey)) {
+        return null;
+    }
 
     return notification_create_event($pdo, [
         'user_id' => $ownerUserId,
@@ -2334,7 +2365,7 @@ function notification_send_booking_reminder(PDO $pdo, array $booking, array $slo
         'message' => $message,
         'push_message' => $pushMessage,
         'redirect_path' => $redirectPath,
-        'dedupe_key' => "booking-reminder-{$slot['slug']}-{$bookingId}-" . $scheduledAt->format('YmdHi'),
+        'dedupe_key' => $dedupeKey,
         'email_subject' => "{$title} - {$bookingNumber}",
         'email_html' => $emailHtml,
         'email_text' => $emailText,

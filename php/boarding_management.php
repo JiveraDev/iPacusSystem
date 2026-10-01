@@ -1802,10 +1802,21 @@ function boarding_assert_checkout_billing_ready(PDO $pdo, int $bookingId): void
     $overstayRateSelect = boarding_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'b.boarding_overstay_daily_rate'
         : 'NULL AS boarding_overstay_daily_rate';
+    $effectiveCheckOutSelect = boarding_column_exists($pdo, 'boarding_assignments', 'desired_check_out_date')
+        ? "COALESCE((
+                SELECT assignment_due.desired_check_out_date
+                FROM boarding_assignments assignment_due
+                WHERE assignment_due.booking_id = b.booking_id
+                ORDER BY
+                    CASE WHEN assignment_due.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END,
+                    assignment_due.assignment_id DESC
+                LIMIT 1
+            ), b.check_out_date) AS check_out_date"
+        : 'b.check_out_date';
     $minimumInvoiceStmt = $pdo->prepare("
         SELECT
             b.price,
-            b.check_out_date,
+            {$effectiveCheckOutSelect},
             b.hotel_boarding_type,
             b.room_size,
             b.add_ons,

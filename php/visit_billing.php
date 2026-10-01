@@ -1656,8 +1656,12 @@ function visit_billing_boarding_overdue_days(?string $expectedOutDate): int
         return 0;
     }
     try {
-        $expected = new DateTimeImmutable(substr($expectedOutDate, 0, 10));
-        $today = new DateTimeImmutable(date('Y-m-d'));
+        $timezone = new DateTimeZone('Asia/Manila');
+        $expected = DateTimeImmutable::createFromFormat('!Y-m-d', substr($expectedOutDate, 0, 10), $timezone);
+        $today = new DateTimeImmutable('today', $timezone);
+        if (!$expected) {
+            return 0;
+        }
     } catch (Throwable $error) {
         return 0;
     }
@@ -1685,12 +1689,27 @@ function visit_billing_assert_boarding_invoice_complete(PDO $pdo, int $visitId):
     $clinicalOverstayRate = $supportsClinicalConfinement && visit_billing_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'confinement_booking.boarding_overstay_daily_rate'
         : 'NULL';
+    $effectiveBoardingBookingId = $supportsClinicalConfinement
+        ? 'COALESCE(confinement_booking.booking_id, b.booking_id)'
+        : 'b.booking_id';
+    $assignmentDesiredCheckOut = visit_billing_table_exists($pdo, 'boarding_assignments')
+        && visit_billing_column_exists($pdo, 'boarding_assignments', 'desired_check_out_date')
+        ? "(
+            SELECT assignment_due.desired_check_out_date
+            FROM boarding_assignments assignment_due
+            WHERE assignment_due.booking_id = {$effectiveBoardingBookingId}
+            ORDER BY
+                CASE WHEN assignment_due.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END,
+                assignment_due.assignment_id DESC
+            LIMIT 1
+        )"
+        : 'NULL';
     $visitStmt = $pdo->prepare("
         SELECT
             COALESCE({$clinicalBookingId}, v.booking_id) AS booking_id,
             COALESCE({$clinicalServiceType}, b.service_type) AS service_type,
             COALESCE({$clinicalPrice}, b.price) AS price,
-            COALESCE({$clinicalCheckOut}, b.check_out_date) AS check_out_date,
+            COALESCE({$assignmentDesiredCheckOut}, {$clinicalCheckOut}, b.check_out_date) AS check_out_date,
             COALESCE({$clinicalFacility}, b.hotel_boarding_type) AS hotel_boarding_type,
             COALESCE({$clinicalRoomSize}, b.room_size) AS room_size,
             COALESCE({$clinicalAddOns}, b.add_ons) AS add_ons,

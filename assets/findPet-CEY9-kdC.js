@@ -1,1 +1,0 @@
-import{ct as e}from"./index-BUszg5Ng.js";async function t(t){try{if(!localStorage.getItem(`authToken`))throw Error(`Authentication token not found.`);return await e(`/pet_information/${t}`,{apiPrefix:!0})}catch(e){throw console.error(`Error in findPetService:`,e),e}}export{t};

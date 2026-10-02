@@ -141,7 +141,7 @@ function pet_certificate_registration(PDO $pdo, array $pet, array $owner): array
 
     return [
         'type' => 'registration',
-        'certificateNumber' => 'REG-' . ($publicId !== '' ? $publicId : str_pad((string)$pet['pet_id'], 6, '0', STR_PAD_LEFT)),
+        'certificateNumber' => $publicId !== '' ? $publicId : str_pad((string)$pet['pet_id'], 6, '0', STR_PAD_LEFT),
         'title' => 'Certificate of Clinic Registration',
         'generatedAt' => date('Y-m-d'),
         'hasExpiration' => false,
@@ -174,6 +174,7 @@ function pet_certificate_medical_payload(PDO $pdo, array $row, array $pet, array
         'certificateNumber' => $row['certificate_number'],
         'title' => 'Veterinary Medical Certificate',
         'requestId' => isset($row['request_id']) ? (int)$row['request_id'] : null,
+        'source' => !empty($row['request_id']) ? 'record_update_request' : 'direct_medical_editor',
         'examinationDate' => $row['examination_date'],
         'validUntil' => $row['valid_until'],
         'clinicalFindings' => $row['clinical_findings'] ?? '',
@@ -328,26 +329,30 @@ try {
     }
 
     $requestId = (int)($input['requestId'] ?? $input['request_id'] ?? 0);
-    if ($requestId <= 0 || !ipawcus_guard_table_exists($pdo, 'pet_record_update_requests')) {
-        pet_certificate_error(422, 'An active medical-record request is required to issue this certificate.');
-    }
+    $linkedRequestId = null;
+    if ($requestId > 0) {
+        if (!ipawcus_guard_table_exists($pdo, 'pet_record_update_requests')) {
+            pet_certificate_error(409, 'The linked medical-record request is unavailable.');
+        }
 
-    $requestStmt = $pdo->prepare("
-        SELECT request_id, pet_id, assigned_veterinarian_user_id, status
-        FROM pet_record_update_requests
-        WHERE request_id = ?
-        LIMIT 1
-    ");
-    $requestStmt->execute([$requestId]);
-    $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
-    if (!$request || (int)$request['pet_id'] !== $petId) {
-        pet_certificate_error(404, 'The medical-record request does not match this pet.');
-    }
-    if ((int)$request['assigned_veterinarian_user_id'] !== $currentUserId) {
-        pet_certificate_error(403, 'Only the veterinarian assigned to this request can issue the certificate.');
-    }
-    if (!in_array((string)$request['status'], ['assigned', 'in_progress'], true)) {
-        pet_certificate_error(409, 'The request must be assigned or in progress before a medical certificate can be issued.');
+        $requestStmt = $pdo->prepare("
+            SELECT request_id, pet_id, assigned_veterinarian_user_id, status
+            FROM pet_record_update_requests
+            WHERE request_id = ?
+            LIMIT 1
+        ");
+        $requestStmt->execute([$requestId]);
+        $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$request || (int)$request['pet_id'] !== $petId) {
+            pet_certificate_error(404, 'The medical-record request does not match this pet.');
+        }
+        if ((int)$request['assigned_veterinarian_user_id'] !== $currentUserId) {
+            pet_certificate_error(403, 'Only the veterinarian assigned to this request can link the certificate to it.');
+        }
+        if (!in_array((string)$request['status'], ['assigned', 'in_progress'], true)) {
+            pet_certificate_error(409, 'The linked request must be assigned or in progress before a medical certificate can be issued.');
+        }
+        $linkedRequestId = $requestId;
     }
 
     $examinationDate = pet_certificate_parse_date($input['examinationDate'] ?? null, 'Examination date');
@@ -407,7 +412,7 @@ try {
     $insertStmt->execute([
         $certificateNumber,
         $petId,
-        $requestId,
+        $linkedRequestId,
         $currentUserId,
         $examinationDate->format('Y-m-d'),
         $validUntil->format('Y-m-d'),

@@ -206,11 +206,12 @@ function pet_certificate_fetch_latest(PDO $pdo, int $petId): ?array
         return null;
     }
 
-    $hasVetProfiles = ipawcus_guard_table_exists($pdo, 'veterinarian_profiles');
-    $profileJoin = $hasVetProfiles
+    $hasVetLicense = ipawcus_guard_table_exists($pdo, 'veterinarian_profiles')
+        && ipawcus_guard_column_exists($pdo, 'veterinarian_profiles', 'prc_license_number');
+    $profileJoin = $hasVetLicense
         ? 'LEFT JOIN veterinarian_profiles vp ON vp.user_id = c.veterinarian_user_id'
         : '';
-    $licenseSelect = $hasVetProfiles ? 'vp.prc_license_number' : 'NULL AS prc_license_number';
+    $licenseSelect = $hasVetLicense ? 'vp.prc_license_number' : 'NULL AS prc_license_number';
     $stmt = $pdo->prepare("
         SELECT
             c.*,
@@ -218,7 +219,7 @@ function pet_certificate_fetch_latest(PDO $pdo, int $petId): ?array
             u.last_Name AS vet_last_name,
             {$licenseSelect}
         FROM pet_medical_certificates c
-        JOIN users u ON u.user_id = c.veterinarian_user_id
+        LEFT JOIN users u ON u.user_id = c.veterinarian_user_id
         {$profileJoin}
         WHERE c.pet_id = ?
           AND c.status <> 'revoked'

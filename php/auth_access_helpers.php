@@ -132,9 +132,9 @@ function ipawcus_fetch_user_by_access_token(PDO $pdo, string $token): ?array
     $accountStatusSelect = $hasAccountStatus
         ? "COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') AS account_status,"
         : "'active' AS account_status,";
-    $activeAccountFilter = $hasAccountStatus
-        ? "AND COALESCE(NULLIF(LOWER(u.account_status), ''), 'active') = 'active'"
-        : '';
+    // Archive controls list placement only. Archived users keep their existing
+    // authenticated sessions and normal role permissions.
+    $activeAccountFilter = '';
 
     $stmt = $pdo->prepare("
         SELECT

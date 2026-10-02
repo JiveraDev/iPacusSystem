@@ -71,13 +71,9 @@ try {
         'veterinarian', 'vet' => 'veterinarian_profiles',
         default => '',
     };
-    if ($profileTable !== '' && accountColumnExists($pdo, $profileTable, 'is_active')) {
+    if ($isActive && $profileTable !== '' && accountColumnExists($pdo, $profileTable, 'is_active')) {
         $profileStatusStmt = $pdo->prepare("UPDATE {$profileTable} SET is_active = ? WHERE user_id = ?");
-        $profileStatusStmt->execute([$isActive, $userId]);
-    }
-
-    if (!$isActive) {
-        accountRevokeAccessTokens($pdo, (int)$userId);
+        $profileStatusStmt->execute([1, $userId]);
     }
 
     $pdo->commit();
@@ -100,7 +96,7 @@ try {
     }
 
     echo json_encode([
-        'message' => $isActive ? 'Account restored.' : 'Account archived and access blocked.',
+        'message' => $isActive ? 'Account restored to active lists.' : 'Account moved to the archive. Access remains available.',
         'user_id' => (int)$userId,
         'is_active' => $isActive
     ]);

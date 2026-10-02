@@ -3,8 +3,6 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/account_status_helpers.php';
 require_once __DIR__ . '/auth_access_helpers.php';
 
-const DEACTIVATED_ACCOUNT_MESSAGE = 'Account is archived. Contact the Super Admin if access should be restored.';
-
 function isUserAccountArchived(PDO $pdo, array $user): bool
 {
     $userId = (int)($user['user_id'] ?? 0);

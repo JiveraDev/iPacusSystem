@@ -316,9 +316,6 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     try {
         $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
         $update->execute($params);
-        if ($status === 'archived') {
-            accountRevokeAccessTokens($pdo, $userId);
-        }
         $pdo->commit();
     } catch (Throwable $statusError) {
         if ($pdo->inTransaction()) {
@@ -346,8 +343,8 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     owner_accounts_json([
         'success' => true,
         'message' => $status === 'archived'
-            ? 'Pet owner archived and access blocked.'
-            : 'Pet owner restored.',
+            ? 'Pet owner moved to the archive. Access remains available.'
+            : 'Pet owner restored to active lists.',
     ]);
 }
 

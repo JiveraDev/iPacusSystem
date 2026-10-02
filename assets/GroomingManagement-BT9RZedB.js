@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BBGNhj8U.js";import{t}from"./GroomingWorkspace-Cgxy_98j.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as default};

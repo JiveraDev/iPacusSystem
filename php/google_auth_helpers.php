@@ -240,14 +240,6 @@ function googleAuthFetchUser(PDO $pdo, int $userId): ?array
 
 function googleAuthAssertUserCanSignIn(PDO $pdo, array $user): void
 {
-    $status = strtolower(trim((string)($user['account_status'] ?? 'active')));
-    if (in_array($status, ['archived', 'deactivated'], true)) {
-        googleAuthJsonResponse(403, [
-            'message' => 'Account is archived. Contact the Super Admin if access should be restored.',
-            'code' => 'ACCOUNT_INACTIVE',
-        ]);
-    }
-
     $role = ipawcus_access_normalize_role($user['role'] ?? '');
     $profileTable = match ($role) {
         'admin' => 'admin_profiles',

@@ -63,7 +63,7 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
 
     $accountName = delete_account_name($account);
     $title = 'Account archived';
-    $intro = "Hello {$accountName}, your iPawcus account has been archived by clinic administration. Login access is blocked until a Super Admin restores the account.";
+    $intro = "Hello {$accountName}, your iPawcus account has been moved to the archive by clinic administration. You can continue signing in and using your account normally.";
     $rows = [
         'Account' => $accountName,
         'Role' => $account['role'] ?? '',
@@ -78,9 +78,9 @@ function delete_account_notify_removed_user(PDO $pdo, array $account, string $re
         'type' => 'account_removed',
         'category' => 'account_updates',
         'title' => $title,
-        'message' => 'Your account was archived. Login access is blocked until it is restored.',
+        'message' => 'Your account was moved to the archive. Your access remains available.',
         'push_title' => $title,
-        'push_message' => 'Your account was archived. Contact the clinic if it should be restored.',
+        'push_message' => 'Your account was moved to the archive. Your access remains available.',
         'force_in_app' => true,
         'dedupe_key' => "account-removed-{$userId}",
         'email_subject' => 'Your iPawcus account was archived',
@@ -93,7 +93,7 @@ function delete_account_notify_super_admins(PDO $pdo, array $account, string $re
 {
     $accountName = delete_account_name($account);
     $title = 'Account archived';
-    $message = "{$accountName} was archived and login access was blocked.";
+    $message = "{$accountName} was moved to the archive; account access remains available.";
     $rows = [
         'Account' => $accountName,
         'Email' => $account['mail_Address'] ?? '',
@@ -208,8 +208,6 @@ try {
     $deleteStmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $setParts) . ' WHERE user_id = ?');
     $deleteStmt->execute($params);
 
-    accountRevokeAccessTokens($pdo, $userId);
-
     $pdo->commit();
 
     try {
@@ -221,7 +219,7 @@ try {
 
     delete_account_json([
         'success' => true,
-        'message' => 'Account archived and access blocked.',
+        'message' => 'Account moved to the archive. Access remains available.',
         'user_id' => $userId,
     ]);
 } catch (Throwable $e) {

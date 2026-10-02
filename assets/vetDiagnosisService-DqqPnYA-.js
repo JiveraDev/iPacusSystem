@@ -1,1 +1,0 @@
-import{ht as e,st as t}from"./index-CYuHDNOb.js";function n(e={}){let n=e instanceof URLSearchParams?e.toString():new URLSearchParams(e).toString();return t(`/vet-diagnoses${n?`?${n}`:``}`)}function r(t){return e(`/vet-diagnoses`,t)}export{n,r as t};

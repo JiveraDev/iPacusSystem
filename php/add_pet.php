@@ -16,6 +16,7 @@ $weightText = trim((string)($input['weight'] ?? ''));
 $colorMarkings = trim((string)($input['colorMarkings'] ?? ''));
 $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
 $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+$breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
 $markingsPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()#-]*$/u';
 
 if ($petName === '' || $species === '' || $breed === '' || $birthDate === '' || $gender === '') {
@@ -27,8 +28,8 @@ if ($textLength($petName) > 80 || preg_match($namePattern, $petName) !== 1) {
 if ($textLength($species) > 50 || preg_match($namePattern, $species) !== 1) {
     ipawcus_guard_error(422, 'Pet species may contain letters, spaces, periods, apostrophes, and hyphens, up to 50 characters.');
 }
-if ($textLength($breed) > 80 || preg_match($namePattern, $breed) !== 1) {
-    ipawcus_guard_error(422, 'Pet breed may contain letters, spaces, periods, apostrophes, and hyphens, up to 80 characters.');
+if ($textLength($breed) > 80 || preg_match($breedPattern, $breed) !== 1) {
+    ipawcus_guard_error(422, 'Pet breed contains unsupported characters or exceeds 80 characters.');
 }
 if ($weightText !== '' && (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $weightText) !== 1 || (float)$weightText < 0.1 || (float)$weightText > 300)) {
     ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');

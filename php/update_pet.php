@@ -95,6 +95,7 @@ $setParts = [];
 $params = [];
 $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
 $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+$breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
 $markingsPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()#-]*$/u';
 
 foreach ($allowedFields as $inputKey => $dbColumn) {
@@ -104,8 +105,11 @@ foreach ($allowedFields as $inputKey => $dbColumn) {
             $value = trim((string)($value ?? ''));
             $maxLength = $inputKey === 'species' ? 50 : 80;
             $label = $inputKey === 'petName' ? 'Pet name' : ucfirst($inputKey);
-            if ($value === '' || $textLength($value) > $maxLength || preg_match($namePattern, $value) !== 1) {
-                ipawcus_guard_error(422, "{$label} may contain letters, spaces, periods, apostrophes, and hyphens, up to {$maxLength} characters.");
+            $pattern = $inputKey === 'breed' ? $breedPattern : $namePattern;
+            if ($value === '' || $textLength($value) > $maxLength || preg_match($pattern, $value) !== 1) {
+                ipawcus_guard_error(422, $inputKey === 'breed'
+                    ? 'Pet breed contains unsupported characters or exceeds 80 characters.'
+                    : "{$label} may contain letters, spaces, periods, apostrophes, and hyphens, up to {$maxLength} characters.");
             }
         }
         if ($inputKey === 'weight') {

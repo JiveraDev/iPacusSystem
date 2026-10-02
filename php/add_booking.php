@@ -759,6 +759,7 @@ if ($isNewPetBooking) {
     $newPetSpecies = trim((string)$petType);
     $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
     $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+    $breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
 
     if ($newPetName === '' || $newPetSpecies === '' || $newPetBreed === '' || $newPetAge === '') {
         ipawcus_guard_error(422, 'Complete the new pet name, species, breed, and age.');
@@ -769,8 +770,8 @@ if ($isNewPetBooking) {
     if ($textLength($newPetSpecies) > 50 || preg_match($namePattern, $newPetSpecies) !== 1) {
         ipawcus_guard_error(422, 'Pet species may contain letters, spaces, periods, apostrophes, and hyphens, up to 50 characters.');
     }
-    if ($textLength($newPetBreed) > 80 || preg_match($namePattern, $newPetBreed) !== 1) {
-        ipawcus_guard_error(422, 'Pet breed may contain letters, spaces, periods, apostrophes, and hyphens, up to 80 characters.');
+    if ($textLength($newPetBreed) > 80 || preg_match($breedPattern, $newPetBreed) !== 1) {
+        ipawcus_guard_error(422, 'Pet breed contains unsupported characters or exceeds 80 characters.');
     }
     if (preg_match('/^\d{1,2}$/', $newPetAge) !== 1 || (int)$newPetAge > 50) {
         ipawcus_guard_error(422, 'Pet age must be a whole number between 0 and 50 years.');

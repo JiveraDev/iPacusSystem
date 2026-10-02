@@ -29,6 +29,22 @@ try {
         exit;
     }
 
+    $normalizedRole = strtolower(str_replace([' ', '-'], '_', trim((string)($user['role'] ?? ''))));
+    if (!$isActive && in_array($normalizedRole, ['super_admin', 'superadmin'], true)) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Super Admin accounts cannot be archived from this action.']);
+        exit;
+    }
+
+    $actorUserId = (int)($_SERVER['IPAWCUS_USER_ID'] ?? 0);
+    if ($actorUserId > 0 && $actorUserId === (int)$userId) {
+        http_response_code(422);
+        echo json_encode(['message' => 'You cannot archive the account you are currently using.']);
+        exit;
+    }
+
+    $pdo->beginTransaction();
+
     if (accountColumnExists($pdo, 'users', 'account_status')) {
         $reactivateColumns = ['account_status = ?'];
         $reactivateParams = [$isActive ? 'active' : 'archived'];
@@ -50,6 +66,22 @@ try {
         $reactivateStmt->execute($reactivateParams);
     }
 
+    $profileTable = match ($normalizedRole) {
+        'admin' => 'admin_profiles',
+        'veterinarian', 'vet' => 'veterinarian_profiles',
+        default => '',
+    };
+    if ($profileTable !== '' && accountColumnExists($pdo, $profileTable, 'is_active')) {
+        $profileStatusStmt = $pdo->prepare("UPDATE {$profileTable} SET is_active = ? WHERE user_id = ?");
+        $profileStatusStmt->execute([$isActive, $userId]);
+    }
+
+    if (!$isActive) {
+        accountRevokeAccessTokens($pdo, (int)$userId);
+    }
+
+    $pdo->commit();
+
     try {
         $accountName = trim((string)(($user['first_Name'] ?? '') . ' ' . ($user['last_Name'] ?? '')))
             ?: trim((string)($user['mail_Address'] ?? 'Personnel account'));
@@ -68,12 +100,15 @@ try {
     }
 
     echo json_encode([
-        'message' => $isActive ? 'Archive marker removed.' : 'Account marked as archived. Access remains unchanged.',
+        'message' => $isActive ? 'Account restored.' : 'Account archived and access blocked.',
         'user_id' => (int)$userId,
         'is_active' => $isActive
     ]);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['message' => 'Failed to update status: ' . $e->getMessage()]);
 }

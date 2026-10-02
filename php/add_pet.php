@@ -17,7 +17,7 @@ $colorMarkings = trim((string)($input['colorMarkings'] ?? ''));
 $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
 $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
 $breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
-$markingsPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()#-]*$/u';
+$markingsPattern = '/^[\p{L}\p{M} ]*$/u';
 
 if ($petName === '' || $species === '' || $breed === '' || $birthDate === '' || $gender === '') {
     ipawcus_guard_error(422, 'Complete the required pet name, species, breed, birth date, and gender.');
@@ -35,7 +35,7 @@ if ($weightText !== '' && (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $weightText) 
     ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');
 }
 if ($textLength($colorMarkings) > 120 || preg_match($markingsPattern, $colorMarkings) !== 1) {
-    ipawcus_guard_error(422, 'Color and markings must use letters, numbers, and common punctuation, up to 120 characters.');
+    ipawcus_guard_error(422, 'Color and markings must use letters and spaces only, up to 120 characters.');
 }
 
 $weight = $weightText !== '' ? (float)$weightText : 0.0;
@@ -196,6 +196,17 @@ try {
 
         if ($stmtBooking->rowCount() === 0) {
             throw new DomainException('The booking was linked or changed by another request. No pet was registered.');
+        }
+
+        if (in_array($currentApiRole, ['admin', 'super_admin'], true)) {
+            $catalogStmt = $pdo->prepare("
+                INSERT INTO pet_catalog_options (species, breed, approved_by_user_id)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    approved_by_user_id = VALUES(approved_by_user_id),
+                    updated_at = CURRENT_TIMESTAMP
+            ");
+            $catalogStmt->execute([$species, $breed, $currentApiUserId ?: null]);
         }
     }
 

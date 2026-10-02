@@ -753,13 +753,17 @@ $newPetName = trim((string)($input['new_pet_name'] ?? ''));
 $newPetBreed = trim((string)($input['new_pet_breed'] ?? ''));
 $newPetAge = trim((string)($input['new_pet_age'] ?? ''));
 $newPetWeight = trim((string)($input['new_pet_weight'] ?? ''));
+$newPetColorMarkings = trim((string)($input['new_pet_color_markings'] ?? ''));
 
-$isNewPetBooking = strtolower(trim((string)$registeredStatus)) === 'not registered' || $newPetName !== '';
+$normalizedRegisteredStatus = strtolower(trim((string)$registeredStatus));
+$isNewPetBooking = $normalizedRegisteredStatus === 'not registered'
+    || ($normalizedRegisteredStatus === '' && $newPetName !== '');
 if ($isNewPetBooking) {
     $newPetSpecies = trim((string)$petType);
     $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
     $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
     $breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
+    $markingsPattern = '/^[\p{L}\p{M} ]*$/u';
 
     if ($newPetName === '' || $newPetSpecies === '' || $newPetBreed === '' || $newPetAge === '') {
         ipawcus_guard_error(422, 'Complete the new pet name, species, breed, and age.');
@@ -780,6 +784,9 @@ if ($isNewPetBooking) {
         if (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $newPetWeight) !== 1 || (float)$newPetWeight < 0.1 || (float)$newPetWeight > 300) {
             ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');
         }
+    }
+    if ($textLength($newPetColorMarkings) > 120 || preg_match($markingsPattern, $newPetColorMarkings) !== 1) {
+        ipawcus_guard_error(422, 'Color and markings must use letters and spaces only, up to 120 characters.');
     }
 
     $petType = $newPetSpecies;
@@ -1427,6 +1434,7 @@ try {
             unregistered_pet_breed,
             unregistered_pet_age,
             unregistered_pet_weight,
+            unregistered_pet_color_markings,
             status,
             is_home_service,
             address,
@@ -1447,7 +1455,7 @@ try {
             emergency_contact,
             hotel_boarding_type,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     $stmt->execute([
@@ -1467,6 +1475,7 @@ try {
         $newPetBreed,
         $newPetAge,
         $newPetWeight,
+        $newPetColorMarkings !== '' ? $newPetColorMarkings : null,
         'pending',
         $isHomeService,
         $address,

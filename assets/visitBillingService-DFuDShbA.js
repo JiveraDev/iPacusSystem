@@ -1,1 +1,0 @@
-import{ht as e,st as t}from"./index-Dm4HzrTK.js";function n(e={}){let n=new URLSearchParams;Object.entries(e).forEach(([e,t])=>{t!=null&&t!==``&&n.set(e,t)});let r=n.toString();return t(`/visits${r?`?${r}`:``}`)}function r(t){return e(`/visits`,t)}function i(t,n){return e(`/visits/${t}/payments`,n)}export{n,i as r,r as t};

@@ -367,7 +367,7 @@ try {
             'petAge' => $isRegistered ? $b['pet_age'] : $b['unregistered_pet_age'],
             'petWeight' => $isRegistered ? $b['pet_weight'] : $b['unregistered_pet_weight'],
             'petMicrochipId' => $isRegistered ? $b['pet_microchip'] : null,
-            'petColor' => $isRegistered ? $b['pet_color_marking'] : null,
+            'petColor' => $isRegistered ? $b['pet_color_marking'] : ($b['unregistered_pet_color_markings'] ?? null),
             'petAllergies' => $isRegistered
                 ? pet_allergy_effective_text($pdo, (int)$b['pet_id'], $b['pet_allergies'] ?? null)
                 : null,

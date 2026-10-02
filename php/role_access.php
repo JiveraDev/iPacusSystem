@@ -314,6 +314,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => $method === 'POST' ? ipawcus_roles('owner_or_admin') : ipawcus_roles('clinic')];
     }
 
+    if ($path === '/pet-catalog') {
+        return ['roles' => ipawcus_roles('owner_or_clinic')];
+    }
+
     if ($path === '/pet_ownership/link' || preg_match('#^/pet_ownership/coparent-requests(/\d+)?$#', $path)) {
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }

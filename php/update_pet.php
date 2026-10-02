@@ -96,7 +96,7 @@ $params = [];
 $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
 $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
 $breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
-$markingsPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()#-]*$/u';
+$markingsPattern = '/^[\p{L}\p{M} ]*$/u';
 
 foreach ($allowedFields as $inputKey => $dbColumn) {
     if (array_key_exists($inputKey, $input)) {
@@ -129,7 +129,7 @@ foreach ($allowedFields as $inputKey => $dbColumn) {
         if ($inputKey === 'color') {
             $color = trim((string)($value ?? ''));
             if ($textLength($color) > 120 || preg_match($markingsPattern, $color) !== 1) {
-                ipawcus_guard_error(422, 'Color and markings must use letters, numbers, and common punctuation, up to 120 characters.');
+                ipawcus_guard_error(422, 'Color and markings must use letters and spaces only, up to 120 characters.');
             }
             $value = $color !== '' ? $color : null;
         }

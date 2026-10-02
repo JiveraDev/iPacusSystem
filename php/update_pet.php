@@ -93,13 +93,27 @@ try {
 
 $setParts = [];
 $params = [];
+$textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+$namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+$markingsPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()#-]*$/u';
 
 foreach ($allowedFields as $inputKey => $dbColumn) {
     if (array_key_exists($inputKey, $input)) {
-        // Handle weight specifically if it's coming as "15 kg" string
         $value = $input[$inputKey];
-        if ($inputKey === 'weight' && is_string($value)) {
-            $value = floatval(preg_replace('/[^0-9.]/', '', $value));
+        if (in_array($inputKey, ['petName', 'species', 'breed'], true)) {
+            $value = trim((string)($value ?? ''));
+            $maxLength = $inputKey === 'species' ? 50 : 80;
+            $label = $inputKey === 'petName' ? 'Pet name' : ucfirst($inputKey);
+            if ($value === '' || $textLength($value) > $maxLength || preg_match($namePattern, $value) !== 1) {
+                ipawcus_guard_error(422, "{$label} may contain letters, spaces, periods, apostrophes, and hyphens, up to {$maxLength} characters.");
+            }
+        }
+        if ($inputKey === 'weight') {
+            $weight = trim((string)($value ?? ''));
+            if ($weight !== '' && (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $weight) !== 1 || (float)$weight < 0.1 || (float)$weight > 300)) {
+                ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');
+            }
+            $value = $weight !== '' ? (float)$weight : 0.0;
         }
         if ($inputKey === 'microchipId') {
             $microchip = preg_replace('/\D+/', '', (string)($value ?? ''));
@@ -107,6 +121,13 @@ foreach ($allowedFields as $inputKey => $dbColumn) {
                 ipawcus_guard_error(422, 'Microchip number must contain no more than 15 digits.');
             }
             $value = $microchip !== '' ? $microchip : null;
+        }
+        if ($inputKey === 'color') {
+            $color = trim((string)($value ?? ''));
+            if ($textLength($color) > 120 || preg_match($markingsPattern, $color) !== 1) {
+                ipawcus_guard_error(422, 'Color and markings must use letters, numbers, and common punctuation, up to 120 characters.');
+            }
+            $value = $color !== '' ? $color : null;
         }
         if ($dbColumn === 'pet_Temp_owner') {
             $value = trim((string)($value ?? ''));

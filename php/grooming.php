@@ -84,7 +84,7 @@ if ($method === 'GET') {
     if (!is_array($details)) {
         $details = grooming_validate_details(['ownerRequest' => $booking['notes'] ?? '', 'allergies' => $booking['pet_allergies'] ?? '']);
     }
-    if ($admin && in_array((string)$job['status'], ['ready', 'released'], true) && empty($details['pickupPerson'])) {
+    if ($admin && (string)$job['status'] === 'released' && empty($details['pickupPerson'])) {
         $details['pickupPerson'] = grooming_default_pickup_person($booking, $user);
     }
     unset($job['details_json']);
@@ -153,6 +153,9 @@ try {
         $performer = trim((string)($job['performed_by'] ?? '')) ?: grooming_handler_name($user);
     } elseif ($action === 'save') {
         $nextStatus = (string)($input['status'] ?? $job['status']);
+        if ($nextStatus === 'released') {
+            throw new InvalidArgumentException('Pickup is completed automatically when the linked POS invoice is fully paid.');
+        }
         $submittedDetails = is_array($input['details'] ?? null) ? $input['details'] : [];
         // Grooming cannot override the official booking/catalog price.
         $nextDetails = grooming_form_details($submittedDetails, $details);
@@ -165,12 +168,6 @@ try {
         if ($job['status'] === 'ready') {
             $nextDetails = array_merge($details, array_intersect_key($nextDetails, array_flip(['pickupPerson', 'pickupNote', 'pickupConfirmed'])));
             $performer = $job['performed_by'];
-        }
-        if (in_array($nextStatus, ['ready', 'released'], true)) {
-            // Pickup is attributed consistently without asking staff to retype
-            // a name. Prefer the booking owner, then the authenticated clinic
-            // administrator when the owner profile has no usable name.
-            $nextDetails['pickupPerson'] = grooming_default_pickup_person($booking, $user);
         }
         if ($job['status'] !== $nextStatus && in_array($nextStatus, ['in_progress', 'ready'], true)) {
             $requiredPhotoCategory = $nextStatus === 'ready' ? 'after' : 'before';
@@ -208,14 +205,6 @@ try {
             $nextDetails['agreedTotal'] = round((float)$sum->fetchColumn(), 2);
         }
         $details = $nextDetails;
-        if ($nextStatus === 'released') {
-            $done = $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?");
-            $done->execute([$id]);
-            if (ipawcus_guard_table_exists($pdo, 'queues') && ipawcus_guard_column_exists($pdo, 'queues', 'booking_id')) {
-                $completeQueue = $pdo->prepare("UPDATE queues SET status = 'completed' WHERE booking_id = ? AND LOWER(TRIM(service_name)) IN ('grooming', 'pet grooming') AND status IN ('waiting', 'in-progress')");
-                $completeQueue->execute([$id]);
-            }
-        }
         if (in_array($nextStatus, ['cancelled', 'no_show'], true)) {
             if (empty($details['internalNotes'])) throw new InvalidArgumentException('Record why grooming was cancelled or missed.');
             $cancel = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE booking_id = ?");
@@ -294,6 +283,13 @@ try {
     $update = $pdo->prepare('UPDATE grooming_jobs SET status = ?, performed_by = ?, details_json = ?, visit_id = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE booking_id = ?');
     $update->execute([$nextStatus, $performer, json_encode($details), $visitId ?: null, $actor, $id]);
     grooming_event($pdo, $id, $actor, $action, ['from' => $job['status'], 'to' => $nextStatus, 'performedBy' => $performer, 'record' => $action === 'save' ? $details : array_intersect_key($input, array_flip(['reason', 'outcome', 'notes', 'veterinarianId', 'facilityType', 'roomSize', 'expectedDischarge', 'careInstructions']))]);
+    $pickupCompletedByPayment = false;
+    if ($nextStatus === 'ready' && $visitId && function_exists('visit_billing_complete_paid_grooming')) {
+        $pickupCompletedByPayment = visit_billing_complete_paid_grooming($pdo, (int)$visitId);
+        if ($pickupCompletedByPayment) {
+            $nextStatus = 'released';
+        }
+    }
     $pdo->commit();
     try {
         require_once __DIR__ . '/grooming_notifications.php';
@@ -306,6 +302,7 @@ try {
         'message' => 'Grooming record updated.',
         'status' => $nextStatus,
         'visitId' => $visitId ?: null,
+        'pickupCompletedByPayment' => $pickupCompletedByPayment,
     ]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();

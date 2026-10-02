@@ -17,8 +17,10 @@ function grooming_notify(PDO $pdo, array $booking, array $job, string $action, s
             : ['user_id' => (int)$review['requested_by'], 'title' => 'Vet assessment recorded', 'message' => 'The veterinarian has reviewed your grooming concern. Check the assessment before continuing the job.', 'redirect_path' => '/dashboard/grooming'];
     } elseif ($action === 'publish') {
         $payload += ['user_id' => (int)$booking['user_id'], 'title' => 'Grooming summary shared', 'message' => 'Your pet’s grooming summary is ready. Open Grooming summaries on Home to see it.', 'redirect_path' => '/dashboard'];
+    } elseif ($action === 'save' && $status !== $job['status'] && $status === 'released') {
+        $payload += ['user_id' => (int)$booking['user_id'], 'title' => 'Grooming visit completed', 'message' => 'Grooming and payment are complete. The clinic has closed this visit.', 'redirect_path' => '/dashboard'];
     } elseif ($action === 'save' && $status !== $job['status'] && $status === 'ready') {
-        $payload += ['user_id' => (int)$booking['user_id'], 'title' => 'Your pet is ready for pickup', 'message' => 'Grooming is complete. Please contact the clinic for pickup and payment arrangements.', 'redirect_path' => '/dashboard'];
+        $payload += ['user_id' => (int)$booking['user_id'], 'title' => 'Grooming completed', 'message' => 'Grooming is complete. The clinic will finalize the visit when payment is completed.', 'redirect_path' => '/dashboard'];
     } elseif ($action === 'save' && $status !== $job['status'] && in_array($status, ['cancelled', 'no_show'], true)) {
         $payload += ['user_id' => (int)$booking['user_id'], 'title' => 'Grooming booking closed', 'message' => 'The clinic has closed this grooming booking. Contact the clinic about rescheduling or any payment arrangements.', 'redirect_path' => '/dashboard'];
     } else return;

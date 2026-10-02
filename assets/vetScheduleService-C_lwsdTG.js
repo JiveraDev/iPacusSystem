@@ -1,0 +1,1 @@
+import{ht as e,st as t}from"./index-B0dmrcaP.js";function n(e){return t(`/vet_schedules?${new URLSearchParams({userId:e}).toString()}`,{apiPrefix:!0})}function r(t){return e(`/vet_schedules`,t,{apiPrefix:!0})}export{r as n,n as t};

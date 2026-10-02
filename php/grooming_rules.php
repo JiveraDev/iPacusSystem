@@ -63,7 +63,7 @@ function grooming_assert_transition(string $from, string $to, array $details, st
         'checked_in' => ['in_progress', 'cancelled'],
         'in_progress' => ['ready', 'cancelled'],
         'vet_review' => ['in_progress', 'cancelled'],
-        'ready' => ['released'],
+        'ready' => [],
         'released' => [], 'cancelled' => [], 'no_show' => [], 'transferred' => [],
     ];
     if (!isset($transitions[$from]) || ($from !== $to && !in_array($to, $transitions[$from], true))) throw new InvalidArgumentException('This status change is not available. Refresh the job and review its progress.');
@@ -76,7 +76,6 @@ function grooming_assert_transition(string $from, string $to, array $details, st
     }
     if ($from !== $to && in_array($to, ['in_progress', 'ready'], true) && ($details['coat'] ?? '') === 'review' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Request a vet review for the recorded coat concern before continuing grooming.');
     if (in_array($to, ['ready', 'released'], true) && empty($details['completionConfirmed'])) throw new InvalidArgumentException('Use Finish grooming to confirm the work is done.');
-    if ($to === 'released' && (empty($details['pickupPerson']) || (empty($details['pickupConfirmed']) && empty($details['pickupNote'])))) throw new InvalidArgumentException('Enter who collected the pet, then confirm pickup.');
 }
 
 function grooming_completion_summary(array $details): string

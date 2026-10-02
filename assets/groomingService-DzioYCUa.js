@@ -1,1 +1,0 @@
-import{ct as e,gt as t}from"./index-BK3wZ1Xh.js";import{r as n}from"./uploadService-B0OQcwya.js";var r={cache:`no-store`,suppressServerUnavailable:!0},i=(t=!1)=>e(`/grooming${t?`?view=reviews`:``}`,r),a=t=>e(`/grooming?bookingId=${encodeURIComponent(t)}`,r),o=e=>t(`/grooming`,e),s=(e,t)=>n(e,`grooming_photo`,{formFields:t});export{s as i,i as n,o as r,a as t};

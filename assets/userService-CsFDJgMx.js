@@ -1,0 +1,1 @@
+import{ct as e,ht as t}from"./index-BIm4tBfB.js";function n(t){return e(`/users/${t}`,{apiPrefix:!0})}function r(e,n){return t(`/users/${e}`,n,{apiPrefix:!0})}function i(e,n){return t(`/users/${e}/password`,n,{apiPrefix:!0})}export{r as n,i as r,n as t};

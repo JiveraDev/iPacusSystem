@@ -486,6 +486,83 @@ function pet_medical_normalize_attachments($value): array
     return $normalized;
 }
 
+function pet_medical_sanitize_revision_snapshot($value): array
+{
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $textFields = [
+        'chiefComplaint',
+        'majorSymptoms',
+        'symptoms',
+        'physicalExam',
+        'diagnosis',
+        'recommendations',
+        'treatment',
+        'medications',
+        'labResults',
+        'notes',
+    ];
+    $revision = [];
+
+    foreach ($textFields as $field) {
+        $revision[$field] = substr(trim((string)($value[$field] ?? '')), 0, 20000);
+    }
+
+    $followUp = trim((string)($value['followUp'] ?? ''));
+    if ($followUp !== '' && pet_medical_date($followUp) === null) {
+        pet_medical_error(422, 'The revision follow-up date is invalid.');
+    }
+    $revision['followUp'] = $followUp;
+
+    $attachments = [];
+    foreach (array_slice(pet_medical_normalize_attachments($value['revisionAttachments'] ?? []), 0, 20) as $attachment) {
+        $rawUrl = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? ''));
+        $urlParts = parse_url($rawUrl);
+        if (!is_array($urlParts) || isset($urlParts['scheme']) || isset($urlParts['host'])) {
+            continue;
+        }
+        $path = ltrim(str_replace('\\', '/', (string)($urlParts['path'] ?? $rawUrl)), '/');
+        if (
+            $path === ''
+            || str_contains($path, '..')
+            || !preg_match('#^(?:api/uploads/media/)?diagnosis/[A-Za-z0-9._/-]+$#', $path)
+        ) {
+            continue;
+        }
+
+        $mimeType = pet_medical_attachment_mime($path);
+        if ($mimeType === '') {
+            continue;
+        }
+
+        $attachments[] = [
+            'id' => substr(trim((string)($attachment['id'] ?? '')), 0, 100) ?: 'revision-' . count($attachments),
+            'name' => substr(trim((string)($attachment['name'] ?? 'Revision attachment')), 0, 255),
+            'originalName' => substr(trim((string)($attachment['originalName'] ?? '')), 0, 255),
+            'storedFileName' => substr(trim((string)($attachment['storedFileName'] ?? basename($path))), 0, 255),
+            'url' => $path,
+            'relativeUrl' => $path,
+            'mimeType' => $mimeType,
+            'category' => 'medical_record_revision',
+            'uploadedAt' => trim((string)($attachment['uploadedAt'] ?? '')) ?: null,
+        ];
+    }
+    $revision['revisionAttachments'] = $attachments;
+
+    return $revision;
+}
+
+function pet_medical_effective_item_source(array $item): array
+{
+    $source = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : [];
+    $revision = is_array($item['revisionSnapshot'] ?? null) ? $item['revisionSnapshot'] : [];
+    unset($revision['revisionAttachments']);
+
+    return array_replace($source, $revision);
+}
+
 function pet_medical_attachment_mime(string $path): string
 {
     return match (strtolower(pathinfo((string)(parse_url($path, PHP_URL_PATH) ?: $path), PATHINFO_EXTENSION))) {
@@ -1379,6 +1456,7 @@ function pet_medical_fetch_groups(PDO $pdo, int $petId, bool $ownerVisibleOnly =
             'serviceDate' => $item['service_date'],
             'sortOrder' => (int)$item['sort_order'],
             'sourceSnapshot' => pet_medical_decode_json($item['source_snapshot'] ?? null) ?: null,
+            'revisionSnapshot' => pet_medical_decode_json($item['revision_snapshot'] ?? null) ?: null,
             'addedByUserId' => $item['added_by_user_id'] !== null ? (int)$item['added_by_user_id'] : null,
             'updatedByUserId' => $item['updated_by_user_id'] !== null ? (int)$item['updated_by_user_id'] : null,
             'addedByName' => trim((string)($item['added_by_name'] ?? '')),
@@ -1558,7 +1636,7 @@ function pet_medical_email_copy_html(array $pet, array $groups, array $vaccinati
         $itemsHtml = '';
 
         foreach ($group['items'] ?? [] as $item) {
-            $source = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : [];
+            $source = pet_medical_effective_item_source($item);
             $doctorRows = pet_medical_source_note_rows($source);
             $doctorRowsHtml = '';
             foreach ($doctorRows as $row) {
@@ -1967,12 +2045,15 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
         pet_medical_error(400, 'itemId is required.');
     }
 
+    $revisionColumnReady = pet_medical_column_exists($pdo, 'pet_medical_record_group_items', 'revision_snapshot');
+    $revisionSelect = $revisionColumnReady ? 'i.revision_snapshot' : 'NULL AS revision_snapshot';
     $currentStmt = $pdo->prepare("
         SELECT
             i.item_id,
             i.title,
             i.summary,
             i.revision_notes,
+            {$revisionSelect},
             i.sort_order,
             g.group_id,
             g.title AS group_title,
@@ -1994,6 +2075,17 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
     $revisionNotes = pet_medical_nullable_text($input['revisionNotes'] ?? $input['revision_notes'] ?? null);
     $sortOrder = pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null);
     $userId = pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null);
+    $revisionSnapshotProvided = array_key_exists('revisionSnapshot', $input) || array_key_exists('revision_snapshot', $input);
+    $revisionSnapshotJson = $current['revision_snapshot'] ?? null;
+    if ($revisionSnapshotProvided) {
+        if (!$revisionColumnReady) {
+            pet_medical_error(409, 'Medical record revisions require DDL/20261002_02_medical_record_item_revisions.sql.');
+        }
+
+        $revisionSnapshotJson = pet_medical_json(pet_medical_sanitize_revision_snapshot(
+            $input['revisionSnapshot'] ?? $input['revision_snapshot'] ?? []
+        ));
+    }
 
     $next = [
         'title' => $title,
@@ -2001,12 +2093,16 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
         'revision_notes' => $revisionNotes,
         'sort_order' => $sortOrder ?? (int)$current['sort_order'],
     ];
+    if ($revisionSnapshotProvided) {
+        $next['revision_snapshot'] = $revisionSnapshotJson;
+    }
     $changedFields = pet_medical_changed_fields($current, $next);
     if (!$changedFields) {
         echo json_encode(['success' => true, 'changed' => false]);
         return;
     }
 
+    $revisionUpdate = $revisionSnapshotProvided ? ', i.revision_snapshot = ?' : '';
     $stmt = $pdo->prepare("
         UPDATE pet_medical_record_group_items i
         JOIN pet_medical_record_groups g ON g.group_id = i.group_id
@@ -2015,18 +2111,23 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
             i.revision_notes = ?,
             i.sort_order = COALESCE(?, i.sort_order),
             i.updated_by_user_id = ?
+            {$revisionUpdate}
         WHERE i.item_id = ?
           AND g.pet_id = ?
     ");
-    $stmt->execute([
+    $params = [
         $title,
         $summary,
         $revisionNotes,
         $sortOrder,
         $userId,
-        $itemId,
-        $petId,
-    ]);
+    ];
+    if ($revisionSnapshotProvided) {
+        $params[] = $revisionSnapshotJson;
+    }
+    $params[] = $itemId;
+    $params[] = $petId;
+    $stmt->execute($params);
 
     if ((int)$current['visible_to_owner'] === 1) {
         pet_medical_notify_owner_record_updated($pdo, $petId, 'item', $itemId, $title);

@@ -2,8 +2,11 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/notification_helpers.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 function pet_certificate_input(): array
 {
@@ -426,6 +429,27 @@ try {
     $issued = pet_certificate_fetch_latest($pdo, $petId);
     if (!$issued || (int)$issued['certificate_id'] !== $certificateId) {
         throw new RuntimeException('The issued medical certificate could not be reloaded.');
+    }
+
+    $ownerUserId = (int)($owner['userId'] ?? 0);
+    if ($ownerUserId > 0) {
+        try {
+            $petName = trim((string)($pet['pet_name'] ?? 'Pet')) ?: 'Pet';
+            notification_create_event($pdo, [
+                'user_id' => $ownerUserId,
+                'type' => 'medical_certificate_issued',
+                'category' => 'diagnosis_updates',
+                'title' => 'Medical certificate available',
+                'message' => "A veterinarian issued a medical certificate for {$petName}. Open the pet profile to review or print it.",
+                'push_title' => 'Medical certificate available',
+                'push_message' => "{$petName}'s medical certificate is ready to review.",
+                'redirect_path' => notification_pet_redirect_path($petId),
+                'dedupe_key' => "medical-certificate-issued-{$certificateId}-owner-{$ownerUserId}",
+                'force_in_app' => true,
+            ]);
+        } catch (Throwable $notificationError) {
+            error_log('Medical certificate owner notification failed: ' . $notificationError->getMessage());
+        }
     }
 
     echo json_encode([

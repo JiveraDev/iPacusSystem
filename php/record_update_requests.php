@@ -257,7 +257,7 @@ function record_request_snapshot_rows(PDO $pdo, string $sql, array $params = [])
     foreach ($rows as &$row) {
         foreach (array_keys($row) as $column) {
             if (
-                in_array($column, ['created_at', 'updated_at'], true)
+                in_array($column, ['created_at', 'updated_at', 'owner_viewed_at'], true)
                 || str_ends_with($column, '_by_user_id')
             ) {
                 unset($row[$column]);
@@ -339,6 +339,16 @@ function record_request_pet_snapshot_hash(PDO $pdo, int $petId): string
                  JOIN pet_medical_record_groups g ON g.group_id = i.group_id
                  WHERE g.pet_id = ?
                  ORDER BY g.sort_order ASC, g.group_id ASC, i.sort_order ASC, i.item_id ASC",
+                [$petId]
+            )
+            : [],
+        'medicalCertificates' => record_request_table_exists($pdo, 'pet_medical_certificates')
+            ? record_request_snapshot_rows(
+                $pdo,
+                "SELECT *
+                 FROM pet_medical_certificates
+                 WHERE pet_id = ?
+                 ORDER BY certificate_id ASC",
                 [$petId]
             )
             : [],
@@ -472,7 +482,67 @@ function record_request_fetch(PDO $pdo, array $filters = []): array
     ");
     $stmt->execute($params);
 
-    return array_map('record_request_row', $stmt->fetchAll(PDO::FETCH_ASSOC));
+    $records = array_map('record_request_row', $stmt->fetchAll(PDO::FETCH_ASSOC));
+    foreach ($records as &$record) {
+        $record['includesRegistrationCertificate'] = true;
+        $record['includesMedicalCertificate'] = true;
+        $record['medicalCertificate'] = null;
+    }
+    unset($record);
+
+    if (!$records || !record_request_table_exists($pdo, 'pet_medical_certificates')) {
+        return $records;
+    }
+
+    $requestIds = array_values(array_unique(array_map(
+        static fn(array $record): int => (int)$record['requestId'],
+        $records
+    )));
+    $placeholders = implode(',', array_fill(0, count($requestIds), '?'));
+    $certificateStmt = $pdo->prepare("
+        SELECT
+            c.certificate_id,
+            c.certificate_number,
+            c.request_id,
+            c.examination_date,
+            c.valid_until,
+            c.status,
+            c.created_at,
+            CONCAT(u.first_Name, ' ', u.last_Name) AS veterinarian_name
+        FROM pet_medical_certificates c
+        JOIN users u ON u.user_id = c.veterinarian_user_id
+        WHERE c.request_id IN ({$placeholders})
+        ORDER BY c.certificate_id DESC
+    ");
+    $certificateStmt->execute($requestIds);
+    $certificatesByRequest = [];
+    foreach ($certificateStmt->fetchAll(PDO::FETCH_ASSOC) as $certificate) {
+        $certificateRequestId = (int)$certificate['request_id'];
+        if (isset($certificatesByRequest[$certificateRequestId])) {
+            continue;
+        }
+
+        $status = (string)$certificate['status'];
+        if ($status === 'active' && (string)$certificate['valid_until'] < date('Y-m-d')) {
+            $status = 'expired';
+        }
+        $certificatesByRequest[$certificateRequestId] = [
+            'id' => (int)$certificate['certificate_id'],
+            'certificateNumber' => $certificate['certificate_number'],
+            'examinationDate' => $certificate['examination_date'],
+            'validUntil' => $certificate['valid_until'],
+            'status' => $status,
+            'veterinarianName' => trim((string)$certificate['veterinarian_name']),
+            'createdAt' => $certificate['created_at'],
+        ];
+    }
+
+    foreach ($records as &$record) {
+        $record['medicalCertificate'] = $certificatesByRequest[(int)$record['requestId']] ?? null;
+    }
+    unset($record);
+
+    return $records;
 }
 
 function record_request_create(PDO $pdo, array $input): void

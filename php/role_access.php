@@ -326,7 +326,7 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
-    if (preg_match('#^/pets/[^/]+/(queues|bookings|medical|overdue/cancel)$#', $path)) {
+    if (preg_match('#^/pets/[^/]+/(queues|bookings|medical|certificates|overdue/cancel)$#', $path)) {
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
@@ -610,6 +610,29 @@ function ipawcus_owner_can_view_media(PDO $pdo, int $ownerUserId, string $relati
                 SELECT COUNT(*)
                 FROM pet_record_update_requests r
                 WHERE r.owner_user_id = ?
+                  AND {$pathCondition}
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge([$ownerUserId], $pathParams));
+            if ((int)$stmt->fetchColumn() > 0) {
+                return true;
+            }
+        }
+    }
+
+    if (ipawcus_media_table_exists($pdo, 'pet_medical_certificates')
+        && ipawcus_media_table_exists($pdo, 'pet_ownership')) {
+        $pathParams = [];
+        $pathCondition = ipawcus_media_path_condition($pdo, 'certificate', 'pet_medical_certificates', [
+            'signature_path',
+        ], $relativePath, $pathParams);
+
+        if ($pathCondition !== '') {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM pet_medical_certificates certificate
+                JOIN pet_ownership po ON po.pet_id = certificate.pet_id
+                WHERE po.user_id = ?
                   AND {$pathCondition}
                 LIMIT 1
             ");

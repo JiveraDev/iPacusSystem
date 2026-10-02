@@ -393,6 +393,9 @@ switch ($path) {
         } elseif (preg_match('/^\/pets\/([^\/]+)\/overdue\/cancel$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_overdue_cancellations.php';
+        } elseif (preg_match('/^\/pets\/([^\/]+)\/certificates$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            require_once __DIR__ . '/pet_certificates.php';
         } elseif (preg_match('/^\/pets\/([^\/]+)\/medical$/', $path, $matches)) {
             $_GET['petId'] = $matches[1];
             require_once __DIR__ . '/pet_medical_records.php';

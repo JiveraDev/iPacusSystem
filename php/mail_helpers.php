@@ -147,6 +147,54 @@ function mail_queue_enabled(): bool
     return mail_env_bool('MAIL_QUEUE_ENABLED', true);
 }
 
+function mail_queue_after_response_enabled(): bool
+{
+    return mail_env_bool('MAIL_QUEUE_AFTER_RESPONSE_ENABLED', true);
+}
+
+function mail_queue_after_response_limit(): int
+{
+    return max(1, min(25, (int)mail_env_value('MAIL_QUEUE_AFTER_RESPONSE_LIMIT', '10')));
+}
+
+function mail_queue_schedule_after_response(PDO $pdo): void
+{
+    static $scheduled = false;
+
+    if (
+        $scheduled
+        || !mail_queue_after_response_enabled()
+        || defined('IPAWCUS_MAIL_QUEUE_WORKER_RUNNING')
+    ) {
+        return;
+    }
+
+    $scheduled = true;
+    register_shutdown_function(static function () use ($pdo): void {
+        try {
+            if ($pdo->inTransaction()) {
+                error_log('After-response mail queue processing skipped because a database transaction is still active.');
+                return;
+            }
+
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+
+            $result = mail_process_queue($pdo, mail_queue_after_response_limit());
+            if ((int)($result['failed'] ?? 0) > 0) {
+                error_log(sprintf(
+                    'After-response mail queue processing completed with %d failed message(s) and %d pending message(s).',
+                    (int)$result['failed'],
+                    (int)($result['pending'] ?? 0)
+                ));
+            }
+        } catch (Throwable $error) {
+            error_log('After-response mail queue processing failed: ' . $error->getMessage());
+        }
+    });
+}
+
 function mail_queue_table_exists(PDO $pdo): bool
 {
     $stmt = $pdo->prepare("

@@ -1,6 +1,4 @@
 <?php
-define('IPAWCUS_MAIL_QUEUE_WORKER_RUNNING', true);
-
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';

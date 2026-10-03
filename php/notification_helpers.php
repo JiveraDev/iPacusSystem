@@ -566,52 +566,25 @@ function notification_send_email_if_enabled(
 
     try {
         if (mail_queue_enabled()) {
-            try {
-                $result = mail_queue_email($pdo, $email, $subject, $html, $text, [
-                    'toName' => notification_user_name($user),
-                    'notificationId' => $notificationId,
-                    'attachments' => $attachments,
-                    'priority' => max(-9, min(9, $priority)),
-                ]);
-
-                if ($notificationId) {
-                    $stmt = $pdo->prepare("
-                        UPDATE user_notifications
-                        SET email_status = 'queued',
-                            email_sent_at = NULL,
-                            email_error = NULL
-                        WHERE notification_id = ?
-                    ");
-                    $stmt->execute([$notificationId]);
-                }
-
-                mail_queue_schedule_after_response($pdo);
-
-                return $result;
-            } catch (Throwable $queueError) {
-                error_log('Notification mail queue unavailable; attempting direct SMTP delivery: ' . $queueError->getMessage());
-            }
-
-            $result = send_smtp_email($email, $subject, $html, $text, [
+            $result = mail_queue_email($pdo, $email, $subject, $html, $text, [
                 'toName' => notification_user_name($user),
+                'notificationId' => $notificationId,
                 'attachments' => $attachments,
+                'priority' => max(-9, min(9, $priority)),
             ]);
 
             if ($notificationId) {
                 $stmt = $pdo->prepare("
                     UPDATE user_notifications
-                    SET email_status = 'sent',
-                        email_sent_at = NOW(),
+                    SET email_status = 'queued',
+                        email_sent_at = NULL,
                         email_error = NULL
                     WHERE notification_id = ?
                 ");
                 $stmt->execute([$notificationId]);
             }
 
-            return [
-                ...$result,
-                'queueFallback' => true,
-            ];
+            return $result;
         }
 
         $result = send_smtp_email($email, $subject, $html, $text, [

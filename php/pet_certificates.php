@@ -433,24 +433,20 @@ try {
     }
 
     $ownerUserId = (int)($owner['userId'] ?? 0);
-    if ($ownerUserId > 0) {
-        try {
-            $petName = trim((string)($pet['pet_name'] ?? 'Pet')) ?: 'Pet';
-            notification_create_event($pdo, [
-                'user_id' => $ownerUserId,
-                'type' => 'medical_certificate_issued',
-                'category' => 'diagnosis_updates',
-                'title' => 'Medical certificate available',
-                'message' => "A veterinarian issued a medical certificate for {$petName}. Open the pet profile to review or print it.",
-                'push_title' => 'Medical certificate available',
-                'push_message' => "{$petName}'s medical certificate is ready to review.",
-                'redirect_path' => notification_pet_redirect_path($petId),
-                'dedupe_key' => "medical-certificate-issued-{$certificateId}-owner-{$ownerUserId}",
-                'force_in_app' => true,
-            ]);
-        } catch (Throwable $notificationError) {
-            error_log('Medical certificate owner notification failed: ' . $notificationError->getMessage());
-        }
+    try {
+        notification_send_medical_certificate_issued(
+            $pdo,
+            $certificateId,
+            $petId,
+            $ownerUserId,
+            $currentUserId,
+            (string)($pet['pet_name'] ?? 'Pet'),
+            (string)($issued['certificate_number'] ?? ''),
+            (string)($issued['valid_until'] ?? ''),
+            isset($issued['branch_id']) && $issued['branch_id'] !== null ? (int)$issued['branch_id'] : null
+        );
+    } catch (Throwable $notificationError) {
+        error_log('Medical certificate notification failed: ' . $notificationError->getMessage());
     }
 
     echo json_encode([

@@ -189,28 +189,57 @@ function pet_medical_notify_owner_record_updated(
     try {
         $pet = pet_medical_pet_summary($pdo, $petId);
         $ownerUserId = (int)($pet['ownerUserId'] ?? 0);
-        if ($ownerUserId <= 0) {
-            return;
-        }
-
         $petName = trim((string)($pet['name'] ?? 'Pet')) ?: 'Pet';
         $cleanTitle = trim($recordTitle) ?: 'Medical record';
         $bucket = (int)floor(time() / 600);
+        $redirectPath = '/dashboard/my-pets/' . (int)$pet['dbId'] . '/medical-records';
+        $message = "{$petName}'s medical record was updated: {$cleanTitle}.";
+        $rows = [
+            'Pet' => $petName,
+            'Updated Record' => $cleanTitle,
+            'Update Type' => $scope === 'group' ? 'Medical record summary' : 'Medical record item',
+        ];
+        $summary = "Pet: {$petName} | Updated record: {$cleanTitle}";
 
-        notification_create_event($pdo, [
-            'user_id' => $ownerUserId,
-            'type' => 'medical_record_updated',
+        if ($ownerUserId > 0) {
+            $ownerIntro = 'Hello ' . (trim((string)($pet['ownerName'] ?? '')) ?: 'Pet Owner') . ", {$message}";
+            $ownerEmail = notification_email_template('Medical record updated', $ownerIntro, $rows, null, $summary);
+
+            notification_create_event($pdo, [
+                'user_id' => $ownerUserId,
+                'type' => 'medical_record_updated',
+                'category' => 'diagnosis_updates',
+                'title' => 'Medical record updated',
+                'message' => $message,
+                'push_title' => 'Medical record updated',
+                'push_message' => "{$petName}'s medical record was updated.",
+                'redirect_path' => $redirectPath,
+                'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}-owner-{$ownerUserId}",
+                'email_subject' => "Medical record updated for {$petName}",
+                'email_html' => $ownerEmail,
+                'email_text' => trim($ownerIntro . "\n\nSummary: {$summary}"),
+                'force_in_app' => true,
+            ]);
+        }
+
+        $staffIntro = 'Hello clinic team, a veterinarian updated a pet medical record.';
+        $staffEmail = notification_email_template('Medical record updated', $staffIntro, $rows, null, $summary);
+        notification_create_event_for_roles($pdo, ['admin', 'veterinarian'], [
+            'type' => 'medical_record_updated_staff',
             'category' => 'diagnosis_updates',
             'title' => 'Medical record updated',
-            'message' => "{$petName}'s medical record was updated: {$cleanTitle}.",
+            'message' => $message,
             'push_title' => 'Medical record updated',
             'push_message' => "{$petName}'s medical record was updated.",
-            'redirect_path' => '/dashboard/my-pets/' . (int)$pet['dbId'] . '/medical-records',
-            'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}",
+            'redirect_path' => $redirectPath,
+            'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}-staff",
+            'email_subject' => "Medical record updated for {$petName}",
+            'email_html' => $staffEmail,
+            'email_text' => trim($staffIntro . "\n\nSummary: {$summary}"),
             'force_in_app' => true,
         ]);
     } catch (Throwable $error) {
-        error_log('Medical record owner notification failed: ' . $error->getMessage());
+        error_log('Medical record update notification failed: ' . $error->getMessage());
     }
 }
 

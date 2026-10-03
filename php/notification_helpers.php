@@ -1324,6 +1324,35 @@ function notification_pet_redirect_path($petId, string $fallback = '/dashboard/t
     return $numericPetId > 0 ? "/dashboard/my-pets/{$numericPetId}" : $fallback;
 }
 
+function notification_app_url(string $path): string
+{
+    if (preg_match('/^https?:\/\//i', $path)) {
+        return $path;
+    }
+
+    $configuredBase = trim((string)(
+        getenv('FRONTEND_ORIGIN')
+        ?: getenv('APP_URL')
+        ?: getenv('FRONTEND_URL')
+        ?: getenv('VITE_APP_URL')
+        ?: ''
+    ));
+    $base = trim((string)(preg_split('/\s*,\s*/', $configuredBase, -1, PREG_SPLIT_NO_EMPTY)[0] ?? ''));
+
+    if ($base === '' && !empty($_SERVER['HTTP_HOST'])) {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+        $base = ($isHttps ? 'https://' : 'http://') . trim((string)$_SERVER['HTTP_HOST']);
+    }
+
+    $scheme = strtolower((string)(parse_url($base, PHP_URL_SCHEME) ?? ''));
+    if ($base === '' || !in_array($scheme, ['http', 'https'], true)) {
+        return '/' . ltrim($path, '/');
+    }
+
+    return rtrim($base, '/') . '/' . ltrim($path, '/');
+}
+
 function notification_task_datetime(?string $value): ?DateTimeImmutable
 {
     $value = trim((string)$value);
@@ -2671,6 +2700,40 @@ function notification_fetch_record_update_request(PDO $pdo, int $requestId): ?ar
     return $request ?: null;
 }
 
+function notification_record_update_email(
+    array $request,
+    string $title,
+    string $intro,
+    string $statusLabel
+): array {
+    $petName = trim((string)($request['pet_name'] ?? 'Pet')) ?: 'Pet';
+    $requestNumber = trim((string)($request['request_number'] ?? 'Record update request'));
+    $requestedChanges = trim((string)($request['requested_changes'] ?? ''));
+    $ownerName = trim((string)($request['owner_name'] ?? ''));
+    $vetName = trim((string)($request['veterinarian_name'] ?? ''));
+    $rows = [
+        'Request' => $requestNumber,
+        'Pet' => $petName,
+        'Status' => $statusLabel,
+        'Owner' => $ownerName,
+        'Veterinarian' => $vetName,
+        'Requested Changes' => $requestedChanges,
+    ];
+    $summary = "{$requestNumber} | Pet: {$petName} | Status: {$statusLabel}";
+    $textRows = [];
+    foreach ($rows as $label => $value) {
+        if (trim((string)$value) !== '') {
+            $textRows[] = "{$label}: {$value}";
+        }
+    }
+
+    return [
+        'subject' => "{$title} - {$petName}",
+        'html' => notification_email_template($title, $intro, $rows, null, $summary),
+        'text' => trim($intro . "\n\nSummary: {$summary}\n\n" . implode("\n", $textRows)),
+    ];
+}
+
 function notification_send_record_update_request_event(PDO $pdo, int $requestId, string $event, array $context = []): void
 {
     $request = notification_fetch_record_update_request($pdo, $requestId);
@@ -2698,6 +2761,13 @@ function notification_send_record_update_request_event(PDO $pdo, int $requestId,
         $message .= ' Request: ' . substr($requestedChanges, 0, 140);
     }
 
+    $email = notification_record_update_email(
+        $request,
+        $title,
+        "Hello Dr. " . (trim((string)($request['veterinarian_name'] ?? '')) ?: 'Veterinarian') . ", a record update request is ready for your review.",
+        $event === 'approved' ? 'Approved' : 'Assigned'
+    );
+
     notification_create_event($pdo, [
         'user_id' => $vetUserId,
         'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
@@ -2705,9 +2775,13 @@ function notification_send_record_update_request_event(PDO $pdo, int $requestId,
         'category' => 'diagnosis_updates',
         'title' => $title,
         'message' => $message,
+        'push_title' => $title,
         'push_message' => "{$requestNumber} for {$petName}: {$paidLabel}, urgent record update.",
         'redirect_path' => $redirectPath,
         'dedupe_key' => "record-update-request-{$event}-{$requestId}-vet-{$vetUserId}",
+        'email_subject' => $email['subject'],
+        'email_html' => $email['html'],
+        'email_text' => $email['text'],
         'force_in_app' => true,
     ]);
 }
@@ -2758,18 +2832,44 @@ function notification_send_record_update_request_staff_event(PDO $pdo, int $requ
         $payload['message'] .= ' Request: ' . substr($requestedChanges, 0, 140);
     }
 
-    if ($event === 'submitted') {
-        notification_create_event_for_roles($pdo, ['admin'], [
-            ...$payload,
-            'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
-            'category' => 'diagnosis_updates',
-            'redirect_path' => '/dashboard/record-requests',
-            'force_in_app' => true,
-        ]);
-    }
+    $statusLabels = [
+        'submitted' => 'Pending admin review',
+        'in_progress' => 'In progress',
+        'completed' => 'Completed',
+    ];
+    $email = notification_record_update_email(
+        $request,
+        $payload['title'],
+        'Hello clinic team, a pet medical-record update changed status and may require your attention.',
+        $statusLabels[$event]
+    );
+
+    $staffPayload = [
+        ...$payload,
+        'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
+        'category' => 'diagnosis_updates',
+        'push_title' => $payload['title'],
+        'email_subject' => $email['subject'],
+        'email_html' => $email['html'],
+        'email_text' => $email['text'],
+        'force_in_app' => true,
+    ];
+
+    notification_create_event_for_roles($pdo, ['admin'], [
+        ...$staffPayload,
+        'redirect_path' => '/dashboard/record-requests',
+        'dedupe_key' => $payload['dedupe_key'] . '-admin',
+    ]);
+    notification_create_event_for_roles($pdo, ['veterinarian'], [
+        ...$staffPayload,
+        'redirect_path' => $event === 'submitted'
+            ? '/dashboard/vet/record-requests'
+            : '/dashboard/vet/medical-records?petId=' . (int)$request['pet_id'] . '&requestId=' . $requestId,
+        'dedupe_key' => $payload['dedupe_key'] . '-vet',
+    ]);
 }
 
-function notification_send_record_update_request_completed_to_owner(PDO $pdo, int $requestId): void
+function notification_send_record_update_request_owner_event(PDO $pdo, int $requestId, string $event): void
 {
     $request = notification_fetch_record_update_request($pdo, $requestId);
     if (!$request) {
@@ -2787,16 +2887,139 @@ function notification_send_record_update_request_completed_to_owner(PDO $pdo, in
     $vetName = trim((string)($request['veterinarian_name'] ?? ''));
     $vetLabel = $vetName !== '' ? " by Dr. {$vetName}" : '';
 
+    $events = [
+        'submitted' => [
+            'type' => 'record_update_request_submitted',
+            'title' => 'Record update request received',
+            'message' => "{$requestNumber} for {$petName} was received and is waiting for clinic review.",
+            'push_message' => "{$petName}'s record update request was received.",
+            'status' => 'Pending admin review',
+        ],
+        'in_progress' => [
+            'type' => 'record_update_request_started',
+            'title' => 'Record update in progress',
+            'message' => "The veterinarian started updating {$petName}'s records for {$requestNumber}{$vetLabel}.",
+            'push_message' => "{$petName}'s requested record update is now in progress.",
+            'status' => 'In progress',
+        ],
+        'completed' => [
+            'type' => 'record_update_request_completed',
+            'title' => 'Record update completed',
+            'message' => "{$requestNumber} for {$petName} has been completed{$vetLabel}. You can now review the updated medical record.",
+            'push_message' => "{$petName}'s requested record update is complete.",
+            'status' => 'Completed',
+        ],
+    ];
+
+    if (!isset($events[$event])) {
+        return;
+    }
+
+    $payload = $events[$event];
+    $email = notification_record_update_email(
+        $request,
+        $payload['title'],
+        'Hello ' . (trim((string)($request['owner_name'] ?? '')) ?: 'Pet Owner') . ", {$payload['message']}",
+        $payload['status']
+    );
+
     notification_create_event($pdo, [
         'user_id' => $ownerUserId,
         'branch_id' => (int)($request['branch_id'] ?? branch_main_id($pdo)),
-        'type' => 'record_update_request_completed',
+        'type' => $payload['type'],
         'category' => 'diagnosis_updates',
-        'title' => 'Record update completed',
-        'message' => "{$requestNumber} for {$petName} has been completed{$vetLabel}. You can now review the updated medical record.",
-        'push_message' => "{$petName}'s requested record update is complete.",
-        'redirect_path' => $petId > 0 ? "/dashboard/my-pets/{$petId}/medical-records" : '/dashboard/my-pets',
-        'dedupe_key' => "record-update-request-completed-{$requestId}-owner-{$ownerUserId}",
+        'title' => $payload['title'],
+        'message' => $payload['message'],
+        'push_title' => $payload['title'],
+        'push_message' => $payload['push_message'],
+        'redirect_path' => $event === 'completed' && $petId > 0
+            ? "/dashboard/my-pets/{$petId}/medical-records"
+            : notification_pet_redirect_path($petId, '/dashboard/my-pets'),
+        'dedupe_key' => "record-update-request-{$event}-{$requestId}-owner-{$ownerUserId}",
+        'email_subject' => $email['subject'],
+        'email_html' => $email['html'],
+        'email_text' => $email['text'],
+        'force_in_app' => true,
+    ]);
+}
+
+function notification_send_record_update_request_completed_to_owner(PDO $pdo, int $requestId): void
+{
+    notification_send_record_update_request_owner_event($pdo, $requestId, 'completed');
+}
+
+function notification_send_medical_certificate_issued(
+    PDO $pdo,
+    int $certificateId,
+    int $petId,
+    int $ownerUserId,
+    int $veterinarianUserId,
+    string $petName,
+    string $certificateNumber,
+    string $validUntil,
+    ?int $branchId = null
+): void {
+    $petName = trim($petName) ?: 'Pet';
+    $certificateNumber = trim($certificateNumber) ?: "Certificate #{$certificateId}";
+    $validLabel = notification_format_datetime($validUntil, null);
+    $branchId = $branchId && $branchId > 0 ? $branchId : branch_main_id($pdo);
+    $veterinarian = $veterinarianUserId > 0 ? notification_fetch_user($pdo, $veterinarianUserId) : null;
+    $veterinarianName = notification_user_name($veterinarian);
+    $rows = [
+        'Pet' => $petName,
+        'Certificate' => $certificateNumber,
+        'Issued By' => $veterinarianName !== 'there' ? $veterinarianName : '',
+        'Valid Until' => $validLabel,
+    ];
+    $summary = "Pet: {$petName} | Certificate: {$certificateNumber} | Valid until: {$validLabel}";
+    $ownerMessage = "A veterinarian issued a medical certificate for {$petName}. Open the pet profile to review or print it.";
+    $ownerIntro = "Hello, {$ownerMessage}";
+    $certificateUrl = notification_app_url(notification_pet_redirect_path($petId) . '?certificate=medical');
+    $certificateCta = [
+        'label' => 'Open medical certificate',
+        'url' => $certificateUrl,
+    ];
+    $ownerEmail = notification_email_template('Medical certificate available', $ownerIntro, $rows, $certificateCta, $summary);
+    $ownerText = trim($ownerIntro . "\n\nSummary: {$summary}\n\nOpen medical certificate: {$certificateUrl}");
+
+    if ($ownerUserId > 0) {
+        notification_create_event($pdo, [
+            'user_id' => $ownerUserId,
+            'branch_id' => $branchId,
+            'type' => 'medical_certificate_issued',
+            'category' => 'diagnosis_updates',
+            'title' => 'Medical certificate available',
+            'message' => $ownerMessage,
+            'push_title' => 'Medical certificate available',
+            'push_message' => "{$petName}'s medical certificate is ready to review.",
+            'redirect_path' => notification_pet_redirect_path($petId),
+            'dedupe_key' => "medical-certificate-issued-{$certificateId}-owner-{$ownerUserId}",
+            'email_subject' => "Medical certificate available for {$petName}",
+            'email_html' => $ownerEmail,
+            'email_text' => $ownerText,
+            'force_in_app' => true,
+        ]);
+    }
+
+    $staffTitle = 'Medical certificate issued';
+    $staffMessage = "{$certificateNumber} was issued for {$petName}.";
+    $staffIntro = 'Hello clinic team, a veterinarian issued or replaced a pet medical certificate.';
+    $staffEmail = notification_email_template($staffTitle, $staffIntro, $rows, $certificateCta, $summary);
+    $staffText = trim($staffIntro . "\n\nSummary: {$summary}\n\nOpen medical certificate: {$certificateUrl}");
+
+    notification_create_event_for_roles($pdo, ['admin', 'veterinarian'], [
+        'branch_id' => $branchId,
+        'type' => 'medical_certificate_issued_staff',
+        'category' => 'diagnosis_updates',
+        'title' => $staffTitle,
+        'message' => $staffMessage,
+        'push_title' => $staffTitle,
+        'push_message' => "{$petName}'s medical certificate was issued.",
+        'redirect_path' => notification_pet_redirect_path($petId),
+        'dedupe_key' => "medical-certificate-issued-{$certificateId}-staff",
+        'email_subject' => "Medical certificate issued for {$petName}",
+        'email_html' => $staffEmail,
+        'email_text' => $staffText,
         'force_in_app' => true,
     ]);
 }

@@ -663,6 +663,12 @@ function record_request_create(PDO $pdo, array $input): void
         error_log('Record update submission notification failed: ' . $notificationError->getMessage());
     }
 
+    try {
+        notification_send_record_update_request_owner_event($pdo, $requestId, 'submitted');
+    } catch (Throwable $notificationError) {
+        error_log('Record update owner confirmation notification failed: ' . $notificationError->getMessage());
+    }
+
     echo json_encode(['success' => true, 'request' => $record, 'requestId' => $requestId]);
 }
 
@@ -1038,6 +1044,12 @@ function record_request_update(PDO $pdo, array $input): void
             notification_send_record_update_request_staff_event($pdo, $requestId, 'in_progress');
         } catch (Throwable $notificationError) {
             error_log('Record update start notification failed: ' . $notificationError->getMessage());
+        }
+
+        try {
+            notification_send_record_update_request_owner_event($pdo, $requestId, 'in_progress');
+        } catch (Throwable $notificationError) {
+            error_log('Record update owner start notification failed: ' . $notificationError->getMessage());
         }
     }
 

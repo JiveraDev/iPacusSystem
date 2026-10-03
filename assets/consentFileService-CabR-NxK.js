@@ -1,0 +1,1 @@
+import{ct as e,ht as t,ut as n}from"./index-q2BTmY_r.js";function r(){return e(`/consent_files`)}function i(t){return e(`/consent_files`,{method:`POST`,body:t})}function a(e,n){return t(`/consent_files/${e}`,n)}function o(e){return n(`/consent_files/${e}`)}export{a as i,o as n,r,i as t};

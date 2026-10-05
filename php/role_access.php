@@ -120,6 +120,7 @@ function ipawcus_admin_feature_for_mutation(string $path, string $method): ?stri
     if (preg_match('#^/boarding(/|$)#', $path)) return 'boarding';
     if ($path === '/grooming') return 'grooming';
     if (preg_match('#^/queues(/|$)#', $path)) return 'queue';
+    if ($path === '/clinical-intakes') return 'queue';
     if (preg_match('#^/visits(/|$)#', $path)) return 'pos';
     if (preg_match('#^/inventory(/|$)#', $path)) return 'inventory';
     if (preg_match('#^/(consent_files|consent-form-records|consent_form_records)(/|$)#', $path)) return 'consent';
@@ -214,6 +215,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('vet')];
     }
 
+    if ($path === '/veterinarian-booking-schedule') {
+        return ['roles' => ipawcus_roles('vet')];
+    }
+
     if ($path === '/upload' || $path === '/upload/delete') {
         return ['roles' => ipawcus_roles('all')];
     }
@@ -282,6 +287,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('vet')];
     }
 
+    if ($path === '/clinical-intakes') {
+        return ['roles' => ipawcus_roles('clinic')];
+    }
+
     if (preg_match('#^/vet-diagnoses(/|$)#', $path)) {
         return ['roles' => ipawcus_roles('vet')];
     }
@@ -346,6 +355,14 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if ($path === '/todos' || preg_match('#^/todos/\d+$#', $path)) {
         return ['roles' => ['pet_owner', 'veterinarian', 'super_admin']];
+    }
+
+    if (
+        $path === '/prescriptions'
+        || preg_match('#^/prescriptions/\d+/(start|amend)$#', $path)
+        || preg_match('#^/prescription-occurrences/\d+$#', $path)
+    ) {
+        return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
     if ($path === '/record-update-requests' || preg_match('#^/record-update-requests/\d+$#', $path)) {

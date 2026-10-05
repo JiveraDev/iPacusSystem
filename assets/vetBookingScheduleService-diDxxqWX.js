@@ -1,0 +1,1 @@
+import{ct as e}from"./index-CDsSPxZ5.js";function t(t,n={}){let r=new URLSearchParams({veterinarianId:String(t)});return Object.entries(n).forEach(([e,t])=>{t!=null&&t!==``&&r.set(e,String(t))}),e(`/veterinarian-booking-schedule?${r}`)}function n(t,n){return e(`/veterinarian-booking-schedule`,{method:`PUT`,body:JSON.stringify({veterinarianId:t,...n})})}export{n,t};

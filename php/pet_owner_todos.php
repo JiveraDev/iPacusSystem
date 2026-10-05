@@ -192,6 +192,10 @@ function pet_owner_todos_format_task(array $task): array
         'petName' => $task['petName'] ?? '',
         'redirectPath' => $task['redirectPath'] ?? '/dashboard/todos',
         'editable' => !empty($task['editable']),
+        'actionable' => !empty($task['actionable']),
+        'prescriptionPlanId' => isset($task['prescriptionPlanId']) ? (int)$task['prescriptionPlanId'] : null,
+        'prescriptionItemId' => isset($task['prescriptionItemId']) ? (int)$task['prescriptionItemId'] : null,
+        'occurrenceId' => isset($task['occurrenceId']) ? (int)$task['occurrenceId'] : null,
     ];
 }
 
@@ -345,6 +349,71 @@ function pet_owner_todos_diagnosis_tasks(PDO $pdo, int $userId, string $start, s
             'petName' => $row['pet_name'],
             'redirectPath' => "/dashboard/my-pets/{$petId}",
             'editable' => false,
+        ]);
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function pet_owner_todos_medication_tasks(PDO $pdo, int $userId, string $start, string $end): array
+{
+    if (
+        !pet_owner_todos_table_exists($pdo, 'prescription_plans')
+        || !pet_owner_todos_table_exists($pdo, 'prescription_items')
+        || !pet_owner_todos_table_exists($pdo, 'prescription_occurrences')
+    ) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            occurrence_rows.occurrence_id,
+            occurrence_rows.item_id,
+            occurrence_rows.due_at,
+            occurrence_rows.status,
+            item_rows.plan_id,
+            item_rows.medicine,
+            item_rows.dose,
+            item_rows.route,
+            item_rows.instructions,
+            plan.pet_id,
+            pet.pet_name,
+            pet.pet_sharable_ID
+        FROM prescription_occurrences occurrence_rows
+        JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id
+        JOIN prescription_plans plan ON plan.plan_id = item_rows.plan_id
+        JOIN pets_information pet ON pet.pet_id = plan.pet_id
+        JOIN pet_ownership ownership ON ownership.pet_id = plan.pet_id AND ownership.user_id = ?
+        WHERE occurrence_rows.status <> 'cancelled'
+          AND occurrence_rows.due_at BETWEEN ? AND ?
+          AND plan.status IN ('partially_started','active','completed')
+        ORDER BY occurrence_rows.due_at ASC, occurrence_rows.occurrence_id ASC
+    ");
+    $stmt->execute([$userId, $start, $end]);
+
+    return array_map(static function (array $row): array {
+        $details = array_values(array_filter([
+            trim((string)($row['dose'] ?? '')) !== '' ? 'Dose: ' . trim((string)$row['dose']) : '',
+            trim((string)($row['route'] ?? '')) !== '' ? 'Route: ' . trim((string)$row['route']) : '',
+            trim((string)($row['instructions'] ?? '')),
+        ]));
+        return pet_owner_todos_format_task([
+            'id' => 'medication-' . (int)$row['occurrence_id'],
+            'source' => 'medication',
+            'sourceId' => (int)$row['occurrence_id'],
+            'title' => 'Give ' . $row['medicine'],
+            'details' => implode("\n", $details),
+            'category' => 'Medication',
+            'startAt' => $row['due_at'],
+            'endAt' => date('Y-m-d H:i:s', strtotime($row['due_at'] . ' +30 minutes')),
+            'status' => $row['status'] === 'taken' ? 'completed' : $row['status'],
+            'petId' => (int)$row['pet_id'],
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
+            'petName' => $row['pet_name'],
+            'redirectPath' => '/dashboard/todos?prescription=' . (int)$row['plan_id'] . '&occurrence=' . (int)$row['occurrence_id'],
+            'editable' => false,
+            'actionable' => true,
+            'prescriptionPlanId' => (int)$row['plan_id'],
+            'prescriptionItemId' => (int)$row['item_id'],
+            'occurrenceId' => (int)$row['occurrence_id'],
         ]);
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -603,7 +672,7 @@ function pet_owner_todos_summary(array $tasks): array
 
     foreach ($tasks as $task) {
         $timestamp = strtotime($task['startAt']);
-        $isDone = in_array($task['status'], ['completed', 'cancelled'], true);
+        $isDone = in_array($task['status'], ['completed', 'cancelled', 'skipped'], true);
 
         if ($task['source'] === 'personal') {
             $summary['personal']++;
@@ -653,6 +722,7 @@ function pet_owner_todos_list(PDO $pdo): void
             pet_owner_todos_booking_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_diagnosis_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_medication_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_payment_tasks($pdo, $userId),
             pet_owner_todos_boarding_tasks($pdo, $userId, $start, $end)
         );

@@ -32,6 +32,8 @@ try {
         throw new InvalidArgumentException('Booking and destination branch are required.');
     }
 
+    $slotLockName = 'ipawcus_shared_medical_calendar';
+    if (!booking_slot_acquire($pdo, $slotLockName)) throw new DomainException('Booking availability is being updated. Try again shortly.');
     $pdo->beginTransaction();
     $stmt = $pdo->prepare('SELECT * FROM bookings WHERE booking_id = ? LIMIT 1 FOR UPDATE');
     $stmt->execute([$bookingId]);
@@ -58,6 +60,7 @@ try {
     $resolvedBranchId = (int)$resolution['branch_id'];
     if ($resolvedBranchId === $fromBranchId) {
         $pdo->commit();
+        booking_slot_release($pdo, $slotLockName);
         echo json_encode(['success' => true, 'message' => 'Booking is already assigned to this branch.']);
         exit;
     }
@@ -72,17 +75,8 @@ try {
         $veterinarianId = $serviceKey === 'online-consultation'
             ? (int)($resolution['veterinarian_user_id'] ?? $booking['veterinarian_id'] ?? 0)
             : null;
-        if ($serviceKey === 'online-consultation'
-            && ($veterinarianId <= 0 || !booking_slot_online_vet_is_available(
-                $pdo,
-                $veterinarianId,
-                (string)$booking['booking_date'],
-                $normalizedTime
-            ))) {
-            throw new DomainException('That veterinarian has not made this online consultation time available. Select another date or time.');
-        }
         $specialServiceId = null;
-        $slotLockName = booking_slot_lock_name(
+        $newSlotLockName = booking_slot_lock_name(
             $resolvedBranchId,
             $serviceKey,
             (string)$booking['booking_date'],
@@ -90,6 +84,10 @@ try {
             $veterinarianId,
             $specialServiceId
         );
+        if ($newSlotLockName !== $slotLockName) {
+            booking_slot_release($pdo, $slotLockName);
+            $slotLockName = $newSlotLockName;
+        }
         if (!booking_slot_acquire($pdo, $slotLockName)) {
             throw new DomainException('This time is being reserved by another booking. Refresh the available times and try again.');
         }
@@ -105,6 +103,9 @@ try {
             true
         )) {
             throw new DomainException(booking_slot_conflict_message($serviceKey, $normalizedTime));
+        }
+        if (clinic_booking_is_medical($serviceKey)) {
+            $resolution['veterinarian_user_id'] = clinic_booking_reserve_vet($pdo, $resolvedBranchId, (string)$booking['booking_date'], $normalizedTime, $serviceKey, $veterinarianId, $bookingId);
         }
     }
 
@@ -155,6 +156,7 @@ try {
         'message' => 'Booking relocated. Existing price and payment were preserved.',
         'branchId' => $resolvedBranchId,
         'branchName' => $resolution['branch']['branch_name'],
+        'veterinarianId' => $resolution['veterinarian_user_id'] ?? $booking['veterinarian_id'] ?? null,
     ]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

@@ -163,6 +163,9 @@ switch ($path) {
     case '/todos':
         require_once __DIR__ . '/pet_owner_todos.php';
         break;
+    case '/prescriptions':
+        require_once __DIR__ . '/prescriptions.php';
+        break;
     case '/lifecycle/recovery-report':
         require_once __DIR__ . '/lifecycle_recovery_report.php';
         break;
@@ -195,6 +198,9 @@ switch ($path) {
         break;
     case '/veterinarian-branch-schedules':
         require_once __DIR__ . '/veterinarian_branch_schedules.php';
+        break;
+    case '/veterinarian-booking-schedule':
+        require_once __DIR__ . '/veterinarian_booking_schedule.php';
         break;
     case '/visits':
         require_once __DIR__ . '/visit_billing.php';
@@ -320,6 +326,9 @@ switch ($path) {
     case '/queues/reenter':
         require_once __DIR__ . '/reenter_queue.php';
         break;
+    case '/clinical-intakes':
+        require_once __DIR__ . '/clinical_intakes.php';
+        break;
     case '/vet-diagnoses':
         require_once __DIR__ . '/vet_diagnoses.php';
         break;
@@ -381,6 +390,14 @@ switch ($path) {
         } elseif (preg_match('/^\/todos\/(\d+)$/', $path, $matches)) {
             $_GET['todoId'] = $matches[1];
             require_once __DIR__ . '/pet_owner_todos.php';
+        } elseif (preg_match('/^\/prescriptions\/(\d+)\/(start|amend)$/', $path, $matches)) {
+            $_GET['planId'] = $matches[1];
+            $_GET['action'] = $matches[2];
+            require_once __DIR__ . '/prescriptions.php';
+        } elseif (preg_match('/^\/prescription-occurrences\/(\d+)$/', $path, $matches)) {
+            $_GET['occurrenceId'] = $matches[1];
+            $_GET['action'] = 'occurrence';
+            require_once __DIR__ . '/prescriptions.php';
         } elseif (preg_match('/^\/uploads\/media\/(.+)$/', $path, $matches)) {
             $_GET['path'] = $matches[1];
             require_once __DIR__ . '/upload_media.php';

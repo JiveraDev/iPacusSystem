@@ -1038,11 +1038,6 @@ if ($serviceKey === 'online-consultation') {
         echo json_encode(['message' => 'Select a veterinarian for the online consultation.']);
         exit;
     }
-    if (!booking_slot_online_vet_is_available($pdo, $normalizedVetId, (string)$bookingDate, (string)$bookingTime)) {
-        http_response_code(409);
-        echo json_encode(['message' => 'That veterinarian has not made this online consultation time available. Select another date or time.']);
-        exit;
-    }
 }
 
 if (in_array($serviceKey, ['home-service', 'online-consultation'], true) && !$hasCompleteConsentDocument) {
@@ -1290,6 +1285,10 @@ if (
 $slotLockName = null;
 
 try {
+    if (clinic_booking_is_medical($serviceKey)) {
+        $slotLockName = booking_slot_lock_name($branchId, $serviceKey, (string)$bookingDate, (string)$bookingTime);
+        if (!booking_slot_acquire($pdo, $slotLockName)) throw new DomainException('Booking availability is being updated. Try again shortly.');
+    }
     $pdo->beginTransaction();
 
     booking_daily_lock_subjects(
@@ -1374,7 +1373,7 @@ try {
     }
 
     if ($serviceKey !== 'boarding') {
-        $slotVeterinarianId = $serviceKey === 'online-consultation' ? (int)$veterinarianId : null;
+        $slotVeterinarianId = clinic_booking_is_medical($serviceKey) && (int)$veterinarianId > 0 ? (int)$veterinarianId : null;
         $slotSpecialServiceId = null;
         $slotLockName = booking_slot_lock_name(
             $branchId,
@@ -1409,6 +1408,9 @@ try {
             http_response_code(409);
             echo json_encode(['message' => booking_slot_conflict_message($serviceKey, (string)$bookingTime)]);
             exit;
+        }
+        if (clinic_booking_is_medical($serviceKey)) {
+            $veterinarianId = clinic_booking_reserve_vet($pdo, $branchId, (string)$bookingDate, (string)$bookingTime, $serviceKey, $slotVeterinarianId);
         }
     }
 
@@ -1595,6 +1597,7 @@ try {
         'transport_fee' => $transportFee,
         'branch_id' => $branchId,
         'branch_name' => $branchResolution['branch']['branch_name'] ?? null,
+        'veterinarian_id' => $veterinarianId,
     ]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -1602,6 +1605,7 @@ try {
     }
     booking_slot_release($pdo, $slotLockName);
 
-    http_response_code(500);
-    echo json_encode(['message' => 'Failed to create booking: ' . $e->getMessage()]);
+    $status = $e instanceof DomainException ? 409 : ($e instanceof InvalidArgumentException ? 422 : 500);
+    http_response_code($status);
+    echo json_encode(['message' => $status === 500 ? 'Failed to create booking. Try again.' : $e->getMessage()]);
 }

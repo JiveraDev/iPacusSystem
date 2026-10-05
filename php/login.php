@@ -144,6 +144,14 @@ try {
 
     $isArchived = isUserAccountArchived($pdo, $user);
 
+    $position = null;
+    if (strtolower(trim((string)($user['role'] ?? ''))) === 'admin'
+        && loginColumnExists($pdo, 'admin_profiles', 'postionn')) {
+        $positionStmt = $pdo->prepare('SELECT postionn FROM admin_profiles WHERE user_id = ? LIMIT 1');
+        $positionStmt->execute([(int)$user['user_id']]);
+        $position = trim((string)($positionStmt->fetchColumn() ?: '')) ?: null;
+    }
+
     $accessToken = ipawcus_create_access_token($pdo, (int)$user['user_id']);
 
     echo json_encode([
@@ -162,6 +170,7 @@ try {
             'emergencyNumber' => $user['emergencyNumber'],
             'profileImage' => $user['setProfilePic_url'],
             'birthdate' => $user['birthdate'],
+            'position' => $position,
             'accountStatus' => $isArchived ? 'archived' : 'active',
             'bookingRestricted' => false
         ]

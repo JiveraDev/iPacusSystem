@@ -335,10 +335,7 @@ function branch_resolve_booking(
 ): array {
     branch_require_schema($pdo);
     $serviceKey = branch_service_key($serviceType, $isHomeService, $isOnlineConsultation);
-    $mainOnly = ['General Check-up', 'consultation', 'home-service', 'dental', 'surgery', 'kapon', 'special services'];
-    $branchId = in_array($serviceKey, $mainOnly, true)
-        ? branch_main_id($pdo)
-        : (is_numeric($requestedBranchId) ? (int)$requestedBranchId : branch_main_id($pdo));
+    $branchId = is_numeric($requestedBranchId) ? (int)$requestedBranchId : branch_main_id($pdo);
 
     $branch = branch_fetch($pdo, $branchId);
     if (!$branch) {
@@ -360,28 +357,13 @@ function branch_resolve_booking(
         throw new InvalidArgumentException($branch['branch_name'] . ' accepts bookings Monday to Saturday, from 8:00 AM to 6:00 PM. The clinic is closed on Sundays and configured closure dates.');
     }
 
-    $visit = null;
-    if (($availability['availability_mode'] ?? '') === 'vet_visit') {
-        $visit = branch_find_vet_visit(
-            $pdo,
-            $branchId,
-            $serviceKey,
-            $bookingDate,
-            $bookingTime,
-            $requestedVeterinarianId
-        );
-        if (!$visit) {
-            throw new InvalidArgumentException('This Pet Corner service is available only during a published veterinarian visit. Select a listed visit date and time.');
-        }
-    }
-
     return [
         'branch_id' => $branchId,
         'branch' => $branch,
         'service_key' => $serviceKey,
         'availability' => $availability,
-        'visit_schedule' => $visit,
-        'veterinarian_user_id' => $visit ? (int)$visit['veterinarian_user_id'] : $requestedVeterinarianId,
+        'visit_schedule' => null,
+        'veterinarian_user_id' => $requestedVeterinarianId,
     ];
 }
 
@@ -450,7 +432,7 @@ function branch_fetch_catalog(PDO $pdo, ?string $serviceKey = null, ?string $dat
             $branches[$branchId]['services'][$row['service_key']] = [
                 'key' => $row['service_key'],
                 'label' => $row['service_label'],
-                'availabilityMode' => $row['availability_mode'],
+                'availabilityMode' => in_array(strtolower($row['service_key']), ['grooming', 'boarding'], true) ? $row['availability_mode'] : 'vet_capacity',
             ];
         }
         if ($row['day_of_week'] !== null) {
@@ -461,38 +443,6 @@ function branch_fetch_catalog(PDO $pdo, ?string $serviceKey = null, ?string $dat
                 'isClosed' => (bool)$row['is_closed'],
             ];
         }
-    }
-
-    $visitParams = [];
-    $visitWhere = "schedule.status = 'published' AND schedule.ends_at >= NOW()";
-    if ($date !== null && trim($date) !== '') {
-        $visitWhere .= ' AND DATE(schedule.starts_at) = ?';
-        $visitParams[] = $date;
-    }
-    $visitStmt = $pdo->prepare("
-        SELECT schedule.*, CONCAT(u.first_Name, ' ', u.last_Name) AS veterinarian_name
-        FROM veterinarian_branch_schedules schedule
-        JOIN users u ON u.user_id = schedule.veterinarian_user_id
-        WHERE {$visitWhere}
-        ORDER BY schedule.starts_at, veterinarian_name
-    ");
-    $visitStmt->execute($visitParams);
-    foreach ($visitStmt->fetchAll(PDO::FETCH_ASSOC) as $visit) {
-        $branchId = (int)$visit['branch_id'];
-        if (!isset($branches[$branchId])) {
-            continue;
-        }
-        $serviceKeys = json_decode((string)($visit['service_keys'] ?? ''), true);
-        $branches[$branchId]['vetVisits'][] = [
-            'id' => (int)$visit['visit_schedule_id'],
-            'veterinarianUserId' => (int)$visit['veterinarian_user_id'],
-            'veterinarianName' => trim((string)$visit['veterinarian_name']),
-            'startsAt' => $visit['starts_at'],
-            'endsAt' => $visit['ends_at'],
-            'serviceKeys' => is_array($serviceKeys) ? $serviceKeys : [],
-            'appointmentCapacity' => $visit['appointment_capacity'] !== null ? (int)$visit['appointment_capacity'] : null,
-            'notes' => $visit['notes'],
-        ];
     }
 
     return array_values(array_map(function (array $branch): array {

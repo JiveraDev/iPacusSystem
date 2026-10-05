@@ -1677,6 +1677,49 @@ function notification_fetch_todo_reminder_tasks(PDO $pdo): array
         }
     }
 
+    if (
+        notification_table_exists($pdo, 'prescription_plans')
+        && notification_table_exists($pdo, 'prescription_items')
+        && notification_table_exists($pdo, 'prescription_occurrences')
+    ) {
+        $stmt = $pdo->prepare("
+            SELECT
+                'medication' AS source,
+                occurrence_rows.occurrence_id AS source_id,
+                plan.owner_user_id AS user_id,
+                CONCAT('Give ', item_rows.medicine) AS title,
+                TRIM(CONCAT_WS(' | ',
+                    CASE WHEN COALESCE(item_rows.dose, '') <> '' THEN CONCAT('Dose: ', item_rows.dose) ELSE NULL END,
+                    CASE WHEN COALESCE(item_rows.route, '') <> '' THEN CONCAT('Route: ', item_rows.route) ELSE NULL END,
+                    NULLIF(item_rows.instructions, '')
+                )) AS details,
+                'Medication' AS category,
+                occurrence_rows.due_at AS start_at,
+                DATE_ADD(occurrence_rows.due_at, INTERVAL 30 MINUTE) AS end_at,
+                occurrence_rows.completed_at AS completion_at,
+                CASE WHEN occurrence_rows.status = 'taken' THEN 'completed' ELSE occurrence_rows.status END AS status,
+                plan.pet_id,
+                COALESCE(pet.pet_name, 'Pet') AS pet_name,
+                CONCAT('/dashboard/todos?prescription=', plan.plan_id, '&occurrence=', occurrence_rows.occurrence_id) AS redirect_path
+            FROM prescription_occurrences occurrence_rows
+            JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id
+            JOIN prescription_plans plan ON plan.plan_id = item_rows.plan_id
+            LEFT JOIN pets_information pet ON pet.pet_id = plan.pet_id
+            WHERE plan.owner_user_id IS NOT NULL
+              AND occurrence_rows.status <> 'cancelled'
+              AND (
+                  occurrence_rows.due_at BETWEEN DATE_SUB(NOW(), INTERVAL 7 DAY) AND DATE_ADD(NOW(), INTERVAL 24 HOUR)
+                  OR occurrence_rows.completed_at BETWEEN DATE_SUB(NOW(), INTERVAL 7 DAY) AND NOW()
+              )
+            ORDER BY occurrence_rows.due_at ASC
+            LIMIT 500
+        ");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tasks[] = notification_todo_reminder_task($row);
+        }
+    }
+
     if (notification_table_exists($pdo, 'vet_diagnoses')) {
         $stmt = $pdo->prepare("
             SELECT
@@ -1847,7 +1890,7 @@ function notification_todo_email_text(string $intro, array $rows): string
 function notification_todo_occurrence_slots(array $task, DateTimeImmutable $now): array
 {
     $status = strtolower(trim((string)($task['status'] ?? 'pending')));
-    if ($status === 'cancelled' || $status === 'canceled') {
+    if (in_array($status, ['cancelled', 'canceled', 'skipped'], true)) {
         return [];
     }
 
@@ -2025,7 +2068,7 @@ function notification_run_todo_reminders(PDO $pdo): array
         $checked++;
         $taskProcessed = 0;
         $status = strtolower(trim((string)($task['status'] ?? 'pending')));
-        $slot = !empty($task['skip_advance_reminders']) || in_array($status, ['completed', 'done', 'cancelled', 'canceled', 'paid'], true)
+        $slot = !empty($task['skip_advance_reminders']) || in_array($status, ['completed', 'done', 'cancelled', 'canceled', 'paid', 'skipped'], true)
             ? null
             : notification_todo_reminder_slot($task['start_at'] ?? null, $now, $task['end_at'] ?? null);
 

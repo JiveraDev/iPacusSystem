@@ -96,7 +96,8 @@ try {
         SET is_primary = 0, is_active = 0, ended_at = NOW()
         WHERE user_id = ? AND branch_id <> ? AND is_active = 1
     ");
-    $deactivateAssignments->execute([$userId, $branchId]);
+    if (!$isVeterinarian) $deactivateAssignments->execute([$userId, $branchId]);
+    else $pdo->prepare('UPDATE user_branch_assignments SET is_primary = 0 WHERE user_id = ?')->execute([$userId]);
 
     $assignBranch = $pdo->prepare("
         INSERT INTO user_branch_assignments

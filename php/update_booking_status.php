@@ -162,6 +162,9 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
     }
 
     $serviceKey = booking_status_service_key($booking);
+    if (!in_array($serviceKey, ['grooming', 'boarding'], true) && (int)($booking['veterinarian_id'] ?? 0) <= 0) {
+        ipawcus_guard_error(409, 'Assign a veterinarian before confirming this booking.');
+    }
     try {
         $branchResolution = branch_resolve_booking(
             $pdo,
@@ -267,18 +270,9 @@ function booking_status_revalidate_confirmation(PDO $pdo, array $booking): void
         } catch (InvalidArgumentException $e) {
             ipawcus_guard_error(409, $e->getMessage());
         }
-        $veterinarianId = $serviceKey === 'online-consultation'
+        $veterinarianId = clinic_booking_is_medical($serviceKey)
             ? (int)($booking['veterinarian_id'] ?? 0)
             : null;
-        if ($serviceKey === 'online-consultation'
-            && ($veterinarianId <= 0 || !booking_slot_online_vet_is_available(
-                $pdo,
-                $veterinarianId,
-                (string)$booking['booking_date'],
-                $normalizedTime
-            ))) {
-            ipawcus_guard_error(409, 'That veterinarian has not made this online consultation time available. Select another date or time.');
-        }
 
         $specialServiceId = null;
         $slotConflict = booking_slot_find_conflict(
@@ -313,6 +307,10 @@ $transactionNumber = trim((string)($input['transaction_number'] ?? ''));
 $reviewServiceType = trim((string)($input['service_type'] ?? $input['serviceType'] ?? ''));
 $hasReviewNotes = array_key_exists('review_notes', $input) || array_key_exists('notes', $input);
 $reviewNotes = trim((string)($input['review_notes'] ?? $input['notes'] ?? ''));
+$hasVeterinarianAssignment = array_key_exists('veterinarian_id', $input) || array_key_exists('veterinarianId', $input);
+$assignedVeterinarianId = $hasVeterinarianAssignment
+    ? (int)($input['veterinarian_id'] ?? $input['veterinarianId'] ?? 0)
+    : null;
 $hasPaymentProof = array_key_exists('payment_proof_url', $input) || array_key_exists('paymentProofUrl', $input);
 $paymentProofUrl = trim((string)($input['payment_proof_url'] ?? $input['paymentProofUrl'] ?? ''));
 $paymentProofUrl = $paymentProofUrl !== '' ? $paymentProofUrl : null;
@@ -323,7 +321,7 @@ $hasPaymentReference = array_key_exists('payment_reference', $input) || array_ke
 $paymentReference = trim((string)($input['payment_reference'] ?? $input['paymentReference'] ?? ''));
 $paymentReference = $paymentReference !== '' ? $paymentReference : null;
 $hasPaymentUpdate = $hasPaymentProof || $hasPaymentMethod || $hasPaymentReference;
-$hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes;
+$hasReviewUpdate = $reviewServiceType !== '' || $hasReviewNotes || $hasVeterinarianAssignment;
 
 if ($transactionNumber !== '' && !preg_match('/^\d{18}$/', $transactionNumber)) {
     http_response_code(422);
@@ -363,6 +361,7 @@ if ($status === 'completed') {
     exit;
 }
 
+$calendarLock = null;
 try {
     runLifecycleMaintenance($pdo);
     $currentApiUser = ipawcus_guard_current_user($pdo);
@@ -384,6 +383,8 @@ try {
         booking_status_ensure_payment_columns($pdo);
     }
 
+    $calendarLock = 'ipawcus_shared_medical_calendar';
+    if (!booking_slot_acquire($pdo, $calendarLock)) throw new DomainException('Booking availability is being updated. Try again shortly.');
     $pdo->beginTransaction();
     $onlineConsultation = null;
 
@@ -498,6 +499,33 @@ try {
             );
         }
 
+        if ($hasVeterinarianAssignment) {
+            if (($assignedVeterinarianId ?? 0) <= 0) {
+                ipawcus_guard_error(422, 'Select a veterinarian for this booking.');
+            }
+
+            $vetStmt = $pdo->prepare("SELECT u.user_id
+                FROM users u
+                LEFT JOIN veterinarian_profiles vp ON vp.user_id = u.user_id
+                WHERE u.user_id = ?
+                  AND LOWER(REPLACE(TRIM(u.role), ' ', '_')) = 'veterinarian'
+                  AND (vp.user_id IS NULL OR vp.is_active = 1)
+                LIMIT 1");
+            $vetStmt->execute([$assignedVeterinarianId]);
+            if (!$vetStmt->fetchColumn()) {
+                ipawcus_guard_error(422, 'Select an active veterinarian account.');
+            }
+
+            $fields[] = 'veterinarian_id = ?';
+            $values[] = $assignedVeterinarianId;
+            $booking['veterinarian_id'] = $assignedVeterinarianId;
+        }
+
+        if (($hasVeterinarianAssignment || $reviewServiceType !== '') && clinic_booking_is_medical(booking_status_service_key($booking))) {
+            $reservedId = clinic_booking_reserve_vet($pdo, (int)$booking['branch_id'], (string)$booking['booking_date'], (string)$booking['booking_time'], booking_status_service_key($booking), (int)($booking['veterinarian_id'] ?? 0) ?: null, (int)$bookingId);
+            if (!$hasVeterinarianAssignment) { $fields[] = 'veterinarian_id = ?'; $values[] = $reservedId; }
+            $booking['veterinarian_id'] = $reservedId;
+        }
         if (!empty($fields)) {
             $values[] = $bookingId;
             $reviewStmt = $pdo->prepare("UPDATE bookings SET " . implode(', ', $fields) . " WHERE booking_id = ?");
@@ -623,6 +651,8 @@ try {
     $previousStatus = $booking['status'];
 
     $pdo->commit();
+    booking_slot_release($pdo, $calendarLock);
+    $calendarLock = null;
 
     if ($effectiveStatus !== $previousStatus && in_array($effectiveStatus, ['confirmed', 'cancelled'], true)) {
         try {
@@ -638,15 +668,20 @@ try {
 
     echo json_encode([
         'message' => 'Booking status updated successfully.',
-        'onlineConsultation' => $onlineConsultation
+        'onlineConsultation' => $onlineConsultation,
+        'veterinarianId' => isset($booking['veterinarian_id']) && $booking['veterinarian_id'] !== null
+            ? (int)$booking['veterinarian_id']
+            : null
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
+    booking_slot_release($pdo, $calendarLock);
+
     if (http_response_code() < 400) {
-        http_response_code(500);
+        http_response_code($e instanceof DomainException ? 409 : ($e instanceof InvalidArgumentException ? 422 : 500));
     }
     echo json_encode(['message' => 'Failed to update booking status: ' . $e->getMessage()]);
 }

@@ -1,0 +1,1 @@
+import{gt as e}from"./index-CDsSPxZ5.js";function t(t,n={}){return e(`/consent-form-records`,t,n)}export{t};

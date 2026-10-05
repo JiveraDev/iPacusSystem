@@ -226,6 +226,26 @@ function ipawcus_backup_excel_definitions(PDO $pdo, array $backup): array
         'custom_sections', 'finalized_at', 'created_at', 'updated_at'
     ], '', ' ORDER BY finalized_at DESC');
 
+    $sheets[] = ipawcus_backup_excel_raw_sheet($pdo, 'Prescription Plans', 'prescription_plans', [
+        'plan_id', 'pet_id', 'owner_user_id', 'veterinarian_user_id', 'source_type', 'source_record_id',
+        'source_label', 'version_number', 'status', 'supersedes_plan_id', 'issued_at', 'created_at', 'updated_at'
+    ], '', ' ORDER BY issued_at DESC');
+
+    $sheets[] = ipawcus_backup_excel_raw_sheet($pdo, 'Prescription Items', 'prescription_items', [
+        'item_id', 'plan_id', 'medicine', 'dose', 'route', 'times_count', 'frequency', 'schedule_type',
+        'interval_hours', 'time_slots', 'days_of_week', 'duration_number', 'duration_unit', 'instructions',
+        'recommended_start_date', 'start_at', 'end_at', 'status', 'replaces_item_id', 'created_at', 'updated_at'
+    ], '', ' ORDER BY item_id DESC');
+
+    $sheets[] = ipawcus_backup_excel_raw_sheet($pdo, 'Medication Checklist', 'prescription_occurrences', [
+        'occurrence_id', 'item_id', 'due_at', 'status', 'completed_at', 'completed_by_user_id',
+        'completion_notes', 'created_at', 'updated_at'
+    ], '', ' ORDER BY due_at DESC');
+
+    $sheets[] = ipawcus_backup_excel_raw_sheet($pdo, 'Prescription Audit', 'prescription_events', [
+        'event_id', 'plan_id', 'item_id', 'actor_user_id', 'event_type', 'event_data', 'created_at'
+    ], '', ' ORDER BY created_at DESC');
+
     $sheets[] = ipawcus_backup_excel_raw_sheet($pdo, 'Grooming Reviews', 'grooming_reviews', [
         'review_id', 'booking_id', 'veterinarian_id', 'requested_by', 'reason', 'outcome', 'review_notes', 'created_at', 'reviewed_at'
     ], '', ' ORDER BY created_at DESC');

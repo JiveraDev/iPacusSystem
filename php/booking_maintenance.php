@@ -454,6 +454,13 @@ function maintenance_cancel_booking(PDO $pdo, int $bookingId, string $reason, bo
 function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $today, bool $notify = true): bool
 {
     $bookingId = (int)$booking['booking_id'];
+    $currentStmt = $pdo->prepare('SELECT * FROM bookings WHERE booking_id = ? FOR UPDATE');
+    $currentStmt->execute([$bookingId]);
+    $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$current || $current['status'] !== 'confirmed'
+        || $current['booking_date'] !== $booking['booking_date']
+        || $current['booking_time'] !== $booking['booking_time']) return false;
+    $booking = $current;
     $previousDate = (string)$booking['booking_date'];
     $serviceKey = booking_slot_service_key(
         $booking['service_type'] ?? null,
@@ -509,16 +516,23 @@ function maintenance_auto_reschedule_booking(PDO $pdo, array $booking, string $t
     );
     $notes = maintenance_append_note($notes, '[Rescheduled]');
 
+    $vetId = (int)($booking['veterinarian_id'] ?? 0) ?: null;
+    if (clinic_booking_is_medical($serviceKey)) {
+        $vetId = clinic_booking_reserve_vet($pdo, $branchId, $today, $bookingTime, $serviceKey, $vetId, $bookingId);
+    }
+
     $stmt = $pdo->prepare("
         UPDATE bookings
         SET booking_date = ?,
-            notes = ?
+            notes = ?,
+            veterinarian_id = ?
         WHERE booking_id = ?
           AND status = 'confirmed'
     ");
     $stmt->execute([
         $today,
         $notes,
+        $vetId,
         $bookingId,
     ]);
 
@@ -612,9 +626,17 @@ function maintenance_process_bookings(PDO $pdo, ?int $petId = null, bool $notify
             && strcmp((string)$booking['booking_date'], $today) < 0
             && !maintenance_is_after($today, $lifespanEnd)
         ) {
+            // Do not acquire a calendar lock after another workflow has locked
+            // rows. Standalone maintenance checks will handle this later.
+            if ($pdo->inTransaction()) continue;
             $startedTransaction = false;
+            $calendarLock = booking_slot_lock_name((int)($booking['branch_id'] ?? 0),
+                booking_slot_service_key($booking['service_type'], $booking['is_home_service'] ?? 0, $booking['is_online_consultation'] ?? 0),
+                $today, (string)$booking['booking_time']);
+            $ownsCalendarLock = empty($GLOBALS['ipawcus_booking_held_locks'][spl_object_id($pdo) . ':' . $calendarLock]);
 
             try {
+                if (!booking_slot_acquire($pdo, $calendarLock)) continue;
                 if (!$pdo->inTransaction()) {
                     $pdo->beginTransaction();
                     $startedTransaction = true;
@@ -647,6 +669,8 @@ function maintenance_process_bookings(PDO $pdo, ?int $petId = null, bool $notify
                 }
 
                 error_log('Lifecycle booking auto-reschedule failed: ' . $error->getMessage());
+            } finally {
+                if ($ownsCalendarLock) booking_slot_release($pdo, $calendarLock);
             }
         }
     }

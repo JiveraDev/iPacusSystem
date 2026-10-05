@@ -113,6 +113,41 @@ try {
             LIMIT 1
         )"
         : "";
+    $hasClinicalIntakes = queue_table_exists($pdo, 'clinical_intakes');
+    $clinicalIntakeSelect = $hasClinicalIntakes
+        ? "
+            ci.intake_id AS clinical_intake_id,
+            ci.status AS clinical_intake_status,
+            ci.recorded_by_user_id AS clinical_intake_recorded_by_user_id,
+            ci.recorded_by_name AS clinical_intake_recorded_by_name,
+            ci.recorded_by_position AS clinical_intake_recorded_by_position,
+            ci.chief_complaint AS clinical_intake_chief_complaint,
+            ci.symptoms AS clinical_intake_symptoms,
+            ci.major_symptoms AS clinical_intake_major_symptoms,
+            ci.physical_exam AS clinical_intake_physical_exam,
+            ci.vital_signs AS clinical_intake_vital_signs,
+            ci.attachments AS clinical_intake_attachments,
+            ci.started_at AS clinical_intake_started_at,
+            ci.completed_at AS clinical_intake_completed_at,
+            ci.updated_at AS clinical_intake_updated_at,"
+        : "
+            NULL AS clinical_intake_id,
+            NULL AS clinical_intake_status,
+            NULL AS clinical_intake_recorded_by_user_id,
+            NULL AS clinical_intake_recorded_by_name,
+            NULL AS clinical_intake_recorded_by_position,
+            NULL AS clinical_intake_chief_complaint,
+            NULL AS clinical_intake_symptoms,
+            NULL AS clinical_intake_major_symptoms,
+            NULL AS clinical_intake_physical_exam,
+            NULL AS clinical_intake_vital_signs,
+            NULL AS clinical_intake_attachments,
+            NULL AS clinical_intake_started_at,
+            NULL AS clinical_intake_completed_at,
+            NULL AS clinical_intake_updated_at,";
+    $clinicalIntakeJoin = $hasClinicalIntakes
+        ? 'LEFT JOIN clinical_intakes ci ON ci.queue_id = q.queue_id'
+        : '';
 
     $stmt = $pdo->prepare("
         SELECT 
@@ -146,6 +181,7 @@ try {
             {$queueSourceSelect} AS queue_source,
             {$assignmentSelect}
             {$consentRecordSelect}
+            {$clinicalIntakeSelect}
             COALESCE(
                 NULLIF(TRIM(CONCAT(COALESCE(u.first_Name, ''), ' ', COALESCE(u.last_Name, ''))), ''),
                 p.pet_Temp_owner,
@@ -201,6 +237,7 @@ try {
         {$bookingJoin}
         {$assignmentJoin}
         {$consentRecordJoin}
+        {$clinicalIntakeJoin}
         WHERE 1 = 1 {$scopeWhere}
         ORDER BY q.timestamp DESC
     ");
@@ -244,6 +281,34 @@ try {
         foreach (consent_record_queue_compatibility_fields($queueConsentRecords) as $field => $value) {
             $queue[$field] = $value;
         }
+
+        $intakeId = isset($queue['clinical_intake_id']) ? (int)$queue['clinical_intake_id'] : 0;
+        $decodeClinicalJson = static function ($value): array {
+            if (is_array($value)) return $value;
+            if (!is_string($value) || trim($value) === '') return [];
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? $decoded : [];
+        };
+        $queue['clinical_intake'] = $intakeId > 0 ? [
+            'intakeId' => $intakeId,
+            'queueId' => (int)($queue['queue_id'] ?? 0),
+            'bookingId' => isset($queue['booking_id']) && $queue['booking_id'] !== null ? (int)$queue['booking_id'] : null,
+            'petId' => (int)($queue['pet_id'] ?? 0),
+            'assignedVeterinarianUserId' => isset($queue['veterinarian_user_id']) ? (int)$queue['veterinarian_user_id'] : null,
+            'recordedByUserId' => isset($queue['clinical_intake_recorded_by_user_id']) ? (int)$queue['clinical_intake_recorded_by_user_id'] : null,
+            'recordedByName' => (string)($queue['clinical_intake_recorded_by_name'] ?? ''),
+            'recordedByPosition' => (string)($queue['clinical_intake_recorded_by_position'] ?? ''),
+            'status' => (string)($queue['clinical_intake_status'] ?? ''),
+            'chiefComplaint' => (string)($queue['clinical_intake_chief_complaint'] ?? ''),
+            'symptoms' => (string)($queue['clinical_intake_symptoms'] ?? ''),
+            'majorSymptoms' => (string)($queue['clinical_intake_major_symptoms'] ?? ''),
+            'physicalExam' => (string)($queue['clinical_intake_physical_exam'] ?? ''),
+            'vitalSigns' => $decodeClinicalJson($queue['clinical_intake_vital_signs'] ?? null),
+            'attachments' => $decodeClinicalJson($queue['clinical_intake_attachments'] ?? null),
+            'startedAt' => $queue['clinical_intake_started_at'] ?? null,
+            'completedAt' => $queue['clinical_intake_completed_at'] ?? null,
+            'updatedAt' => $queue['clinical_intake_updated_at'] ?? null,
+        ] : null;
     }
     unset($queue);
 

@@ -74,6 +74,9 @@ try {
         if (!branch_fetch($pdo, $preferredBranchId)) {
             throw new InvalidArgumentException('Select an active preferred branch.');
         }
+        if ($normalizedRole === 'veterinarian' && !in_array($preferredBranchId, branch_user_ids($pdo, (int)$userId), true)) {
+            throw new InvalidArgumentException('Select a clinic assigned to you by Super Admin.');
+        }
         if ($currentRole === 'admin' && !branch_user_can_access($pdo, $currentUser, $preferredBranchId)) {
             ipawcus_guard_error(403, 'Admin preference must be one of the assigned branches.');
         }

@@ -47,6 +47,8 @@ try {
     $bookingDate = $requestedDateTime->format('Y-m-d');
     $bookingTime = $requestedDateTime->format('H:i:s');
 
+    $slotLockName = 'ipawcus_shared_medical_calendar';
+    if (!booking_slot_acquire($pdo, $slotLockName)) throw new DomainException('Booking availability is being updated. Try again shortly.');
     $pdo->beginTransaction();
 
     $subjectStmt = $pdo->prepare("
@@ -75,7 +77,7 @@ try {
 
     $stmt = $pdo->prepare("
         SELECT booking_id, user_id, pet_id, unregistered_pet_name, veterinarian_id, branch_id,
-               is_online_consultation, status, booking_date, booking_time,
+               is_online_consultation, is_home_service, status, booking_date, booking_time,
                service_type, check_in_date, created_at, notes
         FROM bookings
         WHERE booking_id = ?
@@ -150,10 +152,6 @@ try {
     if (!empty($branchResolution['veterinarian_user_id'])) {
         $veterinarianId = (int)$branchResolution['veterinarian_user_id'];
     }
-    if ($serviceKey === 'online-consultation'
-        && (!$veterinarianId || !booking_slot_online_vet_is_available($pdo, $veterinarianId, $bookingDate, $bookingTime))) {
-        throw new DomainException('That veterinarian has not made this online consultation time available. Select another date or time.');
-    }
 
     $oldBookingDate = (string)($booking['booking_date'] ?? '');
     $oldBookingTime = (string)($booking['booking_time'] ?? '');
@@ -166,6 +164,7 @@ try {
             )
             : null;
         $pdo->commit();
+        booking_slot_release($pdo, $slotLockName);
         echo json_encode([
             'message' => 'Booking schedule is unchanged.',
             'onlineConsultation' => $onlineConsultation,
@@ -202,8 +201,8 @@ try {
 
     if ($serviceKey !== 'boarding') {
         $specialServiceId = null;
-        $slotVeterinarianId = $serviceKey === 'online-consultation' ? $veterinarianId : null;
-        $slotLockName = booking_slot_lock_name(
+        $slotVeterinarianId = clinic_booking_is_medical($serviceKey) ? $veterinarianId : null;
+        $newSlotLockName = booking_slot_lock_name(
             (int)$booking['branch_id'],
             $serviceKey,
             $bookingDate,
@@ -211,6 +210,10 @@ try {
             $slotVeterinarianId,
             $specialServiceId
         );
+        if ($newSlotLockName !== $slotLockName) {
+            booking_slot_release($pdo, $slotLockName);
+            $slotLockName = $newSlotLockName;
+        }
         if (!booking_slot_acquire($pdo, $slotLockName)) {
             throw new DomainException('This time is being reserved by another booking. Refresh the available times and try again.');
         }
@@ -228,6 +231,9 @@ try {
         if ($slotConflict) {
             throw new DomainException(booking_slot_conflict_message($serviceKey, $bookingTime));
         }
+        if (clinic_booking_is_medical($serviceKey)) {
+            $veterinarianId = clinic_booking_reserve_vet($pdo, (int)$booking['branch_id'], $bookingDate, $bookingTime, $serviceKey, $slotVeterinarianId, $bookingId);
+        }
     }
 
     $notes = bookingStripLifecycleNotes($booking['notes'] ?? '', false);
@@ -237,11 +243,12 @@ try {
     );
     $notes = maintenance_append_note($notes, '[Rescheduled]');
 
-    $update = $pdo->prepare("UPDATE bookings SET booking_date = ?, booking_time = ?, notes = ? WHERE booking_id = ?");
+    $update = $pdo->prepare("UPDATE bookings SET booking_date = ?, booking_time = ?, notes = ?, veterinarian_id = ? WHERE booking_id = ?");
     $update->execute([
         $bookingDate,
         $bookingTime,
         $notes,
+        $veterinarianId,
         $bookingId
     ]);
 

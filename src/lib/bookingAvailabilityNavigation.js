@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'ipawcus:availability-booking-selection';
+const ACTIVE_BRANCH_KEY = 'ipawcus:owner-active-branch';
 
 const SERVICE_ROUTES = Object.freeze({
     'general-checkup': '/dashboard/services/general-checkup',
@@ -19,8 +20,53 @@ export function bookingRouteForAvailabilityService(service) {
     return Object.hasOwn(SERVICE_ROUTES, key) ? SERVICE_ROUTES[key] : '/dashboard/services';
 }
 
+export function saveOwnerActiveBranch(branchId) {
+    if (typeof window === 'undefined') return;
+
+    try {
+        const normalizedBranchId = Number(branchId);
+        if (normalizedBranchId > 0) {
+            window.sessionStorage.setItem(ACTIVE_BRANCH_KEY, String(normalizedBranchId));
+        } else {
+            window.sessionStorage.removeItem(ACTIVE_BRANCH_KEY);
+        }
+    } catch {
+        // Booking can continue when browser storage is unavailable.
+    }
+}
+
+export function readOwnerActiveBranch() {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const branchId = Number(window.sessionStorage.getItem(ACTIVE_BRANCH_KEY));
+        return branchId > 0 ? branchId : null;
+    } catch {
+        return null;
+    }
+}
+
+function activeBranchFallback(expectedService = '') {
+    const branchId = readOwnerActiveBranch();
+    if (!branchId) return null;
+
+    return {
+        service: String(expectedService || '').trim().toLowerCase(),
+        date: '',
+        time: '',
+        branchId,
+        veterinarianId: null,
+        roomType: '',
+        savedAt: Date.now(),
+    };
+}
+
 export function saveBookingAvailabilitySelection(selection = {}) {
     if (typeof window === 'undefined') return;
+
+    if (selection.branchId) {
+        saveOwnerActiveBranch(selection.branchId);
+    }
 
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         service: String(selection.service || '').trim().toLowerCase(),
@@ -40,14 +86,21 @@ export function readBookingAvailabilitySelection(expectedService = '') {
         const value = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) || 'null');
         if (!value || Date.now() - Number(value.savedAt || 0) > 30 * 60 * 1000) {
             window.sessionStorage.removeItem(STORAGE_KEY);
-            return null;
+            return activeBranchFallback(expectedService);
         }
 
         const normalizedExpected = String(expectedService || '').trim().toLowerCase();
-        return normalizedExpected && value.service !== normalizedExpected ? null : value;
+        if (normalizedExpected && value.service !== normalizedExpected) {
+            return activeBranchFallback(normalizedExpected);
+        }
+
+        return {
+            ...value,
+            branchId: value.branchId || readOwnerActiveBranch(),
+        };
     } catch {
         window.sessionStorage.removeItem(STORAGE_KEY);
-        return null;
+        return activeBranchFallback(expectedService);
     }
 }
 

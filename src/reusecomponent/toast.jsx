@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -328,22 +328,38 @@ function ToastCard({ toastItem }) {
 
 function ToastViewport() {
   const toasts = useSyncExternalStore(subscribe, getToastSnapshot, getServerToastSnapshot);
+  const [pathname, setPathname] = useState(() => (
+    typeof window === 'undefined' ? '' : window.location.pathname
+  ));
+  const isPosPage = pathname === '/dashboard/pos' || pathname.startsWith('/dashboard/pos/');
 
   useEffect(() => {
+    const syncPathname = () => setPathname(window.location.pathname);
     const handleVisibilityChange = () => {
       currentToasts.forEach((toastItem) => {
         if (document.hidden) pauseToast(toastItem.id, 'visibility');
         else resumeToast(toastItem.id, 'visibility');
       });
     };
+    window.addEventListener('popstate', syncPathname);
+    window.addEventListener('ipawcus:dashboard-route-change', syncPathname);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('popstate', syncPathname);
+      window.removeEventListener('ipawcus:dashboard-route-change', syncPathname);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return (
     <div
-      className="ipawcus-toast-viewport pointer-events-none fixed left-1/2 top-4 z-[2300] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[28rem] -translate-x-1/2 flex-col gap-3 overflow-y-auto sm:top-6"
+      className={`ipawcus-toast-viewport pointer-events-none fixed top-4 z-[2300] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[28rem] flex-col gap-3 overflow-y-auto sm:top-6 ${
+        isPosPage
+          ? 'right-4 sm:right-6'
+          : 'left-1/2 -translate-x-1/2'
+      }`}
+      data-position={isPosPage ? 'top-right' : 'top-center'}
       aria-label="Notifications"
     >
       {toasts.map((toastItem) => <ToastCard key={toastItem.id} toastItem={toastItem} />)}

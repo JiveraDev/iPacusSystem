@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/start-local-dev.mjs",
     "dev:vite": "vite",
-    "php:dev": "php -S localhost:8000 -t .",
+    "php:dev": "php -d upload_max_filesize=8M -d post_max_size=10M -S localhost:8000 -t .",
     "server": "node server/userAddPetOwner.js",
     "build": "vite build --configLoader native",
     "deploy:hostinger": "node scripts/deploy-hostinger.mjs",

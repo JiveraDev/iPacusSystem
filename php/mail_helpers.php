@@ -420,42 +420,98 @@ function mail_queue_mark_failed(PDO $pdo, array $row, string $message): void
 
 function mail_process_queue(PDO $pdo, int $limit = 25): array
 {
+    $startedAt = microtime(true);
     $claimed = mail_queue_claim($pdo, $limit);
     $sent = 0;
     $failed = 0;
+    $smtpConnections = 0;
+    $maxQueueWaitSeconds = 0;
+    $reuseSmtp = mail_env_bool('MAIL_QUEUE_REUSE_SMTP', true);
+    $maxMessagesPerConnection = max(1, min(100, (int)mail_env_value('MAIL_SMTP_MAX_MESSAGES_PER_CONNECTION', '20')));
+    $smtpConfig = mail_smtp_config();
+    $smtpSocket = null;
+    $messagesOnConnection = 0;
 
-    foreach ($claimed as $row) {
-        $options = json_decode((string)($row['options_json'] ?? ''), true);
-        if (!is_array($options)) {
-            $options = [];
-        }
+    try {
+        foreach ($claimed as $row) {
+            $options = json_decode((string)($row['options_json'] ?? ''), true);
+            if (!is_array($options)) {
+                $options = [];
+            }
 
-        try {
-            send_smtp_email(
-                (string)$row['to_email'],
-                (string)$row['subject'],
-                (string)$row['html_body'],
-                (string)($row['text_body'] ?? ''),
-                $options
-            );
-            mail_queue_mark_sent(
-                $pdo,
-                (int)$row['queue_id'],
-                isset($row['notification_id']) ? (int)$row['notification_id'] : null
-            );
-            $sent++;
-        } catch (Throwable $e) {
-            mail_queue_mark_failed($pdo, $row, $e->getMessage());
-            $failed++;
-            error_log('Queued email failed: ' . $e->getMessage());
+            $createdAt = strtotime((string)($row['created_at'] ?? ''));
+            if ($createdAt !== false) {
+                $maxQueueWaitSeconds = max($maxQueueWaitSeconds, max(0, time() - $createdAt));
+            }
+
+            try {
+                if ($reuseSmtp) {
+                    if (!is_resource($smtpSocket) || $messagesOnConnection >= $maxMessagesPerConnection) {
+                        mail_smtp_close_session($smtpSocket);
+                        $smtpSocket = mail_smtp_start_session($smtpConfig);
+                        $smtpConnections++;
+                        $messagesOnConnection = 0;
+                    }
+
+                    mail_smtp_send_on_session(
+                        $smtpSocket,
+                        (string)$row['to_email'],
+                        (string)$row['subject'],
+                        (string)$row['html_body'],
+                        (string)($row['text_body'] ?? ''),
+                        $smtpConfig,
+                        $options
+                    );
+                    $messagesOnConnection++;
+                } else {
+                    $smtpConnections++;
+                    send_smtp_email(
+                        (string)$row['to_email'],
+                        (string)$row['subject'],
+                        (string)$row['html_body'],
+                        (string)($row['text_body'] ?? ''),
+                        $options
+                    );
+                }
+
+                mail_queue_mark_sent(
+                    $pdo,
+                    (int)$row['queue_id'],
+                    isset($row['notification_id']) ? (int)$row['notification_id'] : null
+                );
+                $sent++;
+            } catch (Throwable $e) {
+                mail_smtp_close_session($smtpSocket, false);
+                $messagesOnConnection = 0;
+                mail_queue_mark_failed($pdo, $row, $e->getMessage());
+                $failed++;
+                error_log('Queued email failed: ' . $e->getMessage());
+            }
         }
+    } finally {
+        mail_smtp_close_session($smtpSocket);
     }
+
+    $pendingStmt = $pdo->query("
+        SELECT
+            COUNT(*) AS pending_count,
+            COALESCE(MAX(TIMESTAMPDIFF(SECOND, created_at, NOW())), 0) AS oldest_pending_seconds
+        FROM mail_queue
+        WHERE status = 'pending'
+          AND available_at <= NOW()
+    ");
+    $pendingMetrics = $pendingStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
     return [
         'success' => true,
         'claimed' => count($claimed),
         'sent' => $sent,
         'failed' => $failed,
+        'pending' => (int)($pendingMetrics['pending_count'] ?? 0),
+        'oldestPendingSeconds' => (int)($pendingMetrics['oldest_pending_seconds'] ?? 0),
+        'maxClaimedWaitSeconds' => $maxQueueWaitSeconds,
+        'smtpConnections' => $smtpConnections,
+        'durationMilliseconds' => (int)round((microtime(true) - $startedAt) * 1000),
     ];
 }
 
@@ -620,20 +676,12 @@ function mail_smtp_open_socket(array $config)
     return $socket;
 }
 
-function send_smtp_email(string $to, string $subject, string $html, ?string $text = null, array $options = []): array
+function mail_smtp_start_session(array $config)
 {
-    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        throw new InvalidArgumentException('Recipient email address is invalid.');
-    }
-
-    $config = mail_smtp_config();
-
     if (!mail_smtp_is_configured()) {
         throw new RuntimeException('SMTP email is not configured. Check MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD, and MAIL_FROM_ADDRESS.');
     }
 
-    $text = $text !== null && trim($text) !== '' ? $text : mail_text_from_html($html);
-    $message = mail_build_mime_message($to, $subject, $html, $text, $config, $options);
     $socket = mail_smtp_open_socket($config);
     $ehloDomain = mail_domain_from_address($config['fromAddress']);
 
@@ -654,24 +702,91 @@ function send_smtp_email(string $to, string $subject, string $html, ?string $tex
         mail_smtp_command($socket, 'AUTH LOGIN', [334], 'SMTP authentication start');
         mail_smtp_command($socket, base64_encode($config['username']), [334], 'SMTP username authentication');
         mail_smtp_command($socket, base64_encode($config['password']), [235], 'SMTP password authentication');
-        mail_smtp_command($socket, 'MAIL FROM:<' . $config['fromAddress'] . '>', [250], 'SMTP sender');
-        mail_smtp_command($socket, 'RCPT TO:<' . $to . '>', [250, 251], 'SMTP recipient');
-        mail_smtp_command($socket, 'DATA', [354], 'SMTP DATA');
 
-        $data = preg_replace("/\r\n|\r|\n/", "\r\n", $message);
-        $data = preg_replace('/^\./m', '..', $data);
-
-        if (fwrite($socket, $data . "\r\n.\r\n") === false) {
-            throw new RuntimeException('SMTP message send failed: Could not write message data.');
-        }
-
-        $sendResponse = mail_smtp_expect($socket, [250], 'SMTP message send');
-        mail_smtp_command($socket, 'QUIT', [221], 'SMTP quit');
-
-        return ['success' => true, 'smtpResponse' => $sendResponse];
-    } finally {
+        return $socket;
+    } catch (Throwable $error) {
         if (is_resource($socket)) {
             fclose($socket);
         }
+        throw $error;
+    }
+}
+
+function mail_smtp_send_on_session(
+    $socket,
+    string $to,
+    string $subject,
+    string $html,
+    ?string $text,
+    array $config,
+    array $options = []
+): array {
+    if (!is_resource($socket)) {
+        throw new RuntimeException('SMTP session is not connected.');
+    }
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        throw new InvalidArgumentException('Recipient email address is invalid.');
+    }
+
+    $text = $text !== null && trim($text) !== '' ? $text : mail_text_from_html($html);
+    $message = mail_build_mime_message($to, $subject, $html, $text, $config, $options);
+    $fromAddress = $options['fromAddress'] ?? $config['fromAddress'];
+
+    mail_smtp_command($socket, 'MAIL FROM:<' . $fromAddress . '>', [250], 'SMTP sender');
+    mail_smtp_command($socket, 'RCPT TO:<' . $to . '>', [250, 251], 'SMTP recipient');
+    mail_smtp_command($socket, 'DATA', [354], 'SMTP DATA');
+
+    $data = preg_replace("/\r\n|\r|\n/", "\r\n", $message);
+    $data = preg_replace('/^\./m', '..', $data);
+
+    if (fwrite($socket, $data . "\r\n.\r\n") === false) {
+        throw new RuntimeException('SMTP message send failed: Could not write message data.');
+    }
+
+    $sendResponse = mail_smtp_expect($socket, [250], 'SMTP message send');
+    return ['success' => true, 'smtpResponse' => $sendResponse];
+}
+
+function mail_smtp_close_session(&$socket, bool $graceful = true): void
+{
+    if (!is_resource($socket)) {
+        $socket = null;
+        return;
+    }
+
+    if ($graceful) {
+        try {
+            mail_smtp_command($socket, 'QUIT', [221], 'SMTP quit');
+        } catch (Throwable $error) {
+            error_log('SMTP session close warning: ' . $error->getMessage());
+        }
+    }
+
+    fclose($socket);
+    $socket = null;
+}
+
+function send_smtp_email(string $to, string $subject, string $html, ?string $text = null, array $options = []): array
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        throw new InvalidArgumentException('Recipient email address is invalid.');
+    }
+
+    $config = mail_smtp_config();
+
+    if (!mail_smtp_is_configured()) {
+        throw new RuntimeException('SMTP email is not configured. Check MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD, and MAIL_FROM_ADDRESS.');
+    }
+
+    $socket = null;
+    $graceful = false;
+
+    try {
+        $socket = mail_smtp_start_session($config);
+        $result = mail_smtp_send_on_session($socket, $to, $subject, $html, $text, $config, $options);
+        $graceful = true;
+        return $result;
+    } finally {
+        mail_smtp_close_session($socket, $graceful);
     }
 }

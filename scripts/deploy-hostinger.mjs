@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -7,6 +7,8 @@ const DEFAULT_BRANCH = 'hostinger-deploy'
 const DEFAULT_REMOTE = 'origin'
 const WORKTREE_PREFIX = 'ipawcus-hostinger-deploy-'
 const COMPOSER_FILES = ['composer.json', 'composer.lock']
+const SERVER_CONFIG_FILES = ['.htaccess', '.user.ini']
+const DEPLOY_SCRIPT_FILES = ['run-mail-worker.sh']
 const RUNTIME_MEDIA_DIRECTORIES = [
     'boarding_documents',
     'concerns',
@@ -150,6 +152,22 @@ function copyDirectoryContents(source, destination) {
     }
 }
 
+function copyDeploymentScripts(repositoryRoot, worktreePath) {
+    const deployedScriptsDirectory = join(worktreePath, 'scripts')
+    mkdirSync(deployedScriptsDirectory, { recursive: true })
+
+    for (const file of DEPLOY_SCRIPT_FILES) {
+        const source = join(repositoryRoot, 'scripts', file)
+        const destination = join(deployedScriptsDirectory, file)
+        const unixContents = readFileSync(source, 'utf8').replace(/\r\n?/g, '\n')
+
+        writeFileSync(destination, unixContents, {
+            encoding: 'utf8',
+            mode: 0o755,
+        })
+    }
+}
+
 function assertSafeWorktree(worktreePath) {
     const resolvedTempDirectory = resolve(tmpdir())
     const resolvedWorktree = resolve(worktreePath)
@@ -212,6 +230,12 @@ function validateRepository(root, options) {
         }
     }
 
+    for (const file of DEPLOY_SCRIPT_FILES) {
+        if (!existsSync(join(root, 'scripts', file))) {
+            fail(`scripts/${file} was not found at the Git repository root.`)
+        }
+    }
+
     if (options.skipBuild && !existsSync(distDirectory)) {
         fail('dist/ does not exist. Remove --skip-build so the frontend can be built.')
     }
@@ -260,6 +284,38 @@ function verifyProtectedDeploymentPaths(worktreePath) {
     ).stdout
     if (trackedEnvironmentFile) {
         fail('Refusing to deploy because .env would be tracked by Git.')
+    }
+
+    const trackedScripts = gitOutput(
+        ['ls-files', '--', 'scripts'],
+        worktreePath,
+    ).stdout
+        .split(/\r?\n/)
+        .filter(Boolean)
+    const expectedScripts = DEPLOY_SCRIPT_FILES.map(file => `scripts/${file}`)
+    const unexpectedScripts = trackedScripts.filter(file => !expectedScripts.includes(file))
+    const missingScripts = expectedScripts.filter(file => !trackedScripts.includes(file))
+
+    if (unexpectedScripts.length > 0 || missingScripts.length > 0) {
+        fail([
+            unexpectedScripts.length > 0 ? `unexpected deployment scripts: ${unexpectedScripts.join(', ')}` : '',
+            missingScripts.length > 0 ? `missing deployment scripts: ${missingScripts.join(', ')}` : '',
+        ].filter(Boolean).join('; '))
+    }
+
+    for (const scriptPath of expectedScripts) {
+        const scriptContents = readFileSync(join(worktreePath, scriptPath))
+        if (scriptContents.includes(13)) {
+            fail(`${scriptPath} must use Unix LF line endings for Hostinger.`)
+        }
+
+        const stagedEntry = gitOutput(
+            ['ls-files', '--stage', '--', scriptPath],
+            worktreePath,
+        ).stdout
+        if (!stagedEntry.startsWith('100755 ')) {
+            fail(`${scriptPath} must be executable in the Hostinger deployment branch.`)
+        }
     }
 }
 
@@ -317,14 +373,21 @@ try {
         cpSync(join(repositoryRoot, file), join(worktreePath, file), { force: true })
     }
 
-    // The same-domain Apache rules support /php and /api while preserving the SPA fallback.
-    const rootHtaccess = join(repositoryRoot, '.htaccess')
-    if (existsSync(rootHtaccess)) {
-        cpSync(rootHtaccess, join(worktreePath, '.htaccess'), { force: true })
+    copyDeploymentScripts(repositoryRoot, worktreePath)
+
+    // Apache routing and PHP upload limits must ship with the deployed PHP API.
+    for (const file of SERVER_CONFIG_FILES) {
+        const source = join(repositoryRoot, file)
+        if (existsSync(source)) {
+            cpSync(source, join(worktreePath, file), { force: true })
+        }
     }
 
     excludeRuntimeMediaDirectories(worktreePath)
     git(['-c', 'core.autocrlf=false', 'add', '--all'], { cwd: worktreePath })
+    for (const file of DEPLOY_SCRIPT_FILES) {
+        git(['update-index', '--chmod=+x', '--', `scripts/${file}`], { cwd: worktreePath })
+    }
     verifyProtectedDeploymentPaths(worktreePath)
     summarizeStagedDeployment(worktreePath)
 

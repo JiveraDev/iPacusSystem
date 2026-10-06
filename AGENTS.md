@@ -78,7 +78,6 @@ No automated test framework is currently configured in `package.json`. For now, 
 - `npm run build`
 - PHP syntax checks for changed endpoints, for example `php -l php/get_bookings.php`
 - Manual browser testing for booking, queue, inventory, and profile flows touched by the change
-
 If tests are added later, place them near the related module or in a test directory, using `*.test.jsx` or `*.spec.jsx`.
 
 Pull requests should include a summary, affected areas, verification commands, database/schema notes when relevant, and screenshots for visible UI changes.

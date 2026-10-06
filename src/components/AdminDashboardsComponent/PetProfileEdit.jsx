@@ -15,6 +15,15 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { openProtectedDocument } from "../../hooks/useConsentDocumentSource";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
+import {
+  PET_INPUT_LIMITS,
+  isPetBreedText,
+  isPetMarkingsText,
+  isPetMicrochipText,
+  isPetNameText,
+  isPetSpeciesText,
+  isPetWeightText,
+} from "../../lib/petInputValidation.js";
 
 import { findPetService } from "../../services/findPet";
 import { fetchPetMedicalRecords, savePetMedicalRecord, updatePetDetails } from "../../services/petService";
@@ -108,6 +117,30 @@ export default function PetProfileEdit() {
   };
 
   const handleSaveProfile = async () => {
+    if (!isPetNameText(formData.petName)) {
+      toast.error(`Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.name} characters.`);
+      return;
+    }
+    if (!isPetSpeciesText(formData.species)) {
+      toast.error(`Species may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.species} characters.`);
+      return;
+    }
+    if (!isPetBreedText(formData.breed)) {
+      toast.error(`Breed contains unsupported characters or exceeds ${PET_INPUT_LIMITS.breed} characters.`);
+      return;
+    }
+    if (!isPetWeightText(formData.weight)) {
+      toast.error('Weight must be between 0.1 and 300 kg with no more than two decimal places.');
+      return;
+    }
+    if (!isPetMarkingsText(formData.color)) {
+      toast.error(`Color and markings must use letters and spaces only, up to ${PET_INPUT_LIMITS.colorMarkings} characters.`);
+      return;
+    }
+    if (!isPetMicrochipText(formData.microchipId)) {
+      toast.error(`Microchip number must contain up to ${PET_INPUT_LIMITS.microchip} digits.`);
+      return;
+    }
     setIsEditing(true);
     try {
       const result = await updatePetDetails(petId, formData);
@@ -274,7 +307,7 @@ export default function PetProfileEdit() {
                 <div className="space-y-4 max-w-sm">
                   <div className="space-y-1">
                     <Label className="text-white sm:text-slate-900">Pet Name</Label>
-                    <Input name="petName" value={formData.petName} onChange={handleInputChange} restriction="name" className="text-2xl font-bold h-12" />
+                    <Input name="petName" value={formData.petName} onChange={handleInputChange} restriction="pet-name" className="text-2xl font-bold h-12" />
                   </div>
                 </div>
               ) : (
@@ -321,14 +354,14 @@ export default function PetProfileEdit() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 p-4 sm:space-y-4 sm:p-6">
-              <BioField label="Species" name="species" value={formData.species} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Primary Breed" name="breed" value={formData.breed} isEdit={isEditMode} onChange={handleInputChange} restriction="name" />
+              <BioField label="Species" name="species" value={formData.species} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-name" maxLength={PET_INPUT_LIMITS.species} />
+              <BioField label="Primary Breed" name="breed" value={formData.breed} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-breed" />
               <BioField label="Owner Name" name="tempOwner" value={formData.tempOwner} isEdit={isEditMode} onChange={handleInputChange} restriction="name" />
               <BioField label="Birth Date" name="birthDate" value={formData.birthDate} type="date" isEdit={isEditMode} onChange={handleInputChange} />
               <BioField label="Sex / Gender" name="gender" value={formData.gender} isEdit={isEditMode} onChange={handleInputChange} isSelect options={['Male', 'Female', 'Neutered Male', 'Spayed Female']} onSelect={(v) => handleSelectChange('gender', v)} />
-              <BioField label="Weight (kg)" name="weight" value={formData.weight} isEdit={isEditMode} onChange={handleInputChange} restriction="decimal" />
-              <BioField label="Coloration" name="color" value={formData.color} isEdit={isEditMode} onChange={handleInputChange} />
-              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="digits" maxLength={15} />
+              <BioField label="Weight (kg)" name="weight" value={formData.weight} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-weight" />
+              <BioField label="Coloration" name="color" value={formData.color} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-markings" />
+              <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-microchip" />
             </CardContent>
           </Card>
 
@@ -606,7 +639,7 @@ function BioField({ label, value, isEdit, name, onChange, type = "text", isSelec
             </SelectContent>
           </Select>
         ) : (
-          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} maxLength={maxLength} inputMode={restriction === 'digits' ? 'numeric' : undefined} className="h-9" />
+          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} maxLength={maxLength} className="h-9" />
         )
       ) : (
         <span className="min-w-0 break-words font-bold text-slate-900">

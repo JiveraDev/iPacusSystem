@@ -120,6 +120,7 @@ function ipawcus_admin_feature_for_mutation(string $path, string $method): ?stri
     if (preg_match('#^/boarding(/|$)#', $path)) return 'boarding';
     if ($path === '/grooming') return 'grooming';
     if (preg_match('#^/queues(/|$)#', $path)) return 'queue';
+    if ($path === '/clinical-intakes') return 'queue';
     if (preg_match('#^/visits(/|$)#', $path)) return 'pos';
     if (preg_match('#^/inventory(/|$)#', $path)) return 'inventory';
     if (preg_match('#^/(consent_files|consent-form-records|consent_form_records)(/|$)#', $path)) return 'consent';
@@ -214,6 +215,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => $method === 'GET' ? ipawcus_roles('all') : ipawcus_roles('vet')];
     }
 
+    if ($path === '/veterinarian-booking-schedule') {
+        return ['roles' => ipawcus_roles('vet')];
+    }
+
     if ($path === '/upload' || $path === '/upload/delete') {
         return ['roles' => ipawcus_roles('all')];
     }
@@ -228,6 +233,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if ($path === '/boarding/documents') {
         return ['roles' => $method === 'GET' ? ipawcus_roles('clinic') : ipawcus_roles('admin')];
+    }
+
+    if ($path === '/boarding/owner-stays') {
+        return ['roles' => ipawcus_roles('owner')];
     }
 
     if (preg_match('#^/(inventory|boarding)(/|$)#', $path)) {
@@ -278,6 +287,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('vet')];
     }
 
+    if ($path === '/clinical-intakes') {
+        return ['roles' => ipawcus_roles('clinic')];
+    }
+
     if (preg_match('#^/vet-diagnoses(/|$)#', $path)) {
         return ['roles' => ipawcus_roles('vet')];
     }
@@ -310,6 +323,10 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => $method === 'POST' ? ipawcus_roles('owner_or_admin') : ipawcus_roles('clinic')];
     }
 
+    if ($path === '/pet-catalog') {
+        return ['roles' => ipawcus_roles('owner_or_clinic')];
+    }
+
     if ($path === '/pet_ownership/link' || preg_match('#^/pet_ownership/coparent-requests(/\d+)?$#', $path)) {
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
@@ -318,7 +335,7 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
-    if (preg_match('#^/pets/[^/]+/(queues|bookings|medical|overdue/cancel)$#', $path)) {
+    if (preg_match('#^/pets/[^/]+/(queues|bookings|medical|certificates|overdue/cancel)$#', $path)) {
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
@@ -338,6 +355,14 @@ function ipawcus_route_access_policy(string $path, string $method): array
 
     if ($path === '/todos' || preg_match('#^/todos/\d+$#', $path)) {
         return ['roles' => ['pet_owner', 'veterinarian', 'super_admin']];
+    }
+
+    if (
+        $path === '/prescriptions'
+        || preg_match('#^/prescriptions/\d+/(start|amend)$#', $path)
+        || preg_match('#^/prescription-occurrences/\d+$#', $path)
+    ) {
+        return ['roles' => ipawcus_roles('owner_or_clinic')];
     }
 
     if ($path === '/record-update-requests' || preg_match('#^/record-update-requests/\d+$#', $path)) {
@@ -602,6 +627,29 @@ function ipawcus_owner_can_view_media(PDO $pdo, int $ownerUserId, string $relati
                 SELECT COUNT(*)
                 FROM pet_record_update_requests r
                 WHERE r.owner_user_id = ?
+                  AND {$pathCondition}
+                LIMIT 1
+            ");
+            $stmt->execute(array_merge([$ownerUserId], $pathParams));
+            if ((int)$stmt->fetchColumn() > 0) {
+                return true;
+            }
+        }
+    }
+
+    if (ipawcus_media_table_exists($pdo, 'pet_medical_certificates')
+        && ipawcus_media_table_exists($pdo, 'pet_ownership')) {
+        $pathParams = [];
+        $pathCondition = ipawcus_media_path_condition($pdo, 'certificate', 'pet_medical_certificates', [
+            'signature_path',
+        ], $relativePath, $pathParams);
+
+        if ($pathCondition !== '') {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM pet_medical_certificates certificate
+                JOIN pet_ownership po ON po.pet_id = certificate.pet_id
+                WHERE po.user_id = ?
                   AND {$pathCondition}
                 LIMIT 1
             ");

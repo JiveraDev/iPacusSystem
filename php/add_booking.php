@@ -749,10 +749,53 @@ $petType = $input['petType'] ?? null;
 $specialServiceItemIds = normalizeSpecialServiceItemIds($input['special_service_items'] ?? []);
 $selectedSpecialServices = [];
 
-$newPetName = $input['new_pet_name'] ?? null;
-$newPetBreed = $input['new_pet_breed'] ?? null;
-$newPetAge = $input['new_pet_age'] ?? null;
-$newPetWeight = $input['new_pet_weight'] ?? null;
+$newPetName = trim((string)($input['new_pet_name'] ?? ''));
+$newPetBreed = trim((string)($input['new_pet_breed'] ?? ''));
+$newPetAge = trim((string)($input['new_pet_age'] ?? ''));
+$newPetWeight = trim((string)($input['new_pet_weight'] ?? ''));
+$newPetColorMarkings = trim((string)($input['new_pet_color_markings'] ?? ''));
+
+$normalizedRegisteredStatus = strtolower(trim((string)$registeredStatus));
+$isNewPetBooking = $normalizedRegisteredStatus === 'not registered'
+    || ($normalizedRegisteredStatus === '' && $newPetName !== '');
+if ($isNewPetBooking) {
+    $newPetSpecies = trim((string)$petType);
+    $textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+    $namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+    $breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
+    $markingsPattern = '/^[\p{L}\p{M} ]*$/u';
+
+    if ($newPetName === '' || $newPetSpecies === '' || $newPetBreed === '' || $newPetAge === '') {
+        ipawcus_guard_error(422, 'Complete the new pet name, species, breed, and age.');
+    }
+    if ($textLength($newPetName) > 80 || preg_match($namePattern, $newPetName) !== 1) {
+        ipawcus_guard_error(422, 'Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to 80 characters.');
+    }
+    if ($textLength($newPetSpecies) > 50 || preg_match($namePattern, $newPetSpecies) !== 1) {
+        ipawcus_guard_error(422, 'Pet species may contain letters, spaces, periods, apostrophes, and hyphens, up to 50 characters.');
+    }
+    if ($textLength($newPetBreed) > 80 || preg_match($breedPattern, $newPetBreed) !== 1) {
+        ipawcus_guard_error(422, 'Pet breed contains unsupported characters or exceeds 80 characters.');
+    }
+    if (preg_match('/^\d{1,2}$/', $newPetAge) !== 1 || (int)$newPetAge > 50) {
+        ipawcus_guard_error(422, 'Pet age must be a whole number between 0 and 50 years.');
+    }
+    if ($newPetWeight !== '') {
+        if (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $newPetWeight) !== 1 || (float)$newPetWeight < 0.1 || (float)$newPetWeight > 300) {
+            ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');
+        }
+    }
+    if ($textLength($newPetColorMarkings) > 120 || preg_match($markingsPattern, $newPetColorMarkings) !== 1) {
+        ipawcus_guard_error(422, 'Color and markings must use letters and spaces only, up to 120 characters.');
+    }
+
+    $petType = $newPetSpecies;
+} else {
+    $newPetName = null;
+    $newPetBreed = null;
+    $newPetAge = null;
+    $newPetWeight = null;
+}
 
 $isHomeService = $input['is_home_service'] ?? 0;
 $address = $input['address'] ?? null;
@@ -993,11 +1036,6 @@ if ($serviceKey === 'online-consultation') {
     if ($normalizedVetId <= 0) {
         http_response_code(422);
         echo json_encode(['message' => 'Select a veterinarian for the online consultation.']);
-        exit;
-    }
-    if (!booking_slot_online_vet_is_available($pdo, $normalizedVetId, (string)$bookingDate, (string)$bookingTime)) {
-        http_response_code(409);
-        echo json_encode(['message' => 'That veterinarian has not made this online consultation time available. Select another date or time.']);
         exit;
     }
 }
@@ -1247,6 +1285,10 @@ if (
 $slotLockName = null;
 
 try {
+    if (clinic_booking_is_medical($serviceKey)) {
+        $slotLockName = booking_slot_lock_name($branchId, $serviceKey, (string)$bookingDate, (string)$bookingTime);
+        if (!booking_slot_acquire($pdo, $slotLockName)) throw new DomainException('Booking availability is being updated. Try again shortly.');
+    }
     $pdo->beginTransaction();
 
     booking_daily_lock_subjects(
@@ -1331,7 +1373,7 @@ try {
     }
 
     if ($serviceKey !== 'boarding') {
-        $slotVeterinarianId = $serviceKey === 'online-consultation' ? (int)$veterinarianId : null;
+        $slotVeterinarianId = clinic_booking_is_medical($serviceKey) && (int)$veterinarianId > 0 ? (int)$veterinarianId : null;
         $slotSpecialServiceId = null;
         $slotLockName = booking_slot_lock_name(
             $branchId,
@@ -1367,6 +1409,9 @@ try {
             echo json_encode(['message' => booking_slot_conflict_message($serviceKey, (string)$bookingTime)]);
             exit;
         }
+        if (clinic_booking_is_medical($serviceKey)) {
+            $veterinarianId = clinic_booking_reserve_vet($pdo, $branchId, (string)$bookingDate, (string)$bookingTime, $serviceKey, $slotVeterinarianId);
+        }
     }
 
     $bookingNumber = ipawcus_generate_booking_number($pdo, $bookingDate);
@@ -1391,6 +1436,7 @@ try {
             unregistered_pet_breed,
             unregistered_pet_age,
             unregistered_pet_weight,
+            unregistered_pet_color_markings,
             status,
             is_home_service,
             address,
@@ -1411,7 +1457,7 @@ try {
             emergency_contact,
             hotel_boarding_type,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     $stmt->execute([
@@ -1431,6 +1477,7 @@ try {
         $newPetBreed,
         $newPetAge,
         $newPetWeight,
+        $newPetColorMarkings !== '' ? $newPetColorMarkings : null,
         'pending',
         $isHomeService,
         $address,
@@ -1550,6 +1597,7 @@ try {
         'transport_fee' => $transportFee,
         'branch_id' => $branchId,
         'branch_name' => $branchResolution['branch']['branch_name'] ?? null,
+        'veterinarian_id' => $veterinarianId,
     ]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -1557,6 +1605,7 @@ try {
     }
     booking_slot_release($pdo, $slotLockName);
 
-    http_response_code(500);
-    echo json_encode(['message' => 'Failed to create booking: ' . $e->getMessage()]);
+    $status = $e instanceof DomainException ? 409 : ($e instanceof InvalidArgumentException ? 422 : 500);
+    http_response_code($status);
+    echo json_encode(['message' => $status === 500 ? 'Failed to create booking. Try again.' : $e->getMessage()]);
 }

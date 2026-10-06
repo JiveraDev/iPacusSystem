@@ -131,6 +131,7 @@ const RecordUpdateRequestsManagement = lazy(() => import("./AdminDashboardsCompo
 const PetBoardingManagement = lazy(() => import("./AdminDashboardsComponent/PetBoardingManagement.jsx"));
 const GroomingManagement = lazy(() => import("./AdminDashboardsComponent/GroomingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
+const PatientIntake = lazy(() => import("./AdminDashboardsComponent/PatientIntake.jsx"));
 const POSManagement = lazy(() => import("./AdminDashboardsComponent/POSmanagement.jsx"));
 const ServiceCatalogManagement = lazy(() => import("./AdminDashboardsComponent/ServiceCatalogManagement.jsx"));
 const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
@@ -152,7 +153,6 @@ const NearExpiryPage = lazy(() => import("./AdminDashboardsComponent/NearExpiryP
 const DisposalLogsPage = lazy(() => import("./AdminDashboardsComponent/DisposalLogsPage.jsx"));
 const AdminProfile = lazy(() => import("./AdminDashboardsComponent/adminprofile.jsx"));
 const VetProfile = lazy(() => import("./VetrinarianComponents/VetProfile.jsx"));
-const ApprovedQueueList = lazy(() => import("./VetrinarianComponents/ApprovedQueueList.jsx"));
 const VetMylistinService = lazy(() => import("./VetrinarianComponents/VetMylistinService.jsx"));
 const VetDiagnosis = lazy(() => import("./VetrinarianComponents/VetDiagnosis.jsx"));
 const VetDiagnosisHistory = lazy(() => import("./VetrinarianComponents/VetDiagnosisHistory.jsx"));
@@ -236,6 +236,7 @@ const navItems = [
   { id: "boarding", featureKey: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "grooming", featureKey: "grooming", label: "Grooming", icon: Scissors, path: "/dashboard/grooming", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "queue", featureKey: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "patient-intake", featureKey: "queue", label: "Patient Intake", icon: ClipboardCheck, path: "/dashboard/patient-intake", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "pos", featureKey: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "service-catalog", featureKey: "service_catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
@@ -253,7 +254,6 @@ const navItems = [
   },
   { id: "self-service-queue", label: "Self-Service Queue", icon: ScanLine, path: "/dashboard/self-service-queue", roles: PETOWNER_ROLES, navGroup: "petowner" },
   { id: "consent", featureKey: "consent", label: "Consent Files", icon: FilePenLine, path: "/dashboard/consent" , roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "vet-approved-queue", label: "Approved List", icon: ClipboardCheck, path: "/dashboard/vet/approved-queue", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-my-list", label: "My List", icon: Stethoscope, path: "/dashboard/vet/my-list", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-medical-records", label: "Medical Records", icon: NotebookTabs, path: "/dashboard/vet/medical-records", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
   { id: "vet-record-requests", label: "Record Requests", icon: FileClock, path: "/dashboard/vet/record-requests", roles: VETERINARIAN_ROLES, navGroup: "veterinarian" },
@@ -307,10 +307,10 @@ const screenMap = {
   "/dashboard/boarding": PetBoardingManagement,
   "/dashboard/grooming": GroomingManagement,
   "/dashboard/queue": QueueManagement,
+  "/dashboard/patient-intake": PatientIntake,
   "/dashboard/pos": POSManagement,
   "/dashboard/service-catalog": ServiceCatalogManagement,
   "/dashboard/consent": ConsentFilesManagement,
-  "/dashboard/vet/approved-queue": ApprovedQueueList,
   "/dashboard/vet/my-list": VetMylistinService,
   "/dashboard/vet/diagnosis": VetDiagnosis,
   "/dashboard/vet/medical-records": VetPetsEMR,
@@ -379,10 +379,10 @@ const dashboardRouteRoles = {
   "/dashboard/boarding": ADMIN_ROLES,
   "/dashboard/grooming": ADMIN_ROLES,
   "/dashboard/queue": ADMIN_ROLES,
+  "/dashboard/patient-intake": ADMIN_ROLES,
   "/dashboard/pos": ADMIN_ROLES,
   "/dashboard/service-catalog": ADMIN_ROLES,
   "/dashboard/consent": ADMIN_ROLES,
-  "/dashboard/vet/approved-queue": VETERINARIAN_ROLES,
   "/dashboard/vet/my-list": VETERINARIAN_ROLES,
   "/dashboard/vet/diagnosis": VETERINARIAN_ROLES,
   "/dashboard/vet/medical-records": VETERINARIAN_ROLES,
@@ -527,6 +527,9 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/queue")) {
     return "queue";
   }
+  if (path.startsWith("/dashboard/patient-intake")) {
+    return "patient-intake";
+  }
   if (path.startsWith("/dashboard/pos")) {
     return "pos";
   }
@@ -538,9 +541,6 @@ function getActiveTab(path) {
   }
   if (path.startsWith("/dashboard/consent")) {
     return "consent";
-  }
-  if (path.startsWith("/dashboard/vet/approved-queue")) {
-    return "vet-approved-queue";
   }
   if (path.startsWith("/dashboard/vet/diagnosis")) {
     return "vet-my-list";
@@ -647,6 +647,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
       } else {
         window.history.pushState({}, "", nextPath);
       }
+      window.dispatchEvent(new Event('ipawcus:dashboard-route-change'));
     }
     
     setHistoryStack((current) => {

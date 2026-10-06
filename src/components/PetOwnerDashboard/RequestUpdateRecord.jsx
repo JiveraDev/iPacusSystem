@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import { Textarea } from "../../ui/textarea";
-import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, X, Award } from "lucide-react";
 import { uploadImageFile } from "../../services/uploadService";
 import { createRecordUpdateRequest, fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 import { useDashboardUser } from "../dashboardRouter.jsx";
@@ -255,6 +255,20 @@ export default function RequestUpdateRecord() {
               </p>
             </div>
             <p className="text-2xl font-bold text-blue-600">PHP {convenienceFee.toLocaleString()}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#155dfc]">
+              <Award className="size-5" />
+            </span>
+            <div>
+              <p className="text-sm font-black text-slate-900">Medical certificate included when issued</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-slate-500">The assigned veterinarian can sign and issue one during this update when supported by the examination.</p>
+            </div>
           </div>
         </CardContent>
       </Card>

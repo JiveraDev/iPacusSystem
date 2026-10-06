@@ -18,10 +18,13 @@ The command:
 4. copies the contents of `dist/` to the deployment root;
 5. copies `php/` to the deployment root as `php/`;
 6. copies `composer.json` and `composer.lock` to the deployment root so Hostinger can install the PHP Google client into `vendor/`;
-7. excludes runtime uploads because they live in a persistent sibling directory outside the Git deployment target;
-8. uses the repository root `.htaccess` for the React fallback and same-domain PHP/API routes;
-9. excludes `.env` so production secrets remain server-only;
-10. commits and pushes the remaining deployment files to `origin/hostinger-deploy`.
+7. copies the production-safe `scripts/run-mail-worker.sh` wrapper to the deployment root as `scripts/run-mail-worker.sh`;
+8. excludes runtime uploads because they live in a persistent sibling directory outside the Git deployment target;
+9. uses the repository root `.htaccess` for the React fallback and same-domain PHP/API routes;
+10. excludes `.env` so production secrets remain server-only;
+11. commits and pushes the remaining deployment files to `origin/hostinger-deploy`.
+
+The mail worker wrapper receives special deployment handling: it is the only file allowed from the repository `scripts/` directory, its deployed contents are normalized to Unix LF, and its Git mode is forced to executable (`100755`). Deployment stops before commit if the script is missing, contains CRLF, loses executable mode, or another development script is accidentally included.
 
 If the remote branch does not exist, the command creates it on the first push. In this repository it already exists, so the command updates it.
 
@@ -138,13 +141,21 @@ The deployment branch already has `index.html`, frontend assets, `.htaccess`, an
 
 ## Mail queue cron job
 
-Create a Hostinger Custom cron job that runs every minute (`* * * * *`). The worker is the PHP file inside the Git deployment target:
+Create a Hostinger Custom cron job that runs every minute (`* * * * *`). Use the sub-minute wrapper so scheduled messages are checked five times during that minute instead of only once:
 
 ```bash
-php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=50
+/bin/sh /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/scripts/run-mail-worker.sh
 ```
 
-Replace `YOUR_HOSTINGER_USER` with the hosting account's home directory name. If using a PHP-type cron job instead of Custom, enter only the absolute file path and the worker will use its default batch size. An empty queue prints `Mail queue: claimed 0, sent 0, failed 0`.
+Replace `YOUR_HOSTINGER_USER` with the hosting account's home directory name. The wrapper uses `flock` when available so overlapping cron launches do not create competing loops. It checks every 10 seconds by default and calls the PHP worker quietly. If Custom cron cannot run shell scripts, use the PHP worker directly once per minute as a fallback:
+
+```bash
+php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=25
+```
+
+Running the PHP command manually prints queue timing diagnostics. `oldest` is the age of the oldest still-pending message; `max wait` is how long the oldest message claimed by that run waited before processing. If both stay low but the message reaches the inbox late, the delay is after SMTP acceptance and must be investigated with the SMTP provider or recipient mail provider.
+
+This same worker generates scheduled booking/TODO reminders before it processes the queue. Task-start and task-end mail has the highest queue priority, while advance reminders are also prioritized above routine email. Dedupe keys prevent the same task phase from being emailed twice.
 
 ## Staff activity files
 

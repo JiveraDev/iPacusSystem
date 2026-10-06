@@ -28,6 +28,7 @@ import ConsentDocument from "../shared/ConsentDocument.jsx";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import { createAndUploadConsentDocumentPdf } from "../../services/consentDocumentPdf.js";
 import { formatQueueReference } from "../../lib/referenceNumbers";
+import { readOwnerActiveBranch } from "../../lib/bookingAvailabilityNavigation.js";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { addQueueItem } from "../../services/queueService";
@@ -121,7 +122,7 @@ export default function QueueDashboard() {
     const [publicWanIp, setPublicWanIp] = useState("");
     const [selectedPet, setSelectedPet] = useState(null);
     const [selectedService, setSelectedService] = useState("");
-    const [selectedBranchId, setSelectedBranchId] = useState("");
+    const [selectedBranchId, setSelectedBranchId] = useState(() => String(readOwnerActiveBranch() || ""));
     const [signature, setSignature] = useState(null);
     const [submitted, setSubmitted] = useState(false);
     const [concernStatement, setConcernStatement] = useState("");
@@ -349,7 +350,7 @@ export default function QueueDashboard() {
                 setSubmitted(false);
                 setSelectedPet(null);
                 setSelectedService("");
-                setSelectedBranchId("");
+                setSelectedBranchId(String(readOwnerActiveBranch() || ""));
                 setSignature(null);
                 setConcernStatement("");
                 setUploadedImages([]);
@@ -598,6 +599,7 @@ export default function QueueDashboard() {
                                                     service={selectedService}
                                                     value={selectedBranchId}
                                                     onChange={setSelectedBranchId}
+                                                    persistSelection
                                                 />
                                             </div>
                                         )}
@@ -721,7 +723,7 @@ export default function QueueDashboard() {
                                             onClick={() => {
                                                 setSelectedPet(pets.length === 1 && !pets[0]?.activeQueue ? pets[0].id : null);
                                                 setSelectedService("");
-                                                setSelectedBranchId("");
+                                                setSelectedBranchId(String(readOwnerActiveBranch() || ""));
                                                 setSignature(null);
                                                 setConcernStatement("");
                                                 setUploadedImages([]);

@@ -25,6 +25,8 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Label } from "../../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookings, fetchUserBookings } from "../../services/bookingService";
 import { fetchInventoryItems } from "../../services/inventoryApi";
@@ -38,12 +40,14 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import consultImage from "../../assets/consultimage.png";
 import VetActiveLocationPanel from "../VetrinarianComponents/VetActiveLocationPanel.jsx";
 import AdminAssignedLocationPanel from "../AdminDashboardsComponent/AdminAssignedLocationPanel.jsx";
-import ClinicAvailabilityCalendar from "../shared/ClinicAvailabilityCalendar.jsx";
 import ServicePetPeek from "../shared/ServicePetPeek.jsx";
 import VetPresenceSign from "../shared/VetPresenceSign.jsx";
+import { PetHotelOwnerRooms } from "../shared/PetHotelRoomShowcase.jsx";
 import {
   bookingRouteForAvailabilityService,
+  readOwnerActiveBranch,
   saveBookingAvailabilitySelection,
+  saveOwnerActiveBranch,
 } from "../../lib/bookingAvailabilityNavigation.js";
 
 const CLINIC_DETAILS = {
@@ -122,6 +126,13 @@ const adminActions = [
     tone: "bg-emerald-50 text-emerald-700",
   },
   {
+    title: "Patient Intake",
+    description: "Perform physical examinations and record field-level photo evidence.",
+    icon: Stethoscope,
+    path: "/dashboard/patient-intake",
+    tone: "bg-violet-50 text-violet-700",
+  },
+  {
     title: "Boarding",
     description: "Search pets, assign rooms, check stays in, and track availability colors.",
     icon: Hotel,
@@ -138,13 +149,6 @@ const adminActions = [
 ];
 
 const vetActions = [
-  {
-    title: "Approved List",
-    description: "Review patients assigned from the clinic queue.",
-    icon: ListTodo,
-    path: "/dashboard/vet/approved-queue",
-    tone: "bg-blue-50 text-blue-700",
-  },
   {
     title: "My List",
     description: "Continue accepted cases and complete diagnosis records.",
@@ -349,6 +353,10 @@ function isAssignedToVet(item, userId) {
   return String(item.veterinarian_user_id || item.assignedVeterinarianUserId || item.assigned_veterinarian_user_id || "") === String(userId);
 }
 
+function hasStartedClinicalIntake(item) {
+  return ["in_progress", "completed"].includes(normalizeStatus(item.clinical_intake?.status || item.clinical_intake_status));
+}
+
 function buildAttentionItems(roleKey, data, userId) {
   if (roleKey === "admin") {
     const pendingBookings = data.bookings.filter(isPendingBooking);
@@ -385,8 +393,9 @@ function buildAttentionItems(roleKey, data, userId) {
   }
 
   if (roleKey === "veterinarian") {
-    const approvedQueues = data.queues.filter(item => normalizeStatus(item.status) === "in_progress" && !Number(item.has_active_assignment || 0));
-    const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId) && normalizeStatus(item.assignment_status) === "received");
+    const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId)
+      && normalizeStatus(item.assignment_status) === "received"
+      && hasStartedClinicalIntake(item));
     const consultations = data.onlineConsultations.filter(item => !["completed", "cancelled", "canceled"].includes(normalizeStatus(item.status)));
     const requests = data.recordRequests.filter(isOpenRecordRequest);
     const openTodos = data.todos.filter(isOpenTodo);
@@ -397,12 +406,6 @@ function buildAttentionItems(roleKey, data, userId) {
         detail: item.service_name || "Continue diagnosis",
         badge: "My List",
         path: "/dashboard/vet/my-list",
-      })),
-      ...approvedQueues.slice(0, 2).map(item => ({
-        title: item.pet_name || "Queue patient",
-        detail: item.service_name || "Ready to receive",
-        badge: "Approved",
-        path: "/dashboard/vet/approved-queue",
       })),
       ...consultations.slice(0, 2).map(item => ({
         title: item.petName || "Online consult",
@@ -466,8 +469,9 @@ function buildRoleSummary(roleKey, data, userId) {
   }
 
   if (roleKey === "veterinarian") {
-    const approvedQueues = data.queues.filter(item => normalizeStatus(item.status) === "in_progress" && !Number(item.has_active_assignment || 0));
-    const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId) && normalizeStatus(item.assignment_status) === "received");
+    const receivedQueues = data.queues.filter(item => isAssignedToVet(item, userId)
+      && normalizeStatus(item.assignment_status) === "received"
+      && hasStartedClinicalIntake(item));
     const openConsultations = data.onlineConsultations.filter(item => !["completed", "cancelled", "canceled"].includes(normalizeStatus(item.status)));
     const assignedRequests = data.recordRequests.filter(isOpenRecordRequest);
     const openTodos = data.todos.filter(isOpenTodo);
@@ -476,8 +480,7 @@ function buildRoleSummary(roleKey, data, userId) {
       title: "Veterinarian Overview",
       description: "Patient work synced from assigned queues, online consults, and record requests.",
       cards: [
-        { label: "Approved Queue", value: approvedQueues.length, detail: "Waiting to be received", icon: ListTodo, tone: "bg-blue-50 text-blue-700", path: "/dashboard/vet/approved-queue" },
-        { label: "My List", value: receivedQueues.length, detail: "Accepted and in progress", icon: Stethoscope, tone: "bg-emerald-50 text-emerald-700", path: "/dashboard/vet/my-list" },
+        { label: "My List", value: receivedQueues.length, detail: "Physical exam in progress or ready", icon: Stethoscope, tone: "bg-emerald-50 text-emerald-700", path: "/dashboard/vet/my-list" },
         { label: "Online Consults", value: openConsultations.length, detail: "Scheduled or in progress", icon: Video, tone: "bg-amber-50 text-amber-700", path: "/dashboard/vet/online-consultations" },
         { label: "Record Requests", value: assignedRequests.length, detail: "Assigned updates", icon: UserCheck, tone: "bg-rose-50 text-rose-700", path: "/dashboard/vet/record-requests" },
         { label: "Schedule / TODOs", value: openTodos.length, detail: "Appointments and follow-ups", icon: Calendar, tone: "bg-violet-50 text-violet-700", path: "/dashboard/todos" },
@@ -522,14 +525,34 @@ export default function Home({ user }) {
   const dashboardFocus = getActionsForRole(roleKey, priceProjectionConfig.servicePrices);
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
+  const [ownerClinicId, setOwnerClinicId] = useState(() => String(readOwnerActiveBranch() || ""));
+  const [ownerClinics, setOwnerClinics] = useState([]);
   // Archived accounts retain normal access; archive is only an admin marker.
   const isArchivedOwner = false;
 
   const openAvailabilityBooking = (selection) => {
     if (isArchivedOwner) return;
-    saveBookingAvailabilitySelection(selection);
-    navigate(bookingRouteForAvailabilityService(selection.service));
+    const bookingSelection = roleKey === "petowner" && ownerClinicId
+      ? { ...selection, branchId: selection.branchId || Number(ownerClinicId) }
+      : selection;
+    saveBookingAvailabilitySelection(bookingSelection);
+    navigate(bookingRouteForAvailabilityService(bookingSelection.service));
   };
+
+  const handleOwnerClinicChange = useCallback((value) => {
+    const nextBranchId = String(value || "");
+    setOwnerClinicId(nextBranchId);
+    saveOwnerActiveBranch(nextBranchId);
+  }, []);
+
+  const handleOwnerClinicsChange = useCallback((branches) => {
+    const nextBranches = Array.isArray(branches) ? branches : [];
+    setOwnerClinics((current) => {
+      const currentSignature = current.map((branch) => `${branch.id}:${branch.name}`).join("|");
+      const nextSignature = nextBranches.map((branch) => `${branch.id}:${branch.name}`).join("|");
+      return currentSignature === nextSignature ? current : nextBranches;
+    });
+  }, []);
 
   const loadHomeData = useCallback(async () => {
     const today = new Date();
@@ -576,6 +599,7 @@ export default function Home({ user }) {
 
   const roleSummary = useMemo(() => buildRoleSummary(roleKey, homeData, userId), [homeData, roleKey, userId]);
   const SecondaryIcon = dashboardFocus.secondary.icon;
+  const selectedOwnerClinic = ownerClinics.find((branch) => String(branch.id) === ownerClinicId);
 
   return (
     <div className="space-y-6">
@@ -606,15 +630,31 @@ export default function Home({ user }) {
             <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-slate-600 sm:text-base">
               {roleSummary.description}
             </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button type="button" onClick={() => navigate(dashboardFocus.actions[0].path)} disabled={isArchivedOwner} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                <Plus className="mr-2 h-4 w-4" />
-                Start Main Task
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(dashboardFocus.secondary.path)}>
-                <SecondaryIcon className="mr-2 h-4 w-4" />
-                {dashboardFocus.secondary.label}
-              </Button>
+            <div className="mt-6 flex flex-col gap-3 xl:flex-row xl:items-end">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button type="button" onClick={() => navigate(dashboardFocus.actions[0].path)} disabled={isArchivedOwner} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {roleKey === "petowner" ? `Start ${dashboardFocus.actions[0].title}` : "Start Main Task"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => navigate(dashboardFocus.secondary.path)}>
+                  <SecondaryIcon className="mr-2 h-4 w-4" />
+                  {dashboardFocus.secondary.label}
+                </Button>
+              </div>
+              {roleKey === "petowner" && (
+                <div className="min-w-0 rounded-lg border border-blue-100 bg-blue-50/70 p-2.5 xl:ml-auto xl:w-72">
+                  <Label className="mb-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-blue-700">Current clinic for bookings</Label>
+                  <Select value={ownerClinicId} onValueChange={handleOwnerClinicChange} disabled={ownerClinics.length === 0} searchable={false}>
+                    <SelectTrigger className="bg-white" aria-label="Current clinic for all bookings">
+                      <MapPin className="text-blue-600" />
+                      <SelectValue placeholder="Loading clinic..." displayValue={selectedOwnerClinic?.name} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ownerClinics.map((branch) => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
           <div className="relative min-h-56 bg-slate-950 lg:min-h-full">
@@ -665,17 +705,17 @@ export default function Home({ user }) {
         </div>
       </section>
 
+      {roleKey === "petowner" && !isArchivedOwner && (
+        <PetHotelOwnerRooms
+          activeBranchId={ownerClinicId}
+          onBranchChange={handleOwnerClinicChange}
+          onBranchesChange={handleOwnerClinicsChange}
+          onBook={openAvailabilityBooking}
+        />
+      )}
+
       <section>
-        {roleKey === "petowner" && !isArchivedOwner ? (
-          <div id="owner-availability" tabIndex={-1} className="scroll-mt-24 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-            <ClinicAvailabilityCalendar
-              title="Book an available time"
-              description="Check clinic schedules before opening a booking form. Select an available time to continue."
-              onSelectSlot={openAvailabilityBooking}
-              onSelectRoom={openAvailabilityBooking}
-            />
-          </div>
-        ) : roleKey === "petowner" ? (
+        {roleKey === "petowner" ? isArchivedOwner && (
           <Card className="border-amber-200 bg-amber-50 shadow-sm">
             <CardContent className="flex items-start gap-3 p-5 text-sm font-semibold leading-6 text-amber-900">
               <Info className="mt-0.5 size-5 shrink-0" aria-hidden="true" />

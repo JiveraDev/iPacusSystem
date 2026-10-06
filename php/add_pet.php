@@ -6,12 +6,40 @@ require_once __DIR__ . '/workflow_guard_helpers.php';
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
-$petName = $input['petName'] ?? null;
-$species = $input['species'] ?? null;
-$breed = $input['breed'] ?? null;
-$birthDate = $input['birthDate'] ?? null;
-$gender = $input['gender'] ?? null;
-$status = $input['status'] ?? 'Healthy';
+$petName = trim((string)($input['petName'] ?? ''));
+$species = trim((string)($input['species'] ?? ''));
+$breed = trim((string)($input['breed'] ?? ''));
+$birthDate = trim((string)($input['birthDate'] ?? ''));
+$gender = trim((string)($input['gender'] ?? ''));
+$status = trim((string)($input['status'] ?? 'Healthy'));
+$weightText = trim((string)($input['weight'] ?? ''));
+$colorMarkings = trim((string)($input['colorMarkings'] ?? ''));
+$textLength = static fn(string $value): int => function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+$namePattern = '/^[\p{L}\p{M} .\'-]+$/u';
+$breedPattern = '/^[\p{L}\p{M}\p{N} .,\'’\/&()-]+$/u';
+$markingsPattern = '/^[\p{L}\p{M} ]*$/u';
+
+if ($petName === '' || $species === '' || $breed === '' || $birthDate === '' || $gender === '') {
+    ipawcus_guard_error(422, 'Complete the required pet name, species, breed, birth date, and gender.');
+}
+if ($textLength($petName) > 80 || preg_match($namePattern, $petName) !== 1) {
+    ipawcus_guard_error(422, 'Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to 80 characters.');
+}
+if ($textLength($species) > 50 || preg_match($namePattern, $species) !== 1) {
+    ipawcus_guard_error(422, 'Pet species may contain letters, spaces, periods, apostrophes, and hyphens, up to 50 characters.');
+}
+if ($textLength($breed) > 80 || preg_match($breedPattern, $breed) !== 1) {
+    ipawcus_guard_error(422, 'Pet breed contains unsupported characters or exceeds 80 characters.');
+}
+if ($weightText !== '' && (preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', $weightText) !== 1 || (float)$weightText < 0.1 || (float)$weightText > 300)) {
+    ipawcus_guard_error(422, 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.');
+}
+if ($textLength($colorMarkings) > 120 || preg_match($markingsPattern, $colorMarkings) !== 1) {
+    ipawcus_guard_error(422, 'Color and markings must use letters and spaces only, up to 120 characters.');
+}
+
+$weight = $weightText !== '' ? (float)$weightText : 0.0;
+$colorMarkings = $colorMarkings !== '' ? $colorMarkings : null;
 $microchipNumber = preg_replace('/\D+/', '', (string)($input['microchipNumber'] ?? ''));
 if ($microchipNumber !== (string)($input['microchipNumber'] ?? '') || strlen($microchipNumber) > 15) {
     ipawcus_guard_error(422, 'Microchip number must contain no more than 15 digits.');
@@ -79,12 +107,6 @@ if ($userId !== null) {
     }
 }
 
-if (!$petName || !$species || !$breed || !$birthDate || !$gender) {
-    http_response_code(400);
-    echo json_encode(['message' => 'Missing required pet fields.']);
-    exit;
-}
-
 try {
     $pdo->beginTransaction();
 
@@ -102,11 +124,11 @@ try {
         $gender,
         $status,
         $input['age'] ?? null,
-        $input['weight'] ?? 0,
+        $weight,
         $microchipNumber,
         $input['tempOwnerName'] ?? null,
         $input['allergies'] ?? null,
-        $input['colorMarkings'] ?? null,
+        $colorMarkings,
         $input['profileImage'] ?? null
     ]);
 
@@ -174,6 +196,17 @@ try {
 
         if ($stmtBooking->rowCount() === 0) {
             throw new DomainException('The booking was linked or changed by another request. No pet was registered.');
+        }
+
+        if (in_array($currentApiRole, ['admin', 'super_admin'], true)) {
+            $catalogStmt = $pdo->prepare("
+                INSERT INTO pet_catalog_options (species, breed, approved_by_user_id)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    approved_by_user_id = VALUES(approved_by_user_id),
+                    updated_at = CURRENT_TIMESTAMP
+            ");
+            $catalogStmt->execute([$species, $breed, $currentApiUserId ?: null]);
         }
     }
 

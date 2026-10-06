@@ -79,6 +79,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!isset($_FILES['image']) && !isset($_FILES['file'])) {
+    $contentLength = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $postMaxBytes = static function (string $value): int {
+        $value = trim($value);
+        if ($value === '' || !preg_match('/^(\d+(?:\.\d+)?)\s*([KMG]?)$/i', $value, $matches)) return 0;
+        $bytes = (float)$matches[1];
+        $power = array_search(strtoupper($matches[2]), ['', 'K', 'M', 'G'], true);
+        return (int)round($bytes * (1024 ** ($power === false ? 0 : $power)));
+    };
+    $postMax = $postMaxBytes((string)ini_get('post_max_size'));
+    if ($contentLength > 0 && $postMax > 0 && $contentLength > $postMax) {
+        http_response_code(413);
+        echo json_encode(['message' => 'The upload request is larger than the server allows. Choose a grooming photo no larger than 8 MB.']);
+        exit;
+    }
     http_response_code(400);
     echo json_encode(['message' => 'No file uploaded.']);
     exit;

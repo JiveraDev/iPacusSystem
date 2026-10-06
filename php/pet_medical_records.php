@@ -189,28 +189,57 @@ function pet_medical_notify_owner_record_updated(
     try {
         $pet = pet_medical_pet_summary($pdo, $petId);
         $ownerUserId = (int)($pet['ownerUserId'] ?? 0);
-        if ($ownerUserId <= 0) {
-            return;
-        }
-
         $petName = trim((string)($pet['name'] ?? 'Pet')) ?: 'Pet';
         $cleanTitle = trim($recordTitle) ?: 'Medical record';
         $bucket = (int)floor(time() / 600);
+        $redirectPath = '/dashboard/my-pets/' . (int)$pet['dbId'] . '/medical-records';
+        $message = "{$petName}'s medical record was updated: {$cleanTitle}.";
+        $rows = [
+            'Pet' => $petName,
+            'Updated Record' => $cleanTitle,
+            'Update Type' => $scope === 'group' ? 'Medical record summary' : 'Medical record item',
+        ];
+        $summary = "Pet: {$petName} | Updated record: {$cleanTitle}";
 
-        notification_create_event($pdo, [
-            'user_id' => $ownerUserId,
-            'type' => 'medical_record_updated',
+        if ($ownerUserId > 0) {
+            $ownerIntro = 'Hello ' . (trim((string)($pet['ownerName'] ?? '')) ?: 'Pet Owner') . ", {$message}";
+            $ownerEmail = notification_email_template('Medical record updated', $ownerIntro, $rows, null, $summary);
+
+            notification_create_event($pdo, [
+                'user_id' => $ownerUserId,
+                'type' => 'medical_record_updated',
+                'category' => 'diagnosis_updates',
+                'title' => 'Medical record updated',
+                'message' => $message,
+                'push_title' => 'Medical record updated',
+                'push_message' => "{$petName}'s medical record was updated.",
+                'redirect_path' => $redirectPath,
+                'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}-owner-{$ownerUserId}",
+                'email_subject' => "Medical record updated for {$petName}",
+                'email_html' => $ownerEmail,
+                'email_text' => trim($ownerIntro . "\n\nSummary: {$summary}"),
+                'force_in_app' => true,
+            ]);
+        }
+
+        $staffIntro = 'Hello clinic team, a veterinarian updated a pet medical record.';
+        $staffEmail = notification_email_template('Medical record updated', $staffIntro, $rows, null, $summary);
+        notification_create_event_for_roles($pdo, ['admin', 'veterinarian'], [
+            'type' => 'medical_record_updated_staff',
             'category' => 'diagnosis_updates',
             'title' => 'Medical record updated',
-            'message' => "{$petName}'s medical record was updated: {$cleanTitle}.",
+            'message' => $message,
             'push_title' => 'Medical record updated',
             'push_message' => "{$petName}'s medical record was updated.",
-            'redirect_path' => '/dashboard/my-pets/' . (int)$pet['dbId'] . '/medical-records',
-            'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}",
+            'redirect_path' => $redirectPath,
+            'dedupe_key' => "medical-record-updated-{$petId}-{$scope}-{$recordId}-{$bucket}-staff",
+            'email_subject' => "Medical record updated for {$petName}",
+            'email_html' => $staffEmail,
+            'email_text' => trim($staffIntro . "\n\nSummary: {$summary}"),
             'force_in_app' => true,
         ]);
     } catch (Throwable $error) {
-        error_log('Medical record owner notification failed: ' . $error->getMessage());
+        error_log('Medical record update notification failed: ' . $error->getMessage());
     }
 }
 
@@ -486,6 +515,111 @@ function pet_medical_normalize_attachments($value): array
     return $normalized;
 }
 
+function pet_medical_sanitize_revision_snapshot($value): array
+{
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $textFields = [
+        'chiefComplaint',
+        'majorSymptoms',
+        'symptoms',
+        'physicalExam',
+        'diagnosis',
+        'recommendations',
+        'treatment',
+        'medications',
+        'labResults',
+        'notes',
+    ];
+    $revision = [];
+
+    foreach ($textFields as $field) {
+        $revision[$field] = substr(trim((string)($value[$field] ?? '')), 0, 20000);
+    }
+
+    $followUp = trim((string)($value['followUp'] ?? ''));
+    if ($followUp !== '' && pet_medical_date($followUp) === null) {
+        pet_medical_error(422, 'The revision follow-up date is invalid.');
+    }
+    $revision['followUp'] = $followUp;
+
+    $attachments = [];
+    foreach (array_slice(pet_medical_normalize_attachments($value['revisionAttachments'] ?? []), 0, 20) as $attachment) {
+        $rawUrl = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? ''));
+        $urlParts = parse_url($rawUrl);
+        if (!is_array($urlParts) || isset($urlParts['scheme']) || isset($urlParts['host'])) {
+            continue;
+        }
+        $path = ltrim(str_replace('\\', '/', (string)($urlParts['path'] ?? $rawUrl)), '/');
+        if (
+            $path === ''
+            || str_contains($path, '..')
+            || !preg_match('#^(?:api/uploads/media/)?diagnosis/[A-Za-z0-9._/-]+$#', $path)
+        ) {
+            continue;
+        }
+
+        $mimeType = pet_medical_attachment_mime($path);
+        if ($mimeType === '') {
+            continue;
+        }
+
+        $attachments[] = [
+            'id' => substr(trim((string)($attachment['id'] ?? '')), 0, 100) ?: 'revision-' . count($attachments),
+            'name' => substr(trim((string)($attachment['name'] ?? 'Revision attachment')), 0, 255),
+            'originalName' => substr(trim((string)($attachment['originalName'] ?? '')), 0, 255),
+            'storedFileName' => substr(trim((string)($attachment['storedFileName'] ?? basename($path))), 0, 255),
+            'url' => $path,
+            'relativeUrl' => $path,
+            'mimeType' => $mimeType,
+            'category' => 'medical_record_revision',
+            'uploadedAt' => trim((string)($attachment['uploadedAt'] ?? '')) ?: null,
+        ];
+    }
+    $revision['revisionAttachments'] = $attachments;
+
+    return $revision;
+}
+
+function pet_medical_effective_item_source(array $item): array
+{
+    $source = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : [];
+    $revision = is_array($item['revisionSnapshot'] ?? null) ? $item['revisionSnapshot'] : [];
+    unset($revision['revisionAttachments']);
+
+    return array_replace($source, $revision);
+}
+
+function pet_medical_attachment_mime(string $path): string
+{
+    return match (strtolower(pathinfo((string)(parse_url($path, PHP_URL_PATH) ?: $path), PATHINFO_EXTENSION))) {
+        'jpg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'pdf' => 'application/pdf',
+        default => '',
+    };
+}
+
+function pet_medical_grooming_attachment(string $path, string $name, string $category, string $id): array
+{
+    $cleanPath = trim(str_replace('\\', '/', $path));
+    return [
+        'id' => $id,
+        'name' => $name,
+        'originalName' => basename((string)(parse_url($cleanPath, PHP_URL_PATH) ?: $cleanPath)),
+        'storedFileName' => basename((string)(parse_url($cleanPath, PHP_URL_PATH) ?: $cleanPath)),
+        'url' => preg_match('#^https?://#i', $cleanPath) ? $cleanPath : '/' . ltrim($cleanPath, '/'),
+        'relativeUrl' => ltrim($cleanPath, '/'),
+        'mimeType' => pet_medical_attachment_mime($cleanPath),
+        'category' => $category,
+        'source' => 'grooming',
+    ];
+}
+
 function pet_medical_diagnosis_summary(array $record): string
 {
     $record = clinical_record_sanitize_response_record(
@@ -697,6 +831,129 @@ function pet_medical_fetch_boarding_activity(PDO $pdo, array $bookingIds, int $p
     }
 
     return $activity;
+}
+
+function pet_medical_fetch_grooming_history(PDO $pdo, int $petId): array
+{
+    if (!pet_medical_table_exists($pdo, 'bookings') || !pet_medical_table_exists($pdo, 'grooming_jobs')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            b.*,
+            j.status AS grooming_status,
+            j.performed_by,
+            j.details_json,
+            j.visit_id AS grooming_visit_id,
+            j.updated_at AS grooming_updated_at
+        FROM bookings b
+        JOIN grooming_jobs j ON j.booking_id = b.booking_id
+        WHERE b.pet_id = ?
+          AND LOWER(TRIM(b.service_type)) IN ('grooming', 'pet grooming')
+          AND j.status IN ('ready', 'released', 'transferred')
+        ORDER BY COALESCE(j.updated_at, b.booking_date, b.created_at) DESC, b.booking_id DESC
+    ");
+    $stmt->execute([$petId]);
+    $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!$bookings) return [];
+
+    $bookingIds = array_map(static fn($booking) => (int)$booking['booking_id'], $bookings);
+    $photosByBooking = [];
+    if (pet_medical_table_exists($pdo, 'grooming_photos')) {
+        $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+        $photoStmt = $pdo->prepare("
+            SELECT photo_id, booking_id, category, caption, file_path, created_at
+            FROM grooming_photos
+            WHERE booking_id IN ({$placeholders})
+            ORDER BY booking_id ASC, photo_id ASC
+        ");
+        $photoStmt->execute($bookingIds);
+        foreach ($photoStmt->fetchAll(PDO::FETCH_ASSOC) as $photo) {
+            $bookingId = (int)$photo['booking_id'];
+            $category = strtolower(trim((string)$photo['category']));
+            $categoryLabel = match ($category) {
+                'before' => 'Before grooming photo',
+                'after' => 'After grooming photo',
+                default => 'Grooming concern photo',
+            };
+            $photosByBooking[$bookingId][] = pet_medical_grooming_attachment(
+                (string)$photo['file_path'],
+                trim((string)$photo['caption']) ?: $categoryLabel,
+                'grooming_' . ($category ?: 'photo'),
+                'grooming-photo-' . (int)$photo['photo_id']
+            ) + ['uploadedAt' => $photo['created_at'] ?? null];
+        }
+    }
+
+    $records = [];
+    foreach ($bookings as $booking) {
+        $bookingId = (int)$booking['booking_id'];
+        $details = pet_medical_decode_json($booking['details_json'] ?? null) ?: [];
+        $attachments = [];
+        $concernPaths = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string)($booking['Image_Booking_Concern_Path'] ?? ''))
+        )));
+        foreach ($concernPaths as $index => $concernPath) {
+            $extension = strtolower(pathinfo((string)(parse_url($concernPath, PHP_URL_PATH) ?: $concernPath), PATHINFO_EXTENSION));
+            $name = 'Owner grooming concern' . (count($concernPaths) > 1 ? ' ' . ($index + 1) : '') . ($extension !== '' ? '.' . $extension : '');
+            $attachments[] = pet_medical_grooming_attachment(
+                $concernPath,
+                $name,
+                'grooming_owner_concern',
+                'grooming-concern-' . $bookingId . '-' . $index
+            );
+        }
+        $attachments = array_merge($attachments, $photosByBooking[$bookingId] ?? []);
+
+        $package = trim((string)($details['package'] ?? '')) ?: 'Grooming service';
+        $ownerSummary = trim((string)($details['ownerSummary'] ?? ''));
+        $ownerRequest = trim((string)($details['ownerRequest'] ?? $booking['notes'] ?? ''));
+        $addOns = trim((string)($details['addOns'] ?? $booking['add_ons'] ?? ''));
+        $summary = implode("\n", array_filter([
+            'Service: ' . $package,
+            $addOns !== '' ? 'Add-ons: ' . $addOns : '',
+            $ownerSummary,
+        ]));
+
+        $records[] = [
+            'id' => 'grooming-' . $bookingId,
+            'sourceType' => 'grooming',
+            'sourceId' => $bookingId,
+            'bookingId' => $bookingId,
+            'bookingNumber' => $booking['booking_number'] ?? null,
+            'visitId' => !empty($booking['grooming_visit_id']) ? (int)$booking['grooming_visit_id'] : null,
+            'title' => $package,
+            'serviceName' => 'Grooming',
+            'serviceDate' => $booking['grooming_updated_at'] ?: $booking['booking_date'] ?: $booking['created_at'],
+            'status' => $booking['grooming_status'],
+            'billingStatus' => null,
+            'veterinarianName' => trim((string)($booking['performed_by'] ?? '')),
+            'chiefComplaint' => $ownerRequest,
+            'majorSymptoms' => '',
+            'symptoms' => '',
+            'physicalExam' => '',
+            'diagnosis' => '',
+            'treatment' => $package . ($addOns !== '' ? "\nAdd-ons: " . $addOns : ''),
+            'labResults' => '',
+            'followUp' => '',
+            'notes' => $ownerSummary,
+            'summary' => $summary,
+            'vitalSigns' => [],
+            'prescriptions' => [],
+            'customSections' => array_values(array_filter([
+                $ownerRequest !== '' ? ['label' => 'Owner concern / request', 'value' => $ownerRequest] : null,
+                $ownerSummary !== '' ? ['label' => 'Grooming summary', 'value' => $ownerSummary] : null,
+            ])),
+            'attachments' => $attachments,
+            'sourceUploads' => [],
+            'charges' => [],
+            'totals' => ['charges' => 0, 'paid' => 0, 'balance' => 0],
+        ];
+    }
+
+    return $records;
 }
 
 function pet_medical_fetch_boarding_history(PDO $pdo, int $petId): array
@@ -1094,7 +1351,11 @@ function pet_medical_fetch_service_history(PDO $pdo, int $petId): array
         }
     }
 
-    $records = array_merge($records, pet_medical_fetch_boarding_history($pdo, $petId));
+    $records = array_merge(
+        $records,
+        pet_medical_fetch_grooming_history($pdo, $petId),
+        pet_medical_fetch_boarding_history($pdo, $petId)
+    );
 
     $sourceGroups = pet_medical_source_group_map($pdo, $petId);
     foreach ($records as &$record) {
@@ -1224,6 +1485,7 @@ function pet_medical_fetch_groups(PDO $pdo, int $petId, bool $ownerVisibleOnly =
             'serviceDate' => $item['service_date'],
             'sortOrder' => (int)$item['sort_order'],
             'sourceSnapshot' => pet_medical_decode_json($item['source_snapshot'] ?? null) ?: null,
+            'revisionSnapshot' => pet_medical_decode_json($item['revision_snapshot'] ?? null) ?: null,
             'addedByUserId' => $item['added_by_user_id'] !== null ? (int)$item['added_by_user_id'] : null,
             'updatedByUserId' => $item['updated_by_user_id'] !== null ? (int)$item['updated_by_user_id'] : null,
             'addedByName' => trim((string)($item['added_by_name'] ?? '')),
@@ -1403,7 +1665,7 @@ function pet_medical_email_copy_html(array $pet, array $groups, array $vaccinati
         $itemsHtml = '';
 
         foreach ($group['items'] ?? [] as $item) {
-            $source = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : [];
+            $source = pet_medical_effective_item_source($item);
             $doctorRows = pet_medical_source_note_rows($source);
             $doctorRowsHtml = '';
             foreach ($doctorRows as $row) {
@@ -1565,6 +1827,47 @@ function pet_medical_service_record_by_source(PDO $pdo, int $petId, string $sour
     }
 
     return null;
+}
+
+function pet_medical_merge_group_source_files(array $groups, array $serviceHistory): array
+{
+    $sources = [];
+    foreach ($serviceHistory as $record) {
+        $sourceType = trim((string)($record['sourceType'] ?? ''));
+        $sourceId = (int)($record['sourceId'] ?? 0);
+        if ($sourceType !== '' && $sourceId > 0) {
+            $sources[$sourceType . ':' . $sourceId] = $record;
+        }
+    }
+
+    foreach ($groups as &$group) {
+        foreach ($group['items'] as &$item) {
+            $key = (string)($item['sourceType'] ?? '') . ':' . (int)($item['sourceId'] ?? 0);
+            $currentSource = $sources[$key] ?? null;
+            if (!$currentSource) continue;
+
+            $snapshot = is_array($item['sourceSnapshot'] ?? null) ? $item['sourceSnapshot'] : $currentSource;
+            foreach (['attachments', 'sourceUploads'] as $field) {
+                $files = array_merge(
+                    is_array($snapshot[$field] ?? null) ? $snapshot[$field] : [],
+                    is_array($currentSource[$field] ?? null) ? $currentSource[$field] : []
+                );
+                $seen = [];
+                $snapshot[$field] = array_values(array_filter($files, static function ($attachment) use (&$seen): bool {
+                    if (!is_array($attachment)) return false;
+                    $key = trim((string)($attachment['url'] ?? $attachment['relativeUrl'] ?? $attachment['id'] ?? ''));
+                    if ($key === '' || isset($seen[$key])) return false;
+                    $seen[$key] = true;
+                    return true;
+                }));
+            }
+            $item['sourceSnapshot'] = $snapshot;
+        }
+        unset($item);
+    }
+    unset($group);
+
+    return $groups;
 }
 
 function pet_medical_create_group(PDO $pdo, int $petId, array $input): void
@@ -1771,12 +2074,15 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
         pet_medical_error(400, 'itemId is required.');
     }
 
+    $revisionColumnReady = pet_medical_column_exists($pdo, 'pet_medical_record_group_items', 'revision_snapshot');
+    $revisionSelect = $revisionColumnReady ? 'i.revision_snapshot' : 'NULL AS revision_snapshot';
     $currentStmt = $pdo->prepare("
         SELECT
             i.item_id,
             i.title,
             i.summary,
             i.revision_notes,
+            {$revisionSelect},
             i.sort_order,
             g.group_id,
             g.title AS group_title,
@@ -1798,6 +2104,17 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
     $revisionNotes = pet_medical_nullable_text($input['revisionNotes'] ?? $input['revision_notes'] ?? null);
     $sortOrder = pet_medical_nullable_int($input['sortOrder'] ?? $input['sort_order'] ?? null);
     $userId = pet_medical_nullable_int($input['userId'] ?? $input['user_id'] ?? $input['veterinarianUserId'] ?? null);
+    $revisionSnapshotProvided = array_key_exists('revisionSnapshot', $input) || array_key_exists('revision_snapshot', $input);
+    $revisionSnapshotJson = $current['revision_snapshot'] ?? null;
+    if ($revisionSnapshotProvided) {
+        if (!$revisionColumnReady) {
+            pet_medical_error(409, 'Medical record revisions require DDL/20261002_02_medical_record_item_revisions.sql.');
+        }
+
+        $revisionSnapshotJson = pet_medical_json(pet_medical_sanitize_revision_snapshot(
+            $input['revisionSnapshot'] ?? $input['revision_snapshot'] ?? []
+        ));
+    }
 
     $next = [
         'title' => $title,
@@ -1805,12 +2122,16 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
         'revision_notes' => $revisionNotes,
         'sort_order' => $sortOrder ?? (int)$current['sort_order'],
     ];
+    if ($revisionSnapshotProvided) {
+        $next['revision_snapshot'] = $revisionSnapshotJson;
+    }
     $changedFields = pet_medical_changed_fields($current, $next);
     if (!$changedFields) {
         echo json_encode(['success' => true, 'changed' => false]);
         return;
     }
 
+    $revisionUpdate = $revisionSnapshotProvided ? ', i.revision_snapshot = ?' : '';
     $stmt = $pdo->prepare("
         UPDATE pet_medical_record_group_items i
         JOIN pet_medical_record_groups g ON g.group_id = i.group_id
@@ -1819,18 +2140,23 @@ function pet_medical_update_item(PDO $pdo, int $petId, array $input): void
             i.revision_notes = ?,
             i.sort_order = COALESCE(?, i.sort_order),
             i.updated_by_user_id = ?
+            {$revisionUpdate}
         WHERE i.item_id = ?
           AND g.pet_id = ?
     ");
-    $stmt->execute([
+    $params = [
         $title,
         $summary,
         $revisionNotes,
         $sortOrder,
         $userId,
-        $itemId,
-        $petId,
-    ]);
+    ];
+    if ($revisionSnapshotProvided) {
+        $params[] = $revisionSnapshotJson;
+    }
+    $params[] = $itemId;
+    $params[] = $petId;
+    $stmt->execute($params);
 
     if ((int)$current['visible_to_owner'] === 1) {
         pet_medical_notify_owner_record_updated($pdo, $petId, 'item', $itemId, $title);
@@ -2078,6 +2404,7 @@ try {
         $pet = pet_medical_pet_summary($pdo, $petNumericId);
         $serviceHistory = pet_medical_fetch_service_history($pdo, $petNumericId);
         $organizedRecords = pet_medical_fetch_groups($pdo, $petNumericId, $ownerVisibleOnly);
+        $organizedRecords = pet_medical_merge_group_source_files($organizedRecords, $serviceHistory);
 
         echo json_encode([
             'success' => true,

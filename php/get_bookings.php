@@ -8,6 +8,7 @@ require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
+header('Cache-Control: no-store');
 
 function tableExists(PDO $pdo, string $tableName): bool
 {
@@ -149,6 +150,10 @@ try {
             {$boardingAssignmentJoin}";
 
     $where = [];
+    if (filter_var($_GET['assignedToMe'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        $where[] = 'b.veterinarian_id = ?';
+        $params[] = $currentApiUserId;
+    }
     if ($bookingId) {
         $where[] = "b.booking_id = ?";
         $params[] = $bookingId;
@@ -367,7 +372,7 @@ try {
             'petAge' => $isRegistered ? $b['pet_age'] : $b['unregistered_pet_age'],
             'petWeight' => $isRegistered ? $b['pet_weight'] : $b['unregistered_pet_weight'],
             'petMicrochipId' => $isRegistered ? $b['pet_microchip'] : null,
-            'petColor' => $isRegistered ? $b['pet_color_marking'] : null,
+            'petColor' => $isRegistered ? $b['pet_color_marking'] : ($b['unregistered_pet_color_markings'] ?? null),
             'petAllergies' => $isRegistered
                 ? pet_allergy_effective_text($pdo, (int)$b['pet_id'], $b['pet_allergies'] ?? null)
                 : null,

@@ -11,7 +11,7 @@ export function isArchivedPetOwner(user) {
 }
 
 export function assertPetOwnerActionAllowed(user, actionLabel = 'request this service') {
-    // Archive is an administrative marker and does not restrict normal actions.
+    // Archive changes list placement only and does not restrict account access.
     void user;
     void actionLabel;
 }

@@ -16,6 +16,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
 import { resolveImageUrl } from '../../lib/image';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
+import VetBookingSchedulePanel from '../shared/VetBookingSchedulePanel.jsx';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import PasswordRequirements from '../shared/PasswordRequirements.jsx';
 import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../../lib/passwordPolicy.js';
@@ -188,6 +189,8 @@ export default function AccountManagement() {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
+    const [isEditingBookingSchedule, setIsEditingBookingSchedule] = useState(false);
+    const [isSavingBookingSchedule, setIsSavingBookingSchedule] = useState(false);
     const [personnelForm, setPersonnelForm] = useState({
         position: '',
         employmentStatus: 'full-time',
@@ -201,7 +204,8 @@ export default function AccountManagement() {
     const [accounts, setAccounts] = useState({ veterinarians: [], staff: [], superadmins: [] });
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [showArchiveList, setShowArchiveList] = useState(false);
+    const [archiveSearch, setArchiveSearch] = useState('');
     const [branches, setBranches] = useState([]);
 
     // Create Account Form State
@@ -417,6 +421,8 @@ export default function AccountManagement() {
         };
     };
     const openAccountDetails = (user, type) => {
+        setIsEditingBookingSchedule(false);
+        setIsSavingBookingSchedule(false);
         const detailsUser = { ...user, type };
         setSelectedUser(detailsUser);
         setPersonnelForm(getPersonnelFormFromUser(detailsUser));
@@ -424,7 +430,11 @@ export default function AccountManagement() {
         setShowDetails(true);
     };
     const closeAccountDetails = () => {
-        if (isSavingPersonnel || isDeletingAccount) return;
+        if (isSavingPersonnel || isDeletingAccount || isSavingBookingSchedule) return;
+        if (isEditingBookingSchedule) {
+            toast.info('Save or cancel the booking schedule changes before closing.');
+            return;
+        }
         setShowDetails(false);
         setIsEditingPersonnel(false);
     };
@@ -521,6 +531,10 @@ export default function AccountManagement() {
     };
 
     const handleStartPersonnelEdit = () => {
+        if (isEditingBookingSchedule || isSavingBookingSchedule) {
+            toast.info('Save or cancel the booking schedule changes before editing professional details.');
+            return;
+        }
         setPersonnelForm(getPersonnelFormFromUser(selectedUser));
         setIsEditingPersonnel(true);
     };
@@ -711,11 +725,11 @@ export default function AccountManagement() {
     const accountSearchQuery = searchQuery.trim().toLowerCase();
 
     const filteredAccountRows = allAccountRows.filter((account) => {
-        if (roleFilter !== 'all' && account.type !== roleFilter) {
+        if (getAccountStatus(account) === 'archived') {
             return false;
         }
 
-        if (statusFilter !== 'all' && getAccountStatus(account) !== statusFilter) {
+        if (roleFilter !== 'all' && account.type !== roleFilter) {
             return false;
         }
 
@@ -734,6 +748,23 @@ export default function AccountManagement() {
             account.veterinarian_id
         ].join(' ').toLowerCase().includes(accountSearchQuery);
     });
+
+    const archiveSearchQuery = archiveSearch.trim().toLowerCase();
+    const archivedAccountRows = allAccountRows.filter((account) => {
+        if (getAccountStatus(account) !== 'archived') return false;
+        if (!archiveSearchQuery) return true;
+
+        return [
+            getAccountName(account),
+            account.mail_Address,
+            getRoleLabel(account.type),
+            getAccountProfileText(account),
+            account.phoneNumber,
+            account.employee_id,
+            account.veterinarian_id
+        ].join(' ').toLowerCase().includes(archiveSearchQuery);
+    });
+    const archivedAccountCount = allAccountRows.filter(account => getAccountStatus(account) === 'archived').length;
 
     const selectedAccessAdmin = accounts.staff.find(
         (account) => String(account.user_id) === String(selectedAccessAdminId)
@@ -813,6 +844,26 @@ export default function AccountManagement() {
                 petAccent="coral"
                 layout="stacked"
                 className="account-management-page-header"
+                actions={(
+                    <div className="relative">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setShowArchiveList(true)}
+                            className="size-10 border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                            aria-label={`Open account archive${archivedAccountCount ? `, ${archivedAccountCount} archived` : ''}`}
+                            title="Account Archive"
+                        >
+                            <Archive className="size-4" />
+                        </Button>
+                        {archivedAccountCount > 0 ? (
+                            <span className="pointer-events-none absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-black leading-4 text-white">
+                                {archivedAccountCount > 99 ? '99+' : archivedAccountCount}
+                            </span>
+                        ) : null}
+                    </div>
+                )}
                 toolbar={(
                     <div className="flex flex-col justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row">
                         <Button
@@ -835,7 +886,7 @@ export default function AccountManagement() {
 
             <Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-4">
-                    <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_13rem_12rem_auto]">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_13rem_auto]">
                         <div>
                             <Input
                                 value={searchQuery}
@@ -853,25 +904,6 @@ export default function AccountManagement() {
                                 <SelectItem value="superadmin">Super Admin</SelectItem>
                                 <SelectItem value="staff">Admin / Staff</SelectItem>
                                 <SelectItem value="vet">Veterinarian</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger>
-                                <SelectValue displayValue={
-                                    statusFilter === 'all'
-                                        ? 'All status'
-                                        : statusFilter === 'active'
-                                            ? 'Active'
-                                            : statusFilter === 'archived'
-                                                ? 'Archived'
-                                                : 'Privileged'
-                                } />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All status</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
-                                <SelectItem value="privileged">Privileged</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button
@@ -988,6 +1020,70 @@ export default function AccountManagement() {
                 </div>
             </Card>
 
+            <Dialog
+                open={showArchiveList}
+                onOpenChange={(open) => {
+                    setShowArchiveList(open);
+                    if (!open) setArchiveSearch('');
+                }}
+            >
+                <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
+                    <DialogHeader className="border-b border-slate-200 px-5 py-5 text-left sm:px-6">
+                        <DialogTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+                            <Archive className="size-5 text-slate-600" />
+                            Personnel Account Archive
+                        </DialogTitle>
+                        <DialogDescription>
+                            Archived personnel are hidden from the account directory but can still sign in. Restore an account to return it to the directory.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+                        <Input
+                            value={archiveSearch}
+                            onChange={(event) => setArchiveSearch(event.target.value)}
+                            placeholder="Search archived personnel"
+                            leftIcon={<Search className="size-4" />}
+                        />
+                        <p className="mt-2 text-xs font-bold text-slate-500">{archivedAccountRows.length} shown / {archivedAccountCount} archived</p>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                        {archivedAccountRows.length ? (
+                            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                {archivedAccountRows.map(account => (
+                                    <div key={`${account.type}-${account.user_id}`} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <ProfileAvatar account={account} type={account.type} />
+                                            <div className="min-w-0">
+                                                <p className="truncate font-black text-slate-950">{getAccountName(account)}</p>
+                                                <p className="truncate text-xs font-semibold text-slate-500">{getRoleLabel(account.type)} | {account.mail_Address || 'No email'}</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setShowArchiveList(false);
+                                                openStatusConfirmation(account);
+                                            }}
+                                            className="shrink-0 gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                        >
+                                            <RotateCcw className="size-4" />
+                                            Restore
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">
+                                <Archive className="mx-auto size-9 text-slate-300" />
+                                <p className="mt-3 font-black text-slate-800">{archivedAccountCount ? 'No archived personnel match your search' : 'The personnel archive is empty'}</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">Archived personnel accounts will appear here for restoration.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* View Details Modal */}
             <Dialog open={showDetails} onOpenChange={(open) => open ? setShowDetails(true) : closeAccountDetails()}>
                 <DialogContent className="max-h-[94dvh] max-w-6xl overflow-y-auto">
@@ -1033,7 +1129,7 @@ export default function AccountManagement() {
                                             <ProfileField icon={Award} label="Veterinarian ID" value={selectedUser.veterinarian_id} accent="text-blue-700" />
                                             <EditableProfileSelectField
                                                 icon={MapPin}
-                                                label="Assigned Branch"
+                                                label="Primary Clinic"
                                                 value={personnelForm.branchId}
                                                 displayText={isEditingPersonnel
                                                     ? branches.find((branch) => String(branch.id) === personnelForm.branchId)?.name
@@ -1128,6 +1224,17 @@ export default function AccountManagement() {
                                     <div>
                                         <HistoryBlock title="Experience History" value={selectedUser.experience_history} />
                                     </div>
+                                )}
+
+                                {selectedUser.type === 'vet' && (
+                                    <VetBookingSchedulePanel
+                                        key={selectedUser.user_id}
+                                        veterinarianId={selectedUser.user_id}
+                                        disabled={isEditingPersonnel || isSavingPersonnel || isDeletingAccount}
+                                        onDirtyChange={setIsEditingBookingSchedule}
+                                        onSavingChange={setIsSavingBookingSchedule}
+                                        onSaved={() => fetchAccounts({ isAutoRefresh: true })}
+                                    />
                                 )}
 
                                 <div className="border-t pt-6">
@@ -1243,7 +1350,7 @@ export default function AccountManagement() {
                             </div>
 
                             <p className="text-sm text-slate-700">
-                                This user will return to active account lists and regain login access.
+                                This user will return to active account lists. Existing login access remains unchanged.
                             </p>
 
                             <DialogFooter>
@@ -1294,7 +1401,7 @@ export default function AccountManagement() {
                                 </div>
 
                                 <p className="text-sm font-semibold leading-6 text-slate-700">
-                                    Existing records remain intact. The account is hidden from active lists and login access is blocked until a Super Admin restores it.
+                                    The account will leave the active directory, but its profile, activity, booking, payment, and related records will be kept. Login and normal account access remain available.
                                 </p>
 
                                 <div className="space-y-2">

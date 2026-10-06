@@ -12,23 +12,17 @@ import { ArrowLeft, CalendarPlus, Image as ImageIcon, PawPrint, Plus, Upload, X 
 import { format } from "../../lib/date";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetSelectLabel, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
-import { fetchVeterinarians } from "../../services/accountService";
+import { fetchBookingAvailability } from "../../services/bookingAvailabilityService";
 import { fetchUserPets } from "../../services/petService";
-import { fetchVetSchedules } from "../../services/vetScheduleService";
+import BookingDateInput from "../shared/BookingDateInput.jsx";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { reportBookingFormErrors, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
 
-const TIME_SLOT_ORDER = [
-  "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM",
-  "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM",
-  "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM",
-  "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM"
-];
 function toId(value) {
   return value === null || value === undefined ? "" : String(value);
 }
@@ -57,53 +51,14 @@ function getPetWeight(pet) {
   return pet?.weight || pet?.pet_weight || "";
 }
 
-function sortTimeSlots(slots) {
-  return [...new Set(slots)].sort((first, second) => {
-    const firstIndex = TIME_SLOT_ORDER.indexOf(first);
-    const secondIndex = TIME_SLOT_ORDER.indexOf(second);
-
-    if (firstIndex === -1 && secondIndex === -1) return first.localeCompare(second);
-    if (firstIndex === -1) return 1;
-    if (secondIndex === -1) return -1;
-    return firstIndex - secondIndex;
-  });
-}
-
-function isAvailableSchedule(schedule) {
-  return Number(schedule?.is_available) === 1 || schedule?.is_available === true;
-}
-
-function buildAvailabilityFromSchedules(schedules) {
-  return schedules.reduce((availability, schedule) => {
-    if (!isAvailableSchedule(schedule) || !schedule.time_slot) {
-      return availability;
-    }
-
-    const day = String(schedule.day_of_week || "").trim().toLowerCase();
-    if (!day) {
-      return availability;
-    }
-
-    return {
-      ...availability,
-      [day]: sortTimeSlots([...(availability[day] || []), schedule.time_slot])
-    };
-  }, {});
-}
-
 function getVetLabel(vet) {
   return vet ? `${vet.name} - ${vet.specialization}` : "";
-}
-
-function parseDateInput(value) {
-  const [year, month, day] = String(value).split("-").map(Number);
-  return new Date(year, month - 1, day);
 }
 
 export default function ConsultBooking() {
   const navigate = useNavigate();
   const availabilityPrefill = readBookingAvailabilitySelection('online-consultation');
-  const [bookingBranchId] = useState(availabilityPrefill?.branchId || null);
+  const bookingBranchId = availabilityPrefill?.branchId ? String(availabilityPrefill.branchId) : '';
   const { config: priceProjectionConfig } = useBookingPriceProjections();
   const { instructions, servicePrices } = priceProjectionConfig;
   const [pets, setPets] = useState([]);
@@ -125,20 +80,12 @@ export default function ConsultBooking() {
   const [newPetBreed, setNewPetBreed] = useState("");
   const [newPetAge, setNewPetAge] = useState("");
   const [newPetWeight, setNewPetWeight] = useState("");
+  const [newPetColorMarkings, setNewPetColorMarkings] = useState("");
   const [newPetMedicalConditions, setNewPetMedicalConditions] = useState("");
 
   const discussionTopics = ["Weight Issues", "Symptoms/Illness", "Behavior", "Nutrition", "Other"];
   const selectedPetData = pets.find((pet) => getPetId(pet) === selectedPet);
   const selectedVetData = veterinarians.find((vet) => vet.id === selectedVet);
-
-  const isUnavailableConsultationDate = (value) => {
-    if (!selectedVetData) return true;
-    const date = value instanceof Date ? value : parseDateInput(value);
-    if (Number.isNaN(date.getTime()) || date.getDay() === 0) return true;
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    return !Array.isArray(selectedVetData.availability?.[dayName])
-      || selectedVetData.availability[dayName].length === 0;
-  };
 
   const fetchData = async ({ isAutoRefresh = false } = {}) => {
     try {
@@ -155,45 +102,14 @@ export default function ConsultBooking() {
       const petsData = await fetchUserPets(userId);
       setPets(Array.isArray(petsData) ? petsData : []);
 
-      const vetsData = await fetchVeterinarians();
-      const vetAccounts = Array.isArray(vetsData?.veterinarians) ? vetsData.veterinarians : [];
-      const scheduleResults = await Promise.all(vetAccounts.map(async (vet) => {
-        const vetId = toId(vet.user_id);
-
-        try {
-          const schedules = await fetchVetSchedules(vetId);
-          return {
-            vetId,
-            hasScheduleRows: Array.isArray(schedules) && schedules.length > 0,
-            availability: Array.isArray(schedules) ? buildAvailabilityFromSchedules(schedules) : {}
-          };
-        } catch (error) {
-          console.error(`Failed to load schedule for veterinarian ${vetId}:`, error);
-          return {
-            vetId,
-            hasScheduleRows: false,
-            availability: {}
-          };
-        }
-      }));
-      const schedulesByVet = new Map(scheduleResults.map((result) => [result.vetId, result]));
-
-      if (vetAccounts.length > 0) {
-        const formattedVets = vetAccounts.map(v => {
-          const vetId = toId(v.user_id);
-          const schedule = schedulesByVet.get(vetId);
-
-          return {
-            id: vetId,
-            userId: v.user_id,
-            name: `Dr. ${v.first_Name} ${v.last_Name}`,
-            specialization: v.specialization || "General Practice",
-            licenseNumber: v.prc_license_number || v.license_number || v.licenseNumber || '',
-            availability: schedule?.hasScheduleRows ? schedule.availability : {}
-          };
-        }).filter((vet) => Object.values(vet.availability).some((slots) => slots.length > 0));
-        setVeterinarians(formattedVets);
-      }
+      const data = await fetchBookingAvailability({ service: 'online-consultation', branchId: bookingBranchId, detailsOnly: true });
+      setVeterinarians((data.filters?.veterinarians || []).map(vet => ({
+        id: String(vet.id),
+        userId: vet.id,
+        name: vet.name,
+        specialization: vet.specialization || 'General Practice',
+        licenseNumber: vet.licenseNumber || '',
+      })));
     } catch (error) {
       console.error("Error fetching booking data:", error);
       if (!isAutoRefresh) {
@@ -204,7 +120,7 @@ export default function ConsultBooking() {
     }
   };
 
-  useAutoRefresh(fetchData);
+  useAutoRefresh(fetchData, { refreshKey: `online-booking-${bookingBranchId}` });
 
   const toggleDiscussionTopic = (topic) => {
     setDiscussionTopic(prev => 
@@ -273,6 +189,7 @@ export default function ConsultBooking() {
         newPetBreed,
         newPetAge,
         newPetWeight,
+        newPetColorMarkings,
         date: selectedDate,
         time: selectedTime,
         files: [],
@@ -314,6 +231,7 @@ export default function ConsultBooking() {
       petBreed: isNewPet ? newPetBreed : getPetBreed(selectedPetData),
       petAge: isNewPet ? newPetAge : getPetAge(selectedPetData),
       petWeight: isNewPet ? newPetWeight : getPetWeight(selectedPetData),
+      petColorMarkings: isNewPet ? newPetColorMarkings : "",
       petStatus: isNewPet ? "" : getPetStatus(selectedPetData),
       petMedicalConditions: isNewPet ? newPetMedicalConditions : "",
       discussionTopic: discussionTopic.join(", "),
@@ -468,33 +386,21 @@ export default function ConsultBooking() {
                       id="newPetName"
                       type="text"
                       placeholder="e.g., Buddy"
-                      restriction="name"
+                      restriction="pet-name"
                       value={newPetName}
                       onChange={(e) => setNewPetName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="newPetSpecies">Species *</Label>
-                    <Select value={newPetSpecies} onValueChange={setNewPetSpecies}>
-                      <SelectTrigger id="newPetSpecies">
-                        <SelectValue placeholder="Select species" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Dog">Dog</SelectItem>
-                        <SelectItem value="Cat">Cat</SelectItem>
-                        <SelectItem value="Bird">Bird</SelectItem>
-                        <SelectItem value="Rabbit">Rabbit</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                    <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="newPetBreed">Breed *</Label>
-                    <Input
+                    <PetBreedAutocomplete
                       id="newPetBreed"
-                      type="text"
-                      placeholder="e.g., Golden Retriever"
-                      restriction="name"
+                      species={newPetSpecies}
+                      placeholder="Type or choose a breed"
                       value={newPetBreed}
                       onChange={(e) => setNewPetBreed(e.target.value)}
                     />
@@ -505,7 +411,7 @@ export default function ConsultBooking() {
                       id="newPetAge"
                       type="text"
                       placeholder="e.g., 2"
-                      restriction="integer"
+                      restriction="pet-age"
                       value={newPetAge}
                       onChange={(e) => setNewPetAge(e.target.value)}
                     />
@@ -516,10 +422,14 @@ export default function ConsultBooking() {
                       id="newPetWeight"
                       type="text"
                       placeholder="e.g., 25.5"
-                      restriction="decimal"
+                      restriction="pet-weight"
                       value={newPetWeight}
                       onChange={(e) => setNewPetWeight(e.target.value)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newPetColorMarkings">Color / Markings (Optional)</Label>
+                    <Input id="newPetColorMarkings" placeholder="e.g., Black and white" restriction="pet-markings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="newPetMedicalConditions">Medical Conditions (Optional)</Label>
@@ -581,19 +491,20 @@ export default function ConsultBooking() {
             {/* Select Date */}
             <div className="space-y-2">
               <Label htmlFor="selectedDate">Select Date</Label>
-              <Input
+              <BookingDateInput
                 id="selectedDate"
-                type="date"
+                service="online-consultation"
+                branchId={bookingBranchId}
+                veterinarianId={selectedVet}
                 value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
+                onChange={event => handleDateChange(event.target.value)}
                 min={format(new Date(), "yyyy-MM-dd")}
-                excludeDate={isUnavailableConsultationDate}
                 disabled={!selectedVet}
               />
               <p className="text-sm text-gray-600">
                 {!selectedVet 
                   ? "Please select a veterinarian first"
-                  : "Only the veterinarian's published dates and times can be booked"}
+                  : "Dates and times follow this veterinarian's separate online-call schedule and appointment availability"}
               </p>
             </div>
 

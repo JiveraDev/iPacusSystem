@@ -23,6 +23,7 @@ import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityN
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
 
 const GROOMING_SIZE_LABELS = { small: 'Small', medium: 'Medium', large: 'Large', xl: 'XL' };
 
@@ -35,7 +36,7 @@ export default function Grooming() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [isNewPet, setIsNewPet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedGroomingOption, setSelectedGroomingOption] = useState(null);
+  const [selectedGroomingOptions, setSelectedGroomingOptions] = useState([]);
   const [formData, setFormData] = useState(() => {
     const prefill = readBookingAvailabilitySelection('grooming');
     return ({
@@ -45,6 +46,7 @@ export default function Grooming() {
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
+    newPetColorMarkings: "",
     branchId: prefill?.branchId ? String(prefill.branchId) : "",
     date: prefill?.date || "",
     time: prefill?.time || "",
@@ -90,8 +92,8 @@ export default function Grooming() {
       branchFieldId: 'branch-grooming',
       today: clinicTodayDate(),
     });
-    if (!selectedGroomingOption) {
-      validationErrors.push({ fieldId: 'grooming-price-selection', label: 'Grooming service', type: 'selection', message: 'Choose a grooming service and pet size from the price table.' });
+    if (selectedGroomingOptions.length === 0) {
+      validationErrors.push({ fieldId: 'grooming-price-selection', label: 'Grooming services', type: 'selection', message: 'Choose at least one grooming service and pet size from the price list.' });
     }
     if (reportBookingFormErrors(validationErrors)) {
       return;
@@ -116,26 +118,24 @@ export default function Grooming() {
         return;
       }
 
-      // 1. Upload all files if any
+      // 1. Upload the single owner concern photo, if provided.
       let uploadedFileUrls = [];
       if (formData.files.length > 0) {
-        toast.info('Your documents are uploading. Keep this page open until they finish.');
-        for (const file of formData.files) {
-          try {
-            const uploadedUrl = await uploadImageFile(file, 'booking_concern');
-            if (uploadedUrl) {
-              uploadedFileUrls.push(uploadedUrl);
-            }
-            } catch (uploadError) {
-              throw new Error(uploadError.message || 'A grooming photo could not be uploaded. Retry or remove the file before submitting.');
+        toast.info('Your concern photo is uploading. Keep this page open until it finishes.');
+        try {
+          const uploadedUrl = await uploadImageFile(formData.files[0], 'booking_concern');
+          if (uploadedUrl) {
+            uploadedFileUrls = [uploadedUrl];
           }
+        } catch (uploadError) {
+          throw new Error(uploadError.message || 'The grooming concern photo could not be uploaded. Retry or remove it before submitting.');
         }
       }
 
       // 2. Prepare booking data
-      const selectedPreference = selectedGroomingOption
-        ? `Requested grooming: ${selectedGroomingOption.service} · ${selectedGroomingOption.sizeLabel} · ${selectedGroomingOption.price}`
-        : '';
+      const selectedPreferences = selectedGroomingOptions.map(option => (
+        `Requested grooming: ${option.service} · ${option.sizeLabel} · ${option.price}`
+      ));
       const bookingPayload = {
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
@@ -143,14 +143,15 @@ export default function Grooming() {
         branch_id: Number(formData.branchId),
         booking_date: formData.date,
         booking_time: formData.time,
-        notes: [selectedPreference, formData.notes.trim()].filter(Boolean).join('\n'),
+        notes: [...selectedPreferences, formData.notes.trim()].filter(Boolean).join('\n'),
         Image_Booking_Concern_Path: uploadedFileUrls.join(','),
         registered_status: isNewPet ? 'Not Registered' : 'Registered',
         petType: isNewPet ? formData.newPetSpecies : (selectedRegisteredPet?.species || ''),
-        new_pet_name: formData.petName,
-        new_pet_breed: formData.newPetBreed,
-        new_pet_age: formData.newPetAge,
-        new_pet_weight: formData.newPetWeight
+        new_pet_name: isNewPet ? formData.petName : null,
+        new_pet_breed: isNewPet ? formData.newPetBreed : null,
+        new_pet_age: isNewPet ? formData.newPetAge : null,
+        new_pet_weight: isNewPet ? formData.newPetWeight : null,
+        new_pet_color_markings: isNewPet ? formData.newPetColorMarkings : null
       };
 
       await createBooking(bookingPayload);
@@ -171,8 +172,15 @@ export default function Grooming() {
 
     setFormData(prev => ({
       ...prev,
-      files: [...prev.files, ...newFiles]
+      files: [newFiles[0]]
     }));
+  };
+
+  const toggleGroomingOption = (option) => {
+    const optionKey = `${option.service}::${option.size}`;
+    setSelectedGroomingOptions(current => current.some(item => `${item.service}::${item.size}` === optionKey)
+      ? current.filter(item => `${item.service}::${item.size}` !== optionKey)
+      : [...current, option]);
   };
 
   const removeFile = (index) => {
@@ -254,36 +262,22 @@ export default function Grooming() {
                       <Input
                         id="petName"
                         placeholder="e.g., Buddy"
-                        restriction="name"
+                        restriction="pet-name"
                         required={isNewPet}
                         value={formData.petName}
                         onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPetSpecies">Species *</Label>
-                      <Select 
-                        value={formData.newPetSpecies} 
-                        onValueChange={(value) => setFormData({ ...formData, newPetSpecies: value })}
-                      >
-                        <SelectTrigger id="newPetSpecies">
-                          <SelectValue placeholder="Select species" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Dog">Dog</SelectItem>
-                          <SelectItem value="Cat">Cat</SelectItem>
-                          <SelectItem value="Bird">Bird</SelectItem>
-                          <SelectItem value="Rabbit">Rabbit</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                      <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" required={isNewPet} value={formData.newPetSpecies} onChange={(event) => setFormData({ ...formData, newPetSpecies: event.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPetBreed">Breed *</Label>
-                      <Input
+                      <PetBreedAutocomplete
                         id="newPetBreed"
-                        placeholder="e.g., Golden Retriever"
-                        restriction="name"
+                        species={formData.newPetSpecies}
+                        placeholder="Type or choose a breed"
                         required={isNewPet}
                         value={formData.newPetBreed}
                         onChange={(e) => setFormData({ ...formData, newPetBreed: e.target.value })}
@@ -294,21 +288,25 @@ export default function Grooming() {
                       <Input
                         id="newPetAge"
                         placeholder="e.g., 2"
-                        restriction="integer"
+                        restriction="pet-age"
                         required={isNewPet}
                         value={formData.newPetAge}
                         onChange={(e) => setFormData({ ...formData, newPetAge: e.target.value })}
                       />
                     </div>
-                    <div className="space-y-2 sm:col-span-2">
+                    <div className="space-y-2">
                       <Label htmlFor="newPetWeight">Weight (Optional)</Label>
                       <Input
                         id="newPetWeight"
                         placeholder="e.g., 25.5"
-                        restriction="decimal"
+                        restriction="pet-weight"
                         value={formData.newPetWeight}
                         onChange={(e) => setFormData({ ...formData, newPetWeight: e.target.value })}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPetColorMarkings">Color / Markings (Optional)</Label>
+                      <Input id="newPetColorMarkings" placeholder="e.g., Black and white" restriction="pet-markings" value={formData.newPetColorMarkings} onChange={(event) => setFormData({ ...formData, newPetColorMarkings: event.target.value })} />
                     </div>
                   </div>
                 </div>
@@ -319,6 +317,7 @@ export default function Grooming() {
                 date={formData.date}
                 value={formData.branchId}
                 onChange={(branchId) => setFormData((current) => ({ ...current, branchId }))}
+                persistSelection
               />
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -347,20 +346,60 @@ export default function Grooming() {
 
               <div id="grooming-price-selection" className="space-y-2" tabIndex={-1}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor="notes">Grooming Preferences</Label>
+                  <Label>Grooming services and prices *</Label>
                   <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">Grooming booking</span>
                 </div>
-                {selectedGroomingOption ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-                    <span><strong>{selectedGroomingOption.service}</strong> · {selectedGroomingOption.sizeLabel} · {selectedGroomingOption.price}</span>
-                    <button type="button" className="font-semibold underline underline-offset-2 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onClick={() => setSelectedGroomingOption(null)}>Remove</button>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Select every grooming service you want included in this booking.</p>
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold">Service</th>
+                        {Object.values(GROOMING_SIZE_LABELS).map(sizeLabel => <th key={sizeLabel} className="px-3 py-2 text-center font-semibold">{sizeLabel}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                      {groomingMatrix.map(row => (
+                        <tr key={row.service}>
+                          <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">{row.service}</td>
+                          {Object.entries(GROOMING_SIZE_LABELS).map(([size, sizeLabel]) => {
+                            const selected = selectedGroomingOptions.some(option => option.service === row.service && option.size === size);
+                            return <td key={size} className="px-1.5 py-1.5 text-center">
+                              <button
+                                type="button"
+                                aria-pressed={selected}
+                                aria-label={`${selected ? 'Remove' : 'Add'} ${row.service}, ${sizeLabel}, ${row[size]}`}
+                                onClick={() => toggleGroomingOption({ service: row.service, size, sizeLabel, price: row[size] })}
+                                className={`min-h-9 w-full whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'bg-[#155dfc] text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-800 dark:text-slate-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200'}`}
+                              >
+                                {selected ? '✓ ' : ''}{row[size]}
+                              </button>
+                            </td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {selectedGroomingOptions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/60 dark:bg-blue-950/20">
+                    {selectedGroomingOptions.map(option => (
+                      <button
+                        key={`${option.service}-${option.size}`}
+                        type="button"
+                        onClick={() => toggleGroomingOption(option)}
+                        className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-800 hover:border-blue-400 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-200"
+                        aria-label={`Remove ${option.service}, ${option.sizeLabel}`}
+                      >
+                        {option.service} · {option.sizeLabel} · {option.price} ×
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Choose a service price from the table to add it to this booking.</p>
                 )}
+                <Label htmlFor="notes">Concern or grooming instructions</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Grooming requests"
+                  placeholder="Describe the concern, preferred style, sensitivities, or special instructions"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={4}
@@ -368,16 +407,15 @@ export default function Grooming() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="files">Upload Photos (Optional)</Label>
+                <Label htmlFor="files">Concern photo (Optional)</Label>
                 <FileUploadDropzone
                   id="files"
-                  accept="image/*,.pdf"
-                  multiple
+                  accept="image/jpeg,image/png,image/webp"
                   files={formData.files}
                   onFilesSelected={handleFileChange}
                   onRemove={removeFile}
-                  label="Click to upload or drag and drop"
-                  helper="Images or PDF documents up to 8 MB each"
+                  label="Upload one concern photo"
+                  helper="One JPG, PNG, or WebP image up to 8 MB. This will be shown to the grooming team and assigned veterinarian."
                 />
               </div>
 
@@ -417,40 +455,7 @@ export default function Grooming() {
                 {instructions.grooming && (
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{instructions.grooming}</p>
                 )}
-                <div className="mt-3 overflow-x-auto rounded-lg border border-blue-100 dark:border-blue-900/60">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold">Grooming service</th>
-                        <th className="px-3 py-2 text-right font-semibold">Small</th>
-                        <th className="px-3 py-2 text-right font-semibold">Medium</th>
-                        <th className="px-3 py-2 text-right font-semibold">Large</th>
-                        <th className="px-3 py-2 text-right font-semibold">XL</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-blue-100 bg-white dark:divide-blue-900/50 dark:bg-slate-900">
-                      {groomingMatrix.map((row) => (
-                        <tr key={row.service}>
-                          <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700 dark:text-slate-200">{row.service}</td>
-                          {Object.entries(GROOMING_SIZE_LABELS).map(([size, sizeLabel]) => {
-                            const selected = selectedGroomingOption?.service === row.service && selectedGroomingOption?.size === size;
-                            return <td key={size} className="px-1.5 py-1.5 text-right">
-                              <button
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() => setSelectedGroomingOption({ service: row.service, size, sizeLabel, price: row[size] })}
-                                className={`min-h-8 w-full whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'bg-[#155dfc] text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-800 dark:text-slate-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200'}`}
-                              >
-                                {row[size]}
-                              </button>
-                            </td>;
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">Click a price to request that service and pet size. Clinic staff confirm the official Service Catalog item before grooming starts.</p>
+                <p className="mt-3 text-[11px] leading-4 text-slate-500 dark:text-slate-400">The editable price list is shown inside the booking form. Clinic staff still confirm the official Service Catalog charge before grooming starts.</p>
               </ServiceProjectionDetails>
           </ServiceSummaryCard>
 

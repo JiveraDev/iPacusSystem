@@ -156,11 +156,22 @@ export default function QueueManagement() {
         });
     };
 
-    const handleApprove = async (id) => {
-        const updated = await updateStatus(id, 'in-progress');
-        if (updated) {
-            toast.success('Queue approved and moved to the approved list.');
+    const handleApprove = async (item) => {
+        const selectedVetId = getSelectedVetId(item.queue_id, item);
+        if (!selectedVetId) {
+            toast.error('Select a veterinarian before approving this queue.');
+            return;
         }
+
+        const updated = await updateStatus(item.queue_id, 'in-progress');
+        if (!updated) return;
+
+        await assignQueueToVet(
+            item.queue_id,
+            selectedVetId,
+            'Assigned while approving the queue for physical examination',
+            'Queue approved and assigned. It is ready for the assistant veterinarian to begin the physical examination.'
+        );
     };
 
     const openGroomingQueue = async (item) => {
@@ -243,7 +254,12 @@ export default function QueueManagement() {
         return selected || (item?.veterinarian_user_id ? String(item.veterinarian_user_id) : '');
     };
 
-    const assignQueueToVet = async (queueId, veterinarianUserId, reason = 'Assigned from queue management') => {
+    const assignQueueToVet = async (
+        queueId,
+        veterinarianUserId,
+        reason = 'Assigned from queue management',
+        successMessage = 'Queue assigned. It will enter the veterinarian My List when the physical examination starts.'
+    ) => {
         const vet = veterinarians.find(item => getVetId(item) === String(veterinarianUserId));
         const veterinarianName = vet ? getVetName(vet) : '';
         setAssigningQueueId(queueId);
@@ -277,9 +293,11 @@ export default function QueueManagement() {
                         : item
                 )
             );
-            toast.success('Queue assigned and moved to the veterinarian My List.');
+            toast.success(successMessage);
+            return true;
         } catch (error) {
             toast.error(error.message || 'The veterinarian could not be assigned to this queue. Check their availability and try again.');
+            return false;
         } finally {
             setAssigningQueueId(null);
         }
@@ -482,7 +500,7 @@ export default function QueueManagement() {
                     </span>
                 </div>
 
-                <Table className="min-w-[1180px] table-fixed">
+                <Table className="min-w-[1080px] table-fixed">
                     <colgroup>
                         <col className="w-[150px]" />
                         <col className="w-[180px]" />
@@ -490,7 +508,7 @@ export default function QueueManagement() {
                         <col className="w-[145px]" />
                         <col className="w-[100px]" />
                         <col className="w-[225px]" />
-                        <col className="w-[240px]" />
+                        <col className="w-[112px]" />
                     </colgroup>
                     <TableHeader>
                         <TableRow>
@@ -571,7 +589,7 @@ export default function QueueManagement() {
                                     <TableCell>
                                         <div className="flex flex-col items-start gap-2">
                                             {getStatusBadge(item.status)}
-                                            {item.status === 'in-progress' && !isGroomingQueue(item) ? renderVetSelect(item) : null}
+                                            {['waiting', 'in-progress'].includes(item.status) && !isGroomingQueue(item) ? renderVetSelect(item) : null}
                                             {isGroomingQueue(item) ? (
                                                 <span className="text-xs text-slate-500 dark:text-slate-400">Grooming workflow</span>
                                             ) : item.status === 'waiting' ? (
@@ -584,53 +602,57 @@ export default function QueueManagement() {
                                             {isGroomingQueue(item) ? (
                                                 <>
                                                     <Button
-                                                        size="sm"
+                                                        size="icon"
                                                         onClick={() => openGroomingQueue(item)}
                                                         disabled={updatingQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px]"
+                                                        className="size-8"
+                                                        aria-label={`${item.status === 'waiting' ? 'Send to' : 'Open'} grooming for ${item.pet_name || formatQueueReference(item)}`}
+                                                        title={item.status === 'waiting' ? 'Send to Grooming' : 'Open Grooming'}
                                                     >
                                                         {updatingQueueId === item.queue_id ? <Loader2 className="size-3 animate-spin" /> : <Scissors className="size-3" />}
-                                                        {item.status === 'waiting' ? 'Send to Grooming' : 'Open Grooming'}
                                                     </Button>
                                                     <Button
-                                                        size="sm"
+                                                        size="icon"
                                                         variant="destructive"
                                                         onClick={() => setQueueToCancel(item)}
                                                         disabled={updatingQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px]"
+                                                        className="size-8"
+                                                        aria-label={`Cancel ${formatQueueReference(item)}`}
+                                                        title="Cancel Queue"
                                                     >
                                                         <XCircle className="size-3" />
-                                                        Cancel
                                                     </Button>
                                                 </>
                                             ) : item.status === 'waiting' ? (
                                                 <>
                                                     <Button
-                                                        size="sm"
-                                                        onClick={() => handleApprove(item.queue_id)}
-                                                        disabled={updatingQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px]"
+                                                        size="icon"
+                                                        onClick={() => handleApprove(item)}
+                                                        disabled={updatingQueueId === item.queue_id || assigningQueueId === item.queue_id}
+                                                        className="size-8"
+                                                        aria-label={`Approve and assign ${formatQueueReference(item)}`}
+                                                        title="Approve & Assign Queue"
                                                     >
-                                                        {updatingQueueId === item.queue_id
+                                                        {updatingQueueId === item.queue_id || assigningQueueId === item.queue_id
                                                             ? <Loader2 className="size-3 animate-spin" />
                                                             : <UserCheck className="size-3" />}
-                                                        Approve
                                                     </Button>
                                                     <Button
-                                                        size="sm"
+                                                        size="icon"
                                                         variant="destructive"
                                                         onClick={() => setQueueToCancel(item)}
                                                         disabled={updatingQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px]"
+                                                        className="size-8"
+                                                        aria-label={`Cancel ${formatQueueReference(item)}`}
+                                                        title="Cancel Queue"
                                                     >
                                                         <XCircle className="size-3" />
-                                                        Cancel
                                                     </Button>
                                                 </>
                                             ) : item.status === 'in-progress' ? (
                                                 <>
                                                     <Button
-                                                        size="sm"
+                                                        size="icon"
                                                         variant="outline"
                                                         onClick={() => {
                                                             const selectedVetId = getSelectedVetId(item.queue_id, item);
@@ -641,20 +663,22 @@ export default function QueueManagement() {
                                                             assignQueueToVet(item.queue_id, selectedVetId, 'Reassigned by admin from queue management');
                                                         }}
                                                         disabled={assigningQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                                        className="size-8 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                                        aria-label={`${item.has_active_assignment ? 'Reassign' : 'Assign'} veterinarian for ${formatQueueReference(item)}`}
+                                                        title={item.has_active_assignment ? 'Reassign Veterinarian' : 'Assign Veterinarian'}
                                                     >
                                                         {assigningQueueId === item.queue_id ? <Loader2 className="size-3 animate-spin" /> : <UserCheck className="size-3" />}
-                                                        {item.has_active_assignment ? 'Reassign' : 'Assign'}
                                                     </Button>
                                                     <Button
-                                                        size="sm"
+                                                        size="icon"
                                                         variant="destructive"
                                                         onClick={() => setQueueToCancel(item)}
                                                         disabled={assigningQueueId === item.queue_id || updatingQueueId === item.queue_id}
-                                                        className="h-8 px-2.5 text-[11px]"
+                                                        className="size-8"
+                                                        aria-label={`Cancel ${formatQueueReference(item)}`}
+                                                        title="Cancel Queue"
                                                     >
                                                         <XCircle className="size-3" />
-                                                        Cancel
                                                     </Button>
                                                 </>
                                             ) : null}

@@ -7,6 +7,7 @@ require_once __DIR__ . '/reference_number_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/clinical_record_helpers.php';
 require_once __DIR__ . '/clinical_confinement_helpers.php';
+require_once __DIR__ . '/prescription_helpers.php';
 
 if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
     define('VISIT_BILLING_HELPERS_ONLY', true);
@@ -808,6 +809,28 @@ try {
         }
     }
 
+    $clinicalIntake = null;
+    if ($queueId !== null && ipawcus_guard_table_exists($pdo, 'clinical_intakes')) {
+        $intakeStmt = $pdo->prepare('SELECT * FROM clinical_intakes WHERE queue_id = ? LIMIT 1');
+        $intakeStmt->execute([$queueId]);
+        $clinicalIntake = $intakeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if (!$clinicalIntake || strtolower((string)($clinicalIntake['status'] ?? '')) !== 'completed') {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => 'The assistant veterinarian must complete the physical examination before diagnosis can be finalized.'
+            ]);
+            exit;
+        }
+
+        if ((int)($clinicalIntake['assigned_veterinarian_user_id'] ?? 0) !== $veterinarianUserId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'This physical examination is assigned to another veterinarian.']);
+            exit;
+        }
+    }
+
     if ($petId === null || $petId <= 0) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'pet_id is required.']);
@@ -839,6 +862,15 @@ try {
     $diagnosisText = $clinicalInput['diagnosis'];
     $vitalSigns = $input['vital_signs'] ?? $input['vitalSigns'] ?? [];
     $vitalSigns = is_array($vitalSigns) ? $vitalSigns : [];
+
+    if ($clinicalIntake) {
+        $clinicalInput['chief_complaint'] = vetDiagnosisNullableText($clinicalIntake['chief_complaint'] ?? null);
+        $clinicalInput['major_symptoms'] = vetDiagnosisNullableText($clinicalIntake['major_symptoms'] ?? null);
+        $clinicalInput['symptoms'] = vetDiagnosisNullableText($clinicalIntake['symptoms'] ?? null);
+        $clinicalInput['physical_exam'] = vetDiagnosisNullableText($clinicalIntake['physical_exam'] ?? null);
+        $recordedVitalSigns = json_decode((string)($clinicalIntake['vital_signs'] ?? ''), true);
+        $vitalSigns = is_array($recordedVitalSigns) ? $recordedVitalSigns : [];
+    }
     $customSections = $input['custom_sections'] ?? $input['customSections'] ?? [];
     $customSections = is_array($customSections) ? $customSections : [];
     $prescriptions = $input['prescriptions'] ?? [];
@@ -1026,6 +1058,17 @@ try {
     $stmt->execute($payload);
     $diagnosisId = (int)$pdo->lastInsertId();
 
+    $prescriptionPlan = prescription_sync_plan(
+        $pdo,
+        $petId,
+        vetDiagnosisNullableInt($input['owner_user_id'] ?? $input['ownerUserId'] ?? null),
+        $veterinarianUserId,
+        'clinic_diagnosis',
+        $diagnosisId,
+        prescription_flatten_diagnosis_items($prescriptions, $customSections),
+        $payload['service_name'] ?: 'Clinic diagnosis'
+    );
+
     vetDiagnosisUpdatePetWeight($pdo, $petId, $vitalSigns);
     vetDiagnosisSaveVaccinationRecord(
         $pdo,
@@ -1076,6 +1119,13 @@ try {
         notification_send_diagnosis_event($pdo, $diagnosisId);
     } catch (Throwable $notificationError) {
         error_log('Diagnosis notification failed: ' . $notificationError->getMessage());
+    }
+    if (!empty($prescriptionPlan['changed']) && !empty($prescriptionPlan['planId'])) {
+        try {
+            prescription_notify_plan($pdo, (int)$prescriptionPlan['planId'], !empty($prescriptionPlan['version']) && (int)$prescriptionPlan['version'] > 1);
+        } catch (Throwable $notificationError) {
+            error_log('Prescription notification failed: ' . $notificationError->getMessage());
+        }
     }
 
     try {

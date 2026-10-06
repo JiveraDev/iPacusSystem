@@ -66,6 +66,7 @@ export function getAdminFeatureForDashboardPath(path) {
     if (normalized.startsWith('/dashboard/boarding')) return 'boarding';
     if (normalized.startsWith('/dashboard/grooming')) return 'grooming';
     if (normalized.startsWith('/dashboard/queue')) return 'queue';
+    if (normalized.startsWith('/dashboard/patient-intake')) return 'queue';
     if (normalized.startsWith('/dashboard/pos')) return 'pos';
     if (normalized.startsWith('/dashboard/inventory')) return 'inventory';
     if (normalized.startsWith('/dashboard/consent')) return 'consent';

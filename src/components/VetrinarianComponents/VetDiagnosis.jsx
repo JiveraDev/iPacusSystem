@@ -53,24 +53,12 @@ import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadDocumentFile, uploadFormData } from '../../services/uploadService';
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import StructuredPrescriptionEditor from '../shared/PrescriptionEditor.jsx';
+import { createPrescriptionDraft as createPrescriptionDraftModel, prescriptionLine } from '../../lib/prescriptions';
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
 const DIAGNOSIS_DRAFT_STORAGE_PREFIX = 'ipawcus-vet-diagnosis-draft';
 const DIAGNOSIS_DRAFT_SCHEMA_VERSION = 2;
-
-const PRESCRIPTION_FREQUENCIES = [
-    { value: 'per day', label: 'Per day' },
-    { value: 'per week', label: 'Per week' },
-    { value: 'per month', label: 'Per month' },
-    { value: 'as needed', label: 'As needed' }
-];
-
-const PRESCRIPTION_DURATION_UNITS = [
-    { value: 'day', label: 'Day(s)' },
-    { value: 'week', label: 'Week(s)' },
-    { value: 'month', label: 'Month(s)' },
-    { value: 'as needed', label: 'As needed' }
-];
 
 const DOCUMENT_UPLOAD_ACCEPT = 'image/*,.pdf';
 const ADDITIONAL_CONSENT_CATEGORY = 'additional_consent';
@@ -93,6 +81,22 @@ const emptyDiagnosisForm = {
     },
     prescription: []
 };
+
+function applyClinicalIntake(form, intake) {
+    if (!intake) return form;
+
+    return {
+        ...form,
+        chiefComplaint: intake.chiefComplaint || '',
+        majorSymptoms: intake.majorSymptoms || '',
+        symptoms: intake.symptoms || '',
+        physicalExam: intake.physicalExam || '',
+        vitalSigns: {
+            ...emptyDiagnosisForm.vitalSigns,
+            ...(intake.vitalSigns || {})
+        }
+    };
+}
 
 const emptyVaccinationRecord = {
     vaccineName: '',
@@ -117,14 +121,7 @@ function createId() {
 }
 
 function createPrescriptionDraft() {
-    return {
-        medicine: '',
-        times: 1,
-        frequency: 'per day',
-        durationNumber: 1,
-        durationUnit: 'week',
-        instructions: ''
-    };
+    return createPrescriptionDraftModel();
 }
 
 function createCustomSection(serviceName = '', serviceId = '') {
@@ -191,7 +188,8 @@ function readDiagnosisContext() {
         signedConsentType: storedContext.signedConsentType || '',
         signedConsentAt: storedContext.signedConsentAt || '',
         physicalConsentPath: storedContext.physicalConsentPath || '',
-        physicalConsentPreview: storedContext.physicalConsentPreview || ''
+        physicalConsentPreview: storedContext.physicalConsentPreview || '',
+        clinicalIntake: storedContext.clinicalIntake || null
     };
 }
 
@@ -425,7 +423,8 @@ function mergeQueueContext(baseContext, queueItem) {
         signedConsentType: baseContext.signedConsentType || queueItem.signed_consent_type || '',
         signedConsentAt: baseContext.signedConsentAt || queueItem.signed_consent_at || '',
         physicalConsentPath: combineUploadPathValues(baseContext.physicalConsentPath, queueItem.physical_consent_path),
-        physicalConsentPreview: baseContext.physicalConsentPreview || ''
+        physicalConsentPreview: baseContext.physicalConsentPreview || '',
+        clinicalIntake: queueItem.clinical_intake || baseContext.clinicalIntake || null
     };
 }
 
@@ -436,10 +435,17 @@ function cleanPrescription(prescription) {
     return {
         id: prescription.id || createId(),
         medicine: prescription.medicine || '',
+        dose: prescription.dose || '',
+        route: prescription.route || '',
         times: Number.isFinite(times) && times >= 0 ? times : 1,
         frequency: prescription.frequency || 'per day',
+        scheduleType: prescription.scheduleType || 'times_daily',
+        intervalHours: Number(prescription.intervalHours) || null,
+        timeSlots: Array.isArray(prescription.timeSlots) ? prescription.timeSlots : [],
+        daysOfWeek: Array.isArray(prescription.daysOfWeek) ? prescription.daysOfWeek : [],
         durationNumber: Number.isFinite(durationNumber) && durationNumber >= 0 ? durationNumber : 0,
         durationUnit: prescription.durationUnit || 'week',
+        recommendedStartDate: prescription.recommendedStartDate || prescription.startDate || '',
         instructions: prescription.instructions || ''
     };
 }
@@ -527,25 +533,33 @@ async function buildSignedConsentDocumentFile({
 
 function buildDiagnosisDraftStorageKey(context, veterinarianUserId) {
     const vetKey = normalizeContextValue(veterinarianUserId || 'unknown-vet');
-    const subjectKey = context.queueId
+    const petKey = normalizeContextValue(context.petId);
+    if (!petKey) return '';
+
+    const encounterKey = context.queueId
         ? `queue-${context.queueId}`
         : context.bookingId
             ? `booking-${context.bookingId}`
             : context.bookingNumber
                 ? `booking-number-${context.bookingNumber}`
-                : context.petId
-                    ? `pet-${context.petId}`
-                    : '';
+                : 'pet-record';
 
-    return subjectKey ? `${DIAGNOSIS_DRAFT_STORAGE_PREFIX}:${vetKey}:${subjectKey}` : '';
+    return `${DIAGNOSIS_DRAFT_STORAGE_PREFIX}:${vetKey}:pet-${petKey}:${encounterKey}`;
 }
 
-function readDiagnosisDraft(storageKey) {
+function readDiagnosisDraft(storageKey, expectedPetId) {
     if (!storageKey) return null;
 
     try {
         const draft = JSON.parse(localStorage.getItem(storageKey) || 'null');
-        return draft?.schemaVersion === DIAGNOSIS_DRAFT_SCHEMA_VERSION ? draft : null;
+        const draftPetId = normalizeContextValue(draft?.contextSnapshot?.petId);
+        const petId = normalizeContextValue(expectedPetId);
+
+        return draft?.schemaVersion === DIAGNOSIS_DRAFT_SCHEMA_VERSION
+            && petId
+            && draftPetId === petId
+            ? draft
+            : null;
     } catch {
         return null;
     }
@@ -704,7 +718,10 @@ export default function VetDiagnosis() {
         () => buildDiagnosisDraftStorageKey(initialContext, veterinarianUserId),
         [initialContext, veterinarianUserId]
     );
-    const initialDraft = useMemo(() => readDiagnosisDraft(initialDraftStorageKey), [initialDraftStorageKey]);
+    const initialDraft = useMemo(
+        () => readDiagnosisDraft(initialDraftStorageKey, initialContext.petId),
+        [initialContext.petId, initialDraftStorageKey]
+    );
     const [context, setContext] = useState(initialContext);
     const draftStorageKey = useMemo(
         () => buildDiagnosisDraftStorageKey(context, veterinarianUserId),
@@ -722,13 +739,14 @@ export default function VetDiagnosis() {
     ], [boardingDocumentUploads, consentUploads, sourceUploads]);
 
     const [diagnosisType, setDiagnosisType] = useState(() => initialDraft?.diagnosisType || 'general');
-    const [formData, setFormData] = useState(() => (
+    const [formData, setFormData] = useState(() => applyClinicalIntake(
         initialDraft?.formData
             ? normalizeDraftFormData(initialDraft.formData)
             : {
                 ...emptyDiagnosisForm,
                 vitalSigns: { ...emptyDiagnosisForm.vitalSigns }
-            }
+            },
+        initialContext.clinicalIntake
     ));
     const [currentPrescription, setCurrentPrescription] = useState(() => (
         initialDraft?.currentPrescription
@@ -1006,6 +1024,7 @@ export default function VetDiagnosis() {
 
                 const nextContext = mergeQueueContext(initialContext, queueItem);
                 setContext(nextContext);
+                setFormData(current => applyClinicalIntake(current, nextContext.clinicalIntake));
 
                 try {
                     sessionStorage.setItem(DIAGNOSIS_CONTEXT_KEY, JSON.stringify(nextContext));
@@ -1063,7 +1082,7 @@ export default function VetDiagnosis() {
 
                 const record = Array.isArray(data.records) ? data.records[0] : null;
                 if (record) {
-                    const savedDraft = readDiagnosisDraft(draftStorageKey);
+                    const savedDraft = readDiagnosisDraft(draftStorageKey, context.petId);
 
                     if (savedDraft) {
                         setLoadedDiagnosisId(current => current || record.diagnosisId || record.id || null);
@@ -1163,16 +1182,6 @@ export default function VetDiagnosis() {
 
     const updateForm = (field, value) => {
         setFormData(current => ({ ...current, [field]: value }));
-    };
-
-    const updateVitalSign = (field, value) => {
-        setFormData(current => ({
-            ...current,
-            vitalSigns: {
-                ...current.vitalSigns,
-                [field]: value
-            }
-        }));
     };
 
     const addPrescription = () => {
@@ -1661,7 +1670,7 @@ export default function VetDiagnosis() {
         }
     };
 
-    const handleSaveDiagnosis = async ({ printAfterSave = false, stayAfterSave = false } = {}) => {
+    const handleSaveDiagnosis = async ({ printAfterSave = hasPrintablePrescriptions, stayAfterSave = false } = {}) => {
         if (!veterinarianUserId) {
             toast.error('Your veterinarian session could not be identified. Log in again before saving this diagnosis.');
             return false;
@@ -1854,15 +1863,6 @@ export default function VetDiagnosis() {
         }
     };
 
-    const handleSaveAndPrintPrescription = async () => {
-        if (!hasPrintablePrescriptions) {
-            toast.error('Add at least one prescription before printing.');
-            return;
-        }
-
-        await handleSaveDiagnosis({ printAfterSave: true, stayAfterSave: true });
-    };
-
     const handleCancel = () => {
         if (window.confirm('Cancel this diagnosis? Unsaved changes will be lost.')) {
             clearDiagnosisDraft(draftStorageKey);
@@ -1871,7 +1871,7 @@ export default function VetDiagnosis() {
     };
 
     return (
-        <div className="mx-auto max-w-7xl space-y-4">
+        <div className="mx-auto max-w-7xl space-y-4" data-session-persist="off">
             <DashboardPageHeader
                 icon={Stethoscope}
                 title="Diagnosis"
@@ -1944,15 +1944,21 @@ export default function VetDiagnosis() {
                 </div>
             </section>
 
+            {diagnosisType === 'general' && <DiagnosisProgress formData={formData} />}
+
+            <PatientExaminationSummary
+                intake={context.clinicalIntake}
+                formData={formData}
+                onPreview={setPreviewImage}
+            />
+
             {diagnosisType === 'general' ? (
                 <>
-                    <DiagnosisProgress formData={formData} />
                     <GeneralDiagnosisForm
                         formData={formData}
                         currentPrescription={currentPrescription}
                         setCurrentPrescription={setCurrentPrescription}
                         updateForm={updateForm}
-                        updateVitalSign={updateVitalSign}
                         addPrescription={addPrescription}
                         removePrescription={removePrescription}
                     />
@@ -2121,13 +2127,13 @@ export default function VetDiagnosis() {
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={handleSaveAndPrintPrescription}
+                        onClick={printPrescriptionFromCurrentForm}
                         disabled={isSaving || isLoadingRecord || !hasPrintablePrescriptions}
                         title={!hasPrintablePrescriptions ? 'Add at least one prescription before printing.' : undefined}
                         className="gap-2"
                     >
-                        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
-                        {loadedDiagnosisId ? 'Update & Print Prescription' : 'Save & Print Prescription'}
+                        <Printer className="size-4" />
+                        Print Preview
                     </Button>
                     <Button
                         type="button"
@@ -2136,7 +2142,9 @@ export default function VetDiagnosis() {
                         className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                     >
                         {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                        {loadedDiagnosisId ? 'Update Diagnosis' : 'Save Diagnosis'}
+                        {loadedDiagnosisId
+                            ? (hasPrintablePrescriptions ? 'Update Diagnosis & Print' : 'Update Diagnosis')
+                            : (hasPrintablePrescriptions ? 'Save Diagnosis & Print' : 'Save Diagnosis')}
                     </Button>
                 </div>
             </div>
@@ -2422,6 +2430,7 @@ function AdditionalConsentSection({
 
 function AdditionalConsentCard({ consent, ownerName, onPreview, onRemove }) {
     const [isOpening, setIsOpening] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const signatureOnlyPaths = new Set([
         consent.signatureDataUrl,
         consent.signatureUrl
@@ -2463,6 +2472,20 @@ function AdditionalConsentCard({ consent, ownerName, onPreview, onRemove }) {
             toast.error('The signed consent form could not be opened. Please try again.');
         } finally {
             setIsOpening(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!source || isDownloading) return;
+
+        setIsDownloading(true);
+        try {
+            await downloadConsentDocument(source, consent.name || `${title}.pdf`);
+        } catch (error) {
+            console.error('Failed to download the signed consent form:', error);
+            toast.error('The signed consent form could not be downloaded. Please try again.');
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -2514,17 +2537,28 @@ function AdditionalConsentCard({ consent, ownerName, onPreview, onRemove }) {
                 {isUnavailable && (
                     <p className="text-xs font-semibold text-amber-700">Signature-only display is disabled.</p>
                 )}
-                <div>
+                <div className="grid grid-cols-2 gap-2">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={handleView}
                         disabled={!source || isOpening}
-                        className="h-8 w-full gap-1 text-xs"
+                        className="h-8 gap-1 text-xs"
                     >
                         {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                        {isPdf ? 'Open PDF' : 'View'}
+                        {isPdf ? 'Preview PDF' : 'View'}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                        disabled={!source || isDownloading}
+                        className="h-8 gap-1 text-xs"
+                    >
+                        {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                        Download
                     </Button>
                 </div>
                 {onRemove && (
@@ -2994,6 +3028,161 @@ function DiagnosisTypeButton({ active, icon, title, description, onClick }) {
     );
 }
 
+function ExaminationEvidenceField({ label, value, fieldKey, attachments, onPreview, urgent = false }) {
+    const photos = (attachments || []).filter(attachment => attachment.fieldKey === fieldKey);
+
+    return (
+        <div className="space-y-2">
+            <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">{label}</Label>
+            <div className={`overflow-hidden rounded-lg border bg-slate-50/50 dark:bg-slate-950/50 ${urgent
+                ? 'border-amber-200 dark:border-amber-900/70'
+                : 'border-slate-200 dark:border-slate-700'}`}>
+                <div className="min-h-24 whitespace-pre-wrap px-3 py-2.5 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                    {String(value || '').trim() || <span className="text-slate-400">Not recorded</span>}
+                </div>
+                {photos.length > 0 && (
+                    <div className="border-t border-slate-200 bg-white/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            {photos.map(photo => {
+                                const source = photo.url || photo.relativeUrl || '';
+                                const name = photo.name || 'Examination photo';
+                                return (
+                                    <button
+                                        key={photo.id || source}
+                                        type="button"
+                                        onClick={() => onPreview?.({ src: source, alt: name })}
+                                        className="size-20 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-950"
+                                        aria-label={`Preview ${name}`}
+                                    >
+                                        <ProtectedImage src={source} alt={name} className="size-full object-cover transition-transform hover:scale-105" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ExaminationVitalSigns({ vitalSigns, attachments, onPreview }) {
+    const photos = (attachments || []).filter(attachment => attachment.fieldKey === 'vitalSigns');
+    const values = [
+        ['Temperature', vitalSigns?.temperature, '°C'],
+        ['Heart Rate', vitalSigns?.heartRate, 'BPM'],
+        ['Respiratory Rate', vitalSigns?.respiratoryRate, 'breaths/min'],
+        ['Weight', vitalSigns?.weight, 'kg']
+    ];
+
+    return (
+        <div className="space-y-2">
+            <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Vital Signs</Label>
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-950/50">
+                <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {values.map(([label, value, unit]) => (
+                        <div key={label} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">
+                                {String(value || '').trim() ? `${value} ${unit}` : 'Not recorded'}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+                {photos.length > 0 && (
+                    <div className="border-t border-slate-200 bg-white/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            {photos.map(photo => {
+                                const source = photo.url || photo.relativeUrl || '';
+                                const name = photo.name || 'Vital signs photo';
+                                return (
+                                    <button
+                                        key={photo.id || source}
+                                        type="button"
+                                        onClick={() => onPreview?.({ src: source, alt: name })}
+                                        className="size-20 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-950"
+                                        aria-label={`Preview ${name}`}
+                                    >
+                                        <ProtectedImage src={source} alt={name} className="size-full object-cover transition-transform hover:scale-105" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function PatientExaminationSummary({ intake, formData, onPreview }) {
+    const attachments = Array.isArray(intake?.attachments) ? intake.attachments : [];
+    const examinerName = intake?.recordedByName || '';
+    const examinerPosition = intake?.recordedByPosition || '';
+
+    return (
+        <section id="diagnosis-examination" className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <header className="flex flex-col gap-3 border-b border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+                <div className="flex items-start gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc] shadow-sm ring-1 ring-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-900/60">
+                        <Stethoscope className="size-5" aria-hidden="true" />
+                    </span>
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">1. Patient Examination</h3>
+                        <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            Read-only findings recorded during clinic intake.
+                        </p>
+                    </div>
+                </div>
+                <Badge
+                    className="w-fit border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    title={[examinerName, examinerPosition].filter(Boolean).join(' · ') || 'Examiner not recorded'}
+                >
+                    {examinerName ? `Examined by ${examinerName}` : 'Examiner not recorded'}
+                </Badge>
+            </header>
+            <div className="space-y-5 p-4 sm:p-5">
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <ExaminationEvidenceField
+                        label="Chief Complaint"
+                        value={formData.chiefComplaint}
+                        fieldKey="chiefComplaint"
+                        attachments={attachments}
+                        onPreview={onPreview}
+                    />
+                    <ExaminationEvidenceField
+                        label="Symptoms & Clinical Signs"
+                        value={formData.symptoms}
+                        fieldKey="symptoms"
+                        attachments={attachments}
+                        onPreview={onPreview}
+                    />
+                </div>
+                <ExaminationEvidenceField
+                    label="Major / Urgent Symptoms"
+                    value={formData.majorSymptoms}
+                    fieldKey="majorSymptoms"
+                    attachments={attachments}
+                    onPreview={onPreview}
+                    urgent
+                />
+                <ExaminationVitalSigns
+                    vitalSigns={formData.vitalSigns}
+                    attachments={attachments}
+                    onPreview={onPreview}
+                />
+                <ExaminationEvidenceField
+                    label="Physical Examination Findings"
+                    value={formData.physicalExam}
+                    fieldKey="physicalExam"
+                    attachments={attachments}
+                    onPreview={onPreview}
+                />
+            </div>
+        </section>
+    );
+}
+
 function DiagnosisSection({ id, number, icon, title, description, children }) {
     const Icon = icon;
 
@@ -3111,94 +3300,11 @@ function GeneralDiagnosisForm({
     currentPrescription,
     setCurrentPrescription,
     updateForm,
-    updateVitalSign,
     addPrescription,
     removePrescription
 }) {
     return (
         <div className="space-y-4">
-            <DiagnosisSection
-                id="diagnosis-examination"
-                number="1"
-                icon={Stethoscope}
-                title="Patient Examination"
-                description="Record the reason for the visit, clinical signs, vital signs, and examination findings."
-            >
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <Field id="vet-chief-complaint" label="Chief Complaint">
-                        <Textarea
-                            id="vet-chief-complaint"
-                            value={formData.chiefComplaint}
-                            onChange={(event) => updateForm('chiefComplaint', event.target.value)}
-                            placeholder="Enter the main reason for the visit"
-                            className="min-h-24"
-                        />
-                    </Field>
-                    <Field id="vet-clinical-signs" label="Symptoms & Clinical Signs">
-                        <Textarea
-                            id="vet-clinical-signs"
-                            value={formData.symptoms}
-                            onChange={(event) => updateForm('symptoms', event.target.value)}
-                            placeholder="Enter observed or reported symptoms"
-                            className="min-h-24"
-                        />
-                    </Field>
-                </div>
-
-                <MajorSymptomsContainer
-                    value={formData.majorSymptoms}
-                    onChange={(value) => updateForm('majorSymptoms', value)}
-                />
-
-                <div className="space-y-3">
-                    <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Vital Signs</Label>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <InputBlock
-                            id="vet-temperature"
-                            label="Temperature (°C)"
-                            value={formData.vitalSigns.temperature}
-                            placeholder="38.5"
-                            restriction="decimal"
-                            onChange={(value) => updateVitalSign('temperature', value)}
-                        />
-                        <InputBlock
-                            id="vet-heart-rate"
-                            label="Heart Rate (BPM)"
-                            value={formData.vitalSigns.heartRate}
-                            placeholder="120"
-                            restriction="integer"
-                            onChange={(value) => updateVitalSign('heartRate', value)}
-                        />
-                        <InputBlock
-                            id="vet-respiratory-rate"
-                            label="Respiratory Rate"
-                            value={formData.vitalSigns.respiratoryRate}
-                            placeholder="30"
-                            restriction="integer"
-                            onChange={(value) => updateVitalSign('respiratoryRate', value)}
-                        />
-                        <InputBlock
-                            id="vet-weight"
-                            label="Weight (kg)"
-                            value={formData.vitalSigns.weight}
-                            placeholder="12.5"
-                            restriction="decimal"
-                            onChange={(value) => updateVitalSign('weight', value)}
-                        />
-                    </div>
-                </div>
-
-                <Field id="vet-physical-exam" label="Physical Examination Findings">
-                    <Textarea
-                        id="vet-physical-exam"
-                        value={formData.physicalExam}
-                        onChange={(event) => updateForm('physicalExam', event.target.value)}
-                        placeholder="Enter physical examination findings"
-                        className="min-h-24"
-                    />
-                </Field>
-            </DiagnosisSection>
-
             <DiagnosisSection
                 id="diagnosis-assessment"
                 number="2"
@@ -3310,18 +3416,8 @@ function MajorSymptomsContainer({ value, onChange }) {
     );
 }
 
-function parseNonNegativeNumber(value, fallback = 0) {
-    const parsed = Number(value);
-
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
-
 function formatPrescriptionLine(prescription) {
-    const durationUnit = prescription.durationUnit === 'as needed'
-        ? 'as needed'
-        : `${prescription.durationUnit}${Number(prescription.durationNumber) === 1 ? '' : '(s)'}`;
-
-    return `${prescription.medicine} - ${prescription.times} time(s) ${prescription.frequency} for ${prescription.durationNumber} ${durationUnit}`;
+    return prescriptionLine(prescription);
 }
 
 function escapeHtml(value) {
@@ -3512,126 +3608,17 @@ function PrescriptionEditor({
     removePrescription,
     embedded = false
 }) {
-    const updatePrescriptionInput = (field, value) => {
-        setCurrentPrescription(current => ({ ...current, [field]: value }));
-    };
-
     return (
-        <div className={`space-y-4 ${embedded ? '' : 'rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40'}`}>
+        <div className="space-y-3">
             {!embedded && <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</Label>}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(190px,1.5fr)_90px_150px_90px_140px]">
-                <div className="space-y-2 sm:col-span-2 xl:col-span-1">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Medicine / Item</Label>
-                    <Input
-                        value={currentPrescription.medicine}
-                        onChange={(event) => updatePrescriptionInput('medicine', event.target.value)}
-                        placeholder="e.g. Amoxicillin 500mg"
-                        aria-label="Medicine or item"
-                        className="bg-white dark:bg-slate-900"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Times</Label>
-                    <Input
-                        type="number"
-                        min="0"
-                        value={currentPrescription.times}
-                        onChange={(event) => updatePrescriptionInput('times', parseNonNegativeNumber(event.target.value, 1))}
-                        placeholder="1"
-                        aria-label="Number of times"
-                        className="bg-white dark:bg-slate-900"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Frequency</Label>
-                    <Select
-                        value={currentPrescription.frequency}
-                        onValueChange={(value) => updatePrescriptionInput('frequency', value)}
-                    >
-                        <SelectTrigger className="bg-white dark:bg-slate-900" aria-label="Prescription frequency">
-                            <SelectValue placeholder="Frequency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {PRESCRIPTION_FREQUENCIES.map(option => (
-                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration</Label>
-                    <Input
-                        type="number"
-                        min="0"
-                        value={currentPrescription.durationNumber}
-                        onChange={(event) => updatePrescriptionInput('durationNumber', parseNonNegativeNumber(event.target.value, 0))}
-                        placeholder="1"
-                        aria-label="Prescription duration"
-                        className="bg-white dark:bg-slate-900"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration Unit</Label>
-                    <Select
-                        value={currentPrescription.durationUnit}
-                        onValueChange={(value) => updatePrescriptionInput('durationUnit', value)}
-                    >
-                        <SelectTrigger className="bg-white dark:bg-slate-900" aria-label="Prescription duration unit">
-                            <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {PRESCRIPTION_DURATION_UNITS.map(option => (
-                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1 space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Instructions / Notes</Label>
-                    <Textarea
-                        value={currentPrescription.instructions}
-                        onChange={(event) => updatePrescriptionInput('instructions', event.target.value)}
-                        placeholder="Enter dosage instructions or notes for the owner"
-                        aria-label="Prescription instructions or notes"
-                        className="min-h-20 bg-white dark:bg-slate-900"
-                    />
-                </div>
-                <Button type="button" onClick={addPrescription} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:mb-0.5">
-                    <Plus className="size-4" />
-                    Add Medication
-                </Button>
-            </div>
-
-            {prescriptions.length > 0 && (
-                <div className="space-y-2">
-                    {prescriptions.map(prescription => (
-                        <div key={prescription.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                    <Pill className="mr-1 inline size-4 text-slate-400" />
-                                    {formatPrescriptionLine(prescription)}
-                                </p>
-                                {prescription.instructions && (
-                                    <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{prescription.instructions}</p>
-                                )}
-                            </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removePrescription(prescription.id)}
-                                className="w-fit text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                                <Trash2 className="size-4" />
-                                Remove
-                            </Button>
-                        </div>
-                    ))}
-                </div>
-            )}
+            <StructuredPrescriptionEditor
+                draft={currentPrescription}
+                setDraft={setCurrentPrescription}
+                items={prescriptions}
+                onAdd={addPrescription}
+                onRemove={removePrescription}
+                embedded={embedded}
+            />
         </div>
     );
 }
@@ -3827,7 +3814,13 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
         ? rawSource
         : resolveFileUrl(rawSource);
     const canPreviewImage = isImageFile({ ...attachment, url: previewSrc });
-    const attachmentName = attachment.name || attachment.label || 'Upload';
+    const attachmentName = attachment.displayName
+        || attachment.display_name
+        || attachment.name
+        || attachment.originalName
+        || attachment.original_name
+        || attachment.label
+        || 'Upload';
     const isPdf = String(attachment.mimeType || attachment.mime_type || '').toLowerCase() === 'application/pdf'
         || rawSource.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
 
@@ -3900,8 +3893,8 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
                 )}
             </div>
             <div className="space-y-2 p-3">
-                <p className="truncate text-xs font-semibold text-slate-600">{attachmentName}</p>
-                <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <p className="break-words text-xs font-semibold text-slate-600">{attachmentName}</p>
+                <div className="grid grid-cols-2 gap-2">
                     <Button
                         type="button"
                         variant="outline"
@@ -3911,9 +3904,9 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
                         className="h-8 gap-1 text-xs"
                     >
                         {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                        {isPdf ? 'Open PDF' : 'View'}
+                        {isPdf ? 'Preview PDF' : 'View'}
                     </Button>
-                    {!isPdf && <Button
+                    <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -3923,7 +3916,7 @@ function AttachmentCard({ attachment, onRemove, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                         Download
-                    </Button>}
+                    </Button>
                 </div>
             </div>
         </div>

@@ -119,6 +119,38 @@ function collectRecordAttachments(record) {
     });
 }
 
+function effectiveOrganizedRecord(item) {
+    const source = item?.sourceSnapshot && typeof item.sourceSnapshot === 'object'
+        ? item.sourceSnapshot
+        : {};
+    const revision = item?.revisionSnapshot && typeof item.revisionSnapshot === 'object'
+        ? item.revisionSnapshot
+        : {};
+    const attachments = collectRecordAttachments(source);
+    const seen = new Set(attachments.map((attachment, index) => (
+        attachment?.url || attachment?.relativeUrl || attachment?.preview || attachment?.id || `source-${index}`
+    )));
+
+    asArray(revision.revisionAttachments).forEach((attachment, index) => {
+        const key = attachment?.url
+            || attachment?.relativeUrl
+            || attachment?.preview
+            || attachment?.id
+            || `revision-${index}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            attachments.push(attachment);
+        }
+    });
+
+    return {
+        ...source,
+        ...revision,
+        attachments,
+        sourceUploads: []
+    };
+}
+
 function collectRecordPrescriptions(record) {
     return [
         ...asArray(record?.prescriptions),
@@ -153,6 +185,32 @@ function vitalSignRows(vitalSigns) {
             label: humanizeKey(key),
             value: `${value}${unitByKey[key] ? ` ${unitByKey[key]}` : ''}`
         }));
+}
+
+async function waitForPrintableImages(root, timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs;
+    while (root?.querySelector('[data-protected-image-state="loading"]') && Date.now() < deadline) {
+        await new Promise(resolve => window.setTimeout(resolve, 100));
+    }
+
+    const pendingImages = Array.from(root?.querySelectorAll('img') || [])
+        .filter(image => !image.complete);
+
+    if (pendingImages.length === 0) return;
+
+    await Promise.all(pendingImages.map(image => new Promise((resolve) => {
+        let timeoutId = 0;
+        const finish = () => {
+            window.clearTimeout(timeoutId);
+            image.removeEventListener('load', finish);
+            image.removeEventListener('error', finish);
+            resolve();
+        };
+
+        image.addEventListener('load', finish, { once: true });
+        image.addEventListener('error', finish, { once: true });
+        timeoutId = window.setTimeout(finish, timeoutMs);
+    })));
 }
 
 function prescriptionLabel(prescription) {
@@ -240,7 +298,7 @@ function resolveSearchFocusTarget(focus, serviceHistory, organizedRecords) {
 
     const matchingItem = organizedRecords
         .flatMap((group) => asArray(group.items))
-        .find((item) => recordContainsQuery(item.sourceSnapshot || item, focus?.query));
+        .find((item) => recordContainsQuery(effectiveOrganizedRecord(item), focus?.query));
 
     return matchingItem ? `medical-item-${matchingItem.itemId}` : 'medical-clinical-history';
 }
@@ -274,13 +332,16 @@ function doctorNoteRows(source) {
     ].map(([label, value]) => ({ label, value: compactText(value) })).filter(row => row.value);
 
     asArray(source.customSections).forEach((section, index) => {
-        const value = compactText(section?.value || section?.notes || section?.majorSymptoms || section?.description);
-        if (!value) return;
+        const sectionLabel = compactText(section?.title || section?.label || section?.type) || `Clinical Note ${index + 1}`;
+        const majorSymptoms = compactText(section?.majorSymptoms);
+        const detail = compactText(section?.value || section?.notes || section?.description);
 
-        rows.push({
-            label: compactText(section?.title || section?.label || section?.type) || `Clinical Note ${index + 1}`,
-            value
-        });
+        if (majorSymptoms) {
+            rows.push({ label: `${sectionLabel} - Major Symptoms`, value: majorSymptoms });
+        }
+        if (detail && detail !== majorSymptoms) {
+            rows.push({ label: sectionLabel, value: detail });
+        }
     });
 
     return rows;
@@ -292,6 +353,7 @@ export default function MedicalRecords() {
     const [records, setRecords] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [viewer, setViewer] = useState(null);
+    const [isPreparingPrint, setIsPreparingPrint] = useState(false);
     const [searchFocus, setSearchFocus] = useState(null);
     const [highlightedTarget, setHighlightedTarget] = useState('');
     const [highlightedMatch, setHighlightedMatch] = useState(null);
@@ -388,6 +450,18 @@ export default function MedicalRecords() {
         window.clearTimeout(searchScrollTimerRef.current);
         window.clearTimeout(searchHighlightTimerRef.current);
     }, []);
+
+    const handlePrint = async () => {
+        if (isPreparingPrint) return;
+
+        setIsPreparingPrint(true);
+        try {
+            await waitForPrintableImages(document.querySelector('.medical-print-area'));
+            window.print();
+        } finally {
+            setIsPreparingPrint(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -593,11 +667,12 @@ export default function MedicalRecords() {
                 <div className="w-full overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm sm:w-auto">
                     <Button
                         type="button"
-                        onClick={() => window.print()}
+                        onClick={handlePrint}
+                        disabled={isPreparingPrint}
                         className="h-11 w-full rounded-none border-0 bg-[#155dfc] px-4 text-white hover:bg-[#0d4acf] sm:min-w-36"
                     >
-                        <Printer className="size-4" />
-                        Print
+                        {isPreparingPrint ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+                        {isPreparingPrint ? 'Preparing images...' : 'Print Complete Record'}
                     </Button>
                 </div>
             </div>
@@ -939,8 +1014,8 @@ function ClinicalDocumentsSection({ documents, onPreview }) {
                 {documents.map((document, index) => {
                     const url = imageUrl(document);
                     const title = document.category === 'additional_consent'
-                        ? document.name || 'Signed consent form'
-                        : document.name || 'Prescription document';
+                        ? attachmentDisplayName(document, index) || 'Signed consent form'
+                        : attachmentDisplayName(document, index) || 'Prescription document';
 
                     return (
                         <ClinicalDocumentCard
@@ -996,7 +1071,7 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
     };
 
     return (
-        <div className="no-print overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="medical-record-attachment-card overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="flex h-32 items-center justify-center overflow-hidden rounded-md bg-white">
                 {canPreviewImage ? (
                     <ProtectedImage
@@ -1006,14 +1081,20 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
                         fallbackClassName="h-full w-full"
                     />
                 ) : (
-                    <FileText className="size-8 text-slate-300" />
+                    <div className="text-center text-slate-400">
+                        <FileText className="mx-auto size-8 text-slate-300" />
+                        <p className="mt-2 text-xs font-black uppercase tracking-widest">{isPdf ? 'PDF document' : 'Document'}</p>
+                    </div>
                 )}
             </div>
-            <p className="mt-3 truncate text-sm font-black text-slate-800">{title}</p>
+            <p className="mt-3 break-words text-sm font-black text-slate-800">{title}</p>
             <p className="mt-1 text-xs font-semibold text-slate-500">
                 {document.category === 'additional_consent' ? 'Signed consent form' : 'Prescription document'}
             </p>
-            <div className={`mt-3 grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {(document.uploadedAt || document.signedAt) && (
+                <p className="mt-1 text-xs font-semibold text-slate-400">Saved {formatDisplayDateTime(document.uploadedAt || document.signedAt)}</p>
+            )}
+            <div className="no-print mt-3 grid grid-cols-2 gap-2">
                 <Button
                     type="button"
                     variant="outline"
@@ -1023,9 +1104,9 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
                     className="h-8 gap-1 text-xs"
                 >
                     {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                    {isPdf ? 'Open PDF' : 'View'}
+                    {isPdf ? 'Preview PDF' : 'View'}
                 </Button>
-                {!isPdf && <Button
+                <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1035,7 +1116,7 @@ function ClinicalDocumentCard({ document, title, url, onPreview }) {
                 >
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
-                </Button>}
+                </Button>
             </div>
         </div>
     );
@@ -1219,7 +1300,7 @@ function OrganizedGroup({ group, onPreview, highlightedTarget }) {
 }
 
 function OrganizedItem({ item, onPreview, highlightedTarget }) {
-    const source = item.sourceSnapshot || {};
+    const source = effectiveOrganizedRecord(item);
     const targetId = `medical-item-${item.itemId}`;
     const doctorNotes = doctorNoteRows(source);
     const attachments = collectRecordAttachments(source);
@@ -1325,13 +1406,13 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
     );
 }
 
-function MedicalRecordAttachmentCard({ attachment, onPreview }) {
+function MedicalRecordAttachmentCard({ attachment, index = 0, onPreview }) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isOpening, setIsOpening] = useState(false);
     const rawPath = attachment?.preview || attachment?.url || attachment?.relativeUrl || '';
     const url = imageUrl(attachment);
     const canPreview = isImage(attachment);
-    const title = attachment?.name || 'Attachment';
+    const title = attachmentDisplayName(attachment, index);
     const isPdf = String(attachment?.mimeType || attachment?.mime_type || '').toLowerCase() === 'application/pdf'
         || rawPath.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
 
@@ -1366,7 +1447,7 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
     };
 
     return (
-        <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
+        <div className="medical-record-attachment-card min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
             <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-white">
                 {canPreview && url ? (
                     <ProtectedImage
@@ -1376,11 +1457,22 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                         fallbackClassName="h-full w-full"
                     />
                 ) : (
-                    <FileText className="size-7 text-slate-300" />
+                    <div className="text-center text-slate-400">
+                        <FileText className="mx-auto size-7 text-slate-300" />
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-widest">{isPdf ? 'PDF document' : 'Document'}</p>
+                    </div>
                 )}
             </div>
-            <p className="mt-2 truncate text-xs font-bold text-slate-700">{title}</p>
-            <div className={`mt-2 grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <p className="mt-2 break-words text-xs font-bold text-slate-700">{title}</p>
+            <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                {[attachment.contextLabel, attachmentCategoryLabel(attachment)].filter(Boolean).join(' | ')}
+            </p>
+            {(attachment.uploadedAt || attachment.createdAt || attachment.signedAt) && (
+                <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                    Saved {formatDisplayDateTime(attachment.uploadedAt || attachment.createdAt || attachment.signedAt)}
+                </p>
+            )}
+            <div className="no-print mt-2 grid grid-cols-2 gap-2">
                 <Button
                     type="button"
                     variant="outline"
@@ -1390,9 +1482,9 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                     className="h-8 gap-1 text-xs"
                 >
                     {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                    {isPdf ? 'Open PDF' : 'View'}
+                    {isPdf ? 'Preview PDF' : 'View'}
                 </Button>
-                {!isPdf && <Button
+                <Button
                     type="button"
                     variant="outline"
                     size="sm"
@@ -1402,7 +1494,7 @@ function MedicalRecordAttachmentCard({ attachment, onPreview }) {
                 >
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
-                </Button>}
+                </Button>
             </div>
         </div>
     );

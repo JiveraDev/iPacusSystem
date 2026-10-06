@@ -3,6 +3,7 @@ import { DateInput } from "@mantine/dates";
 import { Calendar as CalendarIcon } from "lucide-react";
 
 import { cn } from "./utils";
+import { PET_INPUT_LIMITS, normalizePetBreedInput, normalizePetMarkingsInput, normalizePetNameInput, normalizePetWeightInput } from "../lib/petInputValidation";
 
 const inputBaseClasses = [
   "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground",
@@ -100,12 +101,37 @@ function normalizeDecimalText(value) {
 function restrictTextValue(value, restriction) {
   const text = String(value || "");
 
-  if (restriction === "name") {
-    return text.replace(/[^\p{L}\p{M} .'-]/gu, "").replace(/\s{2,}/g, " ");
+  if (restriction === "pet-breed") {
+    return normalizePetBreedInput(text);
+  }
+
+  if (restriction === "name" || restriction === "pet-name" || restriction === "pet-species") {
+    const limit = restriction === "pet-name"
+      ? PET_INPUT_LIMITS.name
+      : restriction === "pet-species"
+        ? PET_INPUT_LIMITS.species
+        : Number.POSITIVE_INFINITY;
+    return normalizePetNameInput(text, limit);
+  }
+
+  if (restriction === "pet-age") {
+    return text.replace(/\D/g, "").slice(0, PET_INPUT_LIMITS.age);
+  }
+
+  if (restriction === "pet-microchip") {
+    return text.replace(/\D/g, "").slice(0, PET_INPUT_LIMITS.microchip);
   }
 
   if (restriction === "integer" || restriction === "digits" || restriction === "phone") {
     return text.replace(/\D/g, "");
+  }
+
+  if (restriction === "pet-weight") {
+    return normalizePetWeightInput(text);
+  }
+
+  if (restriction === "pet-markings") {
+    return normalizePetMarkingsInput(text);
   }
 
   if (restriction === "decimal") {
@@ -124,7 +150,7 @@ function inputModeForRestriction(restriction, inputMode) {
     return inputMode;
   }
 
-  if (restriction === "integer" || restriction === "digits") {
+  if (restriction === "integer" || restriction === "digits" || restriction === "pet-age" || restriction === "pet-microchip") {
     return "numeric";
   }
 
@@ -132,7 +158,7 @@ function inputModeForRestriction(restriction, inputMode) {
     return "tel";
   }
 
-  if (restriction === "decimal") {
+  if (restriction === "decimal" || restriction === "pet-weight") {
     return "decimal";
   }
 
@@ -165,6 +191,7 @@ const Input = React.forwardRef(({
   required,
   readOnly,
   restriction,
+  maxLength,
   ...props
 }, ref) => {
   if (type === "date") {
@@ -246,6 +273,15 @@ const Input = React.forwardRef(({
       required={required}
       readOnly={readOnly}
       inputMode={inputModeForRestriction(restriction, inputMode)}
+      maxLength={maxLength ?? ({
+        "pet-name": PET_INPUT_LIMITS.name,
+        "pet-species": PET_INPUT_LIMITS.species,
+        "pet-breed": PET_INPUT_LIMITS.breed,
+        "pet-age": PET_INPUT_LIMITS.age,
+        "pet-weight": PET_INPUT_LIMITS.weight,
+        "pet-microchip": PET_INPUT_LIMITS.microchip,
+        "pet-markings": PET_INPUT_LIMITS.colorMarkings,
+      }[restriction])}
       className={cn(
         inputBaseClasses,
         leftIcon && "pl-10",

@@ -33,71 +33,20 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import { fetchAllPets, updatePetStatus } from '../../services/petService';
 import { uploadImageFile } from '../../services/uploadService';
+import {
+    PET_INPUT_LIMITS,
+    isPetBreedText,
+    isPetMarkingsText,
+    isPetMicrochipText,
+    isPetNameText,
+    isPetSpeciesText,
+    isPetWeightText,
+    normalizePetNameInput,
+} from '../../lib/petInputValidation';
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from '../shared/PetCatalogAutocomplete.jsx';
 
 const QUEUE_REGISTRATION_HANDOFF_KEY = 'ipawcus-queue-registration-handoff';
 const REGISTERED_PETS_PAGE_SIZE = 10;
-
-const DEFAULT_PET_BREEDS = {
-    Dog: [
-        'Aspin (Askal)',
-        'Beagle',
-        'Chihuahua',
-        'Dachshund',
-        'French Bulldog',
-        'German Shepherd',
-        'Golden Retriever',
-        'Labrador Retriever',
-        'Pomeranian',
-        'Poodle',
-        'Pug',
-        'Shih Tzu',
-        'Siberian Husky',
-        'Mixed Breed',
-    ],
-    Cat: [
-        'Domestic Shorthair',
-        'Domestic Longhair',
-        'Persian',
-        'Siamese',
-        'British Shorthair',
-        'Maine Coon',
-        'Ragdoll',
-        'Bengal',
-        'Mixed Breed',
-    ],
-    Bird: ['Budgerigar', 'Cockatiel', 'Lovebird', 'Parrot', 'Canary', 'Finch', 'Mixed Breed'],
-    Rabbit: ['Holland Lop', 'Mini Rex', 'Lionhead', 'Netherland Dwarf', 'New Zealand', 'Mixed Breed'],
-    Hamster: ['Syrian', 'Dwarf Campbell', 'Winter White', 'Roborovski', 'Chinese Hamster'],
-    'Guinea Pig': ['American', 'Abyssinian', 'Peruvian', 'Teddy', 'Mixed Breed'],
-    Reptile: ['Ball Python', 'Bearded Dragon', 'Leopard Gecko', 'Red-eared Slider', 'Tortoise', 'Mixed Breed'],
-    Other: ['Mixed Breed'],
-};
-
-const DEFAULT_PET_SPECIES = Object.keys(DEFAULT_PET_BREEDS);
-
-function cleanOption(value) {
-    return String(value || '').trim();
-}
-
-function uniqueOptions(values) {
-    const options = new Map();
-    values.forEach((value) => {
-        const label = cleanOption(value);
-        if (label) {
-            const key = label.toLocaleLowerCase();
-            if (!options.has(key)) options.set(key, label);
-        }
-    });
-    return [...options.values()].sort((left, right) => left.localeCompare(right));
-}
-
-function petSpecies(pet) {
-    return cleanOption(pet?.species || pet?.petSpecies || pet?.pet_species);
-}
-
-function petBreed(pet) {
-    return cleanOption(pet?.breed || pet?.petBreed || pet?.pet_breed);
-}
 
 function localTodayValue() {
     const today = new Date();
@@ -150,23 +99,6 @@ export default function PetRegister() {
     const [registeredPetsPage, setRegisteredPetsPage] = useState(1);
     const todayValue = useMemo(localTodayValue, []);
 
-    const speciesOptions = useMemo(() => uniqueOptions([
-        ...DEFAULT_PET_SPECIES,
-        ...registeredPets.map(petSpecies),
-        formData.species,
-    ]), [formData.species, registeredPets]);
-
-    const breedOptions = useMemo(() => {
-        const selectedSpecies = cleanOption(formData.species).toLocaleLowerCase();
-        const defaultBreeds = Object.entries(DEFAULT_PET_BREEDS)
-            .find(([species]) => species.toLocaleLowerCase() === selectedSpecies)?.[1] || [];
-        const registeredBreeds = registeredPets
-            .filter((pet) => petSpecies(pet).toLocaleLowerCase() === selectedSpecies)
-            .map(petBreed);
-
-        return uniqueOptions([...defaultBreeds, ...registeredBreeds, formData.breed]);
-    }, [formData.breed, formData.species, registeredPets]);
-
     // Dialog and Pet ID states
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [generatedPetId, setGeneratedPetId] = useState('');
@@ -217,7 +149,7 @@ export default function PetRegister() {
     };
 
     const handleSpeciesChange = (value) => {
-        const nextSpecies = cleanOption(value);
+        const nextSpecies = normalizePetNameInput(value, PET_INPUT_LIMITS.species).trim();
         setFormData((previous) => ({
             ...previous,
             species: nextSpecies,
@@ -253,6 +185,31 @@ export default function PetRegister() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!isPetNameText(formData.petName)) {
+            toast.error(`Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.name} characters.`);
+            return;
+        }
+        if (!isPetSpeciesText(formData.species)) {
+            toast.error(`Species may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.species} characters.`);
+            return;
+        }
+        if (!isPetBreedText(formData.breed)) {
+            toast.error(`Breed contains unsupported characters or exceeds ${PET_INPUT_LIMITS.breed} characters.`);
+            return;
+        }
+        if (!isPetWeightText(formData.weight)) {
+            toast.error('Weight must be between 0.1 and 300 kg with no more than two decimal places.');
+            return;
+        }
+        if (!isPetMarkingsText(formData.colorMarkings)) {
+            toast.error(`Color and markings must use letters and spaces only, up to ${PET_INPUT_LIMITS.colorMarkings} characters.`);
+            return;
+        }
+        if (!isPetMicrochipText(formData.microchipNumber)) {
+            toast.error(`Microchip number must contain no more than ${PET_INPUT_LIMITS.microchip} digits.`);
+            return;
+        }
         
         let profileImageUrl = "";
         const complaintFromMedicalInfo = [
@@ -439,7 +396,7 @@ export default function PetRegister() {
                                         value={formData.petName}
                                         onChange={(e) => handleInputChange('petName', e.target.value)}
                                         placeholder="Enter pet name"
-                                        restriction="name"
+                                        restriction="pet-name"
                                         className="h-[40px]"
                                         required
                                     />
@@ -449,47 +406,28 @@ export default function PetRegister() {
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Species *
                                     </label>
-                                    <Select
+                                    <PetSpeciesAutocomplete
                                         value={formData.species}
-                                        onValueChange={handleSpeciesChange}
-                                        searchPlaceholder="Search or type a species"
-                                        allowCustom
-                                        customOptionLabel={(value) => `Add species "${value}"`}
-                                        onCreateOption={handleSpeciesChange}
-                                    >
-                                        <SelectTrigger className="h-[40px]">
-                                            <SelectValue placeholder="Select species" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {speciesOptions.map((species) => (
-                                                <SelectItem key={species} value={species}>{species}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        onChange={(event) => handleSpeciesChange(event.target.value)}
+                                        placeholder="Type or choose a species"
+                                        className="h-[40px]"
+                                        required
+                                    />
                                 </div>
 
                                 <div>
                                     <label className="font-['Arimo:Regular',sans-serif] text-[14px] text-[#0a0a0a] block mb-2">
                                         Breed *
                                     </label>
-                                    <Select
+                                    <PetBreedAutocomplete
+                                        species={formData.species}
                                         value={formData.breed}
-                                        onValueChange={(value) => handleInputChange('breed', value)}
+                                        onChange={(event) => handleInputChange('breed', event.target.value)}
                                         disabled={!formData.species}
-                                        searchPlaceholder="Search or type a breed"
-                                        allowCustom
-                                        customOptionLabel={(value) => `Add breed "${value}"`}
-                                        onCreateOption={(value) => handleInputChange('breed', cleanOption(value))}
-                                    >
-                                        <SelectTrigger className="h-[40px]">
-                                            <SelectValue placeholder={formData.species ? 'Select breed' : 'Select species first'} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {breedOptions.map((breed) => (
-                                                <SelectItem key={breed} value={breed}>{breed}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder={formData.species ? 'Type or choose a breed' : 'Enter species first'}
+                                        className="h-[40px]"
+                                        required
+                                    />
                                 </div>
 
                                 <div>
@@ -543,7 +481,7 @@ export default function PetRegister() {
                                         value={formData.weight}
                                         onChange={(e) => handleInputChange('weight', e.target.value)}
                                         placeholder="e.g., 15.5"
-                                        restriction="decimal"
+                                        restriction="pet-weight"
                                         className="h-[40px]"
                                     />
                                 </div>
@@ -556,6 +494,7 @@ export default function PetRegister() {
                                         value={formData.colorMarkings}
                                         onChange={(e) => handleInputChange('colorMarkings', e.target.value)}
                                         placeholder="e.g., Brown with white spots"
+                                        restriction="pet-markings"
                                         className="h-[40px]"
                                     />
                                 </div>
@@ -566,11 +505,9 @@ export default function PetRegister() {
                                     </label>
                                     <Input
                                         value={formData.microchipNumber}
-                                        onChange={(e) => handleInputChange('microchipNumber', e.target.value.replace(/\D/g, '').slice(0, 15))}
+                                        onChange={(e) => handleInputChange('microchipNumber', e.target.value)}
                                         placeholder="Up to 15 digits"
-                                        restriction="digits"
-                                        inputMode="numeric"
-                                        maxLength={15}
+                                        restriction="pet-microchip"
                                         className="h-[40px]"
                                     />
                                 </div>

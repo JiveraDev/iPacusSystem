@@ -235,6 +235,7 @@ export default function ConsultPayment() {
         new_pet_breed: bookingData.petId === "new-pet" ? bookingData.petBreed : null,
         new_pet_age: bookingData.petId === "new-pet" ? bookingData.petAge : null,
         new_pet_weight: bookingData.petId === "new-pet" ? bookingData.petWeight : null,
+        new_pet_color_markings: bookingData.petId === "new-pet" ? bookingData.petColorMarkings : null,
         is_online_consultation: 1,
         veterinarian_id: bookingData.veterinarianId,
         signature: signedConsentDocumentUrl,

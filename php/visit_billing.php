@@ -4,6 +4,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 require_once __DIR__ . '/booking_payment_helpers.php';
 require_once __DIR__ . '/runtime_media.php';
+require_once __DIR__ . '/grooming_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -941,6 +942,115 @@ function visit_billing_net_paid_amount(PDO $pdo, int $visitId): float
     return round(max(0.0, $paid), 2);
 }
 
+function visit_billing_complete_paid_grooming(PDO $pdo, int $visitId): bool
+{
+    foreach (['visits', 'bookings', 'grooming_jobs', 'grooming_events'] as $tableName) {
+        if (!visit_billing_table_exists($pdo, $tableName)) {
+            return false;
+        }
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            v.billing_status,
+            v.booking_id,
+            b.service_type,
+            TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))) AS owner_name,
+            g.status AS grooming_status,
+            g.details_json,
+            g.updated_by
+        FROM visits v
+        JOIN bookings b ON b.booking_id = v.booking_id
+        JOIN grooming_jobs g ON g.booking_id = b.booking_id
+        LEFT JOIN users owner ON owner.user_id = b.user_id
+        WHERE v.visit_id = ?
+          AND (g.visit_id = v.visit_id OR g.visit_id IS NULL)
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $stmt->execute([$visitId]);
+    $grooming = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (
+        !$grooming
+        || ($grooming['billing_status'] ?? '') !== 'paid'
+        || !grooming_is_service($grooming['service_type'] ?? '')
+    ) {
+        return false;
+    }
+
+    if (($grooming['grooming_status'] ?? '') === 'released') {
+        return true;
+    }
+    if (($grooming['grooming_status'] ?? '') !== 'ready') {
+        return false;
+    }
+
+    $actor = visit_billing_current_actor($pdo);
+    $actorId = (int)($actor['user_id'] ?? $grooming['updated_by'] ?? 0);
+    $actorName = trim((string)($actor['full_name'] ?? ''));
+    if ($actorId <= 0) {
+        return false;
+    }
+    if ($actorName === '') {
+        $actorName = 'Clinic staff #' . $actorId;
+    }
+
+    $details = json_decode((string)($grooming['details_json'] ?? ''), true);
+    if (!is_array($details)) {
+        $details = [];
+    }
+    $ownerName = trim((string)($grooming['owner_name'] ?? ''));
+    $details['pickupPerson'] = $ownerName !== '' ? $ownerName : $actorName;
+    $details['pickupConfirmed'] = true;
+
+    $updateJob = $pdo->prepare("
+        UPDATE grooming_jobs
+        SET status = 'released',
+            details_json = ?,
+            visit_id = COALESCE(visit_id, ?),
+            version = version + 1,
+            updated_at = CURRENT_TIMESTAMP,
+            updated_by = ?
+        WHERE booking_id = ?
+          AND status = 'ready'
+    ");
+    $updateJob->execute([
+        json_encode($details, JSON_THROW_ON_ERROR),
+        $visitId,
+        $actorId,
+        (int)$grooming['booking_id'],
+    ]);
+    if ($updateJob->rowCount() !== 1) {
+        return false;
+    }
+
+    $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE booking_id = ?")
+        ->execute([(int)$grooming['booking_id']]);
+    if (
+        visit_billing_table_exists($pdo, 'queues')
+        && visit_billing_column_exists($pdo, 'queues', 'booking_id')
+    ) {
+        $pdo->prepare("
+            UPDATE queues
+            SET status = 'completed'
+            WHERE booking_id = ?
+              AND LOWER(TRIM(service_name)) IN ('grooming', 'pet grooming')
+              AND status IN ('waiting', 'in-progress')
+        ")->execute([(int)$grooming['booking_id']]);
+    }
+
+    grooming_event($pdo, (int)$grooming['booking_id'], $actorId, 'payment_completed_pickup', [
+        'from' => 'ready',
+        'to' => 'released',
+        'visitId' => $visitId,
+        'pickupPerson' => $details['pickupPerson'],
+        'automatic' => true,
+    ]);
+
+    return true;
+}
+
 function visit_billing_update_status(PDO $pdo, int $visitId): void
 {
     $chargeStmt = $pdo->prepare("SELECT COALESCE(SUM(subtotal), 0) FROM visit_charges WHERE visit_id = ?");
@@ -980,6 +1090,10 @@ function visit_billing_update_status(PDO $pdo, int $visitId): void
         WHERE visit_id = ?
     ");
     $stmt->execute([$status, $visitId]);
+
+    if ($status === 'paid') {
+        visit_billing_complete_paid_grooming($pdo, $visitId);
+    }
 }
 
 function visit_billing_is_whole_quantity(float $quantity): bool
@@ -1656,8 +1770,12 @@ function visit_billing_boarding_overdue_days(?string $expectedOutDate): int
         return 0;
     }
     try {
-        $expected = new DateTimeImmutable(substr($expectedOutDate, 0, 10));
-        $today = new DateTimeImmutable(date('Y-m-d'));
+        $timezone = new DateTimeZone('Asia/Manila');
+        $expected = DateTimeImmutable::createFromFormat('!Y-m-d', substr($expectedOutDate, 0, 10), $timezone);
+        $today = new DateTimeImmutable('today', $timezone);
+        if (!$expected) {
+            return 0;
+        }
     } catch (Throwable $error) {
         return 0;
     }
@@ -1685,12 +1803,27 @@ function visit_billing_assert_boarding_invoice_complete(PDO $pdo, int $visitId):
     $clinicalOverstayRate = $supportsClinicalConfinement && visit_billing_column_exists($pdo, 'bookings', 'boarding_overstay_daily_rate')
         ? 'confinement_booking.boarding_overstay_daily_rate'
         : 'NULL';
+    $effectiveBoardingBookingId = $supportsClinicalConfinement
+        ? 'COALESCE(confinement_booking.booking_id, b.booking_id)'
+        : 'b.booking_id';
+    $assignmentDesiredCheckOut = visit_billing_table_exists($pdo, 'boarding_assignments')
+        && visit_billing_column_exists($pdo, 'boarding_assignments', 'desired_check_out_date')
+        ? "(
+            SELECT assignment_due.desired_check_out_date
+            FROM boarding_assignments assignment_due
+            WHERE assignment_due.booking_id = {$effectiveBoardingBookingId}
+            ORDER BY
+                CASE WHEN assignment_due.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END,
+                assignment_due.assignment_id DESC
+            LIMIT 1
+        )"
+        : 'NULL';
     $visitStmt = $pdo->prepare("
         SELECT
             COALESCE({$clinicalBookingId}, v.booking_id) AS booking_id,
             COALESCE({$clinicalServiceType}, b.service_type) AS service_type,
             COALESCE({$clinicalPrice}, b.price) AS price,
-            COALESCE({$clinicalCheckOut}, b.check_out_date) AS check_out_date,
+            COALESCE({$assignmentDesiredCheckOut}, {$clinicalCheckOut}, b.check_out_date) AS check_out_date,
             COALESCE({$clinicalFacility}, b.hotel_boarding_type) AS hotel_boarding_type,
             COALESCE({$clinicalRoomSize}, b.room_size) AS room_size,
             COALESCE({$clinicalAddOns}, b.add_ons) AS add_ons,
@@ -2336,21 +2469,48 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
     $catalogService = $isSpecialService
         ? null
         : visit_billing_booking_catalog_service($pdo, $catalogLookupType);
-    $selectedGroomingCatalogService = false;
+    $selectedGroomingCatalogServices = [];
     if ($serviceKey === 'grooming' && visit_billing_table_exists($pdo, 'grooming_jobs') && visit_billing_table_exists($pdo, 'service_catalog')) {
         $groomingStmt = $pdo->prepare('SELECT details_json FROM grooming_jobs WHERE booking_id = ? LIMIT 1');
         $groomingStmt->execute([(int)$booking['booking_id']]);
         $groomingDetails = json_decode((string)($groomingStmt->fetchColumn() ?: ''), true);
-        $groomingServiceId = (int)($groomingDetails['catalogServiceId'] ?? 0);
-        if ($groomingServiceId > 0) {
-            $catalogStmt = $pdo->prepare("SELECT service_id, service_code, service_name, service_type, base_price FROM service_catalog WHERE service_id = ? AND service_type = 'grooming' AND is_active = 1 LIMIT 1");
-            $catalogStmt->execute([$groomingServiceId]);
-            $selectedService = $catalogStmt->fetch(PDO::FETCH_ASSOC);
-            if ($selectedService) {
-                $catalogService = $selectedService;
-                $selectedGroomingCatalogService = true;
+        $groomingDetails = is_array($groomingDetails) ? $groomingDetails : [];
+        $groomingServiceIds = is_array($groomingDetails['catalogServiceIds'] ?? null)
+            ? array_values(array_unique(array_filter(array_map('intval', $groomingDetails['catalogServiceIds']))))
+            : [];
+        if (!$groomingServiceIds && (int)($groomingDetails['catalogServiceId'] ?? 0) > 0) {
+            $groomingServiceIds = [(int)$groomingDetails['catalogServiceId']];
+        }
+        if ($groomingServiceIds) {
+            $placeholders = implode(',', array_fill(0, count($groomingServiceIds), '?'));
+            $catalogStmt = $pdo->prepare("SELECT service_id, service_code, service_name, service_type, base_price FROM service_catalog WHERE service_id IN ({$placeholders}) AND service_type = 'grooming' AND is_active = 1");
+            $catalogStmt->execute($groomingServiceIds);
+            $servicesById = [];
+            foreach ($catalogStmt->fetchAll(PDO::FETCH_ASSOC) as $selectedService) {
+                $servicesById[(int)$selectedService['service_id']] = $selectedService;
+            }
+            if (count($servicesById) !== count($groomingServiceIds)) {
+                visit_billing_error(409, 'A selected grooming service is inactive or missing. Reopen Grooming Management and review the catalog selections.');
+            }
+            foreach ($groomingServiceIds as $groomingServiceId) {
+                if (isset($servicesById[$groomingServiceId])) {
+                    if ((float)$servicesById[$groomingServiceId]['base_price'] <= 0) {
+                        visit_billing_error(409, 'Every selected grooming service needs a price above PHP 0 before the invoice can be prepared.');
+                    }
+                    $selectedGroomingCatalogServices[] = $servicesById[$groomingServiceId];
+                }
             }
         }
+    }
+    if ($selectedGroomingCatalogServices) {
+        return array_map(static fn(array $service): array => [
+            'charge_type' => 'service',
+            'service_id' => (int)$service['service_id'],
+            'description' => trim((string)$service['service_name']),
+            'quantity' => 1,
+            'unit_price' => max(0.0, (float)$service['base_price']),
+            '_booking_charge_kind' => 'service',
+        ], $selectedGroomingCatalogServices);
     }
     $servicePrice = max(0.0, (float)($booking['price'] ?? 0));
     $transportFee = max(0.0, (float)($booking['transport_fee'] ?? 0));
@@ -2359,9 +2519,7 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
         ? max(0.0, (float)$specialService['base_price'])
         : null;
 
-    if ($selectedGroomingCatalogService) {
-        $servicePrice = $catalogPrice;
-    } elseif ($isHomeService && $servicePrice <= max(50.0, $transportFee)) {
+    if ($isHomeService && $servicePrice <= max(50.0, $transportFee)) {
         $servicePrice = $catalogPrice > 0 ? $catalogPrice : 1400.0;
     } elseif ($isSpecialService && $servicePrice <= 0 && $specialServicePrice !== null) {
         $servicePrice = $specialServicePrice;
@@ -2370,9 +2528,6 @@ function visit_billing_default_booking_charges(PDO $pdo, ?int $bookingId): array
     }
 
     $serviceDescription = trim((string)($specialService['service_title'] ?? ''));
-    if ($selectedGroomingCatalogService) {
-        $serviceDescription = trim((string)($catalogService['service_name'] ?? ''));
-    }
     if ($serviceDescription === '') {
         $serviceDescription = visit_billing_booking_service_label($booking);
     }
@@ -3683,6 +3838,7 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
 
         $paymentId = visit_billing_insert_payment_payload($pdo, $visitId, $input);
         $invoiceDocumentId = visit_billing_save_invoice_document($pdo, $visitId, $paymentId, $input);
+        $groomingPickupCompleted = visit_billing_complete_paid_grooming($pdo, $visitId);
         $pdo->commit();
 
         try {
@@ -3699,6 +3855,7 @@ function visit_billing_add_payment(PDO $pdo, int $visitId): void
             'success' => true,
             'message' => 'Payment recorded.',
             'invoiceDocumentId' => $invoiceDocumentId,
+            'groomingPickupCompleted' => $groomingPickupCompleted,
             'visit' => visit_billing_fetch_visit($pdo, $visitId)
         ]);
     } catch (Exception $e) {

@@ -60,7 +60,12 @@ if (await localApiIsHealthy()) {
     console.log('[iPawcus] Reusing the healthy PHP API at http://localhost:8000/php/index.php');
 } else {
     console.log('[iPawcus] Starting the local PHP API at http://localhost:8000/php/index.php');
-    startProcess('PHP API', phpBinary, ['-S', 'localhost:8000', '-t', projectRoot]);
+    startProcess('PHP API', phpBinary, [
+        '-d', 'upload_max_filesize=8M',
+        '-d', 'post_max_size=10M',
+        '-S', 'localhost:8000',
+        '-t', projectRoot,
+    ]);
 }
 
 console.log('[iPawcus] Starting the Vite frontend at http://localhost:5173/');

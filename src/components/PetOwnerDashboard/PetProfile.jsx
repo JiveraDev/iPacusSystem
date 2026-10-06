@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download, RotateCw } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download, RotateCw, Award, BadgeCheck, Pill } from "lucide-react";
 import navigationLogo from "../../assets/circular_logo.png";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
@@ -26,6 +26,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { PhotoViewer } from "../../ui/photo-viewer";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
 import EditPetInformationDialog from "../shared/EditPetInformationDialog.jsx";
+import PetCertificateDialog from "../shared/PetCertificateDialog.jsx";
+import PrescriptionPlanPanel from "../shared/PrescriptionPlanPanel.jsx";
 import { canEditPetInformation } from "../../lib/petInformation";
 
 import { findPetService } from "../../services/findPet";
@@ -33,6 +35,7 @@ import { updateBookingStatus } from "../../services/bookingService";
 import { fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
 import { uploadFormData } from "../../services/uploadService";
 import { fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
+import { fetchPetCertificates, markPetMedicalCertificateViewed } from "../../services/petCertificateService";
 
 function uploadFileName(path) {
   const cleanPath = String(path || "").split("?")[0].replace(/\\/g, "/");
@@ -92,6 +95,9 @@ export default function PetProfile() {
   const [isIdentityCardFlipped, setIsIdentityCardFlipped] = useState(false);
   const [isConsentPanelOpen, setIsConsentPanelOpen] = useState(false);
   const [isBookingsPanelOpen, setIsBookingsPanelOpen] = useState(false);
+  const [certificates, setCertificates] = useState({ registrationCertificate: null, medicalCertificate: null });
+  const [certificateViewer, setCertificateViewer] = useState(null);
+  const hasHandledCertificateDeepLink = useRef(false);
 
   const backTargetLabel = useMemo(() => {
     try {
@@ -203,6 +209,84 @@ export default function PetProfile() {
     enabled: Boolean(pet?.db_id),
     refreshKey: pet?.db_id
   });
+
+  const certificatePetId = pet?.db_id || petId;
+
+  const refreshCertificates = async ({ isAutoRefresh = false } = {}) => {
+    if (!certificatePetId) return;
+
+    try {
+      const response = await fetchPetCertificates(certificatePetId, {
+        dedupe: false,
+        transientRetryCount: isAutoRefresh ? 0 : 1
+      });
+      setCertificates({
+        registrationCertificate: response.registrationCertificate || null,
+        medicalCertificate: response.medicalCertificate || null
+      });
+      setCertificateViewer((current) => {
+        if (!current) return current;
+        return current.type === 'medical'
+          ? (response.medicalCertificate || current)
+          : (response.registrationCertificate || current);
+      });
+    } catch (error) {
+      if (!isAutoRefresh) {
+        console.error('Could not load pet certificates:', error);
+      }
+    }
+  };
+
+  useAutoRefresh(refreshCertificates, {
+    enabled: Boolean(certificatePetId),
+    refreshKey: `pet-certificates-${certificatePetId}`
+  });
+
+  const openRegistrationCertificate = () => {
+    if (certificates.registrationCertificate) {
+      setCertificateViewer(certificates.registrationCertificate);
+    }
+  };
+
+  const openMedicalCertificate = () => {
+    const medicalCertificate = certificates.medicalCertificate;
+    if (!medicalCertificate) return;
+
+    setCertificateViewer(medicalCertificate);
+    if (medicalCertificate.isNew) {
+      setCertificates((current) => ({
+        ...current,
+        medicalCertificate: current.medicalCertificate
+          ? { ...current.medicalCertificate, isNew: false }
+          : null
+      }));
+      markPetMedicalCertificateViewed(certificatePetId, medicalCertificate.id).catch((error) => {
+        console.error('Could not mark the medical certificate as viewed:', error);
+      });
+    }
+  };
+
+  useEffect(() => {
+    const medicalCertificate = certificates.medicalCertificate;
+    const requestedCertificate = new URLSearchParams(window.location.search).get('certificate');
+    if (hasHandledCertificateDeepLink.current || requestedCertificate !== 'medical' || !medicalCertificate) {
+      return;
+    }
+
+    hasHandledCertificateDeepLink.current = true;
+    setCertificateViewer(medicalCertificate);
+    if (medicalCertificate.isNew) {
+      setCertificates((current) => ({
+        ...current,
+        medicalCertificate: current.medicalCertificate
+          ? { ...current.medicalCertificate, isNew: false }
+          : null
+      }));
+      markPetMedicalCertificateViewed(certificatePetId, medicalCertificate.id).catch((error) => {
+        console.error('Could not mark the medical certificate as viewed:', error);
+      });
+    }
+  }, [certificatePetId, certificates.medicalCertificate]);
 
   const copyToClipboard = () => {
     if (pet?.id) {
@@ -326,7 +410,9 @@ export default function PetProfile() {
   const displayedBookingRecords = visibleBookingRecords.slice(0, bookingLimit);
   const remainingBookingCount = Math.max(0, visibleBookingRecords.length - displayedBookingRecords.length);
   const consentRecords = useMemo(() => buildConsentRecords(bookingRecords, queueRecords), [bookingRecords, queueRecords]);
-  const activeQueue = visibleQueueRecords.find(item => item.status !== "cancelled");
+  const activeQueue = visibleQueueRecords.find((item) => (
+    ["waiting", "in-progress"].includes(String(item.status || "").trim().toLowerCase())
+  ));
   const displayedQueue = activeQueue || visibleQueueRecords[0];
   const hasRegisteredOwner = Boolean(pet?.hasOwnership || pet?.ownerUserId || pet?.ownerName);
   const canEditTemporaryOwner = canManageTemporaryOwner && pet && !hasRegisteredOwner;
@@ -684,7 +770,7 @@ export default function PetProfile() {
         flipped={isIdentityCardFlipped}
         canEdit={canEditBasicPetInformation}
         canChangeOwner={canEditTemporaryOwner}
-        queueRecord={canViewPetOwnerActivity ? displayedQueue : null}
+        queueRecord={canViewPetOwnerActivity ? activeQueue : null}
         queueLoading={canViewPetOwnerActivity && isActivityLoading}
         onCopy={copyToClipboard}
         onEdit={() => setIsPetInformationEditorOpen(true)}
@@ -694,7 +780,10 @@ export default function PetProfile() {
         }}
         onPhotoChange={handlePetPhotoUpload}
         onFlip={() => setIsIdentityCardFlipped((current) => !current)}
-        onOpenQueue={() => displayedQueue && openRecordDetails("queue", displayedQueue)}
+        onOpenQueue={() => activeQueue && openRecordDetails("queue", activeQueue)}
+        hasMedicalCertificate={Boolean(certificates.medicalCertificate)}
+        hasNewMedicalCertificate={Boolean(certificates.medicalCertificate?.isNew)}
+        onOpenMedicalCertificate={openMedicalCertificate}
       />
 
       <PetProfileActionDock
@@ -708,6 +797,10 @@ export default function PetProfile() {
         onOpenHistory={handlePrint}
         onOpenConsent={() => setIsConsentPanelOpen(true)}
         onOpenBookings={() => setIsBookingsPanelOpen(true)}
+        registrationCertificate={certificates.registrationCertificate}
+        medicalCertificate={certificates.medicalCertificate}
+        onOpenRegistrationCertificate={openRegistrationCertificate}
+        onOpenMedicalCertificate={openMedicalCertificate}
       />
 
       <div className="hidden" aria-hidden="true">
@@ -1012,6 +1105,8 @@ export default function PetProfile() {
       </div>
 
       <ConsentImagesPanel
+        petId={pet.db_id || petId}
+        allowPrescriptionStart={canRequestRecordUpdate}
         records={consentRecords}
         documents={pet.prescriptionDocuments || []}
         isLoading={isActivityLoading}
@@ -1043,6 +1138,12 @@ export default function PetProfile() {
           petId,
           limit: (current.petId === petId ? current.limit : BOOKING_PAGE_SIZE) + BOOKING_PAGE_SIZE
         }))}
+      />
+
+      <PetCertificateDialog
+        open={Boolean(certificateViewer)}
+        onOpenChange={(open) => !open && setCertificateViewer(null)}
+        certificate={certificateViewer}
       />
 
       <Dialog open={isEditingTempOwner} onOpenChange={(open) => !isSavingTempOwner && setIsEditingTempOwner(open)}>
@@ -1420,7 +1521,7 @@ function buildConsentRecords(bookings, queues) {
   return records;
 }
 
-function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueRecord, queueLoading, onCopy, onEdit, onChangeOwner, onPhotoChange, onFlip, onOpenQueue }) {
+function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueRecord, queueLoading, onCopy, onEdit, onChangeOwner, onPhotoChange, onFlip, onOpenQueue, hasMedicalCertificate, hasNewMedicalCertificate, onOpenMedicalCertificate }) {
   const vaccinations = Array.isArray(pet.vaccinations) ? pet.vaccinations : [];
   const ownerName = pet.hasOwnership
     ? (pet.primaryOwner?.name || pet.ownerName || 'Pet owner')
@@ -1495,6 +1596,18 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
               <div className="grid grid-cols-[104px_minmax(0,1fr)] items-stretch gap-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-5">
                 <div className="flex items-center justify-center sm:justify-start">
                   <div className="relative">
+                    {hasNewMedicalCertificate ? (
+                      <button
+                        type="button"
+                        onClick={onOpenMedicalCertificate}
+                        tabIndex={flipped ? -1 : 0}
+                        className="absolute -left-2 -top-2 z-10 flex size-10 items-center justify-center bg-[#155dfc] text-white shadow-md outline-none transition-[background-color,transform] hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 active:scale-95 [clip-path:polygon(25%_7%,75%_7%,100%_50%,75%_93%,25%_93%,0_50%)]"
+                        aria-label="Open new veterinary medical certificate"
+                        title="New medical certificate"
+                      >
+                        <BadgeCheck className="size-5" aria-hidden="true" />
+                      </button>
+                    ) : null}
                     <div className="size-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 sm:size-32">
                       {pet.profileImage ? (
                         <ProtectedImage src={pet.profileImage} alt={pet.name} className="h-full w-full object-cover" fallbackClassName="h-full w-full" />
@@ -1525,6 +1638,18 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                     <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${statusClass}`}>
                       {status}
                     </span>
+                    {hasMedicalCertificate ? (
+                      <button
+                        type="button"
+                        onClick={onOpenMedicalCertificate}
+                        tabIndex={flipped ? -1 : 0}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[#155dfc] outline-none transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-950"
+                        aria-label="Open issued medical certificate"
+                      >
+                        <Award className="size-3" aria-hidden="true" />
+                        Medical Certificate
+                      </button>
+                    ) : null}
                     {canEdit ? (
                       <Button type="button" variant="ghost" size="sm" onClick={onEdit} tabIndex={flipped ? -1 : 0} className="ml-auto h-8 shrink-0 gap-1.5 px-2.5 text-xs font-black text-[#155dfc] active:scale-[0.97] dark:text-blue-300">
                         <Pencil className="size-3.5" />
@@ -1633,53 +1758,85 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
   );
 }
 
-function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateRequest, consentCount, documentCount, bookingCount, canViewBookings, onRequestUpdate, onOpenHistory, onOpenConsent, onOpenBookings }) {
+function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateRequest, consentCount, documentCount, bookingCount, canViewBookings, onRequestUpdate, onOpenHistory, onOpenConsent, onOpenBookings, registrationCertificate, medicalCertificate, onOpenRegistrationCertificate, onOpenMedicalCertificate }) {
   const requestDisabled = !canRequestRecordUpdate || Boolean(activeRecordUpdateRequest);
   const linkedFileCount = consentCount + documentCount;
 
   return (
     <div className="pet-action-dock-anchor pointer-events-none fixed inset-x-0 z-40 px-3 sm:px-5">
-    <nav className="pet-action-dock pointer-events-auto mx-auto grid w-full max-w-2xl grid-cols-4 gap-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900" aria-label="Pet profile actions">
+    <nav className="pet-action-dock pointer-events-auto mx-auto flex w-full max-w-4xl gap-0.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900" aria-label="Pet profile actions">
       <button
         type="button"
         disabled={requestDisabled}
         onClick={onRequestUpdate}
-        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600"
+        className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600 sm:min-w-[5.5rem] sm:py-2"
         aria-label={activeRecordUpdateRequest ? 'Record update request is in progress' : 'Request a pet record update'}
+        title={activeRecordUpdateRequest ? 'Update request in progress' : 'Update Record'}
       >
-        <ClipboardPenLine className="size-4" aria-hidden="true" />
-        <span className="truncate text-[11px] font-black sm:text-xs">Update Record</span>
+        <ClipboardPenLine className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Update Record</span>
         <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{activeRecordUpdateRequest ? 'In progress' : canRequestRecordUpdate ? 'Request correction' : 'Owner access only'}</span>
       </button>
       <button
         type="button"
         onClick={onOpenHistory}
-        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+        className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 sm:min-w-[5.5rem] sm:py-2"
         aria-label="Open pet health history"
+        title="Health History"
       >
-        <HeartPulse className="size-4" aria-hidden="true" />
-        <span className="truncate text-[11px] font-black sm:text-xs">Health History</span>
+        <HeartPulse className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Health History</span>
         <span className="hidden text-[9px] font-bold text-slate-400 sm:block">Clinical timeline</span>
       </button>
       <button
         type="button"
-        onClick={onOpenConsent}
-        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
-        aria-label={`Open consent and pet files (${linkedFileCount})`}
+        disabled={!registrationCertificate}
+        onClick={onOpenRegistrationCertificate}
+        className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-wait disabled:text-slate-400 dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 sm:min-w-[5.5rem] sm:py-2"
+        aria-label="Open clinic registration certificate"
+        title="Registration Certificate"
       >
-        <ShieldCheck className="size-4" aria-hidden="true" />
-        <span className="truncate text-[11px] font-black sm:text-xs">Consent Files</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{linkedFileCount} linked</span>
+        <ShieldCheck className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Registration</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">Always available</span>
+      </button>
+      {medicalCertificate ? (
+        <button
+          type="button"
+          onClick={onOpenMedicalCertificate}
+          className="group relative flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 sm:min-w-[5.5rem] sm:py-2"
+          aria-label={`Open ${medicalCertificate.isNew ? 'new ' : ''}medical certificate`}
+          title="Medical Certificate"
+        >
+          {medicalCertificate.isNew ? <span className="absolute right-2 top-1.5 size-2 rounded-full bg-[#155dfc]" aria-hidden="true" /> : null}
+          <Award className="size-5 sm:size-4" aria-hidden="true" />
+          <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Medical Cert</span>
+          <span className="hidden text-[9px] font-bold text-slate-400 sm:block">
+            {medicalCertificate.status === 'active' ? 'Active' : medicalCertificate.status}
+          </span>
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={onOpenConsent}
+        className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 sm:min-w-[5.5rem] sm:py-2"
+        aria-label={`Open prescriptions and pet files (${linkedFileCount} documents)`}
+        title="Prescriptions & Files"
+      >
+        <Pill className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Prescriptions</span>
+        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{linkedFileCount} files linked</span>
       </button>
       <button
         type="button"
         disabled={!canViewBookings}
         onClick={onOpenBookings}
-        className="group flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600"
+        className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:disabled:text-slate-600 sm:min-w-[5.5rem] sm:py-2"
         aria-label={`Open ${bookingCount} pet ${bookingCount === 1 ? 'booking' : 'bookings'}`}
+        title="Bookings"
       >
-        <CalendarClock className="size-4" aria-hidden="true" />
-        <span className="truncate text-[11px] font-black sm:text-xs">Bookings</span>
+        <CalendarClock className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Bookings</span>
         <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{canViewBookings ? `${bookingCount} records` : 'Owner access only'}</span>
       </button>
     </nav>
@@ -1752,22 +1909,23 @@ function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount
   );
 }
 
-function ConsentImagesPanel({ records, documents, isLoading, open, onOpenChange, onPreview }) {
+function ConsentImagesPanel({ petId, allowPrescriptionStart, records, documents, isLoading, open, onOpenChange, onPreview }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
         <div className="p-5 sm:p-6">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 text-xl font-black text-slate-950 dark:text-white">
-              <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
-              Consent & Pet Files
+              <Pill className="h-5 w-5 text-[#155dfc]" />
+              Prescriptions & Pet Files
             </SheetTitle>
             <SheetDescription>
-              Review consent forms and prescription documents without leaving the pet ID.
+              Review the live medication plan, start each schedule, and access related pet documents.
             </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6 space-y-6">
+            <PrescriptionPlanPanel petId={petId} allowStart={allowPrescriptionStart} title="Live medication plan" />
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Consent documents</h3>

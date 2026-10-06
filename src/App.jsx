@@ -12,7 +12,7 @@ import {
   isStoredAuthTokenExpired,
   subscribeToServerStatus
 } from "./services/apiClient.js";
-import { completeGoogleRegistration } from './services/googleAuthService.js';
+import { completeGoogleRegistration, resetGoogleIdentitySession } from './services/googleAuthService.js';
 import { clearPushContext } from "./services/pushNotificationService.js";
 import { getPublicPageTitle, setDocumentPageTitle } from './lib/pageTitle.js';
 import { clearLandingBookingIntent, consumeLandingBookingRoute, landingBookingRoute } from './lib/landingBookingIntent.js';
@@ -37,6 +37,43 @@ const routes = {
   forgotPassword: '/landing/forgot-password',
   statusDisplay: '/status-display',
 };
+
+const AUTH_RETURN_PATH_KEY = 'ipawcus-auth-return-path';
+
+function safeDashboardReturnPath(value) {
+  try {
+    const candidate = new URL(String(value || ''), window.location.origin);
+    const isDashboardPath = candidate.pathname === '/dashboard' || candidate.pathname.startsWith('/dashboard/');
+    if (candidate.origin !== window.location.origin || !isDashboardPath) {
+      return '';
+    }
+
+    return `${candidate.pathname}${candidate.search}${candidate.hash}`;
+  } catch {
+    return '';
+  }
+}
+
+function rememberDashboardReturnPath() {
+  const returnPath = safeDashboardReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+  if (!returnPath) return;
+
+  try {
+    sessionStorage.setItem(AUTH_RETURN_PATH_KEY, returnPath);
+  } catch {
+    // The login can still continue when session storage is unavailable.
+  }
+}
+
+function consumeDashboardReturnPath() {
+  try {
+    const returnPath = safeDashboardReturnPath(sessionStorage.getItem(AUTH_RETURN_PATH_KEY));
+    sessionStorage.removeItem(AUTH_RETURN_PATH_KEY);
+    return returnPath;
+  } catch {
+    return '';
+  }
+}
 
 function isStatusDisplayHost(hostname = '') {
   const normalizedHost = String(hostname || '').toLowerCase();
@@ -158,6 +195,7 @@ function App() {
       }
 
       if (nextView === 'dashboard' && !storedUser) {
+        rememberDashboardReturnPath();
         window.history.replaceState({}, '', routes.login);
         setView('login');
         return;
@@ -182,6 +220,9 @@ function App() {
     const redirect = getRouteRedirect(currentView, storedUser);
     
     if (redirect.path) {
+      if (!storedUser && currentView === 'dashboard') {
+        rememberDashboardReturnPath();
+      }
       window.history.replaceState({}, '', redirect.path);
       if (storedUser && redirect.view === 'dashboard') clearLandingBookingIntent();
     }
@@ -282,7 +323,7 @@ function App() {
   const handleLoginSuccess = useCallback((user) => {
     setCurrentUser(user);
     localStorage.setItem('currentUser', JSON.stringify(user));
-    navigateTo(consumeLandingBookingRoute(user) || routes.dashboard);
+    navigateTo(consumeDashboardReturnPath() || consumeLandingBookingRoute(user) || routes.dashboard);
   }, [navigateTo]);
 
   const handleGoogleAuthenticated = useCallback((result) => {
@@ -339,8 +380,10 @@ function App() {
 
   const handleLogout = useCallback(() => {
     toast.dismissAll();
+    resetGoogleIdentitySession();
     clearPushContext().catch(() => {});
     clearStoredAuthSession();
+    consumeDashboardReturnPath();
     setCurrentUser(null);
     navigateTo(routes.landing);
     toast.success('Logged out successfully.');
@@ -352,6 +395,7 @@ function App() {
       || currentUser?.mailAddress
       || '';
 
+    resetGoogleIdentitySession();
     clearStoredAuthSession();
     setCurrentUser(null);
     setForgotPasswordEmail(accountEmail);

@@ -45,10 +45,13 @@ import { fetchQueuePets } from '../../services/queueService';
 import { fetchAccounts } from '../../services/accountService';
 import { fetchBranches, getBranchDisplayName, relocateBooking } from '../../services/branchService';
 import TablePagination from '../shared/TablePagination.jsx';
+import BookingDateInput from '../shared/BookingDateInput.jsx';
 import BookingTimeSlotField from '../shared/BookingTimeSlotField.jsx';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from '../../lib/transactionNumber.js';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import { PET_INPUT_LIMITS, isPetBreedText, isPetMarkingsText, isPetNameText, isPetSpeciesText, isPetWeightText } from '../../lib/petInputValidation.js';
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from '../shared/PetCatalogAutocomplete.jsx';
 
 const REVIEW_SERVICE_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -187,6 +190,13 @@ function ownerNameForPet(pet) {
 function isBoardingBooking(booking) {
     const serviceType = String(booking?.type || '').trim().toLowerCase();
     return serviceType === 'boarding' || Boolean(booking?.hotelBoardingType);
+}
+
+function requiresVeterinarianAssignment(booking, reviewedServiceType = '') {
+    const serviceType = String(reviewedServiceType || booking?.type || booking?.service || '').trim().toLowerCase();
+    return !serviceType.includes('grooming')
+        && serviceType !== 'boarding'
+        && !serviceType.includes('pet hotel');
 }
 
 function canRescheduleBooking(booking) {
@@ -630,6 +640,7 @@ export default function BookingsManagement() {
         birthDate: '',
         gender: 'Male',
         weight: '',
+        colorMarkings: '',
         tempOwnerName: '',
         status: 'Healthy',
         bookingId: null,
@@ -666,6 +677,28 @@ export default function BookingsManagement() {
             .catch((error) => console.error('Error loading branches:', error));
     }, [branchFilterLocked, lockedBranchId]);
 
+    const loadVeterinarians = async ({ isAutoRefresh = false } = {}) => {
+        if (!isAutoRefresh) setIsLoadingVeterinarians(true);
+        try {
+            const data = await fetchAccounts();
+            const nextVeterinarians = Array.isArray(data?.veterinarians)
+                ? data.veterinarians.filter((vet) => Number(vet.is_active ?? 1) === 1)
+                : [];
+            setVeterinarians(nextVeterinarians);
+            return nextVeterinarians;
+        } catch (error) {
+            if (!isAutoRefresh) {
+                console.error('Error loading veterinarians for booking:', error);
+                toast.error(error.message || 'The veterinarian list could not be loaded. Refresh before assigning this booking.');
+            }
+            return [];
+        } finally {
+            if (!isAutoRefresh) setIsLoadingVeterinarians(false);
+        }
+    };
+
+    useAutoRefresh(loadVeterinarians, { intervalMs: 15000, refreshKey: 'booking-assignment-veterinarians' });
+
     const handleBookingRelocation = async (booking, branchId) => {
         if (!branchId || String(branchId) === String(booking.branchId)) return;
         setRelocatingBookingId(booking.id);
@@ -675,7 +708,7 @@ export default function BookingsManagement() {
                 reason: 'Corrected during Admin booking review.'
             });
             setBookings((current) => current.map((item) => item.id === booking.id
-                ? { ...item, branchId: result.branchId, branchName: result.branchName }
+                ? { ...item, branchId: result.branchId, branchName: result.branchName, veterinarianId: result.veterinarianId ?? item.veterinarianId }
                 : item));
             toast.success(result.message || 'Booking location updated.');
         } catch (error) {
@@ -738,20 +771,7 @@ export default function BookingsManagement() {
             }
         }
 
-        if (veterinarians.length === 0 && !isLoadingVeterinarians) {
-            setIsLoadingVeterinarians(true);
-            try {
-                const data = await fetchAccounts();
-                setVeterinarians(Array.isArray(data?.veterinarians)
-                    ? data.veterinarians.filter((vet) => Number(vet.is_active ?? 1) === 1)
-                    : []);
-            } catch (error) {
-                console.error('Error loading veterinarians for booking:', error);
-                toast.error(error.message || 'The veterinarian list could not be loaded. Refresh before assigning this booking.');
-            } finally {
-                setIsLoadingVeterinarians(false);
-            }
-        }
+        if (veterinarians.length === 0 && !isLoadingVeterinarians) await loadVeterinarians();
     };
 
     const resetAddBookingDialog = () => {
@@ -1101,7 +1121,8 @@ export default function BookingsManagement() {
 
     const getReviewDraft = (booking) => reviewDrafts[booking.id] || {
         serviceType: booking.type || 'consultation',
-        notes: booking.notes || ''
+        notes: booking.notes || '',
+        veterinarianId: booking.veterinarianId ? String(booking.veterinarianId) : ''
     };
 
     const updateReviewDraft = (booking, field, value) => {
@@ -1117,8 +1138,15 @@ export default function BookingsManagement() {
     const saveBookingReview = async (booking) => {
         const draft = getReviewDraft(booking);
         const reviewPayload = {
-            review_notes: draft.notes
+            review_notes: draft.notes,
+            ...(requiresVeterinarianAssignment(booking, draft.serviceType)
+                ? { veterinarian_id: Number(draft.veterinarianId) }
+                : {})
         };
+        if (requiresVeterinarianAssignment(booking, draft.serviceType) && !draft.veterinarianId) {
+            toast.error('Select a veterinarian before saving this booking review.');
+            return;
+        }
         if (!booking.isOnlineConsultation) {
             reviewPayload.service_type = draft.serviceType;
         }
@@ -1135,7 +1163,9 @@ export default function BookingsManagement() {
                                 type: draft.serviceType,
                                 service: getServiceDisplayName(draft.serviceType)
                             }),
-                        notes: draft.notes
+                        notes: draft.notes,
+                        veterinarianId: draft.veterinarianId || item.veterinarianId,
+                        veterinarian: vetName(veterinarians.find((vet) => vetId(vet) === String(draft.veterinarianId)))
                     }
                     : item
             )));
@@ -1149,6 +1179,10 @@ export default function BookingsManagement() {
         setConfirmingBookingId(booking.id);
         try {
             const draft = getReviewDraft(booking);
+            if (requiresVeterinarianAssignment(booking, draft.serviceType) && !draft.veterinarianId) {
+                toast.error('Select a veterinarian before confirming this booking.');
+                return;
+            }
             if ((booking.isOnlineConsultation || booking.isHomeService) && !booking.paymentProof) {
                 toast.info('This booking requires payment before confirmation. Opening Point-Of-Sale now.');
                 await sendBookingPaymentToPOS({
@@ -1160,7 +1194,10 @@ export default function BookingsManagement() {
                 return;
             }
             const reviewPayload = {
-                review_notes: draft.notes
+                review_notes: draft.notes,
+                ...(requiresVeterinarianAssignment(booking, draft.serviceType)
+                    ? { veterinarian_id: Number(draft.veterinarianId) }
+                    : {})
             };
             if (!booking.isOnlineConsultation) {
                 reviewPayload.service_type = draft.serviceType;
@@ -1169,6 +1206,7 @@ export default function BookingsManagement() {
 
             if (updated) {
                 toast.success(`${booking.isOnlineConsultation ? 'Online consultation' : 'Booking'} ${booking.bookingNumber} for ${booking.petName} confirmed.`);
+                await fetchBookings();
             }
         } finally {
             setConfirmingBookingId(null);
@@ -1303,6 +1341,7 @@ export default function BookingsManagement() {
             birthDate: today,
             gender: 'Male',
             weight: booking.petWeight || '',
+            colorMarkings: booking.petColor || '',
             tempOwnerName: booking.ownerName, // As requested: temp owner to be directly the pet owner
             status: 'Healthy',
             bookingId: booking.id,
@@ -1320,6 +1359,26 @@ export default function BookingsManagement() {
             toast.error("Cannot register: booking owner is missing. Please refresh bookings and try again.");
             return;
         }
+        if (!isPetNameText(registrationData.petName)) {
+            toast.error(`Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.name} characters.`);
+            return;
+        }
+        if (!isPetSpeciesText(registrationData.species)) {
+            toast.error(`Species may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.species} characters.`);
+            return;
+        }
+        if (!isPetBreedText(registrationData.breed)) {
+            toast.error(`Breed contains unsupported characters or exceeds ${PET_INPUT_LIMITS.breed} characters.`);
+            return;
+        }
+        if (!isPetWeightText(registrationData.weight)) {
+            toast.error('Weight must be between 0.1 and 300 kg with no more than two decimal places.');
+            return;
+        }
+        if (!isPetMarkingsText(registrationData.colorMarkings)) {
+            toast.error(`Color and markings must use letters and spaces only, up to ${PET_INPUT_LIMITS.colorMarkings} characters.`);
+            return;
+        }
 
         setIsRegistering(true);
         try {
@@ -1331,6 +1390,7 @@ export default function BookingsManagement() {
                 birthDate: registrationData.birthDate,
                 gender: registrationData.gender,
                 weight: registrationData.weight,
+                colorMarkings: registrationData.colorMarkings,
                 tempOwnerName: registrationData.tempOwnerName,
                 status: registrationData.status,
                 userId: Number(registrationData.ownerId) // Pass the ownerId for auto-linking
@@ -2179,7 +2239,7 @@ export default function BookingsManagement() {
                                                 {booking.status !== 'completed' && (
                                                     <div className="border-t pt-4">
                                                         <h4 className="font-['Arimo:Bold',sans-serif] text-[16px] text-[#101828] mb-3">
-                                                            Review Booking
+                                                            Review &amp; Assign Care
                                                         </h4>
                                                         <div className="flex flex-col gap-3">
                                                             {booking.status !== 'confirmed' && booking.status !== 'cancelled' && (
@@ -2234,6 +2294,36 @@ export default function BookingsManagement() {
                                                                             </Select>
                                                                         </div>
                                                                     )}
+                                                                    {requiresVeterinarianAssignment(booking, getReviewDraft(booking).serviceType) && (
+                                                                        <div className="space-y-2">
+                                                                            <Label>Assigned Veterinarian</Label>
+                                                                            <Select
+                                                                                value={getReviewDraft(booking).veterinarianId}
+                                                                                onValueChange={(value) => updateReviewDraft(booking, 'veterinarianId', value)}
+                                                                            >
+                                                                                <SelectTrigger className="bg-white">
+                                                                                    <SelectValue
+                                                                                        placeholder="Select veterinarian"
+                                                                                        displayValue={getReviewDraft(booking).veterinarianId
+                                                                                            ? vetName(veterinarians.find((vet) => vetId(vet) === String(getReviewDraft(booking).veterinarianId)))
+                                                                                            : ''}
+                                                                                    />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {veterinarians.length === 0 ? (
+                                                                                        <SelectItem value="none" disabled>No active veterinarians</SelectItem>
+                                                                                    ) : veterinarians.map((vet) => (
+                                                                                        <SelectItem key={vetId(vet)} value={vetId(vet)}>
+                                                                                            {vetName(vet)}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            <p className="text-xs text-slate-500">
+                                                                                The patient enters this veterinarian&apos;s My List when the physical examination starts.
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="space-y-2">
                                                                         <Label>Reviewed Notes / Observations</Label>
                                                                         <Textarea
@@ -2250,7 +2340,7 @@ export default function BookingsManagement() {
                                                                         onClick={() => saveBookingReview(booking)}
                                                                         className="w-full border-[#155dfc] text-[#155dfc] hover:bg-[#eff6ff]"
                                                                     >
-                                                                        Save Review
+                                                                        Save Assignment &amp; Review
                                                                     </Button>
                                                                 </div>
                                                             )}
@@ -2268,7 +2358,7 @@ export default function BookingsManagement() {
                                                                     )}
                                                                     {confirmingBookingId === booking.id
                                                                         ? 'Confirming...'
-                                                                        : booking.isOnlineConsultation ? 'Approve Online Consultation' : 'Confirm Booking'}
+                                                                        : booking.isOnlineConsultation ? 'Approve & Assign Consultation' : 'Confirm & Assign Booking'}
                                                                 </Button>
                                                             )}
 
@@ -2666,7 +2756,10 @@ export default function BookingsManagement() {
                             )}
                             <div className="space-y-2">
                                 <Label>Date</Label>
-                                <Input
+                                <BookingDateInput
+                                    service={adminBookingForm.serviceType}
+                                    branchId={filterBranch !== 'all' ? filterBranch : lockedBranchId}
+                                    veterinarianId={adminBookingForm.veterinarianId}
                                     type="date"
                                     value={adminBookingForm.bookingDate}
                                     onChange={(event) => setAdminBookingForm((current) => ({ ...current, bookingDate: event.target.value }))}
@@ -2983,7 +3076,12 @@ export default function BookingsManagement() {
                             <div className="col-span-2">
                                 <p className="font-['Arimo:Bold',sans-serif] text-[14px] text-[#4a5565] mb-1">New Date & Time</p>
                                 <div className="flex flex-col gap-2 sm:flex-row">
-                                    <Input
+                                    <BookingDateInput
+                                        service={currentRescheduleBooking?.isOnlineConsultation ? 'online-consultation' : currentRescheduleBooking?.isHomeService ? 'home-service' : currentRescheduleBooking?.type}
+                                        branchId={currentRescheduleBooking?.branchId}
+                                        veterinarianId={currentRescheduleBooking?.veterinarianId}
+                                        excludeBookingId={currentRescheduleBooking?.id}
+                                        disabled={isRescheduling}
                                         type="date"
                                         value={newDate}
                                         onChange={(e) => setNewDate(e.target.value)}
@@ -2992,6 +3090,7 @@ export default function BookingsManagement() {
                                     />
                                     <BookingTimeSlotField
                                         id="reschedule-booking-time"
+                                        excludeBookingId={currentRescheduleBooking?.id}
                                         service={currentRescheduleBooking?.isOnlineConsultation
                                             ? 'online-consultation'
                                             : currentRescheduleBooking?.isHomeService
@@ -3050,33 +3149,28 @@ export default function BookingsManagement() {
                             <Input 
                                 value={registrationData.petName} 
                                 onChange={(e) => setRegistrationData({...registrationData, petName: e.target.value})}
-                                restriction="name"
+                                restriction="pet-name"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Species *</Label>
-                            <Select 
-                                value={registrationData.species} 
-                                onValueChange={(value) => setRegistrationData({...registrationData, species: value})}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select species" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Dog">Dog</SelectItem>
-                                    <SelectItem value="Cat">Cat</SelectItem>
-                                    <SelectItem value="Bird">Bird</SelectItem>
-                                    <SelectItem value="Rabbit">Rabbit</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="registration-species">Species *</Label>
+                            <PetSpeciesAutocomplete
+                                id="registration-species"
+                                value={registrationData.species}
+                                onChange={(event) => setRegistrationData({...registrationData, species: event.target.value})}
+                                placeholder="Type or choose a species"
+                                required
+                            />
                         </div>
                         <div className="space-y-2">
-                            <Label>Breed *</Label>
-                            <Input 
-                                value={registrationData.breed} 
-                                onChange={(e) => setRegistrationData({...registrationData, breed: e.target.value})}
-                                restriction="name"
+                            <Label htmlFor="registration-breed">Breed *</Label>
+                            <PetBreedAutocomplete
+                                id="registration-breed"
+                                species={registrationData.species}
+                                value={registrationData.breed}
+                                onChange={(event) => setRegistrationData({...registrationData, breed: event.target.value})}
+                                placeholder="Type or choose a breed"
+                                required
                             />
                         </div>
                         <div className="space-y-2">
@@ -3085,6 +3179,7 @@ export default function BookingsManagement() {
                                 type="date"
                                 value={registrationData.birthDate} 
                                 onChange={(e) => setRegistrationData({...registrationData, birthDate: e.target.value})}
+                                max={clinicTodayDate()}
                             />
                         </div>
                         <div className="space-y-2">
@@ -3109,7 +3204,17 @@ export default function BookingsManagement() {
                             <Input 
                                 value={registrationData.weight} 
                                 onChange={(e) => setRegistrationData({...registrationData, weight: e.target.value})}
-                                restriction="decimal"
+                                restriction="pet-weight"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="registration-color-markings">Color / Markings</Label>
+                            <Input
+                                id="registration-color-markings"
+                                value={registrationData.colorMarkings}
+                                onChange={(event) => setRegistrationData({...registrationData, colorMarkings: event.target.value})}
+                                placeholder="e.g., Black and white"
+                                restriction="pet-markings"
                             />
                         </div>
                         <div className="space-y-2 sm:col-span-2">

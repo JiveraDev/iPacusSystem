@@ -34,13 +34,18 @@ if ($queueId <= 0 || $veterinarianUserId <= 0) {
     exit;
 }
 
+$calendarLock = null;
 try {
     requireVetQueueAssignmentsTable($pdo);
     runLifecycleMaintenance($pdo);
 
+    $calendarLock = booking_slot_lock_name(0, 'general-checkup', '', '');
+    if (!booking_slot_acquire($pdo, $calendarLock)) {
+        throw new DomainException('The booking calendar is busy. Please try again.');
+    }
     $pdo->beginTransaction();
 
-    $queueStmt = $pdo->prepare("SELECT queue_id, branch_id, status, service_name FROM queues WHERE queue_id = ? FOR UPDATE");
+    $queueStmt = $pdo->prepare("SELECT queue_id, booking_id, branch_id, status, service_name FROM queues WHERE queue_id = ? FOR UPDATE");
     $queueStmt->execute([$queueId]);
     $queue = $queueStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -73,18 +78,41 @@ try {
         exit;
     }
 
-    $vetStmt = $pdo->prepare("SELECT first_Name, last_Name FROM users WHERE user_id = ? LIMIT 1");
+    $vetStmt = $pdo->prepare("SELECT u.first_Name, u.last_Name
+        FROM users u
+        LEFT JOIN veterinarian_profiles vp ON vp.user_id = u.user_id
+        WHERE u.user_id = ?
+          AND LOWER(REPLACE(TRIM(u.role), ' ', '_')) = 'veterinarian'
+          AND (vp.user_id IS NULL OR vp.is_active = 1)
+        LIMIT 1");
     $vetStmt->execute([$veterinarianUserId]);
     $vetUser = $vetStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$vetUser) {
         $pdo->rollBack();
         http_response_code(404);
-        echo json_encode(['error' => 'Veterinarian account not found.']);
+        echo json_encode(['error' => 'Active veterinarian account not found.']);
         exit;
     }
 
     $veterinarianName = $providedVetName !== '' ? $providedVetName : normalizeVetName($vetUser);
+
+    if (!branch_user_can_access($pdo, ['user_id' => $veterinarianUserId, 'role' => 'veterinarian'], (int)$queue['branch_id'])) {
+        throw new DomainException('This veterinarian is not assigned to this clinic.');
+    }
+    if (!empty($queue['booking_id'])) {
+        $bookingStmt = $pdo->prepare('SELECT * FROM bookings WHERE booking_id = ? FOR UPDATE');
+        $bookingStmt->execute([(int)$queue['booking_id']]);
+        $reservedBooking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+        // Reassigning a future appointment must reserve the replacement vet.
+        // Patients already being examined can be handed over by the admin.
+        if ($reservedBooking && strtotime($reservedBooking['booking_date'] . ' ' . $reservedBooking['booking_time']) > time()) {
+            $serviceKey = booking_slot_service_key($reservedBooking['service_type'], $reservedBooking['is_home_service'] ?? 0, $reservedBooking['is_online_consultation'] ?? 0);
+            if (clinic_booking_is_medical($serviceKey)) {
+                clinic_booking_reserve_vet($pdo, (int)$reservedBooking['branch_id'], $reservedBooking['booking_date'], $reservedBooking['booking_time'], $serviceKey, $veterinarianUserId, (int)$reservedBooking['booking_id']);
+            }
+        }
+    }
 
     $activeStmt = $pdo->prepare("
         SELECT assignment_id, veterinarian_user_id, veterinarian_name
@@ -103,7 +131,16 @@ try {
     if ($activeAssignment && (int)$activeAssignment['veterinarian_user_id'] === $veterinarianUserId) {
         $queueUpdate = $pdo->prepare("UPDATE queues SET status = 'in-progress' WHERE queue_id = ?");
         $queueUpdate->execute([$queueId]);
+        if (ipawcus_guard_table_exists($pdo, 'clinical_intakes')) {
+            $intakeUpdate = $pdo->prepare('UPDATE clinical_intakes SET assigned_veterinarian_user_id = ? WHERE queue_id = ?');
+            $intakeUpdate->execute([$veterinarianUserId, $queueId]);
+        }
+        if (!empty($queue['booking_id'])) {
+            $bookingUpdate = $pdo->prepare('UPDATE bookings SET veterinarian_id = ? WHERE booking_id = ?');
+            $bookingUpdate->execute([$veterinarianUserId, (int)$queue['booking_id']]);
+        }
         $pdo->commit();
+        booking_slot_release($pdo, $calendarLock);
 
         if ($previousQueueStatus !== 'in-progress') {
             try {
@@ -152,7 +189,17 @@ try {
     $assignmentStmt->execute([$assignmentId]);
     $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
+    if (ipawcus_guard_table_exists($pdo, 'clinical_intakes')) {
+        $intakeUpdate = $pdo->prepare('UPDATE clinical_intakes SET assigned_veterinarian_user_id = ? WHERE queue_id = ?');
+        $intakeUpdate->execute([$veterinarianUserId, $queueId]);
+    }
+    if (!empty($queue['booking_id'])) {
+        $bookingUpdate = $pdo->prepare('UPDATE bookings SET veterinarian_id = ? WHERE booking_id = ?');
+        $bookingUpdate->execute([$veterinarianUserId, (int)$queue['booking_id']]);
+    }
+
     $pdo->commit();
+    booking_slot_release($pdo, $calendarLock);
 
     try {
         if ($previousQueueStatus !== 'in-progress') {
@@ -178,6 +225,8 @@ try {
         $pdo->rollBack();
     }
 
-    http_response_code(500);
-    echo json_encode(['error' => 'Failed to assign queue veterinarian: ' . $e->getMessage()]);
+    booking_slot_release($pdo, $calendarLock);
+    http_response_code($e instanceof DomainException ? 409 : 500);
+    if (!($e instanceof DomainException)) error_log('Queue vet assignment failed: ' . $e->getMessage());
+    echo json_encode(['error' => $e instanceof DomainException ? $e->getMessage() : 'Failed to assign queue veterinarian.']);
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
+    Activity,
     Bell,
     Building2,
     CalendarClock,
@@ -26,6 +27,7 @@ import {
     Table2,
     Trash2,
     Upload,
+    Utensils,
     Wrench
 } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -137,7 +139,15 @@ const emptyDirectCheckInForm = {
 const emptyObservationForm = {
     assignmentId: '',
     observationType: 'eating',
-    notes: ''
+    notes: '',
+    appetiteStatus: '',
+    waterIntakeStatus: '',
+    eliminationStatus: '',
+    behaviorStatus: '',
+    temperatureC: '',
+    weightKg: '',
+    conditionSeverity: '',
+    requiresVetReview: false
 };
 
 const emptyTaskForm = {
@@ -178,7 +188,21 @@ function createBoardingMaterialClientReference() {
 }
 
 function todayIso() {
-    return new Date().toISOString().split('T')[0];
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+function defaultTaskDueAt() {
+    const date = new Date(Date.now() + 60 * 60 * 1000);
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
 }
 
 function formatDate(value, fallback = 'Not set') {
@@ -204,6 +228,31 @@ function formatDateTime(value, fallback = 'Not started') {
         hour: 'numeric',
         minute: '2-digit'
     });
+}
+
+function renderObservationMetrics(observation) {
+    const metrics = [
+        ['Appetite', observation.appetiteStatus],
+        ['Water', observation.waterIntakeStatus],
+        ['Elimination', observation.eliminationStatus],
+        ['Behavior', observation.behaviorStatus],
+        ['Temperature', observation.temperatureC !== null && observation.temperatureC !== undefined ? `${observation.temperatureC} °C` : ''],
+        ['Weight', observation.weightKg !== null && observation.weightKg !== undefined ? `${observation.weightKg} kg` : ''],
+        ['Condition', observation.conditionSeverity],
+    ].filter(([, value]) => value !== '' && value !== null && value !== undefined);
+
+    if (observation.requiresVetReview) metrics.push(['Review', 'Vet review']);
+    if (metrics.length === 0) return null;
+
+    return (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+            {metrics.map(([label, value]) => (
+                <span key={label} className={`rounded-full px-2 py-1 text-[0.65rem] font-bold ${label === 'Review' ? 'bg-amber-100 text-amber-800' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}>
+                    {label}: {String(value).replaceAll('_', ' ')}
+                </span>
+            ))}
+        </div>
+    );
 }
 
 function getTaskStatusStyle(status) {
@@ -928,8 +977,8 @@ export default function PetBoardingManagement() {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
     const [isDirectCheckInOpen, setIsDirectCheckInOpen] = useState(false);
-    const [isObservationOpen, setIsObservationOpen] = useState(false);
-    const [isTaskOpen, setIsTaskOpen] = useState(false);
+    const [isMonitoringEntryOpen, setIsMonitoringEntryOpen] = useState(false);
+    const [monitoringEntryMode, setMonitoringEntryMode] = useState('observation');
     const [isDocumentOpen, setIsDocumentOpen] = useState(false);
     const [isMaterialOpen, setIsMaterialOpen] = useState(false);
     const [isDesiredOutOpen, setIsDesiredOutOpen] = useState(false);
@@ -1359,6 +1408,10 @@ export default function PetBoardingManagement() {
     }), [filteredUnits, tasks, visibleMaterialUsage.length]);
 
     const selectedAssignmentId = selectedUnit?.assignment?.assignmentId ? String(selectedUnit.assignment.assignmentId) : '';
+    const monitoringAssignmentId = monitoringEntryMode === 'observation'
+        ? observationForm.assignmentId
+        : taskForm.assignmentId;
+    const selectedMonitoringStay = activeAssignments.find((item) => item.value === monitoringAssignmentId) || null;
 
     const selectedUnitObservations = useMemo(() => (
         observations.filter((observation) => String(observation.assignmentId || '') === selectedAssignmentId)
@@ -1396,22 +1449,19 @@ export default function PetBoardingManagement() {
         setIsDetailOpen(true);
     };
 
-    const openObservation = (unit = selectedUnit) => {
+    const openMonitoringEntry = (unit = selectedUnit, mode = 'observation') => {
         const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : activeAssignments[0]?.value || '';
         setObservationForm({
             ...emptyObservationForm,
             assignmentId
         });
-        setIsObservationOpen(true);
-    };
-
-    const openTask = (unit = selectedUnit) => {
-        const assignmentId = unit?.assignment?.assignmentId ? String(unit.assignment.assignmentId) : activeAssignments[0]?.value || '';
         setTaskForm({
             ...emptyTaskForm,
-            assignmentId
+            assignmentId,
+            dueAt: defaultTaskDueAt()
         });
-        setIsTaskOpen(true);
+        setMonitoringEntryMode(mode);
+        setIsMonitoringEntryOpen(true);
     };
 
     const openMaterialUsage = (unit = selectedUnit) => {
@@ -2073,11 +2123,19 @@ export default function PetBoardingManagement() {
             await createBoardingObservation({
                 assignment_id: Number(observationForm.assignmentId),
                 observation_type: observationForm.observationType,
-                notes: observationForm.notes
+                notes: observationForm.notes,
+                appetite_status: observationForm.appetiteStatus || null,
+                water_intake_status: observationForm.waterIntakeStatus || null,
+                elimination_status: observationForm.eliminationStatus || null,
+                behavior_status: observationForm.behaviorStatus || null,
+                temperature_c: observationForm.temperatureC || null,
+                weight_kg: observationForm.weightKg || null,
+                condition_severity: observationForm.conditionSeverity || null,
+                requires_vet_review: observationForm.requiresVetReview
             });
 
             toast.success('Observation added.');
-            setIsObservationOpen(false);
+            setIsMonitoringEntryOpen(false);
             setObservationForm(emptyObservationForm);
             fetchBoardingData();
         } catch (error) {
@@ -2105,7 +2163,7 @@ export default function PetBoardingManagement() {
             });
 
             toast.success('Task scheduled.');
-            setIsTaskOpen(false);
+            setIsMonitoringEntryOpen(false);
             setTaskForm(emptyTaskForm);
             fetchBoardingData();
         } catch (error) {
@@ -2281,39 +2339,34 @@ export default function PetBoardingManagement() {
         const PetIcon = getPetIcon(assignment.petSpecies);
         const statusMeta = getRoomStatusMeta(unit.status);
         const StatusIcon = statusMeta.Icon;
-        const FacilityIcon = unit.hotelBoardingType === 'hotel' ? Hotel : Home;
+        const facilityCode = unit.hotelBoardingType === 'hotel' ? 'H' : 'C';
+        const sizeCode = unit.roomSize === 'small' ? 'S' : unit.roomSize === 'medium' ? 'M' : 'L';
 
         return (
             <button
                 key={unit.id}
                 type="button"
                 onClick={() => openUnitDetails(unit)}
-                className={`group min-h-[204px] overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${statusMeta.card}`}
+                className={`group min-w-0 overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#155dfc] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none ${statusMeta.card}`}
             >
-                <div className={`h-1.5 ${statusMeta.rail}`} />
-                <div className="p-4">
+                <div className={`h-1 ${statusMeta.rail}`} />
+                <div className="flex min-h-56 flex-col p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                            <span className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${statusMeta.iconBox}`}>
-                                <FacilityIcon className="size-5" />
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-xs font-black uppercase text-slate-400">{ROOM_SIZE_LABELS[unit.roomSize]}</p>
-                                <p className="mt-0.5 text-2xl font-black text-[#101828]">{getRoomCode(unit)}</p>
-                            </div>
+                        <div>
+                            <p className="text-[0.62rem] font-black uppercase tracking-[0.18em] text-slate-400">{facilityCode} / {sizeCode}</p>
+                            <p className="mt-1 text-3xl font-black leading-none tracking-tight text-[#101828]">{getRoomCode(unit)}</p>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className="text-[0.62rem] font-black text-slate-400">#{String(unit.roomNumber).padStart(2, '0')}</span>
                             {assignment.admissionType === 'confinement' && (
-                                <Badge className="bg-violet-50 text-violet-700">Clinical</Badge>
+                                <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[0.58rem] font-black uppercase text-violet-700">Clinical</span>
                             )}
-                            <Badge className={statusMeta.badge}>
-                                <StatusIcon className="mr-1 size-3" />
-                                {statusMeta.label}
-                            </Badge>
                         </div>
                     </div>
 
-                    <div className="mt-4 min-h-[72px] border-t border-slate-100 pt-3">
+                    <p className="mt-2 truncate text-xs font-bold text-slate-500">{ROOM_SIZE_LABELS[unit.roomSize]} · {FACILITY_LABELS[unit.hotelBoardingType]}</p>
+
+                    <div className="mt-3 flex-1 border-t border-slate-100 pt-3">
                         {assignment.petName ? (
                             <>
                                 <div className="flex min-w-0 items-center gap-2">
@@ -2324,26 +2377,21 @@ export default function PetBoardingManagement() {
                                 <p className="mt-2 truncate text-xs text-slate-500">{assignment.bookingNumber}</p>
                             </>
                         ) : (
-                            <div className="flex h-full items-center gap-3 text-sm font-semibold text-slate-500">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
                                 <StatusIcon className="size-5 shrink-0" />
                                 <span>{unit.status === 'maintenance' ? 'Under maintenance' : `${currentFacilityMeta.unitSingular} ready`}</span>
                             </div>
                         )}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded-lg bg-slate-50 p-2">
-                            <p className="font-black uppercase text-slate-400">{unit.status === 'occupied' ? 'Boarded On' : 'Start'}</p>
-                            <p className="mt-1 truncate font-semibold text-slate-700">
-                                {assignment.petName ? formatDateTime(assignment.actualCheckInAt || assignment.checkInDate, 'Pending') : statusMeta.note}
-                            </p>
-                        </div>
-                        <div className="rounded-lg bg-slate-50 p-2">
-                            <p className="font-black uppercase text-slate-400">Desired Out</p>
-                            <p className="mt-1 truncate font-semibold text-slate-700">
-                                {assignment.petName ? formatDate(assignment.desiredCheckOutDate || assignment.checkOutDate) : '-'}
-                            </p>
-                        </div>
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                        <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-[0.65rem] font-black ${statusMeta.badge}`}>
+                            <StatusIcon className="size-3 shrink-0" />
+                            <span className="truncate">{statusMeta.label}</span>
+                        </span>
+                        <span className="truncate text-right text-[0.65rem] font-bold text-slate-500">
+                            {assignment.petName ? `Out ${formatDate(assignment.desiredCheckOutDate || assignment.checkOutDate)}` : statusMeta.note}
+                        </span>
                     </div>
                 </div>
             </button>
@@ -2399,7 +2447,7 @@ export default function PetBoardingManagement() {
                         );
                     })}
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {groupUnits.map(renderUnitCard)}
                 </div>
             </section>
@@ -3100,7 +3148,7 @@ export default function PetBoardingManagement() {
                                                 }`}
                                             >
                                                 <LayoutGrid className="size-4" />
-                                                Cards
+                                                Tiles
                                             </button>
                                             <button
                                                 type="button"
@@ -3177,15 +3225,11 @@ export default function PetBoardingManagement() {
                                     <ClipboardList className="size-5" />
                                 </span>
                                 <div>
-                                    <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">Monitoring</h3>
-                                    <p className="mt-1 text-sm font-semibold text-slate-500">{activeAssignments.length} active pet room assignments</p>
+                                    <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828]">Care Monitoring</h3>
+                                    <p className="mt-1 text-sm font-semibold text-slate-500">{activeAssignments.length} active stays at {getBranchDisplayName(branches, branchId) || 'the selected clinic'}</p>
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <Button variant="outline" onClick={() => openObservation()}>
-                                    <ClipboardList className="size-4" />
-                                    Add Observation
-                                </Button>
                                 <Button variant="outline" onClick={() => openMaterialUsage()} disabled={activeAssignments.length === 0 || activeInventoryItems.length === 0 || materialSchemaReady !== true || materialBillingTraceReady !== true}>
                                     <Package className="size-4" />
                                     Add Material
@@ -3198,11 +3242,55 @@ export default function PetBoardingManagement() {
                                     <Printer className="size-4" />
                                     Print History
                                 </Button>
-                                <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={() => openTask()}>
-                                    <CalendarClock className="size-4" />
-                                    Schedule Task
+                                <Button className="bg-[#155dfc] hover:bg-[#0d4acf]" onClick={() => openMonitoringEntry()} disabled={activeAssignments.length === 0}>
+                                    <Activity className="size-4" />
+                                    Add Care Update
                                 </Button>
                             </div>
+                        </div>
+
+                        <div className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+                            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <p className="text-sm font-black text-slate-900">Choose a pet room</p>
+                                    <p className="text-xs font-semibold text-slate-500">Hotel and confinement stays use the same care-update flow.</p>
+                                </div>
+                                <span className="text-xs font-bold text-slate-500">Selected clinic only</span>
+                            </div>
+                            {activeAssignments.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500">No reserved or occupied rooms at this clinic.</div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                                    {activeAssignments.map(({ unit, assignment, value }) => {
+                                        const statusMeta = getRoomStatusMeta(unit.status);
+                                        const facilityCode = unit.hotelBoardingType === 'hotel' ? 'H' : 'C';
+                                        const sizeCode = unit.roomSize === 'small' ? 'S' : unit.roomSize === 'medium' ? 'M' : 'L';
+
+                                        return (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => openMonitoringEntry(unit)}
+                                                className={`group min-w-0 overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none ${statusMeta.card}`}
+                                            >
+                                                <span className={`block h-1 ${statusMeta.rail}`} />
+                                                <span className="flex min-h-40 flex-col p-3">
+                                                    <span className="flex items-start justify-between gap-2">
+                                                        <span>
+                                                            <span className="block text-[0.6rem] font-black uppercase tracking-[0.16em] text-slate-400">{facilityCode} / {sizeCode}</span>
+                                                            <span className="mt-1 block text-2xl font-black leading-none text-slate-950">{getRoomCode(unit)}</span>
+                                                        </span>
+                                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 transition group-hover:bg-blue-600 group-hover:text-white"><Plus className="size-3.5" /></span>
+                                                    </span>
+                                                    <span className="mt-3 block truncate border-t border-slate-100 pt-3 text-sm font-black text-slate-950">{assignment.petName}</span>
+                                                    <span className="mt-1 block truncate text-[0.68rem] font-semibold text-slate-500">{assignment.ownerName}</span>
+                                                    <span className="mt-auto block truncate pt-3 text-[0.62rem] font-bold text-slate-500">{FACILITY_LABELS[unit.hotelBoardingType]}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-5">
@@ -3305,7 +3393,8 @@ export default function PetBoardingManagement() {
                                                         {OBSERVATION_LABELS[observation.observationType] || observation.observationType}
                                                     </Badge>
                                                     <p className="mt-3 truncate font-black text-[#101828]">{observation.petName} - {observation.roomLabel}</p>
-                                                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{observation.notes}</p>
+                                                     <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{observation.notes}</p>
+                                                     {renderObservationMetrics(observation)}
                                                 </div>
                                                 <p className="shrink-0 text-sm font-semibold text-slate-500">{formatDateTime(observation.observedAt)}</p>
                                             </div>
@@ -3500,13 +3589,9 @@ export default function PetBoardingManagement() {
                                             <p className="text-sm font-semibold text-slate-500">Observations and tasks for this stay.</p>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
-                                            <Button variant="outline" size="sm" onClick={() => openObservation(selectedUnit)}>
-                                                <ClipboardList className="size-4" />
-                                                Add Observation
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={() => openTask(selectedUnit)}>
-                                                <CalendarClock className="size-4" />
-                                                Schedule Task
+                                            <Button variant="outline" size="sm" onClick={() => openMonitoringEntry(selectedUnit)}>
+                                                <Activity className="size-4" />
+                                                Add Care Update
                                             </Button>
                                             <Button variant="outline" size="sm" onClick={() => openMaterialUsage(selectedUnit)} disabled={activeInventoryItems.length === 0 || materialSchemaReady !== true || materialBillingTraceReady !== true}>
                                                 <Package className="size-4" />
@@ -3546,7 +3631,8 @@ export default function PetBoardingManagement() {
                                                                 </Badge>
                                                                 <span className="shrink-0 text-xs font-semibold text-slate-500">{formatDateTime(observation.observedAt)}</span>
                                                             </div>
-                                                            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{observation.notes}</p>
+                                                             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{observation.notes}</p>
+                                                             {renderObservationMetrics(observation)}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -4059,96 +4145,138 @@ export default function PetBoardingManagement() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isObservationOpen} onOpenChange={setIsObservationOpen}>
-                <DialogContent className="max-w-xl">
+            <Dialog
+                open={isMonitoringEntryOpen}
+                onOpenChange={(open) => {
+                    if (actionLoading === 'observation' || actionLoading === 'task') return;
+                    setIsMonitoringEntryOpen(open);
+                }}
+            >
+                <DialogContent className="max-w-3xl">
                     <DialogHeader>
-                        <DialogTitle>Add Observation</DialogTitle>
-                        <DialogDescription>Record eating, bathing, playing, behavior, or other notes for a pet.</DialogDescription>
+                        <DialogTitle>Add Care Monitoring Update</DialogTitle>
+                        <DialogDescription>
+                            Record an observation or schedule care for Pet Hotel and Clinical Confinement stays at {getBranchDisplayName(branches, branchId) || 'the selected clinic'}.
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Pet Room *</Label>
-                            {renderAssignmentSelect(observationForm.assignmentId, (value) => setObservationForm({ ...observationForm, assignmentId: value }))}
-                        </div>
-                        <FieldSelect
-                            label="Observation Type"
-                            value={observationForm.observationType}
-                            displayValue={OBSERVATION_LABELS[observationForm.observationType]}
-                            onChange={(value) => setObservationForm({ ...observationForm, observationType: value })}
-                            options={Object.entries(OBSERVATION_LABELS).map(([value, label]) => ({ value, label }))}
-                        />
-                        <div className="space-y-2">
-                            <Label>Observation *</Label>
-                            <Textarea
-                                value={observationForm.notes}
-                                onChange={(event) => setObservationForm({ ...observationForm, notes: event.target.value })}
-                                rows={4}
-                                placeholder="Write the pet observation..."
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsObservationOpen(false)}>Cancel</Button>
-                        <Button onClick={addObservation} disabled={actionLoading === 'observation'} className="bg-[#155dfc]">
-                            {actionLoading === 'observation' ? <Loader2 className="size-4 animate-spin" /> : <ClipboardList className="size-4" />}
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
-            <Dialog open={isTaskOpen} onOpenChange={setIsTaskOpen}>
-                <DialogContent className="max-w-xl">
-                    <DialogHeader>
-                        <DialogTitle>Schedule Room Task</DialogTitle>
-                        <DialogDescription>Assign a care task so missed work appears in monitoring.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Pet Room *</Label>
-                            {renderAssignmentSelect(taskForm.assignmentId, (value) => setTaskForm({ ...taskForm, assignmentId: value }))}
-                        </div>
-                        <FieldSelect
-                            label="Task Type"
-                            value={taskForm.taskType}
-                            displayValue={TASK_LABELS[taskForm.taskType]}
-                            onChange={(value) => setTaskForm({ ...taskForm, taskType: value })}
-                            options={Object.entries(TASK_LABELS).map(([value, label]) => ({ value, label }))}
-                        />
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label>Due At *</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={taskForm.dueAt}
-                                    onChange={(event) => setTaskForm({ ...taskForm, dueAt: event.target.value })}
-                                />
+                    <div className="space-y-5">
+                        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">1 · Choose the active stay</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-700">Only rooms from the selected clinic are listed.</p>
+                                </div>
+                                <Building2 className="size-5 text-slate-400" />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Assigned To</Label>
-                                <Input
-                                    value={taskForm.assignedTo}
-                                    onChange={(event) => setTaskForm({ ...taskForm, assignedTo: event.target.value })}
-                                    restriction="name"
-                                    placeholder="Staff name"
-                                />
+                            <div className="mt-3">
+                                {renderAssignmentSelect(monitoringAssignmentId, (value) => {
+                                    setObservationForm((current) => ({ ...current, assignmentId: value }));
+                                    setTaskForm((current) => ({ ...current, assignmentId: value }));
+                                })}
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Instructions</Label>
-                            <Textarea
-                                value={taskForm.notes}
-                                onChange={(event) => setTaskForm({ ...taskForm, notes: event.target.value })}
-                                rows={3}
-                            />
-                        </div>
+                            {selectedMonitoringStay && (
+                                <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-2.5">
+                                    <div className={`w-24 shrink-0 overflow-hidden rounded-lg border bg-white ${getRoomStatusMeta(selectedMonitoringStay.unit.status).card}`}>
+                                        <div className={`h-1 ${getRoomStatusMeta(selectedMonitoringStay.unit.status).rail}`} />
+                                        <div className="p-3">
+                                            <p className="text-[0.58rem] font-black uppercase tracking-[0.14em] text-slate-400">
+                                                {selectedMonitoringStay.unit.hotelBoardingType === 'hotel' ? 'H' : 'C'} / {selectedMonitoringStay.unit.roomSize === 'small' ? 'S' : selectedMonitoringStay.unit.roomSize === 'medium' ? 'M' : 'L'}
+                                            </p>
+                                            <p className="mt-1 text-lg font-black leading-none text-slate-950">{getRoomCode(selectedMonitoringStay.unit)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate font-black text-slate-950">{selectedMonitoringStay.assignment.petName}</p>
+                                        <p className="mt-0.5 text-xs font-semibold text-slate-500">{getRoomCode(selectedMonitoringStay.unit)} · {FACILITY_LABELS[selectedMonitoringStay.unit.hotelBoardingType]}</p>
+                                        <p className="mt-1 truncate text-xs text-slate-500">Owner: {selectedMonitoringStay.assignment.ownerName}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </section>
+
+                        <section>
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">2 · Choose the update</p>
+                            <div className="mt-2 grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setMonitoringEntryMode('observation')}
+                                    className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${monitoringEntryMode === 'observation' ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'}`}
+                                >
+                                    <Activity className="size-5" />
+                                    <span className="mt-2 block text-sm font-black">Record observation</span>
+                                    <span className="mt-1 hidden text-xs font-medium leading-5 opacity-75 sm:block">Appetite, water, behavior, condition, and notes.</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMonitoringEntryMode('task')}
+                                    className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${monitoringEntryMode === 'task' ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'}`}
+                                >
+                                    <Utensils className="size-5" />
+                                    <span className="mt-2 block text-sm font-black">Schedule care task</span>
+                                    <span className="mt-1 hidden text-xs font-medium leading-5 opacity-75 sm:block">Feeding, medicine, bathing, play, or inspection.</span>
+                                </button>
+                            </div>
+                        </section>
+
+                        {monitoringEntryMode === 'observation' ? (
+                            <section className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">3 · Record today’s observation</p>
+                                <div>
+                                    <Label>Observation Type</Label>
+                                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                                        {Object.entries(OBSERVATION_LABELS).map(([value, label]) => (
+                                            <button key={value} type="button" onClick={() => setObservationForm({ ...observationForm, observationType: value })} className={`rounded-lg border px-2 py-2 text-xs font-black transition ${observationForm.observationType === value ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}>{label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                    <FieldSelect label="Appetite" value={observationForm.appetiteStatus} displayValue={observationForm.appetiteStatus ? observationForm.appetiteStatus.replaceAll('_', ' ') : ''} onChange={(value) => setObservationForm({ ...observationForm, appetiteStatus: value })} placeholder="Optional" options={['good', 'reduced', 'refused'].map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }))} />
+                                    <FieldSelect label="Water" value={observationForm.waterIntakeStatus} displayValue={observationForm.waterIntakeStatus ? observationForm.waterIntakeStatus.replaceAll('_', ' ') : ''} onChange={(value) => setObservationForm({ ...observationForm, waterIntakeStatus: value })} placeholder="Optional" options={['normal', 'reduced', 'increased', 'none'].map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }))} />
+                                    <FieldSelect label="Elimination" value={observationForm.eliminationStatus} displayValue={observationForm.eliminationStatus ? observationForm.eliminationStatus.replaceAll('_', ' ') : ''} onChange={(value) => setObservationForm({ ...observationForm, eliminationStatus: value })} placeholder="Optional" options={['normal', 'none', 'loose', 'concern'].map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }))} />
+                                    <FieldSelect label="Behavior" value={observationForm.behaviorStatus} displayValue={observationForm.behaviorStatus ? observationForm.behaviorStatus.replaceAll('_', ' ') : ''} onChange={(value) => setObservationForm({ ...observationForm, behaviorStatus: value })} placeholder="Optional" options={['calm', 'active', 'anxious', 'lethargic', 'aggressive'].map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }))} />
+                                </div>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                    <div className="space-y-2"><Label>Temperature °C</Label><Input type="number" min="20" max="50" step="0.1" value={observationForm.temperatureC} onChange={(event) => setObservationForm({ ...observationForm, temperatureC: event.target.value })} placeholder="Optional" /></div>
+                                    <div className="space-y-2"><Label>Weight kg</Label><Input type="number" min="0.01" max="1000" step="0.01" value={observationForm.weightKg} onChange={(event) => setObservationForm({ ...observationForm, weightKg: event.target.value })} placeholder="Optional" /></div>
+                                    <FieldSelect label="Condition" value={observationForm.conditionSeverity} displayValue={observationForm.conditionSeverity ? observationForm.conditionSeverity.replaceAll('_', ' ') : ''} onChange={(value) => setObservationForm({ ...observationForm, conditionSeverity: value })} placeholder="Optional" options={['normal', 'watch', 'urgent'].map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }))} />
+                                </div>
+                                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950"><input type="checkbox" className="mt-0.5 size-4" checked={observationForm.requiresVetReview} onChange={(event) => setObservationForm({ ...observationForm, requiresVetReview: event.target.checked })} />This update needs veterinarian review.</label>
+                                <div className="space-y-2"><Label>Observation Notes *</Label><Textarea value={observationForm.notes} onChange={(event) => setObservationForm({ ...observationForm, notes: event.target.value })} rows={4} placeholder="What did the care team observe?" /></div>
+                            </section>
+                        ) : (
+                            <section className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4">
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">3 · Schedule the next care task</p>
+                                <div>
+                                    <Label>Task Type</Label>
+                                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                                        {Object.entries(TASK_LABELS).map(([value, label]) => (
+                                            <button key={value} type="button" onClick={() => setTaskForm({ ...taskForm, taskType: value })} className={`rounded-lg border px-2 py-2 text-xs font-black transition ${taskForm.taskType === value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300'}`}>{label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2"><Label>Due At *</Label><Input type="datetime-local" value={taskForm.dueAt} onChange={(event) => setTaskForm({ ...taskForm, dueAt: event.target.value })} /></div>
+                                    <div className="space-y-2"><Label>Assigned To</Label><Input value={taskForm.assignedTo} onChange={(event) => setTaskForm({ ...taskForm, assignedTo: event.target.value })} restriction="name" placeholder="Staff name" /></div>
+                                </div>
+                                <div className="space-y-2"><Label>Care Instructions</Label><Textarea value={taskForm.notes} onChange={(event) => setTaskForm({ ...taskForm, notes: event.target.value })} rows={3} placeholder="Meal amount, medication direction, play instructions, or other care details" /></div>
+                            </section>
+                        )}
                     </div>
+
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsTaskOpen(false)}>Cancel</Button>
-                        <Button onClick={addTask} disabled={actionLoading === 'task'} className="bg-[#155dfc]">
-                            {actionLoading === 'task' ? <Loader2 className="size-4 animate-spin" /> : <CalendarClock className="size-4" />}
-                            Save Task
-                        </Button>
+                        <Button variant="outline" onClick={() => setIsMonitoringEntryOpen(false)}>Cancel</Button>
+                        {monitoringEntryMode === 'observation' ? (
+                            <Button onClick={addObservation} disabled={actionLoading === 'observation'} className="bg-[#155dfc]">
+                                {actionLoading === 'observation' ? <Loader2 className="size-4 animate-spin" /> : <Activity className="size-4" />}
+                                Save Observation
+                            </Button>
+                        ) : (
+                            <Button onClick={addTask} disabled={actionLoading === 'task'} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                                {actionLoading === 'task' ? <Loader2 className="size-4 animate-spin" /> : <CalendarClock className="size-4" />}
+                                Schedule Care Task
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

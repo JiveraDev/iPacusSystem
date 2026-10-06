@@ -17,7 +17,10 @@ export async function loginUser(payload) {
     let data;
 
     try {
-        data = await postJson('/login', payload, { apiPrefix: true });
+        data = await postJson('/login', payload, {
+            apiPrefix: true,
+            timeoutMs: 30000
+        });
     } catch (error) {
         throw new LoginError(error.message, {
             code: error?.data?.code,

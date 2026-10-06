@@ -16,6 +16,7 @@ import PasswordInput from './PasswordInput.jsx';
 import PasswordRequirements from './PasswordRequirements.jsx';
 import { updateUserPassword } from '../../services/userService';
 import { clearStoredAuthSession } from '../../services/apiClient';
+import { resetGoogleIdentitySession } from '../../services/googleAuthService.js';
 import { isPasswordStrong, PASSWORD_POLICY_MESSAGE } from '../../lib/passwordPolicy.js';
 
 export default function PasswordChangeCard({ userId, onForgotPassword }) {
@@ -86,6 +87,7 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
             return;
         }
 
+        resetGoogleIdentitySession();
         clearStoredAuthSession();
         window.history.pushState({}, '', '/landing/forgot-password');
         window.dispatchEvent(new PopStateEvent('popstate'));

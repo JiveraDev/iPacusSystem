@@ -1,5 +1,6 @@
 import { createElement, useMemo, useState } from 'react';
 import {
+    Award,
     CheckCircle2,
     Eye,
     FileText,
@@ -423,6 +424,19 @@ export default function RecordUpdateRequestsManagement() {
                                     </div>
                                 </section>
                             </div>
+
+                            <section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                                <Award className="mt-0.5 size-5 shrink-0 text-amber-600" />
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900">Certificate records included</h3>
+                                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                                        Clinic registration proof is always available. The assigned veterinarian may sign and issue or replace a medical certificate while completing this request.
+                                    </p>
+                                    {selectedRequest.medicalCertificate ? (
+                                        <p className="mt-1 text-xs font-black text-emerald-700">Issued: {selectedRequest.medicalCertificate.certificateNumber}</p>
+                                    ) : null}
+                                </div>
+                            </section>
 
                             <div className="grid gap-4 lg:grid-cols-2">
                                 <div className="space-y-2">

@@ -69,7 +69,10 @@ export default function ProtectedImage({
 
     if (!displaySrc || hasError) {
         return (
-            <div className={`flex items-center justify-center bg-slate-100 text-slate-400 ${fallbackClassName || className}`}>
+            <div
+                data-protected-image-state={src && !hasError ? 'loading' : 'unavailable'}
+                className={`flex items-center justify-center bg-slate-100 text-slate-400 ${fallbackClassName || className}`}
+            >
                 <ImageOff className="size-5" />
             </div>
         );
@@ -78,6 +81,7 @@ export default function ProtectedImage({
     return (
         <img
             {...props}
+            data-protected-image-state="ready"
             src={displaySrc}
             alt={alt}
             className={className}

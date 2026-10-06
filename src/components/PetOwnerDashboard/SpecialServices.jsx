@@ -30,17 +30,21 @@ import {
     updateSpecialService
 } from "../../services/specialServicesService";
 import SubmissionStatus from "../shared/SubmissionStatus";
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
 import {
     getSpecialServiceProjectionLabel,
     isKaponProjectionService,
     isSpecialSurgeryProjectionService,
 } from "../../lib/servicePriceProjections";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
+import BookingDateInput from "../shared/BookingDateInput.jsx";
+import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
 import { usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
+import { PET_INPUT_LIMITS, isPetAgeText, isPetBreedText, isPetMarkingsText, isPetNameText, isPetSpeciesText, isPetWeightText } from "../../lib/petInputValidation";
 
 const EMPTY_SERVICE_FORM = {
     service_code: "",
@@ -288,6 +292,8 @@ export default function SpecialServices({ user }) {
     const [services, setServices] = useState([]);
     const [selectedPetIds, setSelectedPetIds] = useState([]);
     const [selectedServiceIds, setSelectedServiceIds] = useState([]);
+    const [bookingBranchId, setBookingBranchId] = useState(availabilityPrefill?.branchId || "");
+    const [bookingVetId, setBookingVetId] = useState(availabilityPrefill?.veterinarianId || "");
     const [serviceDate, setServiceDate] = useState(availabilityPrefill?.date || "");
     const [serviceTime, setServiceTime] = useState(availabilityPrefill?.time || "");
     const [paymentMethod, setPaymentMethod] = useState("");
@@ -316,6 +322,7 @@ export default function SpecialServices({ user }) {
     const [newPetBreed, setNewPetBreed] = useState("");
     const [newPetAge, setNewPetAge] = useState("");
     const [newPetWeight, setNewPetWeight] = useState("");
+    const [newPetColorMarkings, setNewPetColorMarkings] = useState("");
     const [newPetMedicalConditions, setNewPetMedicalConditions] = useState("");
 
     const [serviceForm, setServiceForm] = useState({ ...EMPTY_SERVICE_FORM });
@@ -613,14 +620,27 @@ export default function SpecialServices({ user }) {
         }
         if (isNewPet) {
             if (!newPetName.trim()) validationErrors.push({ fieldId: 'newPetName', label: 'Pet name', type: 'missing', message: "Enter the pet's name." });
-            if (!newPetSpecies.trim()) validationErrors.push({ fieldId: 'newPetSpecies', label: 'Species', type: 'selection', message: "Select the pet's species." });
+            if (!newPetSpecies.trim()) validationErrors.push({ fieldId: 'newPetSpecies', label: 'Species', type: 'missing', message: "Enter the pet's species or type." });
+            if (!newPetBreed.trim()) validationErrors.push({ fieldId: 'newPetBreed', label: 'Breed', type: 'missing', message: "Enter the pet's breed." });
+            if (newPetName.trim() && !isPetNameText(newPetName)) {
+                validationErrors.push({ fieldId: 'newPetName', label: 'Pet name', type: 'invalid', message: `Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.name} characters.` });
+            }
+            if (newPetSpecies.trim() && !isPetSpeciesText(newPetSpecies)) {
+                validationErrors.push({ fieldId: 'newPetSpecies', label: 'Species', type: 'invalid', message: `Species may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.species} characters.` });
+            }
+            if (newPetBreed.trim() && !isPetBreedText(newPetBreed)) {
+                validationErrors.push({ fieldId: 'newPetBreed', label: 'Breed', type: 'invalid', message: `Breed contains unsupported characters or exceeds ${PET_INPUT_LIMITS.breed} characters.` });
+            }
             if (!newPetAge.trim()) {
                 validationErrors.push({ fieldId: 'newPetAge', label: 'Pet age', type: 'missing', message: "Enter the pet's age." });
-            } else if (!Number.isFinite(Number(newPetAge)) || Number(newPetAge) < 0 || Number(newPetAge) > 50) {
-                validationErrors.push({ fieldId: 'newPetAge', label: 'Pet age', type: 'range', message: 'Pet age must be between 0 and 50 years.' });
+            } else if (!isPetAgeText(newPetAge)) {
+                validationErrors.push({ fieldId: 'newPetAge', label: 'Pet age', type: 'range', message: 'Pet age must be a whole number between 0 and 50 years.' });
             }
-            if (newPetWeight.trim() && (!Number.isFinite(Number(newPetWeight)) || Number(newPetWeight) < 0.1 || Number(newPetWeight) > 300)) {
-                validationErrors.push({ fieldId: 'newPetWeight', label: 'Pet weight', type: 'range', message: 'Pet weight must be between 0.1 and 300 kg.' });
+            if (!isPetWeightText(newPetWeight)) {
+                validationErrors.push({ fieldId: 'newPetWeight', label: 'Pet weight', type: 'range', message: 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.' });
+            }
+            if (!isPetMarkingsText(newPetColorMarkings)) {
+                validationErrors.push({ fieldId: 'newPetColorMarkings', label: 'Color and markings', type: 'invalid', message: `Color and markings must use letters and spaces only, up to ${PET_INPUT_LIMITS.colorMarkings} characters.` });
             }
         } else if (selectedPetIds.length === 0) {
             validationErrors.push({ fieldId: 'special-service-pets', label: 'Pet', type: 'selection', message: 'Select at least one pet.' });
@@ -653,6 +673,8 @@ export default function SpecialServices({ user }) {
                 pet_ids: isNewPet ? [] : selectedPetIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
                 service_type: "special services",
                 booking_date: serviceDate,
+                branch_id: bookingBranchId || null,
+                veterinarian_id: bookingVetId || null,
                 booking_time: serviceTime,
                 payment_method: paymentMethod,
                 notes: notes.trim(),
@@ -662,6 +684,7 @@ export default function SpecialServices({ user }) {
                 new_pet_breed: isNewPet ? newPetBreed.trim() : null,
                 new_pet_age: isNewPet ? newPetAge.trim() : null,
                 new_pet_weight: isNewPet ? newPetWeight.trim() : null,
+                new_pet_color_markings: isNewPet ? newPetColorMarkings.trim() : null,
                 special_service_items: selectedServiceIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
             });
 
@@ -1275,34 +1298,27 @@ export default function SpecialServices({ user }) {
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetName">Pet Name *</Label>
-                                            <Input id="newPetName" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} restriction="name" />
+                                            <Input id="newPetName" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} restriction="pet-name" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetSpecies">Species *</Label>
-                                            <Select value={newPetSpecies} onValueChange={setNewPetSpecies}>
-                                                <SelectTrigger id="newPetSpecies">
-                                                    <SelectValue placeholder="Select species" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Dog">Dog</SelectItem>
-                                                    <SelectItem value="Cat">Cat</SelectItem>
-                                                    <SelectItem value="Bird">Bird</SelectItem>
-                                                    <SelectItem value="Rabbit">Rabbit</SelectItem>
-                                                    <SelectItem value="Other">Other</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                                            <PetSpeciesAutocomplete id="newPetSpecies" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} placeholder="Type or choose a species" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetBreed">Breed</Label>
-                                            <Input id="newPetBreed" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} restriction="name" />
+                                            <Label htmlFor="newPetBreed">Breed *</Label>
+                                            <PetBreedAutocomplete id="newPetBreed" species={newPetSpecies} value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} placeholder="Type or choose a breed" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetAge">Age *</Label>
-                                            <Input id="newPetAge" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} restriction="integer" />
+                                            <Input id="newPetAge" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} restriction="pet-age" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="newPetWeight">Weight</Label>
-                                            <Input id="newPetWeight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} restriction="decimal" />
+                                            <Input id="newPetWeight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} restriction="pet-weight" />
+                                        </div>
+                                        <div className="space-y-2 sm:col-span-2">
+                                            <Label htmlFor="newPetColorMarkings">Color / Markings</Label>
+                                            <Input id="newPetColorMarkings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} restriction="pet-markings" placeholder="e.g., Black and white" />
                                         </div>
                                         <div className="space-y-2 sm:col-span-2">
                                             <Label htmlFor="newPetMedicalConditions">Medical Conditions</Label>
@@ -1368,9 +1384,14 @@ export default function SpecialServices({ user }) {
                             )}
                         </div>
 
+                        <BranchBookingSelect service="special services" date={serviceDate} value={bookingBranchId} onChange={(branchId) => { setBookingBranchId(branchId); setBookingVetId(""); setServiceTime(""); }} />
                         <div className="space-y-2">
                             <Label htmlFor="serviceDate">Announced Service Date *</Label>
-                            <Input
+                            <BookingDateInput
+                                service="special-services"
+                                branchId={bookingBranchId}
+                                veterinarianId={bookingVetId}
+                                excludeDate={(date) => selectedService ? !isDateAllowedForService(selectedService, typeof date === "string" ? date : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`) : false}
                                 id="serviceDate"
                                 type="date"
                                 value={serviceDate}
@@ -1387,6 +1408,8 @@ export default function SpecialServices({ user }) {
                             id="special-service-time"
                             service="special-services"
                             date={serviceDate}
+                            branchId={bookingBranchId}
+                            veterinarianId={bookingVetId}
                             value={serviceTime}
                             onChange={setServiceTime}
                             label="Service time"

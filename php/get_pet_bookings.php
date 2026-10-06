@@ -138,6 +138,7 @@ try {
             b.unregistered_pet_breed,
             b.unregistered_pet_age,
             b.unregistered_pet_weight,
+            b.unregistered_pet_color_markings,
             b.hotel_boarding_type,
             b.check_in_date,
             b.check_out_date,
@@ -278,8 +279,8 @@ try {
             'petStatus' => $booking['pet_status'] ?? null,
             'petAge' => $booking['pet_age'] ?? $booking['unregistered_pet_age'],
             'petWeight' => $booking['pet_weight'] ?? $booking['unregistered_pet_weight'],
+            'petColor' => $isRegistered ? ($booking['pet_color_marking'] ?? null) : ($booking['unregistered_pet_color_markings'] ?? null),
             'petMicrochipId' => $booking['pet_microchip'] ?? null,
-            'petColor' => $booking['pet_color_marking'] ?? null,
             'petAllergies' => $isRegistered
                 ? pet_allergy_effective_text($pdo, (int)$booking['pet_id'], $booking['pet_allergies'] ?? null)
                 : null,

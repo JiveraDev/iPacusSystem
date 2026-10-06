@@ -5,6 +5,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/clinical_record_helpers.php';
 require_once __DIR__ . '/booking_queue_helpers.php';
+require_once __DIR__ . '/prescription_helpers.php';
 
 if (!defined('VISIT_BILLING_HELPERS_ONLY')) {
     define('VISIT_BILLING_HELPERS_ONLY', true);
@@ -161,6 +162,8 @@ function formatOnlineConsultation(array $row): array
         'bookingId' => (int)$row['booking_id'],
         'bookingNumber' => $row['booking_number'] ?? null,
         'bookingStatus' => $row['booking_status'] ?? null,
+        'petId' => !empty($row['pet_id']) ? (int)$row['pet_id'] : null,
+        'isRegisteredPet' => $isRegistered && !empty($row['pet_id']),
         'ownerUserId' => (int)$row['owner_user_id'],
         'ownerName' => $ownerName,
         'ownerEmail' => $row['owner_email'] ?? null,
@@ -261,6 +264,7 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
             b.booking_number,
             b.booking_date,
             b.booking_time,
+            b.pet_id,
             b.status AS booking_status,
             b.notes,
             b.Image_Booking_Concern_Path AS booking_concern_images,
@@ -307,7 +311,7 @@ function fetchOnlineConsultations(PDO $pdo, array $filters = []): array
 function fetchOnlineConsultationActionRow(PDO $pdo, int $id, bool $lock = false): ?array
 {
     $stmt = $pdo->prepare("
-        SELECT oc.*, b.status AS booking_status
+        SELECT oc.*, b.status AS booking_status, b.pet_id, b.unregistered_pet_name
         FROM online_consultations oc
         JOIN bookings b ON b.booking_id = oc.booking_id
         WHERE oc.online_consultation_id = ?
@@ -512,11 +516,17 @@ try {
         }
 
         $input = getJsonInput();
+        $prescriptionItems = prescription_normalize_items(is_array($input['prescriptions'] ?? null) ? $input['prescriptions'] : []);
+        $medicationSummary = implode("\n", array_map(static function (array $item): string {
+            $dose = $item['dose'] ? ' ' . $item['dose'] : '';
+            $route = $item['route'] ? ' via ' . $item['route'] : '';
+            return trim($item['medicine'] . $dose . $route . ' - ' . $item['times_count'] . ' time(s) ' . $item['frequency']);
+        }, $prescriptionItems));
         $clinicalInput = clinical_record_sanitize_repeated_fields([
             'diagnosis' => onlineConsultationNullableText($input['diagnosis'] ?? null),
             'recommendations' => onlineConsultationNullableText($input['recommendations'] ?? null),
             'treatment' => onlineConsultationNullableText($input['treatment'] ?? null),
-            'medications' => onlineConsultationNullableText($input['medications'] ?? null),
+            'medications' => onlineConsultationNullableText($medicationSummary ?: ($input['medications'] ?? null)),
             'diagnosis_notes' => onlineConsultationNullableText($input['notes'] ?? null),
         ]);
         $diagnosis = $clinicalInput['diagnosis'];
@@ -532,6 +542,9 @@ try {
             throw new RuntimeException('Online consultation not found.');
         }
         onlineConsultationEnsureVetActor($consultation, $currentApiRole, $currentApiUserId);
+        if ($prescriptionItems && (int)($consultation['pet_id'] ?? 0) <= 0) {
+            ipawcus_guard_error(409, 'Register or select the patient pet before issuing a scheduled prescription.');
+        }
 
         $existingDiagnosisStmt = $pdo->prepare("
             SELECT diagnosis_id
@@ -588,6 +601,7 @@ try {
                 finalized_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE
+                diagnosis_id = LAST_INSERT_ID(diagnosis_id),
                 diagnosis = VALUES(diagnosis),
                 recommendations = VALUES(recommendations),
                 treatment = VALUES(treatment),
@@ -611,6 +625,20 @@ try {
             normalizeNullableJson($input['symptoms'] ?? null),
             normalizeNullableJson($input['labTests'] ?? null),
         ]);
+        $onlineDiagnosisId = (int)$pdo->lastInsertId();
+        $prescriptionPlan = ['planId' => null, 'changed' => false];
+        if ($prescriptionItems) {
+            $prescriptionPlan = prescription_sync_plan(
+                $pdo,
+                (int)$consultation['pet_id'],
+                (int)$consultation['owner_user_id'],
+                (int)$consultation['veterinarian_user_id'],
+                'online_consultation',
+                $onlineDiagnosisId,
+                $prescriptionItems,
+                'Online consultation'
+            );
+        }
 
         $updateConsultation = $pdo->prepare("
             UPDATE online_consultations
@@ -637,6 +665,13 @@ try {
             notification_send_online_consultation_event($pdo, $id, 'completed');
         } catch (Throwable $notificationError) {
             error_log('Online consultation completion notification failed: ' . $notificationError->getMessage());
+        }
+        if (!empty($prescriptionPlan['changed']) && !empty($prescriptionPlan['planId'])) {
+            try {
+                prescription_notify_plan($pdo, (int)$prescriptionPlan['planId'], !empty($prescriptionPlan['version']) && (int)$prescriptionPlan['version'] > 1);
+            } catch (Throwable $notificationError) {
+                error_log('Online prescription notification failed: ' . $notificationError->getMessage());
+            }
         }
         try {
             if (!empty($visitBilling['chargeCreated']) && !empty($visitBilling['visitId'])) {

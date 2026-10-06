@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
+    ArrowLeft,
     Building2,
+    CalendarDays,
     Clock,
     FileText,
     Loader2,
@@ -9,7 +11,6 @@ import {
     Scissors,
     Search,
     Stethoscope,
-    Undo2,
     Upload,
     X
 } from 'lucide-react';
@@ -20,7 +21,8 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { toast } from '../../reusecomponent/toast.jsx';
-import { calculateAge, formatDisplayDateTime } from '../../lib/date';
+import { calculateAge, clinicTodayDate, formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
+import { assignedVetBookings, bookingDateKey, bookingPreviewSelection, bookingsForDate, filterVetBookings, nextBookedDate, nextBookingDayLabel, queueScheduleDate, vetBookingService } from '../../lib/vetDailyBookings';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { normalizeQueuePriority } from '../../lib/queuePriority';
@@ -35,13 +37,14 @@ import { saveConsentFormRecord } from '../../services/consentRecordService';
 import { fetchProfile } from '../../services/profileService';
 import {
     fetchQueues,
-    returnQueue as returnQueueService,
     updateQueueStatus as updateQueueStatusService
 } from '../../services/queueService';
 import { uploadDataUrlImage } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import GroomingWorkspace from '../shared/GroomingWorkspace.jsx';
+import VetBookingDayList from '../shared/VetBookingDayList.jsx';
+import { fetchVeterinarianBookings } from '../../services/bookingService';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -50,7 +53,10 @@ function normalize(value) {
 }
 
 function isReceived(item) {
-    return normalize(item.status) === 'in-progress' && normalize(item.assignment_status) === 'received';
+    const intakeStatus = normalize(item.clinical_intake?.status || item.clinical_intake_status);
+    return normalize(item.status) === 'in-progress'
+        && normalize(item.assignment_status) === 'received'
+        && ['in_progress', 'completed'].includes(intakeStatus);
 }
 
 function isCompleted(item) {
@@ -59,19 +65,8 @@ function isCompleted(item) {
 }
 
 function isPastQueueDate(value) {
-    if (!value) return false;
-
-    const queueDate = new Date(value);
-
-    if (Number.isNaN(queueDate.getTime())) {
-        return false;
-    }
-
-    const today = new Date();
-    queueDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    return queueDate < today;
+    const date = bookingDateKey(value);
+    return Boolean(date && date < clinicTodayDate());
 }
 
 function ownerName(item) {
@@ -134,6 +129,12 @@ export default function VetMyList() {
     const veterinarianName = getUserName(currentUser);
     const fileInputRef = useRef(null);
     const [queue, setQueue] = useState([]);
+    const [bookings, setBookings] = useState([]);
+    const [todayKey, setTodayKey] = useState(() => clinicTodayDate());
+    const [isBookingsLoading, setIsBookingsLoading] = useState(true);
+    const [bookingsError, setBookingsError] = useState('');
+    const [bookingViewerDate, setBookingViewerDate] = useState(() => bookingPreviewSelection(window.location.search).date);
+    const [previewBookingId, setPreviewBookingId] = useState(() => bookingPreviewSelection(window.location.search).bookingId);
     const [consentForms, setConsentForms] = useState([]);
     const [consentRecords, setConsentRecords] = useState(readStoredConsents);
     const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
@@ -149,6 +150,20 @@ export default function VetMyList() {
     const [groomingReviewsOpen, setGroomingReviewsOpen] = useState(false);
 
     useEffect(() => {
+        const syncBookingPreview = () => {
+            const selection = bookingPreviewSelection(window.location.search);
+            setBookingViewerDate(selection.date);
+            setPreviewBookingId(selection.bookingId);
+        };
+        window.addEventListener('popstate', syncBookingPreview);
+        window.addEventListener('ipawcus:dashboard-route-change', syncBookingPreview);
+        return () => {
+            window.removeEventListener('popstate', syncBookingPreview);
+            window.removeEventListener('ipawcus:dashboard-route-change', syncBookingPreview);
+        };
+    }, []);
+
+    useEffect(() => {
         if (sessionStorage.getItem('ipawcus-open-grooming-reviews') === '1') {
             sessionStorage.removeItem('ipawcus-open-grooming-reviews');
             setGroomingReviewsOpen(true);
@@ -161,7 +176,7 @@ export default function VetMyList() {
     const [previewUrl, setPreviewUrl] = useState('');
     const [completedViewMode, setCompletedViewMode] = useState('table');
     const [branches, setBranches] = useState([]);
-    const [branchFilter, setBranchFilter] = useState(() => getPreferredBranchFilter(currentUser));
+    const [branchFilter, setBranchFilter] = useState('all');
 
     useEffect(() => {
         localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(consentRecords));
@@ -213,6 +228,7 @@ export default function VetMyList() {
     }, [currentUser, veterinarianUserId]);
 
     const loadQueue = async ({ isAutoRefresh = false } = {}) => {
+        setTodayKey(clinicTodayDate());
         if (!isAutoRefresh) {
             setIsLoading(true);
             setErrorMessage('');
@@ -244,7 +260,22 @@ export default function VetMyList() {
         }
     };
 
+    const loadBookings = async ({ isAutoRefresh = false } = {}) => {
+        setTodayKey(clinicTodayDate());
+        if (!isAutoRefresh) setIsBookingsLoading(true);
+        try {
+            const data = await fetchVeterinarianBookings();
+            setBookings(Array.isArray(data) ? data : []);
+            setBookingsError('');
+        } catch (error) {
+            setBookingsError(error.message || 'Your booking schedule could not be loaded.');
+        } finally {
+            setIsBookingsLoading(false);
+        }
+    };
+
     useAutoRefresh(loadQueue);
+    useAutoRefresh(loadBookings, { enabled: Boolean(veterinarianUserId), refreshKey: `vet-my-list-bookings-${veterinarianUserId}` });
     useAutoRefresh(loadConsentForms, { intervalMs: 15000, refreshKey: 'vet-consent-files' });
     useAutoRefresh(async () => {
         try {
@@ -252,6 +283,7 @@ export default function VetMyList() {
             const nextBranches = Array.isArray(data?.branches) ? data.branches : [];
             setBranches(nextBranches);
             setBranchFilter((current) => {
+                if (current === 'all') return current;
                 if (current !== 'all' && nextBranches.some((branch) => String(branch.id) === current)) return current;
                 const preferred = getPreferredBranchFilter(currentUser);
                 const selected = nextBranches.find((branch) => String(branch.id) === preferred)
@@ -274,15 +306,38 @@ export default function VetMyList() {
 
     const receivedItems = useMemo(() => {
         return assignedQueue
+            .filter(item => queueScheduleDate(item) === todayKey)
             .filter(isReceived)
             .sort((a, b) => Number(a.queue_number || 0) - Number(b.queue_number || 0));
-    }, [assignedQueue]);
+    }, [assignedQueue, todayKey]);
 
     const completedItems = useMemo(() => {
         return assignedQueue
+            .filter(item => queueScheduleDate(item) === todayKey)
             .filter(isCompleted)
             .sort((a, b) => new Date(b.completed_at || b.timestamp) - new Date(a.completed_at || a.timestamp));
-    }, [assignedQueue]);
+    }, [assignedQueue, todayKey]);
+
+    const approvedBookings = useMemo(() => filterVetBookings(assignedVetBookings(bookings, veterinarianUserId), '', branchFilter), [bookings, branchFilter, veterinarianUserId]);
+    const todayBookings = useMemo(() => bookingsForDate(filterVetBookings(approvedBookings, searchQuery), todayKey), [approvedBookings, searchQuery, todayKey]);
+    const nextDate = nextBookedDate(approvedBookings, todayKey);
+    const nextBookings = bookingsForDate(approvedBookings, nextDate);
+    const previewBookings = bookingsForDate(approvedBookings, bookingViewerDate);
+    const previewBooking = assignedVetBookings(bookings, veterinarianUserId, false).find(booking => String(booking.id) === previewBookingId && bookingDateKey(booking.date) === bookingViewerDate);
+    const previewPatient = previewBooking ? assignedQueue.find(item => String(item.booking_id) === String(previewBooking.id) && isReceived(item)) : null;
+    const getBookingStatus = (booking) => {
+        if (normalize(booking.status) === 'pending') return { label: 'Pending approval', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' };
+        const patient = assignedQueue.find(item => String(item.booking_id) === String(booking.id) && normalize(item.status) !== 'cancelled');
+        const intakeStatus = normalize(patient?.clinical_intake?.status || patient?.clinical_intake_status);
+        if (patient && isCompleted(patient)) return { label: 'Done', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
+        if (intakeStatus === 'in_progress') return { label: 'Undergoing physical examination', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' };
+        if (intakeStatus === 'completed') return { label: 'Ready for diagnosis', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
+        return { label: 'Approved', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
+    };
+    const openBookingPreview = (date, booking = null) => {
+        setBookingViewerDate(date);
+        setPreviewBookingId(booking ? String(booking.id) : '');
+    };
 
     const filteredReceivedItems = useMemo(
         () => filterItems(receivedItems, searchQuery, branchFilter),
@@ -363,20 +418,6 @@ export default function VetMyList() {
     };
     const selectedConsentRecord = selectedPatient ? getConsentRecord(selectedPatient) : null;
 
-    const deleteConsentRecord = useCallback((queueId) => {
-        setConsentRecords(current => {
-            const key = String(queueId);
-
-            if (!Object.prototype.hasOwnProperty.call(current, key)) {
-                return current;
-            }
-
-            const nextRecords = { ...current };
-            delete nextRecords[key];
-            return nextRecords;
-        });
-    }, []);
-
     const updateQueueStatus = async (queueId, status) => {
         setUpdatingQueueId(queueId);
 
@@ -409,53 +450,6 @@ export default function VetMyList() {
             toast.success(status === 'completed' ? 'Patient marked done.' : 'Patient returned to received list.');
         } catch (error) {
             toast.error(error.message || 'The patient status could not be updated. Refresh My List and try again.');
-        } finally {
-            setUpdatingQueueId(null);
-        }
-    };
-
-    const returnToApprovedList = async (queueId) => {
-        if (!veterinarianUserId) {
-            toast.error('Your veterinarian session could not be identified. Log in again before returning this patient.');
-            return;
-        }
-
-        setUpdatingQueueId(queueId);
-
-        try {
-            const data = await returnQueueService({
-                queue_id: queueId,
-                veterinarian_user_id: veterinarianUserId,
-                return_reason: 'Returned from veterinarian My List'
-            });
-
-            if (!data.success) {
-                throw new Error(data.error || data.message || 'Failed to return patient to approved list.');
-            }
-
-            setQueue(current =>
-                current.map(item =>
-                    item.queue_id === queueId
-                        ? {
-                            ...item,
-                            assignment_status: 'returned',
-                            returned_at: new Date().toISOString(),
-                            status: data.queue_status || item.status,
-                            has_active_assignment: 0
-                        }
-                        : item
-                )
-            );
-            deleteConsentRecord(queueId);
-            toast.success(
-                data.return_destination === 'bookings'
-                    ? 'Booking returned to the confirmed bookings list.'
-                    : data.return_destination === 'queue_history'
-                        ? 'Past queue closed. It can be re-entered when needed.'
-                        : 'Patient returned to the approved queue list.'
-            );
-        } catch (error) {
-            toast.error(error.message || 'The patient could not be returned to the approved queue. Refresh My List and try again.');
         } finally {
             setUpdatingQueueId(null);
         }
@@ -713,6 +707,7 @@ export default function VetMyList() {
                 queueImagePath: item.image_path || '',
                 queueSignaturePath: item.signiture_self_service_path || '',
                 assignmentId: item.assignment_id ? String(item.assignment_id) : '',
+                clinicalIntake: item.clinical_intake || null,
                 signedConsentDocumentPath: consentRecord?.signedDocumentPath || '',
                 signedConsentType: consentRecord?.consentName || '',
                 signedConsentAt: consentRecord?.signedAt || '',
@@ -725,7 +720,17 @@ export default function VetMyList() {
     };
 
     const startDiagnosis = (item) => {
+        if (queueScheduleDate(item) !== clinicTodayDate()) {
+            toast.error('Diagnosis from My List is available only for today’s patients.');
+            return;
+        }
         const record = getConsentRecord(item);
+        const intakeStatus = normalize(item.clinical_intake?.status || item.clinical_intake_status);
+
+        if (intakeStatus !== 'completed') {
+            toast.error('The assistant veterinarian must complete the physical examination before diagnosis can begin.');
+            return;
+        }
 
         if (!record?.signedAt && !record?.signedDocumentPath && !record?.physicalConsentPath) {
             toast.error('Please record consent before starting diagnosis.');
@@ -742,14 +747,21 @@ export default function VetMyList() {
             <DashboardPageHeader
                 icon={Stethoscope}
                 title="My List"
-                description="Received queue patients assigned to veterinarian handling."
+                description={`Today’s approved bookings and examination patients — ${formatDisplayDate(todayKey)}. Future schedules stay in To-dos.`}
                 layout="stacked"
                 actions={(
+                    <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" disabled={isBookingsLoading || Boolean(bookingsError) || !nextDate} onClick={() => openBookingPreview(nextDate)} className="gap-2" title={nextDate ? `View approved bookings for ${formatDisplayDate(nextDate)}` : 'No future approved bookings'}>
+                        <CalendarDays className="size-4" />
+                        {nextBookingDayLabel(nextDate, todayKey)}{nextDate ? ` (${nextBookings.length})` : ''}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => navigate('/dashboard/todos')} className="gap-2">All schedules</Button>
                     <Button
                         type="button"
                         variant="outline"
                         onClick={() => {
                             loadQueue();
+                            loadBookings();
                             loadConsentForms();
                         }}
                         disabled={isLoading}
@@ -758,22 +770,23 @@ export default function VetMyList() {
                         {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                         <span>Refresh</span>
                     </Button>
+                    </div>
                 )}
             />
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search queue or pet"
+                        placeholder="Search booking, queue, pet or owner"
                         className="h-10"
                         leftIcon={<Search className="size-4" />}
                     />
-                    <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <Building2 className="size-4 text-slate-500" />
-                        {getBranchDisplayName(branches, branchFilter, 'Active Home location')}
-                    </div>
+                    <Select value={branchFilter} onValueChange={setBranchFilter} searchable={false}>
+                        <SelectTrigger aria-label="Clinic for My List"><Building2 className="size-4 text-slate-500" /><SelectValue displayValue={branchFilter === 'all' ? 'All assigned clinics' : getBranchDisplayName(branches, branchFilter)} /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">All assigned clinics</SelectItem>{branches.map(branch => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}</SelectContent>
+                    </Select>
                 </div>
             </div>
 
@@ -783,16 +796,24 @@ export default function VetMyList() {
                 </div>
             )}
 
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="Today’s approved bookings">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Today’s approved bookings</h3>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">{todayBookings.length} booking{todayBookings.length === 1 ? '' : 's'}</span>
+                </div>
+                {isBookingsLoading ? <LoadingState /> : bookingsError ? <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-sm text-red-600 dark:text-red-300"><p>{bookingsError}</p><Button type="button" variant="outline" size="sm" onClick={() => loadBookings()}>Retry</Button></div> : <VetBookingDayList bookings={todayBookings} getStatus={getBookingStatus} onSelect={booking => openBookingPreview(todayKey, booking)} emptyText="No approved bookings for today. Future bookings are in All schedules." />}
+            </section>
+
             <section className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">In Progress</h3>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Today — In Progress</h3>
                     <Badge className="border-0 bg-blue-50 text-blue-700">{filteredReceivedItems.length} patients</Badge>
                 </div>
 
                 {isLoading ? (
                     <LoadingState />
                 ) : filteredReceivedItems.length === 0 ? (
-                    <EmptyState message="No received queue patients." />
+                    <EmptyState message="No examination patients for today." />
                 ) : (
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                         {filteredReceivedItems.map(item => (
@@ -804,7 +825,6 @@ export default function VetMyList() {
                                 onConsent={() => openConsentDialog(item)}
                                 onUploadConsent={() => openUploadDialog(item)}
                                 onStartDiagnosis={() => startDiagnosis(item)}
-                                onReturnToApproved={() => returnToApprovedList(item.queue_id)}
                             />
                         ))}
                     </div>
@@ -814,7 +834,7 @@ export default function VetMyList() {
             <section className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-slate-900">Done</h3>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Today — Done</h3>
                         <Badge className="border-0 bg-green-50 text-green-700">{filteredCompletedItems.length} patients</Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -840,7 +860,7 @@ export default function VetMyList() {
                 </div>
 
                 {filteredCompletedItems.length === 0 ? (
-                    <EmptyState message="No completed queue patients." compact />
+                    <EmptyState message="No completed patients for today." compact />
                 ) : completedViewMode === 'cards' ? (
                     <CompletedPatientsCards
                         items={filteredCompletedItems}
@@ -866,6 +886,32 @@ export default function VetMyList() {
                 <Scissors className="size-5" />
                 <span>Grooming reviews</span>
             </Button>
+
+            <Dialog open={Boolean(bookingViewerDate)} onOpenChange={open => { if (!open) { setBookingViewerDate(''); setPreviewBookingId(''); } }}>
+                <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{previewBooking ? previewBooking.bookingNumber || `Booking #${previewBooking.id}` : `${bookingViewerDate === todayKey ? 'Today' : nextBookingDayLabel(bookingViewerDate, todayKey)} — approved bookings`}</DialogTitle>
+                        <DialogDescription>{formatDisplayDate(bookingViewerDate)} · {bookingViewerDate === todayKey ? 'Your assigned bookings for this date.' : 'Schedule preview only. Physical examination remains with the admin.'}</DialogDescription>
+                    </DialogHeader>
+                    {isBookingsLoading ? <LoadingState /> : bookingsError ? <div role="alert" className="space-y-3 text-sm text-red-600 dark:text-red-300"><p>{bookingsError}</p><Button type="button" variant="outline" onClick={() => loadBookings()}>Retry</Button></div> : previewBooking ? (
+                        <div className="space-y-4">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewBookingId('')} className="gap-2"><ArrowLeft className="size-4" />Back to bookings</Button>
+                            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{previewBooking.petName || 'Pet'}</h3><Badge className={`border-0 ${getBookingStatus(previewBooking).className}`}>{getBookingStatus(previewBooking).label}</Badge></div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Detail label="Schedule" value={formatDisplayDateTime(previewBooking.date, previewBooking.time)} />
+                                <Detail label="Service" value={vetBookingService(previewBooking)} />
+                                <Detail label="Clinic" value={previewBooking.branchName} />
+                                <Detail label="Owner" value={previewBooking.ownerName} />
+                                <Detail label="Contact" value={previewBooking.ownerPhone} />
+                                <Detail label="Pet" value={[previewBooking.petSpecies, previewBooking.petBreed].filter(Boolean).join(' · ')} />
+                                <Detail label="Notes" value={previewBooking.notes} className="sm:col-span-2" />
+                            </div>
+                            {previewBooking.isOnlineConsultation ? <Button type="button" variant="outline" onClick={() => navigate('/dashboard/vet/online-consultations')}>Open online consultations</Button> : previewPatient && bookingViewerDate === todayKey && normalize(previewBooking.status) === 'confirmed' ? <Button type="button" disabled={normalize(previewPatient.clinical_intake?.status || previewPatient.clinical_intake_status) !== 'completed'} onClick={() => startDiagnosis(previewPatient)} className="gap-2"><Stethoscope className="size-4" />{normalize(previewPatient.clinical_intake?.status || previewPatient.clinical_intake_status) === 'completed' ? 'Open diagnosis' : 'Waiting for examination'}</Button> : <p className="text-sm text-slate-500 dark:text-slate-400">{bookingViewerDate === todayKey ? 'The admin starts the physical examination before this patient is ready for diagnosis.' : 'This future appointment is shown for planning only.'}</p>}
+                        </div>
+                    ) : <VetBookingDayList bookings={previewBookings} getStatus={getBookingStatus} onSelect={booking => setPreviewBookingId(String(booking.id))} />}
+                    <DialogFooter><Button type="button" variant="outline" onClick={() => { setBookingViewerDate(''); setPreviewBookingId(''); }}>Close</Button></DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={groomingReviewsOpen} onOpenChange={setGroomingReviewsOpen}>
                 <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
@@ -1077,13 +1123,15 @@ function filterItems(items, searchQuery, branchFilter = 'all') {
     });
 }
 
-function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConsent, onStartDiagnosis, onReturnToApproved }) {
+function PatientCard({ item, consentRecord, onConsent, onUploadConsent, onStartDiagnosis }) {
     const hasConsent = Boolean(
         consentRecord?.signedAt
         || consentRecord?.signedDocumentPath
         || consentRecord?.physicalConsentPath
     );
-    const queueDatePassed = isPastQueueDate(item.timestamp);
+    const queueDatePassed = isPastQueueDate(queueScheduleDate(item));
+    const intakeStatus = normalize(item.clinical_intake?.status || item.clinical_intake_status);
+    const examinationComplete = intakeStatus === 'completed';
 
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1092,6 +1140,11 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                     {getPriorityBadge(item.priority)}
                     {getConsentBadge(consentRecord)}
+                    <Badge className={examinationComplete
+                        ? 'border-0 bg-emerald-50 text-[10px] text-emerald-700'
+                        : 'border-0 bg-amber-50 text-[10px] text-amber-700'}>
+                        {examinationComplete ? 'Ready for diagnosis' : 'Undergoing physical examination'}
+                    </Badge>
                 </div>
             </div>
 
@@ -1103,7 +1156,7 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
                 </div>
             )}
 
-            <div className={`mt-5 grid gap-2 sm:grid-cols-2 ${hasConsent ? 'xl:grid-cols-2' : 'xl:grid-cols-4'}`}>
+            <div className={`mt-5 grid gap-2 sm:grid-cols-2 ${hasConsent ? '' : 'xl:grid-cols-3'}`}>
                 {!hasConsent && (
                     <>
                         <Button type="button" variant="outline" onClick={onConsent}>
@@ -1119,21 +1172,11 @@ function PatientCard({ item, consentRecord, isUpdating, onConsent, onUploadConse
                 <Button
                     type="button"
                     onClick={onStartDiagnosis}
-                    disabled={!hasConsent}
+                    disabled={!hasConsent || !examinationComplete}
                     className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                 >
                     <Stethoscope className="size-4" />
-                    Diagnosis
-                </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onReturnToApproved}
-                    disabled={isUpdating}
-                    className="border-amber-200 text-amber-700 hover:bg-amber-50"
-                >
-                    <Undo2 className="size-4" />
-                    Return
+                    {examinationComplete ? 'Diagnosis' : 'Waiting for examination'}
                 </Button>
             </div>
         </div>
@@ -1281,8 +1324,8 @@ function PatientDetails({ item }) {
 function Detail({ label, value, className = '' }) {
     return (
         <div className={className}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className="mt-1 break-words font-semibold text-slate-700">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</p>
+            <p className="mt-1 break-words font-semibold text-slate-700 dark:text-slate-200">
                 {value || <span className="text-slate-300">N/A</span>}
             </p>
         </div>

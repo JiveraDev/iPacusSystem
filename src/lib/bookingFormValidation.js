@@ -1,4 +1,5 @@
 import { toast } from '../reusecomponent/toast.jsx';
+import { PET_INPUT_LIMITS, isPetAgeText, isPetBreedText, isPetMarkingsText, isPetNameText, isPetSpeciesText, isPetWeightText } from './petInputValidation.js';
 
 const activeHighlights = new Map();
 const MAX_BOOKING_FILES = 5;
@@ -106,20 +107,6 @@ export function reportBookingFormErrors(errors) {
     return true;
 }
 
-function numericRangeError(value, { fieldId, label, min, max, unit }) {
-    if (String(value ?? '').trim() === '') return null;
-    const number = Number(value);
-    if (!Number.isFinite(number) || number < min || number > max) {
-        return {
-            fieldId,
-            label,
-            type: 'range',
-            message: `${label} must be between ${min} and ${max}${unit ? ` ${unit}` : ''}.`,
-        };
-    }
-    return null;
-}
-
 export function standardAppointmentBookingErrors({
     formData,
     isNewPet,
@@ -136,6 +123,7 @@ export function standardAppointmentBookingErrors({
         breed: fieldIds.breed || 'newPetBreed',
         age: fieldIds.age || 'newPetAge',
         weight: fieldIds.weight || 'newPetWeight',
+        colorMarkings: fieldIds.colorMarkings || 'newPetColorMarkings',
         date: fieldIds.date || 'date',
         time: fieldIds.time || 'time',
         files: fieldIds.files || 'files',
@@ -147,19 +135,62 @@ export function standardAppointmentBookingErrors({
     addMissing(!formData.petId, ids.pet, 'Pet', 'Select the pet for this booking.');
 
     if (isNewPet) {
-        addMissing(!String(formData.petName || '').trim(), ids.petName, 'Pet name', "Enter the pet's name.");
-        addMissing(!formData.newPetSpecies, ids.species, 'Species', "Select the pet's species.");
-        addMissing(!String(formData.newPetBreed || '').trim(), ids.breed, 'Breed', "Enter the pet's breed.");
+        const petName = String(formData.petName || '').trim();
+        const petBreed = String(formData.newPetBreed || '').trim();
+        addMissing(!petName, ids.petName, 'Pet name', "Enter the pet's name.");
+        addMissing(!String(formData.newPetSpecies || '').trim(), ids.species, 'Species', "Enter the pet's species or type.");
+        addMissing(!petBreed, ids.breed, 'Breed', "Enter the pet's breed.");
         addMissing(String(formData.newPetAge ?? '').trim() === '', ids.age, 'Age', "Enter the pet's age.");
 
-        const ageError = numericRangeError(formData.newPetAge, {
-            fieldId: ids.age, label: 'Pet age', min: 0, max: 50, unit: 'years'
-        });
-        const weightError = numericRangeError(formData.newPetWeight, {
-            fieldId: ids.weight, label: 'Pet weight', min: 0.1, max: 300, unit: 'kg'
-        });
-        if (ageError) errors.push(ageError);
-        if (weightError) errors.push(weightError);
+        if (petName && !isPetNameText(petName)) {
+            errors.push({
+                fieldId: ids.petName,
+                label: 'Pet name',
+                type: 'invalid',
+                message: `Pet name may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.name} characters.`,
+            });
+        }
+        if (formData.newPetSpecies && !isPetSpeciesText(formData.newPetSpecies)) {
+            errors.push({
+                fieldId: ids.species,
+                label: 'Species',
+                type: 'invalid',
+                message: `Species may contain letters, spaces, periods, apostrophes, and hyphens, up to ${PET_INPUT_LIMITS.species} characters.`,
+            });
+        }
+        if (petBreed && !isPetBreedText(petBreed)) {
+            errors.push({
+                fieldId: ids.breed,
+                label: 'Breed',
+                type: 'invalid',
+                message: `Breed contains unsupported characters or exceeds ${PET_INPUT_LIMITS.breed} characters.`,
+            });
+        }
+
+        if (String(formData.newPetAge ?? '').trim() && !isPetAgeText(formData.newPetAge)) {
+            errors.push({
+                fieldId: ids.age,
+                label: 'Pet age',
+                type: 'range',
+                message: 'Pet age must be a whole number between 0 and 50 years.',
+            });
+        }
+        if (!isPetWeightText(formData.newPetWeight)) {
+            errors.push({
+                fieldId: ids.weight,
+                label: 'Pet weight',
+                type: 'range',
+                message: 'Pet weight must be between 0.1 and 300 kg with no more than two decimal places.',
+            });
+        }
+        if (!isPetMarkingsText(formData.newPetColorMarkings)) {
+            errors.push({
+                fieldId: ids.colorMarkings,
+                label: 'Color and markings',
+                type: 'invalid',
+                message: `Color and markings must use letters and spaces only, up to ${PET_INPUT_LIMITS.colorMarkings} characters.`,
+            });
+        }
     }
 
     addMissing(branchRequired && !formData.branchId, branchFieldId, 'Clinic location', 'Select a clinic location.');

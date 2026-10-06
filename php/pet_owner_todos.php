@@ -2,8 +2,10 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/booking_maintenance.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
+require_once __DIR__ . '/veterinarian_booking_todo_helpers.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 function pet_owner_todos_input(): array
 {
@@ -181,6 +183,11 @@ function pet_owner_todos_format_task(array $task): array
         'id' => (string)$task['id'],
         'source' => $task['source'],
         'sourceId' => $task['sourceId'] ?? null,
+        'bookingId' => isset($task['bookingId']) ? (int)$task['bookingId'] : null,
+        'bookingNumber' => $task['bookingNumber'] ?? '',
+        'branchId' => isset($task['branchId']) ? (int)$task['branchId'] : null,
+        'branchName' => $task['branchName'] ?? '',
+        'ownerName' => $task['ownerName'] ?? '',
         'title' => $task['title'],
         'details' => $task['details'] ?? '',
         'category' => $task['category'] ?? 'General',
@@ -192,6 +199,10 @@ function pet_owner_todos_format_task(array $task): array
         'petName' => $task['petName'] ?? '',
         'redirectPath' => $task['redirectPath'] ?? '/dashboard/todos',
         'editable' => !empty($task['editable']),
+        'actionable' => !empty($task['actionable']),
+        'prescriptionPlanId' => isset($task['prescriptionPlanId']) ? (int)$task['prescriptionPlanId'] : null,
+        'prescriptionItemId' => isset($task['prescriptionItemId']) ? (int)$task['prescriptionItemId'] : null,
+        'occurrenceId' => isset($task['occurrenceId']) ? (int)$task['occurrenceId'] : null,
     ];
 }
 
@@ -349,6 +360,71 @@ function pet_owner_todos_diagnosis_tasks(PDO $pdo, int $userId, string $start, s
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
+function pet_owner_todos_medication_tasks(PDO $pdo, int $userId, string $start, string $end): array
+{
+    if (
+        !pet_owner_todos_table_exists($pdo, 'prescription_plans')
+        || !pet_owner_todos_table_exists($pdo, 'prescription_items')
+        || !pet_owner_todos_table_exists($pdo, 'prescription_occurrences')
+    ) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT
+            occurrence_rows.occurrence_id,
+            occurrence_rows.item_id,
+            occurrence_rows.due_at,
+            occurrence_rows.status,
+            item_rows.plan_id,
+            item_rows.medicine,
+            item_rows.dose,
+            item_rows.route,
+            item_rows.instructions,
+            plan.pet_id,
+            pet.pet_name,
+            pet.pet_sharable_ID
+        FROM prescription_occurrences occurrence_rows
+        JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id
+        JOIN prescription_plans plan ON plan.plan_id = item_rows.plan_id
+        JOIN pets_information pet ON pet.pet_id = plan.pet_id
+        JOIN pet_ownership ownership ON ownership.pet_id = plan.pet_id AND ownership.user_id = ?
+        WHERE occurrence_rows.status <> 'cancelled'
+          AND occurrence_rows.due_at BETWEEN ? AND ?
+          AND plan.status IN ('partially_started','active','completed')
+        ORDER BY occurrence_rows.due_at ASC, occurrence_rows.occurrence_id ASC
+    ");
+    $stmt->execute([$userId, $start, $end]);
+
+    return array_map(static function (array $row): array {
+        $details = array_values(array_filter([
+            trim((string)($row['dose'] ?? '')) !== '' ? 'Dose: ' . trim((string)$row['dose']) : '',
+            trim((string)($row['route'] ?? '')) !== '' ? 'Route: ' . trim((string)$row['route']) : '',
+            trim((string)($row['instructions'] ?? '')),
+        ]));
+        return pet_owner_todos_format_task([
+            'id' => 'medication-' . (int)$row['occurrence_id'],
+            'source' => 'medication',
+            'sourceId' => (int)$row['occurrence_id'],
+            'title' => 'Give ' . $row['medicine'],
+            'details' => implode("\n", $details),
+            'category' => 'Medication',
+            'startAt' => $row['due_at'],
+            'endAt' => date('Y-m-d H:i:s', strtotime($row['due_at'] . ' +30 minutes')),
+            'status' => $row['status'] === 'taken' ? 'completed' : $row['status'],
+            'petId' => (int)$row['pet_id'],
+            'petShareableId' => $row['pet_sharable_ID'] ?? null,
+            'petName' => $row['pet_name'],
+            'redirectPath' => '/dashboard/todos?prescription=' . (int)$row['plan_id'] . '&occurrence=' . (int)$row['occurrence_id'],
+            'editable' => false,
+            'actionable' => true,
+            'prescriptionPlanId' => (int)$row['plan_id'],
+            'prescriptionItemId' => (int)$row['item_id'],
+            'occurrenceId' => (int)$row['occurrence_id'],
+        ]);
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
 function pet_owner_todos_payment_tasks(PDO $pdo, int $userId): array
 {
     if (
@@ -482,60 +558,43 @@ function pet_owner_todos_boarding_tasks(PDO $pdo, int $userId, string $start, st
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
-function pet_owner_todos_vet_online_consultation_tasks(PDO $pdo, int $userId, string $start, string $end): array
+function pet_owner_todos_vet_booking_tasks(PDO $pdo, int $userId, string $start, string $end): array
 {
-    if (
-        !pet_owner_todos_table_exists($pdo, 'online_consultations')
-        || !pet_owner_todos_table_exists($pdo, 'bookings')
-    ) {
-        return [];
-    }
-
+    if (!pet_owner_todos_table_exists($pdo, 'bookings')) return [];
+    $hasConsultations = pet_owner_todos_table_exists($pdo, 'online_consultations');
+    $onlineSelect = $hasConsultations
+        ? 'oc.online_consultation_id, oc.scheduled_start, oc.scheduled_end, oc.status AS consultation_status'
+        : 'NULL AS online_consultation_id, NULL AS scheduled_start, NULL AS scheduled_end, NULL AS consultation_status';
+    $onlineJoin = $hasConsultations
+        ? 'LEFT JOIN online_consultations oc ON oc.booking_id = b.booking_id AND oc.veterinarian_user_id = b.veterinarian_id'
+        : '';
+    $bookingStart = "CONCAT(b.booking_date, ' ', b.booking_time)";
+    $scheduledStart = $hasConsultations
+        ? "CASE WHEN COALESCE(b.is_online_consultation, 0) = 1 OR LOWER(TRIM(b.service_type)) IN ('online-consultation', 'online consultation')
+           THEN COALESCE(oc.scheduled_start, {$bookingStart}) ELSE {$bookingStart} END"
+        : $bookingStart;
     $stmt = $pdo->prepare("
-        SELECT
-            oc.online_consultation_id,
-            oc.scheduled_start,
-            oc.scheduled_end,
-            oc.status,
-            b.booking_number,
+        SELECT b.*, {$onlineSelect},
             COALESCE(p.pet_name, b.unregistered_pet_name, 'Pet') AS pet_name,
-            p.pet_sharable_ID,
-            b.pet_id,
-            CONCAT(owner.first_Name, ' ', owner.last_Name) AS owner_name
-        FROM online_consultations oc
-        JOIN bookings b ON b.booking_id = oc.booking_id
+            p.pet_sharable_ID, CONCAT(owner.first_Name, ' ', owner.last_Name) AS owner_name,
+            branch.branch_name
+        FROM bookings b
         LEFT JOIN pets_information p ON p.pet_id = b.pet_id
-        LEFT JOIN users owner ON owner.user_id = oc.owner_user_id
-        WHERE oc.veterinarian_user_id = ?
-          AND oc.status IN ('scheduled', 'vet_ready', 'in_progress')
-          AND oc.scheduled_start BETWEEN ? AND ?
-        ORDER BY oc.scheduled_start ASC
+        LEFT JOIN users owner ON owner.user_id = b.user_id
+        LEFT JOIN branches branch ON branch.branch_id = b.branch_id
+        {$onlineJoin}
+        WHERE b.veterinarian_id = ?
+          AND b.status IN ('pending', 'confirmed')
+          AND ({$scheduledStart}) BETWEEN ? AND ?
+        ORDER BY b.booking_date, b.booking_time, b.booking_id
     ");
     $stmt->execute([$userId, $start, $end]);
-
-    return array_map(function ($row) {
-        $consultationId = (int)$row['online_consultation_id'];
-        $petId = (int)($row['pet_id'] ?? 0);
-        $petName = $row['pet_name'] ?? 'Pet';
-        $ownerName = trim((string)($row['owner_name'] ?? 'Pet owner')) ?: 'Pet owner';
-
-        return pet_owner_todos_format_task([
-            'id' => "vet-online-consultation-{$consultationId}",
-            'source' => 'online_consultation',
-            'sourceId' => $consultationId,
-            'title' => 'Online consultation appointment',
-            'details' => trim(($row['booking_number'] ?? '') . " for {$petName}. Owner: {$ownerName}. Status: " . ($row['status'] ?? 'scheduled')),
-            'category' => 'Online Consultation',
-            'startAt' => $row['scheduled_start'],
-            'endAt' => $row['scheduled_end'],
-            'status' => $row['status'] ?? 'scheduled',
-            'petId' => $petId > 0 ? $petId : null,
-            'petShareableId' => $row['pet_sharable_ID'] ?? null,
-            'petName' => $petName,
-            'redirectPath' => '/dashboard/vet/online-consultations',
-            'editable' => false,
-        ]);
-    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    $tasks = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+        $task = veterinarian_booking_todo($booking);
+        if ($task !== null) $tasks[] = pet_owner_todos_format_task($task);
+    }
+    return $tasks;
 }
 
 function pet_owner_todos_vet_follow_up_tasks(PDO $pdo, int $userId, string $start, string $end): array
@@ -603,7 +662,7 @@ function pet_owner_todos_summary(array $tasks): array
 
     foreach ($tasks as $task) {
         $timestamp = strtotime($task['startAt']);
-        $isDone = in_array($task['status'], ['completed', 'cancelled'], true);
+        $isDone = in_array($task['status'], ['completed', 'cancelled', 'skipped'], true);
 
         if ($task['source'] === 'personal') {
             $summary['personal']++;
@@ -645,7 +704,7 @@ function pet_owner_todos_list(PDO $pdo): void
     if (pet_owner_todos_is_veterinarian_role($role)) {
         $tasks = array_merge(
             pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
-            pet_owner_todos_vet_online_consultation_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_vet_booking_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_vet_follow_up_tasks($pdo, $userId, $start, $end)
         );
     } else {
@@ -653,6 +712,7 @@ function pet_owner_todos_list(PDO $pdo): void
             pet_owner_todos_booking_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_personal_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_diagnosis_tasks($pdo, $userId, $start, $end),
+            pet_owner_todos_medication_tasks($pdo, $userId, $start, $end),
             pet_owner_todos_payment_tasks($pdo, $userId),
             pet_owner_todos_boarding_tasks($pdo, $userId, $start, $end)
         );

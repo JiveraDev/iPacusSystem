@@ -15,6 +15,10 @@ export function fetchBookings(options = {}) {
     return apiRequest('/bookings', options);
 }
 
+export function fetchVeterinarianBookings(options = {}) {
+    return apiRequest('/bookings?assignedToMe=1', options);
+}
+
 export function fetchBookingById(bookingId, options = {}) {
     const params = new URLSearchParams({ bookingId });
     return apiRequest(`/bookings?${params.toString()}`, options);

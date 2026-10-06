@@ -312,8 +312,17 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     }
 
     $params[] = $userId;
-    $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
-    $update->execute($params);
+    $pdo->beginTransaction();
+    try {
+        $update = $pdo->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
+        $update->execute($params);
+        $pdo->commit();
+    } catch (Throwable $statusError) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $statusError;
+    }
     try {
         $ownerName = trim((string)(($ownerAccount['first_Name'] ?? '') . ' ' . ($ownerAccount['last_Name'] ?? '')))
             ?: trim((string)($ownerAccount['mail_Address'] ?? 'Pet owner'));
@@ -334,8 +343,8 @@ function owner_accounts_update_status(PDO $pdo, array $payload): void
     owner_accounts_json([
         'success' => true,
         'message' => $status === 'archived'
-            ? 'Pet owner marked as archived. Access remains unchanged.'
-            : 'Pet owner archive marker removed.',
+            ? 'Pet owner moved to the archive. Access remains available.'
+            : 'Pet owner restored to active lists.',
     ]);
 }
 

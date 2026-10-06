@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clock3, Loader2 } from 'lucide-react';
 
 import { Label } from '../../ui/label';
@@ -10,6 +10,8 @@ import {
     SelectValue,
 } from '../../ui/select';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { bookingSlotStatusLabel } from '../../lib/bookingSlots';
 
 function normalizeTime(value) {
     const match = String(value || '').match(/^(\d{1,2}):(\d{2})/);
@@ -42,6 +44,7 @@ export default function BookingTimeSlotField({
     date,
     branchId,
     veterinarianId,
+    excludeBookingId,
     value,
     onChange,
     label = 'Booking time',
@@ -51,58 +54,56 @@ export default function BookingTimeSlotField({
     allowCurrentValue = false,
     className = '',
 }) {
-    const [loadState, setLoadState] = useState({ key: '', slots: [], error: '' });
+    const [loadState, setLoadState] = useState({ key: '', slots: [], error: '', schedulingMode: '' });
     const selectedValue = normalizeTime(value);
     const isOnline = String(service || '').toLowerCase().includes('online');
     const canLoad = Boolean(service && date && (!isOnline || veterinarianId));
-    const requestKey = [service, date, branchId, veterinarianId].join(':');
+    const requestKey = [service, date, branchId, veterinarianId, excludeBookingId].join(':');
+    const currentSelection = useRef({ requestKey, selectedValue });
+    useEffect(() => { currentSelection.current = { requestKey, selectedValue }; }, [requestKey, selectedValue]);
     const isLoading = canLoad && loadState.key !== requestKey;
     const slots = canLoad && loadState.key === requestKey ? loadState.slots : [];
     const errorMessage = canLoad && loadState.key === requestKey ? loadState.error : '';
 
-    useEffect(() => {
-        if (!canLoad) {
-            return undefined;
-        }
-
-        const controller = new AbortController();
-
-        fetchBookingAvailability({
-            service,
-            date: String(date).slice(0, 10),
-            month: String(date).slice(0, 7),
-            detailsOnly: true,
-            branchId,
-            veterinarianId,
-        }, { signal: controller.signal })
-            .then((response) => {
-                if (controller.signal.aborted) return;
-                const nextSlots = Array.isArray(response?.details?.slots)
-                    ? response.details.slots
-                    : [];
-                setLoadState({ key: requestKey, slots: nextSlots, error: '' });
-
-                const selectedSlot = nextSlots.find((slot) => normalizeTime(slot.time) === selectedValue);
-                if (selectedValue && !allowCurrentValue && (!selectedSlot || !selectedSlot.available)) {
-                    onChange?.('');
-                }
-            })
-            .catch((error) => {
-                if (controller.signal.aborted) return;
-                setLoadState({
-                    key: requestKey,
-                    slots: [],
-                    error: error.message || 'Available times could not be loaded.',
-                });
+    const loadSlots = useCallback(async () => {
+        try {
+            const response = await fetchBookingAvailability({
+                service,
+                date: String(date).slice(0, 10),
+                month: String(date).slice(0, 7),
+                detailsOnly: true,
+                branchId,
+                veterinarianId,
+                excludeBookingId,
             });
+            if (currentSelection.current.requestKey !== requestKey) return;
+            const nextSlots = Array.isArray(response?.details?.slots)
+                ? response.details.slots
+                : [];
+            setLoadState({ key: requestKey, slots: nextSlots, error: '', schedulingMode: response.schedulingMode });
 
-        return () => controller.abort();
-    }, [allowCurrentValue, branchId, canLoad, date, onChange, requestKey, selectedValue, service, veterinarianId]);
+            const selectedSlot = nextSlots.find((slot) => normalizeTime(slot.time) === selectedValue);
+            if (selectedValue === currentSelection.current.selectedValue && selectedValue && !allowCurrentValue && (!selectedSlot || !selectedSlot.available)) {
+                onChange?.('');
+            }
+        } catch (error) {
+            if (currentSelection.current.requestKey !== requestKey) return;
+            setLoadState({
+                key: requestKey,
+                slots: [],
+                error: error.message || 'Available times could not be loaded.',
+            });
+        }
+    }, [allowCurrentValue, branchId, date, excludeBookingId, onChange, requestKey, selectedValue, service, veterinarianId]);
+    useAutoRefresh(loadSlots, { enabled: canLoad && !disabled, refreshKey: requestKey });
+    const isSharedMedical = loadState.schedulingMode === 'shared_veterinarian';
 
     const availableSlots = slots.filter((slot) => slot.available);
     const selectedDateLabel = formatDateLabel(date);
-    const selectedLabel = slots.find((slot) => normalizeTime(slot.time) === selectedValue)?.label
-        || formatTime(selectedValue);
+    const selectedSlot = slots.find((slot) => normalizeTime(slot.time) === selectedValue);
+    const selectedLabel = selectedSlot
+        ? `${selectedSlot.label} · ${bookingSlotStatusLabel(selectedSlot, isSharedMedical)}`
+        : formatTime(selectedValue);
     const currentValueIsListed = availableSlots.some((slot) => normalizeTime(slot.time) === selectedValue);
     const helperMessage = !date
         ? 'Select a date first.'
@@ -142,7 +143,7 @@ export default function BookingTimeSlotField({
                     )}
                     {slots.map((slot) => (
                         <SelectItem key={slot.time} value={normalizeTime(slot.time)} disabled={!slot.available}>
-                            {slot.label} — {slot.available ? 'Available' : slot.status === 'lunch' ? 'Lunch period' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
+                            {slot.label} — {bookingSlotStatusLabel(slot, isSharedMedical)}
                         </SelectItem>
                     ))}
                 </SelectContent>
@@ -153,6 +154,7 @@ export default function BookingTimeSlotField({
             >
                 {helperMessage}
             </p>
+            {isSharedMedical && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Each available vet provides one appointment. These slots are shared across all medical services.</p>}
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{['grooming', 'pet grooming'].includes(String(service || '').trim().toLowerCase()) ? 'Grooming is also bookable from 12:00–1:00 PM, subject to available slots.' : 'Lunch period: 12:00–1:00 PM. Choose a time that does not overlap lunch.'}</p>
         </div>
     );

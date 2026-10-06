@@ -12,7 +12,6 @@ import { calculateAge } from "../../lib/date";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchAllPets, searchPetDirectory, updatePetStatus } from "../../services/petService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
 import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 
@@ -26,6 +25,10 @@ function normalize(value) {
 
 function petKey(pet) {
   return pet.db_id || pet.id || pet.pet_id || pet.pet_sharable_ID || pet.name;
+}
+
+function petListsMatch(currentPets, nextPets) {
+  return JSON.stringify(currentPets) === JSON.stringify(nextPets);
 }
 
 function petAge(pet) {
@@ -72,7 +75,10 @@ export default function MyPets() {
   const [isAdminView, setIsAdminView] = useState(false);
   const [directorySearch, setDirectorySearch] = useState("");
   const [directoryView, setDirectoryView] = useState("card");
-  const [archiveFilter, setArchiveFilter] = useState("all");
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [pendingArchivePet, setPendingArchivePet] = useState(null);
+  const [isUpdatingArchive, setIsUpdatingArchive] = useState(false);
   const [clinicalSearchResults, setClinicalSearchResults] = useState([]);
   const [isClinicalSearchLoading, setIsClinicalSearchLoading] = useState(false);
   const [clinicalSearchError, setClinicalSearchError] = useState("");
@@ -160,7 +166,7 @@ export default function MyPets() {
 
       let userPets = [];
       if (isDirectoryUser) {
-        userPets = await fetchAllPets({ includeArchived: archiveFilter !== "active" });
+        userPets = await fetchAllPets({ includeArchived: true });
       } else {
         userPets = await getUserPetsService(userId);
       }
@@ -170,7 +176,9 @@ export default function MyPets() {
         name: pet.name || pet.petName || "Unnamed Pet"
       }));
 
-      setPets(standardizedPets);
+      setPets((currentPets) => (
+        petListsMatch(currentPets, standardizedPets) ? currentPets : standardizedPets
+      ));
     } catch (error) {
       console.error("Failed to fetch pets:", error);
       if (!isAutoRefresh) {
@@ -181,7 +189,7 @@ export default function MyPets() {
     }
   };
 
-  useAutoRefresh(fetchPets, { refreshKey: `pet-directory-${archiveFilter}` });
+  useAutoRefresh(fetchPets, { refreshKey: "pet-directory" });
 
   useEffect(() => {
     const query = directorySearch.trim();
@@ -199,7 +207,7 @@ export default function MyPets() {
 
     const timeoutId = window.setTimeout(async () => {
       try {
-        const data = await searchPetDirectory(query, { signal: controller.signal, includeArchived: archiveFilter !== "active" });
+        const data = await searchPetDirectory(query, { signal: controller.signal });
         setClinicalSearchResults(Array.isArray(data) ? data : []);
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -215,25 +223,19 @@ export default function MyPets() {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [archiveFilter, directorySearch, isAdminView]);
+  }, [directorySearch, isAdminView]);
 
   const hasClinicalSearch = isAdminView && directorySearch.trim().length >= 2;
 
   const filteredPets = useMemo(() => {
     if (!isAdminView) return pets;
 
-    const statusPets = pets.filter((pet) => (
-      archiveFilter === "all"
-        || (archiveFilter === "archived" ? pet.isArchived : !pet.isArchived)
-    ));
+    const statusPets = pets.filter((pet) => !pet.isArchived);
 
     const query = normalize(directorySearch);
     if (!query) return statusPets;
     if (query.length >= 2) {
-      return clinicalSearchResults.filter((pet) => (
-        archiveFilter === "all"
-          || (archiveFilter === "archived" ? pet.isArchived : !pet.isArchived)
-      ));
+      return clinicalSearchResults.filter((pet) => !pet.isArchived);
     }
 
     return statusPets.filter(pet => {
@@ -250,10 +252,41 @@ export default function MyPets() {
 
       return normalize(searchableText).includes(query);
     });
-  }, [archiveFilter, clinicalSearchResults, directorySearch, isAdminView, pets]);
+  }, [clinicalSearchResults, directorySearch, isAdminView, pets]);
 
-  const togglePetArchive = async (pet) => {
+  const archivedPets = useMemo(() => {
+    const query = normalize(archiveSearch);
+    return pets.filter((pet) => {
+      if (!pet.isArchived) return false;
+      if (!query) return true;
+
+      return normalize([
+        pet.name,
+        pet.id,
+        pet.db_id,
+        pet.species,
+        pet.breed,
+        pet.ownerName,
+        pet.tempOwnerName
+      ].filter(Boolean).join(" ")).includes(query);
+    });
+  }, [archiveSearch, pets]);
+
+  const archivedPetCount = useMemo(() => pets.filter((pet) => pet.isArchived).length, [pets]);
+
+  const requestPetArchiveUpdate = (pet) => {
+    if (pet.isArchived) {
+      setIsArchiveOpen(false);
+    }
+    setPendingArchivePet(pet);
+  };
+
+  const confirmPetArchiveUpdate = async () => {
+    if (!pendingArchivePet) return;
+
+    const pet = pendingArchivePet;
     const nextArchived = !pet.isArchived;
+    setIsUpdatingArchive(true);
     try {
       const response = await updatePetStatus(pet.id || pet.db_id, {
         action: nextArchived ? "archive" : "restore",
@@ -263,8 +296,11 @@ export default function MyPets() {
         petKey(item) === petKey(pet) ? { ...item, isArchived: nextArchived } : item
       )));
       toast.success(response.message || (nextArchived ? "Pet archived." : "Pet restored."));
+      setPendingArchivePet(null);
     } catch (error) {
       toast.error(error.message || "Pet archive status could not be updated.");
+    } finally {
+      setIsUpdatingArchive(false);
     }
   };
 
@@ -310,6 +346,26 @@ export default function MyPets() {
         description={isAdminView
           ? "Search registered pets, owners, and linked clinical history."
           : "Review your linked pets and open their health information."}
+        actions={isAdminView && canManageArchives ? (
+          <div className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setIsArchiveOpen(true)}
+              className="size-10 border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+              aria-label={`Open pet archive${archivedPetCount ? `, ${archivedPetCount} archived` : ""}`}
+              title="Pet Archive"
+            >
+              <Archive className="size-4" />
+            </Button>
+            {archivedPetCount > 0 ? (
+              <span className="pointer-events-none absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-black leading-4 text-white">
+                {archivedPetCount > 99 ? "99+" : archivedPetCount}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       />
 
       {isAdminView && (
@@ -326,14 +382,6 @@ export default function MyPets() {
               />
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              <Select value={archiveFilter} onValueChange={setArchiveFilter}>
-                <SelectTrigger className="h-10 min-w-40 bg-white"><SelectValue placeholder="Pet status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All pets</SelectItem>
-                  <SelectItem value="active">Active pets</SelectItem>
-                  <SelectItem value="archived">Archived pets</SelectItem>
-                </SelectContent>
-              </Select>
             {!hasClinicalSearch && <div className="flex w-full gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
               <Button
                 type="button"
@@ -358,11 +406,11 @@ export default function MyPets() {
             </div>}
             </div>
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-500">
-            {hasClinicalSearch
-              ? `${filteredPets.length} pet${filteredPets.length === 1 ? "" : "s"} matched this search`
-              : `Showing ${filteredPets.length} of ${pets.length} registered pets`}
-          </p>
+          {hasClinicalSearch ? (
+            <p className="mt-3 text-sm font-semibold text-slate-500">
+              {filteredPets.length} pet{filteredPets.length === 1 ? "" : "s"} matched this search
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -382,11 +430,11 @@ export default function MyPets() {
       ) : isAdminView && filteredPets.length === 0 ? (
         <NoDirectoryMatches clinical={hasClinicalSearch} />
       ) : isAdminView && directoryView === "list" ? (
-        <PetDirectoryTable pets={filteredPets} onOpenPet={openPet} canManageArchives={canManageArchives} onToggleArchive={togglePetArchive} />
+        <PetDirectoryTable pets={filteredPets} onOpenPet={openPet} canManageArchives={canManageArchives} onToggleArchive={requestPetArchiveUpdate} />
       ) : (
         <div className={isAdminView ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"}>
           {filteredPets.map((pet) => (
-            <PetCard key={petKey(pet)} pet={pet} compact={isAdminView} onOpen={() => openPet(pet)} canManageArchives={canManageArchives} onToggleArchive={() => togglePetArchive(pet)} />
+            <PetCard key={petKey(pet)} pet={pet} compact={isAdminView} onOpen={() => openPet(pet)} canManageArchives={canManageArchives} onToggleArchive={() => requestPetArchiveUpdate(pet)} />
           ))}
 
           {!isAdminView && <LinkPetCard navigate={navigate} />}
@@ -404,7 +452,135 @@ export default function MyPets() {
         onDecline={() => handleCoparentDecision("decline")}
         onCancel={() => handleCoparentDecision("cancel")}
       />
+
+      <PetArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={(open) => {
+          setIsArchiveOpen(open);
+          if (!open) setArchiveSearch("");
+        }}
+        pets={archivedPets}
+        totalCount={archivedPetCount}
+        search={archiveSearch}
+        onSearchChange={setArchiveSearch}
+        onRestore={requestPetArchiveUpdate}
+      />
+
+      <Dialog
+        open={Boolean(pendingArchivePet)}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingArchive) setPendingArchivePet(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {pendingArchivePet ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {pendingArchivePet.isArchived ? `Restore ${pendingArchivePet.name}?` : `Archive ${pendingArchivePet.name}?`}
+                </DialogTitle>
+                <DialogDescription>
+                  {pendingArchivePet.isArchived
+                    ? "The pet will return to the active directory with all existing records unchanged."
+                    : "The pet will leave the active directory, but its ownership, medical, booking, and payment records will be kept."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="font-black text-slate-950">{pendingArchivePet.name}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {[petType(pendingArchivePet), pendingArchivePet.ownerName || pendingArchivePet.tempOwnerName, pendingArchivePet.id].filter(Boolean).join(" | ")}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPendingArchivePet(null)} disabled={isUpdatingArchive}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={confirmPetArchiveUpdate}
+                  disabled={isUpdatingArchive}
+                  className={pendingArchivePet.isArchived ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-slate-800 text-white hover:bg-slate-900"}
+                >
+                  {isUpdatingArchive ? <Loader2 className="mr-2 size-4 animate-spin" /> : pendingArchivePet.isArchived ? <RotateCcw className="mr-2 size-4" /> : <Archive className="mr-2 size-4" />}
+                  {isUpdatingArchive ? "Updating..." : pendingArchivePet.isArchived ? "Restore Pet" : "Archive Pet"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function PetArchiveDialog({ open, onOpenChange, pets, totalCount, search, onSearchChange, onRestore }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b border-slate-200 px-5 py-5 text-left sm:px-6">
+          <DialogTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+            <Archive className="size-5 text-slate-600" />
+            Pet Archive
+          </DialogTitle>
+          <DialogDescription>
+            Archived pets are hidden from active lists. Restore a pet to return it without losing any records.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+          <Input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search archived pets"
+            leftIcon={<Search className="size-4" />}
+          />
+          <p className="mt-2 text-xs font-bold text-slate-500">
+            {pets.length} shown / {totalCount} archived
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+          {pets.length ? (
+            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {pets.map((pet) => (
+                <div key={petKey(pet)} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {pet.profileImage ? (
+                      <ProtectedImage
+                        src={pet.profileImage}
+                        alt={pet.name}
+                        className="size-11 shrink-0 rounded-full border border-slate-200 object-cover"
+                        fallbackClassName="size-11 shrink-0 rounded-full border border-slate-200"
+                      />
+                    ) : (
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                        <PawPrint className="size-5" />
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-slate-950">{pet.name}</p>
+                      <p className="truncate text-xs font-semibold text-slate-500">
+                        {[petType(pet), pet.ownerName || pet.tempOwnerName, pet.id].filter(Boolean).join(" | ")}
+                      </p>
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => onRestore(pet)} className="shrink-0 gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                    <RotateCcw className="size-4" />
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">
+              <Archive className="mx-auto size-9 text-slate-300" />
+              <p className="mt-3 font-black text-slate-800">{totalCount ? "No archived pets match your search" : "The pet archive is empty"}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Archived pets will appear here for restoration.</p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -748,9 +924,26 @@ function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArch
       petHover="always"
       petKind={petCardHoverKind(pet)}
       petAccent={petCardHoverAccent(pet)}
-      className={`group min-w-0 cursor-pointer overflow-hidden border-slate-200 transition-all duration-300 hover:-translate-y-1 hover:border-[#155dfc] hover:shadow-xl ${compact ? "rounded-[12px]" : ""}`}
+      className={`group relative min-w-0 cursor-pointer overflow-hidden border-slate-200 transition-all duration-300 hover:-translate-y-1 hover:border-[#155dfc] hover:shadow-xl ${compact ? "rounded-[12px]" : ""}`}
       onClick={onOpen}
     >
+      {compact && canManageArchives && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label={pet.isArchived ? `Restore ${pet.name}` : `Archive ${pet.name}`}
+          title={pet.isArchived ? `Restore ${pet.name}` : `Archive ${pet.name}`}
+          className={`absolute left-3 top-3 z-10 size-9 rounded-full bg-white/95 shadow-sm ${
+            pet.isArchived
+              ? "text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+              : "text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+          }`}
+          onClick={(event) => { event.stopPropagation(); onToggleArchive?.(); }}
+        >
+          {pet.isArchived ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
+        </Button>
+      )}
       <CardContent className={compact ? "min-w-0 p-4" : "min-w-0 pt-8"}>
         <div className="min-w-0 text-center">
           <div className={compact ? "relative mb-3 inline-block" : "relative mb-6 inline-block"}>
@@ -829,18 +1022,6 @@ function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArch
             </div>
           )}
           {pet.isArchived && <Badge className="mt-2 border-0 bg-slate-100 text-slate-600">Archived</Badge>}
-          {compact && canManageArchives && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 w-full"
-              onClick={(event) => { event.stopPropagation(); onToggleArchive?.(); }}
-            >
-              {pet.isArchived ? <RotateCcw className="mr-2 size-4" /> : <Archive className="mr-2 size-4" />}
-              {pet.isArchived ? "Restore" : "Archive"}
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>

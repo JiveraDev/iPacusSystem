@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import updateLocale from 'dayjs/plugin/updateLocale';
 import { Calendar, dayjsLocalizer, Views } from 'react-big-calendar';
@@ -13,6 +13,7 @@ import {
     Pencil,
     Plus,
     RefreshCw,
+    Pill,
     Stethoscope,
     Trash2,
     Video
@@ -36,15 +37,17 @@ import {
     updatePetOwnerTodo
 } from '../../services/todoService';
 import { useNavigate } from '../dashboardRouter.jsx';
-import { fetchBranches, fetchVeterinarianBranchSchedules, getBranchDisplayName, saveVeterinarianBranchSchedule } from '../../services/branchService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import ServicePetPeek from '../shared/ServicePetPeek.jsx';
+import PrescriptionPlanPanel from '../shared/PrescriptionPlanPanel.jsx';
+import { updatePrescriptionOccurrence } from '../../services/prescriptionService';
+import { bookingScheduleCount, isBookingScheduleTask } from '../../lib/vetDailyBookings';
 
 dayjs.extend(updateLocale);
 dayjs.updateLocale('en', { weekStart: 0 });
 
 const calendarLocalizer = dayjsLocalizer(dayjs);
-const TodoCalendarEventsContext = createContext([]);
+const TodoCalendarEventsContext = createContext({ events: [], onOpenDay: null });
 const TODO_DAY_PET_KINDS = ['dog', 'cat', 'bunny', 'parrot'];
 const TODO_DAY_PET_ACCENTS = ['blue', 'coral', 'sun', 'mint'];
 
@@ -69,7 +72,6 @@ const CATEGORY_STYLES = {
 };
 
 CATEGORY_STYLES['Online Consultation'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
-CATEGORY_STYLES['Branch Visit'] = { dot: 'bg-blue-600', badge: 'bg-blue-50 text-blue-700', border: 'border-blue-200' };
 
 const CATEGORY_COLORS = {
     Booking: '#2563eb',
@@ -79,7 +81,6 @@ const CATEGORY_COLORS = {
     Medication: '#d97706',
     'Personal Task': '#475569',
     'Online Consultation': '#2563eb',
-    'Branch Visit': '#155dfc',
     Other: '#64748b'
 };
 
@@ -286,7 +287,7 @@ function taskStyle(task) {
 }
 
 function isTaskDone(task) {
-    return task.status === 'completed' || task.status === 'cancelled';
+    return ['completed', 'cancelled', 'skipped'].includes(task.status);
 }
 
 function isTaskOverdue(task) {
@@ -322,14 +323,12 @@ export default function Todos({ user }) {
     const [loadError, setLoadError] = useState('');
     const [editingTask, setEditingTask] = useState(null);
     const [form, setForm] = useState(() => emptyForm(new Date()));
-    const [branches, setBranches] = useState([]);
-    const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
-    const [visitForm, setVisitForm] = useState({
-        branchId: '', startDate: dateInputValue(new Date()), endDate: dateInputValue(new Date()), startsAt: '09:00', endsAt: '12:00',
-        serviceKeys: ['vaccination', 'lab-testing', 'parasite-control'], notes: ''
-    });
+    const handledMedicationDeepLink = useRef(false);
 
     const range = useMemo(() => visibleCalendarRange(calendarDate, calendarView), [calendarDate, calendarView]);
+    const taskRequestKey = `${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`;
+    const currentTaskRequest = useRef(taskRequestKey);
+    useEffect(() => { currentTaskRequest.current = taskRequestKey; }, [taskRequestKey]);
 
     const loadTasks = async ({ isAutoRefresh = false } = {}) => {
         if (!userId) return null;
@@ -345,38 +344,18 @@ export default function Todos({ user }) {
                 end: dateInputValue(range.end),
                 role: user?.role || ''
             });
-            let nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
-            if (isVeterinarian) {
-                const scheduleData = await fetchVeterinarianBranchSchedules({
-                    veterinarianId: userId,
-                    from: dateInputValue(range.start),
-                    to: dateInputValue(range.end)
-                });
-                const visits = (scheduleData?.schedules || []).map((visit) => ({
-                    id: `branch-visit-${visit.id}`,
-                    sourceId: visit.id,
-                    source: 'branch_visit',
-                    title: `Visit: ${visit.branchName}`,
-                    details: `${visit.veterinarianName} · ${(visit.serviceKeys || []).join(', ')}${visit.notes ? ` · ${visit.notes}` : ''}`,
-                    category: 'Branch Visit',
-                    startAt: visit.startsAt,
-                    endAt: visit.endsAt,
-                    status: visit.status,
-                    editable: false,
-                    branchId: visit.branchId,
-                    branchName: visit.branchName
-                }));
-                nextTasks = [...nextTasks, ...visits];
-            }
+            const nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
+            if (currentTaskRequest.current !== taskRequestKey) return null;
             setTasks(nextTasks);
+            setLoadError('');
             return data;
         } catch (error) {
-            if (!isAutoRefresh) {
+            if (currentTaskRequest.current === taskRequestKey && !isAutoRefresh) {
                 setLoadError(error.message || 'TODOs could not be loaded.');
             }
             return null;
         } finally {
-            if (!isAutoRefresh) {
+            if (currentTaskRequest.current === taskRequestKey && !isAutoRefresh) {
                 setIsLoading(false);
             }
         }
@@ -384,63 +363,8 @@ export default function Todos({ user }) {
 
     useAutoRefresh(loadTasks, {
         enabled: Boolean(userId),
-        intervalMs: 10000,
         refreshKey: `todos-${normalizeRole(user?.role)}-${userId}-${dateInputValue(range.start)}-${dateInputValue(range.end)}`
     });
-
-    useAutoRefresh(async () => {
-        if (!isVeterinarian) return;
-        try {
-            const data = await fetchBranches();
-            const petCorners = (data?.branches || []).filter((branch) => branch.type === 'pet_corner');
-            setBranches(petCorners);
-            if (petCorners.length) {
-                setVisitForm((current) => current.branchId ? current : { ...current, branchId: String(petCorners[0].id) });
-            }
-        } catch (error) {
-            console.error('Failed to load Pet Corner branches:', error);
-        }
-    }, { enabled: isVeterinarian, intervalMs: 30000, refreshKey: `vet-visit-branches-${userId}` });
-
-    const saveBranchVisit = async () => {
-        if (!visitForm.branchId || !visitForm.startDate || !visitForm.endDate || !visitForm.startsAt || !visitForm.endsAt) {
-            toast.error('Branch, start date, end date, and daily visit times are required.');
-            return;
-        }
-        if (visitForm.endDate < visitForm.startDate) {
-            toast.error('End date cannot be earlier than the start date.');
-            return;
-        }
-        const visitStartDate = parseTaskDate(visitForm.startDate);
-        const visitEndDate = parseTaskDate(visitForm.endDate);
-        if (!visitStartDate || !visitEndDate || visitEndDate > addDays(visitStartDate, 30)) {
-            toast.error('Pet Corner visit ranges can cover up to 31 calendar days.');
-            return;
-        }
-        if (visitForm.endsAt <= visitForm.startsAt) {
-            toast.error('Daily end time must be later than the daily start time.');
-            return;
-        }
-        setIsSaving(true);
-        try {
-            const response = await saveVeterinarianBranchSchedule({
-                branchId: Number(visitForm.branchId),
-                startsAt: combineDateTime(visitForm.startDate, visitForm.startsAt),
-                endsAt: combineDateTime(visitForm.startDate, visitForm.endsAt),
-                rangeStartDate: visitForm.startDate,
-                rangeEndDate: visitForm.endDate,
-                serviceKeys: visitForm.serviceKeys,
-                notes: visitForm.notes
-            });
-            toast.success(response.message || 'Branch visit range published. Branch admins were notified.');
-            setIsVisitDialogOpen(false);
-            await loadTasks();
-        } catch (error) {
-            toast.error(error.message || 'Branch visit could not be published.');
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     const tasksByDay = useMemo(() => {
         const grouped = new Map();
@@ -468,6 +392,21 @@ export default function Todos({ user }) {
         if (!selectedDate) return [];
         return tasksByDay.get(dateInputValue(selectedDate)) || [];
     }, [selectedDate, tasksByDay]);
+    const bookingCount = bookingScheduleCount(tasks);
+    const selectedBookingCount = bookingScheduleCount(selectedTasks);
+
+    useEffect(() => {
+        if (handledMedicationDeepLink.current || tasks.length === 0) return;
+        const occurrenceId = Number(new URLSearchParams(window.location.search).get('occurrence'));
+        if (!occurrenceId) return;
+        const task = tasks.find((candidate) => Number(candidate.occurrenceId) === occurrenceId);
+        const dueDate = task ? parseTaskDate(task.startAt) : null;
+        if (!dueDate) return;
+        handledMedicationDeepLink.current = true;
+        setCalendarDate(dueDate);
+        setSelectedDate(dueDate);
+        setIsDialogOpen(true);
+    }, [tasks]);
 
     const calendarEvents = useMemo(() => (
         tasks
@@ -567,12 +506,17 @@ export default function Todos({ user }) {
     };
 
     const completeTask = async (task) => {
-        if (!task.editable) return;
+        if (!task.editable && !task.actionable) return;
 
         setIsSaving(true);
         try {
-            await updatePetOwnerTodo(task.sourceId, userId, { status: task.status === 'completed' ? 'pending' : 'completed' });
-            toast.success(task.status === 'completed' ? 'Task reopened.' : 'Task completed.');
+            if (task.source === 'medication' && task.occurrenceId) {
+                await updatePrescriptionOccurrence(task.occurrenceId, { status: task.status === 'completed' ? 'pending' : 'taken' });
+                toast.success(task.status === 'completed' ? 'Medication dose reopened.' : 'Medication dose marked taken.');
+            } else {
+                await updatePetOwnerTodo(task.sourceId, userId, { status: task.status === 'completed' ? 'pending' : 'completed' });
+                toast.success(task.status === 'completed' ? 'Task reopened.' : 'Task completed.');
+            }
             await loadTasks();
         } catch (error) {
             toast.error(error.message || 'Task could not be updated.');
@@ -699,7 +643,7 @@ export default function Todos({ user }) {
                 icon={CalendarDays}
                 title={isVeterinarian ? 'Schedule & TODOs' : 'TODOs & Schedule'}
                 description={isVeterinarian
-                    ? 'Online consultation appointments, follow-up recording, and personal tasks.'
+                    ? 'All assigned bookings, online calls, follow-up recording, and personal tasks. Select any date to see its booking count and list.'
                     : 'Clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.'}
                 petHover
                 petKind="bunny"
@@ -707,9 +651,9 @@ export default function Todos({ user }) {
                 actions={(
                     <div className="flex flex-wrap gap-2">
                         {isVeterinarian && (
-                            <Button type="button" onClick={() => setIsVisitDialogOpen(true)}>
+                            <Button type="button" onClick={() => navigate('/dashboard/profile')}>
                                 <Stethoscope className="size-4" />
-                                Schedule Pet Corner Visit
+                                Manage booking preferences
                             </Button>
                         )}
                         <Button type="button" variant="outline" onClick={() => loadTasks()} disabled={isLoading}>
@@ -726,6 +670,15 @@ export default function Todos({ user }) {
                 </div>
             )}
 
+            {!isVeterinarian && (
+                <PrescriptionPlanPanel
+                    onlyNeedsStart
+                    compact
+                    title="New prescriptions"
+                    onChanged={() => loadTasks({ isAutoRefresh: true })}
+                />
+            )}
+
             <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-100">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -735,7 +688,7 @@ export default function Todos({ user }) {
                                 {calendarTitle(calendarDate, calendarView)}
                             </CardTitle>
                             <p className="mt-1 text-sm font-semibold text-slate-500">
-                                Personal tasks and clinic schedule in one timeline.
+                                {isVeterinarian ? `${bookingCount} assigned booking${bookingCount === 1 ? '' : 's'} in this calendar range. Personal tasks and follow-ups are shown separately.` : 'Personal tasks and clinic schedule in one timeline.'}
                             </p>
                         </div>
 
@@ -775,7 +728,7 @@ export default function Todos({ user }) {
                                 Loading schedules...
                             </div>
                         ) : (
-                            <TodoCalendarEventsContext.Provider value={calendarEvents}>
+                            <TodoCalendarEventsContext.Provider value={{ events: calendarEvents, onOpenDay: openDay }}>
                                 <Calendar
                                     localizer={calendarLocalizer}
                                     events={calendarEvents}
@@ -828,6 +781,7 @@ export default function Todos({ user }) {
                             <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
                                 Day Schedule ({selectedTasks.length})
                             </h3>
+                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{selectedBookingCount} booking{selectedBookingCount === 1 ? '' : 's'} scheduled</p>
                             {selectedTasks.length === 0 ? (
                                 <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-400">
                                     Nothing scheduled for this day.
@@ -840,7 +794,8 @@ export default function Todos({ user }) {
                                         onComplete={completeTask}
                                         onEdit={openEdit}
                                         onDelete={removeTask}
-                                        onOpenPet={openTaskPet}
+                                        onOpenPet={isVeterinarian ? undefined : openTaskPet}
+                                        onOpenSchedule={isVeterinarian ? task => { setIsDialogOpen(false); navigate(task.redirectPath); } : undefined}
                                     />
                                 ))
                             )}
@@ -952,113 +907,12 @@ export default function Todos({ user }) {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
-                <DialogContent className="max-w-xl">
-                    <DialogHeader>
-                        <DialogTitle>Schedule Pet Corner Visit</DialogTitle>
-                        <DialogDescription>Publish a daily visit window across a date range. The selected branch Admins receive one system and push notification.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Pet Corner</Label>
-                            <Select value={visitForm.branchId} onValueChange={(branchId) => setVisitForm((current) => ({ ...current, branchId }))}>
-                                <SelectTrigger>
-                                    <SelectValue
-                                        placeholder="Select Pet Corner"
-                                        displayValue={getBranchDisplayName(branches, visitForm.branchId)}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {branches.map((branch) => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="visit-start-date">Start date</Label>
-                                <Input
-                                    id="visit-start-date"
-                                    type="date"
-                                    min={dateInputValue(new Date())}
-                                    value={visitForm.startDate}
-                                    onChange={(event) => setVisitForm((current) => {
-                                        const startDate = event.target.value;
-                                        const parsedStartDate = parseTaskDate(startDate);
-                                        const maximumEndDate = parsedStartDate ? dateInputValue(addDays(parsedStartDate, 30)) : startDate;
-                                        const endDate = !current.endDate || current.endDate < startDate
-                                            ? startDate
-                                            : current.endDate > maximumEndDate ? maximumEndDate : current.endDate;
-                                        return {
-                                            ...current,
-                                            startDate,
-                                            endDate
-                                        };
-                                    })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="visit-end-date">End date</Label>
-                                <Input
-                                    id="visit-end-date"
-                                    type="date"
-                                    min={visitForm.startDate || dateInputValue(new Date())}
-                                    max={visitForm.startDate ? dateInputValue(addDays(parseTaskDate(visitForm.startDate), 30)) : undefined}
-                                    value={visitForm.endDate}
-                                    onChange={(event) => setVisitForm((current) => ({ ...current, endDate: event.target.value }))}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="visit-daily-start">Daily start</Label>
-                                <Input id="visit-daily-start" type="time" min="08:00" max="18:00" value={visitForm.startsAt} onChange={(event) => setVisitForm((current) => ({ ...current, startsAt: event.target.value }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="visit-daily-end">Daily end</Label>
-                                <Input id="visit-daily-end" type="time" min="08:00" max="18:00" value={visitForm.endsAt} onChange={(event) => setVisitForm((current) => ({ ...current, endsAt: event.target.value }))} />
-                            </div>
-                        </div>
-                        <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-800">
-                            The same daily time window is published for every date in the range. Sundays are excluded because clinic locations are closed. Maximum range: 31 days.
-                        </p>
-                        <div className="space-y-2">
-                            <Label>Available clinical services</Label>
-                            <div className="grid gap-2 sm:grid-cols-3">
-                                {[
-                                    ['vaccination', 'Vaccination'],
-                                    ['lab-testing', 'Laboratory'],
-                                    ['parasite-control', 'Parasite Control']
-                                ].map(([key, label]) => (
-                                    <label key={key} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-semibold">
-                                        <Checkbox
-                                            checked={visitForm.serviceKeys.includes(key)}
-                                            onCheckedChange={(checked) => setVisitForm((current) => ({
-                                                ...current,
-                                                serviceKeys: checked
-                                                    ? [...new Set([...current.serviceKeys, key])]
-                                                    : current.serviceKeys.filter((serviceKey) => serviceKey !== key)
-                                            }))}
-                                        />
-                                        {label}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Notes</Label>
-                            <Textarea value={visitForm.notes} onChange={(event) => setVisitForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Branch instructions" />
-                        </div>
-                        <Button type="button" className="w-full" onClick={saveBranchVisit} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <CalendarDays className="size-4" />}
-                            Publish Visit
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
 
 function TodoMonthDateHeader({ date, label, onDrillDown }) {
-    const events = useContext(TodoCalendarEventsContext);
+    const { events, onOpenDay } = useContext(TodoCalendarEventsContext);
     const dayStart = dayjs(date).startOf('day');
     const dayEnd = dayStart.add(1, 'day');
     const hasSchedule = events.some((event) => {
@@ -1066,16 +920,20 @@ function TodoMonthDateHeader({ date, label, onDrillDown }) {
         const eventEnd = dayjs(event.end);
         return eventStart.isBefore(dayEnd) && eventEnd.isAfter(dayStart);
     });
+    const bookingCount = bookingScheduleCount(events.filter(event => dayjs(event.start).isSame(dayStart, 'day')).map(event => event.resource));
     const variationIndex = date.getDate() + date.getMonth();
 
     return (
         <button
             type="button"
             className={`todo-calendar-date-number${hasSchedule ? '' : ' todo-calendar-date-number--empty'}`}
-            onClick={onDrillDown}
-            aria-label={`Open ${dayjs(date).format('MMMM D, YYYY')}`}
+            onClick={onOpenDay ? () => onOpenDay(date) : onDrillDown}
+            aria-label={`Open ${dayjs(date).format('MMMM D, YYYY')}, ${bookingCount} booking${bookingCount === 1 ? '' : 's'}`}
+            title={bookingCount ? `${bookingCount} booking${bookingCount === 1 ? '' : 's'} scheduled` : 'Open day schedule'}
+            style={bookingCount ? { height: 'auto', minHeight: '1.75rem', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.25rem', maxWidth: '100%' } : undefined}
         >
             <span>{label}</span>
+            {bookingCount > 0 && <span className="text-[10px] font-semibold leading-4 text-slate-500 dark:text-slate-400">{bookingCount}<span className="hidden sm:inline"> booked</span></span>}
             {!hasSchedule ? (
                 <ServicePetPeek
                     kind={TODO_DAY_PET_KINDS[variationIndex % TODO_DAY_PET_KINDS.length]}
@@ -1100,22 +958,24 @@ function CalendarEvent({ event }) {
 }
 
 function TaskIcon({ task }) {
+    if (task.source === 'medication') return <Pill className="size-4" />;
     if (task.source === 'payment') return <CreditCard className="size-4" />;
     if (task.source === 'online_consultation') return <Video className="size-4" />;
     if (task.source === 'diagnosis') return <Stethoscope className="size-4" />;
     if (task.source === 'vet_follow_up') return <Stethoscope className="size-4" />;
-    if (task.source === 'booking' || task.source === 'boarding' || task.source === 'boarding_task') {
+    if (task.source === 'vet_booking' || task.source === 'booking' || task.source === 'boarding' || task.source === 'boarding_task') {
         return <CalendarDays className="size-4" />;
     }
 
     return <CheckCircle2 className="size-4" />;
 }
 
-function TaskRow({ task, onComplete, onEdit, onDelete, onOpenPet, compact = false }) {
+function TaskRow({ task, onComplete, onEdit, onDelete, onOpenPet, onOpenSchedule, compact = false }) {
     const style = taskStyle(task);
     const overdue = isTaskOverdue(task);
     const done = isTaskDone(task);
     const canOpenPet = Boolean(onOpenPet && petProfilePath(task));
+    const canOpenSchedule = Boolean(onOpenSchedule && isBookingScheduleTask(task) && task.redirectPath);
 
     const handleOpenPet = () => {
         if (canOpenPet) {
@@ -1156,21 +1016,26 @@ function TaskRow({ task, onComplete, onEdit, onDelete, onOpenPet, compact = fals
                     <p className="mt-2 text-xs font-bold text-slate-400">
                         {displayTaskSchedule(task)}{task.petName ? ` - ${task.petName}` : ''}
                     </p>
+                    {canOpenSchedule && <Button type="button" variant="outline" size="sm" className="mt-3 gap-2" onClick={event => { event.stopPropagation(); onOpenSchedule(task); }}><CalendarDays className="size-4" />{task.source === 'online_consultation' ? 'View online consultation' : 'View booking'}</Button>}
                 </div>
-                {task.editable && (
+                {(task.editable || task.actionable) && (
                     <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
                         <Checkbox
                             checked={task.status === 'completed'}
                             onCheckedChange={() => onComplete(task)}
-                            aria-label="Mark task complete"
+                            aria-label={task.source === 'medication' ? 'Mark medication taken' : 'Mark task complete'}
                             className="mt-2"
                         />
-                        <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(task)} aria-label="Edit task">
-                            <Pencil className="size-4" />
-                        </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => onDelete(task)} aria-label="Delete task" className="text-red-600 hover:bg-red-50 hover:text-red-700">
-                            <Trash2 className="size-4" />
-                        </Button>
+                        {task.editable && (
+                            <>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(task)} aria-label="Edit task">
+                                    <Pencil className="size-4" />
+                                </Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => onDelete(task)} aria-label="Delete task" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

@@ -16,6 +16,7 @@ import PwaInstallButton from '../../pwa/PwaInstallButton.jsx';
 import ClinicAvailabilityCalendar from '../../components/shared/ClinicAvailabilityCalendar.jsx';
 import ServicePetPeek from '../../components/shared/ServicePetPeek.jsx';
 import VetPresenceSign from '../../components/shared/VetPresenceSign.jsx';
+import { PetHotelLandingRooms } from '../../components/shared/PetHotelRoomShowcase.jsx';
 import { clearLandingBookingIntent, saveLandingBookingIntent } from '../../lib/landingBookingIntent.js';
 
 const PetStage = lazy(() => import('./PetStage.jsx'));
@@ -250,6 +251,23 @@ export default function ModernLandingPageContent({ onLogin, onRegister }) {
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">{services.map((service, index) => <Reveal key={service.id} delay={index * 70}><ServiceCard service={service} active={service.id === activeService.id} onSelect={() => setActiveId(service.id)} /></Reveal>)}</div>
                             <Reveal delay={120} className="h-full"><article ref={showcaseRef} className={`landing-service-showcase landing-service-showcase--${activeService.accent}`}><div className="landing-service-showcase__media">{activeService.media ? <video key={activeService.media} src={activeService.media} poster={activeService.poster} autoPlay muted loop playsInline preload="metadata" /> : <img src={activeService.image} alt="Doctor providing an online consultation" className="landing-media-kenburns" />}<div className="landing-service-showcase__scrim" /><div className="landing-service-showcase__badge"><span className="landing-service-showcase__badge-icon"><ActiveIcon className="h-5 w-5" /></span>{activeService.detail}</div></div><div className="landing-service-showcase__copy"><div className="landing-kicker text-blue-700">{activeService.eyebrow}</div><h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.03em] sm:text-3xl">{activeService.title}</h3><p className="mt-4 text-base font-medium leading-7 text-slate-600">{activeService.description}</p><button type="button" onClick={() => bookSelection({ service: SERVICE_BOOKING_KEYS[activeService.id] })} className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-black text-blue-700 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Start this care request <ArrowRight className="h-4 w-4" /></button></div></article></Reveal>
                         </div>
+                    </div>
+                </section>
+
+                <section className="landing-section relative overflow-hidden bg-[#eaf5ff] px-4 py-20 sm:px-6 sm:py-24 lg:px-10 lg:py-28">
+                    <div className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-blue-300/20 blur-3xl" aria-hidden="true" />
+                    <div className="relative mx-auto grid w-full max-w-[90rem] gap-10 xl:grid-cols-[minmax(19rem,0.62fr)_minmax(0,1.38fr)] xl:items-center">
+                        <Reveal>
+                            <div className="landing-kicker text-blue-700">Pet Hotel</div>
+                            <h2 className="landing-display mt-4">Choose a room that feels like their own.</h2>
+                            <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-600 sm:text-lg sm:leading-8">Small, medium, and large rooms stay easy to compare. After check-in, pet owners can open their pet’s occupied room to follow clinic observations, feeding, and care tasks.</p>
+                            <div className="mt-6 flex flex-wrap gap-3 text-xs font-black text-slate-600 sm:text-sm">
+                                {['Live room status', 'Clinic care updates', 'Responsive room selector'].map((point) => <span key={point} className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2"><Check className="size-3.5 text-emerald-600" />{point}</span>)}
+                            </div>
+                        </Reveal>
+                        <Reveal delay={100}>
+                            <PetHotelLandingRooms onBook={(size) => bookSelection({ service: 'boarding', roomType: `hotel-${size}` })} />
+                        </Reveal>
                     </div>
                 </section>
 

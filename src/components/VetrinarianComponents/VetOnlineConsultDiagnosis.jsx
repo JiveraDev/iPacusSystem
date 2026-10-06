@@ -32,12 +32,15 @@ import {
     submitOnlineConsultationDiagnosis
 } from '../../services/onlineConsultationService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import PrescriptionEditor from '../shared/PrescriptionEditor.jsx';
+import { createPrescriptionDraft, normalizePrescriptionDraft } from '../../lib/prescriptions';
 
 const emptyDiagnosisForm = {
     diagnosis: '',
     recommendations: '',
     treatment: '',
     medications: '',
+    prescriptions: [],
     notes: ''
 };
 
@@ -151,6 +154,7 @@ export default function VetOnlineConsultDiagnosis() {
     const [isCapturing, setIsCapturing] = useState(false);
     const [lastAutosavedAt, setLastAutosavedAt] = useState('');
     const [diagnosisForm, setDiagnosisForm] = useState(emptyDiagnosisForm);
+    const [prescriptionDraft, setPrescriptionDraft] = useState(createPrescriptionDraft);
     const [diagnosisError, setDiagnosisError] = useState('');
     const [isClinicalPanelOpen, setIsClinicalPanelOpen] = useState(true);
 
@@ -212,6 +216,7 @@ export default function VetOnlineConsultDiagnosis() {
                     recommendations: loaded.recommendations || '',
                     treatment: loaded.treatment || '',
                     medications: loaded.medications || '',
+                    prescriptions: Array.isArray(loaded.prescriptions) ? loaded.prescriptions.map(normalizePrescriptionDraft) : [],
                     notes: loaded.diagnosisNotes || ''
                 };
                 const savedDraft = readDraft(onlineConsultationId);
@@ -262,6 +267,28 @@ export default function VetOnlineConsultDiagnosis() {
         if (field === 'diagnosis' && value.trim()) {
             setDiagnosisError('');
         }
+    };
+
+    const addPrescription = () => {
+        const medicine = prescriptionDraft.medicine.trim();
+        if (!medicine) {
+            toast.error('Enter the medication name before adding it.');
+            return;
+        }
+        const item = normalizePrescriptionDraft({
+            ...prescriptionDraft,
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            medicine
+        });
+        setDiagnosisForm((current) => ({ ...current, prescriptions: [...current.prescriptions, item] }));
+        setPrescriptionDraft(createPrescriptionDraft());
+    };
+
+    const removePrescription = (itemId) => {
+        setDiagnosisForm((current) => ({
+            ...current,
+            prescriptions: current.prescriptions.filter((item) => item.id !== itemId)
+        }));
     };
 
     const startConsultation = async () => {
@@ -597,16 +624,31 @@ export default function VetOnlineConsultDiagnosis() {
                                     placeholder="Describe the treatment plan..."
                                     className="min-h-[125px]"
                                 />
-                                <ClinicalTextareaField
-                                    id="online-consult-medications"
-                                    label="Medication instructions"
-                                    helper="Include medicine, dose, route, frequency, and duration when applicable."
-                                    icon={Pill}
-                                    value={diagnosisForm.medications}
-                                    onChange={(event) => updateDiagnosisField('medications', event.target.value)}
-                                    placeholder="Medicine and dosage"
-                                    className="min-h-[125px]"
-                                />
+                                <div className="space-y-3 border-t border-slate-100 pt-5 dark:border-slate-800">
+                                    <div className="flex items-start gap-3">
+                                        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                            <Pill className="size-4" aria-hidden="true" />
+                                        </span>
+                                        <div>
+                                            <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Prescription and medications</Label>
+                                            <p className="mt-0.5 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">Each item gets its own dose, route, schedule, start date, and owner checklist.</p>
+                                        </div>
+                                    </div>
+                                    {consultation.petId ? (
+                                        <PrescriptionEditor
+                                            draft={prescriptionDraft}
+                                            setDraft={setPrescriptionDraft}
+                                            items={diagnosisForm.prescriptions}
+                                            onAdd={addPrescription}
+                                            onRemove={removePrescription}
+                                            embedded
+                                        />
+                                    ) : (
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                                            Register or select this patient in the pet directory before issuing a scheduled prescription. The consultation diagnosis can still be completed without medication items.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </section>
 

@@ -21,6 +21,10 @@ export function fetchBoardingMonitoring(params = {}) {
     return apiRequest(withQuery('/boarding/monitoring', params));
 }
 
+export function fetchOwnerBoardingStays() {
+    return apiRequest('/boarding/owner-stays');
+}
+
 export function createBoardingRooms(payload) {
     return postJson('/boarding/rooms', payload);
 }

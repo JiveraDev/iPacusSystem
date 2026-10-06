@@ -287,15 +287,8 @@ try {
     if ($availabilityMode === false) {
         throw new InvalidArgumentException($branch['branch_name'] . ' does not offer this queue service.');
     }
-    if ($availabilityMode === 'vet_visit' && !branch_find_vet_visit(
-        $pdo,
-        $branchId,
-        $queueServiceKey,
-        date('Y-m-d'),
-        date('H:i:s')
-    )) {
-        throw new InvalidArgumentException('This Pet Corner service can be queued only while a scheduled veterinarian is visiting.');
-    }
+    // Walk-ins still enter the admin examination queue. Published vet visits
+    // no longer gate queue access; appointment capacity is managed separately.
 
     if ($currentApiRole === 'pet_owner') {
         if (!empty($user_id) && (int)$user_id !== $currentApiUserId) {

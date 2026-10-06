@@ -2569,3 +2569,32 @@ html.dark .theme-static-light .hover\:text-gray-900:hover {
   pointer-events: none;
   white-space: nowrap;
 }
+
+@keyframes backup-progress-indeterminate {
+  from {
+    transform: translate3d(-125%, 0, 0);
+  }
+
+  to {
+    transform: translate3d(250%, 0, 0);
+  }
+}
+
+.backup-progress-indeterminate {
+  transform: translate3d(-125%, 0, 0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .backup-progress-indeterminate {
+    animation: backup-progress-indeterminate 1.25s ease-in-out infinite;
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backup-progress-indeterminate {
+    width: 100%;
+    opacity: 0.55;
+    transform: none;
+  }
+}

@@ -29,6 +29,10 @@ GEMINI.md
 *.sln
 *.sw?
 .env
+
+# TV status deployment secrets; keep the committed example template.
+/public/tv-status/.env*
+!/public/tv-status/.env.example
 /Jitsi/.jitsi-meet-cfg/
 /Jitsi/.jitsi-meet-cfg-stable-*/
     #*.sql

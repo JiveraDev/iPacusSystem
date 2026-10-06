@@ -66,11 +66,11 @@ const routePatterns = [
   { pattern: "/dashboard/boarding", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/grooming", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/queue", allowedRoles:  ALL_ROLES},
+  { pattern: "/dashboard/patient-intake", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/pos", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/service-catalog", allowedRoles: ADMIN_ROLES },
   { pattern: "/dashboard/self-service-queue", allowedRoles: ALL_ROLES },
   { pattern: "/dashboard/consent", allowedRoles: ALL_ROLES },
-  { pattern: "/dashboard/vet/approved-queue", allowedRoles: VETERINARIAN_ROLES },
   { pattern: "/dashboard/vet/my-list", allowedRoles: VETERINARIAN_ROLES },
   { pattern: "/dashboard/vet/diagnosis", allowedRoles: VETERINARIAN_ROLES },
   { pattern: "/dashboard/vet/medical-records", allowedRoles: VETERINARIAN_ROLES },
@@ -105,7 +105,10 @@ function normalizePath(path) {
 }
 
 function matchPattern(path, pattern) {
-  const pathParts = normalizePath(path).split("/").filter(Boolean);
+  // Match the screen using its pathname; keep the complete URL in navigation
+  // so the destination can still read date, booking and other query values.
+  const pathname = normalizePath(path).split(/[?#]/, 1)[0];
+  const pathParts = pathname.split("/").filter(Boolean);
   const patternParts = pattern.split("/").filter(Boolean);
 
   if (pathParts.length !== patternParts.length) {

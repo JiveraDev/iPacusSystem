@@ -53,25 +53,6 @@ function booking_availability_branch_service_key(array $service): string
     );
 }
 
-function booking_availability_active_veterinarians(PDO $pdo): array
-{
-    if (!booking_slot_table_exists($pdo, 'users') || !booking_slot_table_exists($pdo, 'veterinarian_profiles')) {
-        return [];
-    }
-
-    $accountFilter = '';
-    $stmt = $pdo->query("\n        SELECT u.user_id, u.first_Name, u.last_Name,\n               COALESCE(NULLIF(TRIM(vp.specialization), ''), 'General Practice') AS specialization,\n               vp.prc_license_number\n        FROM users u\n        JOIN veterinarian_profiles vp ON vp.user_id = u.user_id\n        WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), ' ', '_'), '-', '_')) IN ('veterinarian', 'vet')\n          AND COALESCE(vp.is_active, 1) = 1\n          AND COALESCE(vp.is_accepting_patients, 1) = 1\n          {$accountFilter}\n        ORDER BY u.last_Name, u.first_Name, u.user_id\n    ");
-
-    return array_map(static function (array $row): array {
-        return [
-            'id' => (int)$row['user_id'],
-            'name' => trim('Dr. ' . $row['first_Name'] . ' ' . $row['last_Name']),
-            'specialization' => $row['specialization'],
-            'licenseNumber' => $row['prc_license_number'] ?? '',
-        ];
-    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
-}
-
 function booking_availability_hours(PDO $pdo, int $branchId, string $date): ?array
 {
     static $branchHours = [];
@@ -137,113 +118,61 @@ function booking_availability_base_times(array $hours, int $intervalMinutes): ar
     return $times;
 }
 
-function booking_availability_visit_rows(
-    PDO $pdo,
-    int $branchId,
-    string $serviceKey,
-    string $monthStart,
-    string $monthEnd
-): array {
-    if (!booking_slot_table_exists($pdo, 'veterinarian_branch_schedules')) {
-        return [];
-    }
-
-    $stmt = $pdo->prepare("\n        SELECT schedule.visit_schedule_id, schedule.veterinarian_user_id,\n               schedule.starts_at, schedule.ends_at, schedule.service_keys,\n               CONCAT(u.first_Name, ' ', u.last_Name) AS veterinarian_name\n        FROM veterinarian_branch_schedules schedule\n        JOIN users u ON u.user_id = schedule.veterinarian_user_id\n        WHERE schedule.branch_id = ?\n          AND schedule.status = 'published'\n          AND schedule.ends_at >= ?\n          AND schedule.starts_at < DATE_ADD(?, INTERVAL 1 DAY)\n          AND (\n              schedule.service_keys IS NULL\n              OR TRIM(schedule.service_keys) = ''\n              OR JSON_CONTAINS(schedule.service_keys, JSON_QUOTE(?))\n          )\n        ORDER BY schedule.starts_at, schedule.visit_schedule_id\n    ");
-    $stmt->execute([$branchId, $monthStart . ' 00:00:00', $monthEnd, $serviceKey]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function booking_availability_time_in_visit(
-    string $date,
-    string $time,
-    array $visitRows,
-    ?int $veterinarianId = null
-): ?array {
-    $slotStart = strtotime($date . ' ' . $time);
-    if ($slotStart === false) {
-        return null;
-    }
-
-    foreach ($visitRows as $visit) {
-        if ($veterinarianId !== null && $veterinarianId > 0
-            && (int)$visit['veterinarian_user_id'] !== $veterinarianId) {
-            continue;
-        }
-        $visitStart = strtotime((string)$visit['starts_at']);
-        $visitEnd = strtotime((string)$visit['ends_at']);
-        if ($visitStart !== false && $visitEnd !== false && $slotStart >= $visitStart && $slotStart + 1800 <= $visitEnd) {
-            return $visit;
-        }
-    }
-
-    return null;
-}
-
 function booking_availability_slots_for_date(
     PDO $pdo,
     string $date,
     array $service,
     int $branchId,
     array $reservations,
-    string $availabilityMode,
-    array $visitRows,
+    array $roster,
+    array $onlineSchedules,
     ?int $veterinarianId,
     ?string $veterinarianName,
-    ?int $specialServiceId,
+    int $excludeBookingId,
     int $nowTimestamp
 ): array {
-    $hours = booking_availability_hours($pdo, $branchId, $date);
-    if ($hours === null) {
-        return [];
-    }
-
     $serviceKey = $service['key'];
+    $isOnline = $serviceKey === 'online-consultation';
+    $hours = $isOnline ? null : booking_availability_hours($pdo, $branchId, $date);
+    if (!$isOnline && $hours === null) return [];
     $intervalMinutes = (int)($service['intervalMinutes'] ?? booking_slot_duration_minutes($serviceKey));
     $durationMinutes = booking_slot_duration_minutes($serviceKey);
-    if ($serviceKey === 'online-consultation') {
-        $times = $veterinarianId ? booking_slot_vet_times_for_date($pdo, $veterinarianId, $date) : [];
-        $opens = strtotime('1970-01-01 ' . $hours['opensAt']);
-        $closes = strtotime('1970-01-01 ' . $hours['closesAt']);
-        $times = array_values(array_filter($times, static function (string $time) use ($opens, $closes, $durationMinutes): bool {
-            $slot = strtotime('1970-01-01 ' . $time);
-            return $slot !== false && $opens !== false && $closes !== false
-                && $slot >= $opens && $slot + ($durationMinutes * 60) <= $closes;
-        }));
-    } else {
-        $times = booking_availability_base_times($hours, $intervalMinutes);
-    }
+    $times = $isOnline ? clinic_booking_online_times($onlineSchedules, $date, $veterinarianId)
+        : booking_availability_base_times($hours, $intervalMinutes);
+    $isMedical = clinic_booking_is_medical($serviceKey);
+    $closing = $isOnline ? null : strtotime($date . ' ' . $hours['closesAt']);
 
     $slots = [];
     foreach ($times as $time) {
-        $visit = null;
-        if ($availabilityMode === 'vet_visit') {
-            $visit = booking_availability_time_in_visit($date, $time, $visitRows, $veterinarianId);
-            if ($visit === null) {
-                continue;
-            }
-        }
-
         $slotTimestamp = strtotime($date . ' ' . $time);
-        $conflict = booking_slot_records_find_conflict(
+        if ($slotTimestamp === false || (!$isOnline && $slotTimestamp + $durationMinutes * 60 > $closing)) continue;
+        $capacity = $isMedical ? clinic_booking_capacity_from_rows(
+            $roster, $reservations, $onlineSchedules, $branchId, $date, $time, $serviceKey, $veterinarianId, $excludeBookingId
+        ) : null;
+        $conflict = !$isMedical ? booking_slot_records_find_conflict(
             $reservations,
             $date,
             $time,
             $serviceKey,
             $serviceKey === 'online-consultation' ? $veterinarianId : null,
-            0,
-            $specialServiceId
-        );
+            $excludeBookingId
+        ) : null;
+        if (!$isMedical) $capacity = ['capacity' => 1, 'availableCount' => $conflict ? 0 : 1, 'bookedCount' => $conflict ? 1 : 0];
         $isPast = $slotTimestamp === false || $slotTimestamp <= $nowTimestamp;
         $isLunch = booking_slot_overlaps_lunch($serviceKey, $time);
-        $status = $isLunch ? 'lunch' : ($isPast ? 'unavailable' : ($conflict ? 'booked' : 'available'));
+        $status = $isLunch ? 'lunch' : ($isPast ? 'unavailable' : ($capacity['availableCount'] > 0 ? 'available' : ($capacity['capacity'] > 0 ? 'booked' : 'unavailable')));
         $slots[] = [
             'time' => substr($time, 0, 5),
             'label' => date('g:i A', strtotime('1970-01-01 ' . $time)),
             'status' => $status,
             'available' => $status === 'available',
-            'reason' => $isLunch ? 'Lunch period: 12:00–1:00 PM. Appointments cannot overlap lunch.' : null,
-            'veterinarianId' => $visit ? (int)$visit['veterinarian_user_id'] : $veterinarianId,
-            'veterinarianName' => $visit ? trim((string)$visit['veterinarian_name']) : $veterinarianName,
+            'reason' => $isLunch ? 'Lunch period: 12:00–1:00 PM.' : ($isMedical && $capacity['capacity'] === 0 ? 'No veterinarian is available for this appointment, or the selected online time is not offered.' : null),
+            'veterinarianId' => $veterinarianId,
+            'veterinarianName' => $veterinarianName,
+            'capacity' => $capacity['capacity'],
+            'availableCount' => $status === 'available' ? $capacity['availableCount'] : 0,
+            'bookedCount' => $capacity['bookedCount'],
+            'availableVeterinarians' => $status === 'available' ? ($capacity['availableVeterinarians'] ?? []) : [],
         ];
     }
 
@@ -269,7 +198,10 @@ function booking_availability_room_configuration(PDO $pdo, int $branchId): array
 
 function booking_availability_boarding_reservations(PDO $pdo, int $branchId, string $monthStart, string $monthEnd): array
 {
-    $stmt = $pdo->prepare("\n        SELECT booking_id, hotel_boarding_type, room_size, check_in_date, check_out_date, status\n        FROM bookings\n        WHERE branch_id = ?\n          AND LOWER(TRIM(COALESCE(service_type, ''))) = 'boarding'\n          AND status IN ('pending', 'confirmed')\n          AND check_in_date < DATE_ADD(?, INTERVAL 1 DAY)\n          AND check_out_date > ?\n        ORDER BY check_in_date, booking_id\n    ");
+    $assignmentStatusSelect = booking_slot_table_exists($pdo, 'boarding_assignments')
+        ? "(\n            SELECT assignment_status.status\n            FROM boarding_assignments assignment_status\n            WHERE assignment_status.booking_id = bookings.booking_id\n            ORDER BY\n                CASE WHEN assignment_status.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END,\n                assignment_status.assignment_id DESC\n            LIMIT 1\n        ) AS assignment_status"
+        : 'NULL AS assignment_status';
+    $stmt = $pdo->prepare("\n        SELECT booking_id, hotel_boarding_type, room_size, check_in_date, check_out_date, status, {$assignmentStatusSelect}\n        FROM bookings\n        WHERE branch_id = ?\n          AND LOWER(TRIM(COALESCE(service_type, ''))) = 'boarding'\n          AND status IN ('pending', 'confirmed')\n          AND check_in_date < DATE_ADD(?, INTERVAL 1 DAY)\n          AND check_out_date > ?\n        ORDER BY check_in_date, booking_id\n    ");
     $stmt->execute([$branchId, $monthEnd, $monthStart]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -278,14 +210,21 @@ function booking_availability_rooms_for_date(array $configuration, array $reserv
 {
     $nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
     $isPast = strtotime($date . ' 23:59:59') < $nowTimestamp;
-    return array_map(static function (array $room) use ($reservations, $date, $nextDate, $isPast): array {
+    $isToday = $date === date('Y-m-d');
+    return array_map(static function (array $room) use ($reservations, $date, $nextDate, $isPast, $isToday): array {
         [$type, $size] = array_pad(explode('-', (string)$room['room_type'], 2), 2, '');
-        $booked = count(array_filter($reservations, static function (array $booking) use ($type, $size, $date, $nextDate): bool {
+        $matchingReservations = array_values(array_filter($reservations, static function (array $booking) use ($type, $size, $date, $nextDate): bool {
             return strtolower((string)$booking['hotel_boarding_type']) === $type
                 && strtolower((string)$booking['room_size']) === $size
                 && (string)$booking['check_in_date'] < $nextDate
                 && (string)$booking['check_out_date'] > $date;
         }));
+        $booked = count($matchingReservations);
+        $occupied = $isToday ? count(array_filter(
+            $matchingReservations,
+            static fn(array $booking): bool => strtolower((string)($booking['assignment_status'] ?? '')) === 'occupied'
+        )) : 0;
+        $reserved = max(0, $booked - $occupied);
         $total = max(0, (int)$room['total_capacity']);
         $available = $isPast ? 0 : max(0, $total - $booked);
         return [
@@ -295,6 +234,8 @@ function booking_availability_rooms_for_date(array $configuration, array $reserv
             'label' => ucfirst($type) . ' - ' . ucfirst($size),
             'total' => $total,
             'booked' => $booked,
+            'reserved' => $reserved,
+            'occupied' => $occupied,
             'available' => $available,
         ];
     }, $configuration);
@@ -339,14 +280,13 @@ try {
     $rangeEnd = $detailsOnly ? $selectedDate : $monthEnd;
 
     $branchCatalogKey = booking_availability_branch_service_key($service);
-    $branches = branch_fetch_catalog($pdo, $branchCatalogKey, null);
+    $isOnline = $service['key'] === 'online-consultation';
+    $branches = branch_fetch_catalog($pdo, $isOnline ? null : $branchCatalogKey, null);
     $mainBranchId = branch_main_id($pdo);
-    $mainOnly = in_array($service['key'], ['general-checkup', 'online-consultation', 'home-service', 'dental', 'surgery', 'special-services'], true);
     $requestedBranchId = isset($_GET['branchId']) && is_numeric($_GET['branchId']) ? (int)$_GET['branchId'] : 0;
     $selectedBranch = null;
     foreach ($branches as $branch) {
-        if (($mainOnly && (int)$branch['id'] === $mainBranchId)
-            || (!$mainOnly && $requestedBranchId > 0 && (int)$branch['id'] === $requestedBranchId)) {
+        if ($requestedBranchId > 0 && (int)$branch['id'] === $requestedBranchId) {
             $selectedBranch = $branch;
             break;
         }
@@ -360,46 +300,44 @@ try {
     }
     $branchId = (int)$selectedBranch['id'];
 
-    $selectedServiceConfiguration = current(array_filter(
-        $selectedBranch['services'] ?? [],
-        static fn(array $item): bool => (string)$item['key'] === $branchCatalogKey
-    ));
-    $availabilityMode = (string)($selectedServiceConfiguration['availabilityMode'] ?? 'always');
-
+    $roster = $isOnline ? clinic_booking_online_veterinarians($pdo)
+        : (clinic_booking_is_medical($service['key']) ? clinic_booking_roster($pdo) : []);
+    $onlineSchedules = $isOnline ? clinic_booking_online_schedules($pdo) : [];
+    if ($isOnline) {
+        $activeVetIds = array_fill_keys(array_column($roster, 'veterinarian_user_id'), true);
+        $onlineSchedules = array_values(array_filter($onlineSchedules,
+            static fn($row) => isset($activeVetIds[(int)$row['user_id']])));
+    }
     $veterinarians = [];
     $selectedVeterinarianId = isset($_GET['veterinarianId']) && is_numeric($_GET['veterinarianId'])
         ? (int)$_GET['veterinarianId']
         : null;
-    if ($service['key'] === 'online-consultation') {
-        $veterinarians = array_values(array_filter(
-            booking_availability_active_veterinarians($pdo),
-            static fn(array $vet): bool => !empty(booking_slot_vet_schedule_rows($pdo, (int)$vet['id']))
-        ));
-        if (!$selectedVeterinarianId || !array_filter($veterinarians, static fn(array $vet): bool => (int)$vet['id'] === $selectedVeterinarianId)) {
-            $selectedVeterinarianId = isset($veterinarians[0]) ? (int)$veterinarians[0]['id'] : null;
-        }
-    }
-
-    // Special-service bookings share one category-level 30-minute slot even
-    // when a booking contains more than one catalog item.
-    $specialServiceId = null;
-    $visitRows = $availabilityMode === 'vet_visit'
-        ? booking_availability_visit_rows($pdo, $branchId, $branchCatalogKey, $rangeStart, $rangeEnd)
-        : [];
-    if ($availabilityMode === 'vet_visit') {
-        $visitVets = [];
-        foreach ($visitRows as $visit) {
-            $vetId = (int)$visit['veterinarian_user_id'];
-            $visitVets[$vetId] = [
+    $clinicVets = [];
+    foreach ($roster as $row) {
+        if ($isOnline || (int)$row['branch_id'] === $branchId) {
+            $vetId = (int)$row['veterinarian_user_id'];
+            $clinicVets[$vetId] = [
                 'id' => $vetId,
-                'name' => trim('Dr. ' . preg_replace('/^Dr\.\s*/i', '', (string)$visit['veterinarian_name'])),
-                'specialization' => 'Visiting veterinarian',
+                'name' => trim('Dr. ' . preg_replace('/^Dr\.\s*/i', '', (string)$row['veterinarian_name'])),
+                'specialization' => $row['specialization'] ?: 'General Practice',
+                'licenseNumber' => $row['prc_license_number'] ?? '',
             ];
         }
-        $veterinarians = array_values($visitVets);
-        if ($selectedVeterinarianId && !isset($visitVets[$selectedVeterinarianId])) {
-            $selectedVeterinarianId = null;
-        }
+    }
+    $veterinarians = array_values($clinicVets);
+    $excludeBookingId = 0;
+    // Only staff or the booking owner may exclude an appointment when moving it.
+    if ((int)($_GET['excludeBookingId'] ?? 0) > 0) {
+        require_once __DIR__ . '/workflow_guard_helpers.php';
+        $actor = ipawcus_guard_current_user($pdo);
+        $excludeStmt = $pdo->prepare('SELECT user_id, veterinarian_id, branch_id FROM bookings WHERE booking_id = ?');
+        $excludeStmt->execute([(int)$_GET['excludeBookingId']]);
+        $exclude = $excludeStmt->fetch(PDO::FETCH_ASSOC);
+        $actorRole = ipawcus_guard_role($actor);
+        if ($exclude && ($actorRole === 'super_admin'
+            || ($actorRole === 'admin' && branch_user_can_access($pdo, $actor, (int)$exclude['branch_id']))
+            || ($actorRole === 'veterinarian' && (int)$exclude['veterinarian_id'] === ipawcus_guard_user_id($actor))
+            || (int)$exclude['user_id'] === ipawcus_guard_user_id($actor))) $excludeBookingId = (int)$_GET['excludeBookingId'];
     }
 
     $selectedVeterinarianName = null;
@@ -448,7 +386,9 @@ try {
             }
         }
     } else {
-        $reservations = booking_slot_fetch_reservations($pdo, $rangeStart, $rangeEnd, $branchId);
+        $reservations = clinic_booking_is_medical($service['key'])
+            ? clinic_booking_reservations($pdo, $rangeStart, $rangeEnd)
+            : booking_slot_fetch_reservations($pdo, $rangeStart, $rangeEnd, $branchId);
         for ($cursor = $rangeStartObject; $cursor->format('Y-m-d') <= $rangeEnd; $cursor = $cursor->modify('+1 day')) {
             $date = $cursor->format('Y-m-d');
             $isPastDate = $date < $now->format('Y-m-d');
@@ -458,23 +398,23 @@ try {
                 $service,
                 $branchId,
                 $reservations,
-                $availabilityMode,
-                $visitRows,
+                $roster,
+                $onlineSchedules,
                 $selectedVeterinarianId,
                 $selectedVeterinarianName,
-                $specialServiceId,
+                $excludeBookingId,
                 $now->getTimestamp()
             );
-            $availableCount = count(array_filter($slots, static fn(array $slot): bool => $slot['status'] === 'available'));
-            $bookedCount = count(array_filter($slots, static fn(array $slot): bool => $slot['status'] === 'booked'));
-            $isOpen = !$isPastDate && booking_availability_hours($pdo, $branchId, $date) !== null;
+            $availableCount = array_sum(array_column($slots, 'availableCount'));
+            $bookedCount = array_sum(array_column($slots, 'bookedCount'));
+            $isOpen = !$isPastDate && ($isOnline ? count($slots) > 0 : booking_availability_hours($pdo, $branchId, $date) !== null);
             $isFull = $isOpen && $availableCount === 0 && $bookedCount > 0;
             $days[] = [
                 'date' => $date,
                 'isOpen' => $isOpen,
                 'availableCount' => $availableCount,
                 'bookedCount' => $bookedCount,
-                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : ($isFull ? 'full' : 'closed')),
+                'status' => !$isOpen ? 'closed' : ($availableCount > 0 ? 'available' : ($isFull ? 'full' : 'unavailable')),
             ];
             if ($date === $selectedDate) {
                 $selectedSlots = $slots;
@@ -484,6 +424,8 @@ try {
 
     echo json_encode([
         'success' => true,
+        'schedulingMode' => $isOnline ? 'online_consultation' : (clinic_booking_is_medical($service['key']) ? 'shared_veterinarian' : ($service['key'] === 'boarding' ? 'rooms' : 'grooming')),
+        'scheduleConfigured' => $isOnline ? booking_slot_table_exists($pdo, 'vet_schedules') : (!clinic_booking_is_medical($service['key']) || clinic_booking_schema_ready($pdo)),
         'generatedAt' => $now->format(DATE_ATOM),
         'month' => $month,
         'selectedDate' => $selectedDate,
@@ -492,7 +434,6 @@ try {
             'branchId' => $branchId,
             'veterinarianId' => $selectedVeterinarianId,
             'veterinarianName' => $selectedVeterinarianName,
-            'specialServiceId' => $specialServiceId,
         ],
         'filters' => [
             'services' => $services,

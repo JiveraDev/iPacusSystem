@@ -255,18 +255,18 @@ Run SQL only against the intended deployed database, preferably after a backup.
 
 ## 9. Mail Queue Cron
 
-If queued email is enabled, configure Hostinger Cron or server cron to run:
+If queued email is enabled, configure Hostinger Custom Cron to run the sub-minute wrapper:
 
 ```bash
-php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=50
+/bin/sh /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/scripts/run-mail-worker.sh
 ```
 
-Run every 1 minute.
+Run the wrapper every 1 minute. It checks the reminder and mail queue five times at 10-second intervals. If shell scripts are unavailable, use `php /home/YOUR_HOSTINGER_USER/domains/ipawcus.com/public_html/set/php/mail_queue_worker.php --limit=25` once per minute as the fallback.
 
 If the API is deployed on `api.ipawcus.com` with PHP files directly in its document root, adjust the path:
 
 ```bash
-php /home/YOUR_HOSTINGER_USER/domains/api.ipawcus.com/public_html/mail_queue_worker.php --limit=50
+php /home/YOUR_HOSTINGER_USER/domains/api.ipawcus.com/public_html/mail_queue_worker.php --limit=25
 ```
 
 ## 10. Standalone TV Status Subdomain

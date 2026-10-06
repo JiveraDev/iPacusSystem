@@ -10,6 +10,8 @@ The normal app endpoint is:
 POST /notifications/reminders/run
 ```
 
+The production mail worker also runs this reminder generator before sending queued mail. With the documented once-per-minute cron, TODO occurrence emails are generated and delivered without a second cron entry.
+
 The local test helper is:
 
 ```bash
@@ -72,11 +74,14 @@ The current slot logic lives in [notification_helpers.php](../php/notification_h
 | --- | --- |
 | `notification_booking_reminder_slot` | Booking 24h, same-day, and 2h timing. |
 | `notification_todo_reminder_slot` | TODO/follow-up/boarding task overdue, 24h, same-day, and 2h timing. |
+| `notification_todo_occurrence_slots` | TODO start and scheduled-end timing. |
 | `notification_fetch_todo_reminder_tasks` | Which TODO-like records are included. |
 | `notification_run_booking_reminders` | Which confirmed bookings are included. |
 
 ## Dedupe Behavior
 
 Reminder notifications use dedupe keys. Re-running the sender for the same booking/task and same scheduled time should not create duplicates.
+
+TODO reminders now include email content. Every supported TODO source is resolved to its owning user, including personal tasks, bookings, boarding stays and care tasks, diagnosis follow-ups, veterinarian online consultations/follow-ups, and payment-balance tasks. A task with an end time produces separate `started` and `ended` notifications. Tasks without a scheduled end use their recorded completion time when the source provides one, including personal tasks, boarding care tasks, consultations, and paid balances. Each source task can emit each occurrence phase only once, even if its schedule is edited afterward. `NOTIFICATION_OCCURRENCE_WINDOW_MINUTES` controls the grace window (15 minutes by default) used by the once-per-minute worker.
 
 To retest the same exact reminder after it already sent, use a staging database or remove only the specific test notification row from `user_notifications` by its dedupe key.

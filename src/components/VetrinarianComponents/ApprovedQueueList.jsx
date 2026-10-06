@@ -32,6 +32,7 @@ import {
 import { fetchQueues, receiveQueue as receiveQueueService } from '../../services/queueService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
+import { fetchGroomingJobs } from '../../services/groomingService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 const BOOKING_QUEUE_SOURCE = 'booking_management';
 
@@ -216,6 +217,7 @@ export default function VetQueueList() {
     const veterinarianName = getUserName(currentUser);
     const [queue, setQueue] = useState([]);
     const [bookings, setBookings] = useState([]);
+    const [groomingReviews, setGroomingReviews] = useState([]);
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -269,8 +271,24 @@ export default function VetQueueList() {
         }
     };
 
+    const loadGroomingReviews = async ({ isAutoRefresh = false } = {}) => {
+        try {
+            const data = await fetchGroomingJobs(true);
+            const nextReviews = Array.isArray(data?.items) ? data.items : [];
+
+            setGroomingReviews(nextReviews);
+            return nextReviews;
+        } catch (error) {
+            if (!isAutoRefresh) {
+                console.error('Failed to load grooming-review count:', error);
+            }
+            return [];
+        }
+    };
+
     useAutoRefresh(loadQueue, { refreshKey: 'approved-queue-list' });
     useAutoRefresh(loadBookings, { refreshKey: 'approved-bookings-list' });
+    useAutoRefresh(loadGroomingReviews, { refreshKey: 'approved-grooming-review-count' });
     useAutoRefresh(async () => {
         try {
             const data = await fetchBranches();
@@ -534,7 +552,9 @@ export default function VetQueueList() {
                 date: todayKey,
                 month: todayKey.slice(0, 7),
                 detailsOnly: true,
-                branchId: booking.branchId || booking.branch_id || undefined
+                branchId: booking.branchId || booking.branch_id || undefined,
+                veterinarianId: booking.veterinarianId || booking.veterinarian_id || veterinarianUserId || undefined,
+                excludeBookingId: booking.id
             });
             const availableSlots = Array.isArray(availability?.details?.slots)
                 ? availability.details.slots.filter((slot) => slot.available)
@@ -695,6 +715,7 @@ export default function VetQueueList() {
                             onClick={() => {
                                 loadQueue();
                                 loadBookings();
+                                loadGroomingReviews();
                             }}
                             disabled={isLoading || isBookingsLoading}
                             className="gap-2"
@@ -1033,20 +1054,32 @@ export default function VetQueueList() {
                         navigate('/dashboard/vet/my-list');
                     }}
                     variant="outline"
-                    className="h-12 gap-2 rounded-full border-blue-200 bg-white px-4 text-blue-800 shadow-lg hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-200 dark:hover:bg-slate-800"
+                    size="icon"
+                    className="relative size-12 rounded-full border-blue-200 bg-white text-blue-800 shadow-lg hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-200 dark:hover:bg-slate-800"
+                    aria-label={`Open grooming reviews, ${groomingReviews.length} waiting`}
+                    title={`Grooming reviews (${groomingReviews.length})`}
                 >
                     <Scissors className="size-5" />
-                    <span>Grooming reviews</span>
+                    <Badge
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full border-2 border-white px-1 text-[10px] font-black leading-none text-white shadow-sm dark:border-slate-900 ${groomingReviews.length > 0 ? 'bg-rose-600' : 'bg-slate-400'}`}
+                    >
+                        {groomingReviews.length}
+                    </Badge>
                 </Button>
                 <Button
                     type="button"
                     onClick={() => document.getElementById('approved-booking-sections')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    className="h-12 gap-2 rounded-full bg-[#155dfc] px-4 text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf]"
-                    aria-label="Jump to confirmed and rescheduled bookings"
+                    size="icon"
+                    className="relative size-12 rounded-full bg-[#155dfc] text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d4acf]"
+                    aria-label={`Jump to confirmed and rescheduled bookings, ${filteredConfirmedBookings.length + filteredMissedBookings.length} listed`}
+                    title={`Bookings (${filteredConfirmedBookings.length + filteredMissedBookings.length})`}
                 >
                     <CalendarClock className="size-5" />
-                    <span>Bookings</span>
-                    <Badge className="border-0 bg-white/20 text-white">
+                    <Badge
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full border-2 border-white px-1 text-[10px] font-black leading-none text-white shadow-sm dark:border-slate-900 ${filteredConfirmedBookings.length + filteredMissedBookings.length > 0 ? 'bg-rose-600' : 'bg-slate-400'}`}
+                    >
                         {filteredConfirmedBookings.length + filteredMissedBookings.length}
                     </Badge>
                 </Button>

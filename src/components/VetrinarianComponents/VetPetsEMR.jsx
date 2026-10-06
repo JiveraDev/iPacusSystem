@@ -1,6 +1,8 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
+    Award,
+    BadgeCheck,
     CalendarDays,
     CheckCircle2,
     ClipboardList,
@@ -11,13 +13,15 @@ import {
     GripVertical,
     Loader2,
     PawPrint,
+    PenLine,
     Pencil,
     Pill,
     Plus,
     Search,
     Stethoscope,
     Syringe,
-    Trash2
+    Trash2,
+    Upload
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -37,7 +41,9 @@ import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import PrescriptionPlanPanel from '../shared/PrescriptionPlanPanel.jsx';
 import { fetchProfile } from '../../services/profileService';
+import { uploadDataUrlImage, uploadDocumentFile } from '../../services/uploadService';
 import {
     addPetMedicalRecordGroupItem,
     createPetMedicalRecordGroup,
@@ -52,6 +58,9 @@ import {
 import { fetchRecordUpdateRequests, updateRecordUpdateRequest } from '../../services/recordUpdateRequestService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import EditPetInformationDialog from '../shared/EditPetInformationDialog.jsx';
+import PetCertificateDialog from '../shared/PetCertificateDialog.jsx';
+import SignatureCapture from '../SignatureCapture.jsx';
+import { fetchPetCertificates, issuePetMedicalCertificate } from '../../services/petCertificateService';
 
 function asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -86,6 +95,8 @@ function recordKey(record) {
 }
 
 function sourceLabel(record) {
+    if (record.sourceType === 'grooming') return record.bookingNumber ? `Grooming · ${record.bookingNumber}` : 'Grooming record';
+    if (record.sourceType === 'boarding') return record.bookingNumber ? `Boarding · ${record.bookingNumber}` : 'Boarding record';
     if (record.bookingNumber) return `Booking ${record.bookingNumber}`;
     if (record.queueNumber) return formatQueueReference(record);
     if (record.sourceType === 'vaccination') return 'Vaccination record';
@@ -152,10 +163,15 @@ function cleanOrganizedSummary(value) {
 
 function organizedRecordTitle(record) {
     if (String(record?.sourceType || '').toLowerCase() === 'diagnosis' || record?.diagnosis) {
-        return 'Source Diagnosis Sheet';
+        return 'Diagnosis Summary';
     }
 
     return record?.title || sourceLabel(record);
+}
+
+function organizedItemTitle(item) {
+    const title = String(item?.title || '').trim();
+    return title.toLowerCase() === 'source diagnosis sheet' ? 'Diagnosis Summary' : (title || 'Clinical record');
 }
 
 function editorLabel(name) {
@@ -167,6 +183,74 @@ function editorLabel(name) {
 
 function imageUrl(attachment) {
     return resolveImageUrl(attachment?.url || attachment?.relativeUrl || '');
+}
+
+function recordAttachments(record) {
+    const seen = new Set();
+    return [...asArray(record?.attachments), ...asArray(record?.sourceUploads)].filter((attachment) => {
+        const key = String(attachment?.url || attachment?.relativeUrl || attachment?.id || '').trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+const REVISION_CLINICAL_FIELDS = [
+    'chiefComplaint',
+    'majorSymptoms',
+    'symptoms',
+    'physicalExam',
+    'diagnosis',
+    'recommendations',
+    'treatment',
+    'medications',
+    'labResults',
+    'followUp',
+    'notes'
+];
+
+function revisionSnapshotForItem(item) {
+    const source = item?.sourceSnapshot && typeof item.sourceSnapshot === 'object'
+        ? item.sourceSnapshot
+        : {};
+    const savedRevision = item?.revisionSnapshot && typeof item.revisionSnapshot === 'object'
+        ? item.revisionSnapshot
+        : {};
+    const snapshot = {};
+
+    REVISION_CLINICAL_FIELDS.forEach((field) => {
+        snapshot[field] = Object.prototype.hasOwnProperty.call(savedRevision, field)
+            ? String(savedRevision[field] || '')
+            : String(source[field] || '');
+    });
+
+    snapshot.revisionAttachments = asArray(savedRevision.revisionAttachments);
+    return snapshot;
+}
+
+function effectiveItemRecord(item) {
+    const source = item?.sourceSnapshot && typeof item.sourceSnapshot === 'object'
+        ? item.sourceSnapshot
+        : {};
+    const revision = item?.revisionSnapshot && typeof item.revisionSnapshot === 'object'
+        ? item.revisionSnapshot
+        : {};
+    const sourceAttachments = recordAttachments(source);
+    const revisionAttachments = asArray(revision.revisionAttachments);
+    const seen = new Set();
+    const attachments = [...sourceAttachments, ...revisionAttachments].filter((attachment, index) => {
+        const key = String(attachment?.url || attachment?.relativeUrl || attachment?.id || index).trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
+    return {
+        ...source,
+        ...revision,
+        attachments,
+        sourceUploads: []
+    };
 }
 
 function isImage(attachment) {
@@ -206,6 +290,33 @@ function isRecordRequestPaid(request) {
     return ['verified', 'waived'].includes(String(request?.paymentStatus || '').toLowerCase());
 }
 
+function localDateInputValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function addCalendarDays(value, days) {
+    const source = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
+        ? new Date(`${value}T00:00:00`)
+        : new Date();
+    source.setDate(source.getDate() + days);
+    return localDateInputValue(source);
+}
+
+function emptyMedicalCertificateDraft() {
+    const examinationDate = localDateInputValue();
+    const initialFinding = 'Based on the clinical examination performed on the date stated, the patient was clinically stable at the time of examination. This certificate records the attending veterinarian\'s findings and does not by itself serve as travel, quarantine, vaccination, or disease-free clearance.';
+
+    return {
+        examinationDate,
+        validUntil: addCalendarDays(examinationDate, 30),
+        clinicalFindings: initialFinding,
+        signature: ''
+    };
+}
+
 function autosaveText(status) {
     if (status === 'saving') return 'Autosaving...';
     if (status === 'saved') return 'Autosaved';
@@ -225,7 +336,8 @@ function itemDraftSignature(draft) {
     return JSON.stringify({
         title: String(draft?.title || '').trim() || 'Clinical record',
         summary: draft?.summary || '',
-        revisionNotes: draft?.revisionNotes || ''
+        revisionNotes: draft?.revisionNotes || '',
+        revisionSnapshot: draft?.revisionSnapshot || {}
     });
 }
 
@@ -246,8 +358,14 @@ export default function VetPetsEMR() {
     const [isSavingGroup, setIsSavingGroup] = useState(false);
     const [groupAutosaveStatus, setGroupAutosaveStatus] = useState('idle');
     const [editingItem, setEditingItem] = useState(null);
-    const [itemDraft, setItemDraft] = useState({ title: '', summary: '', revisionNotes: '' });
+    const [itemDraft, setItemDraft] = useState({
+        title: '',
+        summary: '',
+        revisionNotes: '',
+        revisionSnapshot: {}
+    });
     const [itemAutosaveStatus, setItemAutosaveStatus] = useState('idle');
+    const [isUploadingRevisionFiles, setIsUploadingRevisionFiles] = useState(false);
     const [sourceSearch, setSourceSearch] = useState('');
     const [showIncludedSources, setShowIncludedSources] = useState(false);
     const [addingRecordKey, setAddingRecordKey] = useState('');
@@ -257,8 +375,15 @@ export default function VetPetsEMR() {
     const [highlightedRequest, setHighlightedRequest] = useState(null);
     const [isCompletingRequest, setIsCompletingRequest] = useState(false);
     const [isPetInformationEditorOpen, setIsPetInformationEditorOpen] = useState(false);
+    const [certificateData, setCertificateData] = useState({ registrationCertificate: null, medicalCertificate: null, schemaReady: true });
+    const [isCertificateDialogOpen, setIsCertificateDialogOpen] = useState(false);
+    const [certificateViewer, setCertificateViewer] = useState(null);
+    const [medicalCertificateDraft, setMedicalCertificateDraft] = useState(emptyMedicalCertificateDraft);
+    const [showMedicalCertificateSignature, setShowMedicalCertificateSignature] = useState(false);
+    const [isIssuingMedicalCertificate, setIsIssuingMedicalCertificate] = useState(false);
     const groupAutosaveTimerRef = useRef(null);
     const itemAutosaveTimerRef = useRef(null);
+    const revisionFileInputRef = useRef(null);
     const groupSavedSignatureRef = useRef('');
     const itemSavedSignatureRef = useRef('');
     const veterinarianIdentity = useMemo(() => ({
@@ -364,6 +489,34 @@ export default function VetPetsEMR() {
         }
     }, [selectedPetId]);
 
+    const loadCertificates = useCallback(async ({ isAutoRefresh = false } = {}) => {
+        if (!selectedPetId) return null;
+
+        try {
+            const data = await fetchPetCertificates(selectedPetId, {
+                dedupe: false,
+                transientRetryCount: isAutoRefresh ? 0 : 1
+            });
+            setCertificateData({
+                registrationCertificate: data.registrationCertificate || null,
+                medicalCertificate: data.medicalCertificate || null,
+                schemaReady: data.schemaReady !== false
+            });
+            setCertificateViewer((current) => {
+                if (!current) return current;
+                return current.type === 'medical'
+                    ? (data.medicalCertificate || current)
+                    : (data.registrationCertificate || current);
+            });
+            return data;
+        } catch (error) {
+            if (!isAutoRefresh) {
+                console.error('Failed to load pet certificates:', error);
+            }
+            return null;
+        }
+    }, [selectedPetId]);
+
     useEffect(() => {
         loadPets();
     }, [loadPets]);
@@ -401,6 +554,73 @@ export default function VetPetsEMR() {
         refreshKey: `vet-pet-medical-records-${selectedPetId}`
     });
 
+    useAutoRefresh(loadCertificates, {
+        enabled: Boolean(selectedPetId),
+        refreshKey: `vet-pet-certificates-${selectedPetId}`
+    });
+
+    const openMedicalCertificateIssuer = () => {
+        setMedicalCertificateDraft(emptyMedicalCertificateDraft());
+        setShowMedicalCertificateSignature(false);
+        setIsCertificateDialogOpen(true);
+    };
+
+    const issueMedicalCertificate = async () => {
+        if (!selectedPetId || isIssuingMedicalCertificate) return;
+        if (!medicalCertificateDraft.clinicalFindings.trim()) {
+            toast.error('Enter the clinical findings before issuing the medical certificate.');
+            return;
+        }
+        if (!medicalCertificateDraft.signature) {
+            setShowMedicalCertificateSignature(true);
+            toast.error('Use Sign Certificate and add the veterinarian signature first.');
+            return;
+        }
+        const examinationDate = new Date(`${medicalCertificateDraft.examinationDate}T00:00:00`);
+        const validUntil = new Date(`${medicalCertificateDraft.validUntil}T00:00:00`);
+        const validityDays = Math.round((validUntil.getTime() - examinationDate.getTime()) / 86400000);
+        if (!Number.isFinite(validityDays) || validityDays < 1 || validityDays > 30) {
+            toast.error('Choose a valid-until date from 1 to 30 days after the examination.');
+            return;
+        }
+
+        setIsIssuingMedicalCertificate(true);
+        try {
+            const linkedRequestId = highlightedRequest?.requestId
+                && String(highlightedRequest.petId) === String(selectedPetId)
+                && ['assigned', 'in_progress'].includes(String(highlightedRequest.status || '').toLowerCase())
+                ? highlightedRequest.requestId
+                : null;
+            const signaturePath = await uploadDataUrlImage(
+                medicalCertificateDraft.signature,
+                'diagnosis',
+                `medical-certificate-${selectedPetId}`
+            );
+            const response = await issuePetMedicalCertificate(selectedPetId, {
+                requestId: linkedRequestId,
+                examinationDate: medicalCertificateDraft.examinationDate,
+                validUntil: medicalCertificateDraft.validUntil,
+                clinicalFindings: medicalCertificateDraft.clinicalFindings.trim(),
+                certificationStatement: medicalCertificateDraft.clinicalFindings.trim(),
+                signaturePath
+            });
+            const medicalCertificate = response.medicalCertificate || null;
+            setCertificateData((current) => ({ ...current, medicalCertificate }));
+            if (linkedRequestId) {
+                setHighlightedRequest((current) => current ? { ...current, medicalCertificate } : current);
+            }
+            setIsCertificateDialogOpen(false);
+            setShowMedicalCertificateSignature(false);
+            setCertificateViewer(medicalCertificate);
+            toast.success('Medical certificate issued. It is now available to the pet owner.');
+        } catch (error) {
+            console.error('Failed to issue medical certificate:', error);
+            toast.error(error.message || 'The medical certificate could not be issued. Please try again.');
+        } finally {
+            setIsIssuingMedicalCertificate(false);
+        }
+    };
+
     const finishRecordUpdateRequest = async () => {
         if (!highlightedRequest?.requestId || isCompletingRequest) return;
 
@@ -411,11 +631,16 @@ export default function VetPetsEMR() {
                 userId: currentUserId,
                 veterinarianNotes: 'Medical record update completed.'
             });
+            const refreshedCertificates = await loadCertificates({ isAutoRefresh: true });
+            const medicalCertificate = refreshedCertificates?.medicalCertificate || certificateData.medicalCertificate || null;
 
             if (response?.request) {
-                setHighlightedRequest(response.request);
+                setHighlightedRequest({
+                    ...response.request,
+                    medicalCertificate: response.request.medicalCertificate || medicalCertificate
+                });
             } else {
-                setHighlightedRequest(current => current ? { ...current, status: 'completed' } : current);
+                setHighlightedRequest(current => current ? { ...current, status: 'completed', medicalCertificate } : current);
             }
 
             toast.success('Record update finished. Pet owner notified.');
@@ -554,6 +779,7 @@ export default function VetPetsEMR() {
                     title,
                     summary: cleanOrganizedSummary(itemDraft.summary),
                     revisionNotes: itemDraft.revisionNotes,
+                    revisionSnapshot: itemDraft.revisionSnapshot,
                     userId: currentUserId
                 });
                 itemSavedSignatureRef.current = draftSignature;
@@ -745,11 +971,13 @@ export default function VetPetsEMR() {
 
     const openEditItem = (item) => {
         const nextDraft = {
-            title: item.title || '',
+            title: organizedItemTitle(item),
             summary: cleanOrganizedSummary(item.summary),
-            revisionNotes: item.revisionNotes || ''
+            revisionNotes: item.revisionNotes || '',
+            revisionSnapshot: revisionSnapshotForItem(item)
         };
         setEditingItem(item);
+        setIsUploadingRevisionFiles(false);
         itemSavedSignatureRef.current = itemDraftSignature(nextDraft);
         setItemAutosaveStatus('saved');
         setItemDraft(nextDraft);
@@ -770,6 +998,7 @@ export default function VetPetsEMR() {
                 title: itemDraft.title,
                 summary: cleanOrganizedSummary(itemDraft.summary),
                 revisionNotes: itemDraft.revisionNotes,
+                revisionSnapshot: itemDraft.revisionSnapshot,
                 userId: currentUserId
             });
             toast.success('Grouped summary updated.');
@@ -783,6 +1012,85 @@ export default function VetPetsEMR() {
             console.error('Failed to update a grouped medical summary:', error);
             toast.error('The grouped summary could not be updated. Please try again.');
         }
+    };
+
+    const uploadRevisionFiles = async (event) => {
+        const files = Array.from(event.target.files || []);
+        event.target.value = '';
+        if (!files.length || !editingItem || isUploadingRevisionFiles) return;
+
+        const existingFiles = asArray(itemDraft.revisionSnapshot?.revisionAttachments);
+        if (existingFiles.length + files.length > 20) {
+            toast.error('A medical-record revision can contain up to 20 added files.');
+            return;
+        }
+
+        const invalidFile = files.find((file) => (
+            file.size <= 0
+            || file.size > 8 * 1024 * 1024
+            || !['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'].includes(file.type)
+        ));
+        if (invalidFile) {
+            toast.error('Upload PNG, JPG, WEBP, GIF, or PDF files no larger than 8 MB each.');
+            return;
+        }
+
+        setIsUploadingRevisionFiles(true);
+        try {
+            const uploaded = await Promise.all(files.map(async (file, index) => {
+                const result = await uploadDocumentFile(file, 'diagnosis', {
+                    returnMetadata: true,
+                    formFields: {
+                        petId: selectedPetId,
+                        petName: selectedPet?.petName || selectedPet?.name || '',
+                        recordLabel: itemDraft.title || 'medical-record-revision',
+                        attachmentCategory: 'medical_record_revision'
+                    }
+                });
+
+                return {
+                    id: `revision-${Date.now()}-${index}`,
+                    name: result.displayName || result.originalName || file.name,
+                    originalName: result.originalName || file.name,
+                    storedFileName: result.storedFileName || '',
+                    url: result.path,
+                    relativeUrl: result.path,
+                    mimeType: result.mimeType || file.type,
+                    category: 'medical_record_revision',
+                    uploadedAt: new Date().toISOString()
+                };
+            }));
+
+            setItemDraft((current) => ({
+                ...current,
+                revisionSnapshot: {
+                    ...(current.revisionSnapshot || {}),
+                    revisionAttachments: [
+                        ...asArray(current.revisionSnapshot?.revisionAttachments),
+                        ...uploaded
+                    ]
+                }
+            }));
+            toast.success(`${uploaded.length} revision file${uploaded.length === 1 ? '' : 's'} uploaded.`);
+        } catch (error) {
+            console.error('Failed to upload medical-record revision files:', error);
+            toast.error('One or more revision files could not be uploaded. Please try again.');
+        } finally {
+            setIsUploadingRevisionFiles(false);
+        }
+    };
+
+    const removeRevisionFile = (attachmentToRemove, attachmentIndex) => {
+        setItemDraft((current) => ({
+            ...current,
+            revisionSnapshot: {
+                ...(current.revisionSnapshot || {}),
+                revisionAttachments: asArray(current.revisionSnapshot?.revisionAttachments).filter((attachment, index) => (
+                    index !== attachmentIndex
+                    || attachment?.id !== attachmentToRemove?.id
+                ))
+            }
+        }));
     };
 
     const removeItem = async (item) => {
@@ -927,6 +1235,10 @@ export default function VetPetsEMR() {
                         request={highlightedRequest}
                         onFinish={finishRecordUpdateRequest}
                         isFinishing={isCompletingRequest}
+                        medicalCertificate={certificateData.medicalCertificate}
+                        certificateSchemaReady={certificateData.schemaReady}
+                        onIssueMedicalCertificate={openMedicalCertificateIssuer}
+                        onViewMedicalCertificate={() => setCertificateViewer(certificateData.medicalCertificate)}
                     />
                 )}
 
@@ -934,6 +1246,10 @@ export default function VetPetsEMR() {
                     <PetPreviewCard
                         pet={selectedPet}
                         onEdit={() => setIsPetInformationEditorOpen(true)}
+                        medicalCertificate={certificateData.medicalCertificate}
+                        certificateSchemaReady={certificateData.schemaReady}
+                        onIssueMedicalCertificate={openMedicalCertificateIssuer}
+                        onViewMedicalCertificate={() => setCertificateViewer(certificateData.medicalCertificate)}
                     />
                 )}
             </section>
@@ -1152,7 +1468,7 @@ export default function VetPetsEMR() {
                             {previewRecord ? `${sourceLabel(previewRecord)} - ${formatDisplayDate(previewRecord.serviceDate)}` : ''}
                         </DialogDescription>
                     </DialogHeader>
-                    <SourceRecordDetails record={previewRecord} onPreview={setViewer} />
+                    <SourceRecordDetails record={previewRecord} petId={selectedPetId} onPreview={setViewer} />
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setPreviewRecord(null)}>Close</Button>
                         <Button
@@ -1187,10 +1503,10 @@ export default function VetPetsEMR() {
                     }
                 }}
             >
-                <DialogContent className="max-w-5xl">
+                <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
                     <DialogHeader>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <DialogTitle>Modify Grouped Diagnosis Summary</DialogTitle>
+                            <DialogTitle>Revise Medical Record</DialogTitle>
                             {autosaveText(itemAutosaveStatus) && (
                                 <Badge className={`w-fit border-0 ${
                                     itemAutosaveStatus === 'error'
@@ -1204,43 +1520,235 @@ export default function VetPetsEMR() {
                             )}
                         </div>
                         <DialogDescription>
-                            Edit the curated summary without changing the original diagnosis or billing record.
+                            Compare the permanent source record on the left with the editable medical-record revision on the right. Saving never changes the original diagnosis sheet or source files.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                        <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <h3 className="font-black text-slate-950">Source Diagnosis Sheet</h3>
-                            <SourceRecordDetails record={editingItem?.sourceSnapshot} onPreview={setViewer} />
-                        </div>
-                        <div className="space-y-4">
+                    <div className="grid items-start gap-5 lg:grid-cols-2">
+                        <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Original · Read only</p>
+                                <h3 className="mt-1 font-black text-slate-950 dark:text-white">Preserved source and files</h3>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Use this as the audit reference. Revision changes never overwrite these original details or pictures.</p>
+                            </div>
+                            <SourceRecordDetails record={editingItem?.sourceSnapshot} petId={selectedPetId} onPreview={setViewer} />
+                        </section>
+                        <section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4 dark:border-blue-900/60 dark:bg-blue-950/10">
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#155dfc]">Revision · Editable</p>
+                                <h3 className="mt-1 font-black text-slate-950 dark:text-white">Current medical record</h3>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Edit the clinical history and add supporting files. This revised copy is what appears in the organized medical record.</p>
+                            </div>
                             <div className="space-y-2">
-                                <Label>Grouped Title</Label>
+                                <Label>Record title</Label>
                                 <Input value={itemDraft.title} onChange={(event) => setItemDraft(current => ({ ...current, title: event.target.value }))} />
                             </div>
                             <div className="space-y-2">
-                                <Label>Source Diagnosis Sheet</Label>
+                                <Label>Revised diagnosis / medical summary</Label>
                                 <Textarea
                                     value={itemDraft.summary}
                                     onChange={(event) => setItemDraft(current => ({ ...current, summary: event.target.value }))}
-                                    className="min-h-40"
+                                    className="min-h-28 resize-y"
                                 />
+                            </div>
+                            <RevisionClinicalEditor
+                                snapshot={itemDraft.revisionSnapshot}
+                                onChange={(field, value) => setItemDraft((current) => ({
+                                    ...current,
+                                    revisionSnapshot: {
+                                        ...(current.revisionSnapshot || {}),
+                                        [field]: value
+                                    }
+                                }))}
+                            />
+                            <div className="space-y-3 rounded-lg border border-blue-100 bg-white p-3 dark:border-blue-900/60 dark:bg-slate-900">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <Label>Revision pictures and files</Label>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Add images or PDFs to this revision. Original source files remain preserved.</p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => revisionFileInputRef.current?.click()}
+                                        disabled={isUploadingRevisionFiles}
+                                        className="shrink-0 gap-2"
+                                    >
+                                        {isUploadingRevisionFiles
+                                            ? <Loader2 className="size-4 animate-spin" />
+                                            : <Upload className="size-4" />}
+                                        {isUploadingRevisionFiles ? 'Uploading...' : 'Upload files'}
+                                    </Button>
+                                    <input
+                                        ref={revisionFileInputRef}
+                                        type="file"
+                                        multiple
+                                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                                        onChange={uploadRevisionFiles}
+                                        className="hidden"
+                                    />
+                                </div>
+                                {asArray(itemDraft.revisionSnapshot?.revisionAttachments).length > 0 ? (
+                                    <AttachmentStrip
+                                        attachments={itemDraft.revisionSnapshot.revisionAttachments}
+                                        onPreview={setViewer}
+                                        onRemove={removeRevisionFile}
+                                    />
+                                ) : (
+                                    <p className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">No files added to this revision yet.</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label>Veterinarian Revision Notes</Label>
                                 <Textarea
                                     value={itemDraft.revisionNotes}
                                     onChange={(event) => setItemDraft(current => ({ ...current, revisionNotes: event.target.value }))}
-                                            placeholder="Revision notes"
+                                    placeholder="Explain what was revised without rewriting the source diagnosis."
                                 />
                             </div>
-                        </div>
+                        </section>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditingItem(null)}>Cancel</Button>
-                        <Button onClick={saveItem} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">Save Revision</Button>
+                        <Button
+                            onClick={saveItem}
+                            disabled={isUploadingRevisionFiles || itemAutosaveStatus === 'saving'}
+                            className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                        >
+                            Save Revision
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <Dialog
+                open={isCertificateDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isIssuingMedicalCertificate) {
+                        setIsCertificateDialogOpen(open);
+                        if (!open) setShowMedicalCertificateSignature(false);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Award className="size-5 text-[#155dfc]" />
+                            {certificateData.medicalCertificate ? 'Replace Medical Certificate' : 'Issue Medical Certificate'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {highlightedRequest?.requestId && String(highlightedRequest.petId) === String(selectedPetId)
+                                ? `The certificate will be linked to ${highlightedRequest.requestNumber}. `
+                                : 'No record-update request is required. '}
+                            It becomes available in the owner&apos;s pet profile. The default validity is 30 days and may be shortened by the veterinarian.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {!certificateData.schemaReady ? (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                            Medical certificate storage is not installed. Run DDL/20261002_03_pet_certificates.sql first.
+                        </div>
+                    ) : (
+                        <div className="space-y-5">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="medical-certificate-examination-date">Examination date</Label>
+                                    <Input
+                                        id="medical-certificate-examination-date"
+                                        type="date"
+                                        value={medicalCertificateDraft.examinationDate}
+                                        max={localDateInputValue()}
+                                        onChange={(event) => {
+                                            const examinationDate = event.target.value;
+                                            setMedicalCertificateDraft((current) => ({
+                                                ...current,
+                                                examinationDate,
+                                                validUntil: addCalendarDays(examinationDate, 30)
+                                            }));
+                                        }}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="medical-certificate-valid-until">Valid until</Label>
+                                    <Input
+                                        id="medical-certificate-valid-until"
+                                        type="date"
+                                        value={medicalCertificateDraft.validUntil}
+                                        min={addCalendarDays(medicalCertificateDraft.examinationDate, 1)}
+                                        max={addCalendarDays(medicalCertificateDraft.examinationDate, 30)}
+                                        onChange={(event) => setMedicalCertificateDraft((current) => ({ ...current, validUntil: event.target.value }))}
+                                    />
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Choose 1 to 30 days after the examination.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="medical-certificate-findings">Clinical findings</Label>
+                                <Textarea
+                                    id="medical-certificate-findings"
+                                    value={medicalCertificateDraft.clinicalFindings}
+                                    onChange={(event) => setMedicalCertificateDraft((current) => ({ ...current, clinicalFindings: event.target.value }))}
+                                    placeholder="Record the examination findings that support this certificate."
+                                    className="min-h-28 resize-y"
+                                    maxLength={5000}
+                                />
+                                <p className="text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">Revise the initial finding so it accurately reflects what was observed during the examination.</p>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p className="text-sm font-black text-slate-950 dark:text-white">Veterinarian signature</p>
+                                        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">The signature is stored with the issued certificate.</p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant={showMedicalCertificateSignature ? 'secondary' : 'outline'}
+                                        onClick={() => setShowMedicalCertificateSignature((current) => !current)}
+                                        className="gap-2"
+                                    >
+                                        <PenLine className="size-4" />
+                                        {showMedicalCertificateSignature ? 'Hide signature box' : 'Sign Certificate'}
+                                    </Button>
+                                </div>
+                                {showMedicalCertificateSignature ? (
+                                    <div className="mt-4">
+                                        <SignatureCapture
+                                            signature={medicalCertificateDraft.signature}
+                                            onSignatureChange={(signature) => setMedicalCertificateDraft((current) => ({ ...current, signature }))}
+                                            disabled={isIssuingMedicalCertificate}
+                                        />
+                                    </div>
+                                ) : null}
+                                {medicalCertificateDraft.signature && !showMedicalCertificateSignature ? (
+                                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+                                        <BadgeCheck className="size-4" /> Signature captured
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsCertificateDialogOpen(false)} disabled={isIssuingMedicalCertificate}>Cancel</Button>
+                        <Button
+                            type="button"
+                            onClick={issueMedicalCertificate}
+                            disabled={!certificateData.schemaReady || isIssuingMedicalCertificate}
+                            className="gap-2"
+                        >
+                            {isIssuingMedicalCertificate ? <Loader2 className="size-4 animate-spin" /> : <Award className="size-4" />}
+                            {isIssuingMedicalCertificate ? 'Issuing certificate...' : 'Issue certificate'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <PetCertificateDialog
+                open={Boolean(certificateViewer)}
+                onOpenChange={(open) => !open && setCertificateViewer(null)}
+                certificate={certificateViewer}
+            />
 
             <PhotoViewer
                 open={Boolean(viewer)}
@@ -1271,7 +1779,7 @@ function WorkflowStat({ label, value }) {
     );
 }
 
-function PetPreviewCard({ pet, onEdit }) {
+function PetPreviewCard({ pet, onEdit, medicalCertificate, certificateSchemaReady, onIssueMedicalCertificate, onViewMedicalCertificate }) {
     const imageSrc = pet?.profileImage || pet?.setpetImage_url || '';
     const petName = pet?.name || pet?.petName || 'No pet selected';
     const petId = pet?.id || pet?.pet_sharable_ID || pet?.dbId || pet?.db_id || 'N/A';
@@ -1307,6 +1815,23 @@ function PetPreviewCard({ pet, onEdit }) {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                    {medicalCertificate ? (
+                        <Button type="button" variant="outline" size="sm" onClick={onViewMedicalCertificate} className="h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 dark:border-blue-900 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/50">
+                            <Eye className="size-4" />
+                            View medical cert
+                        </Button>
+                    ) : null}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onIssueMedicalCertificate}
+                        disabled={!certificateSchemaReady}
+                        className="h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 dark:border-blue-900 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                    >
+                        <Award className="size-4" />
+                        {medicalCertificate ? 'Replace medical cert' : 'Issue medical cert'}
+                    </Button>
                     <Button type="button" variant="outline" size="sm" onClick={onEdit} className="h-9 gap-2 border-blue-200 bg-white text-[#155dfc] hover:border-blue-300 hover:bg-blue-50 dark:border-blue-900 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950/50">
                         <Pencil className="size-4" strokeWidth={2.4} />
                         Edit pet information
@@ -1327,7 +1852,7 @@ function PetPreviewCard({ pet, onEdit }) {
     );
 }
 
-function RecordUpdateHighlight({ request, onFinish, isFinishing }) {
+function RecordUpdateHighlight({ request, onFinish, isFinishing, medicalCertificate, certificateSchemaReady, onIssueMedicalCertificate, onViewMedicalCertificate }) {
     const isCompleted = String(request?.status || '').toLowerCase() === 'completed';
 
     return (
@@ -1367,6 +1892,44 @@ function RecordUpdateHighlight({ request, onFinish, isFinishing }) {
                 <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800">
                     {request.requestedChanges || 'No request details provided.'}
                 </p>
+            </div>
+            <div className="mt-3 rounded-lg border border-blue-100 bg-white p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#155dfc]">Certificates included automatically</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
+                            The clinic registration certificate is always available. Issue a veterinarian medical certificate here when the examination supports one.
+                        </p>
+                        {medicalCertificate ? (
+                            <p className="mt-1 text-xs font-bold text-emerald-700">
+                                {medicalCertificate.certificateNumber} · valid until {formatDisplayDate(medicalCertificate.validUntil)}
+                            </p>
+                        ) : null}
+                        {!certificateSchemaReady ? (
+                            <p className="mt-1 text-xs font-bold text-red-700">Certificate storage migration is required before issuing.</p>
+                        ) : null}
+                    </div>
+                    {!isCompleted ? (
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                            {medicalCertificate ? (
+                                <Button type="button" variant="outline" size="sm" onClick={onViewMedicalCertificate} className="gap-2">
+                                    <Eye className="size-4" /> View
+                                </Button>
+                            ) : null}
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={onIssueMedicalCertificate}
+                                disabled={!certificateSchemaReady}
+                                className="gap-2 border-blue-200 text-[#155dfc] hover:bg-blue-50"
+                            >
+                                <PenLine className="size-4" />
+                                {medicalCertificate ? 'Replace medical cert' : 'Issue medical cert'}
+                            </Button>
+                        </div>
+                    ) : null}
+                </div>
             </div>
         </div>
     );
@@ -1729,15 +2292,15 @@ function RecordGroup({
 }
 
 function GroupedItem({ item, onEdit, onRemove, onPreview }) {
-    const source = item.sourceSnapshot || {};
-    const attachments = [...asArray(source.attachments), ...asArray(source.sourceUploads)];
+    const source = effectiveItemRecord(item);
+    const attachments = recordAttachments(source);
 
     return (
         <section className="p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">{formatDisplayDate(item.serviceDate || source.serviceDate)}</p>
-                    <h4 className="mt-1 break-words text-base font-black text-slate-900">{item.title}</h4>
+                    <h4 className="mt-1 break-words text-base font-black text-slate-900">{organizedItemTitle(item)}</h4>
                     {item.updatedByName && (
                         <p className="mt-1 text-xs font-bold text-slate-400">Edited by {editorLabel(item.updatedByName)}</p>
                     )}
@@ -1765,7 +2328,7 @@ function GroupedItem({ item, onEdit, onRemove, onPreview }) {
 }
 
 function ServiceRecordCard({ record, onOpenPreview, onPreview, onAdd, isAddedToTarget, isAdding }) {
-    const attachments = [...asArray(record.attachments), ...asArray(record.sourceUploads)];
+    const attachments = recordAttachments(record);
     const openPreview = () => {
         onOpenPreview?.();
     };
@@ -1831,7 +2394,7 @@ function ServiceRecordCard({ record, onOpenPreview, onPreview, onAdd, isAddedToT
     );
 }
 
-function AttachmentStrip({ attachments, onPreview, compact = false }) {
+function AttachmentStrip({ attachments, onPreview, compact = false, onRemove }) {
     return (
         <div className={`mt-3 grid gap-2 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}`}>
             {attachments.map((attachment, index) => (
@@ -1839,13 +2402,14 @@ function AttachmentStrip({ attachments, onPreview, compact = false }) {
                     key={attachment.id || `${attachment.url || attachment.relativeUrl}-${index}`}
                     attachment={attachment}
                     onPreview={onPreview}
+                    onRemove={onRemove ? () => onRemove(attachment, index) : null}
                 />
             ))}
         </div>
     );
 }
 
-function EmrAttachmentCard({ attachment, onPreview }) {
+function EmrAttachmentCard({ attachment, onPreview, onRemove }) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isOpening, setIsOpening] = useState(false);
     const rawPath = attachment?.preview || attachment?.url || attachment?.relativeUrl || '';
@@ -1904,7 +2468,7 @@ function EmrAttachmentCard({ attachment, onPreview }) {
                 )}
             </div>
             <p className="truncate px-2 pt-2 text-xs font-semibold text-slate-600">{title}</p>
-            <div className={`grid gap-1 p-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div className={`grid gap-1 p-2 ${onRemove ? (isPdf ? 'grid-cols-2' : 'grid-cols-3') : (isPdf ? 'grid-cols-1' : 'grid-cols-2')}`}>
                 <Button
                     type="button"
                     variant="outline"
@@ -1927,17 +2491,80 @@ function EmrAttachmentCard({ attachment, onPreview }) {
                     {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                     Download
                 </Button>}
+                {onRemove && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onRemove();
+                        }}
+                        className="h-8 gap-1 border-red-200 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                        aria-label={`Remove ${title} from this revision`}
+                    >
+                        <Trash2 className="size-3" />
+                        <span className={isPdf ? '' : 'sr-only'}>Remove</span>
+                    </Button>
+                )}
             </div>
         </div>
     );
 }
 
-function SourceRecordDetails({ record, onPreview }) {
+function RevisionClinicalEditor({ snapshot, onChange }) {
+    const fields = [
+        ['chiefComplaint', 'Chief Complaint'],
+        ['majorSymptoms', 'Major Symptoms'],
+        ['symptoms', 'Symptoms'],
+        ['physicalExam', 'Physical Exam'],
+        ['diagnosis', 'Diagnosis / Findings'],
+        ['recommendations', 'Recommendations'],
+        ['treatment', 'Treatment'],
+        ['medications', 'Medications'],
+        ['labResults', 'Laboratory Results'],
+        ['notes', 'Clinical Notes']
+    ];
+
+    return (
+        <div className="space-y-3 rounded-lg border border-blue-100 bg-white p-3 dark:border-blue-900/60 dark:bg-slate-900">
+            <div>
+                <Label>Clinical history and diagnosis</Label>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Revise any field below. Blank fields remain blank in the revised copy.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+                {fields.map(([field, label]) => (
+                    <div key={field} className={`space-y-1.5 ${['physicalExam', 'diagnosis', 'treatment', 'labResults', 'notes'].includes(field) ? 'sm:col-span-2' : ''}`}>
+                        <Label htmlFor={`revision-${field}`} className="text-xs">{label}</Label>
+                        <Textarea
+                            id={`revision-${field}`}
+                            value={snapshot?.[field] || ''}
+                            onChange={(event) => onChange(field, event.target.value)}
+                            className="min-h-20 resize-y"
+                        />
+                    </div>
+                ))}
+                <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="revision-follow-up" className="text-xs">Follow-up date</Label>
+                    <Input
+                        id="revision-follow-up"
+                        type="date"
+                        value={snapshot?.followUp || ''}
+                        onChange={(event) => onChange('followUp', event.target.value)}
+                        className="sm:max-w-64"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SourceRecordDetails({ record, petId, onPreview }) {
     if (!record) {
         return <p className="text-sm font-semibold text-slate-500">No source snapshot is available for this grouped item.</p>;
     }
 
-    const attachments = [...asArray(record.attachments), ...asArray(record.sourceUploads)];
+    const attachments = recordAttachments(record);
     const prescriptions = [
         ...asArray(record.prescriptions),
         ...asArray(record.customSections).flatMap(section => asArray(section.prescriptions || section.prescription))
@@ -1967,6 +2594,7 @@ function SourceRecordDetails({ record, onPreview }) {
 
     return (
         <div className="space-y-4 text-sm">
+            {petId && <PrescriptionPlanPanel petId={petId} canManage allowStart={false} title="Live prescription plan" />}
             <div className="grid grid-cols-2 gap-3">
                 <Detail label="Source" value={sourceLabel(record)} />
                 <Detail label="Date" value={formatDisplayDate(record.serviceDate)} />
@@ -2040,7 +2668,13 @@ function SourceRecordDetails({ record, onPreview }) {
                     </div>
                 </div>
             )}
-            {attachments.length > 0 && <AttachmentStrip attachments={attachments} onPreview={onPreview} />}
+            {attachments.length > 0 && (
+                <section className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Related files · {attachments.length}</p>
+                    <p className="mt-1 text-xs text-slate-500">Diagnosis attachments, grooming photos, and boarding uploads remain linked to their original source.</p>
+                    <AttachmentStrip attachments={attachments} onPreview={onPreview} />
+                </section>
+            )}
         </div>
     );
 }

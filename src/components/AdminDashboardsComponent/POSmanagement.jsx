@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import {
   AlertTriangle,
   Building2,
@@ -102,6 +103,10 @@ const BILLING_CLASSIFICATIONS = CLASSIFICATIONS.filter((classification) => (
 
 const POS_CASH_METHOD = { value: 'cash', label: 'Cash' };
 const WALK_IN_SALE_ID = 'walk-in-sale';
+const CSS_PIXELS_PER_INCH = 96;
+const MILLIMETERS_PER_INCH = 25.4;
+const RECEIPT_MINIMUM_HEIGHT_MM = 40;
+const RECEIPT_CUTTER_FEED_MM = 4;
 
 const WALK_IN_SALE_VISIT = {
   id: WALK_IN_SALE_ID,
@@ -1310,7 +1315,9 @@ export default function ServicePOS() {
   const [cashNoReference, setCashNoReference] = useState(true);
   const [posPrefill] = useState(() => readPosPrefill());
   const prefillReconciledRef = useRef(false);
+  const [isPrefillReconciled, setIsPrefillReconciled] = useState(() => !posPrefill?.visit);
   const emptyInventoryNoticeBranchesRef = useRef(new Set());
+  const receiptPrintRef = useRef(null);
   const [branches, setBranches] = useState([]);
   const [branchError, setBranchError] = useState('');
   const [branchId, setBranchId] = useState(() => String(
@@ -1350,12 +1357,23 @@ export default function ServicePOS() {
   const visitOptions = useMemo(() => {
     const prefillVisit = posPrefill?.visit ? createPrefillVisit(posPrefill) : null;
     const prefillMatchesBranch = !prefillVisit?.branchId || String(prefillVisit.branchId) === String(branchId);
-    const prefillOptions = prefillVisit && prefillMatchesBranch && normalizeText(prefillVisit.billingStatus || prefillVisit.status) !== 'paid'
+    const matchingDatabaseVisit = prefillVisit && prefillMatchesBranch
+      ? databaseVisitOptions.find((visit) => (
+        (prefillVisit.visitId && Number(visit.visitId) === Number(prefillVisit.visitId))
+        || (prefillVisit.bookingId && Number(visit.bookingId) === Number(prefillVisit.bookingId))
+      ))
+      : null;
+    const databaseOptions = matchingDatabaseVisit
+      && !payableDatabaseVisitOptions.some((visit) => visit.id === matchingDatabaseVisit.id)
+      ? [...payableDatabaseVisitOptions, matchingDatabaseVisit]
+      : payableDatabaseVisitOptions;
+    const prefillOptions = prefillVisit && prefillMatchesBranch && !matchingDatabaseVisit
+      && normalizeText(prefillVisit.billingStatus || prefillVisit.status) !== 'paid'
       ? [prefillVisit]
       : [];
 
-    return [WALK_IN_SALE_VISIT, ...payableDatabaseVisitOptions, ...prefillOptions];
-  }, [branchId, payableDatabaseVisitOptions, posPrefill]);
+    return [WALK_IN_SALE_VISIT, ...databaseOptions, ...prefillOptions];
+  }, [branchId, databaseVisitOptions, payableDatabaseVisitOptions, posPrefill]);
   const [selectedVisitId, setSelectedVisitId] = useState(posPrefill?.visit?.id || WALK_IN_SALE_ID);
   const selectedVisit = visitOptions.find((visit) => visit.id === selectedVisitId) || visitOptions[0];
   const [charges, setCharges] = useState(() => (
@@ -1366,6 +1384,7 @@ export default function ServicePOS() {
   const [activeTab, setActiveTab] = useState('services');
   const [searchQuery, setSearchQuery] = useState('');
   const [receiptPaperWidth, setReceiptPaperWidth] = useState('58mm');
+  const [receiptPageHeight, setReceiptPageHeight] = useState('120mm');
   const [invoicePanelOpen, setInvoicePanelOpen] = useState(true);
   const [invoicePanelWidth, setInvoicePanelWidth] = useState(320);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -1572,6 +1591,7 @@ export default function ServicePOS() {
       || (prefillVisit.bookingId && Number(visit.bookingId) === Number(prefillVisit.bookingId))
     ));
     prefillReconciledRef.current = true;
+    setIsPrefillReconciled(true);
     if (!matchingVisit) {
       return;
     }
@@ -1601,6 +1621,10 @@ export default function ServicePOS() {
   const visitBalance = Math.max(0, invoiceTotal - previouslyPaid);
   const amountDue = visitBalance;
   const invoiceBlockReason = (() => {
+    if (!isPrefillReconciled) {
+      return 'Wait for the boarding invoice and prior payments to finish loading.';
+    }
+
     if (charges.length === 0) {
       return 'Add at least one billable item before creating an invoice.';
     }
@@ -1879,6 +1903,26 @@ export default function ServicePOS() {
     setInvoiceOpen(true);
   };
 
+  const printReceipt = () => {
+    const printArea = receiptPrintRef.current;
+    if (!printArea) {
+      showNotification('The receipt preview is not ready yet. Close and reopen the invoice, then try again.', 'error');
+      return;
+    }
+
+    const measuredHeightPixels = printArea.getBoundingClientRect().height;
+    const measuredHeightMillimeters = measuredHeightPixels * MILLIMETERS_PER_INCH / CSS_PIXELS_PER_INCH;
+    const pageHeightMillimeters = Math.max(
+      RECEIPT_MINIMUM_HEIGHT_MM,
+      Math.ceil(measuredHeightMillimeters) + RECEIPT_CUTTER_FEED_MM
+    );
+
+    // Commit the exact page height before opening the native print dialog so
+    // thermal printers do not receive an A4-length (297 mm) receipt.
+    flushSync(() => setReceiptPageHeight(`${pageHeightMillimeters}mm`));
+    window.print();
+  };
+
   const clampInvoicePanelWidth = useCallback((width) => {
     const maxWidth = typeof window === 'undefined'
       ? 520
@@ -2002,15 +2046,18 @@ export default function ServicePOS() {
         }
 
         if (bookingConfirmationFailed) {
-          showNotification(`${postedInvoiceNumber} was posted successfully, but the linked booking could not be auto-confirmed. Review it in Bookings; do not post the payment again.`, 'warning');
+          showNotification(`${postedInvoiceNumber} was posted successfully${data.groomingPickupCompleted ? ', and grooming pickup was completed automatically' : ''}, but the linked booking could not be auto-confirmed. Review it in Bookings; do not post the payment again.`, 'warning');
         } else {
-          showNotification(bookingConfirmed
+          const paymentSuccessMessage = bookingConfirmed
             ? `${postedInvoiceNumber} posted. Booking was auto-confirmed and the invoice PDF was saved.`
-            : `${postedInvoiceNumber} posted. Visit billing status and invoice PDF were saved.`, 'success');
+            : `${postedInvoiceNumber} posted. Visit billing status and invoice PDF were saved.`;
+          showNotification(data.groomingPickupCompleted
+            ? `${paymentSuccessMessage} Grooming pickup was completed automatically.`
+            : paymentSuccessMessage, 'success');
         }
       } catch (error) {
         console.error('Failed to post a visit payment:', error);
-        showNotification('The visit payment could not be posted. Verify the details and try again.', 'error');
+        showNotification(error?.message || 'The visit payment could not be posted. Verify the details and try again.', 'error');
       } finally {
         setIsPostingPayment(false);
       }
@@ -2103,8 +2150,9 @@ export default function ServicePOS() {
           : `${postedInvoiceNumber} posted. Walk-in sale and invoice PDF were saved.`, 'success');
       }
     } catch (error) {
-      console.error('Failed to post a walk-in sale:', error);
-      showNotification('The walk-in sale could not be posted. Verify the details and try again.', 'error');
+      const paymentContext = sourceType === 'boarding' ? 'boarding payment' : 'walk-in sale';
+      console.error(`Failed to post the ${paymentContext}:`, error);
+      showNotification(error?.message || `The ${paymentContext} could not be posted. Verify the details and try again.`, 'error');
     } finally {
       setIsPostingPayment(false);
     }
@@ -2136,7 +2184,7 @@ export default function ServicePOS() {
         {`
           @media print {
             @page {
-              size: ${receiptPaperWidth} 297mm;
+              size: ${receiptPaperWidth} ${receiptPageHeight};
               margin: 0;
             }
 
@@ -2145,27 +2193,24 @@ export default function ServicePOS() {
               margin: 0 !important;
               padding: 0 !important;
               width: ${receiptPaperWidth} !important;
-              min-width: ${receiptPaperWidth} !important;
+              min-width: 0 !important;
+              height: auto !important;
+              min-height: 0 !important;
               background: #fff !important;
               overflow: visible !important;
             }
 
-            body * {
-              visibility: hidden !important;
-            }
-
-            .pos-receipt-print-area,
-            .pos-receipt-print-area * {
-              visibility: visible !important;
+            body > *:not(.pos-receipt-print-area) {
+              display: none !important;
             }
 
             .pos-receipt-print-area {
               display: block !important;
-              position: absolute !important;
-              top: 0 !important;
-              left: 0 !important;
+              position: static !important;
               width: ${receiptPaperWidth} !important;
               max-width: ${receiptPaperWidth} !important;
+              height: auto !important;
+              min-height: 0 !important;
               margin: 0 !important;
               padding: 2mm !important;
               box-sizing: border-box !important;
@@ -2197,8 +2242,21 @@ export default function ServicePOS() {
           }
         `}
       </style>
-      {invoiceOpen && (
-        <div className="pos-receipt-print-area theme-static-light hidden" aria-hidden="true">
+      {invoiceOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={receiptPrintRef}
+          className="pos-receipt-print-area theme-static-light"
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: '-10000px',
+            width: receiptPaperWidth,
+            padding: '2mm',
+            boxSizing: 'border-box',
+            pointerEvents: 'none',
+          }}
+        >
           <ThermalReceipt
             paperWidth={receiptPaperWidth}
             logo={ipawcusLogo}
@@ -2207,8 +2265,10 @@ export default function ServicePOS() {
             visit={selectedVisit}
             charges={charges}
             total={invoiceTotal}
+            printLayout
           />
-        </div>
+        </div>,
+        document.body
       )}
       <DashboardPageHeader
         icon={Receipt}
@@ -2663,7 +2723,7 @@ export default function ServicePOS() {
             <Button type="button" variant="outline" onClick={() => setInvoiceOpen(false)}>
               Close
             </Button>
-            <Button type="button" variant="outline" onClick={() => window.print()}>
+            <Button type="button" variant="outline" onClick={printReceipt}>
               <Printer className="mr-2 size-4" />
               Print Portable Receipt
             </Button>
@@ -2904,7 +2964,7 @@ function ReceiptInfo({ label, value }) {
   );
 }
 
-function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, charges, total }) {
+function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, charges, total, printLayout = false }) {
   const isNarrow = paperWidth === '58mm';
   const previewWidth = isNarrow ? '232px' : '302px';
   const previouslyPaid = Math.max(0, Number(visit?.paid || 0));
@@ -2913,7 +2973,9 @@ function ThermalReceipt({ paperWidth, logo, invoiceNumber, invoiceDate, visit, c
   return (
     <div
       className="thermal-print-root theme-static-light mx-auto rounded-lg border border-slate-300 bg-white p-3 font-mono text-black shadow-sm"
-      style={{ width: previewWidth, maxWidth: previewWidth }}
+      style={printLayout
+        ? { width: '100%', maxWidth: '100%', margin: 0, padding: 0, border: 0, boxShadow: 'none' }
+        : { width: previewWidth, maxWidth: previewWidth }}
     >
       <div className="text-center">
         <img src={logo} alt="Ipawcus logo" className="mx-auto mb-1 h-10 w-10 object-contain" />

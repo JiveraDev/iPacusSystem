@@ -20,12 +20,15 @@ import { fetchUserPets } from "../../services/petService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import AddressMapPreview from "../shared/AddressMapPreview.jsx";
+import BookingDateInput from "../shared/BookingDateInput.jsx";
+import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
 import { HomeServicesContentEditor } from './ServiceContentEditor.jsx';
 import { reportBookingFormErrors, standardAppointmentBookingErrors } from '../../lib/bookingFormValidation';
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from '../shared/PetCatalogAutocomplete.jsx';
 
 const HOME_SERVICE_CARD_META = {
   "home-grooming": { selectionId: "grooming-full", icon: Scissors, includes: ["nail-trim"], order: 1 },
@@ -47,6 +50,8 @@ export default function HomeServices() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
   const [selectedServices, setSelectedServices] = useState([]);
+  const [bookingBranchId, setBookingBranchId] = useState(availabilityPrefill?.branchId || "");
+  const [bookingVetId, setBookingVetId] = useState(availabilityPrefill?.veterinarianId || "");
   const [preferredDate, setPreferredDate] = useState(availabilityPrefill?.date || "");
   const [preferredTime, setPreferredTime] = useState(availabilityPrefill?.time || "");
   
@@ -80,6 +85,7 @@ export default function HomeServices() {
   const [newPetBreed, setNewPetBreed] = useState("");
   const [newPetAge, setNewPetAge] = useState("");
   const [newPetWeight, setNewPetWeight] = useState("");
+  const [newPetColorMarkings, setNewPetColorMarkings] = useState("");
 
   const homeServices = priceProjectionConfig.homeServices
     .filter((service) => service.id !== 'outside-lucena')
@@ -225,6 +231,7 @@ export default function HomeServices() {
         newPetBreed,
         newPetAge,
         newPetWeight,
+        newPetColorMarkings,
         date: preferredDate,
         time: preferredTime,
         files: [],
@@ -237,6 +244,7 @@ export default function HomeServices() {
         breed: 'home-new-pet-breed',
         age: 'home-new-pet-age',
         weight: 'home-new-pet-weight',
+        colorMarkings: 'home-new-pet-color-markings',
         date: 'home-service-date',
         time: 'home-service-time',
       },
@@ -274,6 +282,8 @@ export default function HomeServices() {
       petStatus: isNewPet ? "" : getPetStatus(selectedRegisteredPet),
       service_type: "home-service",
       booking_date: preferredDate,
+      branch_id: bookingBranchId || null,
+      veterinarian_id: bookingVetId || null,
       booking_time: preferredTime,
       notes: [
         `[Services: ${serviceNames}]`,
@@ -285,6 +295,7 @@ export default function HomeServices() {
       new_pet_breed: isNewPet ? newPetBreed : null,
       new_pet_age: isNewPet ? newPetAge : null,
       new_pet_weight: isNewPet ? newPetWeight : null,
+      new_pet_color_markings: isNewPet ? newPetColorMarkings : null,
       is_home_service: 1,
       address: address,
       specific_location: specificLocation,
@@ -359,19 +370,12 @@ export default function HomeServices() {
                 <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                   <h3 className="font-semibold text-blue-900 text-sm">New Pet Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input id="home-new-pet-name" placeholder="Pet Name *" restriction="name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
-                    <Select value={newPetSpecies} onValueChange={setNewPetSpecies}>
-                      <SelectTrigger id="home-new-pet-species"><SelectValue placeholder="Species *" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Dog">Dog</SelectItem>
-                        <SelectItem value="Cat">Cat</SelectItem>
-                        <SelectItem value="Bird">Bird</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input id="home-new-pet-breed" placeholder="Breed *" restriction="name" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
-                    <Input id="home-new-pet-age" placeholder="Age *" restriction="integer" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
-                    <Input id="home-new-pet-weight" placeholder="Weight (Optional)" restriction="decimal" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
+                    <Input id="home-new-pet-name" placeholder="Pet Name *" restriction="pet-name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
+                    <PetSpeciesAutocomplete id="home-new-pet-species" placeholder="Type or choose a species *" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} />
+                    <PetBreedAutocomplete id="home-new-pet-breed" species={newPetSpecies} placeholder="Type or choose a breed *" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
+                    <Input id="home-new-pet-age" placeholder="Age *" restriction="pet-age" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
+                    <Input id="home-new-pet-weight" placeholder="Weight (Optional)" restriction="pet-weight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
+                    <Input id="home-new-pet-color-markings" placeholder="Color / Markings (Optional)" restriction="pet-markings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} />
                   </div>
                 </div>
               )}
@@ -425,15 +429,18 @@ export default function HomeServices() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              <BranchBookingSelect service="home-service" date={preferredDate} value={bookingBranchId} onChange={(branchId) => { setBookingBranchId(branchId); setBookingVetId(""); setPreferredTime(""); }} />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Preferred Date *</Label>
-                  <Input id="home-service-date" type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
+                  <Label htmlFor="home-service-date">Preferred Date *</Label>
+                  <BookingDateInput service="home-service" branchId={bookingBranchId} veterinarianId={bookingVetId} id="home-service-date" type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
                 </div>
                 <BookingTimeSlotField
                   id="home-service-time"
                   service="home-service"
                   date={preferredDate}
+                  branchId={bookingBranchId}
+                  veterinarianId={bookingVetId}
                   value={preferredTime}
                   onChange={setPreferredTime}
                   label="Preferred time"

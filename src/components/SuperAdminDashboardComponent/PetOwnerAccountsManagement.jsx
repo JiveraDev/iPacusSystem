@@ -6,7 +6,6 @@ import { Card, CardContent } from '../../ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { fetchPetOwnerAccounts, updatePetOwnerStatus } from '../../services/accountService';
@@ -20,6 +19,27 @@ function ownerName(owner) {
 
 function isArchived(owner) {
     return ['archived', 'deactivated'].includes(String(owner.account_status || 'active').toLowerCase());
+}
+
+function ownerMatchesSearch(owner, query) {
+    if (!query) return true;
+
+    return [
+        ownerName(owner),
+        owner.mail_Address,
+        owner.phoneNumber,
+        owner.personal_Address,
+        ...(owner.pets || []).map(pet => [
+            pet.pet_name,
+            pet.pet_species,
+            pet.pet_breed,
+            ...(pet.owners || []).flatMap(linkedOwner => [linkedOwner.name, linkedOwner.email])
+        ].filter(Boolean).join(' '))
+    ].filter(Boolean).join(' ').toLowerCase().includes(query);
+}
+
+function activeOwnerPetCount(owner) {
+    return (owner?.pets || []).filter(pet => !pet.is_archived).length;
 }
 
 function ownerInitials(owner) {
@@ -152,7 +172,8 @@ export default function PetOwnerAccountsManagement() {
     const [owners, setOwners] = useState([]);
     const [statusSupported, setStatusSupported] = useState(true);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [archiveSearch, setArchiveSearch] = useState('');
     const [selectedOwner, setSelectedOwner] = useState(null);
     const [pendingStatusOwner, setPendingStatusOwner] = useState(null);
     const [pendingPetArchive, setPendingPetArchive] = useState(null);
@@ -181,24 +202,15 @@ export default function PetOwnerAccountsManagement() {
 
     const filteredOwners = useMemo(() => {
         const query = search.trim().toLowerCase();
-        const statusOwners = owners.filter((owner) => (
-            statusFilter === 'all' || (statusFilter === 'archived' ? isArchived(owner) : !isArchived(owner))
-        ));
-        if (!query) return statusOwners;
+        return owners.filter(owner => !isArchived(owner) && ownerMatchesSearch(owner, query));
+    }, [owners, search]);
 
-        return statusOwners.filter(owner => [
-            ownerName(owner),
-            owner.mail_Address,
-            owner.phoneNumber,
-            owner.personal_Address,
-            ...(owner.pets || []).map(pet => [
-                pet.pet_name,
-                pet.pet_species,
-                pet.pet_breed,
-                ...(pet.owners || []).flatMap(linkedOwner => [linkedOwner.name, linkedOwner.email])
-            ].filter(Boolean).join(' '))
-        ].filter(Boolean).join(' ').toLowerCase().includes(query));
-    }, [owners, search, statusFilter]);
+    const archivedOwners = useMemo(() => {
+        const query = archiveSearch.trim().toLowerCase();
+        return owners.filter(owner => isArchived(owner) && ownerMatchesSearch(owner, query));
+    }, [archiveSearch, owners]);
+
+    const archivedOwnerCount = useMemo(() => owners.filter(isArchived).length, [owners]);
 
     const handleToggleStatus = async () => {
         if (!pendingStatusOwner) return;
@@ -275,7 +287,7 @@ export default function PetOwnerAccountsManagement() {
         setReason('');
     };
 
-    const selectedPets = selectedOwner?.pets || [];
+    const selectedPets = (selectedOwner?.pets || []).filter(pet => !pet.is_archived);
     const selectedPetSpeciesSummary = summarizePetField(selectedPets, 'pet_species');
     const selectedPetStatusSummary = summarizePetField(selectedPets, 'pet_status');
 
@@ -290,7 +302,7 @@ export default function PetOwnerAccountsManagement() {
                 layout="stacked"
                 toolbar={(
                     <div className="space-y-3">
-                        <div className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 md:grid-cols-[minmax(0,1fr)_11rem] xl:grid-cols-[minmax(0,1fr)_11rem_auto] xl:items-center">
+                        <div className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                             <div className="min-w-0">
                                 <Input
                                     value={search}
@@ -300,15 +312,7 @@ export default function PetOwnerAccountsManagement() {
                                     leftIcon={<Search className="size-4" />}
                                 />
                             </div>
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="h-11 w-full bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All owners</SelectItem>
-                                    <SelectItem value="active">Active owners</SelectItem>
-                                    <SelectItem value="archived">Archived owners</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <div className="flex w-full rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 md:col-span-2 xl:col-span-1 xl:w-fit">
+                            <div className="flex w-full rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900 md:w-fit">
                                 <Button type="button" variant={viewMode === 'cards' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('cards')} className="gap-2">
                                     <LayoutGrid className="size-4" />
                                     Cards
@@ -319,7 +323,12 @@ export default function PetOwnerAccountsManagement() {
                                 </Button>
                             </div>
                         </div>
-                        <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+                        <div className="flex flex-col justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row">
+                            <Button type="button" variant="outline" onClick={() => setIsArchiveOpen(true)} className="h-10 justify-center gap-2 whitespace-nowrap">
+                                <Archive className="size-4" />
+                                Owner Archive
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-600">{archivedOwnerCount}</span>
+                            </Button>
                             <Button type="button" variant="outline" onClick={() => loadOwners()} disabled={isLoading} className="h-10 justify-center gap-2 whitespace-nowrap">
                                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                                 <span>Refresh</span>
@@ -375,7 +384,7 @@ export default function PetOwnerAccountsManagement() {
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <div className="rounded-xl bg-slate-50 p-3">
                                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Pets</p>
-                                        <p className="mt-1 text-xl font-black text-slate-950">{owner.pet_count}</p>
+                                        <p className="mt-1 text-xl font-black text-slate-950">{activeOwnerPetCount(owner)}</p>
                                     </div>
                                     <div className="rounded-xl bg-slate-50 p-3">
                                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Status</p>
@@ -446,7 +455,7 @@ export default function PetOwnerAccountsManagement() {
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="min-w-[6rem]">
-                                                <p className="text-sm font-black text-slate-950">{owner.pet_count}</p>
+                                                <p className="text-sm font-black text-slate-950">{activeOwnerPetCount(owner)}</p>
                                                 <p className="text-[10px] font-bold uppercase text-slate-400">Pets</p>
                                             </div>
                                         </td>
@@ -466,6 +475,71 @@ export default function PetOwnerAccountsManagement() {
                     </div>
                 </div>
             )}
+
+            <Dialog
+                open={isArchiveOpen}
+                onOpenChange={(open) => {
+                    setIsArchiveOpen(open);
+                    if (!open) setArchiveSearch('');
+                }}
+            >
+                <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
+                    <DialogHeader className="border-b border-slate-200 px-5 py-5 text-left sm:px-6">
+                        <DialogTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
+                            <Archive className="size-5 text-slate-600" />
+                            Pet Owner Archive
+                        </DialogTitle>
+                        <DialogDescription>
+                            Archived owners are hidden from the active list but can still sign in. Restore an owner to return it to the active list.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+                        <Input
+                            value={archiveSearch}
+                            onChange={(event) => setArchiveSearch(event.target.value)}
+                            placeholder="Search archived pet owners"
+                            leftIcon={<Search className="size-4" />}
+                        />
+                        <p className="mt-2 text-xs font-bold text-slate-500">{archivedOwners.length} shown / {archivedOwnerCount} archived</p>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                        {archivedOwners.length ? (
+                            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                {archivedOwners.map(owner => (
+                                    <div key={owner.user_id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <OwnerAvatar owner={owner} className="size-11 shrink-0 rounded-xl object-cover text-sm" />
+                                            <div className="min-w-0">
+                                                <p className="truncate font-black text-slate-950">{ownerName(owner)}</p>
+                                                <p className="truncate text-xs font-semibold text-slate-500">{owner.mail_Address || 'No email'} | {owner.pet_count || 0} linked pets</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={!statusSupported}
+                                            onClick={() => {
+                                                setIsArchiveOpen(false);
+                                                beginStatusUpdate(owner);
+                                            }}
+                                            className="shrink-0 gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                        >
+                                            <RotateCcw className="size-4" />
+                                            Restore
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center">
+                                <Archive className="mx-auto size-9 text-slate-300" />
+                                <p className="mt-3 font-black text-slate-800">{archivedOwnerCount ? 'No archived owners match your search' : 'The owner archive is empty'}</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-500">Archived owner accounts will appear here for restoration.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={Boolean(selectedOwner)} onOpenChange={(open) => !open && setSelectedOwner(null)}>
                 <DialogContent showClose={false} className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -509,7 +583,7 @@ export default function PetOwnerAccountsManagement() {
                                         </div>
                                     </div>
                                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                        <ProfileDetail label="Owned Pets" value={selectedOwner.pet_count} />
+                                        <ProfileDetail label="Active Pets" value={selectedPets.length} />
                                         <ProfileDetail label="Joined" value={formatDate(selectedOwner.created_at)} />
                                     </div>
                                 </div>
@@ -555,7 +629,7 @@ export default function PetOwnerAccountsManagement() {
                             </div>
 
                             <div className="grid gap-3">
-                                {(selectedOwner.pets || []).length ? selectedOwner.pets.map(pet => (
+                                {selectedPets.length ? selectedPets.map(pet => (
                                     <div key={pet.pet_id} className="rounded-xl border border-slate-200 bg-white p-4">
                                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="flex min-w-0 gap-4">
@@ -661,8 +735,8 @@ export default function PetOwnerAccountsManagement() {
                                 <DialogTitle>{isArchived(pendingStatusOwner) ? 'Restore pet owner?' : 'Archive pet owner?'}</DialogTitle>
                                 <DialogDescription>
                                     {isArchived(pendingStatusOwner)
-                                        ? 'The owner will regain booking and self-service queue access.'
-                                        : 'The owner can still sign in and review records, but booking and self-service queue access will be paused.'}
+                                        ? 'The owner will return to active account lists. Existing access remains unchanged.'
+                                        : 'The owner will leave active lists, but pet ownership, medical, booking, payment, and account records will be kept. The owner can continue signing in.'}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">

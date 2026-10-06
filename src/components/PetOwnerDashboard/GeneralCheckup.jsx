@@ -18,11 +18,13 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjectionDetails";
 import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
+import BookingDateInput from "../shared/BookingDateInput.jsx";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
+import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
 
 const DEFAULT_BOOKING_CONFIG = {
   availabilityKey: 'general-checkup',
@@ -55,6 +57,8 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
     newPetBreed: "",
     newPetAge: "",
     newPetWeight: "",
+    newPetColorMarkings: "",
+    veterinarianId: prefill?.veterinarianId ? String(prefill.veterinarianId) : '',
     date: prefill?.date || "",
     time: prefill?.time || "",
     branchId: prefill?.branchId ? String(prefill.branchId) : "",
@@ -149,17 +153,19 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
         user_id: userId,
         pet_id: isNewPet ? 0 : formData.petId, 
         service_type: config.serviceType,
-        branch_id: config.branchSelectable && formData.branchId ? Number(formData.branchId) : null,
+        branch_id: formData.branchId ? Number(formData.branchId) : null,
+        veterinarian_id: formData.veterinarianId ? Number(formData.veterinarianId) : null,
         booking_date: formData.date,
         booking_time: formData.time,
         notes: formData.notes,
         Image_Booking_Concern_Path: uploadedFileUrls.join(','),
         registered_status: isNewPet ? 'Not Registered' : 'Registered',
         petType: isNewPet ? formData.newPetSpecies : (selectedRegisteredPet?.species || ''),
-        new_pet_name: formData.petName,
-        new_pet_breed: formData.newPetBreed,
-        new_pet_age: formData.newPetAge,
-        new_pet_weight: formData.newPetWeight
+        new_pet_name: isNewPet ? formData.petName : null,
+        new_pet_breed: isNewPet ? formData.newPetBreed : null,
+        new_pet_age: isNewPet ? formData.newPetAge : null,
+        new_pet_weight: isNewPet ? formData.newPetWeight : null,
+        new_pet_color_markings: isNewPet ? formData.newPetColorMarkings : null
       };
 
       console.log("Submitting booking payload:", bookingPayload);
@@ -265,36 +271,22 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                       <Input
                         id="petName"
                         placeholder="e.g., Buddy"
-                        restriction="name"
+                        restriction="pet-name"
                         required={isNewPet}
                         value={formData.petName}
                         onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPetSpecies">Species *</Label>
-                      <Select 
-                        value={formData.newPetSpecies} 
-                        onValueChange={(value) => setFormData({ ...formData, newPetSpecies: value })}
-                      >
-                        <SelectTrigger id="newPetSpecies">
-                          <SelectValue placeholder="Select species" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Dog">Dog</SelectItem>
-                          <SelectItem value="Cat">Cat</SelectItem>
-                          <SelectItem value="Bird">Bird</SelectItem>
-                          <SelectItem value="Rabbit">Rabbit</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                      <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" required={isNewPet} value={formData.newPetSpecies} onChange={(event) => setFormData({ ...formData, newPetSpecies: event.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPetBreed">Breed *</Label>
-                      <Input
+                      <PetBreedAutocomplete
                         id="newPetBreed"
-                        placeholder="e.g., Golden Retriever"
-                        restriction="name"
+                        species={formData.newPetSpecies}
+                        placeholder="Type or choose a breed"
                         required={isNewPet}
                         value={formData.newPetBreed}
                         onChange={(e) => setFormData({ ...formData, newPetBreed: e.target.value })}
@@ -305,41 +297,48 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                       <Input
                         id="newPetAge"
                         placeholder="e.g., 2"
-                        restriction="integer"
+                        restriction="pet-age"
                         required={isNewPet}
                         value={formData.newPetAge}
                         onChange={(e) => setFormData({ ...formData, newPetAge: e.target.value })}
                       />
                     </div>
-                    <div className="space-y-2 sm:col-span-2">
+                    <div className="space-y-2">
                       <Label htmlFor="newPetWeight">Weight (Optional)</Label>
                       <Input
                         id="newPetWeight"
                         placeholder="e.g., 25.5"
-                        restriction="decimal"
+                        restriction="pet-weight"
                         value={formData.newPetWeight}
                         onChange={(e) => setFormData({ ...formData, newPetWeight: e.target.value })}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPetColorMarkings">Color / Markings (Optional)</Label>
+                      <Input id="newPetColorMarkings" placeholder="e.g., Black and white" restriction="pet-markings" value={formData.newPetColorMarkings} onChange={(event) => setFormData({ ...formData, newPetColorMarkings: event.target.value })} />
                     </div>
                   </div>
                 </div>
               )}
 
-              {config.branchSelectable && (
+              {(
                 <BranchBookingSelect
                   service={config.availabilityKey}
                   date={formData.date}
                   value={formData.branchId}
-                  onChange={(branchId) => setFormData((current) => ({ ...current, branchId }))}
+                  onChange={(branchId) => setFormData((current) => ({ ...current, branchId, veterinarianId: '', time: '' }))}
+                  persistSelection
                 />
               )}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="date">Preferred Date *</Label>
-                  <Input
+                  <BookingDateInput
                     id="date"
-                    type="date"
+                    service={config.availabilityKey}
+                    branchId={formData.branchId}
+                    veterinarianId={formData.veterinarianId || undefined}
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -352,6 +351,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                   service={config.availabilityKey}
                   date={formData.date}
                   branchId={formData.branchId}
+                  veterinarianId={formData.veterinarianId || undefined}
                   value={formData.time}
                   onChange={(time) => setFormData((current) => ({ ...current, time }))}
                   label="Preferred time"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { AlertTriangle, BarChart3, CalendarClock, ChevronLeft, ChevronRight, FileText, Loader2, PackageSearch, RefreshCw } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarClock, ChevronRight, FileText, Loader2, PackageSearch, RefreshCw } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -35,8 +35,6 @@ const GENERAL_CHART_IDS = [
     'billing_mix',
     'inventory_alerts'
 ];
-const CHART_ROTATION_MS = 15000;
-
 const KPI_CHART_TARGETS = {
     'Total Sales': 'revenue_diagnosis_trend',
     'Total Appointments': 'queue_booking_trend',
@@ -70,23 +68,8 @@ function isPieChartItem(chartItem) {
     return chartType === 'pie' || chartType === 'doughnut';
 }
 
-function adjacentChartId(ids, currentId, direction) {
-    if (!ids.length) return currentId;
-    const index = ids.indexOf(currentId);
-    return ids[((index < 0 ? 0 : index) + direction + ids.length) % ids.length];
-}
-
-function ChartNavigation({ label, onPrevious, onNext, disabled = false }) {
-    return (
-        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-800" aria-label={`${label} navigation`}>
-            <Button type="button" variant="ghost" size="icon" className="size-8 rounded-md active:scale-[0.96] dark:text-slate-100 dark:hover:bg-slate-700" onClick={onPrevious} disabled={disabled} aria-label={`Previous ${label}`}>
-                <ChevronLeft className="size-4" />
-            </Button>
-            <Button type="button" variant="ghost" size="icon" className="size-8 rounded-md active:scale-[0.96] dark:text-slate-100 dark:hover:bg-slate-700" onClick={onNext} disabled={disabled} aria-label={`Next ${label}`}>
-                <ChevronRight className="size-4" />
-            </Button>
-        </div>
-    );
+function chartTargetId(chartId) {
+    return `report-chart-${chartId}`;
 }
 
 function dateInputValue(date) {
@@ -329,10 +312,6 @@ export default function SuperAdminReportsDashboard() {
     const [error, setError] = useState('');
     const [highlightedTargetId, setHighlightedTargetId] = useState('');
     const [selectedKpiLabel, setSelectedKpiLabel] = useState('Total Sales');
-    const [selectedTrendId, setSelectedTrendId] = useState('revenue_diagnosis_trend');
-    const [selectedMixId, setSelectedMixId] = useState('animal_distribution');
-    const [trendRotationReset, setTrendRotationReset] = useState(0);
-    const [mixRotationReset, setMixRotationReset] = useState(0);
 
     const selectedRangeLabel = useMemo(() => (
         REPORT_QUICK_RANGES.find(item => item.value === range)?.label || 'This Month'
@@ -437,43 +416,12 @@ export default function SuperAdminReportsDashboard() {
             .map(chartId => chartItems.find(item => item.id === chartId))
             .filter(Boolean);
     }, [dashboard]);
-    const fullWidthCharts = useMemo(() => charts.filter(chartItem => !isPieChartItem(chartItem)), [charts]);
-    const pieCharts = useMemo(() => charts.filter(isPieChartItem), [charts]);
-    const trendChartIdsKey = fullWidthCharts.map((chartItem) => chartItem.id).join('|');
-    const mixChartIdsKey = pieCharts.map((chartItem) => chartItem.id).join('|');
     const chartById = useMemo(() => new Map(charts.map(chartItem => [chartItem.id, chartItem])), [charts]);
-    const activeTrendChart = fullWidthCharts.find((chartItem) => chartItem.id === selectedTrendId) || fullWidthCharts[0];
-    const activeMixChart = pieCharts.find((chartItem) => chartItem.id === selectedMixId) || pieCharts[0];
     const attentionTables = (dashboard?.summary_tables || []).filter((table) => !String(table?.title || '').toLowerCase().includes('billing'));
     const openAttentionCount = attentionTables.reduce(
         (count, table) => count + (Array.isArray(table.rows) ? table.rows.length : 0),
         0
     );
-    useEffect(() => {
-        const ids = trendChartIdsKey ? trendChartIdsKey.split('|') : [];
-        if (ids.length < 2) return undefined;
-
-        const timer = window.setInterval(() => {
-            if (document.hidden) return;
-            setSelectedTrendId((currentId) => ids[(ids.indexOf(currentId) + 1) % ids.length]);
-            setSelectedKpiLabel((currentLabel) => ids.includes(KPI_CHART_TARGETS[currentLabel]) ? '' : currentLabel);
-        }, CHART_ROTATION_MS);
-
-        return () => window.clearInterval(timer);
-    }, [selectedTrendId, trendChartIdsKey, trendRotationReset]);
-
-    useEffect(() => {
-        const ids = mixChartIdsKey ? mixChartIdsKey.split('|') : [];
-        if (ids.length < 2) return undefined;
-
-        const timer = window.setInterval(() => {
-            if (document.hidden) return;
-            setSelectedMixId((currentId) => ids[(ids.indexOf(currentId) + 1) % ids.length]);
-            setSelectedKpiLabel((currentLabel) => ids.includes(KPI_CHART_TARGETS[currentLabel]) ? '' : currentLabel);
-        }, CHART_ROTATION_MS);
-
-        return () => window.clearInterval(timer);
-    }, [mixChartIdsKey, mixRotationReset, selectedMixId]);
     const scrollToTarget = useCallback((targetId) => {
         const target = document.getElementById(targetId);
         if (!target) {
@@ -501,27 +449,7 @@ export default function SuperAdminReportsDashboard() {
     const selectChart = (chartItem, kpiLabel) => {
         if (!chartItem) return;
         setSelectedKpiLabel(kpiLabel);
-        const isMix = isPieChartItem(chartItem);
-        if (isMix) {
-            setSelectedMixId(chartItem.id);
-            setMixRotationReset((count) => count + 1);
-        } else {
-            setSelectedTrendId(chartItem.id);
-            setTrendRotationReset((count) => count + 1);
-        }
-    };
-    const moveChart = (kind, direction) => {
-        const isMix = kind === 'mix';
-        const ids = (isMix ? mixChartIdsKey : trendChartIdsKey).split('|').filter(Boolean);
-        if (ids.length < 2) return;
-        if (isMix) {
-            setSelectedMixId((currentId) => adjacentChartId(ids, currentId, direction));
-            setMixRotationReset((count) => count + 1);
-        } else {
-            setSelectedTrendId((currentId) => adjacentChartId(ids, currentId, direction));
-            setTrendRotationReset((count) => count + 1);
-        }
-        setSelectedKpiLabel('');
+        scrollToTarget(chartTargetId(chartItem.id));
     };
     if (!isSuperAdmin(user)) {
         return (
@@ -607,30 +535,32 @@ export default function SuperAdminReportsDashboard() {
                         aria-label="Report key metrics"
                         className="report-motion-item grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                     >
-                        {(dashboard?.kpis || []).map(kpi => {
-                            const targetChartId = chartTargetForKpi(kpi.label, chartById);
-                            const targetChart = targetChartId ? chartById.get(targetChartId) : null;
-                            const targetTableId = tableTargetForKpi(kpi.label);
-                            const targetRoute = routeTargetForKpi(kpi.label);
-                            const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : targetRoute ? 'Consent Files' : undefined);
+                        {(dashboard?.kpis || [])
+                            .filter(kpi => kpi.label !== 'Total Unpaid Balance')
+                            .map(kpi => {
+                                const targetChartId = chartTargetForKpi(kpi.label, chartById);
+                                const targetChart = targetChartId ? chartById.get(targetChartId) : null;
+                                const targetTableId = tableTargetForKpi(kpi.label);
+                                const targetRoute = routeTargetForKpi(kpi.label);
+                                const targetTitle = targetChart?.title || (targetTableId ? 'Inventory Attention' : targetRoute ? 'Consent Files' : undefined);
 
-                            return (
-                                <div key={kpi.label} role="listitem" data-report-kpi-item className="min-w-0">
-                                    <ReportKpiCard
-                                        {...kpi}
-                                        isSelected={selectedKpiLabel === kpi.label}
-                                        targetTitle={targetTitle}
-                                        onSelectChart={targetChart
-                                            ? () => selectChart(targetChart, kpi.label)
-                                            : targetTableId
-                                                ? () => { setSelectedKpiLabel(kpi.label); scrollToTarget(targetTableId); }
-                                                : targetRoute
-                                                    ? () => navigate(targetRoute)
-                                                    : undefined}
-                                    />
-                                </div>
-                            );
-                        })}
+                                return (
+                                    <div key={kpi.label} role="listitem" data-report-kpi-item className="min-w-0">
+                                        <ReportKpiCard
+                                            {...kpi}
+                                            isSelected={selectedKpiLabel === kpi.label}
+                                            targetTitle={targetTitle}
+                                            onSelectChart={targetChart
+                                                ? () => selectChart(targetChart, kpi.label)
+                                                : targetTableId
+                                                    ? () => { setSelectedKpiLabel(kpi.label); scrollToTarget(targetTableId); }
+                                                    : targetRoute
+                                                        ? () => navigate(targetRoute)
+                                                        : undefined}
+                                        />
+                                    </div>
+                                );
+                            })}
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
@@ -647,36 +577,33 @@ export default function SuperAdminReportsDashboard() {
                         </Card>
                     ) : null}
 
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)] xl:items-stretch">
-                        {activeTrendChart ? (
-                            <section id="report-chart-trend" className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${highlightedTargetId === 'report-chart-trend' ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''}`} aria-label="Trend charts">
-                                <div key={`${activeTrendChart.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`} className="report-chart-switch">
-                                    <ReportChartCard
-                                        title={activeTrendChart.title}
-                                        chart={activeTrendChart.chart}
-                                        compact
-                                        stableHeight
-                                        eyebrow="Trends & performance"
-                                        actions={<ChartNavigation label="trend graph" onPrevious={() => moveChart('trend', -1)} onNext={() => moveChart('trend', 1)} disabled={fullWidthCharts.length < 2} />}
-                                    />
-                                </div>
-                            </section>
-                        ) : null}
+                    <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                        {charts.map((chartItem) => {
+                            const targetId = chartTargetId(chartItem.id);
+                            const chartKind = isPieChartItem(chartItem) ? 'Distribution' : 'Trend & performance';
 
-                        {activeMixChart ? (
-                            <section id="report-chart-mix" className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${highlightedTargetId === 'report-chart-mix' ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''}`} aria-label="Distribution charts">
-                                <div key={`${activeMixChart.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`} className="report-chart-switch">
+                            return (
+                                <section
+                                    key={`${chartItem.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`}
+                                    id={targetId}
+                                    className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${
+                                        highlightedTargetId === targetId
+                                            ? 'ring-4 ring-blue-500/30 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                            : ''
+                                    }`}
+                                    aria-label={`${chartItem.title} chart`}
+                                >
                                     <ReportChartCard
-                                        title={activeMixChart.title}
-                                        chart={activeMixChart.chart}
+                                        title={chartItem.title}
+                                        summary={chartItem.summary}
+                                        chart={chartItem.chart}
                                         compact
                                         stableHeight
-                                        eyebrow="Distribution & mix"
-                                        actions={<ChartNavigation label="distribution graph" onPrevious={() => moveChart('mix', -1)} onNext={() => moveChart('mix', 1)} disabled={pieCharts.length < 2} />}
+                                        eyebrow={chartKind}
                                     />
-                                </div>
-                            </section>
-                        ) : null}
+                                </section>
+                            );
+                        })}
                     </div>
 
                     <section className="report-motion-item space-y-3">

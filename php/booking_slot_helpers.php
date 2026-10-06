@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/clinic_booking_helpers.php';
+
 /**
  * Shared booking-slot rules.
  *
@@ -81,7 +83,7 @@ function booking_slot_normalize_time(?string $value): ?string
 function booking_slot_overlaps_lunch(string $serviceKey, string $bookingTime): bool
 {
     $normalized = booking_slot_normalize_time($bookingTime);
-    if ($normalized === null || in_array($serviceKey, ['boarding', 'grooming'], true)) {
+    if ($normalized === null || in_array($serviceKey, ['boarding', 'grooming', 'online-consultation'], true)) {
         return false;
     }
     [$hour, $minute, $second] = array_map('intval', explode(':', $normalized));
@@ -299,6 +301,11 @@ function booking_slot_find_conflict(
         return null;
     }
 
+    if (clinic_booking_is_medical($serviceKey)) {
+        $capacity = clinic_booking_capacity($pdo, $branchId, $bookingDate, $bookingTime, $serviceKey, $veterinarianId, $excludeBookingId, $forUpdate);
+        return $capacity['availableCount'] > 0 ? null : ['sharedMedicalCapacityFull' => true];
+    }
+
     $records = booking_slot_fetch_reservations($pdo, $bookingDate, $bookingDate, $branchId, $forUpdate);
     return booking_slot_records_find_conflict(
         $records,
@@ -319,6 +326,10 @@ function booking_slot_lock_name(
     ?int $veterinarianId = null,
     ?int $specialServiceId = null
 ): string {
+    if (clinic_booking_is_medical($serviceKey)) {
+        // Includes cross-clinic reservations and appointments spanning slots.
+        return 'ipawcus_shared_medical_calendar';
+    }
     $timeScope = $serviceKey === 'online-consultation'
         ? 'all-veterinarian-times'
         : (booking_slot_normalize_time($bookingTime) ?? $bookingTime);
@@ -336,9 +347,13 @@ function booking_slot_lock_name(
 
 function booking_slot_acquire(PDO $pdo, string $lockName, int $timeoutSeconds = 8): bool
 {
+    $key = spl_object_id($pdo) . ':' . $lockName;
+    if (!empty($GLOBALS['ipawcus_booking_held_locks'][$key])) return true;
     $stmt = $pdo->prepare('SELECT GET_LOCK(?, ?)');
     $stmt->execute([$lockName, max(1, $timeoutSeconds)]);
-    return (int)$stmt->fetchColumn() === 1;
+    $acquired = (int)$stmt->fetchColumn() === 1;
+    if ($acquired) $GLOBALS['ipawcus_booking_held_locks'][$key] = true;
+    return $acquired;
 }
 
 function booking_slot_release(PDO $pdo, ?string $lockName): void
@@ -346,6 +361,8 @@ function booking_slot_release(PDO $pdo, ?string $lockName): void
     if ($lockName === null || $lockName === '') {
         return;
     }
+
+    unset($GLOBALS['ipawcus_booking_held_locks'][spl_object_id($pdo) . ':' . $lockName]);
 
     try {
         $stmt = $pdo->prepare('SELECT RELEASE_LOCK(?)');
@@ -357,6 +374,12 @@ function booking_slot_release(PDO $pdo, ?string $lockName): void
 
 function booking_slot_conflict_message(string $serviceKey, string $bookingTime): string
 {
+    if ($serviceKey === 'online-consultation') {
+        return 'This online call time is not offered or the veterinarian already has an overlapping appointment. Choose another time from their online schedule.';
+    }
+    if (clinic_booking_is_medical($serviceKey)) {
+        return 'No veterinarian appointment remains at this time. Medical services share the same clinic schedule; choose another time or available veterinarian.';
+    }
     $normalized = booking_slot_normalize_time($bookingTime);
     $label = $normalized !== null
         ? date('g:i A', strtotime('1970-01-01 ' . $normalized))

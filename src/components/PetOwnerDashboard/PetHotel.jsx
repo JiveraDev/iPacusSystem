@@ -6,7 +6,7 @@ import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
-import { Check, Hotel, PawPrint } from "lucide-react";
+import { Hotel, PawPrint } from "lucide-react";
 import { differenceInDays, parseISO } from "../../lib/date";
 import { resolveImageUrl } from "../../lib/image";
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
@@ -26,6 +26,7 @@ import { useBookingPriceProjections } from '../../hooks/useBookingPriceProjectio
 import { PetHotelContentEditor } from './ServiceContentEditor.jsx';
 import { reportBookingFormErrors, reportBookingSubmissionError } from '../../lib/bookingFormValidation';
 import ConsentTemplateText from '../shared/ConsentTemplateText.jsx';
+import { PetHotelRoomGrid } from '../shared/PetHotelRoomShowcase.jsx';
 
 const ROOM_OPTIONS = {
   hotel: [
@@ -544,6 +545,7 @@ export default function PetHotel() {
               date={checkInDate}
               value={branchId}
               onChange={setBranchId}
+              persistSelection
             />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -644,52 +646,16 @@ export default function PetHotel() {
                 <Label>Select Pet Hotel Room Size *</Label>
                 {isLoadingAvailability && <span className="text-xs text-gray-500">Checking availability...</span>}
               </div>
-              <div id="boarding-rooms" tabIndex={-1} className="grid gap-4 rounded-xl md:grid-cols-3">
-                {roomOptions[serviceType].map((room) => {
-                  const availability = getAvailabilityForRoom(room.id);
-                  const availableCount = availability?.available_count;
-                  const isUnavailable = availability && !availability.available;
-                  const canSelect = !isUnavailable && stayDuration > 0;
-
-                  return (
-                    <button
-                      key={room.id}
-                      type="button"
-                      disabled={isUnavailable}
-                      onClick={() => canSelect && handleRoomSelect(room.id)}
-                      className={`rounded-lg border-2 p-4 text-left transition-all ${
-                        roomSize === room.id
-                          ? "border-blue-600 bg-blue-50"
-                          : isUnavailable
-                            ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-70"
-                            : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h4 className="font-bold text-gray-900">{room.name}</h4>
-                          <p className="text-sm text-gray-600">{formatMoney(room.pricePerDay)}/day</p>
-                          <p className="text-xs text-gray-500">{room.capacity}</p>
-                        </div>
-                        {availability && (
-                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${
-                            isUnavailable ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                          }`}>
-                            {availableCount} left
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-3 space-y-1">
-                        {room.features.map((feature) => (
-                          <p key={feature} className="flex items-center gap-2 text-xs text-gray-600">
-                            <Check className="h-3 w-3 text-green-600" />
-                            {feature}
-                          </p>
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div id="boarding-rooms" tabIndex={-1} className="rounded-xl">
+                <PetHotelRoomGrid
+                  rooms={roomOptions[serviceType]}
+                  availability={roomAvailability}
+                  selectedSize={roomSize}
+                  onSelect={handleRoomSelect}
+                  datesReady={stayDuration > 0}
+                  loading={isLoadingAvailability}
+                  priceFormatter={formatMoney}
+                />
               </div>
               {stayDuration < 1 && (
                 <p className="text-xs text-gray-500">Select valid check-in and check-out dates to check room availability.</p>

@@ -130,10 +130,17 @@ function reminder_test_describe_booking(PDO $pdo, array $booking, DateTimeImmuta
 
 function reminder_test_describe_todo(PDO $pdo, array $task, DateTimeImmutable $now): array
 {
-    $slot = notification_todo_reminder_slot($task['start_at'] ?? null, $now);
+    $status = strtolower(trim((string)($task['status'] ?? 'pending')));
+    $slot = !empty($task['skip_advance_reminders']) || in_array($status, ['completed', 'done', 'cancelled', 'canceled', 'paid'], true)
+        ? null
+        : notification_todo_reminder_slot($task['start_at'] ?? null, $now, $task['end_at'] ?? null);
+    $occurrenceSlots = notification_todo_occurrence_slots($task, $now);
     $startAt = notification_task_datetime($task['start_at'] ?? null);
+    $endAt = notification_task_datetime($task['end_at'] ?? null);
+    $completionAt = notification_task_datetime($task['completion_at'] ?? null);
     $userId = (int)($task['user_id'] ?? 0);
     $preferenceEnabled = reminder_test_preference_enabled($pdo, $userId, $slot);
+    $occurrencePreferenceEnabled = reminder_test_preference_enabled($pdo, $userId, ['preference' => 'schedule_reminders']);
 
     return [
         'source' => trim((string)($task['source'] ?? 'todo')),
@@ -142,10 +149,14 @@ function reminder_test_describe_todo(PDO $pdo, array $task, DateTimeImmutable $n
         'title' => trim((string)($task['title'] ?? '')),
         'petName' => trim((string)($task['pet_name'] ?? '')),
         'startAt' => $startAt ? $startAt->format(DateTimeInterface::ATOM) : null,
+        'endAt' => $endAt ? $endAt->format(DateTimeInterface::ATOM) : null,
+        'completionAt' => $completionAt ? $completionAt->format(DateTimeInterface::ATOM) : null,
         'slot' => $slot['slug'] ?? null,
+        'occurrences' => array_column($occurrenceSlots, 'slug'),
         'preference' => $slot['preference'] ?? null,
         'preferenceEnabled' => $preferenceEnabled,
-        'wouldSend' => (bool)($slot && $preferenceEnabled),
+        'occurrencePreferenceEnabled' => $occurrencePreferenceEnabled,
+        'wouldSend' => (bool)(($slot && $preferenceEnabled) || ($occurrenceSlots && $occurrencePreferenceEnabled)),
     ];
 }
 
@@ -191,7 +202,7 @@ try {
         ]);
     }
 
-    $now = new DateTimeImmutable('now');
+    $now = notification_now();
     $bookings = [];
     $todos = [];
 
@@ -213,7 +224,7 @@ try {
         'section' => $section,
         'now' => $now->format(DateTimeInterface::ATOM),
         'settings' => [
-            'slots' => ['24h', 'same-day', '2h', 'overdue'],
+            'slots' => ['24h', 'same-day', '2h', 'overdue', 'started', 'ended'],
             'preferences' => ['schedule_reminders', 'reminder_24h', 'reminder_same_day', 'reminder_2h'],
             'sendCommand' => reminder_test_is_cli()
                 ? 'php phpTestfiles/test_notification_reminders.php --run=1'

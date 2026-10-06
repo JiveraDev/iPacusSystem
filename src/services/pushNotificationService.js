@@ -11,6 +11,9 @@ import {
 
 export const BROWSER_PUSH_SETTING_CHANGED_EVENT = 'ipawcus:browser-push-setting-change';
 
+const PUSH_WORKER_READY_TIMEOUT_MS = 15000;
+const PUSH_NOTIFICATION_ICON = '/pwa/icons/icon-192.png';
+
 function browserPushAvailable() {
     return typeof window !== 'undefined'
         && typeof navigator !== 'undefined'
@@ -61,6 +64,31 @@ async function getExistingRegistration() {
     return navigator.serviceWorker.getRegistration('/');
 }
 
+async function waitForServiceWorkerReady() {
+    let timeoutId;
+
+    try {
+        const registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((resolve) => {
+                timeoutId = window.setTimeout(() => {
+                    resolve(null);
+                }, PUSH_WORKER_READY_TIMEOUT_MS);
+            })
+        ]);
+
+        if (!registration) {
+            throw new Error('Service worker activation timed out.');
+        }
+
+        return registration;
+    } finally {
+        if (timeoutId) {
+            window.clearTimeout(timeoutId);
+        }
+    }
+}
+
 async function registerPushWorker() {
     let registration;
 
@@ -69,13 +97,37 @@ async function registerPushWorker() {
             getPwaServiceWorkerUrl({ pwaEnabled: isPwaActivated() }),
             { scope: '/' }
         );
-        await navigator.serviceWorker.ready;
+        registration = await waitForServiceWorkerReady();
     } catch (error) {
         logPushError('Service worker registration failed.', error);
         throw new Error('Browser notification service could not start on this site.');
     }
 
     return registration;
+}
+
+async function showPushActivationNotification() {
+    try {
+        const registration = await getExistingRegistration();
+        if (!registration || typeof registration.showNotification !== 'function') {
+            return false;
+        }
+
+        await registration.showNotification('Welcome to iPawcus!', {
+            body: 'Push notifications are activated on this device.',
+            icon: PUSH_NOTIFICATION_ICON,
+            badge: PUSH_NOTIFICATION_ICON,
+            tag: 'ipawcus-push-activated',
+            data: {
+                appOrigin: window.location.origin,
+                redirectPath: '/dashboard'
+            }
+        });
+        return true;
+    } catch (error) {
+        logPushError('Push activation notification could not be displayed.', error);
+        return false;
+    }
 }
 
 export async function syncPushContext(userId, { bindSubscription = false } = {}) {
@@ -190,6 +242,18 @@ export async function enableBrowserPush(userId) {
         throw new Error('Browser notifications need HTTPS before this device can receive alerts.');
     }
 
+    // Keep the permission request directly attached to the user's click. Safari
+    // can suppress the prompt when a network request is awaited before this call.
+    const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+    if (permission !== 'granted') {
+        logPushError('Browser notification permission was not granted.', { permission });
+        throw new Error(permission === 'denied'
+            ? 'Browser notifications are blocked. Allow them in your browser site settings, then try again.'
+            : 'Browser notifications were not allowed yet.');
+    }
+
     let publicKeyData;
     try {
         publicKeyData = await fetchNotificationPushPublicKey();
@@ -202,14 +266,6 @@ export async function enableBrowserPush(userId) {
     if (!pushConfig.enabled || !pushConfig.publicKey) {
         logPushError('Push VAPID configuration is incomplete.', pushConfig);
         throw new Error('Browser notifications need to be set up on the server first.');
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-        logPushError('Browser notification permission was not granted.', { permission });
-        throw new Error(permission === 'denied'
-            ? 'Browser notifications are blocked. Allow them in your browser site settings, then try again.'
-            : 'Browser notifications were not allowed yet.');
     }
 
     const registration = await registerPushWorker();
@@ -297,8 +353,13 @@ export async function setBrowserPushEnabledForAccount(userId, enabled, currentPr
 
         try {
             const saved = await saveNotificationPreferences(userId, nextPreferences);
+            const activationNotificationShown = await showPushActivationNotification();
             const result = {
-                browserState: { ...browserState, accountEnabled: true },
+                browserState: {
+                    ...browserState,
+                    accountEnabled: true,
+                    activationNotificationShown
+                },
                 preferences: saved.preferences || nextPreferences
             };
             notifyBrowserPushSettingChanged(result);

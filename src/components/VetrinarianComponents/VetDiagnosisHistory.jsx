@@ -848,7 +848,7 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                     {isReconstructed && <p className="mt-1 text-xs font-semibold text-amber-700">Rebuilt legacy full form</p>}
                     {isUnavailable && <p className="mt-1 text-xs font-semibold text-slate-500">Signature-only display is disabled.</p>}
                 </div>
-                <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <div className="grid grid-cols-2 gap-2">
                     <Button
                         type="button"
                         variant="outline"
@@ -858,9 +858,9 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                         className="h-8 gap-1 text-xs"
                     >
                         {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                        {isPdf ? 'Open PDF' : 'View'}
+                        {isPdf ? 'Preview PDF' : 'View'}
                     </Button>
-                    {!isPdf && <Button
+                    <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -870,7 +870,7 @@ function ConsentDocumentCard({ form, booking, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                         Download
-                    </Button>}
+                    </Button>
                 </div>
             </div>
         </div>
@@ -1048,7 +1048,12 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
     const [isOpening, setIsOpening] = useState(false);
     const source = attachment.preview || attachment.url || attachment.relativeUrl || '';
     const url = resolveFileUrl(source);
-    const name = attachment.name || pathFileName(url);
+    const name = attachment.displayName
+        || attachment.display_name
+        || attachment.name
+        || attachment.originalName
+        || attachment.original_name
+        || pathFileName(url);
     const isPdf = String(attachment.mimeType || attachment.mime_type || '').toLowerCase() === 'application/pdf'
         || source.split(/[?#]/)[0].toLowerCase().endsWith('.pdf');
     const canPreview = isImageFile({ ...attachment, url });
@@ -1100,8 +1105,8 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
                 )}
             </div>
             <div className="space-y-2 p-3">
-                <p className="truncate text-xs font-semibold text-slate-600">{name}</p>
-                <div className={`grid gap-2 ${isPdf ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <p className="break-words text-xs font-semibold text-slate-600">{name}</p>
+                <div className="grid grid-cols-2 gap-2">
                     <Button
                         type="button"
                         variant="outline"
@@ -1111,9 +1116,9 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
                         className="h-8 gap-1 text-xs"
                     >
                         {isOpening ? <Loader2 className="size-3 animate-spin" /> : <Eye className="size-3" />}
-                        {isPdf ? 'Open PDF' : 'View'}
+                        {isPdf ? 'Preview PDF' : 'View'}
                     </Button>
-                    {!isPdf && <Button
+                    <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -1123,7 +1128,7 @@ function DiagnosisAttachmentCard({ attachment, onPreview }) {
                     >
                         {isDownloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
                         Download
-                    </Button>}
+                    </Button>
                 </div>
             </div>
         </div>

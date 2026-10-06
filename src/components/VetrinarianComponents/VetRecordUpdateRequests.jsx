@@ -1,5 +1,6 @@
 import { createElement, useMemo, useState } from 'react';
 import {
+    Award,
     CheckCircle2,
     ClipboardList,
     Eye,
@@ -320,6 +321,19 @@ export default function VetRecordUpdateRequests() {
                                 <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">
                                     {selectedRequest.requestedChanges || 'No details provided.'}
                                 </p>
+                            </section>
+
+                            <section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                                <Award className="mt-0.5 size-5 shrink-0 text-amber-600" />
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900">Certificates included automatically</h3>
+                                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                                        Registration proof is always available. The assigned veterinarian can sign and issue or replace the medical certificate in the record editor.
+                                    </p>
+                                    {selectedRequest.medicalCertificate ? (
+                                        <p className="mt-1 text-xs font-black text-emerald-700">Issued: {selectedRequest.medicalCertificate.certificateNumber}</p>
+                                    ) : null}
+                                </div>
                             </section>
 
                         </div>

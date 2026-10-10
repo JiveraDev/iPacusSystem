@@ -1,1 +1,0 @@
-import{gt as e}from"./index-YzAdjE7E.js";function t(t,n={}){return e(`/consent-form-records`,t,n)}export{t};

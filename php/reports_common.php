@@ -600,7 +600,7 @@ function reports_boarding_trend(PDO $pdo, array $range, array &$missing): array
         SELECT
             {$period['expression']} AS period_label,
             SUM(CASE WHEN b.hotel_boarding_type = 'hotel' THEN 1 ELSE 0 END) AS hotel_count,
-            SUM(CASE WHEN b.hotel_boarding_type = 'boarding' OR b.hotel_boarding_type IS NULL THEN 1 ELSE 0 END) AS confinement_count
+            SUM(CASE WHEN b.hotel_boarding_type IN ('boarding', 'confinement') THEN 1 ELSE 0 END) AS confinement_count
         FROM bookings b
         WHERE b.service_type = 'boarding'
           AND COALESCE(b.check_in_date, b.booking_date) BETWEEN ? AND ?
@@ -827,6 +827,7 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
     $sql = "
         SELECT
             v.visit_id,
+            CONCAT('Visit #', v.visit_id) AS source_reference,
             v.owner_user_id,
             v.pet_id,
             DATE(v.created_at) AS visit_date,
@@ -1769,6 +1770,15 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
     $branchChargeCondition = $branchId > 0
         ? " AND EXISTS (SELECT 1 FROM visits branch_visit WHERE branch_visit.visit_id = vc.visit_id AND branch_visit.branch_id = {$branchId})"
         : '';
+    $manualServiceType = 'vc.charge_type';
+    $manualSourceJoin = '';
+    if (reports_table_exists($pdo, 'visits') && reports_table_exists($pdo, 'bookings')) {
+        $bookingServiceType = reports_column_exists($pdo, 'bookings', 'is_online_consultation')
+            ? "CASE WHEN service_booking.is_online_consultation = 1 THEN 'online-consultation' ELSE service_booking.service_type END"
+            : 'service_booking.service_type';
+        $manualSourceJoin = 'LEFT JOIN visits service_visit ON service_visit.visit_id = vc.visit_id LEFT JOIN bookings service_booking ON service_booking.booking_id = service_visit.booking_id';
+        $manualServiceType = "COALESCE({$bookingServiceType}, vc.charge_type)";
+    }
     if (reports_table_exists($pdo, 'service_catalog')) {
         $catalogWhere = ['sc.is_active = 1'];
         $manualWhere = ["vc.created_at BETWEEN ? AND ?", "vc.charge_type IN ('service', 'diagnostic', 'boarding', 'other')", 'vc.service_id IS NULL'];
@@ -1776,7 +1786,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
 
         if (!empty($filters['service_type'])) {
             $catalogWhere[] = 'sc.service_type = ?';
-            $manualWhere[] = 'vc.charge_type = ?';
+            $manualWhere[] = "{$manualServiceType} = ?";
             $params[] = $filters['service_type'];
         }
 
@@ -1789,6 +1799,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
             SELECT *
             FROM (
                 SELECT
+                    sc.service_id,
                     sc.service_name,
                     sc.service_type,
                     COUNT(vc.charge_id) AS usage_count,
@@ -1804,15 +1815,17 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                 GROUP BY sc.service_id, sc.service_name, sc.service_type
                 UNION ALL
                 SELECT
+                    NULL AS service_id,
                     vc.description AS service_name,
-                    vc.charge_type AS service_type,
+                    {$manualServiceType} AS service_type,
                     COUNT(*) AS usage_count,
                     COUNT(DISTINCT vc.visit_id) AS distinct_visits,
                     COALESCE(SUM(vc.quantity), 0) AS total_quantity,
                     COALESCE(SUM(vc.subtotal), 0) AS total_revenue
                 FROM visit_charges vc
+                {$manualSourceJoin}
                 WHERE " . implode(' AND ', $manualWhere) . " {$branchChargeCondition}
-                GROUP BY vc.description, vc.charge_type
+                GROUP BY vc.description, {$manualServiceType}
             ) service_usage
             ORDER BY usage_count DESC, total_revenue DESC, service_name ASC
         ", array_merge($params, $manualParams), $missing, 'Service catalog utilization data could not be loaded.');
@@ -1820,21 +1833,23 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
         $where = ["vc.created_at BETWEEN ? AND ?", "vc.charge_type IN ('service', 'diagnostic', 'boarding', 'other')"];
         $params = [$range['start_datetime'], $range['end_datetime']];
         if (!empty($filters['service_type'])) {
-            $where[] = "vc.charge_type = ?";
+            $where[] = "{$manualServiceType} = ?";
             $params[] = $filters['service_type'];
         }
 
         $rows = reports_fetch_all($pdo, "
             SELECT
+                vc.service_id,
                 vc.description AS service_name,
-                vc.charge_type AS service_type,
+                {$manualServiceType} AS service_type,
                 COUNT(*) AS usage_count,
                 COUNT(DISTINCT vc.visit_id) AS distinct_visits,
                 SUM(vc.quantity) AS total_quantity,
                 SUM(vc.subtotal) AS total_revenue
             FROM visit_charges vc
+            {$manualSourceJoin}
             WHERE " . implode(' AND ', $where) . " {$branchChargeCondition}
-            GROUP BY vc.description, vc.charge_type
+            GROUP BY vc.service_id, vc.description, {$manualServiceType}
             ORDER BY usage_count DESC, total_revenue DESC
         ", $params, $missing, 'Service utilization data could not be loaded.');
     }
@@ -1845,6 +1860,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
         $row['total_quantity'] = reports_money($row['total_quantity']);
         $row['total_revenue'] = reports_money($row['total_revenue']);
     }
+    unset($row);
 
     $mostUsed = $rows[0]['service_name'] ?? 'No service';
     $leastUsed = !empty($rows) ? $rows[count($rows) - 1]['service_name'] : 'No service';
@@ -1863,6 +1879,8 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
         'totals' => [
             'total_services' => array_sum(array_column($rows, 'usage_count')),
             'unique_services' => count($rows),
+            'used_services' => count(array_filter($rows, static fn($row) => $row['usage_count'] > 0)),
+            'total_billed_value' => reports_money(array_sum(array_column($rows, 'total_revenue'))),
             'most_used_service' => $mostUsed,
             'least_used_service' => $leastUsed,
         ],
@@ -1933,6 +1951,7 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
     }
 
     $total = count($rows);
+    unset($row);
     $completionRate = $total > 0 ? round(($counts['completed'] / $total) * 100, 1) : 0;
 
     return [
@@ -1951,6 +1970,7 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
         'totals' => $counts + [
             'total_appointments' => $total,
             'completion_rate' => $completionRate,
+            'rescheduled_annotation_count' => count(array_filter($rows, static fn($row) => $row['rescheduled_annotation'])),
         ],
         'summary' => [
             'text' => "There are {$total} appointments in this date range with a {$completionRate}% completion rate.",
@@ -2076,6 +2096,12 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
     $rows = [];
     $typeFilter = strtolower((string)($filters['consultation_type'] ?? ''));
     $vetFilter = trim((string)($filters['veterinarian'] ?? ''));
+    $faceOwnerJoin = reports_table_exists($pdo, 'users')
+        ? 'LEFT JOIN users face_owner ON face_owner.user_id = COALESCE(face_booking.user_id, face_queue.user_id)'
+        : '';
+    $faceOwnerSelect = $faceOwnerJoin !== ''
+        ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(face_owner.first_Name, ''), ' ', COALESCE(face_owner.last_Name, ''))), ''), face_owner.mail_Address, 'Unknown Owner') AS owner_name,"
+        : "'Unknown Owner' AS owner_name,";
 
     if (($typeFilter === '' || $typeFilter === 'face_to_face' || $typeFilter === 'face-to-face') && reports_has_tables($pdo, ['vet_diagnoses', 'pets_information'], $missing)) {
         $where = ['COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?'];
@@ -2095,6 +2121,8 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
                 vd.pet_id,
                 vd.veterinarian_user_id,
                 vd.finalized_at,
+                CASE WHEN vd.finalized_at IS NOT NULL THEN 'finalized' ELSE 'finalization unrecorded' END AS record_status,
+                {$faceOwnerSelect}
                 CASE WHEN vd.booking_id IS NOT NULL THEN CONCAT('Booking #', vd.booking_id) WHEN vd.queue_id IS NOT NULL THEN CONCAT('Queue #', vd.queue_id) ELSE CONCAT('Diagnosis #', vd.diagnosis_id) END AS source_reference,
                 COALESCE(vd.finalized_at, vd.created_at) AS consultation_date,
                 p.pet_name,
@@ -2109,6 +2137,7 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
             JOIN pets_information p ON p.pet_id = vd.pet_id
             LEFT JOIN bookings face_booking ON face_booking.booking_id = vd.booking_id
             LEFT JOIN queues face_queue ON face_queue.queue_id = vd.queue_id
+            {$faceOwnerJoin}
             WHERE " . implode(' AND ', $where) . "
         ", $params, $missing, 'Face-to-face consultation data could not be loaded.');
         $rows = array_merge($rows, $faceRows);
@@ -2129,6 +2158,8 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
                 b.pet_id,
                 ocd.veterinarian_user_id,
                 ocd.finalized_at,
+                CASE WHEN ocd.finalized_at IS NOT NULL THEN 'finalized' ELSE 'finalization unrecorded' END AS record_status,
+                COALESCE(NULLIF(TRIM(CONCAT(COALESCE(online_owner.first_Name, ''), ' ', COALESCE(online_owner.last_Name, ''))), ''), online_owner.mail_Address, 'Unknown Owner') AS owner_name,
                 CONCAT('Online session #', oc.online_consultation_id) AS source_reference,
                 COALESCE(ocd.finalized_at, oc.ended_at, oc.scheduled_start, ocd.created_at) AS consultation_date,
                 COALESCE(p.pet_name, b.unregistered_pet_name, 'Unregistered Pet') AS pet_name,
@@ -2144,6 +2175,7 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
             JOIN bookings b ON b.booking_id = ocd.booking_id
             LEFT JOIN pets_information p ON p.pet_id = b.pet_id
             LEFT JOIN users v ON v.user_id = ocd.veterinarian_user_id
+            LEFT JOIN users online_owner ON online_owner.user_id = b.user_id
             WHERE " . implode(' AND ', $where) . "
         ", $params, $missing, 'Online consultation data could not be loaded.');
         $rows = array_merge($rows, $onlineRows);
@@ -2374,7 +2406,7 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
            COALESCE(stock.expired_stock, 0) AS expired_stock,
            COALESCE(stock.near_expiry_stock, 0) AS near_expiry_stock,
            stock.nearest_expiry,"
-        : "0 AS stock_level, 0 AS on_hand_stock, NULL AS expired_stock, NULL AS near_expiry_stock, NULL AS nearest_expiry,";
+        : "NULL AS stock_level, NULL AS on_hand_stock, NULL AS expired_stock, NULL AS near_expiry_stock, NULL AS nearest_expiry,";
     $stockStatusSelect = $hasBatches
         ? "CASE
                WHEN COALESCE(stock.available_stock, 0) <= 0 THEN 'out_of_stock'
@@ -2442,11 +2474,11 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
 
     $counts = ['low_stock' => 0, 'out_of_stock' => 0, 'near_expiry' => 0, 'expired' => 0, 'ok' => 0];
     foreach ($rows as &$row) {
-        $row['stock_level'] = reports_int($row['stock_level']);
-        $row['on_hand_stock'] = reports_int($row['on_hand_stock']);
-        $row['reorder_level'] = reports_int($row['reorder_level']);
-        $row['expired_stock'] = $row['expired_stock'] === null ? null : reports_int($row['expired_stock']);
-        $row['near_expiry_stock'] = $row['near_expiry_stock'] === null ? null : reports_int($row['near_expiry_stock']);
+        $row['stock_level'] = $row['stock_level'] === null ? null : reports_money($row['stock_level']);
+        $row['on_hand_stock'] = $row['on_hand_stock'] === null ? null : reports_money($row['on_hand_stock']);
+        $row['reorder_level'] = $row['reorder_level'] === null ? null : reports_money($row['reorder_level']);
+        $row['expired_stock'] = $row['expired_stock'] === null ? null : reports_money($row['expired_stock']);
+        $row['near_expiry_stock'] = $row['near_expiry_stock'] === null ? null : reports_money($row['near_expiry_stock']);
         $attentionStatuses = array_values(array_filter([
             ($row['stock_status'] ?? '') !== 'ok' ? ($row['stock_status'] ?? '') : null,
             (float)($row['expired_stock'] ?? 0) > 0 ? 'expired' : null,
@@ -2511,17 +2543,24 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
     }
 
     $where = ['m.created_at BETWEEN ? AND ?'];
-    $hasLocations = reports_table_exists($pdo, 'inventory_locations') && reports_column_exists($pdo, 'inventory_stock_movements', 'location_id');
+    $hasLocationId = reports_column_exists($pdo, 'inventory_stock_movements', 'location_id');
+    $hasLocations = $hasLocationId && reports_table_exists($pdo, 'inventory_locations');
     $locationJoin = $hasLocations ? 'LEFT JOIN inventory_locations movement_location ON movement_location.location_id = m.location_id' : '';
-    $locationSelect = $hasLocations ? 'movement_location.location_name,' : 'NULL AS location_name,';
+    $locationSelect = ($hasLocationId ? 'm.location_id,' : 'NULL AS location_id,')
+        . ($hasLocations ? 'movement_location.location_name,' : 'NULL AS location_name,');
     $params = [$range['start_datetime'], $range['end_datetime']];
     if (!empty($filters['inventory_category'])) {
         $where[] = 'ii.category = ?';
         $params[] = $filters['inventory_category'];
     }
     if ((int)($filters['branch_id'] ?? 0) > 0) {
-        $where[] = 'm.location_id IN (SELECT location_id FROM inventory_locations WHERE branch_id = ?)';
-        $params[] = (int)$filters['branch_id'];
+        if ($hasLocations) {
+            $where[] = 'm.location_id IN (SELECT location_id FROM inventory_locations WHERE branch_id = ?)';
+            $params[] = (int)$filters['branch_id'];
+        } else {
+            $where[] = '1 = 0';
+            $missing[] = 'Branch-scoped stock movement data is unavailable because location links are missing.';
+        }
     }
 
     $rows = reports_fetch_all($pdo, "
@@ -2553,7 +2592,7 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
     $stockIn = 0;
     $stockOut = 0;
     foreach ($rows as $row) {
-        $qty = (int)$row['quantity_change'];
+        $qty = (float)$row['quantity_change'];
         if ($qty > 0) {
             $stockIn += $qty;
         } else {
@@ -2613,7 +2652,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
     $itemName = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.item_name, vc.description)" : 'vc.description';
     $category = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.category, vc.charge_type)" : 'vc.charge_type';
     $unit = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.unit, '')" : "''";
-    $stock = reports_table_exists($pdo, 'inventory_batches') ? 'COALESCE(stock.remaining_stock, 0)' : '0';
+    $stock = reports_table_exists($pdo, 'inventory_batches') ? 'COALESCE(stock.remaining_stock, 0)' : 'NULL';
     $where = ["vc.created_at BETWEEN ? AND ?", "vc.charge_type IN ('medication', 'retail_product', 'consumable')"];
     $params = [$range['start_datetime'], $range['end_datetime']];
     if (!empty($filters['inventory_category']) && reports_table_exists($pdo, 'inventory_items')) {
@@ -2683,14 +2722,17 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
 
     $totalQty = 0;
     $totalSales = 0;
+    $totalBilled = 0;
     foreach ($rows as &$row) {
         $row['quantity_sold'] = reports_money($row['quantity_sold']);
         $row['total_sales'] = reports_money($row['total_sales']);
         $row['billed_value'] = reports_money($row['billed_value']);
-        $row['remaining_stock'] = reports_int($row['remaining_stock']);
+        $row['remaining_stock'] = $row['remaining_stock'] === null ? null : reports_money($row['remaining_stock']);
         $totalQty += (float)$row['quantity_sold'];
         $totalSales += (float)$row['total_sales'];
+        $totalBilled += (float)$row['billed_value'];
     }
+    unset($row);
 
     $topItem = $rows[0]['item_name'] ?? 'No issued item';
 
@@ -2709,6 +2751,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
             'top_selling_item' => $topItem,
             'total_quantity_sold' => reports_money($totalQty),
             'total_product_revenue' => reports_money($totalSales),
+            'total_billed_value' => reports_money($totalBilled),
         ],
         'summary' => [
             'text' => "Top collected item is {$topItem}. Net collected product/medicine value is " . reports_money($totalSales) . '; quantities remain based on issued inventory lines.',

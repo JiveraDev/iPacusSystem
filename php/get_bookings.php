@@ -8,6 +8,7 @@ require_once __DIR__ . '/consent_record_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 
 header("Content-Type: application/json");
+header('Cache-Control: no-store');
 
 function tableExists(PDO $pdo, string $tableName): bool
 {
@@ -149,6 +150,10 @@ try {
             {$boardingAssignmentJoin}";
 
     $where = [];
+    if (filter_var($_GET['assignedToMe'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        $where[] = 'b.veterinarian_id = ?';
+        $params[] = $currentApiUserId;
+    }
     if ($bookingId) {
         $where[] = "b.booking_id = ?";
         $params[] = $bookingId;

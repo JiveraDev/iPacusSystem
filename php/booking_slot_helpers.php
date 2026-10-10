@@ -83,7 +83,7 @@ function booking_slot_normalize_time(?string $value): ?string
 function booking_slot_overlaps_lunch(string $serviceKey, string $bookingTime): bool
 {
     $normalized = booking_slot_normalize_time($bookingTime);
-    if ($normalized === null || in_array($serviceKey, ['boarding', 'grooming'], true)) {
+    if ($normalized === null || in_array($serviceKey, ['boarding', 'grooming', 'online-consultation'], true)) {
         return false;
     }
     [$hour, $minute, $second] = array_map('intval', explode(':', $normalized));
@@ -374,6 +374,9 @@ function booking_slot_release(PDO $pdo, ?string $lockName): void
 
 function booking_slot_conflict_message(string $serviceKey, string $bookingTime): string
 {
+    if ($serviceKey === 'online-consultation') {
+        return 'This online call time is not offered or the veterinarian already has an overlapping appointment. Choose another time from their online schedule.';
+    }
     if (clinic_booking_is_medical($serviceKey)) {
         return 'No veterinarian appointment remains at this time. Medical services share the same clinic schedule; choose another time or available veterinarian.';
     }

@@ -342,6 +342,16 @@ function branch_resolve_booking(
         throw new InvalidArgumentException('The selected clinic branch is unavailable.');
     }
 
+    // Calls use the vet's online schedule, not this clinic's opening hours or
+    // on-site offerings. The branch remains administrative booking metadata.
+    if ($serviceKey === 'consultation') {
+        return [
+            'branch_id' => $branchId, 'branch' => $branch, 'service_key' => $serviceKey,
+            'availability' => ['availability_mode' => 'online'],
+            'visit_schedule' => null, 'veterinarian_user_id' => $requestedVeterinarianId,
+        ];
+    }
+
     $serviceStmt = $pdo->prepare("
         SELECT * FROM branch_service_availability
         WHERE branch_id = ? AND service_key = ? AND is_active = 1 AND booking_enabled = 1

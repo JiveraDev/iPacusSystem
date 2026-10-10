@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/reportPresentation.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -826,6 +827,8 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
     $sql = "
         SELECT
             v.visit_id,
+            v.owner_user_id,
+            v.pet_id,
             DATE(v.created_at) AS visit_date,
             v.created_at,
             v.source_type,
@@ -860,6 +863,8 @@ function reports_financial_visit_rows(PDO $pdo, array $range, array $filters, ar
         WHERE " . implode(' AND ', $where) . "
         GROUP BY
             v.visit_id,
+            v.owner_user_id,
+            v.pet_id,
             DATE(v.created_at),
             v.created_at,
             v.source_type,
@@ -940,6 +945,8 @@ function reports_unlinked_booking_billing_rows(PDO $pdo, array $range, array $fi
     $rows = reports_fetch_all($pdo, "
         SELECT
             CONCAT('booking-payment-', submission.submission_id) AS visit_id,
+            booking.booking_id AS source_booking_id,
+            booking.booking_number AS source_reference,
             'Verified booking payment' AS source_label,
             DATE(submission.submitted_at) AS visit_date,
             submission.submitted_at AS created_at,
@@ -993,6 +1000,8 @@ function reports_record_update_payment_rows(PDO $pdo, array $range, array $filte
     $sql = "
         SELECT
             CONCAT('record-update-', r.request_id) AS visit_id,
+            r.request_id AS source_request_id,
+            r.request_number AS source_reference,
             'Record update service' AS source_label,
             DATE(COALESCE(r.reviewed_at, r.updated_at, r.created_at)) AS visit_date,
             COALESCE(r.reviewed_at, r.updated_at, r.created_at) AS created_at,
@@ -1044,6 +1053,8 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
     $rows = reports_fetch_all($pdo, "
         SELECT
             CONCAT('payment-', vp.payment_id) AS visit_id,
+            vp.payment_id AS payment_id,
+            'receipt' AS event_type,
             v.visit_id AS source_visit_id,
             DATE(vp.paid_at) AS visit_date,
             vp.paid_at AS created_at,
@@ -1090,6 +1101,8 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         $refundRows = reports_fetch_all($pdo, "
             SELECT
                 CONCAT('refund-', refund.refund_id) AS visit_id,
+                refund.refund_id AS refund_id,
+                'refund' AS event_type,
                 v.visit_id AS source_visit_id,
                 DATE(refund.processed_at) AS visit_date,
                 refund.processed_at AS created_at,
@@ -1139,6 +1152,10 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         $bookingRows = reports_fetch_all($pdo, "
             SELECT
                 CONCAT('booking-payment-', submission.submission_id) AS visit_id,
+                submission.submission_id AS payment_submission_id,
+                b.booking_id AS source_booking_id,
+                b.booking_number AS source_reference,
+                'receipt' AS event_type,
                 DATE(COALESCE(submission.reviewed_at, submission.submitted_at)) AS visit_date,
                 COALESCE(submission.reviewed_at, submission.submitted_at) AS created_at,
                 CASE WHEN submission.purpose = 'online_consultation' THEN 'online_consultation' ELSE 'booking' END AS source_type,
@@ -1176,6 +1193,10 @@ function reports_collection_rows(PDO $pdo, array $range, array $filters, array &
         $bookingRefundRows = reports_fetch_all($pdo, "
             SELECT
                 CONCAT('booking-refund-', refund.refund_id) AS visit_id,
+                refund.refund_id AS refund_id,
+                booking.booking_id AS source_booking_id,
+                booking.booking_number AS source_reference,
+                'refund' AS event_type,
                 DATE(refund.processed_at) AS visit_date,
                 refund.processed_at AS created_at,
                 'booking' AS source_type,
@@ -1349,6 +1370,11 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
     $visitRows = reports_collection_rows($pdo, $range, $filters, $missing);
     $daily = [];
     $paymentCounts = [];
+    $paymentMethods = [];
+    $grossReceipts = 0;
+    $refundAmount = 0;
+    $receiptCount = 0;
+    $refundCount = 0;
 
     foreach ($visitRows as $row) {
         $date = $row['visit_date'];
@@ -1361,6 +1387,10 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
                 'total_sales' => 0,
                 'paid_amount' => 0,
                 'balance' => 0,
+                'gross_receipts' => 0,
+                'refund_amount' => 0,
+                'receipt_count' => 0,
+                'refund_count' => 0,
             ];
         }
 
@@ -1369,32 +1399,79 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
         $daily[$date]['total_sales'] += (float)$row['total_bill'];
         $daily[$date]['paid_amount'] += (float)$row['paid_amount'];
         $daily[$date]['balance'] += (float)$row['balance'];
-
-        foreach (array_filter(array_map('trim', explode(',', (string)$row['payment_methods']))) as $method) {
+        $amount = (float)$row['paid_amount'];
+        $isRefund = ($row['event_type'] ?? '') === 'refund' || $amount < 0;
+        $method = reports_payment_method_labels($row['payment_methods'] ?? '');
+        if ($method === 'No verified payment') {
+            $method = 'Unspecified';
+        }
+        $daily[$date]['payment_methods'][$method] = true;
+        if (!isset($paymentMethods[$method])) {
+            $paymentMethods[$method] = [
+                'payment_method' => $method,
+                'gross_receipts' => 0,
+                'refund_amount' => 0,
+                'net_collections' => 0,
+                'receipt_count' => 0,
+                'refund_count' => 0,
+                'transaction_count' => 0,
+            ];
+        }
+        $paymentMethods[$method]['net_collections'] += $amount;
+        $paymentMethods[$method]['transaction_count']++;
+        if ($isRefund) {
+            $refundValue = abs($amount);
+            $daily[$date]['refund_amount'] += $refundValue;
+            $daily[$date]['refund_count']++;
+            $paymentMethods[$method]['refund_amount'] += $refundValue;
+            $paymentMethods[$method]['refund_count']++;
+            $refundAmount += $refundValue;
+            $refundCount++;
+        } else {
+            $daily[$date]['gross_receipts'] += $amount;
+            $daily[$date]['receipt_count']++;
+            $paymentMethods[$method]['gross_receipts'] += $amount;
+            $paymentMethods[$method]['receipt_count']++;
             $paymentCounts[$method] = ($paymentCounts[$method] ?? 0) + 1;
-            $daily[$date]['payment_methods'][$method] = true;
+            $grossReceipts += $amount;
+            $receiptCount++;
         }
     }
 
     ksort($daily);
     foreach ($daily as &$day) {
-        $day['payment_methods'] = reports_payment_method_labels(implode(', ', array_keys($day['payment_methods'])));
-        foreach (['service_sales', 'product_sales', 'total_sales', 'paid_amount', 'balance'] as $key) {
+        $day['payment_methods'] = implode(', ', array_keys($day['payment_methods']));
+        foreach (['service_sales', 'product_sales', 'total_sales', 'paid_amount', 'balance', 'gross_receipts', 'refund_amount'] as $key) {
             $day[$key] = reports_money($day[$key]);
         }
     }
     unset($day);
 
     $totals = reports_financial_totals($visitRows);
+    $totals += [
+        'gross_receipts' => reports_money($grossReceipts),
+        'refund_amount' => reports_money($refundAmount),
+        'receipt_count' => $receiptCount,
+        'refund_count' => $refundCount,
+        'transaction_count' => count($visitRows),
+        'collection_days' => count($daily),
+    ];
+    foreach ($paymentMethods as &$methodRow) {
+        foreach (['gross_receipts', 'refund_amount', 'net_collections'] as $key) {
+            $methodRow[$key] = reports_money($methodRow[$key]);
+        }
+    }
+    unset($methodRow);
+    usort($paymentMethods, static fn($a, $b) => ($b['gross_receipts'] <=> $a['gross_receipts']) ?: strcmp($a['payment_method'], $b['payment_method']));
     arsort($paymentCounts);
-    $topPaymentMethodKey = array_key_first($paymentCounts);
-    $topPaymentMethod = $topPaymentMethodKey
-        ? reports_payment_method_labels($topPaymentMethodKey)
+    $topPaymentMethods = empty($paymentCounts) ? [] : array_keys(array_filter($paymentCounts, static fn($count) => $count === max($paymentCounts)));
+    $topPaymentMethod = $topPaymentMethods
+        ? implode(', ', $topPaymentMethods)
         : 'No verified payment yet';
     $paymentMethodBreakdowns = [];
     foreach ($paymentCounts as $method => $count) {
         $paymentMethodBreakdowns[] = [
-            'label' => reports_payment_method_labels($method),
+            'label' => $method,
             'value' => number_format($count) . ($count === 1 ? ' transaction' : ' transactions'),
             'detail' => 'Included in this all-payment-method sales report.',
         ];
@@ -1417,6 +1494,7 @@ function reports_sales_report(PDO $pdo, array $range, array $filters): array
             ['key' => 'balance', 'label' => 'Balance'],
         ],
         'rows' => array_values($daily),
+        'payment_methods' => array_values($paymentMethods),
         'totals' => $totals + ['most_used_payment_method' => $topPaymentMethod],
         'summary' => [
             'text' => "Net verified collections reached {$totals['total_sales']} with {$dominantCategory} contributing the larger share. The most used payment method is {$topPaymentMethod}.",
@@ -1494,6 +1572,8 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
             CONCAT('INV-', LPAD(v.visit_id, 6, '0')) AS invoice_number,
             CONCAT('OR-', LPAD(vp.payment_id, 6, '0')) AS receipt_number,
             DATE(vp.paid_at) AS payment_date,
+            vp.paid_at AS posted_at,
+            'receipt' AS event_type,
             COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
             COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
             vp.payment_method,
@@ -1518,6 +1598,8 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
                 CONCAT('INV-', LPAD(v.visit_id, 6, '0')) AS invoice_number,
                 CONCAT('RF-', LPAD(refund.refund_id, 6, '0')) AS receipt_number,
                 DATE(refund.processed_at) AS payment_date,
+                refund.processed_at AS posted_at,
+                'refund' AS event_type,
                 COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
                 refund.refund_method AS payment_method,
@@ -1547,6 +1629,8 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
                 CONCAT('BOOK-', b.booking_number) AS invoice_number,
                 CONCAT('BP-', LPAD(submission.submission_id, 6, '0')) AS receipt_number,
                 DATE(COALESCE(submission.reviewed_at, submission.submitted_at)) AS payment_date,
+                COALESCE(submission.reviewed_at, submission.submitted_at) AS posted_at,
+                'receipt' AS event_type,
                 COALESCE(p.pet_name, b.unregistered_pet_name, 'Unknown Pet') AS pet_name,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
                 submission.payment_method,
@@ -1573,6 +1657,8 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
                 CONCAT('BOOK-', booking.booking_number) AS invoice_number,
                 CONCAT('BR-', LPAD(refund.refund_id, 6, '0')) AS receipt_number,
                 DATE(refund.processed_at) AS payment_date,
+                refund.processed_at AS posted_at,
+                'refund' AS event_type,
                 COALESCE(pet.pet_name, booking.unregistered_pet_name, 'Unknown Pet') AS pet_name,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
                 refund.refund_method AS payment_method,
@@ -1601,6 +1687,8 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
                 CONCAT('REQ-', request.request_number) AS invoice_number,
                 CONCAT('RR-', LPAD(request.request_id, 6, '0')) AS receipt_number,
                 DATE(COALESCE(request.reviewed_at, request.updated_at, request.created_at)) AS payment_date,
+                COALESCE(request.reviewed_at, request.updated_at, request.created_at) AS posted_at,
+                'receipt' AS event_type,
                 COALESCE(p.pet_name, 'Unknown Pet') AS pet_name,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,
                 request.payment_method,
@@ -1616,14 +1704,26 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
         ", $recordParams, $missing, 'Record update receipt data could not be loaded.'));
     }
 
-    usort($rows, static fn(array $left, array $right): int => strcmp((string)$right['payment_date'], (string)$left['payment_date']));
+    usort($rows, static fn(array $left, array $right): int => strcmp((string)$right['posted_at'], (string)$left['posted_at']));
 
     $totalPaid = 0;
+    $grossReceipts = 0;
+    $refundAmount = 0;
+    $receiptCount = 0;
+    $refundCount = 0;
     foreach ($rows as &$row) {
         $row['payment_method'] = reports_payment_method_labels($row['payment_method'] ?? '');
         $row['amount_paid'] = reports_money($row['amount_paid']);
         $totalPaid += (float)$row['amount_paid'];
+        if ($row['event_type'] === 'refund') {
+            $refundAmount += abs((float)$row['amount_paid']);
+            $refundCount++;
+        } else {
+            $grossReceipts += (float)$row['amount_paid'];
+            $receiptCount++;
+        }
     }
+    unset($row);
 
     $missing[] = 'No dedicated invoice/receipt tables were found; invoice and receipt numbers are derived from visit and payment IDs.';
 
@@ -1644,6 +1744,10 @@ function reports_invoice_receipt_report(PDO $pdo, array $range, array $filters):
         'totals' => [
             'total_records' => count($rows),
             'total_paid' => reports_money($totalPaid),
+            'gross_receipts' => reports_money($grossReceipts),
+            'refund_amount' => reports_money($refundAmount),
+            'receipt_count' => $receiptCount,
+            'refund_count' => $refundCount,
         ],
         'summary' => [
             'text' => count($rows) . " payment receipt records were found with total paid amount " . reports_money($totalPaid) . '.',
@@ -1688,6 +1792,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                     sc.service_name,
                     sc.service_type,
                     COUNT(vc.charge_id) AS usage_count,
+                    COUNT(DISTINCT vc.visit_id) AS distinct_visits,
                     COALESCE(SUM(vc.quantity), 0) AS total_quantity,
                     COALESCE(SUM(vc.subtotal), 0) AS total_revenue
                 FROM service_catalog sc
@@ -1702,6 +1807,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                     vc.description AS service_name,
                     vc.charge_type AS service_type,
                     COUNT(*) AS usage_count,
+                    COUNT(DISTINCT vc.visit_id) AS distinct_visits,
                     COALESCE(SUM(vc.quantity), 0) AS total_quantity,
                     COALESCE(SUM(vc.subtotal), 0) AS total_revenue
                 FROM visit_charges vc
@@ -1723,6 +1829,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
                 vc.description AS service_name,
                 vc.charge_type AS service_type,
                 COUNT(*) AS usage_count,
+                COUNT(DISTINCT vc.visit_id) AS distinct_visits,
                 SUM(vc.quantity) AS total_quantity,
                 SUM(vc.subtotal) AS total_revenue
             FROM visit_charges vc
@@ -1734,6 +1841,7 @@ function reports_service_utilization_report(PDO $pdo, array $range, array $filte
 
     foreach ($rows as &$row) {
         $row['usage_count'] = reports_int($row['usage_count']);
+        $row['distinct_visits'] = reports_int($row['distinct_visits']);
         $row['total_quantity'] = reports_money($row['total_quantity']);
         $row['total_revenue'] = reports_money($row['total_revenue']);
     }
@@ -1798,6 +1906,7 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
             b.booking_date,
             b.booking_time,
             b.status,
+            b.created_at,
             b.payment_method,
             b.price,
             b.notes,
@@ -1820,6 +1929,7 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
         if (stripos((string)$row['notes'], 'missed') !== false || stripos((string)$row['notes'], 'rescheduled') !== false) {
             $counts['missed_rescheduled'] += 1;
         }
+        $row['rescheduled_annotation'] = preg_match('/\[Rescheduled\]|\[Lifecycle\]\s*(Auto-rescheduled|Manual reschedule)/i', (string)$row['notes']) === 1;
     }
 
     $total = count($rows);
@@ -1851,8 +1961,8 @@ function reports_appointment_report(PDO $pdo, array $range, array $filters): arr
             ],
         ],
         'chart' => reports_doughnut_chart(
-            ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'Missed/Rescheduled'],
-            [$counts['pending'], $counts['confirmed'], $counts['completed'], $counts['cancelled'], $counts['missed_rescheduled']],
+            ['Pending', 'Confirmed', 'Completed', 'Cancelled'],
+            [$counts['pending'], $counts['confirmed'], $counts['completed'], $counts['cancelled']],
             'Appointments'
         ),
         'missing_data' => $missing,
@@ -1944,6 +2054,8 @@ function reports_queue_report(PDO $pdo, array $range, array $filters): array
         'totals' => $counts + [
             'total_queue_entries' => count($rows),
             'average_waiting_minutes' => $averageWaiting,
+            'wait_sample_count' => $waitingCount,
+            'missing_receive_count' => count($rows) - $waitingCount,
         ],
         'summary' => [
             'text' => "Queue entries total " . count($rows) . "; completed {$counts['completed']} and cancelled {$counts['cancelled']}.",
@@ -1979,6 +2091,11 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
         $faceRows = reports_fetch_all($pdo, "
             SELECT
                 'Face-to-face' AS consultation_type,
+                vd.diagnosis_id,
+                vd.pet_id,
+                vd.veterinarian_user_id,
+                vd.finalized_at,
+                CASE WHEN vd.booking_id IS NOT NULL THEN CONCAT('Booking #', vd.booking_id) WHEN vd.queue_id IS NOT NULL THEN CONCAT('Queue #', vd.queue_id) ELSE CONCAT('Diagnosis #', vd.diagnosis_id) END AS source_reference,
                 COALESCE(vd.finalized_at, vd.created_at) AS consultation_date,
                 p.pet_name,
                 p.pet_species,
@@ -2008,6 +2125,11 @@ function reports_consultation_report(PDO $pdo, array $range, array $filters): ar
         $onlineRows = reports_fetch_all($pdo, "
             SELECT
                 'Online' AS consultation_type,
+                ocd.diagnosis_id,
+                b.pet_id,
+                ocd.veterinarian_user_id,
+                ocd.finalized_at,
+                CONCAT('Online session #', oc.online_consultation_id) AS source_reference,
                 COALESCE(ocd.finalized_at, oc.ended_at, oc.scheduled_start, ocd.created_at) AS consultation_date,
                 COALESCE(p.pet_name, b.unregistered_pet_name, 'Unregistered Pet') AS pet_name,
                 COALESCE(p.pet_species, b.petType, '') AS pet_species,
@@ -2068,6 +2190,12 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
     }
 
     $today = (new DateTimeImmutable('today', new DateTimeZone(REPORTS_TIMEZONE)))->format('Y-m-d');
+    $ownerJoin = reports_table_exists($pdo, 'users')
+        ? 'LEFT JOIN users follow_owner ON follow_owner.user_id = COALESCE(follow_booking.user_id, follow_queue.user_id)'
+        : '';
+    $ownerSelect = $ownerJoin !== ''
+        ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(follow_owner.first_Name, ''), ' ', COALESCE(follow_owner.last_Name, ''))), ''), follow_owner.mail_Address, 'Unknown Owner') AS owner_name,"
+        : "'Unknown Owner' AS owner_name,";
     $where = ['vd.follow_up_date BETWEEN ? AND ?'];
     $params = [$range['start_date'], $range['end_date']];
     if (!empty($filters['veterinarian']) && ctype_digit((string)$filters['veterinarian'])) {
@@ -2083,12 +2211,17 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
         SELECT
             vd.diagnosis_id,
             vd.follow_up_date,
+            COALESCE(vd.finalized_at, vd.created_at) AS consultation_date,
+            vd.veterinarian_user_id,
+            vd.pet_id,
+            {$ownerSelect}
+            CASE WHEN vd.booking_id IS NOT NULL THEN CONCAT('Booking #', vd.booking_id) WHEN vd.queue_id IS NOT NULL THEN CONCAT('Queue #', vd.queue_id) ELSE CONCAT('Diagnosis #', vd.diagnosis_id) END AS source_reference,
             p.pet_name,
             p.pet_species,
             COALESCE(vd.veterinarian_name, 'Unassigned') AS veterinarian_name,
-            COALESCE(vd.notes, vd.diagnosis, vd.treatment, 'Follow-up check-up') AS reason,
+            COALESCE(NULLIF(TRIM(vd.notes), ''), NULLIF(TRIM(vd.diagnosis), ''), NULLIF(TRIM(vd.treatment), ''), 'Follow-up check-up') AS reason,
             CASE
-                WHEN vd.follow_up_date < ? THEN 'missed'
+                WHEN vd.follow_up_date < ? THEN 'past due'
                 WHEN vd.follow_up_date = ? THEN 'due today'
                 ELSE 'pending'
             END AS reminder_status
@@ -2096,14 +2229,20 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
         JOIN pets_information p ON p.pet_id = vd.pet_id
         LEFT JOIN bookings follow_booking ON follow_booking.booking_id = vd.booking_id
         LEFT JOIN queues follow_queue ON follow_queue.queue_id = vd.queue_id
+        {$ownerJoin}
         WHERE " . implode(' AND ', $where) . "
         ORDER BY vd.follow_up_date ASC
     ", array_merge([$today, $today], $params), $missing, 'Follow-up data could not be loaded.');
 
-    $counts = ['pending' => 0, 'missed' => 0, 'due today' => 0];
-    foreach ($rows as $row) {
+    $counts = ['pending' => 0, 'past due' => 0, 'due today' => 0];
+    foreach ($rows as &$row) {
         $counts[$row['reminder_status']] = ($counts[$row['reminder_status']] ?? 0) + 1;
+        $dueDate = reports_date_or_null($row['follow_up_date']);
+        $row['days_past_due'] = $dueDate && $row['reminder_status'] === 'past due'
+            ? (int)$dueDate->diff(new DateTimeImmutable($today, new DateTimeZone(REPORTS_TIMEZONE)))->days
+            : 0;
     }
+    unset($row);
 
     return [
         'type' => 'follow_up',
@@ -2120,11 +2259,13 @@ function reports_follow_up_report(PDO $pdo, array $range, array $filters): array
         'totals' => [
             'total_follow_ups' => count($rows),
             'pending' => $counts['pending'] ?? 0,
-            'missed' => $counts['missed'] ?? 0,
+            // Retained for clients using the old key; attendance is not tracked here.
+            'missed' => $counts['past due'] ?? 0,
+            'past_due' => $counts['past due'] ?? 0,
             'due_today' => $counts['due today'] ?? 0,
         ],
         'summary' => [
-            'text' => count($rows) . " follow-up records were found. Pending: " . ($counts['pending'] ?? 0) . '; missed: ' . ($counts['missed'] ?? 0) . '.',
+            'text' => count($rows) . " follow-up dates were recorded. Upcoming: " . ($counts['pending'] ?? 0) . '; past due: ' . ($counts['past due'] ?? 0) . '. Completion is not recorded in these rows.',
             'bullets' => [],
         ],
         'chart' => reports_empty_chart('bar'),
@@ -2146,7 +2287,11 @@ function reports_emr_request_report(PDO $pdo, array $range, array $filters): arr
     $rows = reports_fetch_all($pdo, "
         SELECT
             r.request_number,
+            r.request_id,
             DATE(r.created_at) AS requested_date,
+            r.created_at AS requested_at,
+            r.updated_at,
+            r.assigned_veterinarian_user_id,
             p.pet_name,
             p.pet_species,
             r.status,
@@ -2207,24 +2352,29 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
     $stockJoin = $hasBatches
         ? "LEFT JOIN (
               SELECT
-                  item_id,
-                  SUM(quantity) AS on_hand_stock,
+                   inventory_batches.item_id,
+                   SUM(quantity) AS on_hand_stock,
                   SUM(CASE
-                      WHEN quantity > 0 AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+                       WHEN quantity > 0 AND (expiry_date IS NULL OR expiry_date >= ?)
                       THEN quantity
                       ELSE 0
-                  END) AS available_stock,
+                   END) AS available_stock,
+                   SUM(CASE WHEN quantity > 0 AND expiry_date < ? THEN quantity ELSE 0 END) AS expired_stock,
+                   SUM(CASE WHEN quantity > 0 AND expiry_date >= ? AND expiry_date <= DATE_ADD(?, INTERVAL expiry_item.expiry_warning_days DAY) THEN quantity ELSE 0 END) AS near_expiry_stock,
                   MIN(CASE WHEN quantity > 0 THEN expiry_date ELSE NULL END) AS nearest_expiry
-              FROM inventory_batches
-              {$batchBranchWhere}
-              GROUP BY item_id
+               FROM inventory_batches
+               JOIN inventory_items expiry_item ON expiry_item.item_id = inventory_batches.item_id
+               {$batchBranchWhere}
+               GROUP BY inventory_batches.item_id
           ) stock ON stock.item_id = ii.item_id"
         : '';
     $stockSelect = $hasBatches
         ? "COALESCE(stock.available_stock, 0) AS stock_level,
            COALESCE(stock.on_hand_stock, 0) AS on_hand_stock,
+           COALESCE(stock.expired_stock, 0) AS expired_stock,
+           COALESCE(stock.near_expiry_stock, 0) AS near_expiry_stock,
            stock.nearest_expiry,"
-        : "0 AS stock_level, 0 AS on_hand_stock, NULL AS nearest_expiry,";
+        : "0 AS stock_level, 0 AS on_hand_stock, NULL AS expired_stock, NULL AS near_expiry_stock, NULL AS nearest_expiry,";
     $stockStatusSelect = $hasBatches
         ? "CASE
                WHEN COALESCE(stock.available_stock, 0) <= 0 THEN 'out_of_stock'
@@ -2275,7 +2425,7 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         WHERE " . implode(' AND ', $where) . "
         ORDER BY stock_status DESC, ii.item_name ASC
     ", $hasBatches
-        ? array_merge([$today, $today], $branchCatalogParams, $params)
+        ? array_merge([$today, $today], $branchCatalogParams, [$today, $today, $today, $today], $params)
         : array_merge($branchCatalogParams, $params), $missing, 'Inventory status data could not be loaded.');
 
     if (!$hasBatches) {
@@ -2286,6 +2436,7 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         $rows = array_values(array_filter($rows, static fn($row) => (
             ($row['stock_status'] ?? '') === $filters['stock_status']
             || ($row['expiry_status'] ?? '') === $filters['stock_status']
+            || ($filters['stock_status'] === 'near_expiry' && (float)($row['near_expiry_stock'] ?? 0) > 0)
         )));
     }
 
@@ -2294,9 +2445,12 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         $row['stock_level'] = reports_int($row['stock_level']);
         $row['on_hand_stock'] = reports_int($row['on_hand_stock']);
         $row['reorder_level'] = reports_int($row['reorder_level']);
+        $row['expired_stock'] = $row['expired_stock'] === null ? null : reports_int($row['expired_stock']);
+        $row['near_expiry_stock'] = $row['near_expiry_stock'] === null ? null : reports_int($row['near_expiry_stock']);
         $attentionStatuses = array_values(array_filter([
             ($row['stock_status'] ?? '') !== 'ok' ? ($row['stock_status'] ?? '') : null,
-            in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true) ? $row['expiry_status'] : null,
+            (float)($row['expired_stock'] ?? 0) > 0 ? 'expired' : null,
+            (float)($row['near_expiry_stock'] ?? 0) > 0 ? 'near_expiry' : null,
         ]));
         $row['attention_status'] = $attentionStatuses ? implode(', ', $attentionStatuses) : 'ok';
         if (($row['stock_status'] ?? '') !== 'ok') {
@@ -2304,8 +2458,11 @@ function reports_inventory_status_report(PDO $pdo, array $range, array $filters)
         } else {
             $counts['ok']++;
         }
-        if (in_array($row['expiry_status'] ?? '', ['near_expiry', 'expired'], true)) {
-            $counts[$row['expiry_status']] = ($counts[$row['expiry_status']] ?? 0) + 1;
+        if ((float)($row['expired_stock'] ?? 0) > 0) {
+            $counts['expired']++;
+        }
+        if ((float)($row['near_expiry_stock'] ?? 0) > 0) {
+            $counts['near_expiry']++;
         }
     }
     unset($row);
@@ -2354,6 +2511,9 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
     }
 
     $where = ['m.created_at BETWEEN ? AND ?'];
+    $hasLocations = reports_table_exists($pdo, 'inventory_locations') && reports_column_exists($pdo, 'inventory_stock_movements', 'location_id');
+    $locationJoin = $hasLocations ? 'LEFT JOIN inventory_locations movement_location ON movement_location.location_id = m.location_id' : '';
+    $locationSelect = $hasLocations ? 'movement_location.location_name,' : 'NULL AS location_name,';
     $params = [$range['start_datetime'], $range['end_datetime']];
     if (!empty($filters['inventory_category'])) {
         $where[] = 'ii.category = ?';
@@ -2367,9 +2527,14 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
     $rows = reports_fetch_all($pdo, "
         SELECT
             m.movement_id,
+            m.item_id,
+            m.batch_id,
+            m.created_at,
             DATE(m.created_at) AS movement_date,
             ii.item_name,
             ii.category,
+            ii.unit,
+            {$locationSelect}
             m.movement_type,
             m.quantity_change,
             m.quantity_before,
@@ -2380,6 +2545,7 @@ function reports_stock_movement_report(PDO $pdo, array $range, array $filters): 
             m.remarks
         FROM inventory_stock_movements m
         JOIN inventory_items ii ON ii.item_id = m.item_id
+        {$locationJoin}
         WHERE " . implode(' AND ', $where) . "
         ORDER BY m.created_at DESC
     ", $params, $missing, 'Stock movement data could not be loaded.');
@@ -2446,6 +2612,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         : '';
     $itemName = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.item_name, vc.description)" : 'vc.description';
     $category = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.category, vc.charge_type)" : 'vc.charge_type';
+    $unit = reports_table_exists($pdo, 'inventory_items') ? "COALESCE(ii.unit, '')" : "''";
     $stock = reports_table_exists($pdo, 'inventory_batches') ? 'COALESCE(stock.remaining_stock, 0)' : '0';
     $where = ["vc.created_at BETWEEN ? AND ?", "vc.charge_type IN ('medication', 'retail_product', 'consumable')"];
     $params = [$range['start_datetime'], $range['end_datetime']];
@@ -2484,9 +2651,12 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
 
     $rows = reports_fetch_all($pdo, "
         SELECT
+            vc.item_id,
             {$itemName} AS item_name,
             {$category} AS category,
+            {$unit} AS unit,
             SUM(vc.quantity) AS quantity_sold,
+            SUM(vc.subtotal) AS billed_value,
             SUM(vc.subtotal * ({$collectionRatio})) AS total_sales,
             {$stock} AS remaining_stock
         FROM visit_charges vc
@@ -2507,7 +2677,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
         ) payment_totals ON payment_totals.visit_id = vc.visit_id
         {$refundJoin}
         WHERE " . implode(' AND ', $where) . "
-        GROUP BY {$itemName}, {$category}, {$stock}
+        GROUP BY vc.item_id, {$itemName}, {$category}, {$unit}, {$stock}
         ORDER BY total_sales DESC, quantity_sold DESC
     ", $params, $missing, 'Medicine/product sales data could not be loaded.');
 
@@ -2516,6 +2686,7 @@ function reports_medicine_product_sales_report(PDO $pdo, array $range, array $fi
     foreach ($rows as &$row) {
         $row['quantity_sold'] = reports_money($row['quantity_sold']);
         $row['total_sales'] = reports_money($row['total_sales']);
+        $row['billed_value'] = reports_money($row['billed_value']);
         $row['remaining_stock'] = reports_int($row['remaining_stock']);
         $totalQty += (float)$row['quantity_sold'];
         $totalSales += (float)$row['total_sales'];
@@ -2556,13 +2727,20 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
     }
 
     $petJoin = reports_table_exists($pdo, 'pets_information') ? 'LEFT JOIN pets_information p ON p.pet_id = b.pet_id' : '';
-    $assignmentJoin = reports_table_exists($pdo, 'boarding_assignments') ? 'LEFT JOIN boarding_assignments ba ON ba.booking_id = b.booking_id' : '';
+    $assignmentJoin = reports_table_exists($pdo, 'boarding_assignments')
+        ? "LEFT JOIN boarding_assignments ba ON ba.assignment_id = (
+            SELECT latest.assignment_id FROM boarding_assignments latest
+            WHERE latest.booking_id = b.booking_id
+            ORDER BY CASE WHEN latest.status IN ('occupied', 'reserved') THEN 0 ELSE 1 END, latest.assignment_id DESC
+            LIMIT 1
+        )"
+        : '';
     $petSelect = reports_table_exists($pdo, 'pets_information')
         ? "COALESCE(p.pet_name, b.unregistered_pet_name, 'Unregistered Pet') AS pet_name, COALESCE(p.pet_species, b.petType, '') AS pet_species,"
         : "COALESCE(b.unregistered_pet_name, 'Unregistered Pet') AS pet_name, COALESCE(b.petType, '') AS pet_species,";
     $assignmentSelect = reports_table_exists($pdo, 'boarding_assignments')
-        ? "ba.room_type, ba.room_number, ba.status AS stay_status, COALESCE(ba.actual_check_in_at, ba.reserved_at, b.check_in_date) AS admission_date, COALESCE(ba.actual_check_out_at, b.check_out_date) AS release_date,"
-        : "b.room_size AS room_type, NULL AS room_number, b.status AS stay_status, b.check_in_date AS admission_date, b.check_out_date AS release_date,";
+        ? "ba.assignment_id, ba.room_type, ba.room_number, ba.status AS stay_status, ba.actual_check_in_at AS actual_admission, ba.actual_check_out_at AS actual_release, COALESCE(ba.actual_check_in_at, b.check_in_date) AS admission_date, COALESCE(ba.actual_check_out_at, b.check_out_date) AS release_date,"
+        : "NULL AS assignment_id, b.room_size AS room_type, NULL AS room_number, b.status AS stay_status, NULL AS actual_admission, NULL AS actual_release, b.check_in_date AS admission_date, b.check_out_date AS release_date,";
     $durationSelect = reports_table_exists($pdo, 'boarding_assignments')
         ? "DATEDIFF(COALESCE(DATE(ba.actual_check_out_at), b.check_out_date, b.check_in_date), COALESCE(DATE(ba.actual_check_in_at), b.check_in_date)) + 1"
         : "DATEDIFF(COALESCE(b.check_out_date, b.check_in_date, b.booking_date), COALESCE(b.check_in_date, b.booking_date)) + 1";
@@ -2612,10 +2790,17 @@ function reports_confinement_pet_hotel_report(PDO $pdo, array $range, array $fil
         'COALESCE(b.check_out_date, b.check_in_date, b.booking_date) >= ?',
     ];
     $boardingParams = [$range['end_date'], $range['start_date']];
+    if ($assignmentJoin !== '') {
+        $boardingWhere[1] = 'COALESCE(DATE(ba.actual_check_in_at), b.check_in_date, b.booking_date) <= ?';
+        $boardingWhere[2] = "CASE WHEN ba.status = 'occupied' AND ba.actual_check_out_at IS NULL THEN GREATEST(COALESCE(b.check_out_date, b.check_in_date, b.booking_date), CURDATE()) ELSE COALESCE(DATE(ba.actual_check_out_at), b.check_out_date, b.check_in_date, b.booking_date) END >= ?";
+    }
     reports_append_branch_filter($boardingWhere, $boardingParams, $filters, 'b.branch_id');
     $rows = reports_fetch_all($pdo, "
         SELECT
+            b.booking_id,
             b.booking_number,
+            b.check_in_date AS planned_admission,
+            b.check_out_date AS planned_release,
             b.hotel_boarding_type,
             {$petSelect}
             {$assignmentSelect}
@@ -2705,9 +2890,12 @@ function reports_consent_record_date_expression(PDO $pdo): ?string
     return 'COALESCE(' . implode(', ', $parts) . ')';
 }
 
-function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable): array
+function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable, array $filters = []): array
 {
     if (!reports_table_exists($pdo, 'bookings') || !reports_column_exists($pdo, 'bookings', 'signature_path')) {
+        return [];
+    }
+    if (!empty($filters['consent_status']) && $filters['consent_status'] !== 'signed') {
         return [];
     }
 
@@ -2727,10 +2915,20 @@ function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$mis
     $excludeTracked = $hasRecordTable && reports_column_exists($pdo, 'consent_form_records', 'booking_id')
         ? 'AND NOT EXISTS (SELECT 1 FROM consent_form_records tracked WHERE tracked.booking_id = b.booking_id)'
         : '';
+    $scopeWhere = [];
+    $params = [$range['start_datetime'], $range['end_datetime']];
+    reports_append_branch_filter($scopeWhere, $params, $filters, 'b.branch_id');
+    $scopeSql = $scopeWhere ? 'AND ' . implode(' AND ', $scopeWhere) : '';
 
     return reports_fetch_all($pdo, "
         SELECT
             CONCAT('legacy-booking-', b.booking_id) AS consent_record_id,
+            CONCAT('Booking ', b.booking_number) AS source_reference,
+            {$dateExpression} AS event_at,
+            NULL AS requested_at,
+            1 AS document_available,
+            'Document reference recorded' AS document_status,
+            1 AS legacy_signature,
             'Booking Consent' AS consent_type,
             {$ownerSelect}
             {$petSelect}
@@ -2738,7 +2936,7 @@ function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$mis
             'signed' AS status,
             'legacy_booking' AS source,
             DATE({$dateExpression}) AS requested_date,
-            {$dateExpression} AS signed_at,
+            NULL AS signed_at,
             NULL AS released_at
         FROM bookings b
         {$userJoin}
@@ -2747,13 +2945,17 @@ function reports_consent_legacy_booking_rows(PDO $pdo, array $range, array &$mis
           AND TRIM(b.signature_path) <> ''
           AND {$dateExpression} BETWEEN ? AND ?
           {$excludeTracked}
+          {$scopeSql}
         ORDER BY {$dateExpression} DESC
-    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Legacy booking consent signatures could not be loaded.');
+    ", $params, $missing, 'Legacy booking consent signatures could not be loaded.');
 }
 
-function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable): array
+function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missing, bool $hasRecordTable, array $filters = []): array
 {
     if (!reports_table_exists($pdo, 'queues') || !reports_column_exists($pdo, 'queues', 'signiture_self_service_path')) {
+        return [];
+    }
+    if (!empty($filters['consent_status']) && $filters['consent_status'] !== 'signed') {
         return [];
     }
 
@@ -2771,10 +2973,20 @@ function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missi
     $excludeTracked = $hasRecordTable && reports_column_exists($pdo, 'consent_form_records', 'queue_id')
         ? 'AND NOT EXISTS (SELECT 1 FROM consent_form_records tracked WHERE tracked.queue_id = q.queue_id)'
         : '';
+    $scopeWhere = [];
+    $params = [$range['start_datetime'], $range['end_datetime']];
+    reports_append_branch_filter($scopeWhere, $params, $filters, 'q.branch_id');
+    $scopeSql = $scopeWhere ? 'AND ' . implode(' AND ', $scopeWhere) : '';
 
     return reports_fetch_all($pdo, "
         SELECT
             CONCAT('legacy-queue-', q.queue_id) AS consent_record_id,
+            CONCAT('Queue #', q.queue_number) AS source_reference,
+            {$dateExpression} AS event_at,
+            NULL AS requested_at,
+            1 AS document_available,
+            'Document reference recorded' AS document_status,
+            1 AS legacy_signature,
             COALESCE(NULLIF(TRIM(q.service_name), ''), 'Queue Consent') AS consent_type,
             {$ownerSelect}
             {$petSelect}
@@ -2782,7 +2994,7 @@ function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missi
             'signed' AS status,
             'legacy_queue' AS source,
             DATE({$dateExpression}) AS requested_date,
-            {$dateExpression} AS signed_at,
+            NULL AS signed_at,
             NULL AS released_at
         FROM queues q
         {$userJoin}
@@ -2791,8 +3003,9 @@ function reports_consent_legacy_queue_rows(PDO $pdo, array $range, array &$missi
           AND TRIM(q.signiture_self_service_path) <> ''
           AND {$dateExpression} BETWEEN ? AND ?
           {$excludeTracked}
+          {$scopeSql}
         ORDER BY {$dateExpression} DESC
-    ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Legacy queue consent signatures could not be loaded.');
+    ", $params, $missing, 'Legacy queue consent signatures could not be loaded.');
 }
 
 function reports_consent_record_response(array $rows, array $missing): array
@@ -2806,8 +3019,8 @@ function reports_consent_record_response(array $rows, array $missing): array
     }
 
     usort($rows, static function ($first, $second) {
-        $firstDate = strtotime((string)($first['signed_at'] ?? $first['requested_date'] ?? '')) ?: 0;
-        $secondDate = strtotime((string)($second['signed_at'] ?? $second['requested_date'] ?? '')) ?: 0;
+        $firstDate = strtotime((string)($first['event_at'] ?? $first['signed_at'] ?? $first['requested_date'] ?? '')) ?: 0;
+        $secondDate = strtotime((string)($second['event_at'] ?? $second['signed_at'] ?? $second['requested_date'] ?? '')) ?: 0;
 
         return $secondDate <=> $firstDate;
     });
@@ -2867,6 +3080,7 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
         $hasSource = reports_column_exists($pdo, 'consent_form_records', 'source');
         $hasSignedAt = reports_column_exists($pdo, 'consent_form_records', 'signed_at');
         $hasReleasedAt = reports_column_exists($pdo, 'consent_form_records', 'released_at');
+        $hasRequestedAt = reports_column_exists($pdo, 'consent_form_records', 'requested_at');
         $recordIdSelect = reports_column_exists($pdo, 'consent_form_records', 'consent_record_id')
             ? 'cfr.consent_record_id'
             : (reports_column_exists($pdo, 'consent_form_records', 'id') ? 'cfr.id' : '0');
@@ -2885,13 +3099,59 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
             ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(owner.first_Name, ''), ' ', COALESCE(owner.last_Name, ''))), ''), owner.mail_Address, 'Unknown Owner') AS client_name,"
             : "'Unknown Owner' AS client_name,";
         $serviceSelect = $hasServiceName ? "cfr.service_name AS service," : "NULL AS service,";
-        $statusSelect = $hasStatus ? "COALESCE(cfr.status, 'signed') AS status," : "'signed' AS status,";
+        $statusSelect = $hasStatus ? "COALESCE(cfr.status, 'unknown') AS status," : "'unknown' AS status,";
         $sourceSelect = $hasSource ? "COALESCE(cfr.source, 'manual') AS source," : "'manual' AS source,";
-        $requestedDateSelect = $dateColumn ? "DATE({$dateColumn}) AS requested_date," : "NULL AS requested_date,";
+        $requestedDateSelect = $hasRequestedAt
+            ? 'DATE(cfr.requested_at) AS requested_date, cfr.requested_at,'
+            : 'NULL AS requested_date, NULL AS requested_at,';
+        $eventSelect = $dateColumn ? "{$dateColumn} AS event_at," : 'NULL AS event_at,';
         $signedAtSelect = $hasSignedAt ? "cfr.signed_at," : "NULL AS signed_at,";
         $releasedAtSelect = $hasReleasedAt ? "cfr.released_at" : "NULL AS released_at";
-        $where = $dateColumn ? "WHERE {$dateColumn} BETWEEN ? AND ?" : '';
+        $whereParts = $dateColumn ? ["{$dateColumn} BETWEEN ? AND ?"] : ['1 = 0'];
         $params = $dateColumn ? [$range['start_datetime'], $range['end_datetime']] : [];
+        if (!$dateColumn) {
+            $missing[] = 'Consent records have no usable event date; period activity could not be determined.';
+        }
+        if (!empty($filters['consent_status'])) {
+            $whereParts[] = $hasStatus ? 'cfr.status = ?' : '1 = 0';
+            if ($hasStatus) {
+                $params[] = $filters['consent_status'];
+            } else {
+                $missing[] = 'Consent status filtering is unavailable in the current schema.';
+            }
+        }
+        $sourceReferences = [];
+        $branchConditions = [];
+        $branchId = (int)($filters['branch_id'] ?? 0);
+        foreach (['visit_id' => ['visits', 'visit_id'], 'booking_id' => ['bookings', 'booking_id'], 'queue_id' => ['queues', 'queue_id']] as $sourceKey => $sourceTable) {
+            if (!reports_column_exists($pdo, 'consent_form_records', $sourceKey)) {
+                continue;
+            }
+            $sourceLabel = reports_humanize_key(str_replace('_id', '', $sourceKey));
+            $sourceReferences[] = "CASE WHEN cfr.{$sourceKey} IS NOT NULL THEN CONCAT('{$sourceLabel} #', cfr.{$sourceKey}) ELSE NULL END";
+            if ($branchId > 0 && reports_table_exists($pdo, $sourceTable[0]) && reports_column_exists($pdo, $sourceTable[0], 'branch_id')) {
+                $branchConditions[] = "EXISTS (SELECT 1 FROM {$sourceTable[0]} consent_source WHERE consent_source.{$sourceTable[1]} = cfr.{$sourceKey} AND consent_source.branch_id = ?)";
+            }
+        }
+        if ($branchId > 0) {
+            if ($branchConditions) {
+                $whereParts[] = '(' . implode(' OR ', $branchConditions) . ')';
+                $params = array_merge($params, array_fill(0, count($branchConditions), $branchId));
+            } else {
+                $whereParts[] = '1 = 0';
+                $missing[] = 'Consent records could not be linked to the selected branch.';
+            }
+        }
+        $referenceSelect = $sourceReferences ? 'COALESCE(' . implode(', ', array_merge($sourceReferences, ["'Manual record'"])) . ') AS source_reference,' : "'Manual record' AS source_reference,";
+        $documentReferences = [];
+        foreach (['signed_file_path', 'physical_file_path', 'signed_document_path'] as $documentColumn) {
+            if (reports_column_exists($pdo, 'consent_form_records', $documentColumn)) {
+                $documentReferences[] = "NULLIF(TRIM(cfr.{$documentColumn}), '')";
+            }
+        }
+        $documentExpression = $documentReferences ? 'COALESCE(' . implode(', ', array_merge($documentReferences, ['NULL'])) . ')' : 'NULL';
+        $documentSelect = "CASE WHEN {$documentExpression} IS NOT NULL THEN 1 ELSE 0 END AS document_available, CASE WHEN {$documentExpression} IS NOT NULL THEN 'Document reference recorded' ELSE 'No document reference' END AS document_status, 0 AS legacy_signature,";
+        $where = 'WHERE ' . implode(' AND ', $whereParts);
         $orderBy = $dateColumn ? "{$dateColumn} DESC" : ($recordIdSelect === '0' ? '1 DESC' : "{$recordIdSelect} DESC");
 
         $rows = reports_fetch_all($pdo, "
@@ -2904,6 +3164,9 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
                 {$statusSelect}
                 {$sourceSelect}
                 {$requestedDateSelect}
+                {$eventSelect}
+                {$referenceSelect}
+                {$documentSelect}
                 {$signedAtSelect}
                 {$releasedAtSelect}
             FROM consent_form_records cfr
@@ -2916,10 +3179,13 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
     }
 
     $legacyRows = array_merge(
-        reports_consent_legacy_booking_rows($pdo, $range, $missing, $recordTableExists),
-        reports_consent_legacy_queue_rows($pdo, $range, $missing, $recordTableExists)
+        reports_consent_legacy_booking_rows($pdo, $range, $missing, $recordTableExists, $filters),
+        reports_consent_legacy_queue_rows($pdo, $range, $missing, $recordTableExists, $filters)
     );
     $rows = array_merge($rows, $legacyRows);
+    if ($legacyRows) {
+        $missing[] = 'Legacy consent signatures use the booking or queue event date; the actual request and signing times were not recorded.';
+    }
 
     if ($recordTableExists || !empty($rows)) {
         return reports_consent_record_response($rows, $missing);
@@ -2927,6 +3193,9 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
 
     if (!reports_has_tables($pdo, ['consent_files'], $missing)) {
         return reports_blank_report('consent_form', $missing);
+    }
+    if ((int)($filters['branch_id'] ?? 0) > 0 || !empty($filters['consent_status'])) {
+        return reports_blank_report('consent_form', array_merge($missing, ['Consent templates do not establish branch or client consent status.']));
     }
 
     $rows = reports_fetch_all($pdo, "
@@ -2937,6 +3206,7 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
             file_size,
             category,
             DATE(uploaded_at) AS uploaded_date,
+            uploaded_at,
             'template_available' AS consent_status
         FROM consent_files
         WHERE uploaded_at BETWEEN ? AND ?
@@ -2948,6 +3218,7 @@ function reports_consent_form_report(PDO $pdo, array $range, array $filters): ar
     return [
         'type' => 'consent_form',
         'title' => 'Consent Form Report',
+        'template_mode' => true,
         'columns' => [
             ['key' => 'file_name', 'label' => 'Consent File'],
             ['key' => 'category', 'label' => 'Category'],
@@ -2976,6 +3247,30 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
     $missing = [];
     $activity = [];
     $branchId = (int)($filters['branch_id'] ?? 0);
+    $veterinarianId = ctype_digit((string)($filters['veterinarian'] ?? '')) ? (int)$filters['veterinarian'] : 0;
+    $diagnosisVetWhere = $veterinarianId > 0 ? " AND vd.veterinarian_user_id = {$veterinarianId}" : '';
+    $onlineVetWhere = $veterinarianId > 0 ? " AND ocd.veterinarian_user_id = {$veterinarianId}" : '';
+    $activityKey = static function (array $row): string {
+        $id = (int)($row['veterinarian_user_id'] ?? 0);
+        return $id > 0 ? 'id:' . $id : 'name:' . strtolower(trim((string)$row['veterinarian_name']));
+    };
+    $ensureActivity = static function (array $row) use (&$activity, $activityKey): string {
+        $key = $activityKey($row);
+        if (!isset($activity[$key])) {
+            $activity[$key] = [
+                'veterinarian_user_id' => $row['veterinarian_user_id'],
+                'veterinarian_name' => $row['veterinarian_name'],
+                'face_to_face_consultations' => 0,
+                'online_consultations' => 0,
+                'follow_ups' => 0,
+                'scheduled_follow_ups' => 0,
+                'completed_cases' => 0,
+                'finalized_cases' => 0,
+                'unfinalized_cases' => 0,
+            ];
+        }
+        return $key;
+    };
     $diagnosisBranchJoin = $branchId > 0
         ? 'LEFT JOIN bookings activity_booking ON activity_booking.booking_id = vd.booking_id LEFT JOIN queues activity_queue ON activity_queue.queue_id = vd.queue_id'
         : '';
@@ -2988,23 +3283,23 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
             SELECT
                 vd.veterinarian_user_id,
                 COALESCE(vd.veterinarian_name, 'Unassigned') AS veterinarian_name,
-                COUNT(*) AS completed_cases
+                COUNT(*) AS completed_cases,
+                COUNT(vd.finalized_at) AS finalized_cases,
+                COUNT(*) - COUNT(vd.finalized_at) AS unfinalized_cases
             FROM vet_diagnoses vd
             {$diagnosisBranchJoin}
             WHERE COALESCE(vd.finalized_at, vd.created_at) BETWEEN ? AND ?
             {$diagnosisBranchWhere}
+            {$diagnosisVetWhere}
             GROUP BY vd.veterinarian_user_id, vd.veterinarian_name
         ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Veterinarian diagnosis activity could not be loaded.');
 
         foreach ($rows as $row) {
-            $key = (string)($row['veterinarian_user_id'] ?? $row['veterinarian_name']);
-            $activity[$key] = [
-                'veterinarian_name' => $row['veterinarian_name'],
-                'face_to_face_consultations' => reports_int($row['completed_cases']),
-                'online_consultations' => 0,
-                'follow_ups' => 0,
-                'completed_cases' => reports_int($row['completed_cases']),
-            ];
+            $key = $ensureActivity($row);
+            $activity[$key]['face_to_face_consultations'] += reports_int($row['completed_cases']);
+            $activity[$key]['completed_cases'] += reports_int($row['completed_cases']);
+            $activity[$key]['finalized_cases'] += reports_int($row['finalized_cases']);
+            $activity[$key]['unfinalized_cases'] += reports_int($row['unfinalized_cases']);
         }
     }
 
@@ -3017,62 +3312,53 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
             SELECT
                 ocd.veterinarian_user_id,
                 COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_Name, ''), ' ', COALESCE(u.last_Name, ''))), ''), u.mail_Address, 'Unassigned') AS veterinarian_name,
-                COUNT(*) AS online_count
+                COUNT(*) AS online_count,
+                COUNT(ocd.finalized_at) AS finalized_cases,
+                COUNT(*) - COUNT(ocd.finalized_at) AS unfinalized_cases
             FROM online_consultation_diagnoses ocd
             {$onlineBranchJoin}
             LEFT JOIN users u ON u.user_id = ocd.veterinarian_user_id
             WHERE COALESCE(ocd.finalized_at, ocd.created_at) BETWEEN ? AND ?
             {$onlineBranchWhere}
+            {$onlineVetWhere}
             GROUP BY ocd.veterinarian_user_id, u.first_Name, u.last_Name, u.mail_Address
         ", [$range['start_datetime'], $range['end_datetime']], $missing, 'Online consultation activity could not be loaded.');
 
         foreach ($rows as $row) {
-            $key = (string)($row['veterinarian_user_id'] ?? $row['veterinarian_name']);
-            if (!isset($activity[$key])) {
-                $activity[$key] = [
-                    'veterinarian_name' => $row['veterinarian_name'],
-                    'face_to_face_consultations' => 0,
-                    'online_consultations' => 0,
-                    'follow_ups' => 0,
-                    'completed_cases' => 0,
-                ];
-            }
+            $key = $ensureActivity($row);
             $activity[$key]['online_consultations'] += reports_int($row['online_count']);
             $activity[$key]['completed_cases'] += reports_int($row['online_count']);
+            $activity[$key]['finalized_cases'] += reports_int($row['finalized_cases']);
+            $activity[$key]['unfinalized_cases'] += reports_int($row['unfinalized_cases']);
         }
     }
 
     if (reports_has_tables($pdo, ['vet_diagnoses'], $missing)) {
         $rows = reports_fetch_all($pdo, "
             SELECT
-                veterinarian_user_id,
-                COALESCE(veterinarian_name, 'Unassigned') AS veterinarian_name,
+                vd.veterinarian_user_id,
+                COALESCE(vd.veterinarian_name, 'Unassigned') AS veterinarian_name,
                 COUNT(*) AS follow_up_count
             FROM vet_diagnoses vd
             {$diagnosisBranchJoin}
             WHERE vd.follow_up_date BETWEEN ? AND ?
             {$diagnosisBranchWhere}
+            {$diagnosisVetWhere}
             GROUP BY vd.veterinarian_user_id, vd.veterinarian_name
         ", [$range['start_date'], $range['end_date']], $missing, 'Follow-up activity could not be loaded.');
 
         foreach ($rows as $row) {
-            $key = (string)($row['veterinarian_user_id'] ?? $row['veterinarian_name']);
-            if (!isset($activity[$key])) {
-                $activity[$key] = [
-                    'veterinarian_name' => $row['veterinarian_name'],
-                    'face_to_face_consultations' => 0,
-                    'online_consultations' => 0,
-                    'follow_ups' => 0,
-                    'completed_cases' => 0,
-                ];
-            }
+            $key = $ensureActivity($row);
             $activity[$key]['follow_ups'] += reports_int($row['follow_up_count']);
+            $activity[$key]['scheduled_follow_ups'] += reports_int($row['follow_up_count']);
         }
     }
 
     $rows = array_values($activity);
-    usort($rows, static fn($a, $b) => $b['completed_cases'] <=> $a['completed_cases']);
-    $topVet = $rows[0]['veterinarian_name'] ?? 'No veterinarian activity';
+    usort($rows, static fn($a, $b) => ($b['finalized_cases'] <=> $a['finalized_cases']) ?: strcmp($a['veterinarian_name'], $b['veterinarian_name']));
+    $leadingCount = $rows[0]['finalized_cases'] ?? 0;
+    $leaders = $leadingCount > 0 ? array_column(array_filter($rows, static fn($row) => $row['finalized_cases'] === $leadingCount), 'veterinarian_name') : [];
+    $topVet = $leaders ? implode(', ', $leaders) : 'No finalized cases';
 
     return [
         'type' => 'veterinarian_activity',
@@ -3088,12 +3374,15 @@ function reports_veterinarian_activity_report(PDO $pdo, array $range, array $fil
         'totals' => [
             'most_active_veterinarian' => $topVet,
             'total_consultations_handled' => array_sum(array_column($rows, 'completed_cases')),
+            'finalized_cases' => array_sum(array_column($rows, 'finalized_cases')),
+            'unfinalized_cases' => array_sum(array_column($rows, 'unfinalized_cases')),
+            'scheduled_follow_ups' => array_sum(array_column($rows, 'scheduled_follow_ups')),
         ],
         'summary' => [
             'text' => "Most active veterinarian is {$topVet}.",
             'bullets' => [],
         ],
-        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'veterinarian_name', 'completed_cases', 'Completed Cases'),
+        'chart' => reports_bar_chart(array_slice($rows, 0, 10), 'veterinarian_name', 'finalized_cases', 'Finalized Cases'),
         'missing_data' => $missing,
     ];
 }
@@ -3165,6 +3454,9 @@ function reports_currency_label($value): string
 function reports_metric_is_currency(string $key): bool
 {
     $normalized = strtolower($key);
+    if (in_array($normalized, ['gross_receipts', 'net_collections'], true)) {
+        return true;
+    }
     foreach (['count', 'quantity', 'stock', 'items', 'records', 'requests', 'stays', 'appointments', 'consultations', 'cases', 'rate'] as $excluded) {
         if (str_contains($normalized, $excluded)) {
             return false;
@@ -3503,15 +3795,33 @@ function reports_metric_delta_display(string $key, float $delta): string
 function reports_comparison_summary(array $currentReport, array $previousReport, array $comparisonRange): array
 {
     $type = (string)($currentReport['type'] ?? 'report');
-    $profile = reports_report_profile($type);
     $currentTotals = is_array($currentReport['totals'] ?? null) ? $currentReport['totals'] : [];
     $previousTotals = is_array($previousReport['totals'] ?? null) ? $previousReport['totals'] : [];
-    $currentTotals['record_count'] = count(is_array($currentReport['rows'] ?? null) ? $currentReport['rows'] : []);
-    $previousTotals['record_count'] = count(is_array($previousReport['rows'] ?? null) ? $previousReport['rows'] : []);
-    $metricKeys = array_values(array_unique(array_merge($profile['metrics'] ?? [], ['record_count'], array_keys($currentTotals))));
+    $metrics = [
+        'sales' => ['total_sales' => 'Net collections', 'gross_receipts' => 'Gross receipts', 'refund_amount' => 'Processed refunds', 'receipt_count' => 'Receipt transactions', 'refund_count' => 'Refund transactions', 'service_sales' => 'Service allocation', 'product_sales' => 'Product allocation'],
+        'billing' => ['total_sales' => 'Recorded billed value', 'paid_amount' => 'Current net amount paid', 'unpaid_balance' => 'Current outstanding balance', 'unpaid_or_partial_count' => 'Open billing records'],
+        'invoice_receipt' => ['total_paid' => 'Net recorded collections', 'receipt_count' => 'Receipt entries', 'refund_count' => 'Refund entries', 'gross_receipts' => 'Gross receipt value', 'refund_amount' => 'Refund value'],
+        'service_utilization' => ['total_services' => 'Service charge entries', 'total_billed_value' => 'Service billed value', 'used_services' => 'Services with recorded charges'],
+        'appointment' => ['total_appointments' => 'Scheduled appointments', 'completed' => 'Currently completed appointments', 'cancelled' => 'Currently cancelled appointments', 'completion_rate' => 'Completion rate'],
+        'queue' => ['total_queue_entries' => 'Queue entries', 'completed' => 'Currently completed entries', 'cancelled' => 'Currently cancelled entries', 'average_waiting_minutes' => 'Measured receive wait (minutes)', 'wait_sample_count' => 'Entries with a measured wait'],
+        'consultation' => ['total_consultations' => 'Documented consultations', 'face_to_face' => 'Clinic diagnosis records', 'online' => 'Online diagnosis records'],
+        'follow_up' => ['total_follow_ups' => 'Recorded follow-up dates'],
+        'emr_request' => ['total_requests' => 'Requests submitted', 'completed' => 'Currently completed requests'],
+        'stock_movement' => ['total_movements' => 'Stock movement entries'],
+        'medicine_product_sales' => ['total_product_revenue' => 'Allocated net collected value', 'total_billed_value' => 'Issued-line billed value'],
+        'confinement_pet_hotel' => ['total_stays' => 'Stay records overlapping the period', 'total_charge' => 'Whole-stay recorded charges'],
+        'consent_form' => ['total_records' => 'Consent records with a recorded event', 'signed' => 'Currently signed records', 'pending' => 'Currently pending records', 'released' => 'Currently released records'],
+        'veterinarian_activity' => ['finalized_cases' => 'Finalized diagnosis records', 'unfinalized_cases' => 'Records without finalization', 'scheduled_follow_ups' => 'Recorded follow-up dates'],
+    ];
     $rows = [];
-
-    foreach ($metricKeys as $key) {
+    $unavailable = false;
+    foreach (array_merge($currentReport['missing_data'] ?? [], $previousReport['missing_data'] ?? []) as $note) {
+        if (preg_match('/could not be loaded|^Missing table:|cannot be calculated|period activity could not be determined/i', (string)$note)) {
+            $unavailable = true;
+            break;
+        }
+    }
+    foreach ($unavailable ? [] : ($metrics[$type] ?? []) as $key => $label) {
         if (!array_key_exists($key, $currentTotals) || !array_key_exists($key, $previousTotals)) {
             continue;
         }
@@ -3523,27 +3833,33 @@ function reports_comparison_summary(array $currentReport, array $previousReport,
         }
 
         $delta = $currentValue - $previousValue;
-        $percentChange = abs($previousValue) > 0.000001
+        $isRate = str_contains($key, 'rate');
+        $percentChange = !$isRate && abs($previousValue) > 0.000001
             ? number_format(($delta / abs($previousValue)) * 100, 1) . '%'
             : null;
         $direction = abs($delta) < 0.000001 ? 'same' : ($delta > 0 ? 'up' : 'down');
 
         $rows[] = [
-            'label' => reports_humanize_key((string)$key),
+            'key' => $key,
+            'label' => $label,
             'current' => reports_metric_display((string)$key, $currentValue),
             'previous' => reports_metric_display((string)$key, $previousValue),
-            'change' => reports_metric_delta_display((string)$key, $delta),
+            'change' => $isRate && $direction !== 'same'
+                ? ($delta > 0 ? '+' : '-') . number_format(abs($delta), 1) . ' percentage points'
+                : reports_metric_delta_display((string)$key, $delta),
+            'absolute_change' => $isRate
+                ? number_format(abs($delta), 1) . ' percentage points'
+                : reports_metric_display((string)$key, abs($delta)),
             'change_percent' => $percentChange,
             'direction' => $direction,
         ];
 
-        if (count($rows) >= 8) {
-            break;
-        }
     }
 
     if (empty($rows)) {
-        $text = "No comparable numeric prior-period figures are available for {$comparisonRange['label']}.";
+        $text = $unavailable
+            ? "A period comparison is unavailable because a required source could not be read. The previous period is {$comparisonRange['label']}."
+            : "No comparable activity figures are available for {$comparisonRange['label']}.";
     } else {
         $primary = $rows[0];
         $verb = $primary['direction'] === 'up'
@@ -3551,8 +3867,19 @@ function reports_comparison_summary(array $currentReport, array $previousReport,
             : ($primary['direction'] === 'down' ? 'decreased' : 'remained unchanged');
         $changePhrase = $primary['direction'] === 'same'
             ? ''
-            : " by {$primary['change']}" . ($primary['change_percent'] ? " ({$primary['change_percent']})" : '');
+            : " by {$primary['absolute_change']}" . ($primary['change_percent'] ? " ({$primary['change_percent']})" : '');
         $text = "{$primary['label']} {$verb}{$changePhrase} compared with {$comparisonRange['label']}. Current period: {$primary['current']}; previous period: {$primary['previous']}.";
+    }
+    $periodEnd = (string)($currentReport['date_range']['end_date'] ?? '');
+    $today = (new DateTimeImmutable('today', new DateTimeZone(REPORTS_TIMEZONE)))->format('Y-m-d');
+    if ($rows && $periodEnd >= $today) {
+        $text .= ' The current period is still open; its recorded activity so far is compared with the full previous period.';
+    }
+    if ($rows && in_array($type, ['billing', 'appointment', 'queue', 'emr_request', 'consent_form'], true)) {
+        $text .= ' Status and settlement figures reflect the records as they stand when this report is generated.';
+    }
+    if ($rows && $type === 'confinement_pet_hotel') {
+        $text .= ' A stay spanning both periods can appear in both; its full charge is not revenue earned within either period.';
     }
 
     return [
@@ -3566,44 +3893,7 @@ function reports_comparison_summary(array $currentReport, array $previousReport,
 
 function reports_enrich_report(array $report, array $range, array $filters): array
 {
-    $type = (string)($report['type'] ?? 'report');
-    $profile = reports_report_profile($type);
-    $rows = is_array($report['rows'] ?? null) ? $report['rows'] : [];
-    $totals = is_array($report['totals'] ?? null) ? $report['totals'] : [];
-    $missing = is_array($report['missing_data'] ?? null) ? $report['missing_data'] : [];
-    $recordCount = count($rows);
-    $rangeLabel = $range['label'] ?? ($range['start_date'] . ' to ' . $range['end_date']);
-    $baseSummary = trim((string)($report['summary']['text'] ?? ''));
-    $filterSummary = reports_filter_summary($filters);
-    $includesAllPaymentMethods = in_array($type, ['sales', 'billing', 'invoice_receipt'], true);
-    $filterText = empty($filterSummary)
-        ? 'No extra filters were applied.'
-        : 'Filters applied: ' . implode('; ', array_map(static fn($filter) => $filter['label'] . ' = ' . $filter['value'], $filterSummary)) . '.';
-    if ($includesAllPaymentMethods) {
-        $filterSummary[] = [
-            'label' => 'Payment Methods',
-            'value' => 'All payment methods',
-        ];
-        $filterText .= ' All payment methods are included.';
-    }
-    $existingBreakdowns = is_array($report['summary']['breakdowns'] ?? null)
-        ? $report['summary']['breakdowns']
-        : [];
-
-    $report['summary'] = array_merge($report['summary'] ?? [], [
-        'purpose' => $profile['purpose'],
-        'management_use' => $profile['use'],
-        'record_count' => $recordCount,
-        'filters' => $filterSummary,
-        'executive_text' => "This {$report['title']} covers {$recordCount} detailed " . ($recordCount === 1 ? 'record' : 'records') . " for {$rangeLabel}. {$profile['purpose']} {$filterText}",
-        'operational_context' => $baseSummary !== ''
-            ? "{$baseSummary} {$profile['use']}"
-            : $profile['use'],
-        'breakdowns' => array_merge(reports_key_breakdowns($type, $totals), $existingBreakdowns),
-        'management_actions' => reports_management_actions($type, $totals, $rows, $missing),
-    ]);
-
-    return $report;
+    return reports_present_report($report, $range, $filters);
 }
 
 function reports_build_report(PDO $pdo, string $type, array $range, array $filters = [], bool $includeComparison = false): array
@@ -3648,7 +3938,7 @@ function reports_build_report(PDO $pdo, string $type, array $range, array $filte
 
     $report = reports_enrich_report($report, $range, $reportFilters);
 
-    if ($includeComparison) {
+    if ($includeComparison && $reportType !== 'inventory_status') {
         $comparisonRange = reports_previous_comparison_range($range);
         if ($comparisonRange) {
             $previousReport = reports_build_report($pdo, $reportType, $comparisonRange, $reportFilters, false);

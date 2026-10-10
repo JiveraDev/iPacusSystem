@@ -113,7 +113,7 @@ try {
     }
 
     http_response_code(409);
-    echo json_encode(['message' => 'Visit publishing has been replaced by clinic booking preferences and weekly working hours. Manage your schedule in your veterinarian profile.']);
+    echo json_encode(['message' => 'Visit publishing has been replaced by per-clinic booking preferences. In-clinic appointments follow the clinic operating schedule.']);
     exit;
 
 } catch (Throwable $e) {

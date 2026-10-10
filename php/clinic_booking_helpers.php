@@ -132,6 +132,21 @@ function clinic_booking_interval(array $record): ?array
     return $start === false ? null : [$start, $start + booking_slot_duration_minutes($key) * 60];
 }
 
+/** Check the remaining booked time when admin hands over an active patient. */
+function clinic_booking_handover_conflict(array $booking, array $reservations, int $vetId, int $nowTimestamp): ?array
+{
+    $interval = clinic_booking_interval($booking);
+    if ($vetId <= 0 || !$interval || $interval[1] <= $nowTimestamp) return null;
+    $start = max($interval[0], $nowTimestamp);
+    foreach ($reservations as $record) {
+        if ((int)$record['booking_id'] === (int)$booking['booking_id']
+            || (int)($record['veterinarian_id'] ?? 0) !== $vetId) continue;
+        $reserved = clinic_booking_interval($record);
+        if ($reserved && $start < $reserved[1] && $reserved[0] < $interval[1]) return $record;
+    }
+    return null;
+}
+
 /** Pure calculation, also used by regression tests and schedule validation. */
 function clinic_booking_capacity_from_rows(
     array $roster, array $reservations, array $onlineSchedules,

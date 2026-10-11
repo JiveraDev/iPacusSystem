@@ -627,7 +627,7 @@ try {
         ]);
         $onlineDiagnosisId = (int)$pdo->lastInsertId();
         $prescriptionPlan = ['planId' => null, 'changed' => false];
-        if ($prescriptionItems) {
+        if ((int)$consultation['pet_id'] > 0) {
             $prescriptionPlan = prescription_sync_plan(
                 $pdo,
                 (int)$consultation['pet_id'],
@@ -668,7 +668,7 @@ try {
         }
         if (!empty($prescriptionPlan['changed']) && !empty($prescriptionPlan['planId'])) {
             try {
-                prescription_notify_plan($pdo, (int)$prescriptionPlan['planId'], !empty($prescriptionPlan['version']) && (int)$prescriptionPlan['version'] > 1);
+                prescription_notify_plan($pdo, (int)$prescriptionPlan['planId']);
             } catch (Throwable $notificationError) {
                 error_log('Online prescription notification failed: ' . $notificationError->getMessage());
             }
@@ -693,6 +693,6 @@ try {
     }
 
     $statusCode = http_response_code();
-    http_response_code($statusCode >= 400 ? $statusCode : 500);
+    http_response_code($statusCode >= 400 ? $statusCode : ($e instanceof DomainException ? 409 : 500));
     echo json_encode(['message' => 'Online consultation error: ' . $e->getMessage()]);
 }

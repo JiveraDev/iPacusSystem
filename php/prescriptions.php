@@ -5,6 +5,7 @@ require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/prescription_helpers.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 function prescriptions_input(): array
 {
@@ -48,7 +49,7 @@ function prescriptions_assert_access(PDO $pdo, array $actor, array $plan, bool $
 {
     if ($vetOnly) {
         if (!ipawcus_guard_is_vet_role($actor['role'])) {
-            prescriptions_error(403, 'Only a veterinarian can update or replace clinical prescription directions.');
+            prescriptions_error(403, 'Only a veterinarian can add a prescription.');
         }
         return;
     }
@@ -156,6 +157,21 @@ function prescriptions_update_occurrence(PDO $pdo, array $actor, int $occurrence
     if (!in_array($status, ['pending', 'taken', 'skipped'], true)) {
         prescriptions_error(400, 'Occurrence status must be pending, taken, or skipped.');
     }
+    // All checklist and start actions lock the plan first, then its items/doses.
+    $scope = $pdo->prepare('SELECT item_rows.plan_id FROM prescription_occurrences occurrence_rows JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id WHERE occurrence_rows.occurrence_id = ?');
+    $scope->execute([$occurrenceId]);
+    $planId = (int)$scope->fetchColumn();
+    // Resolve the ID before the transaction so a waiting request does not keep
+    // a repeatable-read snapshot from before the preceding dose action committed.
+    $pdo->beginTransaction();
+    $plan = prescriptions_plan_row($pdo, $planId, true);
+    if (!$plan) {
+        prescriptions_error(404, 'Medication occurrence was not found.');
+    }
+    prescriptions_assert_access($pdo, $actor, $plan);
+    if (in_array($plan['status'], ['superseded', 'stopped'], true)) {
+        prescriptions_error(409, 'This prescription is archived and its checklist cannot be changed.');
+    }
     $stmt = $pdo->prepare("
         SELECT occurrence_rows.*, item_rows.plan_id, plan.pet_id
         FROM prescription_occurrences occurrence_rows
@@ -163,6 +179,7 @@ function prescriptions_update_occurrence(PDO $pdo, array $actor, int $occurrence
         JOIN prescription_plans plan ON plan.plan_id = item_rows.plan_id
         WHERE occurrence_rows.occurrence_id = ?
         LIMIT 1
+        FOR UPDATE
     ");
     $stmt->execute([$occurrenceId]);
     $occurrence = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -188,45 +205,68 @@ function prescriptions_update_occurrence(PDO $pdo, array $actor, int $occurrence
         'dueAt' => $occurrence['due_at'],
         'notes' => $notes,
     ]);
+    prescription_refresh_plan_status($pdo, (int)$occurrence['plan_id']);
+    $pdo->commit();
 
     echo json_encode(['success' => true, 'message' => $status === 'pending' ? 'Dose reopened.' : 'Dose marked ' . $status . '.']);
 }
 
-function prescriptions_amend(PDO $pdo, array $actor, int $planId): void
+function prescriptions_create(PDO $pdo, array $actor, int $petId): void
 {
     $input = prescriptions_input();
-    $items = prescription_normalize_items(is_array($input['items'] ?? null) ? $input['items'] : []);
-    if (!$items) {
-        prescriptions_error(400, 'Add at least one medication to the replacement prescription.');
+    prescriptions_assert_access($pdo, $actor, ['pet_id' => $petId], true);
+    $items = is_array($input['items'] ?? null) ? $input['items'] : [];
+    if (!prescription_normalize_items($items)) {
+        prescriptions_error(400, 'Add at least one medication to the new prescription.');
     }
+    $pdo->beginTransaction();
+    $result = prescription_add_plan($pdo, $petId, (int)$actor['userId'], $items);
+    $pdo->commit();
+    if (!empty($result['changed'])) {
+        try {
+            prescription_notify_plan($pdo, (int)$result['planId']);
+        } catch (Throwable $notificationError) {
+            error_log('New prescription notification failed: ' . $notificationError->getMessage());
+        }
+    }
+    echo json_encode([
+        'success' => true,
+        'message' => !empty($result['changed']) ? 'New prescription issued.' : 'This prescription was already issued.',
+        'planId' => (int)$result['planId'],
+        'plans' => prescription_fetch_plans($pdo, $petId, null, true),
+    ]);
+}
+
+function prescriptions_complete_item(PDO $pdo, array $actor, int $itemId): void
+{
+    $scope = $pdo->prepare('SELECT plan_id FROM prescription_items WHERE item_id = ?');
+    $scope->execute([$itemId]);
+    $planId = (int)$scope->fetchColumn();
     $pdo->beginTransaction();
     $plan = prescriptions_plan_row($pdo, $planId, true);
     if (!$plan) {
-        prescriptions_error(404, 'Prescription plan was not found.');
+        prescriptions_error(404, 'Medication was not found.');
     }
-    prescriptions_assert_access($pdo, $actor, $plan, true);
-    $result = prescription_sync_plan(
-        $pdo,
-        (int)$plan['pet_id'],
-        $plan['owner_user_id'] !== null ? (int)$plan['owner_user_id'] : null,
-        (int)$actor['userId'],
-        (string)$plan['source_type'],
-        (int)$plan['source_record_id'],
-        $items,
-        trim((string)($input['sourceLabel'] ?? $plan['source_label'] ?? 'Prescription update'))
-    );
+    prescriptions_assert_access($pdo, $actor, $plan);
+    if (in_array($plan['status'], ['superseded', 'stopped'], true)) {
+        prescriptions_error(409, 'This prescription is archived.');
+    }
+    $stmt = $pdo->prepare('SELECT * FROM prescription_items WHERE item_id = ? FOR UPDATE');
+    $stmt->execute([$itemId]);
+    $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($item['schedule_type'] !== 'as_needed') {
+        prescriptions_error(409, 'Scheduled medicines finish when their dose checklist is complete.');
+    }
+    if (!in_array($item['status'], ['active', 'completed'], true)) {
+        prescriptions_error(409, 'Start this medication before marking it finished.');
+    }
+    if ($item['status'] !== 'completed') {
+        $pdo->prepare("UPDATE prescription_items SET status = 'completed', end_at = NOW() WHERE item_id = ?")->execute([$itemId]);
+        prescription_event($pdo, (int)$plan['plan_id'], $itemId, (int)$actor['userId'], 'item_completed');
+    }
+    prescription_refresh_plan_status($pdo, (int)$plan['plan_id']);
     $pdo->commit();
-    if (empty($result['changed'])) {
-        echo json_encode(['success' => true, 'message' => 'No prescription changes were detected.', 'planId' => $result['planId']]);
-        return;
-    }
-    prescription_notify_plan($pdo, (int)$result['planId'], true);
-    echo json_encode([
-        'success' => true,
-        'message' => 'Replacement prescription issued. Previous completed doses were preserved.',
-        'planId' => (int)$result['planId'],
-        'plans' => prescription_fetch_plans($pdo, (int)$plan['pet_id'], null, true),
-    ]);
+    echo json_encode(['success' => true, 'message' => 'Medication finished and moved to History.']);
 }
 
 try {
@@ -238,13 +278,19 @@ try {
     $action = strtolower(trim((string)($_GET['action'] ?? 'list')));
     $planId = (int)($_GET['planId'] ?? $_GET['plan_id'] ?? 0);
     $occurrenceId = (int)($_GET['occurrenceId'] ?? $_GET['occurrence_id'] ?? 0);
+    $petId = (int)($_GET['petId'] ?? $_GET['pet_id'] ?? 0);
+    $itemId = (int)($_GET['itemId'] ?? 0);
 
     if ($method === 'GET') {
         prescriptions_list($pdo, $actor);
     } elseif ($method === 'POST' && $action === 'start' && $planId > 0) {
         prescriptions_start($pdo, $actor, $planId);
     } elseif ($method === 'POST' && $action === 'amend' && $planId > 0) {
-        prescriptions_amend($pdo, $actor, $planId);
+        prescriptions_error(405, 'Prescription editing and replacement are disabled. Use Add prescription to issue a new prescription.');
+    } elseif ($method === 'POST' && $action === 'create' && $petId > 0) {
+        prescriptions_create($pdo, $actor, $petId);
+    } elseif ($method === 'POST' && $action === 'complete' && $itemId > 0) {
+        prescriptions_complete_item($pdo, $actor, $itemId);
     } elseif ($method === 'PATCH' && $action === 'occurrence' && $occurrenceId > 0) {
         prescriptions_update_occurrence($pdo, $actor, $occurrenceId);
     } else {
@@ -255,6 +301,7 @@ try {
         $pdo->rollBack();
     }
     $status = http_response_code();
-    http_response_code($status >= 400 ? $status : 500);
+    $errorStatus = $error instanceof DomainException ? 409 : ($error instanceof InvalidArgumentException ? 400 : ($error instanceof OutOfBoundsException ? 404 : 500));
+    http_response_code($status >= 400 ? $status : $errorStatus);
     echo json_encode(['success' => false, 'message' => 'Prescription request failed: ' . $error->getMessage()]);
 }

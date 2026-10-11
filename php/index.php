@@ -390,6 +390,14 @@ switch ($path) {
         } elseif (preg_match('/^\/todos\/(\d+)$/', $path, $matches)) {
             $_GET['todoId'] = $matches[1];
             require_once __DIR__ . '/pet_owner_todos.php';
+        } elseif (preg_match('/^\/pets\/(\d+)\/prescriptions$/', $path, $matches)) {
+            $_GET['petId'] = $matches[1];
+            $_GET['action'] = 'create';
+            require_once __DIR__ . '/prescriptions.php';
+        } elseif (preg_match('/^\/prescription-items\/(\d+)\/complete$/', $path, $matches)) {
+            $_GET['itemId'] = $matches[1];
+            $_GET['action'] = 'complete';
+            require_once __DIR__ . '/prescriptions.php';
         } elseif (preg_match('/^\/prescriptions\/(\d+)\/(start|amend)$/', $path, $matches)) {
             $_GET['planId'] = $matches[1];
             $_GET['action'] = $matches[2];

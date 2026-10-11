@@ -140,8 +140,8 @@ function prescription_normalize_item(array $item): ?array
         'duration_number' => $durationNumber,
         'duration_unit' => $durationUnit,
         'instructions' => prescription_nullable_text($item['instructions'] ?? null),
-        'recommended_start_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['startDate'] ?? $item['recommendedStartDate'] ?? ''))
-            ? (string)($item['startDate'] ?? $item['recommendedStartDate'])
+        'recommended_start_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($item['startDate'] ?? $item['recommendedStartDate'] ?? $item['recommended_start_date'] ?? ''))
+            ? (string)($item['startDate'] ?? $item['recommendedStartDate'] ?? $item['recommended_start_date'])
             : null,
         'replaces_item_id' => (int)($item['replacesItemId'] ?? $item['replaces_item_id'] ?? 0) ?: null,
     ];
@@ -242,15 +242,11 @@ function prescription_sync_plan(
     array $items,
     string $sourceLabel = ''
 ): array {
-    if (!prescription_schema_ready($pdo) || !$items) {
+    if (!prescription_schema_ready($pdo)) {
         return ['planId' => null, 'changed' => false];
     }
 
     $items = prescription_normalize_items($items);
-    if (!$items) {
-        return ['planId' => null, 'changed' => false];
-    }
-
     $contentHash = hash('sha256', json_encode($items, JSON_UNESCAPED_SLASHES));
     $stmt = $pdo->prepare("
         SELECT plan_id, version_number, content_hash
@@ -265,19 +261,29 @@ function prescription_sync_plan(
     if ($previous && hash_equals((string)$previous['content_hash'], $contentHash)) {
         return ['planId' => (int)$previous['plan_id'], 'changed' => false];
     }
-
-    $previousPlanId = $previous ? (int)$previous['plan_id'] : null;
-    $version = $previous ? (int)$previous['version_number'] + 1 : 1;
-    if ($previousPlanId) {
-        $pdo->prepare("UPDATE prescription_plans SET status = 'superseded' WHERE plan_id = ?")->execute([$previousPlanId]);
-        $pdo->prepare("UPDATE prescription_items SET status = CASE WHEN status = 'completed' THEN status ELSE 'replaced' END WHERE plan_id = ?")->execute([$previousPlanId]);
-        $pdo->prepare("
-            UPDATE prescription_occurrences occurrence_rows
-            JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id
-            SET occurrence_rows.status = 'cancelled'
-            WHERE item_rows.plan_id = ? AND occurrence_rows.status = 'pending'
-        ")->execute([$previousPlanId]);
+    // Older diagnosis saves normalized twice and dropped the recommended start date.
+    // The diagnosis endpoint separately checks the original clinical directions.
+    $legacyItems = array_map(static function (array $item): array {
+        $item['recommended_start_date'] = null;
+        return $item;
+    }, $items);
+    if ($previous && hash_equals((string)$previous['content_hash'], hash('sha256', json_encode($legacyItems, JSON_UNESCAPED_SLASHES)))) {
+        return ['planId' => (int)$previous['plan_id'], 'changed' => false];
     }
+
+    if ($previous) {
+        throw new DomainException('Issued prescriptions cannot be changed or removed. Use Add prescription to issue a new prescription.');
+    }
+    if (!$items) {
+        return ['planId' => null, 'changed' => false];
+    }
+
+    return prescription_insert_plan($pdo, $petId, $ownerUserId, $veterinarianUserId, $sourceType, $sourceRecordId, $items, $sourceLabel, 1);
+}
+
+function prescription_insert_plan(PDO $pdo, int $petId, ?int $ownerUserId, int $veterinarianUserId, string $sourceType, int $sourceRecordId, array $items, string $sourceLabel, int $sequence): array
+{
+    $contentHash = hash('sha256', json_encode($items, JSON_UNESCAPED_SLASHES));
 
     $ownerUserId = prescription_owner_id($pdo, $petId, $ownerUserId);
     $insert = $pdo->prepare("
@@ -293,22 +299,65 @@ function prescription_sync_plan(
         $sourceType,
         $sourceRecordId,
         prescription_nullable_text($sourceLabel),
-        $version,
+        $sequence,
         $contentHash,
-        $previousPlanId,
+        null,
     ]);
     $planId = (int)$pdo->lastInsertId();
     prescription_insert_plan_items($pdo, $planId, $items);
-    prescription_event($pdo, $planId, null, $veterinarianUserId, $previousPlanId ? 'plan_replaced' : 'plan_issued', [
-        'version' => $version,
+    prescription_event($pdo, $planId, null, $veterinarianUserId, 'plan_issued', [
+        'version' => $sequence,
         'itemCount' => count($items),
-        'supersedesPlanId' => $previousPlanId,
     ]);
 
-    return ['planId' => $planId, 'changed' => true, 'ownerUserId' => $ownerUserId, 'version' => $version];
+    return ['planId' => $planId, 'changed' => true, 'ownerUserId' => $ownerUserId, 'version' => $sequence];
 }
 
-function prescription_notify_plan(PDO $pdo, int $planId, bool $replacement = false): void
+function prescription_add_plan(PDO $pdo, int $petId, int $veterinarianUserId, array $items): array
+{
+    if (!$pdo->inTransaction()) {
+        throw new LogicException('Issuing a prescription requires a transaction.');
+    }
+    // Serialize additions for this pet without locking or changing older prescriptions.
+    $pet = $pdo->prepare('SELECT pet_id FROM pets_information WHERE pet_id = ? FOR UPDATE');
+    $pet->execute([$petId]);
+    if (!$pet->fetchColumn()) {
+        throw new OutOfBoundsException('Pet was not found.');
+    }
+    $items = prescription_normalize_items($items);
+    if (!$items) {
+        throw new InvalidArgumentException('Add at least one medication.');
+    }
+    foreach ($items as &$item) {
+        $item['replaces_item_id'] = null;
+    }
+    unset($item);
+    $contentHash = hash('sha256', json_encode($items, JSON_UNESCAPED_SLASHES));
+    // Draft item IDs remain stable on retries, so a repeated submission is not issued twice.
+    $existing = $pdo->prepare("SELECT plan_id FROM prescription_plans WHERE source_type = 'pet_prescription' AND source_record_id = ? AND veterinarian_user_id = ? AND content_hash = ? LIMIT 1");
+    $existing->execute([$petId, $veterinarianUserId, $contentHash]);
+    if ($planId = $existing->fetchColumn()) {
+        return ['planId' => (int)$planId, 'changed' => false];
+    }
+    $sequence = $pdo->prepare("SELECT COALESCE(MAX(version_number), 0) + 1 FROM prescription_plans WHERE source_type = 'pet_prescription' AND source_record_id = ?");
+    $sequence->execute([$petId]);
+    return prescription_insert_plan($pdo, $petId, null, $veterinarianUserId, 'pet_prescription', $petId, $items, 'Prescription', (int)$sequence->fetchColumn());
+}
+
+function prescription_assert_unchanged_items(array $previousItems, array $newItems): void
+{
+    $clinicalContent = static function (array $items): array {
+        return array_map(static function (array $item): array {
+            unset($item['client_item_key'], $item['replaces_item_id']);
+            return $item;
+        }, prescription_normalize_items($items));
+    };
+    if ($previousItems && $clinicalContent($previousItems) !== $clinicalContent($newItems)) {
+        throw new DomainException('Issued prescriptions cannot be changed or removed. Use Add prescription to issue a new prescription.');
+    }
+}
+
+function prescription_notify_plan(PDO $pdo, int $planId): void
 {
     if (!function_exists('notification_create_event')) {
         return;
@@ -327,13 +376,11 @@ function prescription_notify_plan(PDO $pdo, int $planId, bool $replacement = fal
         return;
     }
     $petName = trim((string)$plan['pet_name']) ?: 'your pet';
-    $title = $replacement ? 'Prescription updated' : 'New prescription';
-    $message = $replacement
-        ? "The veterinarian updated {$petName}'s prescription. Review the new medication plan."
-        : "{$petName} has a new prescription with " . (int)$plan['item_count'] . ' medication item(s). Review and start each schedule.';
+    $title = 'New prescription';
+    $message = "{$petName} has a new prescription with " . (int)$plan['item_count'] . ' medication item(s). Review and start each schedule.';
     notification_create_event($pdo, [
         'user_id' => (int)$plan['owner_user_id'],
-        'type' => $replacement ? 'prescription_updated' : 'prescription_issued',
+        'type' => 'prescription_issued',
         'category' => 'schedule_reminders',
         'title' => $title,
         'message' => $message,
@@ -385,9 +432,6 @@ function prescription_fetch_plans(PDO $pdo, ?int $petId = null, ?int $ownerUserI
         $conditions[] = 'EXISTS (SELECT 1 FROM pet_ownership scope WHERE scope.pet_id = plan.pet_id AND scope.user_id = ?)';
         $params[] = $ownerUserId;
     }
-    if (!$includeHistory) {
-        $conditions[] = "plan.status <> 'superseded'";
-    }
     $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
     $stmt = $pdo->prepare("
         SELECT plan.*, pet.pet_name,
@@ -411,21 +455,59 @@ function prescription_fetch_plans(PDO $pdo, ?int $petId = null, ?int $ownerUserI
 
     $ids = array_keys($plans);
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $itemsStmt = $pdo->prepare("SELECT * FROM prescription_items WHERE plan_id IN ({$placeholders}) ORDER BY item_id ASC");
-    $itemsStmt->execute($ids);
+    $itemsStmt = $pdo->prepare("
+        SELECT item_rows.*, COALESCE(doses.total, 0) AS dose_total, COALESCE(doses.unresolved, 0) AS dose_unresolved
+        FROM prescription_items item_rows
+        LEFT JOIN (
+            SELECT occurrence_rows.item_id, COUNT(*) AS total,
+                   SUM(occurrence_rows.status NOT IN ('taken', 'skipped')) AS unresolved
+            FROM prescription_occurrences occurrence_rows
+            JOIN prescription_items scoped_item ON scoped_item.item_id = occurrence_rows.item_id
+            WHERE scoped_item.plan_id IN ({$placeholders}) AND occurrence_rows.status <> 'cancelled'
+            GROUP BY occurrence_rows.item_id
+        ) doses ON doses.item_id = item_rows.item_id
+        WHERE item_rows.plan_id IN ({$placeholders}) ORDER BY item_rows.item_id ASC
+    ");
+    $itemsStmt->execute(array_merge($ids, $ids));
     foreach ($itemsStmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $item['status'] = prescription_item_status($item, (int)$item['dose_total'], (int)$item['dose_unresolved']);
         $plans[(int)$item['plan_id']]['items'][] = prescription_format_item($item);
+    }
+    foreach ($plans as $id => &$plan) {
+        if (!in_array($plan['status'], ['superseded', 'stopped'], true)) {
+            $plan['status'] = prescription_plan_status(array_column($plan['items'], 'status'));
+        }
+        if (!$includeHistory) {
+            $plan['items'] = in_array($plan['status'], ['superseded', 'stopped'], true) ? [] : array_values(array_filter($plan['items'], static fn(array $item): bool => in_array($item['status'], ['pending_start', 'active'], true)));
+            if (!$plan['items']) {
+                unset($plans[$id]);
+            }
+        }
+    }
+    unset($plan);
+    if (!$plans) {
+        return [];
+    }
+    $ids = array_keys($plans);
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $visibleItemIds = [];
+    foreach ($plans as $plan) {
+        foreach ($plan['items'] as $item) {
+            $visibleItemIds[$item['itemId']] = true;
+        }
     }
     $occurrenceStmt = $pdo->prepare("
         SELECT occurrence_rows.*, item_rows.plan_id
         FROM prescription_occurrences occurrence_rows
         JOIN prescription_items item_rows ON item_rows.item_id = occurrence_rows.item_id
         WHERE item_rows.plan_id IN ({$placeholders})
-          AND occurrence_rows.due_at BETWEEN DATE_SUB(NOW(), INTERVAL 14 DAY) AND DATE_ADD(NOW(), INTERVAL 90 DAY)
         ORDER BY occurrence_rows.due_at ASC
     ");
     $occurrenceStmt->execute($ids);
     foreach ($occurrenceStmt->fetchAll(PDO::FETCH_ASSOC) as $occurrence) {
+        if (!isset($visibleItemIds[(int)$occurrence['item_id']])) {
+            continue;
+        }
         $plans[(int)$occurrence['plan_id']]['occurrences'][] = [
             'occurrenceId' => (int)$occurrence['occurrence_id'],
             'itemId' => (int)$occurrence['item_id'],
@@ -473,6 +555,8 @@ function prescription_generate_occurrences(PDO $pdo, array $item, string $startD
     $timezone = new DateTimeZone('Asia/Manila');
     $scheduleType = (string)$item['schedule_type'];
     if ($scheduleType === 'as_needed') {
+        $pdo->prepare("UPDATE prescription_items SET start_at = ?, end_at = NULL, status = 'active' WHERE item_id = ?")
+            ->execute([$startDate . ' 00:00:00', (int)$item['item_id']]);
         return 0;
     }
     $times = max(1, (int)$item['times_count']);
@@ -484,13 +568,16 @@ function prescription_generate_occurrences(PDO $pdo, array $item, string $startD
 
     if ($scheduleType === 'interval_hours') {
         $interval = max(1, (int)($item['interval_hours'] ?? 8));
-        for ($cursor = $start; $cursor <= $end && count($dueValues) < 1000; $cursor = $cursor->modify("+{$interval} hours")) {
+        for ($cursor = $start; $cursor <= $end && count($dueValues) <= 1000; $cursor = $cursor->modify("+{$interval} hours")) {
             $dueValues[] = $cursor->format('Y-m-d H:i:s');
         }
     } elseif ($scheduleType === 'monthly') {
-        for ($cursor = $start; $cursor <= $end && count($dueValues) < 1000; $cursor = $cursor->modify('+1 month')) {
+        for ($cursor = $start; $cursor <= $end && count($dueValues) <= 1000; $cursor = $cursor->modify('+1 month')) {
             foreach ($slots as $slot) {
-                $dueValues[] = $cursor->format('Y-m-d') . ' ' . $slot . ':00';
+                $dueAt = new DateTimeImmutable($cursor->format('Y-m-d') . ' ' . $slot . ':00', $timezone);
+                if ($dueAt >= $start && $dueAt <= $end) {
+                    $dueValues[] = $dueAt->format('Y-m-d H:i:s');
+                }
             }
         }
     } else {
@@ -498,7 +585,7 @@ function prescription_generate_occurrences(PDO $pdo, array $item, string $startD
         if ($scheduleType === 'weekly' && !$wantedDays) {
             $wantedDays = [(int)$start->format('w')];
         }
-        for ($day = $start->setTime(0, 0); $day <= $end && count($dueValues) < 1000; $day = $day->modify('+1 day')) {
+        for ($day = $start->setTime(0, 0); $day <= $end && count($dueValues) <= 1000; $day = $day->modify('+1 day')) {
             if ($scheduleType === 'weekly' && !in_array((int)$day->format('w'), $wantedDays, true)) {
                 continue;
             }
@@ -511,6 +598,12 @@ function prescription_generate_occurrences(PDO $pdo, array $item, string $startD
         }
     }
 
+    if (count($dueValues) > 1000) {
+        throw new DomainException('This medication course exceeds 1,000 scheduled doses. Ask the veterinarian to issue a shorter course.');
+    }
+    if (!$dueValues) {
+        throw new DomainException('No doses fall within this course. Choose a start date that includes the prescribed weekly day.');
+    }
     $insert = $pdo->prepare("INSERT IGNORE INTO prescription_occurrences (item_id, due_at) VALUES (?, ?)");
     $created = 0;
     foreach (array_values(array_unique($dueValues)) as $dueAt) {
@@ -528,25 +621,44 @@ function prescription_generate_occurrences(PDO $pdo, array $item, string $startD
     return $created;
 }
 
+function prescription_item_status(array $item, int $totalDoses, int $unresolvedDoses): string
+{
+    $status = (string)$item['status'];
+    if ($item['schedule_type'] === 'as_needed' || !in_array($status, ['active', 'completed'], true) || $totalDoses === 0) {
+        return $status;
+    }
+    return $unresolvedDoses === 0 ? 'completed' : 'active';
+}
+
+function prescription_plan_status(array $statuses): string
+{
+    if (in_array('active', $statuses, true) && in_array('pending_start', $statuses, true)) return 'partially_started';
+    if (in_array('active', $statuses, true)) return 'active';
+    if (in_array('pending_start', $statuses, true)) return 'issued';
+    if (in_array('completed', $statuses, true)) return 'completed';
+    return 'stopped';
+}
+
 function prescription_refresh_plan_status(PDO $pdo, int $planId): void
 {
-    $stmt = $pdo->prepare("SELECT status, COUNT(*) AS total FROM prescription_items WHERE plan_id = ? GROUP BY status");
+    $stmt = $pdo->prepare("
+        SELECT item_rows.item_id, item_rows.status, item_rows.schedule_type,
+               COUNT(occurrence_rows.occurrence_id) AS total,
+               COALESCE(SUM(occurrence_rows.status NOT IN ('taken', 'skipped')), 0) AS unresolved
+        FROM prescription_items item_rows
+        LEFT JOIN prescription_occurrences occurrence_rows ON occurrence_rows.item_id = item_rows.item_id AND occurrence_rows.status <> 'cancelled'
+        WHERE item_rows.plan_id = ?
+        GROUP BY item_rows.item_id, item_rows.status, item_rows.schedule_type
+    ");
     $stmt->execute([$planId]);
-    $counts = [];
+    $statuses = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $counts[$row['status']] = (int)$row['total'];
+        $status = prescription_item_status($row, (int)$row['total'], (int)$row['unresolved']);
+        if ($status !== $row['status']) {
+            $pdo->prepare('UPDATE prescription_items SET status = ? WHERE item_id = ?')->execute([$status, (int)$row['item_id']]);
+        }
+        $statuses[] = $status;
     }
-    if (($counts['active'] ?? 0) > 0 && ($counts['pending_start'] ?? 0) > 0) {
-        $status = 'partially_started';
-    } elseif (($counts['active'] ?? 0) > 0) {
-        $status = 'active';
-    } elseif (($counts['pending_start'] ?? 0) > 0) {
-        $status = 'issued';
-    } elseif (($counts['completed'] ?? 0) > 0) {
-        $status = 'completed';
-    } else {
-        $status = 'stopped';
-    }
-    $pdo->prepare("UPDATE prescription_plans SET status = ? WHERE plan_id = ? AND status <> 'superseded'")->execute([$status, $planId]);
+    $pdo->prepare("UPDATE prescription_plans SET status = ? WHERE plan_id = ? AND status NOT IN ('superseded', 'stopped')")->execute([prescription_plan_status($statuses), $planId]);
 }
 

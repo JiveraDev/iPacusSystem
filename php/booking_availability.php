@@ -282,6 +282,9 @@ try {
     $branchCatalogKey = booking_availability_branch_service_key($service);
     $isOnline = $service['key'] === 'online-consultation';
     $branches = branch_fetch_catalog($pdo, $isOnline ? null : $branchCatalogKey, null);
+    $roster = $isOnline ? clinic_booking_online_veterinarians($pdo)
+        : (clinic_booking_is_medical($service['key']) ? clinic_booking_roster($pdo) : []);
+    $branches = clinic_booking_filter_branches($branches, $service['key'], $roster);
     $mainBranchId = branch_main_id($pdo);
     $requestedBranchId = isset($_GET['branchId']) && is_numeric($_GET['branchId']) ? (int)$_GET['branchId'] : 0;
     $selectedBranch = null;
@@ -296,12 +299,28 @@ try {
             ?: ($branches[0] ?? null);
     }
     if ($selectedBranch === null) {
-        throw new RuntimeException('No active clinic location offers the selected service.');
+        // No accepting clinic is a normal empty state, not a failed request.
+        $days = [];
+        for ($day = $monthStartObject; $day <= new DateTimeImmutable($monthEnd, $timezone); $day = $day->modify('+1 day')) {
+            $days[] = ['date' => $day->format('Y-m-d'), 'isOpen' => false, 'status' => 'unavailable', 'availableCount' => 0];
+        }
+        echo json_encode([
+            'success' => true,
+            'schedulingMode' => $isOnline ? 'online_consultation' : (clinic_booking_is_medical($service['key']) ? 'shared_veterinarian' : ($service['key'] === 'boarding' ? 'rooms' : 'grooming')),
+            'scheduleConfigured' => $isOnline ? booking_slot_table_exists($pdo, 'vet_schedules') : (!clinic_booking_is_medical($service['key']) || clinic_booking_schema_ready($pdo)),
+            'generatedAt' => $now->format(DATE_ATOM),
+            'month' => $month,
+            'selectedDate' => $selectedDate,
+            'selected' => ['service' => $service['key'], 'branchId' => null, 'veterinarianId' => null, 'veterinarianName' => null],
+            'filters' => ['services' => $services, 'branches' => [], 'veterinarians' => []],
+            'days' => $days,
+            'details' => ['date' => $selectedDate, 'slots' => [], 'rooms' => []],
+            'message' => 'No clinics are accepting bookings for this service. Choose another service or check again later.',
+        ]);
+        exit;
     }
     $branchId = (int)$selectedBranch['id'];
 
-    $roster = $isOnline ? clinic_booking_online_veterinarians($pdo)
-        : (clinic_booking_is_medical($service['key']) ? clinic_booking_roster($pdo) : []);
     $onlineSchedules = $isOnline ? clinic_booking_online_schedules($pdo) : [];
     if ($isOnline) {
         $activeVetIds = array_fill_keys(array_column($roster, 'veterinarian_user_id'), true);
@@ -325,6 +344,9 @@ try {
         }
     }
     $veterinarians = array_values($clinicVets);
+    if ($selectedVeterinarianId && !isset($clinicVets[$selectedVeterinarianId])) {
+        $selectedVeterinarianId = null;
+    }
     $excludeBookingId = 0;
     // Only staff or the booking owner may exclude an appointment when moving it.
     if ((int)($_GET['excludeBookingId'] ?? 0) > 0) {

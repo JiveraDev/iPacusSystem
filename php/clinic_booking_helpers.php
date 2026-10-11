@@ -51,6 +51,15 @@ function clinic_booking_roster(PDO $pdo): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/** Booking clinic choices must use the same accepting roster as appointment capacity. */
+function clinic_booking_filter_branches(array $branches, string $serviceKey, array $roster): array
+{
+    if (!clinic_booking_is_medical($serviceKey) || $serviceKey === 'online-consultation') return $branches;
+    $acceptingBranchIds = array_fill_keys(array_column($roster, 'branch_id'), true);
+    return array_values(array_filter($branches,
+        static fn(array $branch): bool => isset($acceptingBranchIds[(int)$branch['id']])));
+}
+
 /** Existing online-consultation selections; no extra working-hours tables. */
 function clinic_booking_online_schedules(PDO $pdo): array
 {

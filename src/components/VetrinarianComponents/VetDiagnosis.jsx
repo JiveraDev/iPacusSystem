@@ -54,6 +54,7 @@ import { uploadDocumentFile, uploadFormData } from '../../services/uploadService
 import { createVetDiagnosis, fetchVetDiagnoses } from '../../services/vetDiagnosisService';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
 import StructuredPrescriptionEditor from '../shared/PrescriptionEditor.jsx';
+import PrescriptionPlanPanel from '../shared/PrescriptionPlanPanel.jsx';
 import { createPrescriptionDraft as createPrescriptionDraftModel, prescriptionLine } from '../../lib/prescriptions';
 
 const DIAGNOSIS_CONTEXT_KEY = 'ipawcus-vet-diagnosis-context';
@@ -1933,6 +1934,7 @@ export default function VetDiagnosis() {
                         title="General diagnosis"
                         description="Use standard exam fields, vital signs, diagnosis, treatment, and prescription."
                         onClick={() => setDiagnosisType('general')}
+                        disabled={Boolean(loadedDiagnosisId) && customFields.some((field) => field.prescription.length > 0)}
                     />
                     <DiagnosisTypeButton
                         active={diagnosisType === 'custom'}
@@ -1961,6 +1963,7 @@ export default function VetDiagnosis() {
                         updateForm={updateForm}
                         addPrescription={addPrescription}
                         removePrescription={removePrescription}
+                        prescriptionsReadOnly={Boolean(loadedDiagnosisId)}
                     />
                 </>
             ) : (
@@ -1979,8 +1982,11 @@ export default function VetDiagnosis() {
                     handleCustomUpload={handleCustomUpload}
                     removeCustomAttachment={removeCustomAttachment}
                     onPreview={setPreviewImage}
+                    prescriptionsReadOnly={Boolean(loadedDiagnosisId)}
                 />
             )}
+
+            {loadedDiagnosisId && context.petId && <PrescriptionPlanPanel petId={context.petId} canManage allowStart={false} />}
 
             <ConfinementDispositionSection
                 plan={confinementPlan}
@@ -2860,10 +2866,11 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                             <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">Pet Details</h3>
                             {context.petProfileImage && (
                                 <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                    <img
-                                        src={resolveFileUrl(context.petProfileImage)}
+                                    <ProtectedImage
+                                        src={context.petProfileImage}
                                         alt={context.petName}
                                         className="h-44 w-full object-cover"
+                                        fallbackClassName="h-44 w-full"
                                     />
                                 </div>
                             )}
@@ -3006,7 +3013,7 @@ function SheetDetail({ label, value, className = '' }) {
     );
 }
 
-function DiagnosisTypeButton({ active, icon, title, description, onClick }) {
+function DiagnosisTypeButton({ active, icon, title, description, onClick, disabled = false }) {
     const Icon = icon;
 
     return (
@@ -3014,8 +3021,9 @@ function DiagnosisTypeButton({ active, icon, title, description, onClick }) {
             type="button"
             onClick={onClick}
             aria-pressed={active}
+            disabled={disabled}
             title={description}
-            className={`flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            className={`flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
                 active
                     ? 'border-[#155dfc] bg-blue-50 text-[#155dfc] dark:bg-blue-950/50 dark:text-blue-300'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-800 dark:hover:text-slate-100'
@@ -3301,7 +3309,8 @@ function GeneralDiagnosisForm({
     setCurrentPrescription,
     updateForm,
     addPrescription,
-    removePrescription
+    removePrescription,
+    prescriptionsReadOnly = false
 }) {
     return (
         <div className="space-y-4">
@@ -3365,6 +3374,7 @@ function GeneralDiagnosisForm({
                     prescriptions={formData.prescription}
                     addPrescription={addPrescription}
                     removePrescription={removePrescription}
+                    readOnly={prescriptionsReadOnly}
                     embedded
                 />
             </DiagnosisSection>
@@ -3606,7 +3616,8 @@ function PrescriptionEditor({
     prescriptions,
     addPrescription,
     removePrescription,
-    embedded = false
+    embedded = false,
+    readOnly = false
 }) {
     return (
         <div className="space-y-3">
@@ -3618,6 +3629,7 @@ function PrescriptionEditor({
                 onAdd={addPrescription}
                 onRemove={removePrescription}
                 embedded={embedded}
+                readOnly={readOnly}
             />
         </div>
     );
@@ -3637,7 +3649,8 @@ function CustomDiagnosisForm({
     removeCustomField,
     handleCustomUpload,
     removeCustomAttachment,
-    onPreview
+    onPreview,
+    prescriptionsReadOnly = false
 }) {
     const selectedService = serviceCatalog.find(service => String(service.serviceId) === String(selectedCustomServiceId));
 
@@ -3715,6 +3728,7 @@ function CustomDiagnosisForm({
                             type="button"
                             variant="ghost"
                             onClick={() => removeCustomField(field.id)}
+                            disabled={prescriptionsReadOnly && field.prescription.length > 0}
                             className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                             <Trash2 className="size-4" />
@@ -3743,6 +3757,7 @@ function CustomDiagnosisForm({
                         prescriptions={field.prescription}
                         addPrescription={() => addCustomPrescription(field.id)}
                         removePrescription={(prescriptionId) => removeCustomPrescription(field.id, prescriptionId)}
+                        readOnly={prescriptionsReadOnly}
                     />
 
                     <div className="rounded-lg border border-slate-200 bg-white p-4">

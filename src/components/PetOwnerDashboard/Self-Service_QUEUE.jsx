@@ -596,6 +596,7 @@ export default function QueueDashboard() {
                                         {selectedService && (
                                             <div className="min-w-0">
                                                 <BranchBookingSelect
+                                                    bookingOnly={false}
                                                     service={selectedService}
                                                     value={selectedBranchId}
                                                     onChange={setSelectedBranchId}

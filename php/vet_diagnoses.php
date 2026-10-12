@@ -951,7 +951,7 @@ try {
     $isReopenedDiagnosis = false;
     if ($queueId !== null && $queueId > 0) {
         $existingDiagnosisStmt = $pdo->prepare("
-            SELECT diagnosis_id, finalized_at
+            SELECT diagnosis_id, finalized_at, prescriptions, custom_sections
             FROM vet_diagnoses
             WHERE queue_id = ?
             LIMIT 1
@@ -977,6 +977,41 @@ try {
             }
 
             $isReopenedDiagnosis = true;
+        }
+        if ($existingDiagnosis) {
+            $savedPrescriptions = json_decode((string)($existingDiagnosis['prescriptions'] ?? '[]'), true) ?: [];
+            $savedSections = json_decode((string)($existingDiagnosis['custom_sections'] ?? '[]'), true) ?: [];
+            prescription_assert_unchanged_items(
+                prescription_flatten_diagnosis_items($savedPrescriptions, $savedSections),
+                prescription_flatten_diagnosis_items($prescriptions, $customSections)
+            );
+            // Keep the original clinical item IDs when only other findings were edited.
+            if ($savedPrescriptions) {
+                $prescriptions = $savedPrescriptions;
+                $payload['prescriptions'] = vetDiagnosisJsonValue($prescriptions);
+            }
+            $savedCustomItems = [];
+            foreach ($savedSections as $section) {
+                foreach (($section['prescriptions'] ?? $section['prescription'] ?? []) as $item) {
+                    $savedCustomItems[] = $item;
+                }
+            }
+            $customItemIndex = 0;
+            foreach ($customSections as &$section) {
+                $key = array_key_exists('prescriptions', $section) ? 'prescriptions' : 'prescription';
+                if (!is_array($section[$key] ?? null)) {
+                    continue;
+                }
+                foreach ($section[$key] as &$item) {
+                    if (isset($savedCustomItems[$customItemIndex])) {
+                        $item = $savedCustomItems[$customItemIndex];
+                    }
+                    $customItemIndex++;
+                }
+                unset($item);
+            }
+            unset($section);
+            $payload['custom_sections'] = vetDiagnosisJsonValue($customSections);
         }
     }
 
@@ -1122,7 +1157,7 @@ try {
     }
     if (!empty($prescriptionPlan['changed']) && !empty($prescriptionPlan['planId'])) {
         try {
-            prescription_notify_plan($pdo, (int)$prescriptionPlan['planId'], !empty($prescriptionPlan['version']) && (int)$prescriptionPlan['version'] > 1);
+            prescription_notify_plan($pdo, (int)$prescriptionPlan['planId']);
         } catch (Throwable $notificationError) {
             error_log('Prescription notification failed: ' . $notificationError->getMessage());
         }
@@ -1160,7 +1195,7 @@ try {
     }
 
     if (http_response_code() < 400) {
-        http_response_code(500);
+        http_response_code($e instanceof DomainException ? 409 : 500);
     }
 
     echo json_encode(['success' => false, 'message' => 'Failed to save diagnosis: ' . $e->getMessage()]);

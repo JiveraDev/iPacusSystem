@@ -6,6 +6,13 @@ export default defineConfig({
   plugins: [react()],
   envPrefix: ['VITE_', 'PWAACTIVATOR'],
   server:{
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api(?=\/|$)/, '/php/index.php/api')
+      }
+    },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
     },

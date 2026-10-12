@@ -70,6 +70,13 @@ export default function ProfileManagement({ onForgotPassword }) {
     const isSuperAdmin = normalizedRole === 'super_admin' || normalizedRole === 'superadmin';
 
     useEffect(() => {
+        const preview = profile.profileImage;
+        return () => {
+            if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+        };
+    }, [profile.profileImage]);
+
+    useEffect(() => {
         const loadProfile = async () => {
             try {
                 if (!userId) return;
@@ -105,11 +112,12 @@ export default function ProfileManagement({ onForgotPassword }) {
 
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
-        if (!file) return;
+        if (!file || isSaving) return;
 
         setImageFile(file);
         setProfile(prev => ({ ...prev, profileImage: URL.createObjectURL(file) }));
         setImageError(false);
+        event.target.value = '';
     };
 
     const handleSave = async () => {
@@ -132,7 +140,7 @@ export default function ProfileManagement({ onForgotPassword }) {
 
         try {
             if (imageFile) {
-                finalImageUrl = await uploadImageFile(imageFile, 'user') || finalImageUrl;
+                finalImageUrl = await uploadImageFile(imageFile, 'user');
             }
 
             const payload = {
@@ -247,7 +255,7 @@ export default function ProfileManagement({ onForgotPassword }) {
                     secondaryLabel={`Employee ID: ${profile.employeeId || 'Not set'}`}
                     imageSrc={profileImageSrc || ''}
                     imageUnavailable={imageError && Boolean(profile.profileImage)}
-                    isEditing={isEditing}
+                    isEditing={isEditing && !isSaving}
                     onImageChange={handleImageChange}
                     onImageError={setImageError}
                     labelAction={isSuperAdmin ? (

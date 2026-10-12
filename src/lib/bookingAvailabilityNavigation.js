@@ -46,21 +46,6 @@ export function readOwnerActiveBranch() {
     }
 }
 
-function activeBranchFallback(expectedService = '') {
-    const branchId = readOwnerActiveBranch();
-    if (!branchId) return null;
-
-    return {
-        service: String(expectedService || '').trim().toLowerCase(),
-        date: '',
-        time: '',
-        branchId,
-        veterinarianId: null,
-        roomType: '',
-        savedAt: Date.now(),
-    };
-}
-
 export function saveBookingAvailabilitySelection(selection = {}) {
     if (typeof window === 'undefined') return;
 
@@ -74,6 +59,7 @@ export function saveBookingAvailabilitySelection(selection = {}) {
         time: String(selection.time || '').slice(0, 5),
         branchId: selection.branchId || null,
         veterinarianId: selection.veterinarianId || null,
+        veterinarianName: String(selection.veterinarianName || '').trim(),
         roomType: selection.room?.roomType || selection.roomType || '',
         savedAt: Date.now(),
     }));
@@ -86,21 +72,21 @@ export function readBookingAvailabilitySelection(expectedService = '') {
         const value = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) || 'null');
         if (!value || Date.now() - Number(value.savedAt || 0) > 30 * 60 * 1000) {
             window.sessionStorage.removeItem(STORAGE_KEY);
-            return activeBranchFallback(expectedService);
+            return null;
         }
 
         const normalizedExpected = String(expectedService || '').trim().toLowerCase();
         if (normalizedExpected && value.service !== normalizedExpected) {
-            return activeBranchFallback(normalizedExpected);
+            return null;
         }
 
         return {
             ...value,
-            branchId: value.branchId || readOwnerActiveBranch(),
+            branchId: value.branchId || null,
         };
     } catch {
         window.sessionStorage.removeItem(STORAGE_KEY);
-        return activeBranchFallback(expectedService);
+        return null;
     }
 }
 
@@ -108,4 +94,43 @@ export function clearBookingAvailabilitySelection() {
     if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(STORAGE_KEY);
     }
+}
+
+export function preferredVeterinarianNote(selection) {
+    const name = String(selection?.veterinarianName || '').trim();
+    return name ? `Preferred vet: ${name}` : '';
+}
+
+export function bookingSelectionDraftValue({ selection, path, draftSavedAt, fieldId, storedValue }) {
+    if (!selection || (!selection.date && !selection.time) || Number(selection.savedAt) <= Number(draftSavedAt)
+        || bookingRouteForAvailabilityService(selection.service) !== path) return storedValue;
+
+    const id = String(fieldId || '').toLowerCase();
+    const dateFields = ['date', 'selecteddate', 'home-service-date', 'servicedate', 'checkindate', 'checkoutdate'];
+    const timeFields = ['time', 'online-consultation-time', 'home-service-time', 'special-service-time'];
+    if ((selection.date && dateFields.includes(id))
+        || (selection.time && timeFields.includes(id))
+        || (selection.branchId && id.startsWith('branch-'))
+        || (selection.veterinarianId && id === 'consult-veterinarian')) return null;
+
+    const vetNote = preferredVeterinarianNote(selection);
+    if (vetNote && ['notes', 'home-service-notes'].includes(id) && storedValue?.kind === 'value') {
+        const notes = String(storedValue.value || '').split('\n').filter((line) => !line.startsWith('Preferred vet: ')).join('\n').trim();
+        return { ...storedValue, value: [vetNote, notes].filter(Boolean).join('\n') };
+    }
+    return storedValue;
+}
+
+export function updatePreferredVeterinarianNote(notes, previousName, nextName) {
+    const previous = preferredVeterinarianNote({ veterinarianName: previousName });
+    const next = preferredVeterinarianNote({ veterinarianName: nextName });
+    const lines = String(notes || '').split('\n');
+    const index = previous ? lines.indexOf(previous) : -1;
+    if (index >= 0) {
+        if (next) lines[index] = next;
+        else lines.splice(index, 1);
+    } else if (!previous && next && !lines.includes(next)) {
+        lines.unshift(next);
+    }
+    return lines.join('\n').trim();
 }

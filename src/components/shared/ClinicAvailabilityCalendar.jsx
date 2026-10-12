@@ -5,7 +5,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock3,
-    DoorOpen,
     Hotel,
     Loader2,
     Stethoscope,
@@ -13,7 +12,7 @@ import {
 
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
-import { Label } from '../../ui/label';
+import Label from './BookingFieldLabel.jsx';
 import {
     Select,
     SelectContent,
@@ -24,6 +23,7 @@ import {
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
 import { bookingSlotStatusLabel } from '../../lib/bookingSlots';
+import BoardingRoomAvailability, { BoardingAvailabilityLegend } from './BoardingRoomAvailability.jsx';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FALLBACK_SERVICES = [
@@ -156,12 +156,12 @@ export default function ClinicAvailabilityCalendar({
             setAvailability(response);
             onBranchesChange?.(response?.filters?.branches || []);
 
-            const resolvedBranchId = response?.selected?.branchId;
-            if (resolvedBranchId && !lockedBranchId && !selectedBranchId && String(resolvedBranchId) !== branchId) {
-                setBranchId(String(resolvedBranchId));
+            const resolvedBranchId = String(response?.selected?.branchId || '');
+            if (!lockedBranchId && resolvedBranchId !== branchId) {
+                setBranchId(resolvedBranchId);
             }
-            if (resolvedBranchId && !lockedBranchId && String(resolvedBranchId) !== String(selectedBranchId || '')) {
-                onBranchChange?.(String(resolvedBranchId));
+            if (!lockedBranchId && resolvedBranchId !== String(selectedBranchId || '')) {
+                onBranchChange?.(resolvedBranchId);
             }
             const resolvedVetId = response?.selected?.veterinarianId;
             const resolvedVetValue = resolvedVetId ? String(resolvedVetId) : '';
@@ -190,6 +190,7 @@ export default function ClinicAvailabilityCalendar({
     const veterinarians = availability?.filters?.veterinarians || [];
     const days = availability?.days || [];
     const details = availability?.details || {};
+    const slots = details.slots || [];
     const selectedService = services.find((item) => item.key === service);
     const isBoarding = service === 'boarding' || selectedService?.mode === 'rooms';
     const isOnlineConsultation = service === 'online-consultation';
@@ -197,6 +198,15 @@ export default function ClinicAvailabilityCalendar({
     const selectedBranch = branches.find((branch) => String(branch.id) === effectiveBranchId);
     const selectedVet = veterinarians.find((vet) => String(vet.id) === veterinarianId);
     const selectedVeterinarianName = selectedVet?.name || availability?.selected?.veterinarianName || '';
+    const availableSlots = slots.filter((slot) => slot.available);
+    const commonVeterinarianName = selectedVeterinarianName || (availableSlots.length && availableSlots.every((slot) => slot.veterinarianName && slot.veterinarianName === availableSlots[0].veterinarianName)
+        ? availableSlots[0].veterinarianName
+        : '');
+    const slotGroups = [
+        { label: 'Morning', slots: slots.filter((slot) => Number(slot.time.split(':')[0]) < 12) },
+        { label: 'Afternoon', slots: slots.filter((slot) => Number(slot.time.split(':')[0]) >= 12 && Number(slot.time.split(':')[0]) < 17) },
+        { label: 'Evening', slots: slots.filter((slot) => Number(slot.time.split(':')[0]) >= 17) },
+    ].filter((group) => group.slots.length);
     const selectedDay = days.find((day) => day.date === selectedDate);
     const selectedDayStatus = dayStatusMeta(selectedDay);
     const firstWeekday = parseMonth(month).getDay();
@@ -222,8 +232,8 @@ export default function ClinicAvailabilityCalendar({
                         {initialService === 'boarding' ? <Hotel className="size-4" /> : <CalendarDays className="size-4" />}
                     </span>
                     <div className="min-w-0">
-                        <CardTitle>{title}</CardTitle>
-                        <CardDescription>{description}</CardDescription>
+                        <CardTitle className="dark:text-slate-100">{title}</CardTitle>
+                        <CardDescription className="dark:text-slate-400">{description}</CardDescription>
                     </div>
                 </div>
             </CardHeader>
@@ -231,7 +241,7 @@ export default function ClinicAvailabilityCalendar({
                 <div data-session-persist="off" data-filter-bar className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {showServiceFilter && (
                         <div>
-                            <Label className="mb-1.5">Service</Label>
+                            <Label className="mb-1.5" help="Choose the care you need. Pet Hotel Boarding shows rooms; other services show appointment start times.">Service</Label>
                             <Select
                                 value={service}
                                 onValueChange={(value) => {
@@ -253,13 +263,13 @@ export default function ClinicAvailabilityCalendar({
                         </div>
                     )}
 
-                    {allowBranchSelection && !isOnlineConsultation && !lockedBranchId && branches.length > 0 && (
+                    {allowBranchSelection && !isOnlineConsultation && !lockedBranchId && (
                         <div>
-                            <Label className="mb-1.5">Current clinic</Label>
-                            <Select value={effectiveBranchId} onValueChange={handleBranchChange} searchable={false}>
-                                <SelectTrigger aria-label="Current clinic for booking">
+                            <Label className="mb-1.5" help="Choose a clinic to see appointment times or rooms. Medical clinics appear when an assigned, active vet accepts bookings there.">Clinic</Label>
+                            <Select value={effectiveBranchId} onValueChange={handleBranchChange} searchable={false} disabled={isLoading || !branches.length}>
+                                <SelectTrigger aria-label="Availability clinic">
                                     <Building2 className="text-blue-600 dark:text-blue-300" />
-                                    <SelectValue placeholder="Select clinic" displayValue={selectedBranch?.name} />
+                                    <SelectValue placeholder="Select clinic" displayValue={selectedBranch?.name || (isLoading ? 'Loading clinics...' : branches.length ? 'Select clinic' : 'No clinics available')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {branches.map((branch) => (
@@ -272,7 +282,7 @@ export default function ClinicAvailabilityCalendar({
 
                     {veterinarians.length > 0 && (
                         <div>
-                            <Label className="mb-1.5">Veterinarian</Label>
+                            <Label className="mb-1.5" help="Choose a preferred vet or view all available vets. A selected vet follows you into the booking form.">Veterinarian</Label>
                             <Select
                                 value={veterinarianId || 'all'}
                                 onValueChange={(value) => setVeterinarianId(value === 'all' ? '' : value)}
@@ -296,13 +306,15 @@ export default function ClinicAvailabilityCalendar({
                     )}
                 </div>
 
+                {availability?.message && !isLoading && !errorMessage && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{availability.message}</p>}
+
                 {errorMessage ? (
                     <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300" role="alert">
                         {errorMessage}
                     </div>
                 ) : (
-                    <div className={`grid items-stretch gap-4 ${isBoarding ? 'lg:grid-cols-2' : 'lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.75fr)]'}`}>
-                        <div className="h-full min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                        <div className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                             <div className="mb-3 flex items-center justify-between gap-2">
                                 <Button type="button" variant="ghost" size="icon" onClick={() => handleMonthChange(-1)} aria-label="Previous month">
                                     <ChevronLeft />
@@ -339,9 +351,7 @@ export default function ClinicAvailabilityCalendar({
                                                 : status.buttonClassName}`}
                                         >
                                             <span>{Number(day.date.slice(-2))}</span>
-                                            <span className={`mt-0.5 max-w-full truncate text-[8px] font-black leading-3 tracking-tight sm:text-[9px] ${status.labelClassName}`}>
-                                                {status.label}
-                                            </span>
+                                            <span aria-hidden="true" className={`mt-1 size-1.5 rounded-full ${status.label === 'Available' ? 'bg-emerald-500' : status.label === 'Full' ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-600'}`} />
                                         </button>
                                     );
                                 })}
@@ -353,173 +363,89 @@ export default function ClinicAvailabilityCalendar({
                             </div>
                         </div>
 
-                        <div className="relative min-h-96 min-w-0 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div className="absolute inset-0 flex min-h-0 flex-col p-3">
-                            <div className="mb-3 flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                        <div className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800 sm:p-4">
+                            <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{isBoarding ? 'Room map' : longDate(selectedDate)}</p>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                        {isBoarding
-                                            ? `${longDate(selectedDate)}${selectedBranch?.name ? ` · ${selectedBranch.name}` : ''}`
-                                            : isOnlineConsultation && selectedVeterinarianName
-                                                ? `Online consultation times with ${selectedVeterinarianName}`
-                                                : 'Appointment times'}
+                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                        {isBoarding ? <Hotel className="size-4 text-slate-500" /> : <Clock3 className="size-4 text-slate-500" />}
+                                        {isBoarding ? 'Choose a room' : isOnlineConsultation ? 'Online consultation times' : 'Appointment times'}
+                                    </h3>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{longDate(selectedDate)}</p>
+                                    {isBoarding && selectedBranch?.name && <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{selectedBranch.name}</p>}
+                                    {!isBoarding && commonVeterinarianName && (
+                                        <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                                            <Stethoscope className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                                            <span>With {commonVeterinarianName}</span>
                                         </p>
-                                    {selectedDay && !isBoarding && (
-                                        <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-black ${selectedDayStatus.labelClassName} ${selectedDayStatus.label === 'Available'
-                                            ? 'bg-emerald-50 dark:bg-emerald-950/40'
-                                            : selectedDayStatus.label === 'Full'
-                                                ? 'bg-amber-50 dark:bg-amber-950/40'
-                                                : 'bg-slate-100 dark:bg-slate-800'}`}
-                                        >
-                                            {selectedDayStatus.label}
-                                        </span>
+                                    )}
+                                    {!isBoarding && !isLoading && selectedDay && (
+                                        <p className={`mt-2 text-xs font-medium ${selectedDayStatus.labelClassName}`}>
+                                            {availableSlots.length ? `${availableSlots.length} time${availableSlots.length === 1 ? '' : 's'} available` : selectedDayStatus.label}
+                                        </p>
                                     )}
                                 </div>
                                 {isLoading && <Loader2 className="size-4 animate-spin text-slate-400" aria-label="Loading availability" />}
                             </div>
 
                             {isBoarding ? (
-                                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                                    <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[0.62rem] font-bold text-slate-500 dark:text-slate-400">
-                                        <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />Available</span>
-                                        <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />Reserved</span>
-                                        <span><span className="mr-1 inline-block size-2 rounded-full bg-slate-400" />Occupied</span>
-                                        {boardingStays.length > 0 && <span><span className="mr-1 inline-block size-2 rounded-full bg-blue-600" />Your Pet</span>}
-                                        <span><span className="mr-1 inline-block size-2 rounded-full border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900" />Unavailable</span>
-                                    </div>
-                                    <div className="space-y-3">
-                                    {(details.rooms || []).length ? details.rooms.map((room) => {
-                                        const roomStays = boardingStays.filter((stay) => (
-                                            String(stay.branchId) === effectiveBranchId
-                                            && stay.roomSize === room.size
-                                            && stayCoversDate(stay, selectedDate)
-                                        ));
-                                        const stayByNumber = new Map(roomStays.map((stay) => [Number(stay.roomNumber), stay]));
-                                        const highestOwnedRoom = Math.max(0, ...roomStays.map((stay) => Number(stay.roomNumber || 0)));
-                                        const occupied = Math.max(0, Number(room.occupied || 0));
-                                        const reserved = Math.max(0, Number(room.reserved ?? Number(room.booked || 0) - occupied));
-                                        const total = Math.max(0, Number(room.total || 0), highestOwnedRoom);
-                                        const sizeCode = room.size === 'small' ? 'S' : room.size === 'medium' ? 'M' : 'L';
-                                        let occupiedRemaining = Math.max(0, occupied - roomStays.filter((stay) => stay.status === 'occupied').length);
-                                        let reservedRemaining = Math.max(0, reserved - roomStays.filter((stay) => stay.status === 'reserved').length);
-                                        let availableRemaining = Math.max(0, Number(room.available || 0));
-
-                                        return (
-                                            <section key={room.roomType} className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-900/50">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="flex min-w-0 items-center gap-2 text-xs font-black text-slate-800 dark:text-slate-100">
-                                                        <DoorOpen className="size-3.5 shrink-0 text-blue-600 dark:text-blue-300" />
-                                                        <span className="truncate">{room.label}</span>
-                                                    </span>
-                                                    <span className="shrink-0 text-[0.65rem] font-bold text-emerald-700 dark:text-emerald-300">{room.available} open</span>
-                                                </div>
-                                                <div className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5">
-                                                    {Array.from({ length: total }, (_, index) => {
-                                                        const roomNumber = index + 1;
-                                                        const ownStay = stayByNumber.get(roomNumber);
-                                                        let status = ownStay ? 'mine' : 'unavailable';
-                                                        if (!ownStay && occupiedRemaining > 0) {
-                                                            status = 'occupied';
-                                                            occupiedRemaining -= 1;
-                                                        } else if (!ownStay && reservedRemaining > 0) {
-                                                            status = 'reserved';
-                                                            reservedRemaining -= 1;
-                                                        } else if (!ownStay && availableRemaining > 0) {
-                                                            status = 'available';
-                                                            availableRemaining -= 1;
-                                                        }
-                                                        const statusLabel = status === 'mine'
-                                                            ? (ownStay.petNames || ownStay.petName || 'Your Pet')
-                                                            : status === 'occupied'
-                                                            ? 'Occupied'
-                                                            : status === 'reserved'
-                                                                ? 'Reserved'
-                                                                : status === 'available'
-                                                                    ? 'Available'
-                                                                    : 'Unavailable';
-                                                        const statusClassName = status === 'mine'
-                                                            ? 'border-blue-600 bg-blue-600 text-white shadow-sm enabled:hover:bg-blue-700'
-                                                            : status === 'occupied'
-                                                            ? 'border-slate-300 bg-slate-200 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                                                            : status === 'reserved'
-                                                                ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
-                                                                : status === 'available'
-                                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800 enabled:hover:border-emerald-500 enabled:hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'
-                                                                    : 'border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600';
-
-                                                        return (
-                                                            <button
-                                                                key={roomNumber}
-                                                                type="button"
-                                                                disabled={status === 'mine' ? !onOpenBoardingStay : status !== 'available' || !onSelectRoom}
-                                                                onClick={() => status === 'mine'
-                                                                    ? onOpenBoardingStay?.(ownStay)
-                                                                    : onSelectRoom?.({ service, date: selectedDate, room, branchId: Number(effectiveBranchId) })}
-                                                                className={`min-w-0 rounded-md border px-1.5 py-1.5 text-left transition-colors enabled:focus-visible:outline-none enabled:focus-visible:ring-2 enabled:focus-visible:ring-[#155dfc] disabled:cursor-default ${statusClassName}`}
-                                                                aria-label={`${room.label} ${roomNumber}: ${statusLabel}`}
-                                                            >
-                                                                <span className="block text-[0.5rem] font-black uppercase opacity-70">H / {sizeCode}</span>
-                                                                <span className="block text-xs font-black leading-tight">{sizeCode}{String(roomNumber).padStart(2, '0')}</span>
-                                                                <span className="mt-0.5 block truncate text-[0.48rem] font-bold leading-tight">{statusLabel}</span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-                                        );
-                                    }) : (
-                                        <p className="py-6 text-center text-sm text-slate-500">No rooms are configured for this date.</p>
-                                    )}
-                                    </div>
+                                <div className="space-y-4">
+                                    <BoardingAvailabilityLegend showOwnStays={boardingStays.length > 0} />
+                                    <BoardingRoomAvailability
+                                        rooms={details.rooms || []}
+                                        stays={boardingStays.filter((stay) => String(stay.branchId) === effectiveBranchId && stayCoversDate(stay, selectedDate))}
+                                        loading={isLoading}
+                                        onOpenStay={onOpenBoardingStay}
+                                        onSelectRoom={onSelectRoom ? (room) => onSelectRoom({ service, date: selectedDate, room, branchId: Number(effectiveBranchId) }) : undefined}
+                                    />
                                 </div>
                             ) : (
-                                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-                                    {(details.slots || []).length ? details.slots.map((slot) => {
-                                        const slotVeterinarianName = slot.veterinarianName
-                                            || (isOnlineConsultation ? selectedVeterinarianName : '');
+                                <div className="max-h-[32rem] space-y-4 overflow-y-auto pr-1">
+                                    {slots.length ? slotGroups.map((group) => (
+                                        <section key={group.label}>
+                                            <h4 className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">{group.label}</h4>
+                                            <div className="grid grid-cols-[repeat(auto-fit,minmax(11.5rem,1fr))] gap-2">
+                                    {group.slots.map((slot) => {
+                                        const slotVeterinarianName = slot.veterinarianName || selectedVeterinarianName;
 
                                         return (
                                             <button
                                                 key={slot.time}
                                                 type="button"
-                                                disabled={!slot.available || !onSelectSlot}
+                                                disabled={isLoading || !slot.available || !onSelectSlot}
+                                                aria-label={`${slot.label}${slotVeterinarianName ? `, with ${slotVeterinarianName}` : ''}: ${bookingSlotStatusLabel(slot, isSharedMedical || isOnlineConsultation)}`}
                                                 onClick={() => onSelectSlot?.({
                                                     service,
                                                     date: selectedDate,
                                                     time: slot.time,
                                                     branchId: Number(effectiveBranchId),
                                                     veterinarianId: slot.veterinarianId || (veterinarianId ? Number(veterinarianId) : (isOnlineConsultation ? slot.availableVeterinarians?.[0]?.id || null : null)),
+                                                    veterinarianName: slotVeterinarianName || (isOnlineConsultation ? slot.availableVeterinarians?.[0]?.name || '' : ''),
                                                 })}
-                                                className="flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left transition-colors enabled:hover:bg-slate-50 enabled:focus-visible:outline-none enabled:focus-visible:ring-2 enabled:focus-visible:ring-[#155dfc] disabled:cursor-default dark:enabled:hover:bg-slate-800/70"
+                                                className={`group flex min-h-14 min-w-0 flex-col justify-center gap-1.5 rounded-lg border px-3 py-3 text-left transition-colors enabled:hover:border-blue-500 enabled:hover:bg-blue-50/50 enabled:active:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-default dark:enabled:hover:bg-blue-950/30 dark:enabled:active:bg-blue-950/60 dark:focus-visible:ring-offset-slate-900 ${slot.available ? 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900' : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60'}`}
                                             >
-                                                <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                                    <span className={`size-2 shrink-0 rounded-full ${slot.available ? 'bg-emerald-500' : slot.status === 'booked' ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`} />
-                                                    <Clock3 className="size-4 shrink-0 text-blue-600 dark:text-blue-300" />
-                                                    <span className="min-w-0">
-                                                        <span className="block">{slot.label}</span>
-                                                        {slotVeterinarianName && (
-                                                            <span className="block truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                                With {slotVeterinarianName}
-                                                            </span>
-                                                        )}
+                                                <span className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                                    <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{slot.label}</span>
+                                                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${slot.available ? 'text-emerald-700 dark:text-emerald-300' : slot.status === 'booked' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${slot.available ? 'bg-emerald-500' : slot.status === 'booked' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                                                        {slot.available && (isSharedMedical || isOnlineConsultation) ? `${Number(slot.availableCount) || 0} available` : bookingSlotStatusLabel(slot)}
                                                     </span>
                                                 </span>
-                                                <span className={`shrink-0 text-xs font-bold ${slot.available ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                                                    {bookingSlotStatusLabel(slot, isSharedMedical || isOnlineConsultation)}
-                                                </span>
+                                                {slotVeterinarianName && slotVeterinarianName !== commonVeterinarianName && <span className="break-words text-xs leading-5 text-slate-500 dark:text-slate-400">{slotVeterinarianName}</span>}
                                             </button>
                                         );
-                                    }) : (
-                                        <p className="py-6 text-center text-sm text-slate-500">
-                                            {isOnlineConsultation ? 'No online calls are scheduled for this date. Choose another date or veterinarian.' : (isSharedMedical
+                                    })}
+                                            </div>
+                                        </section>
+                                    )) : (
+                                        <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                                            <Clock3 className="size-5" aria-hidden="true" />
+                                            <p>{isLoading ? 'Checking appointment times…' : isOnlineConsultation ? 'No online calls are scheduled for this date. Choose another date or veterinarian.' : (isSharedMedical
                                                 ? 'No veterinarian appointment is available for this date.'
-                                                : 'No appointment times are available for this date.')}
-                                        </p>
+                                                : 'No appointment times are available for this date.')}</p>
+                                        </div>
                                     )}
                                 </div>
                             )}
-                            </div>
                         </div>
                     </div>
                 )}

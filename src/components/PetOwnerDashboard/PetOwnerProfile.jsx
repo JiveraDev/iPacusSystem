@@ -74,6 +74,13 @@ export default function PetOwnerProfile({ onForgotPassword }) {
   const [pendingProfileTab, setPendingProfileTab] = useState("");
   const [isProfileLeaveDialogOpen, setIsProfileLeaveDialogOpen] = useState(false);
 
+  useEffect(() => {
+    const preview = profileData.profileImage;
+    return () => {
+      if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    };
+  }, [profileData.profileImage]);
+
   // Helper to normalize user data from various possible property names
   const normalizeUser = (u) => {
     if (!u) return {
@@ -147,11 +154,12 @@ export default function PetOwnerProfile({ onForgotPassword }) {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && !isSaving) {
       setImageFile(file);
       // Temporary local preview
       setProfileData(prev => ({ ...prev, profileImage: URL.createObjectURL(file) }));
       setImageError(false);
+      e.target.value = '';
     }
   };
 
@@ -276,7 +284,7 @@ export default function PetOwnerProfile({ onForgotPassword }) {
           secondaryLabel={profileData.email || "Contact email not set"}
           imageSrc={profileImageSrc}
           imageUnavailable={imageError && Boolean(profileData.profileImage)}
-          isEditing={isEditingProfile}
+          isEditing={isEditingProfile && !isSaving}
           onImageChange={handleImageChange}
           onImageError={setImageError}
           action={activeTab === "profile" && !isEditingProfile ? (

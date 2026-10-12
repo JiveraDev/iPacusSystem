@@ -25,8 +25,6 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Label } from "../../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import { fetchBookings, fetchUserBookings } from "../../services/bookingService";
 import { fetchInventoryItems } from "../../services/inventoryApi";
@@ -45,7 +43,6 @@ import VetPresenceSign from "../shared/VetPresenceSign.jsx";
 import { PetHotelOwnerRooms } from "../shared/PetHotelRoomShowcase.jsx";
 import {
   bookingRouteForAvailabilityService,
-  readOwnerActiveBranch,
   saveBookingAvailabilitySelection,
   saveOwnerActiveBranch,
 } from "../../lib/bookingAvailabilityNavigation.js";
@@ -525,8 +522,7 @@ export default function Home({ user }) {
   const dashboardFocus = getActionsForRole(roleKey, priceProjectionConfig.servicePrices);
   const displayName = getDisplayName(user);
   const [homeData, setHomeData] = useState(emptyHomeData);
-  const [ownerClinicId, setOwnerClinicId] = useState(() => String(readOwnerActiveBranch() || ""));
-  const [ownerClinics, setOwnerClinics] = useState([]);
+  const [ownerClinicId, setOwnerClinicId] = useState("");
   // Archived accounts retain normal access; archive is only an admin marker.
   const isArchivedOwner = false;
 
@@ -543,15 +539,6 @@ export default function Home({ user }) {
     const nextBranchId = String(value || "");
     setOwnerClinicId(nextBranchId);
     saveOwnerActiveBranch(nextBranchId);
-  }, []);
-
-  const handleOwnerClinicsChange = useCallback((branches) => {
-    const nextBranches = Array.isArray(branches) ? branches : [];
-    setOwnerClinics((current) => {
-      const currentSignature = current.map((branch) => `${branch.id}:${branch.name}`).join("|");
-      const nextSignature = nextBranches.map((branch) => `${branch.id}:${branch.name}`).join("|");
-      return currentSignature === nextSignature ? current : nextBranches;
-    });
   }, []);
 
   const loadHomeData = useCallback(async () => {
@@ -599,7 +586,6 @@ export default function Home({ user }) {
 
   const roleSummary = useMemo(() => buildRoleSummary(roleKey, homeData, userId), [homeData, roleKey, userId]);
   const SecondaryIcon = dashboardFocus.secondary.icon;
-  const selectedOwnerClinic = ownerClinics.find((branch) => String(branch.id) === ownerClinicId);
 
   return (
     <div className="space-y-6">
@@ -641,20 +627,6 @@ export default function Home({ user }) {
                   {dashboardFocus.secondary.label}
                 </Button>
               </div>
-              {roleKey === "petowner" && (
-                <div className="min-w-0 rounded-lg border border-blue-100 bg-blue-50/70 p-2.5 xl:ml-auto xl:w-72">
-                  <Label className="mb-1 text-[0.65rem] font-black uppercase tracking-[0.12em] text-blue-700">Current clinic for bookings</Label>
-                  <Select value={ownerClinicId} onValueChange={handleOwnerClinicChange} disabled={ownerClinics.length === 0} searchable={false}>
-                    <SelectTrigger className="bg-white" aria-label="Current clinic for all bookings">
-                      <MapPin className="text-blue-600" />
-                      <SelectValue placeholder="Loading clinic..." displayValue={selectedOwnerClinic?.name} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ownerClinics.map((branch) => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
           </div>
           <div className="relative min-h-56 bg-slate-950 lg:min-h-full">
@@ -669,7 +641,7 @@ export default function Home({ user }) {
         </div>
       </section>
 
-      {roleKey === "petowner" && <VetPresenceSign variant="home" scheduleHref="#owner-availability" />}
+      {roleKey === "petowner" && <VetPresenceSign variant="home" branchId={ownerClinicId} scheduleHref="#owner-availability" />}
 
       <section>
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -709,7 +681,6 @@ export default function Home({ user }) {
         <PetHotelOwnerRooms
           activeBranchId={ownerClinicId}
           onBranchChange={handleOwnerClinicChange}
-          onBranchesChange={handleOwnerClinicsChange}
           onBook={openAvailabilityBooking}
         />
       )}

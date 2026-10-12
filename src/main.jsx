@@ -8,6 +8,7 @@ import App from './App.jsx'
 import AppMotionSystem from './components/shared/AppMotionSystem.jsx'
 import ThemeProvider from './context/ThemeProvider.jsx'
 import ThemedMantineProvider from './context/ThemedMantineProvider.jsx'
+import ProtectedDocumentPreview from './components/shared/ProtectedDocumentPreview.jsx'
 import { ensurePwaHeadTags, initializePwaInstallPromptCapture } from './pwa/pwaConfig.js'
 import { registerPwaServiceWorker } from './pwa/registerPwaServiceWorker.js'
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')).render(
       <ThemedMantineProvider>
         <AppMotionSystem>
           <App />
+          <ProtectedDocumentPreview />
         </AppMotionSystem>
       </ThemedMantineProvider>
     </ThemeProvider>

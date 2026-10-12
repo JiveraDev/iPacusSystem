@@ -357,10 +357,15 @@ function ipawcus_route_access_policy(string $path, string $method): array
         return ['roles' => ['pet_owner', 'veterinarian', 'super_admin']];
     }
 
+    if (preg_match('#^/pets/\d+/prescriptions$#', $path)) {
+        return ['roles' => $method === 'GET' ? ipawcus_roles('owner_or_clinic') : ipawcus_roles('vet')];
+    }
+
     if (
         $path === '/prescriptions'
         || preg_match('#^/prescriptions/\d+/(start|amend)$#', $path)
         || preg_match('#^/prescription-occurrences/\d+$#', $path)
+        || preg_match('#^/prescription-items/\d+/complete$#', $path)
     ) {
         return ['roles' => ipawcus_roles('owner_or_clinic')];
     }

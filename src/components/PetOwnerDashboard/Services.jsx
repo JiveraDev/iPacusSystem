@@ -39,7 +39,7 @@ const services = [
     {
         id: 'laboratory-testing',
         title: 'Laboratory Testing',
-        description: 'Diagnostic testing in the clinic or during a veterinarian visit.',
+        description: 'Diagnostic testing at your selected clinic with an available veterinarian.',
         icon: FlaskConical,
         pet: 'bunny',
         path: '/dashboard/services/laboratory-testing',

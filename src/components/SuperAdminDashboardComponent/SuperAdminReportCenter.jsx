@@ -11,6 +11,7 @@ import ReportDateInput from './ReportDateInput';
 import ReportPreview from './ReportPreview';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { exportReportExcel, exportReportPdf } from '../../lib/reportExport';
+import { getReportOrientation } from '../../lib/reportPresentation';
 import { fetchVeterinarians } from '../../services/accountService';
 
 const SERVICE_TYPES = [
@@ -125,7 +126,7 @@ function quickRangeDates(value) {
     let end = new Date(today);
 
     if (value === 'this_week') {
-        start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+        start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
         end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
     } else if (value === 'this_quarter') {
         const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
@@ -332,7 +333,7 @@ export default function SuperAdminReportCenter() {
         <div className="report-center-page space-y-6">
             <style>
                 {`@media print {
-                    @page { size: A4 portrait; margin: 10mm; }
+                    @page { size: A4 ${getReportOrientation(report)}; margin: 10mm; }
                     html, body, #root {
                         width: 100% !important;
                         min-width: 0 !important;
@@ -388,9 +389,6 @@ export default function SuperAdminReportCenter() {
                         color: #0f172a !important;
                     }
                     .report-print-hidden { display: none !important; }
-                    .report-standard-preview > .report-print-section.grid {
-                        grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr) !important;
-                    }
                     .report-print-section {
                         min-width: 0 !important;
                         max-width: 100% !important;
@@ -408,12 +406,17 @@ export default function SuperAdminReportCenter() {
                         width: 100% !important;
                         min-width: 0 !important;
                         max-width: 100% !important;
-                        table-layout: fixed !important;
+                        table-layout: auto !important;
                         border-collapse: collapse !important;
                         page-break-inside: auto;
                     }
                     .report-print-area thead { display: table-header-group !important; }
-                    .report-print-area tfoot { display: table-footer-group !important; }
+                    .report-print-area tfoot { display: table-row-group !important; }
+                    .report-section-heading { break-after: avoid-page; page-break-after: avoid; }
+                    .report-row-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                    .report-print-area p, .report-print-area td, .report-print-area dd { font-size: 9pt !important; }
+                    .report-print-area h1 { font-size: 16pt !important; }
+                    .report-print-area h2 { font-size: 11pt !important; }
                     .report-print-area tr {
                         break-inside: avoid-page;
                         page-break-inside: avoid;
@@ -428,11 +431,6 @@ export default function SuperAdminReportCenter() {
                         overflow-wrap: anywhere !important;
                         word-break: break-word !important;
                         vertical-align: top !important;
-                    }
-                    .report-print-area .line-clamp-3 {
-                        display: block !important;
-                        overflow: visible !important;
-                        -webkit-line-clamp: unset !important;
                     }
                 }`}
             </style>
@@ -630,11 +628,12 @@ export default function SuperAdminReportCenter() {
             </div>
 
             {isLoading && !report ? (
-                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                    <Loader2 className="size-8 animate-spin text-[#155dfc]" />
+                <div role="status" className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                    <Loader2 className="size-6 animate-spin text-[#155dfc]" aria-hidden="true" />
+                    <p className="text-sm text-slate-600 dark:text-slate-300">Preparing the {selectedReportLabel.toLowerCase()}…</p>
                 </div>
             ) : (
-                <ReportPreview report={report} />
+                <ReportPreview report={report} reportTitle={selectedReportLabel.toLowerCase()} />
             )}
         </div>
     );

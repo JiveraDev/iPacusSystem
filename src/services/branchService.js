@@ -1,4 +1,4 @@
-import { apiRequest, patchJson, postJson } from './apiClient';
+import { apiRequest, patchJson } from './apiClient';
 
 export const VISIBLE_BRANCH_CODES = Object.freeze(['MAIN', 'ENRIQUEZ']);
 
@@ -69,11 +69,12 @@ export function getBranchDisplayName(branches, branchId, fallback = '') {
     return selectedBranch?.name || fallback;
 }
 
-export async function fetchBranches({ service, date, assignedOnly = false } = {}) {
+export async function fetchBranches({ service, date, assignedOnly = false, bookingOnly = false } = {}) {
     const query = new URLSearchParams();
     if (service) query.set('service', service);
     if (date) query.set('date', date);
     if (assignedOnly) query.set('assigned', '1');
+    if (bookingOnly) query.set('booking', '1');
     const suffix = query.toString();
     const data = await apiRequest(`/branches${suffix ? `?${suffix}` : ''}`);
 
@@ -85,30 +86,6 @@ export async function fetchBranches({ service, date, assignedOnly = false } = {}
         ...data,
         branches: filterVisibleBranches(data?.branches),
     };
-}
-
-export async function fetchVeterinarianBranchSchedules(params = {}) {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') query.set(key, value);
-    });
-    const suffix = query.toString();
-    const data = await apiRequest(`/veterinarian-branch-schedules${suffix ? `?${suffix}` : ''}`);
-
-    if (Array.isArray(data)) {
-        return data.filter(isVisibleBranch);
-    }
-
-    return {
-        ...data,
-        schedules: (Array.isArray(data?.schedules) ? data.schedules : []).filter(isVisibleBranch),
-    };
-}
-
-export function saveVeterinarianBranchSchedule(payload) {
-    return payload?.id
-        ? patchJson('/veterinarian-branch-schedules', payload)
-        : postJson('/veterinarian-branch-schedules', payload);
 }
 
 export function relocateBooking(bookingId, payload) {

@@ -1,4 +1,11 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from './apiClient.js';
+
+function uploadedFilePath(data) {
+    const path = [data?.relative_url, data?.protected_url, data?.url]
+        .find(value => typeof value === 'string' && value.trim() && !/^(blob:|data:)/i.test(value.trim()));
+    if (!path) throw new Error('The uploaded file could not be saved. Please try uploading it again.');
+    return path.trim();
+}
 
 export async function uploadImageFile(file, type = 'booking_concern', options = {}) {
     const formData = new FormData();
@@ -11,7 +18,7 @@ export async function uploadImageFile(file, type = 'booking_concern', options = 
         ...options
     });
 
-    return data.relative_url || data.protected_url || data.url;
+    return uploadedFilePath(data);
 }
 
 export async function uploadDocumentFile(file, type, options = {}) {
@@ -31,7 +38,7 @@ export async function uploadDocumentFile(file, type, options = {}) {
         ...requestOptions
     });
 
-    const path = data.relative_url || data.protected_url || data.url || null;
+    const path = uploadedFilePath(data);
 
     if (returnMetadata) {
         return {
@@ -65,7 +72,7 @@ export async function uploadDataUrlImage(dataUrl, type, fileNamePrefix, options 
     const file = dataUrlToFile(dataUrl, `${fileNamePrefix}_${Date.now()}`);
     const data = await uploadFormData(buildImageFormData(file, type), options);
 
-    return data.relative_url || data.url || null;
+    return uploadedFilePath(data);
 }
 
 function buildImageFormData(file, type) {

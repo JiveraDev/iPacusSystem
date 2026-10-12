@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { hasCancelDismissAction } from './modalCloseVisibility';
+import { isTopmostModal } from './modalKeyboard';
 import { cn } from './utils';
 
 const SheetContext = React.createContext(null);
@@ -93,6 +94,8 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
     });
 
     const handleKeyDown = (event) => {
+      if (event.defaultPrevented || (event.key !== 'Escape' && event.key !== 'Tab') || !isTopmostModal(contentRef.current)) return;
+
       if (event.key === 'Escape') {
         event.preventDefault();
         setOpen(false);
@@ -157,7 +160,7 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
         )} 
         onClick={() => setOpen(false)} 
       />
-      <div ref={contentRef} data-slot="sheet-content" role="dialog" aria-modal="true" tabIndex={-1} className={cn(
+      <div ref={contentRef} data-slot="sheet-content" role="dialog" aria-modal={open} tabIndex={-1} className={cn(
         "fixed z-[1401] max-w-full overflow-hidden bg-white p-0 shadow-2xl transition-transform duration-300 ease-in-out",
         side === "right" || side === "left" ? "inset-y-0 h-full w-full sm:max-w-md" : "inset-x-0 h-auto w-full",
         currentSide.base,

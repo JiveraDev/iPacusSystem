@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clock3, Loader2 } from 'lucide-react';
 
-import { Label } from '../../ui/label';
+import Label from './BookingFieldLabel.jsx';
 import {
     Select,
     SelectContent,
@@ -53,11 +53,12 @@ export default function BookingTimeSlotField({
     disabled = false,
     allowCurrentValue = false,
     className = '',
+    requireClinic = true,
 }) {
     const [loadState, setLoadState] = useState({ key: '', slots: [], error: '', schedulingMode: '' });
     const selectedValue = normalizeTime(value);
     const isOnline = String(service || '').toLowerCase().includes('online');
-    const canLoad = Boolean(service && date && (!isOnline || veterinarianId));
+    const canLoad = Boolean(service && date && (isOnline ? veterinarianId : branchId || !requireClinic));
     const requestKey = [service, date, branchId, veterinarianId, excludeBookingId].join(':');
     const currentSelection = useRef({ requestKey, selectedValue });
     useEffect(() => { currentSelection.current = { requestKey, selectedValue }; }, [requestKey, selectedValue]);
@@ -77,7 +78,8 @@ export default function BookingTimeSlotField({
                 excludeBookingId,
             });
             if (currentSelection.current.requestKey !== requestKey) return;
-            const nextSlots = Array.isArray(response?.details?.slots)
+            const clinicMatches = isOnline || (!branchId && !requireClinic) || String(response?.selected?.branchId || '') === String(branchId || '');
+            const nextSlots = clinicMatches && Array.isArray(response?.details?.slots)
                 ? response.details.slots
                 : [];
             setLoadState({ key: requestKey, slots: nextSlots, error: '', schedulingMode: response.schedulingMode });
@@ -94,18 +96,18 @@ export default function BookingTimeSlotField({
                 error: error.message || 'Available times could not be loaded.',
             });
         }
-    }, [allowCurrentValue, branchId, date, excludeBookingId, onChange, requestKey, selectedValue, service, veterinarianId]);
+    }, [allowCurrentValue, branchId, date, excludeBookingId, isOnline, onChange, requestKey, requireClinic, selectedValue, service, veterinarianId]);
     useAutoRefresh(loadSlots, { enabled: canLoad && !disabled, refreshKey: requestKey });
     const isSharedMedical = loadState.schedulingMode === 'shared_veterinarian';
 
     const availableSlots = slots.filter((slot) => slot.available);
     const selectedDateLabel = formatDateLabel(date);
     const selectedSlot = slots.find((slot) => normalizeTime(slot.time) === selectedValue);
-    const selectedLabel = selectedSlot
-        ? `${selectedSlot.label} · ${bookingSlotStatusLabel(selectedSlot, isSharedMedical)}`
-        : formatTime(selectedValue);
+    const selectedLabel = selectedSlot?.label || formatTime(selectedValue);
     const currentValueIsListed = availableSlots.some((slot) => normalizeTime(slot.time) === selectedValue);
-    const helperMessage = !date
+    const helperMessage = requireClinic && !isOnline && !branchId
+        ? 'Select a clinic first.'
+        : !date
         ? 'Select a date first.'
         : isOnline && !veterinarianId
             ? 'Select a veterinarian first.'
@@ -124,7 +126,13 @@ export default function BookingTimeSlotField({
 
     return (
         <div className={className}>
-            <Label htmlFor={id} className="mb-1.5">
+            <Label htmlFor={id} className="mb-1.5" help={(
+                <div className="space-y-2">
+                    <p>Choose an available start time. {helperMessage}</p>
+                    {isSharedMedical && <p>Each vet has one calendar across clinics and online calls. An overlapping appointment makes that vet unavailable here.</p>}
+                    <p>{isOnline ? 'Each online call reserves one hour.' : ['grooming', 'pet grooming'].includes(String(service || '').trim().toLowerCase()) ? 'Grooming is also bookable from 12:00–1:00 PM, subject to available slots.' : 'Lunch period: 12:00–1:00 PM. Choose a time that does not overlap lunch.'}</p>
+                </div>
+            )}>
                 {label}{required ? ' *' : ''}
             </Label>
             <Select
@@ -148,14 +156,12 @@ export default function BookingTimeSlotField({
                     ))}
                 </SelectContent>
             </Select>
-            <p
+            {(isLoading || errorMessage || (canLoad && availableSlots.length === 0)) && <p
                 className={`mt-1.5 text-xs ${errorMessage ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}
                 role={errorMessage ? 'alert' : undefined}
             >
                 {helperMessage}
-            </p>
-            {isSharedMedical && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Each available vet provides one appointment. These slots are shared across all medical services.</p>}
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{['grooming', 'pet grooming'].includes(String(service || '').trim().toLowerCase()) ? 'Grooming is also bookable from 12:00–1:00 PM, subject to available slots.' : 'Lunch period: 12:00–1:00 PM. Choose a time that does not overlap lunch.'}</p>
+            </p>}
         </div>
     );
 }

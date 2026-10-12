@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { hasCancelDismissAction } from "./modalCloseVisibility";
+import { isTopmostModal } from "./modalKeyboard";
 import { cn } from "./utils";
 
 const DialogContext = React.createContext(null);
@@ -47,6 +48,8 @@ function DialogContent({ className, children, showClose, ...props }) {
     });
 
     const handleKeyDown = (event) => {
+      if (event.defaultPrevented || (event.key !== "Escape" && event.key !== "Tab") || !isTopmostModal(contentRef.current)) return;
+
       if (event.key === "Escape") {
         event.preventDefault();
         onOpenChangeRef.current?.(false);

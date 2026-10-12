@@ -1,235 +1,121 @@
-import ReportChartCard from './ReportChartCard';
+import { FileText } from 'lucide-react';
 import ReportTable from './ReportTable';
-import { formatReportDateLabel, formatReportDateRange } from '../../lib/date';
-import { formatPhpCurrency } from '../../lib/currency';
+import { getReportNarrative, getReportSections, reportMetadata } from '../../lib/reportPresentation';
 
-function hasChartData(chart) {
-    return Array.isArray(chart?.labels)
-        && chart.labels.length > 0
-        && Array.isArray(chart?.datasets)
-        && chart.datasets.some(dataset => Array.isArray(dataset.data) && dataset.data.some(value => Number(value) > 0));
-}
-
-function humanizeKey(key) {
-    return String(key || '')
-        .replaceAll('_', ' ')
-        .replaceAll('-', ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .replace(/\b\w/g, letter => letter.toUpperCase());
-}
-
-function isCurrencyTotalKey(key) {
-    const normalized = String(key || '').toLowerCase();
-
-    if (/(count|quantity|stock|items|records|requests|stays|appointments|consultations|cases|rate)/.test(normalized)) {
-        return false;
-    }
-
-    return /(sales|revenue|bill|balance|amount|paid|charge|price)/.test(normalized);
-}
-
-function formatTotalValue(value, key = '') {
-    if (value === null || value === undefined || value === '') {
-        return 'N/A';
-    }
-
-    if (isCurrencyTotalKey(key) && Number.isFinite(Number(value))) {
-        return formatPhpCurrency(value);
-    }
-
-    if (String(key).toLowerCase().includes('rate') && Number.isFinite(Number(value))) {
-        return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`;
-    }
-
-    if (typeof value === 'object') {
-        return JSON.stringify(value);
-    }
-
-    return String(value);
-}
-
-function hasItems(value) {
-    return Array.isArray(value) && value.length > 0;
-}
-
-export default function ReportPreview({ report }) {
+export default function ReportPreview({ report, reportTitle = 'report' }) {
     if (!report) {
         return (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900">
-                <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">Preview a report to see the printable output.</p>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
+                <FileText className="mx-auto mb-3 size-6 text-slate-400" aria-hidden="true" />
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preview the {reportTitle} to see its findings and records.</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose the period and filters above, then select Preview Report.</p>
             </div>
         );
     }
 
-    const totals = Object.entries(report.totals || {});
-    const missingData = Array.isArray(report.missing_data) ? report.missing_data.filter(Boolean) : [];
     const summary = report.summary || {};
-    const executiveText = summary.executive_text || summary.executiveText || summary.text || 'No summary available.';
-    const operationalContext = summary.operational_context || summary.operationalContext || '';
+    const narrative = getReportNarrative(report);
+    const sections = getReportSections(report);
+    const metadata = reportMetadata(report);
     const comparison = report.comparison || {};
     const comparisonRows = Array.isArray(comparison.rows) ? comparison.rows : [];
-    const breakdowns = Array.isArray(summary.breakdowns) ? summary.breakdowns : [];
-    const managementActions = Array.isArray(summary.management_actions)
-        ? summary.management_actions
-        : (Array.isArray(summary.managementActions) ? summary.managementActions : []);
-    const appliedFilters = Array.isArray(summary.filters) ? summary.filters : [];
-    const dateRangeLabel = formatReportDateRange(report.date_range?.start_date, report.date_range?.end_date, {
-        fallback: report.date_range?.label || 'N/A'
-    });
-    const generatedAtLabel = formatReportDateLabel(report.generated_at, { fallback: report.generated_at || 'N/A' });
+    const comparisonColumns = [
+        { key: 'label', label: 'Measure', primary: true, width: 2 },
+        { key: 'current', label: 'Current period', align: 'right' },
+        { key: 'previous', label: 'Previous period', align: 'right' },
+        { key: 'change', label: 'Change', align: 'right' },
+        { key: 'change_percent', label: 'Relative change', align: 'right' }
+    ];
 
     return (
-        <section className="report-print-area report-standard-preview space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 print:border-0 print:bg-white print:p-0 print:text-slate-950 print:shadow-none">
-            <header className="border-b border-slate-200 pb-5 dark:border-slate-800 print:border-slate-200">
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-[#155dfc]">iPawcus</p>
-                <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white print:text-slate-950">Vetfocus Animal Care Clinic</h1>
-                <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 sm:grid-cols-2 print:text-slate-600">
-                    <p><span className="text-slate-950 dark:text-white print:text-slate-950">Report:</span> {report.title}</p>
-                    <p><span className="text-slate-950 dark:text-white print:text-slate-950">Date Range:</span> {dateRangeLabel}</p>
-                    <p><span className="text-slate-950 dark:text-white print:text-slate-950">Generated:</span> {generatedAtLabel}</p>
-                    <p><span className="text-slate-950 dark:text-white print:text-slate-950">Generated By:</span> {report.generated_by || 'Super Admin'}</p>
-                </div>
+        <article className="report-print-area report-standard-preview mx-auto max-w-[1600px] space-y-7 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900 sm:p-7 print:border-0 print:bg-white print:p-0 print:text-slate-950">
+            <header className="border-b border-slate-200 pb-5 dark:border-slate-700 print:border-slate-200">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#155dfc]">iPawcus · Vetfocus Animal Care Clinic</p>
+                <h1 className="mt-2 text-xl font-bold text-slate-950 dark:text-white sm:text-2xl print:text-slate-950">{report.title}</h1>
+                <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    {[
+                        ['Period', metadata.dateRange],
+                        ['Generated', metadata.generatedAt],
+                        ['Prepared by', metadata.generatedBy],
+                        ['Included', `${summary.record_count ?? report.rows?.length ?? 0} ${summary.record_unit || 'records'}`]
+                    ].map(([label, value]) => (
+                        <div key={label} className="flex flex-wrap gap-x-2">
+                            <dt className="font-semibold text-slate-800 dark:text-slate-100 print:text-slate-800">{label}:</dt>
+                            <dd className="text-slate-600 dark:text-slate-300 print:text-slate-600">{value}</dd>
+                        </div>
+                    ))}
+                </dl>
+                {narrative.filters.length ? (
+                    <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400 print:text-slate-600">
+                        <span className="font-semibold">Filters: </span>{narrative.filters.map(filter => `${filter.label}: ${filter.value}`).join('; ')}
+                    </p>
+                ) : null}
+                {narrative.scope ? <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{narrative.scope}</p> : null}
             </header>
 
-            <div className="report-print-section grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.6fr)]">
-                <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700 print:border-slate-200">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 print:text-slate-500">Executive Summary</p>
-                    <p className="text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200 print:text-slate-700">{executiveText}</p>
-                    {operationalContext ? (
-                        <p className="border-t border-slate-100 pt-3 text-sm font-semibold leading-6 text-slate-600 dark:border-slate-800 dark:text-slate-300 print:border-slate-200 print:text-slate-600">
-                            {operationalContext}
-                        </p>
-                    ) : null}
-                </div>
+            <section className="report-print-section space-y-2" aria-labelledby="report-executive-summary">
+                <h2 id="report-executive-summary" className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Executive Summary</h2>
+                <p className="max-w-[100ch] text-sm leading-7 text-slate-700 dark:text-slate-200 print:text-slate-700">{narrative.executive}</p>
+            </section>
 
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:border-slate-200 print:bg-white">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 print:text-slate-500">Report Scope</p>
-                    <div className="space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-300 print:text-slate-600">
-                        <p><span className="text-slate-950 dark:text-white print:text-slate-950">Detailed Records:</span> {summary.record_count ?? report.rows?.length ?? 0}</p>
-                        <p><span className="text-slate-950 dark:text-white print:text-slate-950">Period:</span> {dateRangeLabel}</p>
-                        <p>
-                            <span className="text-slate-950 dark:text-white print:text-slate-950">Filters:</span>{' '}
-                            {appliedFilters.length
-                                ? appliedFilters.map(filter => `${filter.label}: ${filter.value}`).join('; ')
-                                : 'None'}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            {narrative.discussion.length ? (
+                <section className="report-discussion space-y-2" aria-labelledby="report-discussion">
+                    <h2 id="report-discussion" className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Discussion</h2>
+                    {narrative.discussion.map((paragraph, index) => <p key={index} className="max-w-[100ch] text-sm leading-7 text-slate-700 dark:text-slate-200 print:text-slate-700">{paragraph}</p>)}
+                </section>
+            ) : null}
+
+            {narrative.breakdowns.length ? (
+                <dl className="report-print-section flex flex-wrap gap-x-8 gap-y-3 border-y border-slate-200 py-4 dark:border-slate-700 print:border-slate-200">
+                    {narrative.breakdowns.map((item, index) => (
+                        <div key={`${item.label}-${index}`} className="min-w-[9rem] max-w-sm">
+                            <dt className="text-xs font-semibold text-slate-500 dark:text-slate-400 print:text-slate-600">{item.label}</dt>
+                            <dd className="mt-1 font-semibold tabular-nums text-slate-900 dark:text-white print:text-slate-900">{item.value}</dd>
+                            {item.detail ? <dd className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400 print:text-slate-600">{item.detail}</dd> : null}
+                        </div>
+                    ))}
+                </dl>
+            ) : null}
 
             {comparison.text || comparisonRows.length ? (
-                <div className="report-print-section space-y-3">
-                    <div>
-                        <h2 className="text-lg font-black text-slate-950 dark:text-white print:text-slate-950">Comparative Reading</h2>
-                        <p className="text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">
-                            {comparison.text || summary.comparison_text}
-                        </p>
+                <section className="space-y-3">
+                    <div className="report-section-heading space-y-1">
+                        <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Comparison with the Previous Period</h2>
+                        {comparison.text ? <p className="max-w-[100ch] text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{comparison.text}</p> : null}
                     </div>
-                    {comparisonRows.length ? (
-                        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 print:border-slate-200">
-                            <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800 print:divide-slate-200">
-                                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300 print:bg-slate-50 print:text-slate-500">
-                                    <tr>
-                                        <th className="px-3 py-3 font-black">Measure</th>
-                                        <th className="px-3 py-3 font-black">Current</th>
-                                        <th className="px-3 py-3 font-black">Previous</th>
-                                        <th className="px-3 py-3 font-black">Change</th>
-                                        <th className="px-3 py-3 font-black">Relative</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-slate-100">
-                                    {comparisonRows.map((row, index) => (
-                                        <tr key={`${row.label}-${index}`}>
-                                            <td className="px-3 py-3 font-black text-slate-800 dark:text-slate-100 print:text-slate-800">{row.label}</td>
-                                            <td className="px-3 py-3 text-slate-700 dark:text-slate-200 print:text-slate-700">{row.current}</td>
-                                            <td className="px-3 py-3 text-slate-700 dark:text-slate-200 print:text-slate-700">{row.previous}</td>
-                                            <td className="px-3 py-3 font-black text-slate-900 dark:text-white print:text-slate-900">{row.change}</td>
-                                            <td className="px-3 py-3 text-slate-600 dark:text-slate-300 print:text-slate-600">{row.change_percent || 'N/A'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : null}
-                </div>
+                    {comparisonRows.length ? <ReportTable columns={comparisonColumns} rows={comparisonRows} title="Comparison with the Previous Period" /> : null}
+                </section>
             ) : null}
 
-            {breakdowns.length ? (
-                <div className="report-print-section space-y-3">
-                    <h2 className="text-lg font-black text-slate-950 dark:text-white print:text-slate-950">Key Breakdowns</h2>
-                    <div className="grid gap-3 md:grid-cols-2">
-                        {breakdowns.map((item, index) => (
-                            <div key={`${item.label}-${index}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700 print:border-slate-200">
-                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 print:text-slate-500">{item.label}</p>
-                                <p className="mt-1 text-base font-black text-slate-950 dark:text-white print:text-slate-950">{item.value}</p>
-                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-300 print:text-slate-600">{item.detail}</p>
-                            </div>
-                        ))}
+            {sections.map(section => (
+                <section key={section.id} className="report-record-section space-y-3">
+                    <div className="report-section-heading space-y-1">
+                        <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">{section.title}</h2>
+                        {section.description ? <p className="max-w-[100ch] text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{section.description}</p> : null}
                     </div>
-                </div>
-            ) : null}
+                    <ReportTable title={section.title} columns={section.columns} rows={section.rows} footer={section.footer} rowDetails={section.row_details} emptyMessage={section.empty_message} />
+                </section>
+            ))}
 
-            {managementActions.length ? (
-                <div className="report-print-section space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700 print:border-slate-200">
-                    <h2 className="text-lg font-black text-slate-950 dark:text-white print:text-slate-950">Management Follow-Up</h2>
-                    <ol className="space-y-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">
-                        {managementActions.map((action, index) => (
-                            <li key={`${action}-${index}`} className="flex gap-2">
-                                <span className="font-black text-slate-950 dark:text-white print:text-slate-950">{index + 1}.</span>
-                                <span>{action}</span>
-                            </li>
-                        ))}
+            {narrative.actions.length ? (
+                <section className="report-print-section space-y-2">
+                    <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Follow-Up Actions</h2>
+                    <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700 dark:text-slate-200 print:text-slate-700">
+                        {narrative.actions.map((action, index) => <li key={index}>{action}</li>)}
                     </ol>
-                </div>
+                </section>
             ) : null}
 
-            {hasItems(summary.bullets) ? (
-                <div className="space-y-3">
-                    <h2 className="text-lg font-black text-slate-950 dark:text-white print:text-slate-950">Supporting Notes</h2>
-                    <ul className="grid gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 sm:grid-cols-2 print:text-slate-600">
-                        {report.summary.bullets.map((line, index) => (
-                            <li key={`${line}-${index}`} className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800 print:border print:border-slate-200 print:bg-white">
-                                {line}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+            {narrative.missing.length ? (
+                <section className="report-print-section space-y-2 border-l-2 border-amber-400 pl-4">
+                    <h2 className="text-sm font-semibold text-slate-950 dark:text-white print:text-slate-950">Data Notes</h2>
+                    {narrative.missing.map((note, index) => <p key={index} className="text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{note}</p>)}
+                </section>
             ) : null}
 
-            {totals.length ? (
-                <div className="report-print-section grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {totals.slice(0, 8).map(([key, value]) => (
-                        <div key={key} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700 print:border-slate-200">
-                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 print:text-slate-500">{humanizeKey(key)}</p>
-                            <p className="mt-1 break-words text-sm font-black text-slate-950 dark:text-white print:text-slate-950">{formatTotalValue(value, key)}</p>
-                        </div>
-                    ))}
-                </div>
-            ) : null}
-
-            {missingData.length ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
-                    {missingData.map((note, index) => (
-                        <p key={`${note}-${index}`}>{note}</p>
-                    ))}
-                </div>
-            ) : null}
-
-            {hasChartData(report.chart) ? (
-                <div className="report-print-hidden">
-                    <ReportChartCard title={`${report.title} Chart Preview`} summary="" chart={report.chart} compact />
-                </div>
-            ) : null}
-
-            <div className="space-y-3">
-                <h2 className="text-lg font-black text-slate-950 dark:text-white print:text-slate-950">Detailed Records</h2>
-                <ReportTable columns={report.columns} rows={report.rows} />
-            </div>
-
-            <footer className="border-t border-slate-200 pt-4 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400 print:border-slate-200 print:text-slate-500">
-                Generated by iPawcus: A Web-Based Veterinary Management System
+            <footer className="border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400 print:border-slate-200 print:text-slate-600">
+                Prepared from iPawcus records for Vetfocus Animal Care Clinic.
             </footer>
-        </section>
+        </article>
     );
 }

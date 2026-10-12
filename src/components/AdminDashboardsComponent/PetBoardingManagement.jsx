@@ -820,17 +820,15 @@ function BoardingConsentCapture({
                             type="button"
                             variant="outline"
                             className="w-full"
-                            onClick={() => {
+                            onClick={async () => {
                                 const previewUrl = URL.createObjectURL(uploadFile);
-                                const previewWindow = window.open('', '_blank');
-                                if (!previewWindow) {
+                                try {
+                                    await openProtectedDocument(previewUrl, { title: uploadFile.name });
+                                } catch {
+                                    toast.error('The selected PDF could not be opened.');
+                                } finally {
                                     URL.revokeObjectURL(previewUrl);
-                                    toast.error('Allow pop-ups to preview the selected PDF.');
-                                    return;
                                 }
-                                previewWindow.opener = null;
-                                previewWindow.location.href = previewUrl;
-                                window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
                             }}
                         >
                             <Eye className="size-4" />

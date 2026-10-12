@@ -27,7 +27,7 @@ import {
 
 import { findPetService } from "../../services/findPet";
 import { fetchPetMedicalRecords, savePetMedicalRecord, updatePetDetails } from "../../services/petService";
-import { uploadFormData } from "../../services/uploadService";
+import { uploadImageFile } from "../../services/uploadService";
 
 export default function PetProfileEdit() {
   const navigate = useNavigate();
@@ -39,6 +39,7 @@ export default function PetProfileEdit() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isMedicalLoading, setIsMedicalLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({});
@@ -114,6 +115,25 @@ export default function PetProfileEdit() {
 
   const handleSelectChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePhotoChange = async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file || isUploadingPhoto || !pet?.db_id) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      const imagePath = await uploadImageFile(file, 'pet');
+      await updatePetDetails(pet.db_id, { setpetImage_url: imagePath });
+      setPet(current => ({ ...current, profileImage: imagePath }));
+      toast.success('Profile picture updated.');
+    } catch (error) {
+      toast.error(error.message || 'The profile picture could not be saved. Choose the file again and retry.');
+    } finally {
+      input.value = '';
+      setIsUploadingPhoto(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -284,22 +304,10 @@ export default function PetProfileEdit() {
                 )}
               </div>
               
-              <input type="file" id="pet-pic-upload" className="hidden" accept="image/*" onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const formData = new FormData();
-                  formData.append('image', file);
-                  formData.append('type', 'pet');
-                  try {
-                      const result = await uploadFormData(formData);
-                      await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
-                      toast.success('Profile picture updated.');
-                      setPet(prev => ({ ...prev, profileImage: result.relative_url }));
-                  } catch { toast.error('The profile picture could not be uploaded. Choose the file again and retry.'); }
-              }}/>
-              <label htmlFor="pet-pic-upload" className="absolute bottom-2 right-2 p-2 bg-blue-600 rounded-full text-white shadow-lg cursor-pointer hover:bg-blue-700 transition-colors">
-                <Camera className="h-5 w-5" />
-              </label>
+              <input type="file" id="pet-pic-upload" className="hidden" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
+              <Button type="button" size="icon" aria-label="Change pet profile photo" onClick={() => document.getElementById('pet-pic-upload')?.click()} disabled={isUploadingPhoto} className="absolute bottom-2 right-2 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700">
+                {isUploadingPhoto ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+              </Button>
             </div>
             
             <div className="min-w-0 flex-1 space-y-2 pb-2 text-center md:text-left">

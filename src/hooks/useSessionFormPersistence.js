@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { bookingSelectionDraftValue, readBookingAvailabilitySelection } from '../lib/bookingAvailabilityNavigation.js';
 
 const STORAGE_PREFIX = 'ipawcus:session-form-draft:';
 const SAVE_DELAY_MS = 120;
@@ -15,7 +16,7 @@ const STAFF_ROLES = new Set([
 
 const PET_OWNER_BOOKING_ROUTES = [
     /^\/dashboard\/consult\/booking\/?$/,
-    /^\/dashboard\/services\/(general-checkup|parasite-control|surgery|vaccination|grooming|dental-checkup|home-services|pet-hotel|special-services)\/?$/,
+    /^\/dashboard\/services\/(general-checkup|parasite-control|surgery|vaccination|grooming|dental-checkup|laboratory-testing|home-services|pet-hotel|special-services)\/?$/,
 ];
 
 const BLOCKED_FIELD_PATTERN = /(password|passcode|otp|one.?time|token|secret|signature|payment|card|cvv|cvc|proof|receipt|bank|gcash|maya|account.?number|access.?key|private.?key|upload|attachment|file)/i;
@@ -254,6 +255,8 @@ export function useSessionFormPersistence({ user, path }) {
 
         const key = draftKey(user, path);
         let activeDraft = readStoredDraft(key);
+        const bookingSelection = readBookingAvailabilitySelection();
+        const restoredDraftSavedAt = activeDraft?.savedAt;
         const userEditedFields = new WeakSet();
         const restoredFields = new WeakSet();
         let saveTimer = null;
@@ -283,7 +286,17 @@ export function useSessionFormPersistence({ user, path }) {
 
                 const storedValue = activeDraft.fields[fieldIdentity(field, fields, index)];
                 if (storedValue) {
-                    applyFieldValue(field, storedValue);
+                    const triggerId = field.dataset.sessionPersist === 'select'
+                        ? field.parentElement?.querySelector('[data-slot="select-trigger"]')?.id
+                        : '';
+                    const restoredValue = bookingSelectionDraftValue({
+                        selection: bookingSelection,
+                        path,
+                        draftSavedAt: restoredDraftSavedAt,
+                        fieldId: field.id || triggerId || field.name,
+                        storedValue,
+                    });
+                    if (restoredValue) applyFieldValue(field, restoredValue);
                     restoredFields.add(field);
                 }
             });

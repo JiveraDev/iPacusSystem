@@ -22,7 +22,7 @@ function normalizePet(data = {}) {
         color: data.color || data.petColor || '',
         microchipId: data.microchipId || data.petMicrochipId || '',
         ownerName: data.ownerName || data.petTempOwner || '',
-        profileImage: data.profileImage || data.petProfileImage || '',
+        profileImage: data.profileImage || data.petProfileImage || data.setpetImage_url || '',
         allergiesRaw: data.allergies_raw || data.petAllergies || '',
         allergies: Array.isArray(data.allergies) ? data.allergies : [],
         isRegistered
@@ -116,8 +116,8 @@ export default function PetInfoModal({ petId, petName, booking }) {
 }
 
 function PetDetails({ pet }) {
-    const [imageError, setImageError] = useState(false);
-    const imageUrl = imageError ? null : pet.profileImage;
+    const [failedImage, setFailedImage] = useState('');
+    const imageUrl = failedImage === pet.profileImage ? null : pet.profileImage;
     const displayAge = pet.birthDate ? calculateAge(pet.birthDate) : pet.age;
     const allergies = pet.allergies.length > 0
         ? pet.allergies
@@ -136,7 +136,7 @@ function PetDetails({ pet }) {
                                 alt={pet.name || 'Pet'}
                                 className="size-full object-cover"
                                 fallbackClassName="size-full"
-                                onLoadError={() => setImageError(true)}
+                                onLoadError={() => setFailedImage(pet.profileImage)}
                             />
                         ) : (
                             <div className="flex size-full items-center justify-center bg-blue-50">

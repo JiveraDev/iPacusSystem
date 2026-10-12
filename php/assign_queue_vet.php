@@ -104,12 +104,25 @@ try {
         $bookingStmt = $pdo->prepare('SELECT * FROM bookings WHERE booking_id = ? FOR UPDATE');
         $bookingStmt->execute([(int)$queue['booking_id']]);
         $reservedBooking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
-        // Reassigning a future appointment must reserve the replacement vet.
-        // Patients already being examined can be handed over by the admin.
-        if ($reservedBooking && strtotime($reservedBooking['booking_date'] . ' ' . $reservedBooking['booking_time']) > time()) {
+        $nowTimestamp = time();
+        $scheduledStart = $reservedBooking ? strtotime($reservedBooking['booking_date'] . ' ' . $reservedBooking['booking_time']) : false;
+        $interval = $reservedBooking ? clinic_booking_interval($reservedBooking) : null;
+        if ($scheduledStart !== false && $scheduledStart > $nowTimestamp) {
             $serviceKey = booking_slot_service_key($reservedBooking['service_type'], $reservedBooking['is_home_service'] ?? 0, $reservedBooking['is_online_consultation'] ?? 0);
             if (clinic_booking_is_medical($serviceKey)) {
                 clinic_booking_reserve_vet($pdo, (int)$reservedBooking['branch_id'], $reservedBooking['booking_date'], $reservedBooking['booking_time'], $serviceKey, $veterinarianUserId, (int)$reservedBooking['booking_id']);
+            }
+        } elseif ($interval && $interval[1] > $nowTimestamp) {
+            // Handover stays available to admin, but cannot create an overlap
+            // with the replacement vet's bookings at any clinic or online.
+            $conflict = clinic_booking_handover_conflict(
+                $reservedBooking,
+                clinic_booking_reservations($pdo, $reservedBooking['booking_date'], $reservedBooking['booking_date'], true),
+                $veterinarianUserId,
+                $nowTimestamp
+            );
+            if ($conflict) {
+                throw new DomainException('This veterinarian already has an overlapping booking (#' . $conflict['booking_id'] . '). Select another veterinarian for this handover.');
             }
         }
     }

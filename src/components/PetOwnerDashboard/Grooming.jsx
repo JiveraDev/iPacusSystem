@@ -2,7 +2,7 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
@@ -19,7 +19,7 @@ import { ServiceProjectionDetails, ServiceProjectionNote } from "./ServiceProjec
 import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
@@ -50,7 +50,7 @@ export default function Grooming() {
     branchId: prefill?.branchId ? String(prefill.branchId) : "",
     date: prefill?.date || "",
     time: prefill?.time || "",
-    notes: "",
+    notes: preferredVeterinarianNote(prefill),
     files: [],
     });
   });
@@ -269,7 +269,7 @@ export default function Grooming() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                      <Label htmlFor="newPetSpecies">Species *</Label>
                       <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" required={isNewPet} value={formData.newPetSpecies} onChange={(event) => setFormData({ ...formData, newPetSpecies: event.target.value })} />
                     </div>
                     <div className="space-y-2">
@@ -322,7 +322,7 @@ export default function Grooming() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Preferred Date *</Label>
+                  <Label htmlFor="date">Preferred date *</Label>
                   <Input
                     id="date"
                     type="date"
@@ -346,10 +346,10 @@ export default function Grooming() {
 
               <div id="grooming-price-selection" className="space-y-2" tabIndex={-1}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label>Grooming services and prices *</Label>
+                  <Label>Grooming services *</Label>
                   <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">Grooming booking</span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Select every grooming service you want included in this booking.</p>
+
                 <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                   <table className="min-w-full text-xs">
                     <thead className="bg-slate-50 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
@@ -396,7 +396,7 @@ export default function Grooming() {
                     ))}
                   </div>
                 )}
-                <Label htmlFor="notes">Concern or grooming instructions</Label>
+                <Label htmlFor="notes" help="Describe any grooming concerns or care instructions for the team.">Notes</Label>
                 <Textarea
                   id="notes"
                   placeholder="Describe the concern, preferred style, sensitivities, or special instructions"
@@ -407,7 +407,7 @@ export default function Grooming() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="files">Concern photo (Optional)</Label>
+                <Label htmlFor="files" help="Upload one JPG, PNG, or WebP image up to 8 MB. It will be shown to the grooming team and assigned veterinarian.">Concern photo (optional)</Label>
                 <FileUploadDropzone
                   id="files"
                   accept="image/jpeg,image/png,image/webp"
@@ -415,7 +415,7 @@ export default function Grooming() {
                   onFilesSelected={handleFileChange}
                   onRemove={removeFile}
                   label="Upload one concern photo"
-                  helper="One JPG, PNG, or WebP image up to 8 MB. This will be shown to the grooming team and assigned veterinarian."
+                  helper=""
                 />
               </div>
 

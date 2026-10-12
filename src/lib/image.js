@@ -1,4 +1,4 @@
-import { API_BASE_URL, getApiUrl, getStoredAuthToken } from '../services/apiClient';
+import { API_BASE_URL, getApiUrl, getStoredAuthToken } from '../services/apiClient.js';
 
 const RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'grooming_photos',
@@ -15,108 +15,80 @@ const RUNTIME_UPLOAD_DIRECTORIES = new Set([
   'uploads'
 ]);
 
-const PROTECTED_RUNTIME_UPLOAD_DIRECTORIES = new Set([
-  'grooming_photos',
-  'boarding_documents',
-  'concerns',
-  'diagnosis',
-  'inventory_items',
-  'inventory_receipts',
-  'invoices',
-  'payments',
-  'signatures'
-]);
+function imageString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
 
-function normalizePublicPath(value) {
-  let path = String(value || '').trim().replace(/\\/g, '/');
-  if (/^https?:\/\//i.test(path)) {
+/** Recognize stored and legacy media paths without treating other sites as this API. */
+export function runtimeImagePath(value, {
+    apiBaseUrl = API_BASE_URL,
+    origin = typeof window === 'undefined' ? '' : window.location?.origin || ''
+} = {}) {
+    const source = imageString(value).replace(/\\/g, '/');
+    if (!source || /^(blob:|data:)/i.test(source)) return '';
+
     try {
-      path = new URL(path).pathname;
+        const url = new URL(source, origin || 'https://media.invalid');
+        if (/^(https?:)?\/\//i.test(source)) {
+            const trustedOrigins = new Set(origin ? [origin] : []);
+            if (apiBaseUrl) trustedOrigins.add(new URL(apiBaseUrl, origin || 'https://media.invalid').origin);
+            if (!trustedOrigins.has(url.origin)) return '';
+        } else if (/^[a-z][a-z\d+.-]*:/i.test(source)) {
+            return '';
+        }
+
+        let path = decodeURIComponent(url.pathname).replace(/\\/g, '/');
+        // PHP accepts both /uploads/media/<path> and /uploads/media?path=<path>.
+        // Older stored paths can include public/, set/, or php/index.php prefixes.
+        const mediaRoute = path.match(/(?:^|\/)uploads\/media(?:\/(.*))?\/?$/i);
+        if (mediaRoute) path = mediaRoute[1] || url.searchParams.get('path') || '';
+        const segments = path.replace(/^\/+/, '').split('/');
+        const directoryIndex = segments.findIndex(segment => RUNTIME_UPLOAD_DIRECTORIES.has(segment));
+        if (directoryIndex < 0) return '';
+        const mediaSegments = segments.slice(directoryIndex);
+        if (mediaSegments.length < 2 || mediaSegments.some(segment => !segment || segment === '.' || segment === '..' || [...segment].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))) return '';
+        return mediaSegments.join('/');
     } catch {
-      return '';
+        return '';
     }
-  }
-
-  path = path.replace(/^\/?public\//i, '/');
-  path = path.replace(/\/{2,}/g, '/');
-
-  return path.startsWith('/') ? path : `/${path}`;
 }
 
-function runtimeUploadPath(cleanPath) {
-  let uploadPath = cleanPath.replace(/^\/+/, '');
+export function resolveImageUrl(value) {
+    const source = imageString(value);
+    if (!source) return null;
+    if (/^(blob:|data:)/i.test(source)) return source;
 
-  if (uploadPath.startsWith('uploads/media/')) {
-    uploadPath = uploadPath.slice('uploads/media/'.length);
-  }
+    const uploadPath = runtimeImagePath(source);
+    if (uploadPath) return getApiUrl(`/uploads/media/${uploadPath.split('/').map(encodeURIComponent).join('/')}`, { apiPrefix: true });
+    if (/^(https?:)?\/\//i.test(source)) return source;
+    if (/^[a-z][a-z\d+.-]*:/i.test(source)) return null;
 
-  if (uploadPath.startsWith('api/uploads/media/')) {
-    uploadPath = uploadPath.slice('api/uploads/media/'.length);
-  }
-
-  const uploadDirectory = uploadPath.split('/')[0];
-
-  return RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory) ? uploadPath : '';
+    const publicPath = source.replace(/\\/g, '/').replace(/^\/?public\//i, '/').replace(/\/{2,}/g, '/');
+    return publicPath.startsWith('/') ? publicPath : `/${publicPath}`;
 }
 
-/**
- * Resolves an image path to a full URL, handling Vite's public folder and absolute URLs.
- * @param {string} profileImage - The path or URL to the image
- * @returns {string|null} The resolved image URL
- */
-export const resolveImageUrl = (profileImage) => {
-  if (!profileImage) return null;
+export async function fetchProtectedMediaObjectUrl(value, { signal, allowedMimeTypes = ['image/', 'application/pdf'] } = {}) {
+    const resolvedUrl = resolveImageUrl(value);
+    const uploadPath = runtimeImagePath(value);
+    if (!resolvedUrl || !uploadPath) return resolvedUrl;
 
-  // 1. Blobs/Previews (already absolute or temporary)
-  if (profileImage.startsWith('blob:') || profileImage.startsWith('data:')) {
-    return profileImage;
-  }
+    const token = getStoredAuthToken();
+    const response = await fetch(getApiUrl(`/uploads/media?path=${encodeURIComponent(uploadPath)}`, { apiPrefix: true }), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal
+    });
+    if (!response.ok) throw new Error('Could not load protected file.');
 
-  // 2. Already absolute URLs
-  if (profileImage.startsWith('http')) {
-    return profileImage;
-  }
+    const blob = await response.blob();
+    // A missing-file SPA fallback must not masquerade as a successful media load.
+    const contentType = blob.type.toLowerCase().split(';')[0].trim();
+    if (!allowedMimeTypes.some(type => type.endsWith('/') ? contentType.startsWith(type) : contentType === type)) {
+        throw new Error('The media response is not an image or supported document.');
+    }
+    if (signal?.aborted) throw new DOMException('Image request was cancelled.', 'AbortError');
+    return URL.createObjectURL(blob);
+}
 
-  // 3. Vite Assets from 'public' folder
-  // Contents of 'public/' are served at the root '/' by Vite.
-  // If path is '/public/uploads/xxx.png', it's actually at '/uploads/xxx.png'
-  const cleanPath = normalizePublicPath(profileImage);
-  const uploadPath = runtimeUploadPath(cleanPath);
-  const uploadDirectory = uploadPath.split('/')[0];
-
-  if ((API_BASE_URL || uploadDirectory === 'grooming_photos') && uploadPath && PROTECTED_RUNTIME_UPLOAD_DIRECTORIES.has(uploadDirectory)) {
-    return getApiUrl(`/uploads/media/${uploadPath}`);
-  }
-
-  if (uploadPath) {
-    return `/${uploadPath}`;
-  }
-
-  // Request from current origin (Vite dev server)
-  return cleanPath;
-};
-
-export async function fetchProtectedImageObjectUrl(profileImage) {
-  const resolvedUrl = resolveImageUrl(profileImage);
-  if (!resolvedUrl || resolvedUrl.startsWith('blob:') || resolvedUrl.startsWith('data:')) {
-    return resolvedUrl;
-  }
-
-  const uploadPath = runtimeUploadPath(normalizePublicPath(profileImage));
-  if ((!API_BASE_URL && !uploadPath.startsWith('grooming_photos/')) || !uploadPath) {
-    return resolvedUrl;
-  }
-
-  const token = getStoredAuthToken();
-  const mediaUrl = getApiUrl(`/uploads/media?path=${encodeURIComponent(uploadPath)}`, { apiPrefix: true });
-  const response = await fetch(mediaUrl, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-
-  if (!response.ok) {
-    throw new Error('Could not load protected image.');
-  }
-
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
+export function fetchProtectedImageObjectUrl(value, options = {}) {
+    return fetchProtectedMediaObjectUrl(value, { ...options, allowedMimeTypes: ['image/'] });
 }

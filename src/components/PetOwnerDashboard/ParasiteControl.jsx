@@ -2,7 +2,7 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
@@ -20,7 +20,7 @@ import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BranchBookingSelect from "../shared/BranchBookingSelect";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import BookingDateInput from "../shared/BookingDateInput.jsx";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
@@ -49,7 +49,7 @@ export default function ParasiteControl() {
     veterinarianId: prefill?.veterinarianId ? String(prefill.veterinarianId) : '',
     date: prefill?.date || "",
     time: prefill?.time || "",
-    notes: "",
+    notes: preferredVeterinarianNote(prefill),
     files: [],
     });
   });
@@ -258,7 +258,7 @@ export default function ParasiteControl() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                      <Label htmlFor="newPetSpecies">Species *</Label>
                       <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" required={isNewPet} value={formData.newPetSpecies} onChange={(event) => setFormData({ ...formData, newPetSpecies: event.target.value })} />
                     </div>
                     <div className="space-y-2">
@@ -311,7 +311,7 @@ export default function ParasiteControl() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Preferred Date *</Label>
+                  <Label htmlFor="date">Preferred date *</Label>
                   <BookingDateInput
                     id="date"
                     service={"parasite-control"}
@@ -337,7 +337,7 @@ export default function ParasiteControl() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Additional Notes</Label>
+                <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
                   placeholder="Symptoms or concerns"
@@ -348,7 +348,7 @@ export default function ParasiteControl() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="files">Upload Files (optional)</Label>
+                <Label htmlFor="files">Upload files (optional)</Label>
                 <FileUploadDropzone
                   id="files"
                   accept="image/*,.pdf"
@@ -357,7 +357,7 @@ export default function ParasiteControl() {
                   onFilesSelected={handleFileChange}
                   onRemove={removeFile}
                   label="Click to upload or drag and drop"
-                  helper="Images or PDF documents up to 8 MB each"
+                  helper=""
                 />
               </div>
 

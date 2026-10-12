@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Hotel, PawPrint } from "lucide-react";
-import { differenceInDays, parseISO } from "../../lib/date";
-import { resolveImageUrl } from "../../lib/image";
+import { differenceInDays, format, parseISO } from "../../lib/date";
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { getPhilippinePhoneError, normalizePhilippinePhoneForSubmit, normalizePhilippinePhoneInput } from "../../lib/philippinePhone";
 import { DECEASED_PET_BOOKING_MESSAGE, getPetStatus, isPetDeceased } from "../../lib/petStatus";
 import { createBooking } from "../../services/bookingService";
@@ -154,7 +154,7 @@ export default function PetHotel() {
   const [selectedPets, setSelectedPets] = useState([]);
   const [roomSize, setRoomSize] = useState(prefilledRoomParts[0] === 'hotel' && ['small', 'medium', 'large'].includes(prefilledRoomParts[1]) ? prefilledRoomParts[1] : "");
   const [checkInDate, setCheckInDate] = useState(availabilityPrefill?.date || "");
-  const [checkOutDate, setCheckOutDate] = useState(prefilledCheckOut ? prefilledCheckOut.toISOString().slice(0, 10) : "");
+  const [checkOutDate, setCheckOutDate] = useState(prefilledCheckOut ? format(prefilledCheckOut, 'yyyy-MM-dd') : "");
   const [addOns, setAddOns] = useState([]);
   const [specialRequests, setSpecialRequests] = useState("");
   const [emergencyContact, setEmergencyContact] = useState(() => normalizePhilippinePhoneInput(""));
@@ -550,7 +550,7 @@ export default function PetHotel() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="checkInDate">Check-in Date *</Label>
+                <Label htmlFor="checkInDate">Check-in date *</Label>
                 <Input
                   id="checkInDate"
                   type="date"
@@ -566,7 +566,7 @@ export default function PetHotel() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="checkOutDate">Check-out Date *</Label>
+                <Label htmlFor="checkOutDate">Check-out date *</Label>
                 <Input
                   id="checkOutDate"
                   type="date"
@@ -579,11 +579,8 @@ export default function PetHotel() {
             </div>
 
             <div className="space-y-3">
-              <Label>Select Pet(s) * (same species only)</Label>
-              <p className="text-xs text-gray-500">
-                Dogs are limited to 2. Cats and birds are limited to 3. Selected pets cannot be mixed species.
-                {selectedSpecies && ` Current selection: ${selectedPets.length}/${selectedSpeciesLimit} ${getSpeciesLabel(selectedSpecies)}.`}
-              </p>
+              <Label help="Choose pets of the same species. Dogs are limited to 2; cats and birds are limited to 3. Pets marked deceased cannot be booked.">Select pet(s) *</Label>
+              {selectedSpecies && <p className="text-xs text-slate-500 dark:text-slate-400">{selectedPets.length}/{selectedSpeciesLimit} {getSpeciesLabel(selectedSpecies)} selected</p>}
               {isLoadingPets ? (
                 <div className="rounded-lg border border-gray-200 p-4 text-sm text-gray-600">Loading pets...</div>
               ) : pets.length === 0 ? (
@@ -597,7 +594,7 @@ export default function PetHotel() {
                     const petSpecies = normalizeSpecies(pet.species);
                     const isBlockedBySpecies = Boolean(selectedSpecies) && !isSelected && petSpecies !== selectedSpecies;
                     const isDeceased = isPetDeceased(pet);
-                    const petImage = resolveImageUrl(pet.profileImage);
+                    const petImage = pet.profileImage;
 
                     return (
                       <button
@@ -617,13 +614,11 @@ export default function PetHotel() {
                           isSelected ? "border-blue-600 bg-blue-100" : "border-gray-200 bg-gray-100"
                         }`}>
                           {petImage ? (
-                            <img
+                            <ProtectedImage
                               src={petImage}
                               alt={`${pet.name} profile`}
                               className="h-full w-full object-cover"
-                              onError={(event) => {
-                                event.currentTarget.style.display = "none";
-                              }}
+                              fallbackClassName="h-full w-full"
                             />
                           ) : (
                             <PawPrint className={`h-7 w-7 ${isSelected ? "text-blue-600" : "text-gray-500"}`} />
@@ -643,7 +638,7 @@ export default function PetHotel() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <Label>Select Pet Hotel Room Size *</Label>
+                <Label>Room size *</Label>
                 {isLoadingAvailability && <span className="text-xs text-gray-500">Checking availability...</span>}
               </div>
               <div id="boarding-rooms" tabIndex={-1} className="rounded-xl">
@@ -657,9 +652,6 @@ export default function PetHotel() {
                   priceFormatter={formatMoney}
                 />
               </div>
-              {stayDuration < 1 && (
-                <p className="text-xs text-gray-500">Select valid check-in and check-out dates to check room availability.</p>
-              )}
             </div>
 
             <div className="space-y-3">

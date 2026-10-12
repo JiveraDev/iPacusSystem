@@ -33,7 +33,7 @@ import { canEditPetInformation } from "../../lib/petInformation";
 import { findPetService } from "../../services/findPet";
 import { updateBookingStatus } from "../../services/bookingService";
 import { fetchPetBookings, fetchPetQueues, updatePetDetails } from "../../services/petService";
-import { uploadFormData } from "../../services/uploadService";
+import { uploadImageFile } from "../../services/uploadService";
 import { fetchRecordUpdateRequests } from "../../services/recordUpdateRequestService";
 import { fetchPetCertificates, markPetMedicalCertificateViewed } from "../../services/petCertificateService";
 
@@ -79,6 +79,7 @@ export default function PetProfile() {
   const [pet, setPet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [queueRecords, setQueueRecords] = useState([]);
   const [bookingRecords, setBookingRecords] = useState([]);
   const [bookingPage, setBookingPage] = useState({ petId: "", limit: BOOKING_PAGE_SIZE });
@@ -336,22 +337,21 @@ export default function PetProfile() {
 
   const handlePetPhotoUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    const input = event.target;
+    if (!file || isUploadingPhoto || !pet?.db_id) return;
 
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('type', 'pet');
-
+    setIsUploadingPhoto(true);
     try {
-      const result = await uploadFormData(formData);
-      await updatePetDetails(pet.db_id, { setpetImage_url: result.relative_url });
-      setPet((current) => ({ ...current, profileImage: result.relative_url }));
+      const imagePath = await uploadImageFile(file, 'pet');
+      await updatePetDetails(pet.db_id, { setpetImage_url: imagePath });
+      setPet((current) => ({ ...current, profileImage: imagePath }));
       toast.success("Profile picture updated!");
     } catch (error) {
       console.error(error);
-      toast.error("Upload failed.");
+      toast.error(error.message || "The profile picture could not be saved. Choose the file again and retry.");
     } finally {
-      event.target.value = '';
+      input.value = '';
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -779,6 +779,7 @@ export default function PetProfile() {
           setIsEditingTempOwner(true);
         }}
         onPhotoChange={handlePetPhotoUpload}
+        isUploadingPhoto={isUploadingPhoto}
         onFlip={() => setIsIdentityCardFlipped((current) => !current)}
         onOpenQueue={() => activeQueue && openRecordDetails("queue", activeQueue)}
         hasMedicalCertificate={Boolean(certificates.medicalCertificate)}
@@ -1521,7 +1522,7 @@ function buildConsentRecords(bookings, queues) {
   return records;
 }
 
-function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueRecord, queueLoading, onCopy, onEdit, onChangeOwner, onPhotoChange, onFlip, onOpenQueue, hasMedicalCertificate, hasNewMedicalCertificate, onOpenMedicalCertificate }) {
+function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueRecord, queueLoading, onCopy, onEdit, onChangeOwner, onPhotoChange, isUploadingPhoto, onFlip, onOpenQueue, hasMedicalCertificate, hasNewMedicalCertificate, onOpenMedicalCertificate }) {
   const vaccinations = Array.isArray(pet.vaccinations) ? pet.vaccinations : [];
   const ownerName = pet.hasOwnership
     ? (pet.primaryOwner?.name || pet.ownerName || 'Pet owner')
@@ -1617,7 +1618,7 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                         </div>
                       )}
                     </div>
-                    <input id="pet-profile-image-upload" type="file" className="hidden" accept="image/*" onChange={onPhotoChange} />
+                    <input id="pet-profile-image-upload" type="file" className="hidden" accept="image/*" onChange={onPhotoChange} disabled={isUploadingPhoto} />
                     <Button
                       type="button"
                       size="icon"
@@ -1625,8 +1626,9 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                       tabIndex={flipped ? -1 : 0}
                       className="absolute -bottom-2 -right-2 size-9 rounded-full bg-[#155dfc] text-white shadow-md hover:bg-blue-700 active:scale-[0.96]"
                       aria-label="Change pet profile photo"
+                      disabled={isUploadingPhoto}
                     >
-                      <Camera className="size-4" />
+                      {isUploadingPhoto ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
                     </Button>
                   </div>
                 </div>
@@ -1775,7 +1777,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       >
         <ClipboardPenLine className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Update Record</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{activeRecordUpdateRequest ? 'In progress' : canRequestRecordUpdate ? 'Request correction' : 'Owner access only'}</span>
       </button>
       <button
         type="button"
@@ -1786,7 +1787,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       >
         <HeartPulse className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Health History</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">Clinical timeline</span>
       </button>
       <button
         type="button"
@@ -1798,7 +1798,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       >
         <ShieldCheck className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Registration</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">Always available</span>
       </button>
       {medicalCertificate ? (
         <button
@@ -1811,9 +1810,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
           {medicalCertificate.isNew ? <span className="absolute right-2 top-1.5 size-2 rounded-full bg-[#155dfc]" aria-hidden="true" /> : null}
           <Award className="size-5 sm:size-4" aria-hidden="true" />
           <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Medical Cert</span>
-          <span className="hidden text-[9px] font-bold text-slate-400 sm:block">
-            {medicalCertificate.status === 'active' ? 'Active' : medicalCertificate.status}
-          </span>
         </button>
       ) : null}
       <button
@@ -1825,7 +1821,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       >
         <Pill className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Prescriptions</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{linkedFileCount} files linked</span>
       </button>
       <button
         type="button"
@@ -1837,7 +1832,6 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       >
         <CalendarClock className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Bookings</span>
-        <span className="hidden text-[9px] font-bold text-slate-400 sm:block">{canViewBookings ? `${bookingCount} records` : 'Owner access only'}</span>
       </button>
     </nav>
     </div>

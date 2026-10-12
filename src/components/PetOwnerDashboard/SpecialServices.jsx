@@ -40,7 +40,8 @@ import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjectio
 import BookingDateInput from "../shared/BookingDateInput.jsx";
 import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import BookingFieldLabel from '../shared/BookingFieldLabel.jsx';
 import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
 import { usePaymentMethods } from "../../hooks/usePaymentMethods";
 import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
@@ -297,7 +298,7 @@ export default function SpecialServices({ user }) {
     const [serviceDate, setServiceDate] = useState(availabilityPrefill?.date || "");
     const [serviceTime, setServiceTime] = useState(availabilityPrefill?.time || "");
     const [paymentMethod, setPaymentMethod] = useState("");
-    const [notes, setNotes] = useState("");
+    const [notes, setNotes] = useState(() => preferredVeterinarianNote(availabilityPrefill));
     const [isNewPet, setIsNewPet] = useState(false);
     const [isLoadingPets, setIsLoadingPets] = useState(true);
     const [isLoadingServices, setIsLoadingServices] = useState(true);
@@ -1272,13 +1273,13 @@ export default function SpecialServices({ user }) {
 
             <Card className="overflow-hidden">
                 <CardHeader>
-                    <CardTitle>Booking Details</CardTitle>
+                    <BookingFieldLabel className="font-semibold" help="Special service requests require admin approval. The clinic confirms the final amount and any preparation instructions after reviewing your request.">Booking details</BookingFieldLabel>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} noValidate className="ipawcus-dashboard-form space-y-6">
                         <div className="space-y-3">
                             <div className="flex items-center justify-between gap-3">
-                                <Label>Select Pet(s)</Label>
+                                <BookingFieldLabel>Select pet(s) *</BookingFieldLabel>
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -1297,31 +1298,31 @@ export default function SpecialServices({ user }) {
                                 <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetName">Pet Name *</Label>
+                                            <BookingFieldLabel htmlFor="newPetName">Pet name *</BookingFieldLabel>
                                             <Input id="newPetName" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} restriction="pet-name" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                                            <BookingFieldLabel htmlFor="newPetSpecies">Species *</BookingFieldLabel>
                                             <PetSpeciesAutocomplete id="newPetSpecies" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} placeholder="Type or choose a species" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetBreed">Breed *</Label>
+                                            <BookingFieldLabel htmlFor="newPetBreed">Breed *</BookingFieldLabel>
                                             <PetBreedAutocomplete id="newPetBreed" species={newPetSpecies} value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} placeholder="Type or choose a breed" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetAge">Age *</Label>
+                                            <BookingFieldLabel htmlFor="newPetAge">Age *</BookingFieldLabel>
                                             <Input id="newPetAge" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} restriction="pet-age" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="newPetWeight">Weight</Label>
+                                            <BookingFieldLabel htmlFor="newPetWeight">Weight</BookingFieldLabel>
                                             <Input id="newPetWeight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} restriction="pet-weight" />
                                         </div>
                                         <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="newPetColorMarkings">Color / Markings</Label>
+                                            <BookingFieldLabel htmlFor="newPetColorMarkings">Color / markings</BookingFieldLabel>
                                             <Input id="newPetColorMarkings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} restriction="pet-markings" placeholder="e.g., Black and white" />
                                         </div>
                                         <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="newPetMedicalConditions">Medical Conditions</Label>
+                                            <BookingFieldLabel htmlFor="newPetMedicalConditions">Medical conditions</BookingFieldLabel>
                                             <Textarea
                                                 id="newPetMedicalConditions"
                                                 value={newPetMedicalConditions}
@@ -1386,7 +1387,7 @@ export default function SpecialServices({ user }) {
 
                         <BranchBookingSelect service="special services" date={serviceDate} value={bookingBranchId} onChange={(branchId) => { setBookingBranchId(branchId); setBookingVetId(""); setServiceTime(""); }} />
                         <div className="space-y-2">
-                            <Label htmlFor="serviceDate">Announced Service Date *</Label>
+                            <BookingFieldLabel htmlFor="serviceDate" help={selectedService ? getDateRestrictionLabel(selectedService) : 'Choose the announced clinic date for the selected special service.'}>Service date *</BookingFieldLabel>
                             <BookingDateInput
                                 service="special-services"
                                 branchId={bookingBranchId}
@@ -1399,9 +1400,6 @@ export default function SpecialServices({ user }) {
                                 min={serviceDateMin}
                                 max={serviceDateMax}
                             />
-                            <p className="text-sm text-gray-600">
-                                {selectedService ? getDateRestrictionLabel(selectedService) : "Choose the announced clinic date for the selected special service."}
-                            </p>
                         </div>
 
                         <BookingTimeSlotField
@@ -1417,7 +1415,7 @@ export default function SpecialServices({ user }) {
                         />
 
                         <div className="space-y-2">
-                            <Label htmlFor="special-service-payment-method">Payment Method *</Label>
+                            <BookingFieldLabel htmlFor="special-service-payment-method">Payment method *</BookingFieldLabel>
                             <Select
                                 value={paymentMethod}
                                 onValueChange={setPaymentMethod}
@@ -1442,15 +1440,11 @@ export default function SpecialServices({ user }) {
                                         Retry
                                     </Button>
                                 </div>
-                            ) : (
-                                <p className="text-sm text-gray-600">
-                                    The clinic will provide the final amount and payment instructions after reviewing the special service request.
-                                </p>
-                            )}
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="notes">Additional Notes</Label>
+                            <BookingFieldLabel htmlFor="notes">Notes</BookingFieldLabel>
                             <Textarea
                                 id="notes"
                                 value={notes}
@@ -1459,17 +1453,6 @@ export default function SpecialServices({ user }) {
                                     placeholder="Preparation notes"
                             />
                         </div>
-
-                        <Card className="border-amber-200 bg-amber-50">
-                            <CardContent className="pt-4">
-                                <p className="font-semibold text-amber-900">Important Notice</p>
-                                <ul className="mt-2 space-y-1 text-sm text-amber-800">
-                                    <li>- Special services require admin approval.</li>
-                                    <li>- Available services are maintained by the clinic administration team.</li>
-                                    <li>- The clinic may contact you for preparation instructions.</li>
-                                </ul>
-                            </CardContent>
-                        </Card>
 
                         <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />
 

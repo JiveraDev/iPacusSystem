@@ -14,7 +14,7 @@ import { formatDisplayDate } from '../../lib/date';
 import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
-import { resolveImageUrl } from '../../lib/image';
+import ProtectedImage from '../shared/ProtectedImage.jsx';
 import DashboardPageHeader from '../shared/DashboardPageHeader';
 import VetBookingSchedulePanel from '../shared/VetBookingSchedulePanel.jsx';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
@@ -45,6 +45,39 @@ const employmentStatusLabels = EMPLOYMENT_STATUS_OPTIONS.reduce((labels, option)
 function displayValue(value, fallback = 'Not provided') {
     const text = String(value ?? '').trim();
     return text || fallback;
+}
+
+function getAccountCardTone(type) {
+    if (type === 'vet') {
+        return { avatarClass: 'bg-blue-100', iconClass: 'text-blue-600', icon: Stethoscope, subtitle: 'text-blue-700' };
+    }
+    if (type === 'superadmin') {
+        return { avatarClass: 'bg-emerald-100', iconClass: 'text-emerald-600', icon: ShieldCheck, subtitle: 'text-emerald-700' };
+    }
+    return { avatarClass: 'bg-purple-100', iconClass: 'text-purple-600', icon: UserCog, subtitle: 'text-purple-700' };
+}
+
+function ProfileAvatar({ account, type, size = 'card' }) {
+    const [failedSrc, setFailedSrc] = useState('');
+    const source = account?.setProfilePic_url || account?.profileImage || account?.profile_image || account?.profile_picture || '';
+    const imageSrc = failedSrc === source ? null : source;
+    const tone = getAccountCardTone(type);
+    const sizeClass = size === 'modal' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-sm';
+    const initials = `${displayValue(account?.first_Name, '').charAt(0)}${displayValue(account?.last_Name, '').charAt(0)}`.trim() || 'IP';
+
+    return (
+        <div className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full ${tone.avatarClass} font-black ${tone.iconClass}`}>
+            {imageSrc ? (
+                <ProtectedImage
+                    src={imageSrc}
+                    alt={`${displayValue(`${account?.first_Name || ''} ${account?.last_Name || ''}`, 'Account')} profile`}
+                    className="h-full w-full object-cover"
+                    fallbackClassName="h-full w-full"
+                    onLoadError={() => setFailedSrc(source)}
+                />
+            ) : <span>{initials}</span>}
+        </div>
+    );
 }
 
 function parseHistory(value) {
@@ -189,7 +222,6 @@ export default function AccountManagement() {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isEditingPersonnel, setIsEditingPersonnel] = useState(false);
-    const [isEditingBookingSchedule, setIsEditingBookingSchedule] = useState(false);
     const [isSavingBookingSchedule, setIsSavingBookingSchedule] = useState(false);
     const [personnelForm, setPersonnelForm] = useState({
         position: '',
@@ -375,18 +407,6 @@ export default function AccountManagement() {
     };
 
     const isAccountActive = (status) => status === true || status === 1 || status === '1' || status === 'active';
-    const getInitials = (account) => {
-        const first = displayValue(account?.first_Name, '').charAt(0);
-        const last = displayValue(account?.last_Name, '').charAt(0);
-        return `${first}${last}`.trim() || 'IP';
-    };
-    const getAccountImage = (account) => resolveImageUrl(
-        account?.setProfilePic_url ||
-        account?.profileImage ||
-        account?.profile_image ||
-        account?.profile_picture ||
-        ''
-    );
     const findAccountInBucket = (currentUser, nextAccounts) => {
         if (!currentUser) {
             return null;
@@ -421,7 +441,6 @@ export default function AccountManagement() {
         };
     };
     const openAccountDetails = (user, type) => {
-        setIsEditingBookingSchedule(false);
         setIsSavingBookingSchedule(false);
         const detailsUser = { ...user, type };
         setSelectedUser(detailsUser);
@@ -431,10 +450,6 @@ export default function AccountManagement() {
     };
     const closeAccountDetails = () => {
         if (isSavingPersonnel || isDeletingAccount || isSavingBookingSchedule) return;
-        if (isEditingBookingSchedule) {
-            toast.info('Save or cancel the booking schedule changes before closing.');
-            return;
-        }
         setShowDetails(false);
         setIsEditingPersonnel(false);
     };
@@ -531,8 +546,8 @@ export default function AccountManagement() {
     };
 
     const handleStartPersonnelEdit = () => {
-        if (isEditingBookingSchedule || isSavingBookingSchedule) {
-            toast.info('Save or cancel the booking schedule changes before editing professional details.');
+        if (isSavingBookingSchedule) {
+            toast.info('Wait for the clinic preferences to finish saving.');
             return;
         }
         setPersonnelForm(getPersonnelFormFromUser(selectedUser));
@@ -637,32 +652,6 @@ export default function AccountManagement() {
         return <Badge className="bg-slate-100 text-slate-700">Archived</Badge>;
     };
 
-    const getAccountCardTone = (type) => {
-        if (type === 'vet') {
-            return {
-                avatarClass: 'bg-blue-100',
-                iconClass: 'text-blue-600',
-                icon: Stethoscope,
-                subtitle: 'text-blue-700'
-            };
-        }
-
-        if (type === 'superadmin') {
-            return {
-                avatarClass: 'bg-emerald-100',
-                iconClass: 'text-emerald-600',
-                icon: ShieldCheck,
-                subtitle: 'text-emerald-700'
-            };
-        }
-
-        return {
-            avatarClass: 'bg-purple-100',
-            iconClass: 'text-purple-600',
-            icon: UserCog,
-            subtitle: 'text-purple-700'
-        };
-    };
 
     const getRoleLabel = (type) => {
         if (type === 'vet') return 'Veterinarian';
@@ -773,28 +762,6 @@ export default function AccountManagement() {
     const allowedFeatureCount = Object.values(accessPermissions).filter(Boolean).length;
     const hasUnsavedAccessChanges = JSON.stringify(accessPermissions) !== JSON.stringify(savedAccessPermissions);
 
-    const ProfileAvatar = ({ account, type, size = 'card' }) => {
-        const [failedSrc, setFailedSrc] = useState('');
-        const imageSrc = getAccountImage(account);
-        const resolvedImageSrc = imageSrc && failedSrc !== imageSrc ? imageSrc : null;
-        const tone = getAccountCardTone(type);
-        const sizeClass = size === 'modal' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-sm';
-
-        return (
-            <div className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full ${tone.avatarClass} font-black ${tone.iconClass}`}>
-                {resolvedImageSrc ? (
-                    <img
-                        src={resolvedImageSrc}
-                        alt={`${displayValue(`${account?.first_Name || ''} ${account?.last_Name || ''}`, 'Account')} profile`}
-                        className="h-full w-full object-cover"
-                        onError={() => setFailedSrc(resolvedImageSrc)}
-                    />
-                ) : (
-                    <span>{getInitials(account)}</span>
-                )}
-            </div>
-        );
-    };
 
     const StatusBadge = ({ account }) => {
         if (account.type === 'superadmin' && !isAccountDeactivated(account)) {
@@ -1231,7 +1198,6 @@ export default function AccountManagement() {
                                         key={selectedUser.user_id}
                                         veterinarianId={selectedUser.user_id}
                                         disabled={isEditingPersonnel || isSavingPersonnel || isDeletingAccount}
-                                        onDirtyChange={setIsEditingBookingSchedule}
                                         onSavingChange={setIsSavingBookingSchedule}
                                         onSaved={() => fetchAccounts({ isAutoRefresh: true })}
                                     />

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
@@ -23,7 +23,7 @@ import AddressMapPreview from "../shared/AddressMapPreview.jsx";
 import BookingDateInput from "../shared/BookingDateInput.jsx";
 import BranchBookingSelect from "../shared/BranchBookingSelect.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell } from "./ServicePageLayout.jsx";
 import { HomeServicesContentEditor } from './ServiceContentEditor.jsx';
@@ -74,7 +74,7 @@ export default function HomeServices() {
     setSelectedAddressLocation(result);
   });
   
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(() => preferredVeterinarianNote(availabilityPrefill));
   const [uploadedImages, setUploadedImages] = useState([]);
   const [viewingImage, setViewingImage] = useState(null);
 
@@ -370,19 +370,19 @@ export default function HomeServices() {
                 <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                   <h3 className="font-semibold text-blue-900 text-sm">New Pet Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input id="home-new-pet-name" placeholder="Pet Name *" restriction="pet-name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} />
-                    <PetSpeciesAutocomplete id="home-new-pet-species" placeholder="Type or choose a species *" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} />
-                    <PetBreedAutocomplete id="home-new-pet-breed" species={newPetSpecies} placeholder="Type or choose a breed *" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} />
-                    <Input id="home-new-pet-age" placeholder="Age *" restriction="pet-age" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} />
-                    <Input id="home-new-pet-weight" placeholder="Weight (Optional)" restriction="pet-weight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} />
-                    <Input id="home-new-pet-color-markings" placeholder="Color / Markings (Optional)" restriction="pet-markings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} />
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-name">Pet name *</Label><Input id="home-new-pet-name" placeholder="e.g., Buddy" restriction="pet-name" value={newPetName} onChange={(e) => setNewPetName(e.target.value)} /></div>
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-species">Species *</Label><PetSpeciesAutocomplete id="home-new-pet-species" placeholder="Type or choose a species" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} /></div>
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-breed">Breed *</Label><PetBreedAutocomplete id="home-new-pet-breed" species={newPetSpecies} placeholder="Type or choose a breed" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)} /></div>
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-age">Age *</Label><Input id="home-new-pet-age" placeholder="e.g., 2" restriction="pet-age" value={newPetAge} onChange={(e) => setNewPetAge(e.target.value)} /></div>
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-weight">Weight (optional)</Label><Input id="home-new-pet-weight" placeholder="e.g., 25.5" restriction="pet-weight" value={newPetWeight} onChange={(e) => setNewPetWeight(e.target.value)} /></div>
+                    <div className="space-y-2"><Label htmlFor="home-new-pet-color-markings">Color / markings (optional)</Label><Input id="home-new-pet-color-markings" placeholder="e.g., Black and white" restriction="pet-markings" value={newPetColorMarkings} onChange={(event) => setNewPetColorMarkings(event.target.value)} /></div>
                   </div>
                 </div>
               )}
 
               {/* Service Grid */}
               <div className="space-y-3">
-                <Label>Select Services Needed *</Label>
+                <Label>Services needed *</Label>
                 <HomeServicesContentEditor
                   config={priceProjectionConfig}
                   onSave={savePriceProjectionConfig}
@@ -432,7 +432,7 @@ export default function HomeServices() {
               <BranchBookingSelect service="home-service" date={preferredDate} value={bookingBranchId} onChange={(branchId) => { setBookingBranchId(branchId); setBookingVetId(""); setPreferredTime(""); }} />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="home-service-date">Preferred Date *</Label>
+                  <Label htmlFor="home-service-date">Preferred date *</Label>
                   <BookingDateInput service="home-service" branchId={bookingBranchId} veterinarianId={bookingVetId} id="home-service-date" type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} min={clinicTodayDate()} />
                 </div>
                 <BookingTimeSlotField
@@ -516,11 +516,7 @@ export default function HomeServices() {
                     }`}>
                       {locationFeedback.message}
                     </p>
-                  ) : (
-                    <p className="text-xs text-gray-500">
-                      Choose a suggestion, use your location, or type the service address yourself.
-                    </p>
-                  )}
+                  ) : null}
                 </div>
                 {selectedAddressLocation && address.trim() && (
                   <AddressMapPreview location={selectedAddressLocation} />
@@ -528,7 +524,7 @@ export default function HomeServices() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="home-service-location-details">Specific Location Details (Optional)</Label>
+                <Label htmlFor="home-service-location-details">Location details (optional)</Label>
                 <Input 
                   id="home-service-location-details"
                   placeholder="e.g., Unit 402"
@@ -548,7 +544,7 @@ export default function HomeServices() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <Label>Pet Photos / Concerns (Optional)</Label>
+                <Label htmlFor="hsImageUpload">Concern photos (optional)</Label>
                 <div className="rounded-xl border-2 border-dashed bg-gray-50/50 p-4 text-center transition-colors hover:border-blue-400 sm:p-8">
                   <input type="file" id="hsImageUpload" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                   {uploadedImages.length > 0 && (
@@ -575,14 +571,14 @@ export default function HomeServices() {
                   <label htmlFor="hsImageUpload" className="cursor-pointer">
                     <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium">{uploadedImages.length > 0 ? "Add more photos" : "Click to upload photos"}</p>
-                    <p className="text-xs text-gray-500 mt-1">Images of your pet or specific concerns help us prepare</p>
                   </label>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Notes for the Veterinarian</Label>
+                <Label htmlFor="home-service-notes">Notes</Label>
                 <Textarea 
+                  id="home-service-notes"
                   placeholder="Care instructions"
                   value={notes} 
                   onChange={(e) => setNotes(e.target.value)}

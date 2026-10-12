@@ -2,8 +2,10 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
+require_once __DIR__ . '/booking_slot_helpers.php';
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
@@ -16,6 +18,12 @@ try {
     $serviceKey = isset($_GET['service']) ? (string)$_GET['service'] : null;
     $date = isset($_GET['date']) ? (string)$_GET['date'] : null;
     $branches = branch_fetch_catalog($pdo, $serviceKey, $date);
+    if ($serviceKey !== null && filter_var($_GET['booking'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        $key = booking_slot_service_key($serviceKey, false, strtolower(trim($serviceKey)) === 'consultation');
+        $roster = clinic_booking_is_medical($key) && $key !== 'online-consultation'
+            ? clinic_booking_roster($pdo) : [];
+        $branches = clinic_booking_filter_branches($branches, $key, $roster);
+    }
     if (filter_var($_GET['assigned'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
         $role = ipawcus_guard_role($currentUser);
         if ($role !== 'super_admin' && $role !== 'pet_owner' && $role !== 'veterinarian') {

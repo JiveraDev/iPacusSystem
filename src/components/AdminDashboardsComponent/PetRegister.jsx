@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -119,6 +119,13 @@ export default function PetRegister() {
 
     useAutoRefresh(fetchPets, { refreshKey: 'pet-register' });
 
+    useEffect(() => {
+        const preview = formData.imagePreview;
+        return () => {
+            if (preview) URL.revokeObjectURL(preview);
+        };
+    }, [formData.imagePreview]);
+
     const handleInputChange = (field, value) => {
         setFormData(prev => {
             const newData = { ...prev, [field]: value };
@@ -174,12 +181,13 @@ export default function PetRegister() {
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
+        if (file && !isUploading) {
             setFormData(prev => ({
                 ...prev,
                 profileImage: file,
                 imagePreview: URL.createObjectURL(file)
             }));
+            e.target.value = '';
         }
     };
 
@@ -381,6 +389,7 @@ export default function PetRegister() {
                                                 className="sr-only"
                                                 accept="image/*" 
                                                 onChange={handleImageChange}
+                                                disabled={isUploading}
                                                 aria-label="Choose pet profile photo"
                                             />
                                         </Label>

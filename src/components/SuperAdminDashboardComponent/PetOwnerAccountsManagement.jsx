@@ -114,8 +114,9 @@ function petStatusClass(status) {
 }
 
 function OwnerAvatar({ owner, className }) {
-    const [failed, setFailed] = useState(false);
-    const image = failed ? null : ownerProfileImage(owner);
+    const [failedSrc, setFailedSrc] = useState('');
+    const source = ownerProfileImage(owner);
+    const image = failedSrc === source ? null : source;
 
     if (image) {
         return (
@@ -124,7 +125,7 @@ function OwnerAvatar({ owner, className }) {
                 alt={`${ownerName(owner)} profile`}
                 className={className}
                 fallbackClassName={className}
-                onLoadError={() => setFailed(true)}
+                onLoadError={() => setFailedSrc(source)}
             />
         );
     }
@@ -137,8 +138,9 @@ function OwnerAvatar({ owner, className }) {
 }
 
 function PetAvatar({ pet, className }) {
-    const [failed, setFailed] = useState(false);
-    const image = failed ? null : pet?.setpetImage_url;
+    const [failedSrc, setFailedSrc] = useState('');
+    const source = pet?.setpetImage_url || pet?.profileImage || pet?.petProfileImage || '';
+    const image = failedSrc === source ? null : source;
 
     if (image) {
         return (
@@ -147,7 +149,7 @@ function PetAvatar({ pet, className }) {
                 alt={`${pet?.pet_name || 'Pet'} profile`}
                 className={className}
                 fallbackClassName={className}
-                onLoadError={() => setFailed(true)}
+                onLoadError={() => setFailedSrc(source)}
             />
         );
     }
@@ -188,7 +190,11 @@ export default function PetOwnerAccountsManagement() {
         }
         try {
             const data = await fetchPetOwnerAccounts();
-            setOwners(Array.isArray(data.owners) ? data.owners : []);
+            const nextOwners = Array.isArray(data.owners) ? data.owners : [];
+            setOwners(nextOwners);
+            setSelectedOwner(current => current
+                ? nextOwners.find(owner => String(owner.user_id) === String(current.user_id)) || null
+                : null);
             setStatusSupported(Boolean(data.status_supported));
         } catch (error) {
             console.error('Failed to load pet owner accounts:', error);

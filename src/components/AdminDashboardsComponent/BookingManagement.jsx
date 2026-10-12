@@ -2758,6 +2758,7 @@ export default function BookingsManagement() {
                                 <Label>Date</Label>
                                 <BookingDateInput
                                     service={adminBookingForm.serviceType}
+                                    requireClinic={false}
                                     branchId={filterBranch !== 'all' ? filterBranch : lockedBranchId}
                                     veterinarianId={adminBookingForm.veterinarianId}
                                     type="date"
@@ -2769,6 +2770,7 @@ export default function BookingsManagement() {
                             </div>
                             <BookingTimeSlotField
                                 id="admin-booking-time"
+                                requireClinic={false}
                                 service={adminBookingForm.serviceType}
                                 date={adminBookingForm.bookingDate}
                                 branchId={filterBranch !== 'all' ? filterBranch : lockedBranchId}

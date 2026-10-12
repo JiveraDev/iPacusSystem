@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchProtectedImageObjectUrl } from '../lib/image';
+import { documentDownloadFileName, loadDocumentPreviewSource, requestDocumentPreview } from '../lib/documentPreview.js';
 import { createConsentDocumentPdfBlob } from '../services/consentDocumentPdf';
 
 function firstValue(...values) {
@@ -67,69 +68,22 @@ export function canReconstructConsentDocument(value, fallbackSignaturePath = '')
 }
 
 export async function downloadConsentDocument(source, fileName = 'signed-consent-form') {
-    const normalizedSource = String(source || '').split(/[?#]/)[0].toLowerCase();
-    if (normalizedSource.endsWith('.pdf') || normalizedSource.startsWith('data:application/pdf')) {
-        await openProtectedDocument(source);
-        return;
-    }
-
-    const downloadSource = await fetchProtectedImageObjectUrl(source);
-    if (!downloadSource) {
-        throw new Error('The complete consent document is unavailable.');
-    }
-
+    const file = await loadDocumentPreviewSource(source);
     const link = document.createElement('a');
-    link.href = downloadSource;
-    const safeFileName = String(fileName || 'signed-consent-form')
-        .replace(/[<>:"/\\|?*]/g, '-');
-    const sourceExtension = normalizedSource.match(/\.(png|jpe?g|gif|webp|bmp)$/)?.[1];
-    const hasImageExtension = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeFileName);
-    link.download = hasImageExtension
-        ? safeFileName
-        : `${safeFileName}.${sourceExtension || 'png'}`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    if (downloadSource.startsWith('blob:')) {
-        window.setTimeout(() => URL.revokeObjectURL(downloadSource), 1000);
+    try {
+        link.href = file.url;
+        link.download = documentDownloadFileName(file, fileName);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+    } finally {
+        link.remove();
+        if (file.owned) window.setTimeout(() => URL.revokeObjectURL(file.url), 1000);
     }
 }
 
-export async function openProtectedDocument(source) {
-    const previewWindow = window.open('about:blank', '_blank');
-    if (previewWindow) {
-        previewWindow.opener = null;
-        previewWindow.document.title = 'Loading document...';
-    }
-
-    try {
-        const viewSource = await fetchProtectedImageObjectUrl(source);
-        if (!viewSource) {
-            throw new Error('The requested document is unavailable.');
-        }
-
-        if (previewWindow && !previewWindow.closed) {
-            previewWindow.location.replace(viewSource);
-        } else {
-            const link = document.createElement('a');
-            link.href = viewSource;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        }
-
-        if (viewSource.startsWith('blob:')) {
-            window.setTimeout(() => URL.revokeObjectURL(viewSource), 60000);
-        }
-    } catch (error) {
-        if (previewWindow && !previewWindow.closed) previewWindow.close();
-        throw error;
-    }
+export function openProtectedDocument(source, options) {
+    return requestDocumentPreview(source, options);
 }
 
 export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
@@ -192,7 +146,7 @@ export function useConsentDocumentSource(value, fallbackSignaturePath = '') {
         async function reconstructDocument() {
             try {
                 const resolvedSignature = await fetchProtectedImageObjectUrl(signaturePath);
-                temporarySignatureUrl = resolvedSignature?.startsWith('blob:') ? resolvedSignature : '';
+                temporarySignatureUrl = resolvedSignature?.startsWith('blob:') && resolvedSignature !== String(signaturePath).trim() ? resolvedSignature : '';
                 const blob = await createConsentDocumentPdfBlob({
                     title,
                     content,

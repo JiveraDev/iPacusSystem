@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Eye, ImageOff, Loader2 } from 'lucide-react';
+import ProtectedImage from './ProtectedImage.jsx';
 
 export default function UploadImagePreview({
     src,
@@ -7,7 +8,8 @@ export default function UploadImagePreview({
     onPreview,
     imageClassName = 'size-full object-cover'
 }) {
-    const [status, setStatus] = useState('loading');
+    const [image, setImage] = useState({ source: null, status: 'loading' });
+    const status = image.source === src ? image.status : src ? 'loading' : 'failed';
     const isReady = status === 'ready';
     const hasFailed = status === 'failed';
 
@@ -31,12 +33,12 @@ export default function UploadImagePreview({
                     Preview unavailable
                 </span>
             )}
-            <img
+            <ProtectedImage
                 src={src}
                 alt={alt}
                 className={`${imageClassName} transition ${isReady ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={() => setStatus('ready')}
-                onError={() => setStatus('failed')}
+                onLoad={() => setImage({ source: src, status: 'ready' })}
+                onLoadError={() => setImage({ source: src, status: 'failed' })}
             />
             {isReady && (
                 <span className="absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-md bg-slate-950/75 px-2 py-1 text-xs font-bold text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-visible:opacity-100">

@@ -284,45 +284,6 @@ function branch_is_open(PDO $pdo, int $branchId, string $date, string $time): bo
     return $normalizedTime >= (string)$hours['opens_at'] && $normalizedTime <= (string)$hours['closes_at'];
 }
 
-function branch_find_vet_visit(
-    PDO $pdo,
-    int $branchId,
-    string $serviceKey,
-    string $date,
-    string $time,
-    ?int $veterinarianUserId = null
-): ?array {
-    $appointmentAt = date('Y-m-d H:i:s', strtotime(trim($date . ' ' . $time)) ?: 0);
-    $params = [$branchId, $appointmentAt, $appointmentAt];
-    $vetFilter = '';
-    if ($veterinarianUserId !== null && $veterinarianUserId > 0) {
-        $vetFilter = ' AND schedule.veterinarian_user_id = ?';
-        $params[] = $veterinarianUserId;
-    }
-
-    $stmt = $pdo->prepare("
-        SELECT schedule.*, CONCAT(u.first_Name, ' ', u.last_Name) AS veterinarian_name
-        FROM veterinarian_branch_schedules schedule
-        JOIN users u ON u.user_id = schedule.veterinarian_user_id
-        WHERE schedule.branch_id = ?
-          AND schedule.status = 'published'
-          AND schedule.starts_at <= ?
-          AND schedule.ends_at >= ?
-          {$vetFilter}
-          AND (
-              schedule.service_keys IS NULL
-              OR TRIM(schedule.service_keys) = ''
-              OR JSON_CONTAINS(schedule.service_keys, JSON_QUOTE(?))
-          )
-        ORDER BY schedule.starts_at, schedule.visit_schedule_id
-        LIMIT 1
-    ");
-    $params[] = $serviceKey;
-    $stmt->execute($params);
-    $schedule = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $schedule ?: null;
-}
-
 function branch_resolve_booking(
     PDO $pdo,
     $requestedBranchId,

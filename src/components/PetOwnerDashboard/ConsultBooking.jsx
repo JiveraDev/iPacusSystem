@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Input } from "../../ui/input";
@@ -18,7 +18,7 @@ import BookingDateInput from "../shared/BookingDateInput.jsx";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection, updatePreferredVeterinarianNote } from "../../lib/bookingAvailabilityNavigation.js";
 import { reportBookingFormErrors, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
 import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
 import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
@@ -66,7 +66,7 @@ export default function ConsultBooking() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPet, setSelectedPet] = useState("");
   const [discussionTopic, setDiscussionTopic] = useState([]);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(() => preferredVeterinarianNote(availabilityPrefill));
   const [selectedDate, setSelectedDate] = useState(availabilityPrefill?.date || "");
   const [selectedTime, setSelectedTime] = useState(availabilityPrefill?.time || "");
   const [selectedVet, setSelectedVet] = useState(availabilityPrefill?.veterinarianId ? String(availabilityPrefill.veterinarianId) : "");
@@ -132,6 +132,9 @@ export default function ConsultBooking() {
 
   // Reset date and time when veterinarian changes
   const handleVetChange = (vetId) => {
+    const previousName = selectedVetData?.name || (String(availabilityPrefill?.veterinarianId) === selectedVet ? availabilityPrefill?.veterinarianName : '');
+    const nextName = veterinarians.find((vet) => vet.id === vetId)?.name || '';
+    setNotes((current) => updatePreferredVeterinarianNote(current, previousName, nextName));
     setSelectedVet(vetId);
     setSelectedDate("");
     setSelectedTime("");
@@ -341,7 +344,7 @@ export default function ConsultBooking() {
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             {/* Select Pet */}
             <div className="space-y-2">
-              <Label>Select Pet</Label>
+              <Label htmlFor="consult-pet">Select pet *</Label>
               <Select value={selectedPet} onValueChange={(value) => {
                 const nextPet = pets.find((pet) => getPetId(pet) === value);
                 if (value !== "new-pet" && isPetDeceased(nextPet)) {
@@ -392,7 +395,7 @@ export default function ConsultBooking() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                    <Label htmlFor="newPetSpecies">Species *</Label>
                     <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" value={newPetSpecies} onChange={(event) => setNewPetSpecies(event.target.value)} />
                   </div>
                   <div className="space-y-2">
@@ -466,9 +469,9 @@ export default function ConsultBooking() {
               </div>
             </div>
 
-            {/* Select Veterinarian */}
+            {/* Veterinarian */}
             <div className="space-y-2">
-              <Label>Select Veterinarian</Label>
+              <Label htmlFor="consult-veterinarian">Veterinarian *</Label>
               <Select value={selectedVet} onValueChange={handleVetChange}>
                 <SelectTrigger id="consult-veterinarian">
                   <SelectValue placeholder="Choose a veterinarian" displayValue={getVetLabel(selectedVetData)} />
@@ -481,16 +484,11 @@ export default function ConsultBooking() {
                   ))}
                 </SelectContent>
               </Select>
-              {selectedVet && (
-                <p className="text-sm text-gray-600">
-                  View {selectedVetData?.name}'s available time slots below
-                </p>
-              )}
             </div>
 
-            {/* Select Date */}
+            {/* Preferred date */}
             <div className="space-y-2">
-              <Label htmlFor="selectedDate">Select Date</Label>
+              <Label htmlFor="selectedDate" help="Choose an available date for the selected vet. Online calls follow that vet’s online schedule and reserve one hour.">Preferred date *</Label>
               <BookingDateInput
                 id="selectedDate"
                 service="online-consultation"
@@ -501,11 +499,6 @@ export default function ConsultBooking() {
                 min={format(new Date(), "yyyy-MM-dd")}
                 disabled={!selectedVet}
               />
-              <p className="text-sm text-gray-600">
-                {!selectedVet 
-                  ? "Please select a veterinarian first"
-                  : "Dates and times follow this veterinarian's separate online-call schedule and appointment availability"}
-              </p>
             </div>
 
             {/* Select Time */}
@@ -517,10 +510,10 @@ export default function ConsultBooking() {
               veterinarianId={selectedVet}
               value={selectedTime}
               onChange={setSelectedTime}
-              label="Select time"
+              label="Preferred time"
             />
 
-            {/* Additional Notes */}
+            {/* Notes */}
             <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
               <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -528,11 +521,8 @@ export default function ConsultBooking() {
                 </div>
                 <div>
                   <Label htmlFor="consultConcernImages" className="font-semibold text-slate-900">
-                    Pictures of Concern (Optional)
+                    Concern photos (optional)
                   </Label>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Upload clear photos of symptoms, wounds, skin issues, or other visible concerns.
-                  </p>
                 </div>
               </div>
 
@@ -542,7 +532,6 @@ export default function ConsultBooking() {
               >
                 <Upload className="mb-3 size-10 text-slate-400" />
                 <span className="text-sm font-semibold text-blue-600">Click to upload concern photos</span>
-                <span className="mt-1 text-xs text-slate-400">PNG or JPG images only</span>
                 <Input
                   id="consultConcernImages"
                   type="file"
@@ -577,7 +566,7 @@ export default function ConsultBooking() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes (Optional)</Label>
+              <Label htmlFor="notes">Notes (Optional)</Label>
               <Textarea
                 id="notes"
                 placeholder="Concerns or symptoms"

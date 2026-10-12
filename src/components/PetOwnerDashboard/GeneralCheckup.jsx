@@ -2,7 +2,7 @@ import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
-import { Label } from "../../ui/label";
+import Label from "../shared/BookingFieldLabel.jsx";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
@@ -20,7 +20,7 @@ import { ServiceProjectionEditor } from './ServiceContentEditor.jsx';
 import BookingTimeSlotField from "../shared/BookingTimeSlotField";
 import BookingDateInput from "../shared/BookingDateInput.jsx";
 import BranchBookingSelect from "../shared/BranchBookingSelect";
-import { readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
+import { preferredVeterinarianNote, readBookingAvailabilitySelection } from "../../lib/bookingAvailabilityNavigation.js";
 import { clinicTodayDate } from "../../lib/date";
 import { ServicePageHeader, ServicePageShell, ServiceSummaryCard } from "./ServicePageLayout.jsx";
 import { reportBookingFormErrors, reportBookingSubmissionError, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
@@ -62,7 +62,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
     date: prefill?.date || "",
     time: prefill?.time || "",
     branchId: prefill?.branchId ? String(prefill.branchId) : "",
-    notes: "",
+    notes: preferredVeterinarianNote(prefill),
     files: [],
     });
   });
@@ -278,7 +278,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="newPetSpecies">Species / Type of pet *</Label>
+                      <Label htmlFor="newPetSpecies">Species *</Label>
                       <PetSpeciesAutocomplete id="newPetSpecies" placeholder="Type or choose a species" required={isNewPet} value={formData.newPetSpecies} onChange={(event) => setFormData({ ...formData, newPetSpecies: event.target.value })} />
                     </div>
                     <div className="space-y-2">
@@ -333,7 +333,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Preferred Date *</Label>
+                  <Label htmlFor="date">Preferred date *</Label>
                   <BookingDateInput
                     id="date"
                     service={config.availabilityKey}
@@ -359,7 +359,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Additional Notes</Label>
+                <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
                   placeholder={config.notesPlaceholder}
@@ -370,7 +370,7 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="files">Upload Files (optional)</Label>
+                <Label htmlFor="files" help="Upload medical records, X-rays, or other relevant documents. Images and PDFs up to 8 MB each; a maximum of 5 files is recommended.">Upload files (optional)</Label>
                 <FileUploadDropzone
                   id="files"
                   accept="image/*,.pdf"
@@ -379,9 +379,9 @@ export default function GeneralCheckup({ bookingConfig = DEFAULT_BOOKING_CONFIG 
                   onFilesSelected={handleFileChange}
                   onRemove={removeFile}
                   label="Click to upload or drag and drop"
-                  helper="Images or PDF documents up to 8 MB each"
+                  helper=""
                 />
-                <p className="text-xs text-gray-500">Upload medical records, X-rays, or other relevant documents (Maximum upload of 5 files recommended)</p>
+
               </div>
 
               <SubmissionStatus active={isSubmitting} label="Submitting booking..." slowLabel="Still submitting booking..." />

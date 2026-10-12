@@ -1,4 +1,4 @@
-import { createElement, useState, useEffect, useRef } from 'react';
+import { createElement, useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -71,12 +71,8 @@ export default function VetProfile({ onForgotPassword }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isEditingAvailability, setIsEditingAvailability] = useState(false);
     const [isSavingAvailability, setIsSavingAvailability] = useState(false);
-    const scheduleControllerRef = useRef(null);
-    const [isEditingOnlineAvailability, setIsEditingOnlineAvailability] = useState(false);
     const [isSavingOnlineAvailability, setIsSavingOnlineAvailability] = useState(false);
-    const onlineScheduleControllerRef = useRef(null);
     const [profileData, setProfileData] = useState(emptyProfile);
     const [savedProfile, setSavedProfile] = useState(emptyProfile);
     const [imageFile, setImageFile] = useState(null);
@@ -85,6 +81,13 @@ export default function VetProfile({ onForgotPassword }) {
     const [activeTab, setActiveTab] = useState('profile');
     const [pendingProfileTab, setPendingProfileTab] = useState('');
     const [isProfileLeaveDialogOpen, setIsProfileLeaveDialogOpen] = useState(false);
+
+    useEffect(() => {
+        const preview = profileData.profileImage;
+        return () => {
+            if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+        };
+    }, [profileData.profileImage]);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -123,11 +126,12 @@ export default function VetProfile({ onForgotPassword }) {
 
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
-        if (!file) return;
+        if (!file || isSaving) return;
 
         setImageFile(file);
         setProfileData(prev => ({ ...prev, profileImage: URL.createObjectURL(file) }));
         setImageError(false);
+        event.target.value = '';
     };
 
     const handleSave = async () => {
@@ -150,7 +154,7 @@ export default function VetProfile({ onForgotPassword }) {
 
         try {
             if (imageFile) {
-                finalImageUrl = await uploadImageFile(imageFile, 'user') || finalImageUrl;
+                finalImageUrl = await uploadImageFile(imageFile, 'user');
             }
 
             const payload = {
@@ -217,8 +221,9 @@ export default function VetProfile({ onForgotPassword }) {
 
     const handleProfileTabChange = (nextTab) => {
         if (nextTab === activeTab) return;
+        if (isSavingAvailability || isSavingOnlineAvailability) return;
 
-        if (activeTab === 'profile' && (isEditing || isEditingAvailability || isEditingOnlineAvailability)) {
+        if (activeTab === 'profile' && isEditing) {
             setPendingProfileTab(nextTab);
             setIsProfileLeaveDialogOpen(true);
             return;
@@ -234,9 +239,7 @@ export default function VetProfile({ onForgotPassword }) {
     };
 
     const handleSaveAndLeaveProfile = async () => {
-        const saved = isEditingOnlineAvailability
-            ? await onlineScheduleControllerRef.current?.save()
-            : (isEditingAvailability ? await scheduleControllerRef.current?.save() : await handleSave());
+        const saved = await handleSave();
         if (!saved) return;
 
         setIsProfileLeaveDialogOpen(false);
@@ -269,13 +272,13 @@ export default function VetProfile({ onForgotPassword }) {
                     secondaryLabel={`License: ${profileData.licenseNumber || 'Not set'}`}
                     imageSrc={profileImageSrc || ''}
                     imageUnavailable={imageError && Boolean(profileData.profileImage)}
-                    isEditing={isEditing}
+                    isEditing={isEditing && !isSaving}
                     onImageChange={handleImageChange}
                     onImageError={setImageError}
                     action={activeTab === 'profile' && !isEditing ? (
                         <Button
                             onClick={() => setIsEditing(true)}
-                            disabled={isEditingAvailability || isSavingAvailability || isEditingOnlineAvailability || isSavingOnlineAvailability}
+                            disabled={isSavingAvailability || isSavingOnlineAvailability}
                             className="h-11 w-full bg-white px-5 font-black text-blue-800 shadow-sm hover:bg-blue-50 sm:w-auto"
                         >
                             <Pencil />
@@ -368,17 +371,13 @@ export default function VetProfile({ onForgotPassword }) {
 
                             <VetBookingSchedulePanel
                                 veterinarianId={userId}
-                                disabled={isEditing || isSaving || isEditingOnlineAvailability || isSavingOnlineAvailability}
-                                controllerRef={scheduleControllerRef}
-                                onDirtyChange={setIsEditingAvailability}
+                                disabled={isEditing || isSaving || isSavingOnlineAvailability}
                                 onSavingChange={setIsSavingAvailability}
                             />
 
                             <VetOnlineAvailabilityPanel
                                 veterinarianId={userId}
-                                disabled={isEditing || isSaving || isEditingAvailability || isSavingAvailability}
-                                controllerRef={onlineScheduleControllerRef}
-                                onDirtyChange={setIsEditingOnlineAvailability}
+                                disabled={isEditing || isSaving || isSavingAvailability}
                                 onSavingChange={setIsSavingOnlineAvailability}
                             />
 
@@ -424,10 +423,7 @@ export default function VetProfile({ onForgotPassword }) {
                 open={isProfileLeaveDialogOpen}
                 onStay={handleStayOnProfile}
                 onSave={handleSaveAndLeaveProfile}
-                isSaving={isSaving || isSavingAvailability || isSavingOnlineAvailability}
-                title={isEditingAvailability || isEditingOnlineAvailability ? 'Save availability first' : undefined}
-                description={isEditingOnlineAvailability ? 'Save your online consultation schedule before opening another tab.' : (isEditingAvailability ? 'Save your clinic booking preferences before opening another tab.' : undefined)}
-                saveLabel={isEditingAvailability || isEditingOnlineAvailability ? 'Save availability' : undefined}
+                isSaving={isSaving}
             />
         </div>
     );

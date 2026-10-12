@@ -6,7 +6,7 @@ const LABORATORY_BOOKING_CONFIG = {
     availabilityKey: 'lab-testing',
     serviceType: 'lab-testing',
     title: 'Laboratory Testing',
-    description: 'Request laboratory testing during an available clinic or veterinarian-visit schedule',
+    description: 'Choose a clinic and an available appointment time for laboratory testing.',
     notesPlaceholder: 'List the requested test, symptoms, previous results, or veterinarian instructions.',
     projectionKey: 'laboratoryTesting',
     Icon: FlaskConical,

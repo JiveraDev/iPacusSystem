@@ -19,7 +19,7 @@ function normalizeOwner(data = {}) {
         emergencyNumber: data.ownerEmergencyNumber || data.emergencyNumber || '',
         address: data.ownerAddress || data.address || data.personal_Address || '',
         birthdate: data.ownerBirthdate || data.birthdate || data.dateOfBirth || '',
-        profileImage: data.ownerProfileImage || data.profileImage || data.setProfilePic_url || '',
+        profileImage: data.ownerProfileImage || data.profileImage || data.setProfilePic_url || data.profile_image || '',
         role: data.role || 'Pet Owner'
     };
 }
@@ -46,12 +46,13 @@ export default function PetOwnerProfileModal({
     }), [ownerAddress, ownerBirthdate, ownerEmail, ownerEmergencyNumber, ownerId, ownerName, ownerPhone, ownerProfileImage]);
     const [owner, setOwner] = useState(initialOwner);
     const [isLoading, setIsLoading] = useState(Boolean(ownerId));
-    const [imageError, setImageError] = useState(false);
+    const [failedImage, setFailedImage] = useState('');
 
     useEffect(() => {
         let isMounted = true;
 
         const fetchOwner = async () => {
+            setOwner(initialOwner);
             if (!ownerId) {
                 setIsLoading(false);
                 return;
@@ -62,8 +63,7 @@ export default function PetOwnerProfileModal({
                 const data = await fetchUser(ownerId);
 
                 if (isMounted) {
-                    setOwner(normalizeOwner({ ...initialOwner, ...data }));
-                    setImageError(false);
+                    setOwner(normalizeOwner({ ...data, ownerId }));
                 }
             } catch (error) {
                 console.error('Failed to load pet owner profile:', error);
@@ -82,7 +82,7 @@ export default function PetOwnerProfileModal({
     }, [initialOwner, ownerId]);
 
     const fullName = `${owner.firstName} ${owner.lastName}`.trim() || 'Unknown Owner';
-    const imageUrl = imageError ? null : owner.profileImage;
+    const imageUrl = failedImage === owner.profileImage ? null : owner.profileImage;
 
     if (isLoading) {
         return <div className="p-6 text-center text-slate-500">Loading owner profile...</div>;
@@ -99,7 +99,7 @@ export default function PetOwnerProfileModal({
                                 alt={fullName}
                                 className="size-full object-cover"
                                 fallbackClassName="size-full"
-                                onLoadError={() => setImageError(true)}
+                                onLoadError={() => setFailedImage(owner.profileImage)}
                             />
                         ) : (
                             <div className="flex size-full items-center justify-center bg-blue-50">
